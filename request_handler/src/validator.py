@@ -42,9 +42,10 @@ def validate_request(request):
 
     """
     #TODO handle type of request
-    with open(os.path.abspath("./schemas/request.schema.json")) as schema_file:
+    base_schemas_dir = os.path.dirname(os.path.abspath(__file__)) + '/schemas'
+    with open(os.path.abspath(base_schemas_dir + '/request.schema.json')) as schema_file:
         schema = json.loads(schema_file.read())
-        resolve_path = os.path.abspath('schemas')
+        resolve_path = base_schemas_dir + '/'
         #os._exit(1)
         #os._exit(1)
         """
