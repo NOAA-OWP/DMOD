@@ -1,5 +1,6 @@
 *.pyc
 __pychache__/
+/venv/
 request_client/ssl/certificate.pem
 request_handler/*.tar.gz
 request_handler/macbook_ssl/
