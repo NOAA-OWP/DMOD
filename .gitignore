@@ -1,0 +1,7 @@
+*.pyc
+__pychache__/
+request_client/ssl/certificate.pem
+/request_handler/*.tar.gz
+/request_handler/macbook_ssl/
+/request_handler/src/ssl/certificate.pem
+/request_handler/src/ssl/privkey.pem
