@@ -1,0 +1,18 @@
+version: "3.7"
+
+services:
+    myredis:
+        image: redis
+        networks:
+            - mpi-net
+        #user: root
+        entrypoint: ['redis-server', '/usr/local/etc/redis/redis.conf']
+        volumes:
+            - /apd_common/scui/nwm_service/redis_test/conf/redis.conf:/usr/local/etc/redis/redis.conf
+        deploy:
+            placement:
+                constraints: [node.role == manager]
+       
+networks:
+    mpi-net:
+        external: true
