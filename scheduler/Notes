@@ -1,0 +1,18 @@
+I can only see the containers launched on manager through "docker service create"
+not the containers launched on worker1 and worker2
+
+It seems that the "mounts" in services.create in scheduler.py conflicts with the "COPY" command
+in /nwm/Dockerfile. "mounts" appear to overwrite everythng.
+Need to comment out the two lines "mounts = mounts" in scheduler.py to be able to COPY
+Also, the COPY operation seems to preserve the time stamp of the copied file
+
+It seems that build order matters. The following build order produce the correct result.
+Note that  the COPY operation preserve the time stamp of the copied file
+$ docker build -t 127.0.0.1:5000/nwm-2.0 ./nwm
+$ docker build -t 127.0.0.1:5000/mgmt ./scheduler
+
+Unittest and production run changes:
+scheduler.py: local import
+request.py: local import
+entry.sh: sudo python3 ...
+
