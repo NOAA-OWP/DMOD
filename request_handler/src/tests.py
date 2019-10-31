@@ -3,24 +3,26 @@
 """
 Request Handler unit tests
 """
-import unittest
 import asyncio
-import websockets
-import logging
-import ssl
-import pathlib
 import json
+import logging
+import os
+import pathlib
+import ssl
+import unittest
+import websockets
 from socket import gethostname
+from RequestHandler import RequestHandler
 
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
     datefmt="%H:%M:%S"
 )
-#TODO make these real tests, for now, hacky thing to try output
 
+# TODO make these real tests, for now, hacky thing to try output
 
-#For testing, set up client ssl context
+# For testing, set up client ssl context
 client_ssl_context = ssl.SSLContext( ssl.PROTOCOL_TLS_CLIENT )
 localhost_pem = pathlib.Path(__file__).parent.joinpath('ssl', "certificate.pem")
 host_name = gethostname()
@@ -29,6 +31,7 @@ host_name = gethostname()
 client_ssl_context.load_verify_locations(localhost_pem)
 server_test = 0
 client_test = 0
+
 
 async def data_test(ssl_context=None):
     """
