@@ -1,5 +1,7 @@
+*.iml
 *.pyc
 __pychache__/
+/.idea/
 /venv/
 request_client/ssl/certificate.pem
 request_handler/*.tar.gz
