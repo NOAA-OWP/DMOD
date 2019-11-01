@@ -5,6 +5,33 @@ from jsonschema.exceptions import best_match
 import json
 import os
 
+
+class JsonRequestValidator:
+
+    def __init__(self, schemas_dir=None):
+        if schemas_dir is None:
+            self.base_schemas_dir = os.path.dirname(os.path.abspath(__file__)) + '/schemas'
+        else:
+            self.base_schemas_dir = schemas_dir
+        resolve_path = self.base_schemas_dir + '/'
+        self.schema = None
+        self.resolver = None
+        with open(os.path.abspath(self.base_schemas_dir + '/request.schema.json')) as schema_file:
+            self.schema = json.loads(schema_file.read())
+            self.resolver = jsonschema.RefResolver("file://{}/".format(resolve_path), referrer=self.schema)
+
+    def validate_request(self, request):
+        """
+        Validate the given request.
+
+        :param request:
+        :return: A tuple with whether the request is valid and either the error for invalid requests or None
+        """
+        results = jsonschema.Draft7Validator(self.schema, resolver=self.resolver).iter_errors(request)
+        error = best_match(results)
+        return (error is None), error
+
+
 def traverse_suberrors(error, level=''):
     """Recursiverly tranverse subschema errors
 
@@ -16,6 +43,7 @@ def traverse_suberrors(error, level=''):
         print('{}{}'.format(level, suberror.message ))
         print("---------------------------------------")
         traverse_suberrors(suberror, level)
+
 
 def traverse_error_tree(error_tree):
     """Recursively traverse and report errors in error tree.  Includes suberrors.
@@ -37,54 +65,19 @@ def traverse_error_tree(error_tree):
         #traverse_errors(error_tree)
         print("++++++++++++++++++++++++++++++++++")
 
-def validate_request(request):
-    """Validate model request against defined model schema
 
+def validate_request(request):
+    """
+    Validate model request against defined model schema
     """
     #TODO handle type of request
-    base_schemas_dir = os.path.dirname(os.path.abspath(__file__)) + '/schemas'
-    with open(os.path.abspath(base_schemas_dir + '/request.schema.json')) as schema_file:
-        schema = json.loads(schema_file.read())
-        resolve_path = base_schemas_dir + '/'
-        #os._exit(1)
-        #os._exit(1)
-        """
-        store={}
-        with open(os.path.join(resolve_path, 'request.schema.json')) as subschema:
-            store['nwm.model.parameter.schema.json'] = jsonref.loads(subschema.read(), jsonschema=True)
+    validator = JsonRequestValidator()
+    is_valid, error = validator.validate_request(request=request)
+    if error is not None:
+        raise error
+    else:
+        print("Valid")
 
-        with open(os.path.join(resolve_path, 'nwm.schema.json')) as subschema:
-            store['nwm.schema.json'] = jsonref.loads(subschema.read(), jsonschema=True)
-
-        with open(os.path.join(resolve_path, 'xyz.schema.json')) as subschema:
-            store['xyz.schema.json'] = jsonref.loads(subschema.read(), jsonschema=True)
-
-        with open(os.path.join(resolve_path, 'nwm.model.parameter.schema.json')) as subschema:
-            store['nwm.model.parameter.schema.json'] = jsonref.loads(subschema.read(), jsonschema=True)
-        resolver = jsonschema.RefResolver(base_uri="", referrer=None, cache_remote=False, store=store)
-        """
-        resolver = jsonschema.RefResolver("file://{}/".format(resolve_path), referrer=schema)
-        #result = jsonschema.validate(test_data, schema)
-
-        results = jsonschema.Draft7Validator(schema, resolver=resolver).iter_errors(request)
-
-
-        #print(list(results))
-        #for r in results:
-        #    print(r.context)
-        #error_tree
-        #results = jsonschema.exceptions.ErrorTree(results)
-        #print( error_tree['properties'].errors )#['model']['oneOf'].errors )
-        #if results.total_errors > 0:
-        #    print("{} errors found".format(results.total_errors))
-        #    traverse_error_tree(results)
-        #else:
-        #    print("No Errors")
-        error = best_match(results)
-        if error is not None:
-            raise(error)
-        else:
-            print("Valid")
 
 if __name__ == "__main__":
     with open("./schemas/request.json", 'r') as data_file:
