@@ -5,8 +5,8 @@
     "output": "streamflow",
     "parameters": {
       "hydraulic_conductivity_distribution": {
-        "min":5,
-        "distribution":"normal"
+        "min": 5,
+        "distribution": "normal"
       }
     }
   }

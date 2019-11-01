@@ -4,7 +4,6 @@
   "$id": "xyz.schema.json",
   "type": "object",
   "title": "XYZ",
-
   "required": [
     "version",
     "output",
@@ -19,8 +18,10 @@
       "examples": [
         2.1
       ],
-      "enum": [1.0, 1.1]
-
+      "enum": [
+        1.0,
+        1.1
+      ]
     },
     "output": {
       "$id": "#/properties/XYZ/properties/output",
@@ -30,7 +31,9 @@
       "examples": [
         "streamflow"
       ],
-      "enum": ["streamflow"]
+      "enum": [
+        "streamflow"
+      ]
     },
     "parameters": {
       "$id": "#/properties/NWM/properties/parameters",
@@ -38,5 +41,4 @@
       "ref": "file:nwm.model.parameter.schema.json"
     }
   }
-
 }
