@@ -3,55 +3,61 @@
   "$id": "nwm.model.parameter.schema.json",
   "type": "object",
   "title": "Parameter",
-
-
   "propertyNames": {
-    "enum": ["hydraulic_conductivity", "land_cover"]
+    "enum": [
+      "hydraulic_conductivity",
+      "land_cover"
+    ]
   },
-
   "properties": {
     "hydraulic_conductivity": {
       "$ref": "#/definitions/hydraulic_conductivity",
       "additionalProperties": false
     }
-
-
   },
-
   "definitions": {
     "hydraulic_conductivity": {
       "type": "object",
       "propertyNames": {
-        "enum": ["scalar", "distribution"]
+        "enum": [
+          "scalar",
+          "distribution"
+        ]
       },
       "$comment": "This validates that only one key is in the payload, and that the key is properly defined in context",
-      "allOf": [{
-          "oneOf": [{
-            "required": ["scalar"]
-          }, {
-            "required": ["distribution"]
-          }]
-        },
-
+      "allOf": [
         {
-          "oneOf": [{
-
+          "oneOf": [
+            {
+              "required": [
+                "scalar"
+              ]
+            },
+            {
+              "required": [
+                "distribution"
+              ]
+            }
+          ]
+        },
+        {
+          "oneOf": [
+            {
               "$ref": "#/definitions/scalar"
             },
             {
-
               "$ref": "#/definitions/distribution"
             }
           ]
         }
-
       ]
     },
-
     "scalar": {
       "$id": "#/definitions/scalar",
       "title": "The Scalar Schema",
-      "required": ["scalar"],
+      "required": [
+        "scalar"
+      ],
       "properties": {
         "scalar": {
           "type": "number",
@@ -61,12 +67,13 @@
       },
       "additionalProperties": false
     },
-
     "distribution": {
       "$id": "#/definitions/distribution",
       "type": "object",
       "title": "The Distribution Schema",
-      "required": ["distribution"],
+      "required": [
+        "distribution"
+      ],
       "properties": {
         "distribution": {
           "type": "object",
@@ -106,7 +113,10 @@
               "examples": [
                 "normal"
               ],
-              "enum": ["normal", "lognormal"]
+              "enum": [
+                "normal",
+                "lognormal"
+              ]
             },
             "additionalProperties": false
           }
