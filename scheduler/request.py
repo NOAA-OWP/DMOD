@@ -17,6 +17,7 @@ import scheduler.generate as generate
 
 redis = None
 
+
 class Request:
     def __init__(self, user_id, cpus, mem):
         # self.user_id = user_id
@@ -137,6 +138,7 @@ def initialize_redis():
         print("redis connection error")
 
     clean_keys(redis)
+
 
 if __name__ == "__main__":
     initialize_redis()
