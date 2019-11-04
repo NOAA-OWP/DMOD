@@ -1,6 +1,6 @@
 import json
 import unittest
-from .validator import JsonRequestValidator
+from request_handler.request_handler.validator import JsonRequestValidator
 from pathlib import Path
 
 
@@ -20,8 +20,8 @@ class TestJsonRequestValidator(unittest.TestCase):
     """
 
     def setUp(self):
-        current_dir = Path(__file__).resolve().parent
-        json_schemas_dir = current_dir.joinpath('schemas')
+        script_dir = Path(__file__).resolve().parent
+        json_schemas_dir = script_dir.parent.joinpath('schemas')
         valid_request_json_file = json_schemas_dir.joinpath('request.json')
         invalid_request_json_file = json_schemas_dir.joinpath('request_bad.json')
 

@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 
 """
-Request Handler unit tests
+Request Handler integration tests.
 """
 import asyncio
 import json
 import logging
-import os
 import pathlib
 import ssl
-import unittest
 import websockets
 from socket import gethostname
-from RequestHandler import RequestHandler
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -23,11 +20,15 @@ logging.basicConfig(
 # TODO make these real tests, for now, hacky thing to try output
 
 # For testing, set up client ssl context
-client_ssl_context = ssl.SSLContext( ssl.PROTOCOL_TLS_CLIENT )
-localhost_pem = pathlib.Path(__file__).parent.joinpath('ssl', "certificate.pem")
+current_dir = pathlib.Path(__file__).resolve().parent
+json_schemas_dir = current_dir.parent.joinpath('schemas')
+valid_request_json_file = json_schemas_dir.joinpath('request.json')
+
+client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+localhost_pem = current_dir.parent.joinpath('ssl', 'certificate.pem')
 host_name = gethostname()
-#localhost_pem = pathlib.Path(__file__).resolve().parents[1].joinpath('macbook_ssl', "certificate.pem")
-#hostname = 'localhost'
+# localhost_pem = Path(__file__).resolve().parents[1].joinpath('macbook_ssl', "certificate.pem")
+# host_name = 'localhost'
 client_ssl_context.load_verify_locations(localhost_pem)
 server_test = 0
 client_test = 0
@@ -38,14 +39,15 @@ async def data_test(ssl_context=None):
         Function to emulate incoming data
     """
 
-    with open("./schemas/request.json", "r") as test_file:
+    with json_schemas_dir.joinpath('request.json').open(mode='r') as test_file:
         test_data = json.load(test_file)
         print("HERE")
+
     test_request = {
-         'model':'nwm-2.0',
-         'domain':'test-domain',
-         'cores':20,
-         'user':'test-user'
+         'model': 'nwm-2.0',
+         'domain': 'test-domain',
+         'cores': 20,
+         'user': 'test-user'
          }
     test_request = test_data
     print("Testing")
@@ -59,6 +61,7 @@ async def data_test(ssl_context=None):
             async with websockets.connect(uri, ssl=ssl_context) as websocket:
                 client_test = i
                 logging.debug("Sending data")
+                test_request['client_id'] = client_test
                 await websocket.send( json.dumps(test_request) )
                 logging.debug("Data sent")
                 response = await websocket.recv()
