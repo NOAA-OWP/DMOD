@@ -3,3 +3,4 @@ django-generate
 jsonschema
 redis
 websockets
+Faker
