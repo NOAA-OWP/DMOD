@@ -1,15 +1,64 @@
+import argparse
+from . import name as package_name
 from . import RequestHandler
+from pathlib import Path
 from socket import gethostname
 
-# IMPORTANT: host must the hostname in the ssl cert, or connection will fail
-#host = 'request-test'
-host = gethostname()
-port = '3012'
+
+def _handle_args():
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--host',
+                        help='Set the appropriate listening host name or address value (NOTE: must match SSL cert)',
+                        dest='host',
+                        default=gethostname())
+    parser.add_argument('--port',
+                        help='Set the appropriate listening port value',
+                        dest='port',
+                        default='3012')
+    parser.add_argument('--ssl-dir',
+                        help='Change the base directory when using SSL certificate and key files with default names',
+                        dest='ssl_dir',
+                        default=None)
+    parser.add_argument('--cert',
+                        help='Specify path for a particular SSL certificate file to use',
+                        dest='cert_path',
+                        default=None)
+    parser.add_argument('--key',
+                        help='Specify path for a particular SSL private key file to use',
+                        dest='key_path',
+                        default=None)
+    parser.prog = package_name
+    return parser.parse_args()
+
+
+def _sanity_check_path_arg(path_as_str, is_directory=False):
+    path_value = Path(path_as_str)
+    if not path_value.exists():
+        return False
+    if is_directory and not path_value.is_dir():
+        return False
+    if not is_directory and not path_value.is_file():
+        return False
+    return True
 
 
 def main():
-    # Init request handler on this machine, listening on port 3012
-    handler = RequestHandler(host, port)
+    args = _handle_args()
+
+    # Sanity check any provided path arguments
+    if args.ssl_dir is not None and not _sanity_check_path_arg(args.ssl_dir, is_directory=True):
+        print('Error: provided SSL directory arg ' + args.ssl_dir + ' does not exist or is not valid')
+        exit(1)
+    if args.cert_path is not None and not _sanity_check_path_arg(args.cert_path):
+        print('Error: provided SSL certificate arg ' + args.cert_path + ' does not exist or is not valid')
+        exit(1)
+    if args.key_path is not None and not _sanity_check_path_arg(args.key_path):
+        print('Error: provided SSL private key arg ' + args.key_path + ' does not exist or is not valid')
+        exit(1)
+
+    # Init request handler
+    handler = RequestHandler(hostname=args.host, port=args.port, ssl_dir=args.ssl_dir, localhost_pem=args.cert_path,
+                             localhost_key=args.key_path)
     handler.run()
 
 
