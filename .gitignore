@@ -3,7 +3,10 @@
 __pychache__/
 /.idea/
 /venv/
+.env
+base/ssh/
 request_client/ssl/certificate.pem
+request_handler/ssl/
 request_handler/*.tar.gz
 request_handler/macbook_ssl/
 request_handler/src/ssl/certificate.pem
