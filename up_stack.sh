@@ -8,8 +8,12 @@ usage()
     Build images, push to internal registry, and deploy NWM Docker stack
 
 Usage:
-    ${NAME}         Perform full build for images
-    ${NAME} update  Only build image for the 'nwm' service, without using cache
+    ${NAME} [options]           Perform full build for images
+    ${NAME} [options] update    Only build image for the 'nwm' service, without using cache
+
+Options
+    --build-only                Only build the image(s); do not push or deploy
+    --no-deploy                 Build the image(s) and push to registry, but do not deploy
 "
     echo "${_O}" 1>&2
 }
@@ -84,6 +88,12 @@ while [[ ${#} -gt 0 ]]; do
             usage
             exit
             ;;
+        --build-only)
+            DO_BUILD_ONLY='true'
+            ;;
+        --no-deploy)
+            DO_SKIP_DEPLOY='true'
+            ;;
         update|--update|-update)
             DO_UPDATE='true'
             ;;
@@ -107,7 +117,7 @@ fi
 [[ ! -e ./base/ssh/id_rsa ]] && ssh-keygen -t rsa -N '' -f ./base/ssh/id_rsa
 
 # Make sure the internal Docker image registry container is running
-if [[ $(docker stack ps -q --filter service=registry | wc -l) -eq 0 ]]; then
+if [[ $(docker stack services -q --filter name=registry | wc -l) -eq 0 ]]; then
     start_docker_registry
 fi
 
@@ -119,8 +129,17 @@ else
     docker-compose -f docker-build.yml build
 fi
 
+# Bail here if option set
+if [[ -n "${DO_BUILD_ONLY:-}" ]]; then
+    exit
+fi
+# Otherwise, proceed and push to registry
 echo "Pushing custom Docker images to internal registry"
 docker-compose -f docker-build.yml push
 
+# Or bail here if this option is set
+if [[ -n "${DO_SKIP_DEPLOY:-}" ]]; then
+    exit
+fi
 echo "Deploying NWM stack"
 docker stack deploy --compose-file docker-deploy.yml "nwm-${NWM_NAME:-master}"
