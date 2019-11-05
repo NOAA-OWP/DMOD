@@ -107,7 +107,7 @@ fi
 [[ ! -e ./base/ssh/id_rsa ]] && ssh-keygen -t rsa -N '' -f ./base/ssh/id_rsa
 
 # Make sure the internal Docker image registry container is running
-if [[ $(docker stack ps -q --filter service=registry | wc -l) -eq 0 ]]; then
+if [[ $(docker stack services -q --filter name=registry | wc -l) -eq 0 ]]; then
     start_docker_registry
 fi
 
