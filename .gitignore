@@ -2,10 +2,14 @@
 *.pyc
 __pychache__/
 /.idea/
+/docker_host_volumes/
 /venv/
+.env
+base/ssh/
 request_client/ssl/certificate.pem
 request_handler/*.tar.gz
 request_handler/macbook_ssl/
 request_handler/src/ssl/certificate.pem
 request_handler/src/ssl/privkey.pem
+request_handler/ssl/*.pem
 scheduler/scheduler.log

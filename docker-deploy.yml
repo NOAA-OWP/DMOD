@@ -1,4 +1,80 @@
-# File intentionally left empty.
+version: "3.7"
 
-# Manual merging required between scui/nfrazier working copies, in both the regular and "custom" flavor.
+services:
+  scheduler:
+    image: 127.0.0.1:${DOCKER_INTERNAL_REGISTRY_PORT:=5000}/mpi-scheduler
+    networks:
+      - ${DOCKER_MPI_NET_NAME}
+    entrypoint: ['./entry.sh']
+    ports:
+      - "22"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      #- /opt/nwm_c/domains:/nwm/domains
+      - ${DOCKER_VOL_ANALYSIS_ASSIM}:/nwm/conus
+      #- /apd_common/anthro/:/apd_common/anthro
+    deploy:
+      placement:
+        constraints: ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT:-[node.role == manager]}
+    depends_on:
+      - mpi-master
+      - mpi-worker
+  mpi-master:
+    image: 127.0.0.1:${DOCKER_INTERNAL_REGISTRY_PORT}/nwm-${NWM_NAME}
+    networks:
+      - ${DOCKER_MPI_NET_NAME}
+    #user: root
+    entrypoint: ['sudo', '/usr/sbin/sshd', '-D']
+    environment:
+      - MPIEXEC_PORT_RANGE=10000:10500
+    #ports:
+    #    - "22"
+    volumes:
+      #- /opt/nwm_c/domains:/nwm/domains
+      #- /apd_common/anthro/:/apd_common/anthro
+      - ${DOCKER_VOL_ANALYSIS_ASSIM}:/nwm/conus
+      - /dev/shm:/dev/shm #Hack in shared memory filesystem
+      #- type: tmpfs
+      #-  target: /nwm/mem_fs
+      #  tmpfs:
+      #      size: 350000000000
+    deploy:
+      placement:
+        constraints: ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT:-[node.hostname == ***REMOVED***]}
+    #build: ./nwm
+    depends_on:
+      - mpi-worker #I think this allows deployment to ensure mpi-workers are up before master?
+    #Not supported until 19.06
+    #cap_add:
+    #   - SYS_PTRACE
+    #   - CAP_SYS_ADMIN
+  mpi-worker:
+    image: 127.0.0.1:${DOCKER_INTERNAL_REGISTRY_PORT}/nwm-${NWM_NAME}
+    hostname: "{{.Service.Name}}-{{.Task.Slot}}"
+    #user: root
+    entrypoint: ['sudo', '/usr/sbin/sshd', '-D']
+    networks:
+      - ${DOCKER_MPI_NET_NAME}
+    environment:
+      - MPIEXEC_PORT_RANGE=10000:10500
+    deploy:
+      #mode: global
+      placement:
+        #constraints: [node.role != manager]
+        constraints: ${DOCKER_MPIWORKER_DEPLOY_CONSTRAINT:-[node.hostname == ***REMOVED***]}
+        #FIXME find a way to mape one worker to each worker node automatically???
+      replicas: 1
+    volumes:
+      - /dev/shm:/dev/shm
+      #- type: tmpfs
+      #  target: /nwm/mem_fs
+      #  tmpfs:
+      #      size: 35000000000
+    #    - /opt/nwm_c/domains:/nwm/domains
+    #build: ./nwm
+    cap_add:
+      - SYS_PTRACE
 
+networks:
+  ${DOCKER_MPI_NET_NAME}:
+    external: true
