@@ -1,4 +1,29 @@
-# File intentionally left empty.
+version: "3"
 
-# Manual merging required between scui/nfrazier working copies, in both the regular and "custom" flavor.
-
+services:
+  base:
+    image: 127.0.0.1:${DOCKER_INTERNAL_REGISTRY_PORT:=5000}/nwm-base
+    build: ./base
+  deps:
+    image: 127.0.0.1:${DOCKER_INTERNAL_REGISTRY_PORT}/nwm-deps
+    build: ./nwm/deps
+    depends_on:
+      - base
+  scheduler:
+    image: 127.0.0.1:${DOCKER_INTERNAL_REGISTRY_PORT}/mpi-scheduler
+    build: ./scheduler
+    depends_on:
+      - base
+  nwm:
+    image: 127.0.0.1:${DOCKER_INTERNAL_REGISTRY_PORT}/nwm-${NWM_NAME:-master}
+    build:
+      context: ./nwm
+      args:
+        - NWM_REPO_URL
+        - NWM_BRANCH
+    #depends_on:
+    #    - deps
+    #For building, this only gives shared memory to each build step!!! shm_size: 2GB
+networks:
+  ${DOCKER_MPI_NET_NAME}:
+    external: true
