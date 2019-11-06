@@ -81,5 +81,6 @@ services:
       - SYS_PTRACE
 
 networks:
-  ${DOCKER_MPI_NET_NAME}:
-    external: true
+    mpi-net:
+        external: true
+        name: ${DOCKER_MPI_NET_NAME}

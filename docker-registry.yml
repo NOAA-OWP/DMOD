@@ -1,4 +1,4 @@
-version: "3"
+version: "3.7"
 
 services:
     registry:
@@ -15,5 +15,6 @@ services:
                 constraints:
                     - ${DOCKER_REGISTRY_DEPLOY_CONSTRAINT:-node.role==manager}
 networks:
-    ${DOCKER_MPI_NET_NAME}:
+    mpi-net:
         external: true
+        name: ${DOCKER_MPI_NET_NAME}
