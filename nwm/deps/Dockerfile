@@ -60,7 +60,7 @@ WORKDIR /tmp/netcdf
 # RUN sudo make
 # RUN sudo make install
 ## FIXME this seems unique to the docker play ground environment...
-RUN LIBS=curl CPPFLAGS=-I/usr/local/include ./configure --prefix=/usr
+RUN LIBS=curl && ./configure CPPFLAGS=-I/usr/local/include --prefix=/usr
 RUN make
 RUN make install
 
@@ -75,7 +75,7 @@ RUN mkdir netcdf-fortran
 RUN tar -xzf netcdf-fortran-latest.tar.gz -C netcdf-fortran --strip 1
 WORKDIR netcdf-fortran
 # FIXME WHY DO THESE NOT NEED SUDO...so weird
-RUN ./configure --prefix=/usr
+RUN FC=mpif90 ./configure --prefix=/usr
 RUN make
 # RUN sudo make install
 RUN make install

@@ -1,21 +1,21 @@
-version: "3"
+version: "3.7"
 
 services:
   base:
-    image: 127.0.0.1:${DOCKER_INTERNAL_REGISTRY_PORT}/nwm-base
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-base
     build: ./base
   deps:
-    image: 127.0.0.1:${DOCKER_INTERNAL_REGISTRY_PORT}/nwm-deps
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-deps
     build: ./nwm/deps
     depends_on:
       - base
   scheduler:
-    image: 127.0.0.1:${DOCKER_INTERNAL_REGISTRY_PORT}/mpi-scheduler
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/mpi-scheduler
     build: ./scheduler
     depends_on:
       - base
   nwm:
-    image: 127.0.0.1:${DOCKER_INTERNAL_REGISTRY_PORT}/nwm-${NWM_NAME:-master}
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-${NWM_NAME:-master}
     build:
       context: ./nwm
       args:
@@ -25,5 +25,6 @@ services:
     #    - deps
     #For building, this only gives shared memory to each build step!!! shm_size: 2GB
 networks:
-  ${DOCKER_MPI_NET_NAME}:
+  mpi-net:
     external: true
+    name: ${DOCKER_MPI_NET_NAME}

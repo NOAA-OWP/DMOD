@@ -14,6 +14,7 @@ Usage:
 Options
     --build-only                Only build the image(s); do not push or deploy
     --no-deploy                 Build the image(s) and push to registry, but do not deploy
+    --skip-registry             Skip the step of pushing built images to registry
 "
     echo "${_O}" 1>&2
 }
@@ -50,6 +51,7 @@ DOCKER_MPI_NET_GATEWAY=10.0.0.1
 DOCKER_HOST_IMAGE_STORE=${_STORE}
 DOCKER_VOL_ANALYSIS_ASSIM=${_ANALYSIS_ASSIM}
 
+DOCKER_INTERNAL_REGISTRY_HOST=127.0.0.1
 DOCKER_INTERNAL_REGISTRY_PORT=5000
 
 NWM_NAME=master
@@ -69,10 +71,19 @@ create_docker_mpi_net()
         mpi-net
 }
 
-start_docker_registry()
+# Work-around to use the .env file loading for compose files when deploying with docker stack (which doesn't by itself)
+# See: https://github.com/moby/moby/issues/29133
+deploy_docker_stack_from_compose_using_env()
 {
-    echo "Deploying registry container to ${DOCKER_STACK_NAME} stack"
-    docker stack deploy --compose-file docker-registry.yml "${DOCKER_STACK_NAME}"
+    local _COMPOSE_FILE="${1}"
+    local _STACK_NAME="${2}"
+
+    if docker-compose -f "${_COMPOSE_FILE}" config > /dev/null; then
+        docker stack deploy --compose-file <(docker-compose -f "${_COMPOSE_FILE}" config) "${_STACK_NAME}"
+    else
+        echo "Error: invalid docker-compose file; cannot start stack; exiting"
+        exit 1
+    fi
 }
 
 # If no .env file exists, create one with some default values
@@ -90,6 +101,9 @@ while [[ ${#} -gt 0 ]]; do
             ;;
         --build-only)
             DO_BUILD_ONLY='true'
+            ;;
+        --skip-registry)
+            DO_SKIP_REGISTRY='true'
             ;;
         --no-deploy)
             DO_SKIP_DEPLOY='true'
@@ -117,29 +131,49 @@ fi
 [[ ! -e ./base/ssh/id_rsa ]] && ssh-keygen -t rsa -N '' -f ./base/ssh/id_rsa
 
 # Make sure the internal Docker image registry container is running
-if [[ $(docker stack services -q --filter name=registry | wc -l) -eq 0 ]]; then
-    start_docker_registry
+if [[ $(docker stack services -q --filter "name=${DOCKER_STACK_NAME}_registry" "${DOCKER_STACK_NAME}" | wc -l) -eq 0 ]]; then
+    echo "Starting internal Docker registry"
+    #docker stack deploy --compose-file docker-registry.yml "${DOCKER_STACK_NAME}"
+    deploy_docker_stack_from_compose_using_env docker-registry.yml "${DOCKER_STACK_NAME}"
+else
+    echo "Internal Docker registry is online"
 fi
 
 echo "Building custom Docker images"
 #docker-compose -f docker-build.yml build
 if [[ -n "${DO_UPDATE:-}" ]]; then
-    docker-compose -f docker-build.yml build --no-cache nwm
+    if ! docker-compose -f docker-build.yml build --no-cache nwm; then
+        echo "Previous build command failed; exiting"
+        exit 1
+    fi
 else
-    docker-compose -f docker-build.yml build
+    if ! docker-compose -f docker-build.yml build; then
+        echo "Previous build command failed; exiting"
+        exit 1
+    fi
 fi
 
-# Bail here if option set
+# Bail here if option set to only build
 if [[ -n "${DO_BUILD_ONLY:-}" ]]; then
     exit
 fi
-# Otherwise, proceed and push to registry
-echo "Pushing custom Docker images to internal registry"
-docker-compose -f docker-build.yml push
+# Otherwise, proceed ...
+
+# Push to registry (unless we should skip)
+if [[ -z "${DO_SKIP_REGISTRY:-}" ]]; then
+    echo "Pushing custom Docker images to internal registry"
+    if ! docker-compose -f docker-build.yml push; then
+        echo "Previous push command failed; exiting"
+        exit 1
+    fi
+else
+    echo "Skipping step to push images to registry"
+fi
 
 # Or bail here if this option is set
 if [[ -n "${DO_SKIP_DEPLOY:-}" ]]; then
     exit
 fi
 echo "Deploying NWM stack"
-docker stack deploy --compose-file docker-deploy.yml "nwm-${NWM_NAME:-master}"
+#docker stack deploy --compose-file docker-deploy.yml "nwm-${NWM_NAME:-master}"
+deploy_docker_stack_from_compose_using_env docker-deploy.yml "nwm-${NWM_NAME:-master}"
