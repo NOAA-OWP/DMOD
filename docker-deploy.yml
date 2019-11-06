@@ -2,7 +2,7 @@ version: "3.7"
 
 services:
   scheduler:
-    image: 127.0.0.1:${DOCKER_INTERNAL_REGISTRY_PORT:=5000}/mpi-scheduler
+    image: 127.0.0.1:${DOCKER_INTERNAL_REGISTRY_PORT}/mpi-scheduler
     networks:
       - ${DOCKER_MPI_NET_NAME}
     entrypoint: ['./entry.sh']
@@ -15,7 +15,9 @@ services:
       #- /apd_common/anthro/:/apd_common/anthro
     deploy:
       placement:
-        constraints: ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT:-[node.role == manager]}
+        constraints:
+          - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_1:-node.role==manager}
+          - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
     depends_on:
       - mpi-master
       - mpi-worker
@@ -32,15 +34,17 @@ services:
     volumes:
       #- /opt/nwm_c/domains:/nwm/domains
       #- /apd_common/anthro/:/apd_common/anthro
-      - ${DOCKER_VOL_ANALYSIS_ASSIM}:/nwm/conus
       - /dev/shm:/dev/shm #Hack in shared memory filesystem
+      - ${DOCKER_VOL_ANALYSIS_ASSIM}:/nwm/conus
       #- type: tmpfs
       #-  target: /nwm/mem_fs
       #  tmpfs:
       #      size: 350000000000
     deploy:
       placement:
-        constraints: ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT:-[node.hostname == ***REMOVED***]}
+        constraints:
+          - ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT_1:-node.hostname==***REMOVED***}
+          - ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
     #build: ./nwm
     depends_on:
       - mpi-worker #I think this allows deployment to ensure mpi-workers are up before master?
@@ -60,9 +64,10 @@ services:
     deploy:
       #mode: global
       placement:
-        #constraints: [node.role != manager]
-        constraints: ${DOCKER_MPIWORKER_DEPLOY_CONSTRAINT:-[node.hostname == ***REMOVED***]}
-        #FIXME find a way to mape one worker to each worker node automatically???
+        constraints:
+          # FIXME find a way to map one worker to each worker node automatically???
+          - ${DOCKER_MPIWORKER_DEPLOY_CONSTRAINT_1:-node.hostname==***REMOVED***}
+          - ${DOCKER_MPIWORKER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
       replicas: 1
     volumes:
       - /dev/shm:/dev/shm
