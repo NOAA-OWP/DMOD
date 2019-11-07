@@ -8,11 +8,32 @@ Also, the COPY operation seems to preserve the time stamp of the copied file
 
 It seems that build order matters. The following build order produce the correct result.
 Note that  the COPY operation preserve the time stamp of the copied file
+
 $ docker build -t 127.0.0.1:5000/nwm-2.0 ./nwm
 $ docker build -t 127.0.0.1:5000/mgmt ./scheduler
+$ python3 -m unittest discover -v
 
 Unittest and production run changes:
-scheduler.py: local import
-request.py: local import
-entry.sh: sudo python3 ...
+1. scheduler.py: local import
+   scheduler.py: from scheduler.utils.clean import clean_keys (~line 785)
+   scheduler.py: redis using local host or docker container
+2. utils/clean.py: import scheduler.utils.keynamehelper as keynamehelper
+3. request.py: local import
+4. entry.sh: sudo python3 ...
+5. keynamehelper.py: byte string to regular string
+6. clean_redisKeys()
 
+Need to comment out startJobs to see queued jobs as currently startJobs empties all jobs in the _jobQ
+idx seems not used in fromRequest() method
+
+Added code in clean_redisKeys():
+        self.redis.flushdb()
+        self.redis.flushall()    # clear Delete all the keys of all the existing databases, not just 
+                                 # the currently selected one. This command never fails.
+
+Check the possibility of cpus_alloc < 0
+
+Why does it give me errors the first time I run the unit test after the maintainance?
+The errors seeem related to Redis
+
+Add memory allocation/check
