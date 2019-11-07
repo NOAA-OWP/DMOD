@@ -8,32 +8,33 @@ from scheduler.request import Request
 import scheduler.parsing_nested as pn
 
 resources = [{'node_id': "Node-0001",
-           'Hostname': "***REMOVED***",
-           'Availability': "active",
-           'State': "ready",
-           'CPUs': 18,
-           'MemoryBytes': 33548128256
-          },
-          {'node_id': "Node-0002",
-           'Hostname': "***REMOVED***",
-           'Availability': "active",
-           'State': "ready",
-           'CPUs': 96,
-           'MemoryBytes': 540483764224
-          },
-          {'node_id': "Node-0003",
-           'Hostname': "***REMOVED***",
-           'Availability': "active",
-           'State': "ready",
-           'CPUs': 96,
-           'MemoryBytes': 540483764224
-          }
-         ]
+              'Hostname': "***REMOVED***",
+              'Availability': "active",
+              'State': "ready",
+              'CPUs': 18,
+              'MemoryBytes': 33548128256
+              },
+             {'node_id': "Node-0002",
+              'Hostname': "***REMOVED***",
+              'Availability': "active",
+              'State': "ready",
+              'CPUs': 96,
+              'MemoryBytes': 540483764224
+              },
+             {'node_id': "Node-0003",
+              'Hostname': "***REMOVED***",
+              'Availability': "active",
+              'State': "ready",
+              'CPUs': 96,
+              'MemoryBytes': 540483764224
+              }
+             ]
 
 # from scheduler.request import Request
 # from scheduler.utils import keynamehelper
 # from scheduler.imports import generate, parsing_nested
 redis = None
+
 
 class TestScheduler(unittest.TestCase):
     def setUp(self):
@@ -42,7 +43,7 @@ class TestScheduler(unittest.TestCase):
         cpus = 5
         mem = 5000000000
         self.request = Request(user_id, cpus, mem)
- 
+
     def test_1(self):
         returnValue = check_for_incoming_req()
         self.assertEqual(returnValue, 1)
@@ -65,7 +66,7 @@ class TestScheduler(unittest.TestCase):
         except:
             # use assertLogs(logger)
             print("create user exception: user not created")
-        
+
     """
     def test_4_check_single_node_availability(self):
         returnValue = self.scheduler.check_single_node_availability("shengting.cui", 25, 5000000000)
@@ -186,8 +187,8 @@ class TestScheduler(unittest.TestCase):
         image = "127.0.0.1:5000/nwm-2.0:latest"
         constraints = []
         hostname = "{{.Service.Name}}"
-        labels =  {"com.docker.stack.image": "127.0.0.1:5000/nwm-2.0",
-                   "com.docker.stack.namespace": "nwm"
+        labels = {"com.docker.stack.image": "127.0.0.1:5000/nwm-2.0",
+                  "com.docker.stack.namespace": "nwm"
                   }
         name = "nwm_mpi-worker_tmp"
         # networks = ["mpi-net", "back40"]
@@ -222,7 +223,8 @@ class TestScheduler(unittest.TestCase):
             # This call directly creates three services: nwm_mpi-worker_tmp0, nwm_mpi-worker_tmp1, nwm_mpi-worker_tmp2
             len_jobQ = len(self.scheduler._jobQ)
             print("before calling startJobs(), len_jobQ = ", len_jobQ)
-            schedule.startJobs(user_id, cpus, mem, image, constraints, hostname, labels, name, cpus_alloc, mounts, networks, idx, cpusLen, host_str)
+            schedule.startJobs(user_id, cpus, mem, image, constraints, hostname, labels, name, cpus_alloc, mounts,
+                               networks, idx, cpusLen, host_str)
             len_jobQ = len(self.scheduler._jobQ)
             print("after calling startJobs(), len_jobQ = ", len_jobQ, "\n")
 
@@ -290,7 +292,7 @@ class TestScheduler(unittest.TestCase):
     '''
 
     # def test_19_clean_redisKeys(self):
-        # self.scheduler.clean_redisKeys()
+    # self.scheduler.clean_redisKeys()
 
     def test_20_retrieve_job_metadata(self):
         user_id = "shengting.cui"
