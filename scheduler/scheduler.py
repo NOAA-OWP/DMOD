@@ -13,17 +13,23 @@ from redis import Redis, WatchError
 import logging
 import time
 
-## local imports for unittest
-import scheduler.utils.keynamehelper as keynamehelper
-import scheduler.generate as generate
-import scheduler.parsing_nested as pn
-from scheduler.request import Request
-
-## local imports for production run
+## local imports
 # import utils.keynamehelper as keynamehelper
 # import generate as generate
 # import parsing_nested as pn
 # from request import Request
+# from utils.clean import clean_keys
+
+## local imports for unittest
+# import scheduler.utils.keynamehelper as keynamehelper
+import scheduler.keynamehelper as keynamehelper
+import scheduler.generate as generate
+import scheduler.parsing_nested as pn
+from scheduler.request import Request
+from scheduler.utils.clean import clean_keys
+
+# client = docker.from_env()
+# api_client = docker.APIClient()
 
 MAX_JOBS = 210
 Max_Redis_Init = 5
@@ -34,30 +40,30 @@ logging.basicConfig(
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
     datefmt="%H:%M:%S")
 
-redis = None
+# redis = None
 
 resources = [{'node_id': "Node-0001",
-              'Hostname': "***REMOVED***",
-              'Availability': "active",
-              'State': "ready",
-              'CPUs': 18,
-              'MemoryBytes': 33548128256
-              },
-             {'node_id': "Node-0002",
-              'Hostname': "***REMOVED***",
-              'Availability': "active",
-              'State': "ready",
-              'CPUs': 96,
-              'MemoryBytes': 540483764224
-              },
-             {'node_id': "Node-0003",
-              'Hostname': "***REMOVED***",
-              'Availability': "active",
-              'State': "ready",
-              'CPUs': 96,
-              'MemoryBytes': 540483764224
-              }
-             ]
+           'Hostname': "***REMOVED***",
+           'Availability': "active",
+           'State': "ready",
+           'CPUs': 18,
+           'MemoryBytes': 33548128256
+          },
+          {'node_id': "Node-0002",
+           'Hostname': "***REMOVED***",
+           'Availability': "active",
+           'State': "ready",
+           'CPUs': 96,
+           'MemoryBytes': 540483764224
+          },
+          {'node_id': "Node-0003",
+           'Hostname': "***REMOVED***",
+           'Availability': "active",
+           'State': "ready",
+           'CPUs': 96,
+           'MemoryBytes': 540483764224
+          }
+         ]
 
 
 class Scheduler:
@@ -75,6 +81,23 @@ class Scheduler:
             self.docker_client = docker.from_env()
             self.api_client = docker.APIClient()
 
+        # initialize Redis client
+        n = 0
+        while (n <= Max_Redis_Init):
+            try:
+                # self.redis = Redis(host=os.environ.get("REDIS_HOST", "myredis"),
+                self.redis = Redis(host=os.environ.get("REDIS_HOST", "localhost"),
+                              port=os.environ.get("REDIS_PORT", 6379),
+                              # db=0, encoding="utf-8", decode_responses=True,
+                              db=0, decode_responses=True,
+                              password='***REMOVED***')
+            except:
+                logging.debug("redis connection error")
+            time.sleep(1)
+            n += 1
+            if (self.redis != None):
+                break
+
         # self._jobQ = queue.deque()
         # _MAX_JOBS is set to currently available total number of CPUs
         self._MAX_JOBS = MAX_JOBS
@@ -89,8 +112,8 @@ class Scheduler:
             logging.info("In create_resources: MemoryBytes = {}".format(resource['MemoryBytes']))
             e_key = keynamehelper.create_key_name("resource", resource['node_id'])
             logging.info("In create_resources: e_key = {}".format(e_key))
-            redis.hmset(e_key, resource)
-            redis.sadd(e_set_key, resource['node_id'])
+            self.redis.hmset(e_key, resource)
+            self.redis.sadd(e_set_key, resource['node_id'])
             logging.info("In create_resources: e_set_key = {}".format(e_set_key))
 
     def create_user_from_username(self, user_id):
@@ -101,7 +124,7 @@ class Scheduler:
         try:
             c_key = keynamehelper.create_key_name("user", user_id)
             user = {'user_id': user_id}
-            redis.hmset(c_key, user)
+            self.redis.hmset(c_key, user)
         except:
             logging.debug("user not created")
 
@@ -110,12 +133,16 @@ class Scheduler:
         Check available resources to allocate job request to a single node to optimize 
         computation efficiency
         """
+        redis = self.redis
+        print("type of redis: ", type(redis))
+
         index = 0
         cpusList = []
         cpus_dict = {}
         for resource in resources:
             NodeId = resource['node_id']
             e_key = keynamehelper.create_key_name("resource", NodeId)
+            print("e_key  = ", e_key)
             if (cpus != 0):
                 p = redis.pipeline()
                 try:
@@ -135,8 +162,7 @@ class Scheduler:
                         req_set_key = keynamehelper.create_key_name("job_request", user_id)
                         user_key = keynamehelper.create_key_name(user_id)
                         Hostname = str(redis.hget(e_key, "Hostname"))
-                        cpus_dict = {'req_id': req_id, 'node_id': NodeId, 'Hostname': Hostname,
-                                     'cpus_alloc': cpus_alloc,
+                        cpus_dict = {'req_id': req_id, 'node_id': NodeId, 'Hostname': Hostname, 'cpus_alloc': cpus_alloc,
                                      'mem': mem, 'index': index}
                         p.hmset(req_key, cpus_dict)
                         p.sadd(req_set_key, cpus_dict['req_id'])
@@ -153,18 +179,18 @@ class Scheduler:
                     p.reset()
                     logging.info("Allocation complete!")
             else:
-                logging.debug(
-                    "Allocation not performed for NodeId: {}, have {} CPUs, requested {} CPUs".format(NodeId, CPUs,
-                                                                                                      cpus))
+                logging.debug("Allocation not performed for NodeId: {}, have {} CPUs, requested {} CPUs".format(NodeId, CPUs, cpus))
         logging.info("In check_single_node_availability: cpusList = {}".format(cpusList))
+        print("In check_single_node_availability:\n cpusList = {}".format(cpusList))
         return cpusList
 
-    def check_restricted_round_robin(self, user_id, cpus, mem):
+    def check_generalized_round_robin(self, user_id, cpus, mem):
         """
         Check available resources on host nodes and allocate in round robin manner even the request
         can fit in a single node. This can be useful in test cases where large number of CPUs is 
         inefficient for small domains and in filling the nodes when they are almost full
         """
+        redis = self.redis
         num_node = len(resources)
         int_cpus = int(cpus / num_node)
         remain_cpus = cpus % num_node
@@ -173,7 +199,7 @@ class Scheduler:
         iter = 0
         while iter < num_node:
             if (iter < remain_cpus):
-                allocList.append(int_cpus + 1)
+                allocList.append(int_cpus+1)
             else:
                 allocList.append(int_cpus)
             iter += 1
@@ -196,16 +222,15 @@ class Scheduler:
 
                     if (cpus_alloc != 0):
                         p.hincrby(e_key, "CPUs", -cpus_alloc)
-                        logging.info("In check_restricted_round_robin: CPUs = {}".format(CPUs))
+                        logging.info("In check_generalized_round_robin: CPUs = {}".format(CPUs))
                         p.hincrby(e_key, "MemoryBytes", -mem)
-                        logging.info("In check_restricted_round_robin: MemoryBytes = {}".format(MemoryBytes))
+                        logging.info("In check_generalized_round_robin: MemoryBytes = {}".format(MemoryBytes))
                         req_id = generate.order_id()
                         req_key = keynamehelper.create_key_name("job_request", req_id)
                         req_set_key = keynamehelper.create_key_name("job_request", user_id)
                         user_key = keynamehelper.create_key_name(user_id)
                         Hostname = str(redis.hget(e_key, "Hostname"))
-                        cpus_dict = {'req_id': req_id, 'node_id': NodeId, 'Hostname': Hostname,
-                                     'cpus_alloc': cpus_alloc,
+                        cpus_dict = {'req_id': req_id, 'node_id': NodeId, 'Hostname': Hostname, 'cpus_alloc': cpus_alloc,
                                      'mem': mem, 'index': index}
                         p.hmset(req_key, cpus_dict)
                         p.sadd(req_set_key, cpus_dict['req_id'])
@@ -214,19 +239,29 @@ class Scheduler:
                         p.execute()
                         index += 1
                 except WatchError:
-                    logging.debug("Write Conflict check_restricted_round_robin: {}".format(e_key))
+                    logging.debug("Write Conflict check_generalized_round_robin: {}".format(e_key))
                 finally:
                     p.reset()
                     logging.info("Allocation complete!")
             else:
-                logging.debug(
-                    "Allocation not performed for NodeId: {}, have {} CPUs, requested {} CPUs".format(NodeId, CPUs,
-                                                                                                      cpus))
-        logging.info("In check_restricted_round_robin: cpusList = {}".format(cpusList))
+                logging.debug("Allocation not performed for NodeId: {}, have {} CPUs, requested {} CPUs".format(NodeId, CPUs, cpus))
+        logging.info("In check_generalized_round_robin: cpusList = {}".format(cpusList))
         return cpusList
 
     def check_availability_and_schedule(self, user_id, cpus, mem):
         """Check available resources on host node and allocate based on user request"""
+        redis = self.redis
+        total_CPUs = 0
+        cpusList = []
+        for resource in resources:
+            NodeId = resource['node_id']
+            e_key = keynamehelper.create_key_name("resource", NodeId)
+            CPUs = int(redis.hget(e_key, "CPUs"))
+            total_CPUs += CPUs
+        if (cpus > total_CPUs):
+            print("Requested CPUs greater than CPUs available: requested = {}, available = {}".format(cpus, total_CPUs))
+            return cpusList
+
         index = 0
         cpusList = []
         cpus_dict = {}
@@ -264,10 +299,10 @@ class Scheduler:
                     # CPUs = int(redis.hget(e_key, resource['CPUs']))
                     CPUs = int(redis.hget(e_key, "CPUs"))
                     MemoryBytes = int(redis.hget(e_key, "MemoryBytes"))
-                    if (CPUs <= cpus):  # request needs one or more nodes
-                        cpus -= CPUs  # deduct all CPUs currently available on this node
+                    if (CPUs <= cpus):             # request needs one or more nodes
+                        cpus -= CPUs               # deduct all CPUs currently available on this node
                         cpus_alloc = CPUs
-                    elif (cpus > 0):  # CPUS > cpus, request is smaller than CPUs on this node
+                    elif (cpus > 0):               # CPUS > cpus, request is smaller than CPUs on this node
                         cpus_alloc = cpus
                         cpus = 0
                     else:
@@ -291,8 +326,7 @@ class Scheduler:
                         logging.info("In check_availability_and_schedule: req_set_key = {}".format(req_set_key))
                         # p.hmset(req_key, request)
                         Hostname = str(redis.hget(e_key, "Hostname"))
-                        cpus_dict = {'req_id': req_id, 'node_id': NodeId, 'Hostname': Hostname,
-                                     'cpus_alloc': cpus_alloc,
+                        cpus_dict = {'req_id': req_id, 'node_id': NodeId, 'Hostname': Hostname, 'cpus_alloc': cpus_alloc,
                                      'mem': mem, 'index': index}
                         p.hmset(req_key, cpus_dict)
                         p.sadd(req_set_key, cpus_dict['req_id'])
@@ -309,10 +343,9 @@ class Scheduler:
                     p.reset()
                     logging.info("Allocation complete!")
             else:
-                logging.debug(
-                    "Allocation not performed for NodeId: {}, have {} CPUs, requested {} CPUs".format(NodeId, CPUs,
-                                                                                                      cpus))
+                logging.debug("Allocation not performed for NodeId: {}, have {} CPUs, requested {} CPUs".format(NodeId, CPUs, cpus))
         logging.info("In check_availability_and_schedule: cpusList = {}".format(cpusList))
+        print("In check_availability_and_schedule:\n cpusList = {}".format(cpusList))
         return cpusList
 
     def print_resource_details(self):
@@ -320,7 +353,7 @@ class Scheduler:
         logging.info("Resources remaining:")
         for resource in resources:
             e_key = keynamehelper.create_key_name("resource", resource['node_id'])
-            logging.info("hgetall(e_key): {}".format(redis.hgetall(e_key)))
+            logging.info("hgetall(e_key): {}".format(self.redis.hgetall(e_key)))
         logging.info("-" * 20)
         logging.info("\n")
 
@@ -385,10 +418,9 @@ class Scheduler:
                 # task = service.tasks(filters={'name':'nwm_mpi-worker_0'})
                 # pp(task)
                 # service_dict = {"Name": Name, "Labels": Labels, "HostNode": HostNode, "NameSpace": NameSpace, "img_id": img_id, "Addr": Addr}
-                service_dict = {"Name": Name, "Labels": Labels, "HostNode": HostNode, "NameSpace": NameSpace,
-                                "Hostname": Hostname, "cpus_alloc": cpus_alloc}
+                service_dict = {"Name": Name, "Labels": Labels, "HostNode": HostNode, "NameSpace": NameSpace, "Hostname": Hostname, "cpus_alloc": cpus_alloc}
                 s_key = keynamehelper.create_key_name("service", Name)
-                redis.hmset(s_key, service_dict)
+                self.redis.hmset(s_key, service_dict)
                 logging.info("-" * 30)
                 logging.info("\n")
         logging.info("-" * 50)
@@ -410,24 +442,22 @@ class Scheduler:
             logging.info("ID = {}".format(ID))
             Hostname = list(pn.find('Hostname', node_attrs))[0]
             logging.info("Hostname = {}".format(Hostname))
-            CPUs = int(list(pn.find('NanoCPUs', node_attrs))[0]) / 1000000000
+            CPUs = int( list(pn.find('NanoCPUs', node_attrs))[0] ) / 1000000000
             logging.info("CPUs = {}".format(CPUs))
-            MemoryMB = int(list(pn.find('MemoryBytes', node_attrs))[0]) / 1000000
+            MemoryMB = int( list(pn.find('MemoryBytes', node_attrs))[0] ) / 1000000
             logging.info("MemoryMB= {}".format(MemoryMB))
             logging.info("Role = {}".format(list(pn.find('Role', node_attrs))))
             State = list(pn.find('State', node_attrs))[0]
             logging.info("State = {}".format(State))
             Addr = list(pn.find('Addr', node_attrs))[0]
             logging.info("Addr = {}".format(Addr))
-            node_dict = {"ID": ID, "HostName": Hostname, "CPUs": CPUs, "MemoryMB": MemoryMB, "State": State,
-                         "Addr": Addr}
+            node_dict = {"ID": ID, "HostName": Hostname, "CPUs": CPUs, "MemoryMB": MemoryMB, "State": State, "Addr": Addr}
             n_key = keynamehelper.create_key_name("Node", Hostname)
-            redis.hmset(n_key, node_dict)
+            self.redis.hmset(n_key, node_dict)
         logging.info("-" * 50)
         logging.info("\n")
 
-    def create_service(self, user_id, image, constraints, hostname, serv_labels, serv_name, mounts, networks, idx,
-                       cpusLen, host_str):
+    def create_service(self, user_id, image, constraints, hostname, serv_labels, serv_name, mounts, networks, idx, cpusLen, host_str):
         """create new service with Healthcheck, host, and other info"""
         # name = "nwm_mpi-worker"
 
@@ -435,42 +465,42 @@ class Scheduler:
         client = self.docker_client
         api_client = self.api_client
 
-        Healthcheck = docker.types.Healthcheck(test=["CMD-SHELL", 'echo Hello'],
-                                               interval=1000000 * 500,
-                                               timeout=1000000 * 6000,
-                                               retries=5,
-                                               start_period=1000000 * 6000)
+        Healthcheck = docker.types.Healthcheck(test = ["CMD-SHELL", 'echo Hello'],
+                                               interval = 1000000 * 500,
+                                               timeout = 1000000 * 6000,
+                                               retries = 5,
+                                               start_period = 1000000 * 6000)
         if (idx < cpusLen):
-            service = client.services.create(image=image,
-                                             command=['sh', '-c', 'sudo /usr/sbin/sshd -D'],
-                                             # command = ['sh', '-c', '/nwm/domains/test.sh; sudo /usr/sbin/sshd -D'],
-                                             # command = 'sudo /usr/sbin/sshd -D',
-                                             # command = 'sleep 60',
-                                             constraints=constraints,
-                                             hostname=hostname,
-                                             labels=serv_labels,
-                                             name=serv_name,
-                                             mounts=mounts,
-                                             networks=networks,
-                                             # user = user_id,
-                                             healthcheck=Healthcheck)
+            service = client.services.create(image = image,
+                                         command = ['sh', '-c', 'sudo /usr/sbin/sshd -D'],
+                                         # command = ['sh', '-c', '/nwm/domains/test.sh; sudo /usr/sbin/sshd -D'],
+                                         # command = 'sudo /usr/sbin/sshd -D',
+                                         # command = 'sleep 60',
+                                         constraints = constraints,
+                                         hostname = hostname,
+                                         labels = serv_labels,
+                                         name = serv_name,
+                                         mounts = mounts,
+                                         networks = networks,
+                                         # user = user_id,
+                                         healthcheck = Healthcheck)
         else:
             # args = ['nwm_mpi-worker_tmp0:3', 'nwm_mpi-worker_tmp1:3']
             args = host_str
-            service = client.services.create(image=image,
-                                             # command = ['sh', '-c', 'sudo /usr/sbin/sshd -D'],
-                                             command=['/nwm/run_model.sh'],
-                                             args=args,
-                                             # command = ['sh', '-c', '/nwm/domains/test.sh; sudo /usr/sbin/sshd -D'],
-                                             # command = 'sleep 60',
-                                             constraints=constraints,
-                                             hostname=hostname,
-                                             labels=serv_labels,
-                                             name=serv_name,
-                                             mounts=mounts,
-                                             networks=networks,
-                                             # user = user_id,
-                                             healthcheck=Healthcheck)
+            service = client.services.create(image = image,
+                                         # command = ['sh', '-c', 'sudo /usr/sbin/sshd -D'],
+                                         command = ['/nwm/run_model.sh'],
+                                         args = args,
+                                         # command = ['sh', '-c', '/nwm/domains/test.sh; sudo /usr/sbin/sshd -D'],
+                                         # command = 'sleep 60',
+                                         constraints = constraints,
+                                         hostname = hostname,
+                                         labels = serv_labels,
+                                         name = serv_name,
+                                         mounts = mounts,
+                                         networks = networks,
+                                         # user = user_id,
+                                         healthcheck = Healthcheck)
 
         inspect = api_client.inspect_service(service.id, insert_defaults=True)
         logging.info("Output from inspect_service in create_service():")
@@ -488,7 +518,7 @@ class Scheduler:
         logging.info("HostNode = {}".format(HostNode))
         logging.info("\n")
         # test out some service functions
-        serv_list = client.services.list(filters={'name': 'nwm_mpi-worker_tmp'})[0]
+        serv_list = client.services.list(filters={'name':'nwm_mpi-worker_tmp'})[0]
         service_id = serv_list.id
         logging.info("service_id: {}".format(service_id))
         service_name = serv_list.name
@@ -586,7 +616,8 @@ class Scheduler:
         '''
         Add job request to queue
         '''
-        self._jobQ.append(request)
+        self.__class__._jobQ.append(request)
+        # self._jobQ.append(request)
 
     def build_host_list(self, basename, cpusList):
         '''
@@ -599,7 +630,7 @@ class Scheduler:
         for cpu in cpusList:
             cpus_alloc = str(cpu['cpus_alloc'])
             name = basename + str(idx)
-            host_tmp = name + ':' + cpus_alloc
+            host_tmp = name+':'+cpus_alloc
             host_str.append(str(host_tmp))
             idx += 1
         return host_str
@@ -617,7 +648,7 @@ class Scheduler:
         for cpu in cpusList:
             cpus_alloc = str(cpu['cpus_alloc'])
             name = basename + str(idx)
-            host_str += name + ':' + cpus_alloc + '\n'
+            host_str += name+':'+cpus_alloc+'\n'
             idx += 1
 
         client = self.docker_client
@@ -653,7 +684,7 @@ class Scheduler:
                 cpus_alloc = Labels['cpus_alloc']
                 # print("In write_to_hostfile: hostname = {}".format(hostname))
                 # print("In write_to_hostfile: cpus_alloc = {}".format(cpus_alloc))
-                host_str += Name + ':' + cpus_alloc + '\n'
+                host_str += Name+':'+cpus_alloc+'\n'
 
         for service in service_list:
             service_id = service.id
@@ -672,6 +703,7 @@ class Scheduler:
         Build nested cpusList from cpus_dict
         """
 
+        redis = self.redis
         cpusList = []
         user_key = keynamehelper.create_key_name(user_id)
 
@@ -682,7 +714,7 @@ class Scheduler:
             req_key = keynamehelper.create_key_name("job_request", req_id)
             cpus_dict = redis.hgetall(req_key)
             cpusList.append(cpus_dict)
-            index = cpus_dict['index']  # index = 0
+            index = cpus_dict['index']        # index = 0
 
         # case for index = 0 or 1, job belongs to a different request if index = 0
         req_id = redis.lpop(user_key)
@@ -692,16 +724,15 @@ class Scheduler:
             cpus_dict = redis.hgetall(req_key)
             index = cpus_dict['index']
             if (index == 0):
-                redis.lpush(user_key,
-                            req_id)  # return the popped value, no popping the same request data twice if job fits on one node
+                redis.lpush(user_key, req_id)      # return the popped value, no popping the same request data twice if job fits on one node
             else:
                 cpusList.append(cpus_dict)
 
         # cases for the rest of index != 0
         # while (req_id != None):
-        while (index != 0) and (req_id != None):  # previous req_id
+        while (index != 0) and (req_id != None):    # previous req_id
             req_id = redis.lpop(user_key)
-            if (req_id != None):  # new req_id
+            if (req_id != None):        # new req_id
                 req_key = keynamehelper.create_key_name("job_request", req_id)
                 cpus_dict = redis.hgetall(req_key)
                 cpusList.append(cpus_dict)
@@ -710,6 +741,8 @@ class Scheduler:
                 print("In retrieve_job_metadata: user_key", user_key, "req_id = ", req_id)
         print("In retrieve_job_metadata: cpusList", cpusList)
         self.print_resource_details()
+        return cpusList
+
 
     def startJobs(self, user_id, cpus, mem, image, constraints, hostname, serv_labels, serv_name, cpus_alloc, mounts,
                   networks, idx, cpusLen, host_str):
@@ -723,16 +756,16 @@ class Scheduler:
             raise Exception('System already has too many running containers. '
                             'Either kill containers or adjust the max_jobs '
                             'attribute.')
-        # que = self._jobQ
-        # for q in que:
-        # print("In startJobs, _jobQ: user_id, cpus, mem: {} {} {}".format(q.user_id, q.cpus, q.mem))
+        que = self._jobQ
+        for q in que:
+            print("In startJobs, _jobQ: user_id, cpus, mem: {} {} {}".format(q.user_id, q.cpus, q.mem))
 
         while len(self._jobQ) != 0:
-            # if len(self._jobQ) != 0:
+        # if len(self._jobQ) != 0:
             # if len(self.check_availability_and_schedule()) != 0:
             req = self._jobQ.popleft()
-            service = self.runJob(req, image, constraints, hostname, serv_labels, serv_name, cpus_alloc, mounts,
-                                  networks, idx, cpusLen, host_str)
+            # service = self.runJob(req, image, constraints, hostname, serv_labels, serv_name, cpus_alloc, mounts,
+                                    # networks, idx, cpusLen, host_str)
             # running_services_list = client.services.list()
 
     def check_jobQ(self):
@@ -789,22 +822,24 @@ class Scheduler:
                 service_dict = {"Name": Name, "Labels": Labels, "HostNode": HostNode, "NameSpace": NameSpace,
                                 "Hostname": Hostname, "cpus_alloc": cpus_alloc}
                 s_key = keynamehelper.create_key_name("service", Name)
-                redis.hmset(s_key, service_dict)
+                self.redis.hmset(s_key, service_dict)
                 print("-" * 30)
                 print("\n")
         print("-" * 50)
         logging.info("\n")
 
-    def initialize_redis(self):
+
+    def clean_redisKeys(self):
+        '''
         """ initialize Redis client """
-        from utils.clean import clean_keys
+        from scheduler.utils.clean import clean_keys
 
         global redis
         n = 0
         while (n <= Max_Redis_Init):
             try:
-                redis = Redis(host=os.environ.get("REDIS_HOST", "myredis"),
-                              # redis = Redis(host=os.environ.get("REDIS_HOST", "localhost"),
+                # redis = Redis(host=os.environ.get("REDIS_HOST", "myredis"),
+                redis = Redis(host=os.environ.get("REDIS_HOST", "localhost"),
                               port=os.environ.get("REDIS_PORT", 6379),
                               db=0, decode_responses=True,
                               password='***REMOVED***')
@@ -816,8 +851,10 @@ class Scheduler:
                 break
 
         # time.sleep(5)
-        clean_keys(redis)
-
+        '''
+        clean_keys(self.redis)
+        # self.redis.flushdb()
+        self.redis.flushall()
 
 def check_for_incoming_req():
     '''
@@ -826,7 +863,6 @@ def check_for_incoming_req():
     time.sleep(5)
     recvJobReq = 1
     return recvJobReq
-
 
 def test_scheduler():
     """Test the scheduler using on the fly cpusList and the metadata from the saved database"""
@@ -838,7 +874,7 @@ def test_scheduler():
     scheduler = Scheduler()
 
     # initialize redis client
-    scheduler.initialize_redis()
+    scheduler.clean_redisKeys()
 
     # build resource database
     scheduler.create_resources()
@@ -869,18 +905,18 @@ def test_scheduler():
             check_single_node_availability() find the first node with enough CPUs to accomodate a job request, loading a
             job request to a single node optimize the computation efficiency
 
-            check_restricted_round_robin() distributes a compute job among a set of nodes, even though the job can fit in
+            check_generalized_round_robin() distributes a compute job among a set of nodes, even though the job can fit in
             a single node. This is useful in some special cases
             """
 
             # cpusList = scheduler.check_availability_and_schedule(user_id, cpus, mem)
-            # cpusList = scheduler.check_single_node_availability(user_id, cpus, mem)
-            cpusList = scheduler.check_restricted_round_robin(user_id, cpus, mem)
+            cpusList = scheduler.check_single_node_availability(user_id, cpus, mem)
+            # cpusList = scheduler.check_generalized_round_robin(user_id, cpus, mem)
 
             # scheduler.write_hostfile(cpusList)
             print("\nIn test_scheduler, cpusList: ", cpusList)
             print("\n")
-            scheduler.retrieve_job_metadata(user_id)
+            # cpusList = scheduler.retrieve_job_metadata(user_id)
             scheduler.print_resource_details()
 
             '''
@@ -904,8 +940,8 @@ def test_scheduler():
             constraints = []
             # hostname = "{{.Service.Name}}-{{.Task.Slot}}"
             hostname = "{{.Service.Name}}"
-            labels = {"com.docker.stack.image": "127.0.0.1:5000/nwm-2.0",
-                      "com.docker.stack.namespace": "nwm"
+            labels =  {"com.docker.stack.image": "127.0.0.1:5000/nwm-2.0",
+                       "com.docker.stack.namespace": "nwm"
                       }
             name = "nwm_mpi-worker_tmp"
             # networks = ["mpi-net", "back40"]
@@ -935,8 +971,7 @@ def test_scheduler():
                 idx += 1
                 schedule = scheduler.fromRequest(user_id, cpus_alloc, mem, idx)
                 # schedule.check_jobQ()
-                schedule.startJobs(user_id, cpus, mem, image, constraints, hostname, labels, name, cpus_alloc, mounts,
-                                   networks, idx, cpusLen, host_str)
+                # schedule.startJobs(user_id, cpus, mem, image, constraints, hostname, labels, name, cpus_alloc, mounts, networks, idx, cpusLen, host_str)
             print("\n")
             schedule.check_jobQ()
             jobQ = scheduler._jobQ
@@ -947,7 +982,7 @@ def test_scheduler():
             # scheduler.write_to_hostfile()
             # scheduler.update_service(service)
             recvJobReq = 0
-            break  # This is for testing, should not be needed in the final version
+            break    # This is for testing, should not be needed in the final version
 
     '''
     user_id = "shengting.cui"
@@ -957,7 +992,7 @@ def test_scheduler():
     cpusList = scheduler.check_availability_and_schedule(user_id, cpus, mem)
     print("\nIn test_scheduler, cpusList: ", cpusList)
     print("\n")
-    scheduler.retrieve_job_metadata(user_id)
+    cpusList = scheduler.retrieve_job_metadata(user_id)
     scheduler.print_resource_details()
     # scheduler.service_to_host_mapping()
 
