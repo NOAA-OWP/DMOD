@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 NAME=$(basename "${0}")
+SCRIPT_DIR="$( cd "$( dirname "${0}" )" >/dev/null 2>&1 && pwd )"
 
 LINTER_CMD='flake8'
 AUTOPEP_CMD='autopep8'
-
 DEFAULT_MAX_LINE_LENGTH=120
 
 usage()
@@ -13,6 +13,13 @@ usage()
     ${NAME} -h|--help
     ${NAME} [options...] <action>
 Options:
+    --venv
+        Specify a virtual environment should be loaded for running actions
+        By default, venv/ in script's directory is used
+
+    --venv-path <dir>
+        Set the virtual environment directory (implies --venv)
+
     --path <path>
         Path to file or directory of interest for action
 
@@ -51,6 +58,7 @@ run_autofix()
         "${CHECK_PATH:-.}"
 }
 
+# Options args loop
 while [[ ${#} -gt 0 ]]; do
     case "${1}" in
         -h|--help|-help)
@@ -58,19 +66,28 @@ while [[ ${#} -gt 0 ]]; do
             exit
             ;;
         --direct)
-            [[ -n "${IS_DIRECT:-}" ]] && usage && exit 1
-            IS_DIRECT='true'
+            shift
+            break
             ;;
         --path)
             [[ -n "${CHECK_PATH:-}" ]] && usage && exit 1
-            [[ -n "${IS_DIRECT:-}" ]] && usage && exit 1
             CHECK_PATH="${2}"
             [[ ! -e "${CHECK_PATH}" ]] && echo "Error: check path ${CHECK_PATH} does not exist" && usage && exit 1
             shift
             ;;
+        --venv-path)
+            [[ -n "${VENV_PATH:-}" ]] && usage && exit 1
+            VENV_PATH="${2}"
+            USE_VENV='true'
+            [[ ! -d "${VENV_PATH}" ]] && echo "Error: virtual environment directory ${VENV_PATH} does not exist" && usage && exit 1
+            shift
+            ;;
+        --venv)
+            # Allow this multiple times, since it gets implied by --venv-path
+            USE_VENV='true'
+            ;;
         --max-line-length)
             [[ -n "${MAX_LINE_LENGTH:-}" ]] && usage && exit 1
-            [[ -n "${IS_DIRECT:-}" ]] && usage && exit 1
             MAX_LINE_LENGTH="${2}"
             re='^[0-9]+$'
             if ! [[ $MAX_LINE_LENGTH =~ $re ]]; then
@@ -81,7 +98,6 @@ while [[ ${#} -gt 0 ]]; do
             ;;
         --diff)
             [[ -n "${FIX_CHANGE_METHOD:-}" ]] && usage && exit 1
-            [[ -n "${IS_DIRECT:-}" ]] && usage && exit 1
             FIX_CHANGE_METHOD="--diff"
             ;;
         --extra-aggressive|-aa)
@@ -89,12 +105,42 @@ while [[ ${#} -gt 0 ]]; do
             if  [[ -n "${AGGRESSIVENESS-blah}" ]]; then
                 [[ -n "${AGGRESSIVENESS:-}" ]] && usage && exit 1
             fi
-            [[ -n "${IS_DIRECT:-}" ]] && usage && exit 1
             AGGRESSIVENESS="-aa"
             ;;
+        *)
+            # Break out of options loop to proceed to actions loop
+            break
+            ;;
+    esac
+    shift
+done
+
+# Before handling actions, load any set virtual environments
+if [[ "${USE_VENV:-}" == "true" ]]; then
+    if [[ ! -d "${VENV_PATH:=${SCRIPT_DIR}/venv}" ]]; then
+        echo "Error: virtual environment directory ${VENV_PATH} does not exist"
+        usage
+        exit 1
+    elif [[ ! -e "${VENV_PATH}/bin/activate" ]]; then
+        echo "Error: ${VENV_PATH} does not appear to be a valid virtual environment directory"
+        usage
+        exit 1
+    # If already in a virtual env, only continue if it's the same that has been set
+    elif [[ -n "${VIRTUAL_ENV:-}" ]] && [[ ! "${VIRTUAL_ENV}" -ef "${VENV_PATH}" ]]; then
+        echo "Error: already in separate virtual environment ${VIRTUAL_ENV}; deactivate this before running script"
+        exit 1
+    elif [[ -z "${VIRTUAL_ENV:-}" ]]; then
+        echo "Sourcing ${VENV_PATH}/bin/activate"
+        source "${VENV_PATH}/bin/activate"
+    fi
+fi
+
+# Action args loop
+while [[ ${#} -gt 0 ]]; do
+    case "${1}" in
         fix|autopep8)
             ! command -v  ${AUTOPEP_CMD} > /dev/null && echo "Error: cannot find command ${AUTOPEP_CMD} in environment path" && exit 1
-            if [[ "${IS_DIRECT:-}" == 'true' ]]; then
+            if [[ "${SCRIPT_OPTS_FINISHED:-}" == 'true' ]]; then
                 shift
                 ${AUTOPEP_CMD} "${@}"
                 exit $?
@@ -105,7 +151,7 @@ while [[ ${#} -gt 0 ]]; do
             ;;
         check|linter|flake8)
             ! command -v ${LINTER_CMD} > /dev/null && echo "Error: cannot find command ${LINTER_CMD} in environment path" && exit 1
-            if [[ "${IS_DIRECT:-}" == 'true' ]]; then
+            if [[ "${SCRIPT_OPTS_FINISHED:-}" == 'true' ]]; then
                 shift
                 ${LINTER_CMD} "${@}"
                 exit $?
@@ -124,3 +170,6 @@ done
 [[ -z "${ACTION:-}" ]] && usage && exit
 
 ${ACTION}
+
+# Deactivate virtual environment if one was loaded
+[[ -n "${USE_VENV:-}" ]] && deactivate
