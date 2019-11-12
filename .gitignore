@@ -6,6 +6,7 @@ __pychache__/
 /venv/
 .env
 base/ssh/
+gui/db.sqlite3
 request_client/ssl/certificate.pem
 request_handler/ssl/
 request_handler/*.tar.gz
@@ -14,4 +15,3 @@ request_handler/ssl/certificate.pem
 request_handler/ssl/*certificate*.pem
 request_handler/ssl/*privkey*.pem
 scheduler/scheduler.log
-gui/db.sqlite3
