@@ -6,6 +6,7 @@ __pychache__/
 /venv/
 .env
 base/ssh/
+gui/db.sqlite3
 request_client/ssl/certificate.pem
 request_handler/ssl/
 request_handler/*.tar.gz

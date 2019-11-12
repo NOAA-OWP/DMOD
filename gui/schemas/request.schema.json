@@ -1,0 +1,24 @@
+{
+  "definitions": {},
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "request.schema.json",
+  "type": "object",
+  "title": "Request",
+  "required": [
+    "model"
+  ],
+  "properties":{
+    "model":{
+      "propertyNames":{"enum":["NWM", "XYZ"]},
+      "properties": {
+        "XYZ": {"$ref": "file:xyz.schema.json"},
+        "NWM": {"$ref": "file:nwm.schema.json"}
+      },
+      "oneOf":[
+        {"required": ["NWM"]},
+        {"required": ["XYZ"]}
+      ]
+      }
+    }
+
+}
