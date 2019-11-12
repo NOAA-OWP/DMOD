@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "nwm.model.parameter.schema.json",
+  "type": "object",
+  "title": "Parameter",
+
+
+  "propertyNames": {
+    "enum": ["hydraulic_conductivity", "land_cover"]
+  },
+
+  "properties": {
+    "hydraulic_conductivity": {
+      "$ref": "#/definitions/hydraulic_conductivity",
+      "additionalProperties": false
+    }
+
+
+  },
+
+  "definitions": {
+    "hydraulic_conductivity": {
+      "type": "object",
+      "propertyNames": {
+        "enum": ["scalar", "distribution"]
+      },
+      "$comment": "This validates that only one key is in the payload, and that the key is properly defined in context",
+      "allOf": [{
+          "oneOf": [{
+            "required": ["scalar"]
+          }, {
+            "required": ["distribution"]
+          }]
+        },
+
+        {
+          "oneOf": [{
+
+              "$ref": "#/definitions/scalar"
+            },
+            {
+
+              "$ref": "#/definitions/distribution"
+            }
+          ]
+        }
+
+      ]
+    },
+
+    "scalar": {
+      "$id": "#/definitions/scalar",
+      "title": "The Scalar Schema",
+      "required": ["scalar"],
+      "properties": {
+        "scalar": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "distribution": {
+      "$id": "#/definitions/distribution",
+      "type": "object",
+      "title": "The Distribution Schema",
+      "required": ["distribution"],
+      "properties": {
+        "distribution": {
+          "type": "object",
+          "required": [
+            "min",
+            "max",
+            "type"
+          ],
+          "properties": {
+            "min": {
+              "$id": "#definitions/distribution/properties/min",
+              "type": "integer",
+              "title": "The Distribution Min Schema",
+              "default": 0,
+              "minimum": 0,
+              "maximum": 10,
+              "examples": [
+                5
+              ]
+            },
+            "max": {
+              "$id": "#definitions/distribution/properties/max",
+              "type": "integer",
+              "title": "The Distribution Max Schema",
+              "default": 0,
+              "minimum": 0,
+              "maximum": 10,
+              "examples": [
+                10
+              ]
+            },
+            "type": {
+              "$id": "#/definitions/distribution/properties/type",
+              "type": "string",
+              "title": "The Distribution Type Schema",
+              "default": "",
+              "examples": [
+                "normal"
+              ],
+              "enum": ["normal", "lognormal"]
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    }
+  }
+}
