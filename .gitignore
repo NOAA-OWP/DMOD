@@ -14,3 +14,4 @@ request_handler/ssl/certificate.pem
 request_handler/ssl/*certificate*.pem
 request_handler/ssl/*privkey*.pem
 scheduler/scheduler.log
+gui/db.sqlite3
