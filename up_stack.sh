@@ -32,12 +32,12 @@ generate_default_env_file()
             [ ! -d ${_STORE} ] && mkdir -p ${_STORE}
         fi
         # Similar for this directory
-        local _ANALYSIS_ASSIM=''
+        local _DOMAINS_DIR=''
         if [[ -e /apd_common/analysis_assim_extended ]]; then
-            _ANALYSIS_ASSIM=/apd_common/analysis_assim_extended
+            _DOMAINS_DIR=/apd_common/analysis_assim_extended
         else
-            _ANALYSIS_ASSIM=./docker_host_volumes/analysis_assim_extended
-            [ ! -d ${_ANALYSIS_ASSIM} ] && mkdir -p ${_ANALYSIS_ASSIM}
+            _DOMAINS_DIR=./docker_host_volumes/domains
+            [ ! -d ${_DOMAINS_DIR} ] && mkdir -p ${_DOMAINS_DIR}
         fi
 
 
@@ -49,7 +49,7 @@ DOCKER_MPI_NET_SUBNET=10.0.0.0/24
 DOCKER_MPI_NET_GATEWAY=10.0.0.1
 
 DOCKER_HOST_IMAGE_STORE=${_STORE}
-DOCKER_VOL_ANALYSIS_ASSIM=${_ANALYSIS_ASSIM}
+DOCKER_VOL_DOMAINS=${_DOMAINS_DIR}
 
 DOCKER_INTERNAL_REGISTRY_HOST=127.0.0.1
 DOCKER_INTERNAL_REGISTRY_PORT=5000
