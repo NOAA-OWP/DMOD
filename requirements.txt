@@ -4,3 +4,5 @@ jsonschema
 redis
 websockets
 Faker
+flake8
+autopep8

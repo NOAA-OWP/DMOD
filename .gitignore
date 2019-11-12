@@ -2,6 +2,7 @@
 *.pyc
 __pychache__/
 /.idea/
+/docker_host_volumes/
 /venv/
 .env
 base/ssh/
