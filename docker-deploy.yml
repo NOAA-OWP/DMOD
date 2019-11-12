@@ -2,7 +2,7 @@ version: "3.7"
 
 services:
   scheduler:
-    image: 127.0.0.1:${DOCKER_INTERNAL_REGISTRY_PORT}/mpi-scheduler
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT}/mpi-scheduler
     networks:
       - ${DOCKER_MPI_NET_NAME}
     entrypoint: ['./entry.sh']
@@ -10,8 +10,8 @@ services:
       - "22"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      #- /opt/nwm_c/domains:/nwm/domains
-      - ${DOCKER_VOL_ANALYSIS_ASSIM}:/nwm/conus
+      - ${DOCKER_VOL_DOMAINS?}:/nwm/domains
+      #- ${DOCKER_VOL_ANALYSIS_ASSIM}:/nwm/conus
       #- /apd_common/anthro/:/apd_common/anthro
     deploy:
       placement:
@@ -22,7 +22,7 @@ services:
       - mpi-master
       - mpi-worker
   mpi-master:
-    image: 127.0.0.1:${DOCKER_INTERNAL_REGISTRY_PORT}/nwm-${NWM_NAME}
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT}/nwm-${NWM_NAME}
     networks:
       - ${DOCKER_MPI_NET_NAME}
     #user: root
@@ -35,7 +35,7 @@ services:
       #- /opt/nwm_c/domains:/nwm/domains
       #- /apd_common/anthro/:/apd_common/anthro
       - /dev/shm:/dev/shm #Hack in shared memory filesystem
-      - ${DOCKER_VOL_ANALYSIS_ASSIM}:/nwm/conus
+      - ${DOCKER_VOL_DOMAINS?}:/nwm/domains
       #- type: tmpfs
       #-  target: /nwm/mem_fs
       #  tmpfs:
@@ -53,7 +53,7 @@ services:
     #   - SYS_PTRACE
     #   - CAP_SYS_ADMIN
   mpi-worker:
-    image: 127.0.0.1:${DOCKER_INTERNAL_REGISTRY_PORT}/nwm-${NWM_NAME}
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT}/nwm-${NWM_NAME}
     hostname: "{{.Service.Name}}-{{.Task.Slot}}"
     #user: root
     entrypoint: ['sudo', '/usr/sbin/sshd', '-D']
@@ -71,6 +71,7 @@ services:
       replicas: 1
     volumes:
       - /dev/shm:/dev/shm
+      - ${DOCKER_VOL_DOMAINS?}:/nwm/domains
       #- type: tmpfs
       #  target: /nwm/mem_fs
       #  tmpfs:
