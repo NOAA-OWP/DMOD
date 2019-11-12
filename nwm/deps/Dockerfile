@@ -18,6 +18,9 @@ RUN apk update && apk upgrade \
 ARG MPICH_VERSION="3.2"
 ARG MPICH_CONFIGURE_OPTIONS=""
 ARG MPICH_MAKE_OPTIONS
+# ARG NETCDF_C_VERSION="latest"
+ARG NETCDF_C_VERSION="v4.6.0"
+ENV NETCDF_C_VERSION ${NETCDF_C_VERSION:-latest}
 
 # Download, build, and install MPICH
 RUN mkdir /tmp/mpich-src
@@ -47,13 +50,23 @@ RUN wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.4/sr
     && cd hdf5-1.10.4 \
     && ./configure --enable-parallel --prefix=/usr \
     && make && make install
-# Get the latest netCDF C code from unidata github
-RUN curl -s https://api.github.com/repos/Unidata/netcdf-c/releases/latest \
-    | grep "tarball_url" \
-    | cut -d '"' -f 4 \
-    | sudo xargs wget -O netcdf-latest.tar.gz
+# Get netCDF C code from unidata github
+# The NETCDF_C_VERSION Dockerfile arg may be supplied with a valid version if desired; otherwise latest is used
+# Currently 4.6 needs to be used, until there is a patch available for a known bug that causes issues with 4.7/latest
+RUN if [[ "${NETCDF_C_VERSION}" == "latest" ]]; then \
+        curl -s https://api.github.com/repos/Unidata/netcdf-c/releases/latest \
+            | grep "tarball_url" \
+            | cut -d '"' -f 4 \
+            | sudo xargs wget -O netcdf-latest.tar.gz ; \
+    else \
+        curl -s https://api.github.com/repos/Unidata/netcdf-c/releases \
+            | grep "tarball_url" \
+            | grep "${NETCDF_C_VERSION}" \
+            | cut -d '"' -f 4 \
+            | sudo xargs wget -O netcdf-${NETCDF_C_VERSION}.tar.gz ; \
+    fi
 RUN mkdir netcdf
-RUN tar -xzf netcdf-latest.tar.gz -C netcdf --strip 1
+RUN tar -xzf netcdf-${NETCDF_C_VERSION}.tar.gz -C netcdf --strip 1
 WORKDIR /tmp/netcdf
 ## NOT SURE WHY THESE ALL REQUIRE SUDO...
 # RUN LIBS=curl sudo CPPFLAGS=-I/usr/local/include ./configure --prefix=/usr
