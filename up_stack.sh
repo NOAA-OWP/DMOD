@@ -8,20 +8,29 @@ usage()
     Build images, push to internal registry, and deploy NWM Docker stack
 
 Usage:
-    ${NAME} [options]           Perform full build for images
-    ${NAME} [options] update    Only build image for the 'nwm' service, without using cache
+    ${NAME} [opts]          Perform full build for images
+    ${NAME} [opts] update   Only build image for the 'nwm' service, without using cache
 
 Options
-    --build-only                Only build the image(s); do not push or deploy
-    --no-deploy                 Build the image(s) and push to registry, but do not deploy
-    --skip-registry             Skip the step of pushing built images to registry
+    --build-only            Only build the image(s); do not push or deploy
+
+    --init-env              Initialize a default .env file, not already existing, then exit
+                            This will be done by default when necessary before image builds
+
+    --init-env-clear        Initialize a default .env file, clearing any existing, then exit
+
+    --init-env-show         Output values used when initializing a default .env, then exit
+
+    --no-deploy             Build the image(s) and push to registry, but do not deploy
+
+    --skip-registry         Skip the step of pushing built images to registry
 "
     echo "${_O}" 1>&2
 }
 
 generate_default_env_file()
 {
-    if [[ ! -e .env ]]; then
+    if [[ ! -e ${DEFAULT_ENV_OUTPUT_FILE:-.env} ]]; then
         local _STORE=''
         # Use /opt/nwm_c/images as default image store host volume directory, if it exists on the host
         if [[ -e /opt/nwm_c/images ]]; then
@@ -41,7 +50,7 @@ generate_default_env_file()
         fi
 
 
-        cat > .env << EOF
+        cat > ${DEFAULT_ENV_OUTPUT_FILE:-.env} << EOF
 DOCKER_STACK_NAME=nwm
 
 DOCKER_MPI_NET_NAME=mpi-net
@@ -88,6 +97,8 @@ deploy_docker_stack_from_compose_using_env()
 
 # If no .env file exists, create one with some default values
 if [[ ! -e .env ]]; then
+    echo "Creating default .env file in current directory"
+    ENV_JUST_CREATED='true'
     generate_default_env_file
 fi
 # Source .env
@@ -101,6 +112,27 @@ while [[ ${#} -gt 0 ]]; do
             ;;
         --build-only)
             DO_BUILD_ONLY='true'
+            ;;
+        --init-env)
+            # This will have just happened (if necessary) from the code above the loop, so just exit
+            [[ -z "${ENV_JUST_CREATED:-}" ]] && echo "File .env already exists; not re-initializing"
+            exit
+            ;;
+        --init-env-clear)
+            # Remove whatever exists and re-init a default file
+            [[ -e .env ]] && rm .env
+            generate_default_env_file
+            exit
+            ;;
+        --init-env-show)
+            DEFAULT_ENV_OUTPUT_FILE="/tmp/temp_upstack_env_$(date +'%Y%m%d%H%M%S')"
+            generate_default_env_file
+            SEP='###################################################'
+            echo "${SEP}"
+            cat "${DEFAULT_ENV_OUTPUT_FILE}"
+            echo "${SEP}"
+            rm "${DEFAULT_ENV_OUTPUT_FILE}"
+            exit
             ;;
         --skip-registry)
             DO_SKIP_REGISTRY='true'
