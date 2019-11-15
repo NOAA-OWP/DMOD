@@ -7,18 +7,48 @@
   "required": [
     "model"
   ],
-  "properties":{
-    "model":{
-      "propertyNames":{"enum":["NWM", "XYZ"]},
-      "properties": {
-        "XYZ": {"$ref": "file:xyz.schema.json"},
-        "NWM": {"$ref": "file:nwm.schema.json"}
+  "properties": {
+    "model": {
+      "propertyNames": {
+        "enum": [
+          "NWM",
+          "XYZ"
+        ]
       },
-      "oneOf":[
-        {"required": ["NWM"]},
-        {"required": ["XYZ"]}
+      "properties": {
+        "XYZ": {
+          "$ref": "file:xyz.schema.json"
+        },
+        "NWM": {
+          "$ref": "file:nwm.schema.json"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "NWM"
+          ]
+        },
+        {
+          "required": [
+            "XYZ"
+          ]
+        }
       ]
-      }
+    },
+    "domain": {
+      "enum": [
+        "test-domain"
+      ],
+      "type": "string"
+    },
+    "client_id": {
+      "type": "number"
+    },
+    "session-secret": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
     }
-
+  }
 }

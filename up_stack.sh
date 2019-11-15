@@ -63,6 +63,16 @@ DOCKER_VOL_DOMAINS=${_DOMAINS_DIR}
 DOCKER_INTERNAL_REGISTRY_HOST=127.0.0.1
 DOCKER_INTERNAL_REGISTRY_PORT=5000
 
+DOCKER_REQUESTS_CONTAINER_PORT=3012
+
+# This variable should be set from the context of the file system inside the Docker GUI container
+# Alternatively, it can be set empty or removed, and no virtual env will be used
+# (No venv would mean requirements will be installed on every startup, thus making things slower)
+DOCKER_GUI_CONTAINER_VENV_DIR=/usr/maas_portal/venv
+
+# Similarly, this is in the context of the container
+DOCKER_REQUESTS_CONTAINER_VENV_DIR=/code/venv
+
 NWM_NAME=master
 EOF
     fi

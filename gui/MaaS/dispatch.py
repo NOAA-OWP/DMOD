@@ -6,11 +6,11 @@ import os
 import requests
 import json
 
-import MaaS.MaaSRequest as MaaSRequest
-import MaaS.validator as validator
+from . import MaaSRequest
+from . import validator
 
 
-def dispatch(maas_request: MaaSRequest.MaaSRequest) -> requests.Response:
+def dispatch(maas_request: MaaSRequest) -> requests.Response:
     """
     Sends the request to the configured endpoint for the MaaS
 
@@ -22,7 +22,7 @@ def dispatch(maas_request: MaaSRequest.MaaSRequest) -> requests.Response:
 
     # Get the proper endpoint and path to the certificate
     endpoint = os.environ.get("MAAS_ENDPOINT", None)
-    endpoint = "https://***REMOVED***
+    #endpoint = "https://***REMOVED***
     cert_path = os.environ.get("CERT_PATH", False)
 
     # If we can't find an endpoint, we can't do anything, so exit out
