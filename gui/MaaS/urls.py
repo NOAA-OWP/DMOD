@@ -1,5 +1,5 @@
 from django.conf.urls import url
-from MaaS.cbv.EditView import EditView
+from .cbv.EditView import EditView
 
 from . import views
 

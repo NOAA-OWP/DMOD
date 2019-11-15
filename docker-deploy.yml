@@ -80,8 +80,38 @@ services:
     #build: ./nwm
     cap_add:
       - SYS_PTRACE
+  request_handler:
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-request-handler
+    networks:
+      - ${DOCKER_MPI_NET_NAME}
+    deploy:
+      #mode: global
+      placement:
+        constraints:
+          # FIXME find a way to map one worker to each worker node automatically???
+          - ${DOCKER_REQUESTS_DEPLOY_CONSTRAINT_1:-node.hostname==***REMOVED***}
+          - ${DOCKER_REQUESTS_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
+      replicas: 1
+    environment:
+      - REDIS_HOST=
+      - REDIS_PORT=
+      - REDIS_USER=
+      - REDIS_PASS=${DOCKER_REDIS_PASS:-***REMOVED***}
+      - LISTEN_PORT=${DOCKER_REQUESTS_CONTAINER_PORT:-3012}
+      - VENV_DIR=${DOCKER_REQUESTS_CONTAINER_VENV_DIR:-}
+    working_dir: /code
+    ports:
+      - ${DOCKER_REQUESTS_HOST_PORT:-3012}:${DOCKER_REQUESTS_CONTAINER_PORT:-3012}
+    #volumes:
+    #  - ./request_handler:/code
+    depends_on:
+      - scheduler
 
 networks:
     mpi-net:
         external: true
         name: ${DOCKER_MPI_NET_NAME}
+
+# Define persistent volumes that may be shared and persisted between containers
+volumes:
+  gui_static_volume:

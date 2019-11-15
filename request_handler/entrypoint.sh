@@ -9,16 +9,9 @@ if [[ -n "${VENV_DIR:-}" ]]; then
         python -m venv "${VENV_DIR}"
     fi
     source "${VENV_DIR}/bin/activate"
-    pip install --update -r /usr/maas_portal/requirements.txt
+    pip install --update -r /code/requirements.txt
 fi
 
 set +e
 
-# Execute the migration scripts on the designated database
-python manage.py migrate
-
-# Collect all static Django resources into one place where nginx can access them
-python manage.py collectstatic --no-input
-
-# Run the commands passed in from elsewhere
-exec "$@"
+python -m request_handler --port ${LISTEN_PORT:-3012} ${@}

@@ -9,8 +9,8 @@ from django.http import HttpRequest, HttpResponse
 from django.views.generic.base import View
 from django.shortcuts import render
 
-import MaaS.MaaSRequest as MaaSRequest
-from MaaS.dispatch import dispatch
+from .. import MaaSRequest
+from .. import dispatch
 
 
 class EditView(View):
@@ -175,7 +175,7 @@ class EditView(View):
                 print(maas_request.to_json())
 
                 # Attempt to send the request
-                response = dispatch(maas_request)
+                response = dispatch.dispatch(maas_request)
 
                 if response.status_code < 400:
                     # Add a message confirming that the request went through so the user knows what's going on
