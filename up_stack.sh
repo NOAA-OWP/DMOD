@@ -120,7 +120,8 @@ init_if_not_exist_docker_networks()
     # Make sure the Docker requests-net network is defined
     if [[ $(docker network ls --filter name=${DOCKER_REQUESTS_NET_NAME:=requests-net} -q | wc -l) -eq 0 ]]; then
         docker network create \
-            -d bridge \
+            -d overlay \
+            --scope swarm \
             --attachable \
             --subnet ${DOCKER_REQUESTS_NET_SUBNET} \
             --gateway ${DOCKER_REQUESTS_NET_GATEWAY} \
@@ -232,7 +233,6 @@ init_if_not_exist_docker_networks
 # Make sure the local SSH keys are generated for the base image
 [[ ! -d ./base/ssh ]] && mkdir ./base/ssh
 [[ ! -e ./base/ssh/id_rsa ]] && ssh-keygen -t rsa -N '' -f ./base/ssh/id_rsa
-
 
 init_registry_service_if_needed
 
