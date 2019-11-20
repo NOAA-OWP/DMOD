@@ -172,13 +172,20 @@ fi
 [[ ! -d ./base/ssh ]] && mkdir ./base/ssh
 [[ ! -e ./base/ssh/id_rsa ]] && ssh-keygen -t rsa -N '' -f ./base/ssh/id_rsa
 
+# Make sure if we start the registry here that we give it a little time to come all the way up before pushing
+# TODO: maybe change this to a health check later
+DOCKER_READY_PUSH_REGISTRY_TIME=0
 # Make sure the internal Docker image registry container is running
 if [[ $(docker stack services -q --filter "name=${DOCKER_STACK_NAME}_registry" "${DOCKER_STACK_NAME}" | wc -l) -eq 0 ]]; then
     echo "Starting internal Docker registry"
     #docker stack deploy --compose-file docker-registry.yml "${DOCKER_STACK_NAME}"
     deploy_docker_stack_from_compose_using_env docker-registry.yml "${DOCKER_STACK_NAME}"
+    # If starting, set our "ready-to-push" time to 5 seconds in the future
+    DOCKER_READY_PUSH_REGISTRY_TIME=$((5+$(date +%s)))
 else
     echo "Internal Docker registry is online"
+    # If the registry was already started, we can push starting right now
+    DOCKER_READY_PUSH_REGISTRY_TIME=$(date +%s)
 fi
 
 echo "Building custom Docker images"
@@ -203,6 +210,10 @@ fi
 
 # Push to registry (unless we should skip)
 if [[ -z "${DO_SKIP_REGISTRY:-}" ]]; then
+    # Make sure we wait until the "ready-to-push" time determine in the logic for starting the registry service
+    while [[ $(date +%s) -lt ${DOCKER_READY_PUSH_REGISTRY_TIME} ]]; do
+        sleep 1
+    done
     echo "Pushing custom Docker images to internal registry"
     if ! docker-compose -f docker-build.yml push; then
         echo "Previous push command failed; exiting"
