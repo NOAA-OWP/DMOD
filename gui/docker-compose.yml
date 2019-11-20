@@ -1,4 +1,4 @@
-version: "3"
+version: "3.7"
 
 # Declare all services that will be formed within their own containers
 services:
@@ -6,6 +6,8 @@ services:
   nginx:
     # Use the most barebones postgres instance
     image: nginx:1.16
+    networks:
+      - request-listener-net
     # Only restart if a failure occurs
     restart: on-failure
     # Forward everything hitting localhost on port 1337 to port 80 within the container
@@ -21,27 +23,37 @@ services:
       - app_server
   # Define a container belonging exclusively to our django application
   app_server:
-    image: python:3.7-alpine
+    build: .
+    image: maas-portal-development
+    networks:
+      - request-listener-net
     # Call this when starting the container
     entrypoint: /usr/maas_portal/entrypoint.sh
-    command: gunicorn maas_experiment.wsgi:application --bind 0.0.0.0:8000
+    #command: gunicorn maas_experiment.wsgi:application --bind 0.0.0.0:8000
     # Only restart if a failure was encountered
     restart: on-failure
     #networks:
     #  - ${DOCKER_MPI_NET_NAME}
     # Run in debug mode and set all of the variables needed to connect to the postgres server on the internal network
     environment:
-      - VENV_DIR=${DOCKER_GUI_CONTAINER_VENV_DIR:-}
+      #- VENV_DIR=${DOCKER_GUI_CONTAINER_VENV_DIR:-}
       #- CERT_PATH # used by dispatch.py
-      - PYTHONUNBUFFERED=1
-      - MAAS_ENDPOINT=${DOCKER_GUI_MAAS_ENDPOINT:-http://localhost:${DOCKER_REQUESTS_HOST_PORT:-3012}}
+      #- PYTHONUNBUFFERED=1
+      - MAAS_ENDPOINT_HOST=${DOCKER_GUI_MAAS_ENDPOINT_HOST:-localhost}
+      - MAAS_ENDPOINT_PORT=${DOCKER_REQUESTS_HOST_PORT:-3012}
       - MAAS_PORTAL_DEBUG=${DOCKER_GUI_MAAS_PORTAL_DEBUG:-true}
     volumes:
       - static_volume:/usr/maas_portal/static
       - .:/usr/maas_portal
+      #- ${DOCKER_GUI_HOST_VENV_DIR:-/tmp/blah}:${DOCKER_GUI_CONTAINER_VENV_DIR:-/tmp/blah}
     # Expose Django's port to the internal network so that nginx may access it
     expose:
       - 8000
+
+networks:
+  request-listener-net:
+    external: true
+    name: ${DOCKER_REQUESTS_NET_NAME}
 
 # Define persistent volumes that may be shared and persisted between containers
 volumes:
