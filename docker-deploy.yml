@@ -2,12 +2,9 @@ version: "3.7"
 
 services:
   scheduler:
-    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT}/mpi-scheduler
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT}/mgmt
     networks:
-      mpi-net:
-        aliases:
-          - ${DOCKER_REDIS_SERVICE_ALIAS:-redis}
-    entrypoint: ['./entry.sh']
+      - mpi-net
     ports:
       - "22"
     volumes:
@@ -20,68 +17,22 @@ services:
         constraints:
           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_1:-node.role==manager}
           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
-    depends_on:
-      - mpi-master
-      - mpi-worker
-  mpi-master:
-    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT}/nwm-${NWM_NAME}
+  myredis:
+    image: redis
+    ports:
+      - "6379"
     networks:
-      - mpi-net
-    #user: root
-    entrypoint: ['sudo', '/usr/sbin/sshd', '-D']
-    environment:
-      - MPIEXEC_PORT_RANGE=10000:10500
-    #ports:
-    #    - "22"
-    volumes:
-      #- /opt/nwm_c/domains:/nwm/domains
-      #- /apd_common/anthro/:/apd_common/anthro
-      - /dev/shm:/dev/shm #Hack in shared memory filesystem
-      - ${DOCKER_VOL_DOMAINS?}:/nwm/domains
-      #- type: tmpfs
-      #-  target: /nwm/mem_fs
-      #  tmpfs:
-      #      size: 350000000000
+      mpi-net:
+        aliases:
+          - ${DOCKER_REDIS_SERVICE_ALIAS:-redis}
+    entrypoint: ['redis-server', '/usr/local/etc/redis/redis.conf']
+    #volumes:
+    #  - /dev/shm:/dev/shm #Hack in shared memory filesystem
     deploy:
       placement:
         constraints:
-          - ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT_1:-node.hostname==***REMOVED***}
+          - ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT_1:--node.role==manager}
           - ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
-    #build: ./nwm
-    depends_on:
-      - mpi-worker #I think this allows deployment to ensure mpi-workers are up before master?
-    #Not supported until 19.06
-    #cap_add:
-    #   - SYS_PTRACE
-    #   - CAP_SYS_ADMIN
-  mpi-worker:
-    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT}/nwm-${NWM_NAME}
-    hostname: "{{.Service.Name}}-{{.Task.Slot}}"
-    #user: root
-    entrypoint: ['sudo', '/usr/sbin/sshd', '-D']
-    networks:
-      - mpi-net
-    environment:
-      - MPIEXEC_PORT_RANGE=10000:10500
-    deploy:
-      #mode: global
-      placement:
-        constraints:
-          # FIXME find a way to map one worker to each worker node automatically???
-          - ${DOCKER_MPIWORKER_DEPLOY_CONSTRAINT_1:-node.hostname==***REMOVED***}
-          - ${DOCKER_MPIWORKER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
-      replicas: 1
-    volumes:
-      - /dev/shm:/dev/shm
-      - ${DOCKER_VOL_DOMAINS?}:/nwm/domains
-      #- type: tmpfs
-      #  target: /nwm/mem_fs
-      #  tmpfs:
-      #      size: 35000000000
-    #    - /opt/nwm_c/domains:/nwm/domains
-    #build: ./nwm
-    cap_add:
-      - SYS_PTRACE
   request_handler:
     image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-request-handler
     networks:
@@ -107,8 +58,6 @@ services:
       - "${DOCKER_REQUESTS_HOST_PORT:-3012}:${DOCKER_REQUESTS_CONTAINER_PORT:-3012}"
     #volumes:
     #  - ./request_handler:/code
-    depends_on:
-      - scheduler
 
 networks:
     mpi-net:
