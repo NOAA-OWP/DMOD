@@ -219,7 +219,7 @@ class RequestHandler(object):
 
         return RequestType.INVALID, errors
 
-    async def handle_auth_request(self, data, websocket) -> Tuple[Optional[Session], RequestResponse]:
+    async def handle_auth_request(self, data, websocket, client_ip: str) -> Tuple[Optional[Session], RequestResponse]:
         """
         Handle data from a request determined to be RequestType.AUTHENTICATION, including attempting to get an auth
         session, and prepare an appropriate response.
@@ -228,7 +228,9 @@ class RequestHandler(object):
         data
             The JSON data for the received message
         websocket
-            The websocket over which the request came, mainly for determining the client's IP address
+            The websocket over which the request came
+        client_ip
+            The client's IP address
 
         Returns
         -------
@@ -236,8 +238,8 @@ class RequestHandler(object):
         and an prepared response with details on the authentication attempt (including session info for the client if
         successful)
         """
-        session, is_new_session = self._authenticate_user_session(valid_auth_req_data=data,
-                                                                  session_ip_addr=websocket.remote_address[0])
+        session, is_new_session = await self._authenticate_user_session(valid_auth_req_data=data,
+                                                                        session_ip_addr=client_ip)
         if session is not None:
             await self.register_websocket_session(websocket, session)
             response = RequestResponse(success=True, reason='Successful Auth',
@@ -269,18 +271,19 @@ class RequestHandler(object):
         Async function listening for incoming information on websocket.
         """
         session = None
+        client_ip = websocket.remote_address[0]
         try:
             async for message in websocket:
                 data = json.loads(message)
                 logging.info(f"Got payload: {data}")
                 should_check_for_auth = session is None
-                request_type, errors_map = self.parse_request_type(data=data, check_for_auth=should_check_for_auth)
+                request_type, errors_map = await self.parse_request_type(data=data, check_for_auth=should_check_for_auth)
 
                 if request_type == RequestType.INVALID:
                     r = RequestResponse(success=False, reason="Invalid request", message="Request not in valid format")
                     await websocket.send(str(r))
                 elif should_check_for_auth and request_type == RequestType.AUTHENTICATION:
-                    session, response = await self.handle_auth_request(data=data, websocket=websocket)
+                    session, response = await self.handle_auth_request(data=data, websocket=websocket, client_ip=client_ip)
                     await websocket.send(str(response))
                 elif request_type == RequestType.JOB:
                     session, response = await self.handle_job_request(data=data, session=session)

@@ -124,11 +124,12 @@ class MaaSRequest(object):
     ]
     """(:class:`list`) The collection of output variables that the model may generate"""
 
-    def __init__(self, version: float, output: str, parameters: dict):
+    def __init__(self, version: float, output: str, parameters: dict, session_secret: str):
         """
         :param float version: The version of the model to use
         :param str output: The name of the variable to generate numbers for
         :param dict parameters: A mapping between parameters to configure and their scalar or distribution configurations
+        :param str session_secret: The session secret for the right session when communicating with the MaaS request handler
         """
 
         # If this model doesn't generate the output, we want to fail
@@ -162,6 +163,7 @@ class MaaSRequest(object):
         self.version = version
         self.output = output
         self.parameters = parameters
+        self.session_secret = session_secret
 
     @classmethod
     def get_distribution_types(cls) -> list:
@@ -321,6 +323,7 @@ class MaaSRequest(object):
         model[self.get_model_name()]['version'] = self.version
         model[self.get_model_name()]['output'] = self.output
         model[self.get_model_name()]['parameters'] = dict()
+        model[self.get_model_name()]['session-secret'] = self.session_secret
 
         for parameter in self.parameters:
             model[self.get_model_name()]['parameters'].update({parameter: self.parameters[parameter].to_dict()})
@@ -493,7 +496,8 @@ def get_parameters() -> dict:
     return parameters
 
 
-def get_request(model: str, version: float = 0.0, output: str = 'streamflow', parameters: dict = None) -> MaaSRequest:
+def get_request(model: str, version: float = 0.0, output: str = 'streamflow', parameters: dict = None,
+                session_secret: str = '') -> MaaSRequest:
     """
     Converts a basic definition of a request into a proper request object
 
@@ -501,6 +505,7 @@ def get_request(model: str, version: float = 0.0, output: str = 'streamflow', pa
     :param float version: The version of the model to run
     :param str output: What we want the model to generate
     :param dict parameters: A mapping of all the parameters for the model that we want to set and their values
+    :param str session_secret: The session secret for the right session when communicating with the MaaS request handler
     :return: A request object that may be converted into context data for a web request
     """
     if model not in get_available_models():
@@ -512,4 +517,4 @@ def get_request(model: str, version: float = 0.0, output: str = 'streamflow', pa
     if parameters is None:
         parameters = dict()
 
-    return get_available_models()[model](version, output, parameters)
+    return get_available_models()[model](version, output, parameters, session_secret)

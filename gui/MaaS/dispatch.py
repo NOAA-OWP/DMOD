@@ -7,18 +7,21 @@ import requests
 import json
 
 from . import MaaSRequest
-from . import validator
+from .validator import JsonAuthRequestValidator, JsonJobRequestValidator
 
 
 def dispatch(maas_request: MaaSRequest) -> requests.Response:
     """
-    Sends the request to the configured endpoint for the MaaS
+    Sends the job request to the configured endpoint for the MaaS
 
     :param MaaSRequest.MaaSRequest maas_request: The configured request
     :return: The response from the web request
     """
     # Use the validator as a final check to see if everything is valid
-    validator.validate_request(json.loads(maas_request.to_json()))
+    validator = JsonJobRequestValidator()
+    is_valid, error = validator.validate_request(json.loads(maas_request.to_json()))
+    if not is_valid:
+        raise error
 
     # Get the proper endpoint and path to the certificate
     endpoint = os.environ.get("MAAS_ENDPOINT", None)

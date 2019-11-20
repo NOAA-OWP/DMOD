@@ -4,7 +4,9 @@ services:
   scheduler:
     image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT}/mpi-scheduler
     networks:
-      - ${DOCKER_MPI_NET_NAME}
+      mpi-net:
+        aliases:
+          - ${DOCKER_REDIS_SERVICE_ALIAS:-redis}
     entrypoint: ['./entry.sh']
     ports:
       - "22"
@@ -24,7 +26,7 @@ services:
   mpi-master:
     image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT}/nwm-${NWM_NAME}
     networks:
-      - ${DOCKER_MPI_NET_NAME}
+      - mpi-net
     #user: root
     entrypoint: ['sudo', '/usr/sbin/sshd', '-D']
     environment:
@@ -58,7 +60,7 @@ services:
     #user: root
     entrypoint: ['sudo', '/usr/sbin/sshd', '-D']
     networks:
-      - ${DOCKER_MPI_NET_NAME}
+      - mpi-net
     environment:
       - MPIEXEC_PORT_RANGE=10000:10500
     deploy:
@@ -83,7 +85,8 @@ services:
   request_handler:
     image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-request-handler
     networks:
-      - ${DOCKER_MPI_NET_NAME}
+      - mpi-net
+      - requests-net
     deploy:
       #mode: global
       placement:
@@ -93,15 +96,15 @@ services:
           - ${DOCKER_REQUESTS_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
       replicas: 1
     environment:
-      - REDIS_HOST=
-      - REDIS_PORT=
-      - REDIS_USER=
+      - REDIS_HOST=${DOCKER_REDIS_SERVICE_ALIAS:-redis}
+      #- REDIS_PORT=
+      #- REDIS_USER=
       - REDIS_PASS=${DOCKER_REDIS_PASS:-***REMOVED***}
-      - LISTEN_PORT=${DOCKER_REQUESTS_CONTAINER_PORT:-3012}
-      - VENV_DIR=${DOCKER_REQUESTS_CONTAINER_VENV_DIR:-}
+      #- LISTEN_PORT=${DOCKER_REQUESTS_CONTAINER_PORT:-3012}
+      #- VENV_DIR=${DOCKER_REQUESTS_CONTAINER_VENV_DIR:-}
     working_dir: /code
     ports:
-      - ${DOCKER_REQUESTS_HOST_PORT:-3012}:${DOCKER_REQUESTS_CONTAINER_PORT:-3012}
+      - "${DOCKER_REQUESTS_HOST_PORT:-3012}:${DOCKER_REQUESTS_CONTAINER_PORT:-3012}"
     #volumes:
     #  - ./request_handler:/code
     depends_on:
@@ -111,6 +114,9 @@ networks:
     mpi-net:
         external: true
         name: ${DOCKER_MPI_NET_NAME}
+    requests-net:
+        external: true
+        name: ${DOCKER_REQUESTS_NET_NAME}
 
 # Define persistent volumes that may be shared and persisted between containers
 volumes:
