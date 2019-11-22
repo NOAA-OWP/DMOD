@@ -5,7 +5,8 @@
   "type": "object",
   "title": "Request",
   "required": [
-    "model"
+    "model",
+    "session-secret"
   ],
   "properties": {
     "model": {
