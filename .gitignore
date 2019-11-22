@@ -10,6 +10,7 @@ request_client/ssl/certificate.pem
 request_handler/ssl/
 request_handler/*.tar.gz
 request_handler/macbook_ssl/
-request_handler/src/ssl/certificate.pem
-request_handler/src/ssl/privkey.pem
+request_handler/ssl/certificate.pem
+request_handler/ssl/*certificate*.pem
+request_handler/ssl/*privkey*.pem
 scheduler/scheduler.log
