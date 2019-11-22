@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from . import RequestType
+from .request_type import RequestType
 from abc import ABC
 import json
 import jsonschema
