@@ -5,6 +5,7 @@ import os
 import random
 from redis import Redis, WatchError
 from redis.client import Pipeline
+from typing import Union
 
 
 class Session:
@@ -13,7 +14,10 @@ class Session:
     over which requests for jobs may be made, and potentially other communication may take place.
     """
 
-    def __init__(self, session_id, session_secret=None, created=datetime.datetime.now()):
+    _DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
+
+    def __init__(self, session_id: int, session_secret: str = None,
+                 created: Union[datetime.datetime, str] = datetime.datetime.now()):
         """
         Instantiate, either from an existing record - in which case values for 'secret' and 'created' are provided - or
         from a newly acquired session id - in which case 'secret' is randomly generated, 'created' is set to now(), and
@@ -25,8 +29,9 @@ class Session:
             numeric session id value
         session_secret : :obj:`str`, optional
             the session secret, if deserializing this object from an existing session record
-        created : :obj:`datetime.datetime`
-            the date and time of session creation, set to :method:`datetime.datetime.now()` by default
+        created : Union[:obj:`datetime.datetime`, :obj:`str`]
+            the date and time of session creation, either as a datetime object or parseable string, set to
+            :method:`datetime.datetime.now()` by default
         """
 
         self._session_id = session_id
@@ -35,7 +40,16 @@ class Session:
             self._session_secret = hashlib.sha256(str(random.random()).encode('utf-8')).hexdigest()
         else:
             self._session_secret = session_secret
-        self._created = created
+
+        try:
+            if isinstance(created, str):
+                self._created = datetime.datetime.strptime(created, Session._DATETIME_FORMAT)
+            elif not isinstance(created, datetime.datetime):
+                raise RuntimeError()
+            else:
+                self._created = created
+        except:
+            self._created = datetime.datetime.now()
 
         """ list of str: the names of attributes/properties to include when serializing an instance as JSON """
         self._json_attributes = ['session_id', 'session_secret', 'created']
@@ -61,8 +75,16 @@ class Session:
         """
         attribs = {}
         for attr in self._json_attributes:
-            attribs[attr] = getattr(self, attr)
+            attr_val = getattr(self, attr)
+            if isinstance(attr_val, datetime.datetime):
+                attribs[attr] = attr_val.strftime(Session._DATETIME_FORMAT)
+            else:
+                attribs[attr] = getattr(self, attr)
+
         return json.dumps(attribs)
+
+    def get_created_serialized(self):
+        return self.created.strftime(Session._DATETIME_FORMAT)
 
     def is_json_attribute(self, attribute) -> bool:
         """
@@ -131,9 +153,12 @@ class SessionManager:
     _SESSION_HASH_SUBKEY_CREATED = 'created'
 
     def __init__(self):
+        host = os.environ.get("REDIS_HOST", "redis")
+        port = os.environ.get("REDIS_PORT", 6379)
+        print('****************** redis host is: ' + host)
 
-        self.redis = Redis(host=os.environ.get("REDIS_HOST", "redis"),
-                           port=os.environ.get("REDIS_PORT", 6379),
+        self.redis = Redis(host=host,
+                           port=port,
                            # db=0, encoding="utf-8", decode_responses=True,
                            db=0, decode_responses=True,
                            password=os.environ.get("REDIS_PASS", '***REMOVED***'))
@@ -203,6 +228,7 @@ class SessionManager:
             pipeline.hset(session_key, self._session_redis_hash_subkey_ip_address, session.ip_address)
             pipeline.hset(session_key, self._session_redis_hash_subkey_secret, session.session_secret)
             pipeline.hset(session_key, self._session_redis_hash_subkey_user, session.user)
+            pipeline.hset(session_key, self._session_redis_hash_subkey_created, session.get_created_serialized())
             pipeline.hset(self._all_session_secrets_hash_key, session.session_secret, session.session_id)
             pipeline.execute()
             return session
@@ -213,7 +239,7 @@ class SessionManager:
     def lookup_session(self, secret):
         session_id = self.redis.hget(self._all_session_secrets_hash_key, secret)
         if session_id is not None:
-            record_hash = self.redis.get(self.get_key_for_session_by_id(session_id))
+            record_hash = self.redis.hgetall(self.get_key_for_session_by_id(session_id))
             session = FullAuthSession(session_id=session_id,
                                       session_secret=record_hash[self._session_redis_hash_subkey_secret],
                                       #created=record_hash[self._session_redis_hash_subkey_created])
