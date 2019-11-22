@@ -114,7 +114,6 @@ class RequestHandler(object):
 
         self._session_manager: SessionManager = SessionManager()
         self._sessions_to_websockets: Dict[Session, WebSocketServerProtocol] = {}
-        self._websockets_to_sessions: Dict[WebSocketServerProtocol, Session] = {}
 
         self.ssl_context.load_cert_chain(localhost_pem, keyfile=localhost_key)
         # print(hostname)
@@ -123,8 +122,7 @@ class RequestHandler(object):
 
     def _lookup_session_by_secret(self, secret: str) -> Optional[Session]:
         """
-        Search for the :obj:`Session` instance with the given session secret value within the instance's
-        :attr:`_sessions_to_websockets` mapping.
+        Search for the :obj:`Session` instance with the given session secret value.
 
         Parameters
         ----------
@@ -135,10 +133,7 @@ class RequestHandler(object):
         Optional[Session]
             The session from the sessions-to-websockets mapping having the given secret, or None
         """
-        for s in self._sessions_to_websockets.keys():
-            if secret == s.session_secret:
-                return s
-        return None
+        return self._session_manager.lookup_session(secret=secret)
 
     def handle_exception(self, loop, context):
         message = context.get('exception', context['message'])
@@ -243,7 +238,7 @@ class RequestHandler(object):
         if session is not None:
             await self.register_websocket_session(websocket, session)
             response = RequestResponse(success=True, reason='Successful Auth',
-                                       data=(None if session is None else session.get_as_json()))
+                                       data=(None if session is None else json.loads(session.get_as_json())))
         else:
             msg = 'Unable to create or find authenticated user session from request'
             response = RequestResponse(success=False, reason='Failed Auth', message=msg, data=data)
@@ -256,11 +251,14 @@ class RequestHandler(object):
         if session is not None and data['session-secret'] == session.session_secret:
             # TODO: push to redis stream, associating with this session somehow, and getting some kind of id back
             # job_id = # TODO
-            job_id = -1
-            success = job_id > 0
+            job_id = 0
+            mesg = 'Awaiting implementation of handler-to-scheduler communication' if job_id == 0 else ''
+
             # TODO: consider registering the job and relationship with session, etc.
+            success = job_id > 0
             reason = ('Success' if success else 'Failure') + ' starting job (returned id ' + str(job_id) + ')'
-            response = RequestResponse(success=job_id > 0, reason=reason, data=json.dumps({'job_id': job_id}))
+            data = json.dumps({'job_id': job_id})
+            response = RequestResponse(success=success, reason=reason, message=mesg, data=data)
         else:
             msg = 'Request does not correspond to an authenticated session'
             response = RequestResponse(success=False, reason='Unauthorized', message=msg)
@@ -288,6 +286,7 @@ class RequestHandler(object):
                 elif request_type == RequestType.JOB:
                     session, response = await self.handle_job_request(data=data, session=session)
                     await websocket.send(str(response))
+                    # TODO: add another message type (here and in client) for data transmission
                 else:
                     msg = 'Received valid ' + request_type.name + ' request, but listener does not currently support'
                     resp = RequestResponse(success=False, reason="Unsupported request type", message=msg)
@@ -298,24 +297,16 @@ class RequestHandler(object):
         except asyncio.CancelledError:
             logging.info("Cancelling listerner task")
         finally:
-            await self.unregister_websocket_session(websocket=websocket, session=session)
+            await self.unregister_websocket_session(session=session)
 
     async def register_websocket_session(self, websocket: WebSocketServerProtocol, session: Session):
         self._sessions_to_websockets[session] = websocket
-        self._websockets_to_sessions[websocket] = session
 
-    async def unregister_websocket_session(self, websocket: WebSocketServerProtocol = None, session: Session = None):
-        if websocket is None and session is None:
+    async def unregister_websocket_session(self, session: Session):
+        if session is None:
             return
-        elif websocket is None:
-            websocket = self._sessions_to_websockets.pop(session)
-            self._websockets_to_sessions.pop(websocket)
-        elif session is None:
-            session = self._websockets_to_sessions.pop(websocket)
-            self._sessions_to_websockets.pop(session)
         else:
             self._sessions_to_websockets.pop(session)
-            self._websockets_to_sessions.pop(websocket)
 
     async def shutdown(self, signal=None):
         """
