@@ -311,7 +311,8 @@ class MaaSRequest(object):
                                 }
                             }
                         }
-                    ]
+                    ],
+                    'session-secret': 'secret-string-val'
                 }
             }
         }
@@ -323,12 +324,11 @@ class MaaSRequest(object):
         model[self.get_model_name()]['version'] = self.version
         model[self.get_model_name()]['output'] = self.output
         model[self.get_model_name()]['parameters'] = dict()
-        model[self.get_model_name()]['session-secret'] = self.session_secret
 
         for parameter in self.parameters:
             model[self.get_model_name()]['parameters'].update({parameter: self.parameters[parameter].to_dict()})
 
-        return {'model': model}
+        return {'model': model, 'session-secret': self.session_secret}
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict())
@@ -367,8 +367,9 @@ class NWMRequest(MaaSRequest):
     ]
     """(:class:`list`) The collection of distribution types that the model may handle"""
 
-    def __init__(self, version: float = 0.0, output: str = 'streamflow', parameters: dict = None):
-        super(NWMRequest, self).__init__(version, output, parameters)
+    def __init__(self, session_secret: str, version: float = 0.0, output: str = 'streamflow', parameters: dict = None):
+        super(NWMRequest, self).__init__(version=version, output=output, parameters=parameters,
+                                         session_secret=session_secret)
 
 
 class XYZRequest(MaaSRequest):
@@ -408,8 +409,9 @@ class XYZRequest(MaaSRequest):
     ]
     """(:class:`list`) The collection of distribution types that the model may handle"""
 
-    def __init__(self, version: float = 0.0, output: str = 'streamflow', parameters: dict = None):
-        super(XYZRequest, self).__init__(version, output, parameters)
+    def __init__(self, session_secret: str, version: float = 0.0, output: str = 'streamflow', parameters: dict = None):
+        super(XYZRequest, self).__init__(version=version, output=output, parameters=parameters,
+                                         session_secret=session_secret)
 
 
 class YetAnotherRequest(MaaSRequest):
@@ -452,8 +454,9 @@ class YetAnotherRequest(MaaSRequest):
     ]
     """(:class:`list`) The collection of distribution types that the model may handle"""
 
-    def __init__(self, version: float = 0.0, output: str = 'streamflow', parameters: dict = None):
-        super(YetAnotherRequest, self).__init__(version, output, parameters)
+    def __init__(self, session_secret: str, version: float = 0.0, output: str = 'streamflow', parameters: dict = None):
+        super(YetAnotherRequest, self).__init__(version=version, output=output, parameters=parameters,
+                                                session_secret=session_secret)
 
 
 def get_parameters() -> dict:
@@ -517,4 +520,4 @@ def get_request(model: str, version: float = 0.0, output: str = 'streamflow', pa
     if parameters is None:
         parameters = dict()
 
-    return get_available_models()[model](version, output, parameters, session_secret)
+    return get_available_models()[model](version=version, output=output, parameters=parameters, session_secret=session_secret)
