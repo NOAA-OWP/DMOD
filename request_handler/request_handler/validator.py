@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
 
 import jsonschema
-from jsonschema.exceptions import best_match
 import json
-import os
+from jsonschema.exceptions import best_match
+from pathlib import Path
 
 
 class JsonRequestValidator:
 
     def __init__(self, schemas_dir=None):
         if schemas_dir is None:
-            self.base_schemas_dir = os.path.dirname(os.path.abspath(__file__)) + '/schemas'
+            script_dir = Path(__file__).resolve().parent
+            self.base_schemas_dir = script_dir.parent.joinpath('schemas')
         else:
             self.base_schemas_dir = schemas_dir
-        resolve_path = self.base_schemas_dir + '/'
+        resolve_path = str(self.base_schemas_dir) + '/'
         self.schema = None
         self.resolver = None
-        with open(os.path.abspath(self.base_schemas_dir + '/request.schema.json')) as schema_file:
+        with self.base_schemas_dir.joinpath('request.schema.json').open(mode='r') as schema_file:
             self.schema = json.loads(schema_file.read())
             self.resolver = jsonschema.RefResolver("file://{}/".format(resolve_path), referrer=self.schema)
 

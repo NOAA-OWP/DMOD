@@ -4,17 +4,17 @@ import jsonschema
 import ssl
 import unittest
 from socket import gethostname
-from .RequestHandler import RequestHandler
+from request_handler.request_handler.RequestHandler import RequestHandler
 from pathlib import Path
 
 
 class TestRequestHandler(unittest.TestCase):
     _current_dir = Path(__file__).resolve().parent
-    _json_schemas_dir = _current_dir.joinpath('schemas')
+    _json_schemas_dir = _current_dir.parent.joinpath('schemas')
     _valid_request_json_file = _json_schemas_dir.joinpath('request.json')
 
     _client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    _localhost_pem = _current_dir.joinpath('ssl', 'certificate.pem')
+    _localhost_pem = _current_dir.parent.joinpath('ssl', 'certificate.pem')
     _host_name = gethostname()
     # _localhost_pem = Path(__file__).resolve().parents[1].joinpath('macbook_ssl', "certificate.pem")
     # _host_name = 'localhost'

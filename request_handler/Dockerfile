@@ -4,6 +4,9 @@ WORKDIR /code
 
 RUN pip install --no-cache-dir websockets jsonschema
 
-COPY src/ src/
-WORKDIR /code/src
-CMD python handler_entry.py
+COPY request_handler/ request_handler/
+COPY schemas/ schemas/
+COPY ssl/ ssl/
+COPY tests/tests.py ./tests.py
+
+CMD python -m request_handler

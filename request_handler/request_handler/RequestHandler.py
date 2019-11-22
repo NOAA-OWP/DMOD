@@ -84,7 +84,7 @@ class RequestHandler(object):
         # Initialize SSL cert/key file paths as needed
         if ssl_dir is None and (localhost_pem is None or localhost_key is None):
             current_dir = Path(__file__).resolve().parent
-            ssl_dir = current_dir.joinpath('ssl')
+            ssl_dir = current_dir.parent.joinpath('ssl')
         if localhost_pem is None:
             localhost_pem = ssl_dir.joinpath('certificate.pem')
         if localhost_key is None:
@@ -93,7 +93,7 @@ class RequestHandler(object):
         self.ssl_context.load_cert_chain(localhost_pem, keyfile=localhost_key)
         #print(hostname)
         # Setup websocket server
-        self.server = websockets.serve(self.listener, hostname, port, ssl=self.ssl_context)
+        self.server = websockets.serve(self.listener, hostname, int(port), ssl=self.ssl_context)
 
     def handle_exception(self, loop, context):
         message = context.get('exception', context['message'])
