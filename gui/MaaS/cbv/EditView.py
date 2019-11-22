@@ -205,18 +205,19 @@ class JobRequestClient(ABC):
             maas_session_created = auth_response['data']['created']
             return maas_session_id, maas_session_secret, maas_session_created
 
+    @abstractmethod
     def _acquire_session_info(self, force_new: bool = False):
         """
         Attempt to set the session information properties needed to submit a maas job request.
 
-        Attempt to set the session information properties needed to submit a maas job request represented by the
-        HttpRequest in :attr:http_request, either from the cookies of the HttpRequest or by authenticating and obtaining
-        a new session from the request handler.
+        Note that while superclass method is fully implemented to get a new session over the websocket connection, it is
+        still marked as abstract to require an override to be present (even if it is just a call to the super method).
 
         Parameters
         ----------
         force_new
-            whether to force acquiring details for a new session, regardless of data available in cookies from the request
+            whether to force acquiring details for a new session, regardless of data available is available on an
+            existing session
 
         Returns
         -------
@@ -224,19 +225,13 @@ class JobRequestClient(ABC):
             whether session details were acquired and set successfully
         """
         self._is_new_session = False
-        if not force_new and 'maas_session_secret' in self.http_request.COOKIES.keys():
-            self._session_id = self.http_request.COOKIES['maas_session_id']
-            self._session_secret = self.http_request.COOKIES['maas_session_secret']
-            self._session_created = self.http_request.COOKIES['maas_session_created']
+        try:
+            auth_details = asyncio.get_event_loop().run_until_complete(self.authenticate_over_websocket())
+            self._session_id, self._session_secret, self._session_created = auth_details
+            self._is_new_session = True
             return True
-        else:
-            try:
-                auth_details = asyncio.get_event_loop().run_until_complete(self.authenticate_over_websocket())
-                self._session_id, self._session_secret, self._session_created = auth_details
-                self._is_new_session = True
-                return True
-            except:
-                return False
+        except:
+            return False
 
     def _get_validation_error(self):
         is_valid, error = JsonJobRequestValidator().validate_request(self.maas_job_request.to_dict())
@@ -357,6 +352,33 @@ class PostFormJobRequestClient(JobRequestClient):
         self.http_request = http_request
         self.form_proc = None
 
+    def _acquire_session_info(self, force_new: bool = False):
+        """
+        Attempt to set the session information properties needed to submit a maas job request.
+
+        Attempt to set the session information properties needed to submit a maas job request represented by the
+        HttpRequest in :attr:http_request, either from the cookies of the HttpRequest or by authenticating and obtaining
+        a new session from the request handler.
+
+        Parameters
+        ----------
+        force_new
+            whether to force acquiring details for a new session, regardless of data available in cookies from the request
+
+        Returns
+        -------
+        bool
+            whether session details were acquired and set successfully
+        """
+        if not force_new and 'maas_session_secret' in self.http_request.COOKIES.keys():
+            self._session_id = self.http_request.COOKIES['maas_session_id']
+            self._session_secret = self.http_request.COOKIES['maas_session_secret']
+            self._session_created = self.http_request.COOKIES['maas_session_created']
+            self._is_new_session = False
+            return True
+        else:
+            return super()._acquire_session_info(force_new=force_new)
+
     def _init_maas_job_request(self):
         """
         Set or reset the :attr:`form_proc` field and return its :attr:`RequestFormProcessor`.`maas_request` property.
@@ -379,57 +401,6 @@ class PostFormJobRequestClient(JobRequestClient):
         if self._info is None:
             self._info = [self.form_proc.info] if self.form_proc is not None else []
         return self._info
-
-
-    # def old_make_job_request(self, force_new_session: bool = False):
-    #     """
-    #
-    #     Parameters
-    #     ----------
-    #     force_new_session
-    #
-    #     Returns
-    #     -------
-    #     tuple
-    #         A tuple with the generated :obj:RequestFormProcessor used to handle processing POST request params and the
-    #         response from the websocket request as a deserialized JSON object (or None if this failed or wasn't tried)
-    #     """
-    #     resp_as_json = None
-    #     self._acquire_session_info(force_new=force_new_session)
-    #     form_proc = RequestFormProcessor(post_request=self.http_request, maas_secret=self._session_secret)
-    #     # If able to get session details, proceed with making a job request
-    #     if self._session_secret is not None:
-    #         print("******************* Request: " + form_proc.maas_request.to_json())
-    #         if form_proc.is_valid:
-    #             try:
-    #                 req_response = asyncio.get_event_loop().run_until_complete(
-    #                     self.async_send_job_request(form_proc.maas_request))
-    #                 resp_as_json = json.loads(req_response)
-    #                 print('***************** Response: ' + req_response)
-    #                 # TODO: validate responses also
-    #                 # Try to get a new session if unauthorized (and we hadn't already gotten a new session)
-    #                 if self._job_request_failed_due_to_expired_session(resp_as_json):
-    #                     return self.make_job_request(force_new_session=True)
-    #                 elif not resp_as_json['success']:
-    #                     raise RuntimeError('Request failed (reason: ' + resp_as_json['reason'] + '): ' + resp_as_json['message'])
-    #                 else:
-    #                     self.job_id = resp_as_json['data']['job_id']
-    #             except Exception as e:
-    #                 # TODO: log error instead of print
-    #                 msg = 'Encountered error submitting maas job request over session ' + str(self._session_id)
-    #                 msg += " : \n" + str(type(e)) + ': ' + str(e)
-    #                 print(msg)
-    #                 traceback.print_exc()
-    #                 form_proc.errors.append(msg)
-    #         else:
-    #             msg = 'Could not submit invalid maas job request over session ' + str(self._session_id)
-    #             msg += ' (' + str(form_proc.validation_error) + ')'
-    #             print(msg)
-    #             form_proc.errors.append(msg)
-    #     else:
-    #         form_proc.errors.append("Unable to acquire session details or authenticate new session for request")
-    #
-    #     return form_proc, resp_as_json
 
     @property
     def warnings(self):
