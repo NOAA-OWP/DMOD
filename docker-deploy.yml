@@ -20,14 +20,14 @@ services:
   myredis:
     image: redis
     ports:
-      - "6379"
+      - "6379:6379"
     networks:
       mpi-net:
         aliases:
           - ${DOCKER_REDIS_SERVICE_ALIAS:-redis}
-    entrypoint: ['redis-server', '/usr/local/etc/redis/redis.conf']
-    #volumes:
-    #  - /dev/shm:/dev/shm #Hack in shared memory filesystem
+    entrypoint: ['redis-server', '/usr/local/etc/redis/redis.conf', '--requirepass', "${DOCKER_REDIS_PASS?}"]
+    volumes:
+      - ./scheduler/conf/redis.config:/usr/local/etc/redis/redis.conf
     deploy:
       placement:
         constraints:
@@ -50,7 +50,7 @@ services:
       - REDIS_HOST=${DOCKER_REDIS_SERVICE_ALIAS:-redis}
       #- REDIS_PORT=
       #- REDIS_USER=
-      - REDIS_PASS=${DOCKER_REDIS_PASS:-***REMOVED***}
+      - REDIS_PASS=${DOCKER_REDIS_PASS?}
       #- LISTEN_PORT=${DOCKER_REQUESTS_CONTAINER_PORT:-3012}
       #- VENV_DIR=${DOCKER_REQUESTS_CONTAINER_VENV_DIR:-}
     working_dir: /code
