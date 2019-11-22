@@ -66,6 +66,7 @@ async def data_test(ssl_context=None):
                 logging.debug("Data sent")
                 response = await websocket.recv()
                 logging.debug("Producer got response: {}".format(response))
+                logging.debug(response)
                 assert( int(response) == 42 + client_test)
 
     except websockets.exceptions.ConnectionClosed:

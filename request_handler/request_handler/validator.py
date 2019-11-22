@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 
-import jsonschema
+from .RequestType import RequestType
+from abc import ABC
 import json
+import jsonschema
 from jsonschema.exceptions import best_match
 from pathlib import Path
+from typing import Any, Optional, Tuple
 
 
-class JsonRequestValidator:
+class JsonRequestValidator(ABC):
 
-    def __init__(self, schemas_dir=None):
+    def __init__(self, base_schema_filename, request_type: RequestType, schemas_dir=None):
         if schemas_dir is None:
             script_dir = Path(__file__).resolve().parent
             self.base_schemas_dir = script_dir.parent.joinpath('schemas')
@@ -17,11 +20,12 @@ class JsonRequestValidator:
         resolve_path = str(self.base_schemas_dir) + '/'
         self.schema = None
         self.resolver = None
-        with self.base_schemas_dir.joinpath('request.schema.json').open(mode='r') as schema_file:
+        self._request_type: RequestType = request_type
+        with self.base_schemas_dir.joinpath(base_schema_filename).open(mode='r') as schema_file:
             self.schema = json.loads(schema_file.read())
             self.resolver = jsonschema.RefResolver("file://{}/".format(resolve_path), referrer=self.schema)
 
-    def validate_request(self, request):
+    def validate_request(self, request: dict) -> Tuple[bool, Optional[Any]]:
         """
         Validate the given request.
 
@@ -31,6 +35,22 @@ class JsonRequestValidator:
         results = jsonschema.Draft7Validator(self.schema, resolver=self.resolver).iter_errors(request)
         error = best_match(results)
         return (error is None), error
+
+    @property
+    def request_type(self) -> RequestType:
+        return self._request_type
+
+
+class JsonJobRequestValidator(JsonRequestValidator):
+    def __init__(self, schemas_dir=None):
+        super().__init__(schemas_dir=schemas_dir, request_type=RequestType.JOB,
+                         base_schema_filename='request.schema.json')
+
+
+class JsonAuthRequestValidator(JsonRequestValidator):
+    def __init__(self, schemas_dir=None):
+        super().__init__(schemas_dir=schemas_dir, request_type=RequestType.AUTHENTICATION,
+                         base_schema_filename='nwm.maas.auth.schema.json')
 
 
 def traverse_suberrors(error, level=''):
