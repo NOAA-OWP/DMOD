@@ -14,11 +14,11 @@ import logging
 import time
 
 ## local imports
-import utils.keynamehelper as keynamehelper
-import generate as generate
-import parsing_nested as pn
-from request import Request
-from utils.clean import clean_keys
+from scheduler.utils import keynamehelper as keynamehelper
+from scheduler.utils import generate as generate
+from scheduler.utils import parsing_nested as pn
+from scheduler.src.request import Request
+from scheduler.utils.clean import clean_keys
 
 ## local imports for unittest
 # import scheduler.utils.keynamehelper as keynamehelper
@@ -83,8 +83,8 @@ class Scheduler:
         n = 0
         while (n <= Max_Redis_Init):
             try:
-                # self.redis = Redis(host=os.environ.get("REDIS_HOST", "myredis"),
-                self.redis = Redis(host=os.environ.get("REDIS_HOST", "localhost"),
+                self.redis = Redis(host=os.environ.get("REDIS_HOST", "myredis"),
+                # self.redis = Redis(host=os.environ.get("REDIS_HOST", "localhost"),
                               port=os.environ.get("REDIS_PORT", 6379),
                               # db=0, encoding="utf-8", decode_responses=True,
                               db=0, decode_responses=True,
@@ -917,7 +917,7 @@ def test_scheduler():
             '''
             # cpus = 11
             # cpusList = scheduler.check_generalized_round_robin(user_id, cpus, mem)
-            cpus = 16
+            cpus = 8
             cpusList = scheduler.check_single_node_availability(user_id, cpus, mem)
 
             if (len(cpusList) == 0):
