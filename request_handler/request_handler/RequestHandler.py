@@ -17,15 +17,34 @@ import json
 import signal
 import logging
 
-from .validator import validate_request
+from .RequestType import RequestType
+from .session import Session, SessionManager
+from .validator import JsonRequestValidator, JsonJobRequestValidator, JsonAuthRequestValidator
 from jsonschema.exceptions import ValidationError
 from pathlib import Path
+from typing import Dict, Optional, Tuple
+from websockets import WebSocketServerProtocol
 
 logging.basicConfig(
     level=logging.ERROR,
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
     datefmt="%H:%M:%S"
 )
+
+
+class RequestResponse:
+
+    def __init__(self, success: bool, reason: str, message: str = '', data=None):
+        self.success = success
+        self.reason = reason
+        self.message = message
+        self.data = data
+
+    def __str__(self):
+        return str(self.as_json())
+
+    def as_json(self):
+        return json.dumps({'success': self.success, 'reason': self.reason, 'message': self.message, 'data': self.data})
 
 
 class RequestHandler(object):
@@ -46,7 +65,7 @@ class RequestHandler(object):
         websocket server
     """
 
-    def __init__(self, hostname='', port='3012', ssl_dir=None, localhost_pem=None, localhost_key=None):
+    def __init__(self, hostname='', port='3012', schema_dir=None, ssl_dir=None, localhost_pem=None, localhost_key=None):
         """
             Parameters
             ----------
@@ -55,6 +74,9 @@ class RequestHandler(object):
 
             port: str
                 port for the handler to listen on
+
+            schema_dir: Path
+                JSON schemas directory
 
             ssl_dir: Path
                 path of directory for default SSL files, by default initialized to the ssl/ subdirectory in the parent
@@ -66,7 +88,7 @@ class RequestHandler(object):
             localhost_key: Path
                 path to SSL private key file, initialized by default to 'privkey.pem' in ssl_dir if not set
         """
-
+        self._schema_dir = schema_dir
         # Async event loop
         self.loop = asyncio.get_event_loop()
         # register signals for tasks to respond to
@@ -90,10 +112,28 @@ class RequestHandler(object):
         if localhost_key is None:
             localhost_key = ssl_dir.joinpath('privkey.pem')
 
+        self._session_manager: SessionManager = SessionManager()
+        self._sessions_to_websockets: Dict[Session, WebSocketServerProtocol] = {}
+
         self.ssl_context.load_cert_chain(localhost_pem, keyfile=localhost_key)
-        #print(hostname)
+        # print(hostname)
         # Setup websocket server
         self.server = websockets.serve(self.listener, hostname, int(port), ssl=self.ssl_context)
+
+    def _lookup_session_by_secret(self, secret: str) -> Optional[Session]:
+        """
+        Search for the :obj:`Session` instance with the given session secret value.
+
+        Parameters
+        ----------
+        secret
+
+        Returns
+        -------
+        Optional[Session]
+            The session from the sessions-to-websockets mapping having the given secret, or None
+        """
+        return self._session_manager.lookup_session(secret=secret)
 
     def handle_exception(self, loop, context):
         message = context.get('exception', context['message'])
@@ -101,38 +141,172 @@ class RequestHandler(object):
         logging.info("Shutting down due to exception")
         asyncio.create_task(self.shutdown())
 
-    async def parse(self, message):
+    async def _authenticate_user_session(self, valid_auth_req_data: dict, session_ip_addr: str
+                                         ) -> Tuple[Optional[Session], bool]:
         """
-        Validate request message and push to redis
-        """
-        #TODO validate and push to redis stream
-        data = json.loads( message )
-        logging.info(f"Got payload: {data}")
-        validate_request(data)
-        ret = 42 + data['client_id']
-        return ret
+        Authenticate and return a user :obj:`Session` from the given request message, creating and persisting a new
+        instance and record if the user does not already have a session.
 
-    async def listener(self, websocket, path):
+        Notes
+        ----------
+        The method returns a tuple, with both the session and an indication of whether a new session was created.  I.e.,
+        in the future, it is possible existing sessions may be identified and re-used if appropriate.
+
+        Parameters
+        ----------
+        valid_auth_req_data : dict
+            A valid authentication request message as JSON data.
+        session_ip_addr : str
+            The IP address or host name of the client for the session.
+
+        Returns
+        -------
+        Tuple[Optional[Session], bool]
+            The authenticated :obj:`Session` if the user was authenticated (or None if not), and whether a new session
+            was created
+
         """
-            Async function listening for incoming information on websocket
+        session = None
+        new_created = False
+
+        # TODO: For now, every valid auth request is considered authorized and has a new session created; change later
+        is_user_authorized = True
+        needs_new_session = True
+
+        if is_user_authorized and needs_new_session:
+            session = self._session_manager.create_session(ip_address=session_ip_addr,
+                                                           username=valid_auth_req_data['username'])
+            new_created = True
+        elif is_user_authorized:
+            # session = TODO: lookup existing somehow
+            pass
+
+        return session, new_created
+
+    async def parse_request_type(self, data, check_for_auth=False) -> Tuple[RequestType, dict]:
         """
-        #TODO convert all prints to logging, enable logging
-        #FIXME remove this!!!
+        Parse for request for validity, optionally for authentication type, determining which type of request this is.
+
+        Parameters
+        ----------
+        data
+        check_for_auth
+
+        Returns
+        -------
+        A tuple of the determined :obj:`RequestType`, and a map of parsing errors encountered for attempted types
+        """
+        errors = {}
+        for t in RequestType:
+            if t != RequestType.INVALID:
+                errors[t] = None
+
+        if check_for_auth:
+            is_auth_req, error = JsonAuthRequestValidator(schemas_dir=self._schema_dir).validate_request(data)
+            errors[RequestType.AUTHENTICATION] = error
+            if is_auth_req:
+                return RequestType.AUTHENTICATION, errors
+
+        is_job_req, error = JsonJobRequestValidator(schemas_dir=self._schema_dir).validate_request(data)
+        errors[RequestType.JOB] = error
+        if is_job_req:
+            return RequestType.JOB, errors
+
+        return RequestType.INVALID, errors
+
+    async def handle_auth_request(self, data, websocket, client_ip: str) -> Tuple[Optional[Session], RequestResponse]:
+        """
+        Handle data from a request determined to be RequestType.AUTHENTICATION, including attempting to get an auth
+        session, and prepare an appropriate response.
+        Parameters
+        ----------
+        data
+            The JSON data for the received message
+        websocket
+            The websocket over which the request came
+        client_ip
+            The client's IP address
+
+        Returns
+        -------
+        A tuple with the found or created authenticated session for the request (or None authentication is unsuccessful)
+        and an prepared response with details on the authentication attempt (including session info for the client if
+        successful)
+        """
+        session, is_new_session = await self._authenticate_user_session(valid_auth_req_data=data,
+                                                                        session_ip_addr=client_ip)
+        if session is not None:
+            await self.register_websocket_session(websocket, session)
+            response = RequestResponse(success=True, reason='Successful Auth',
+                                       data=(None if session is None else json.loads(session.get_as_json())))
+        else:
+            msg = 'Unable to create or find authenticated user session from request'
+            response = RequestResponse(success=False, reason='Failed Auth', message=msg, data=data)
+
+        return session, response
+
+    async def handle_job_request(self, data, session):
+        if session is None:
+            session = self._lookup_session_by_secret(secret=data['session-secret'])
+        if session is not None and data['session-secret'] == session.session_secret:
+            # TODO: push to redis stream, associating with this session somehow, and getting some kind of id back
+            # job_id = # TODO
+            job_id = 0
+            mesg = 'Awaiting implementation of handler-to-scheduler communication' if job_id == 0 else ''
+
+            # TODO: consider registering the job and relationship with session, etc.
+            success = job_id > 0
+            reason = ('Success' if success else 'Failure') + ' starting job (returned id ' + str(job_id) + ')'
+            data = json.dumps({'job_id': job_id})
+            response = RequestResponse(success=success, reason=reason, message=mesg, data=data)
+        else:
+            msg = 'Request does not correspond to an authenticated session'
+            response = RequestResponse(success=False, reason='Unauthorized', message=msg)
+        return session, response
+
+    async def listener(self, websocket: WebSocketServerProtocol, path):
+        """
+        Async function listening for incoming information on websocket.
+        """
+        session = None
+        client_ip = websocket.remote_address[0]
         try:
-            while True:
-                logging.debug("listener is waiting for data")
-                message = await websocket.recv()
-                logging.debug("listener is waiting to parse")
-                request_id = await self.parse(message)
-                logging.debug("listener is waiting to return")
-                await websocket.send(str(request_id))
+            async for message in websocket:
+                data = json.loads(message)
+                logging.info(f"Got payload: {data}")
+                should_check_for_auth = session is None
+                request_type, errors_map = await self.parse_request_type(data=data, check_for_auth=should_check_for_auth)
 
+                if request_type == RequestType.INVALID:
+                    r = RequestResponse(success=False, reason="Invalid request", message="Request not in valid format")
+                    await websocket.send(str(r))
+                elif should_check_for_auth and request_type == RequestType.AUTHENTICATION:
+                    session, response = await self.handle_auth_request(data=data, websocket=websocket, client_ip=client_ip)
+                    await websocket.send(str(response))
+                elif request_type == RequestType.JOB:
+                    session, response = await self.handle_job_request(data=data, session=session)
+                    await websocket.send(str(response))
+                    # TODO: add another message type (here and in client) for data transmission
+                else:
+                    msg = 'Received valid ' + request_type.name + ' request, but listener does not currently support'
+                    resp = RequestResponse(success=False, reason="Unsupported request type", message=msg)
+                    logging.error(message)
+                    await websocket.send(str(resp))
         except websockets.exceptions.ConnectionClosed:
             logging.info("Connection Closed at Consumer")
         except asyncio.CancelledError:
             logging.info("Cancelling listerner task")
-        except ValidationError as e:
-            await websocket.send(str(e))
+        finally:
+            await self.unregister_websocket_session(session=session)
+
+    async def register_websocket_session(self, websocket: WebSocketServerProtocol, session: Session):
+        self._sessions_to_websockets[session] = websocket
+
+    async def unregister_websocket_session(self, session: Session):
+        if session is None:
+            return
+        else:
+            self._sessions_to_websockets.pop(session)
 
     async def shutdown(self, signal=None):
         """
@@ -143,7 +317,7 @@ class RequestHandler(object):
 
         #Let the current task finish gracefully
         #3.7 asyncio.all_tasks()
-        tasks = [task for task in asyncio.Task.all_tasks() if task is not asyncio.current_task() ]
+        tasks = [task for task in asyncio.Task.all_tasks() if task is not asyncio.current_task()]
         for task in tasks:
             #Cancel pending tasks
             task.cancel()

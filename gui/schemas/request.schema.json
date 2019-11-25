@@ -51,7 +51,5 @@
       "minLength": 64,
       "maxLength": 64
     }
-  },
-  "$comment": "If we add properties along the way, may not want this",
-  "additionalProperties": false
+  }
 }

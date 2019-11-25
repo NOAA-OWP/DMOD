@@ -1,41 +1,72 @@
 version: "3.7"
 
 services:
-    #registry:
-    #    image: registry
-    #    networks:
-    #        - mpi-net
-    #    ports:
-    #         - "5000"
-    scheduler:
-        # image: 127.0.0.1:5000/mpi-scheduler
-        image: 127.0.0.1:5000/mgmt
-        networks:
-            - mpi-net
-        #user: root
-        # entrypoint: ['./entry.sh']
-        volumes:
-            - /var/run/docker.sock:/var/run/docker.sock
-            - /opt/nwm_c/domains:/nwm/domains
-            - /apd_common/analysis_assim_extended:/nwm/conus 
-        deploy:
-            placement:
-                constraints: [node.role == manager]
-        #build: ./scheduler
+  scheduler:
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT}/mgmt
+    networks:
+      - mpi-net
+    ports:
+      - "22"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${DOCKER_VOL_DOMAINS?}:/nwm/domains
+      #- ${DOCKER_VOL_ANALYSIS_ASSIM}:/nwm/conus
+      #- /apd_common/anthro/:/apd_common/anthro
+    deploy:
+      placement:
+        constraints:
+          - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_1:-node.role==manager}
+          - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
+  myredis:
+    image: redis
+    ports:
+      - "6379:6379"
+    networks:
+      mpi-net:
+        aliases:
+          - ${DOCKER_REDIS_SERVICE_ALIAS:-redis}
+    entrypoint: ['redis-server', '/usr/local/etc/redis/redis.conf', '--requirepass', "${DOCKER_REDIS_PASS?}"]
+    volumes:
+      - ./scheduler/conf/redis.config:/usr/local/etc/redis/redis.conf
+    deploy:
+      placement:
+        constraints:
+          - ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT_1:--node.role==manager}
+          - ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
+  request_handler:
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-request-handler
+    networks:
+      - mpi-net
+      - requests-net
+    deploy:
+      #mode: global
+      placement:
+        constraints:
+          # FIXME find a way to map one worker to each worker node automatically???
+          - ${DOCKER_REQUESTS_DEPLOY_CONSTRAINT_1:-node.hostname==***REMOVED***}
+          - ${DOCKER_REQUESTS_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
+      replicas: 1
+    environment:
+      - REDIS_HOST=${DOCKER_REDIS_SERVICE_ALIAS:-redis}
+      #- REDIS_PORT=
+      #- REDIS_USER=
+      - REDIS_PASS=${DOCKER_REDIS_PASS?}
+      #- LISTEN_PORT=${DOCKER_REQUESTS_CONTAINER_PORT:-3012}
+      #- VENV_DIR=${DOCKER_REQUESTS_CONTAINER_VENV_DIR:-}
+    working_dir: /code
+    ports:
+      - "${DOCKER_REQUESTS_HOST_PORT:-3012}:${DOCKER_REQUESTS_CONTAINER_PORT:-3012}"
+    #volumes:
+    #  - ./request_handler:/code
 
-    myredis:
-        image: redis
-        ports:
-            - "6379"
-        networks:
-            - mpi-net
-        entrypoint: ['redis-server', '/usr/local/etc/redis/redis.conf']
-        volumes:
-            - /apd_common/scui/nwm_service/scheduler/conf/redis.conf:/usr/local/etc/redis/redis.conf
-        deploy:
-            placement:
-                constraints: [node.role == manager]
-       
 networks:
     mpi-net:
         external: true
+        name: ${DOCKER_MPI_NET_NAME}
+    requests-net:
+        external: true
+        name: ${DOCKER_REQUESTS_NET_NAME}
+
+# Define persistent volumes that may be shared and persisted between containers
+volumes:
+  gui_static_volume:

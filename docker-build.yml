@@ -1,29 +1,33 @@
-version: "3"
+version: "3.7"
 
 services:
-    base:
-        image: 127.0.0.1:5000/nwm-base
-        build: ./base
-    deps:
-        image: 127.0.0.1:5000/nwm-deps
-        build: ./nwm/deps
-        depends_on:
-            - base
-    scheduler:
-        image: 127.0.0.1:5000/mgmt
-        build: ./scheduler
-        # depends_on:
-        #     - base
-    nwm:
-        image: 127.0.0.1:5000/nwm-${NWM_NAME:-master}
-        build: 
-            context: ./nwm
-            args:
-                - NWM_REPO_URL
-                - NWM_BRANCH
-        #depends_on:
-        #    - deps
-        #For building, this only gives shared memory to each build step!!! shm_size: 2GB
+  base:
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-base
+    build: ./base
+  deps:
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-deps
+    build: ./nwm/deps
+    depends_on:
+      - base
+  scheduler:
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/mgmt
+    build: ./scheduler
+    #depends_on:
+    #  - base
+  nwm:
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-${NWM_NAME:-master}
+    build:
+      context: ./nwm
+      args:
+        - NWM_REPO_URL
+        - NWM_BRANCH
+    #depends_on:
+    #    - deps
+    #For building, this only gives shared memory to each build step!!! shm_size: 2GB
+  request_handler:
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-request-handler
+    build: ./request_handler
 networks:
-    mpi-net:
-        external: true
+  mpi-net:
+    external: true
+    name: ${DOCKER_MPI_NET_NAME}
