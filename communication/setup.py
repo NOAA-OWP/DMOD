@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup, find_namespace_packages
 
 try:
     with open('README.md', 'r') as readme:
@@ -6,7 +6,7 @@ try:
 except:
     long_description = ''
 
-exec(open('nwm_maas/requests/_version.py').read())
+exec(open('nwm_maas/communication/_version.py').read())
 
 setup(
     name='nwm_maas_communication',
@@ -17,7 +17,7 @@ setup(
     author_email='',
     url='',
     license='',
-    #install_requires=['websockets', 'jsonschema'],
+    #install_requires=['websockets', 'jsonschema'],vi
     install_requires=['jsonschema'],
-    packages=find_packages(exclude=('tests'))
+    packages=find_namespace_packages(include=['nwm_maas.*'], exclude=('tests'))
 )
