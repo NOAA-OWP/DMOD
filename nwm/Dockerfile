@@ -20,5 +20,3 @@ USER root
 RUN echo "export PATH=${PATH}" >> /etc/profile
 USER ${USER}
 WORKDIR /nwm/domains
-COPY --chown=mpi:mpi run_model.sh /nwm
-CMD sudo /usr/sbin/sshd -D

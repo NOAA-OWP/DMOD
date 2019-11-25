@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from .RequestType import RequestType
+from .request_type import RequestType
 from abc import ABC
 import json
 import jsonschema
@@ -72,8 +72,8 @@ def traverse_error_tree(error_tree):
     """
     print(error_tree.errors)
     for validator, error in error_tree.errors.items():
-         #print(error)
-         traverse_suberrors(error)
+        #print(error)
+        traverse_suberrors(error)
     for error in error_tree:
         print("ERROR: {}".format(error))
         traverse_error_tree( error_tree[error] )
