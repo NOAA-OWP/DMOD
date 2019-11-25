@@ -5,7 +5,7 @@ services:
     image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-base
     build: ./base
   deps:
-    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-deps
+      image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-deps:netcdf_${NETCDF_C_LIBRARY:-latest}
     build: ./nwm/deps
     depends_on:
       - base
@@ -19,8 +19,9 @@ services:
     build:
       context: ./nwm
       args:
-        - NWM_REPO_URL
-        - NWM_BRANCH
+          REPO_URL: ${REPO_URL?}
+          BRANCH: ${BRANCH?}
+          COMMIT: ${COMMIT}
     #depends_on:
     #    - deps
     #For building, this only gives shared memory to each build step!!! shm_size: 2GB
