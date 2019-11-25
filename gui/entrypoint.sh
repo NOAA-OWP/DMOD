@@ -1,5 +1,6 @@
 #!/bin/bash
 
+
 # Execute the migration scripts on the designated database
 python manage.py migrate
 
@@ -7,4 +8,5 @@ python manage.py migrate
 python manage.py collectstatic --no-input
 
 # Run the commands passed in from elsewhere
-exec "$@"
+#exec "$@"
+gunicorn maas_experiment.wsgi:application --bind 0.0.0.0:8000

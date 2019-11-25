@@ -1,6 +1,7 @@
 #!/bin/bash
 
 NAME=$(basename "${0}")
+DOCKER_READY_PUSH_REGISTRY_TIME=0
 
 usage()
 {
@@ -24,6 +25,9 @@ Options
     --no-deploy             Build the image(s) and push to registry, but do not deploy
 
     --skip-registry         Skip the step of pushing built images to registry
+
+    --no-internal-registry  Do not check for or start an internal Docker registry (requires
+                            all pushes/pulls be from other configured registries)
 "
     echo "${_O}" 1>&2
 }
@@ -56,28 +60,32 @@ DOCKER_STACK_NAME=nwm
 DOCKER_MPI_NET_NAME=mpi-net
 DOCKER_MPI_NET_SUBNET=10.0.0.0/24
 DOCKER_MPI_NET_GATEWAY=10.0.0.1
+DOCKER_MPI_NET_VLAN=4097
+
+DOCKER_REQUESTS_NET_NAME=requests-net
+DOCKER_REQUESTS_NET_SUBNET=10.0.1.0/27
+DOCKER_REQUESTS_NET_GATEWAY=10.0.1.1
 
 DOCKER_HOST_IMAGE_STORE=${_STORE}
 DOCKER_VOL_DOMAINS=${_DOMAINS_DIR}
 
+DOCKER_INTERNAL_REGISTRY_STACK_NAME:=dev_registry_stack
 DOCKER_INTERNAL_REGISTRY_HOST=127.0.0.1
 DOCKER_INTERNAL_REGISTRY_PORT=5000
+
+DOCKER_REQUESTS_CONTAINER_PORT=3012
+
+# This variable should be set from the context of the file system inside the Docker GUI container
+# Alternatively, it can be set empty or removed, and no virtual env will be used
+# (No venv would mean requirements will be installed on every startup, thus making things slower)
+DOCKER_GUI_CONTAINER_VENV_DIR=/usr/maas_portal/venv
+
+# Similarly, this is in the context of the container
+DOCKER_REQUESTS_CONTAINER_VENV_DIR=/code/venv
 
 NWM_NAME=master
 EOF
     fi
-}
-
-create_docker_mpi_net()
-{
-    docker network create \
-        -d overlay \
-        --scope swarm \
-        --attachable \
-        -o "{\"com.docker.network.driver.overlay.vxlanid_list\": \"4097\"}" \
-        --subnet ${DOCKER_MPI_NET_SUBNET} \
-        --gateway ${DOCKER_MPI_NET_GATEWAY} \
-        mpi-net
 }
 
 # Work-around to use the .env file loading for compose files when deploying with docker stack (which doesn't by itself)
@@ -87,11 +95,75 @@ deploy_docker_stack_from_compose_using_env()
     local _COMPOSE_FILE="${1}"
     local _STACK_NAME="${2}"
 
-    if docker-compose -f "${_COMPOSE_FILE}" config > /dev/null; then
-        docker stack deploy --compose-file <(docker-compose -f "${_COMPOSE_FILE}" config) "${_STACK_NAME}"
+    if docker-compose -f "${_COMPOSE_FILE}" config > /dev/null 2>&1; then
+        docker stack deploy --compose-file <(docker-compose -f "${_COMPOSE_FILE}" config 2>/dev/null) "${_STACK_NAME}"
     else
         echo "Error: invalid docker-compose file; cannot start stack; exiting"
         exit 1
+    fi
+}
+
+init_if_not_exist_docker_networks()
+{
+    # Make sure the Docker mpi-net network is defined
+    if [[ $(docker network ls --filter name=${DOCKER_MPI_NET_NAME:=mpi-net} -q | wc -l) -eq 0 ]]; then
+        docker network create \
+            -d overlay \
+            --scope swarm \
+            --attachable \
+            -o "{\"com.docker.network.driver.overlay.vxlanid_list\": \"${DOCKER_MPI_NET_VLAN:=4097}\"}" \
+            --subnet ${DOCKER_MPI_NET_SUBNET} \
+            --gateway ${DOCKER_MPI_NET_GATEWAY} \
+            ${DOCKER_MPI_NET_NAME}
+    fi
+
+    # Make sure the Docker requests-net network is defined
+    if [[ $(docker network ls --filter name=${DOCKER_REQUESTS_NET_NAME:=requests-net} -q | wc -l) -eq 0 ]]; then
+        docker network create \
+            -d overlay \
+            --scope swarm \
+            --attachable \
+            --subnet ${DOCKER_REQUESTS_NET_SUBNET} \
+            --gateway ${DOCKER_REQUESTS_NET_GATEWAY} \
+            ${DOCKER_REQUESTS_NET_NAME:=requests-net}
+    fi
+}
+
+init_registry_service_if_needed()
+{
+    # Make sure the internal Docker image registry container is running if configured to use it
+
+    [[ -z "${DOCKER_INTERNAL_REGISTRY_STACK_NAME:-}" ]] && DOCKER_INTERNAL_REGISTRY_STACK_NAME=dev_registry_stack
+    [[ -z "${DOCKER_INTERNAL_REGISTRY_SERVICE_NAME:-}" ]] && DOCKER_INTERNAL_REGISTRY_SERVICE_NAME="${DOCKER_INTERNAL_REGISTRY_STACK_NAME}_registry"
+
+    if [[ ${DO_SKIP_INTERNAL_REGISTRY} == 'true' ]]; then
+        echo "Options set to not use internal Docker registry for pushing or pulling of images; skipping init steps"
+    elif [[ $(docker stack services -q --filter "name=${DOCKER_INTERNAL_REGISTRY_SERVICE_NAME}" "${DOCKER_INTERNAL_REGISTRY_STACK_NAME}" | wc -l) -eq 0 ]]; then
+        echo "Starting internal Docker registry"
+        #docker stack deploy --compose-file docker-registry.yml "${DOCKER_STACK_NAME}"
+        deploy_docker_stack_from_compose_using_env docker-registry.yml "${DOCKER_INTERNAL_REGISTRY_STACK_NAME}"
+        # If starting, set our "ready-to-push" time to 5 seconds in the future
+        DOCKER_READY_PUSH_REGISTRY_TIME=$((5+$(date +%s)))
+    else
+        echo "Internal Docker registry is online"
+        # If the registry was already started, we can push starting right now
+        DOCKER_READY_PUSH_REGISTRY_TIME=$(date +%s)
+    fi
+}
+
+build_docker_images()
+{
+    echo "Building custom Docker images"
+    if [[ -n "${DO_UPDATE:-}" ]]; then
+        if ! docker-compose -f docker-build.yml build --no-cache nwm; then
+            echo "Previous build command failed; exiting"
+            exit 1
+        fi
+    else
+        if ! docker-compose -f docker-build.yml build; then
+            echo "Previous build command failed; exiting"
+            exit 1
+        fi
     fi
 }
 
@@ -135,7 +207,10 @@ while [[ ${#} -gt 0 ]]; do
             exit
             ;;
         --skip-registry)
-            DO_SKIP_REGISTRY='true'
+            DO_SKIP_REGISTRY_PUSH='true'
+            ;;
+        --no-internal-registry)
+            DO_SKIP_INTERNAL_REGISTRY='true'
             ;;
         --no-deploy)
             DO_SKIP_DEPLOY='true'
@@ -153,37 +228,16 @@ done
 
 # TODO: consider doing some sanity checking on sourced .env values
 
-# Make sure the Docker mpi-net network is defined
-if [[ $(docker network ls --filter name=mpi-net -q | wc -l) -eq 0 ]]; then
-    create_docker_mpi_net
-fi
+init_if_not_exist_docker_networks
 
 # Make sure the local SSH keys are generated for the base image
 [[ ! -d ./base/ssh ]] && mkdir ./base/ssh
 [[ ! -e ./base/ssh/id_rsa ]] && ssh-keygen -t rsa -N '' -f ./base/ssh/id_rsa
 
-# Make sure the internal Docker image registry container is running
-if [[ $(docker stack services -q --filter "name=${DOCKER_STACK_NAME}_registry" "${DOCKER_STACK_NAME}" | wc -l) -eq 0 ]]; then
-    echo "Starting internal Docker registry"
-    #docker stack deploy --compose-file docker-registry.yml "${DOCKER_STACK_NAME}"
-    deploy_docker_stack_from_compose_using_env docker-registry.yml "${DOCKER_STACK_NAME}"
-else
-    echo "Internal Docker registry is online"
-fi
+init_registry_service_if_needed
 
-echo "Building custom Docker images"
-#docker-compose -f docker-build.yml build
-if [[ -n "${DO_UPDATE:-}" ]]; then
-    if ! docker-compose -f docker-build.yml build --no-cache nwm; then
-        echo "Previous build command failed; exiting"
-        exit 1
-    fi
-else
-    if ! docker-compose -f docker-build.yml build; then
-        echo "Previous build command failed; exiting"
-        exit 1
-    fi
-fi
+# Build (or potentially just update) our images
+build_docker_images
 
 # Bail here if option set to only build
 if [[ -n "${DO_BUILD_ONLY:-}" ]]; then
@@ -192,7 +246,13 @@ fi
 # Otherwise, proceed ...
 
 # Push to registry (unless we should skip)
-if [[ -z "${DO_SKIP_REGISTRY:-}" ]]; then
+if [[ -z "${DO_SKIP_REGISTRY_PUSH:-}" ]]; then
+    # Make sure we wait until the "ready-to-push" time determine in the logic for starting the registry service
+    # Make sure if we start the registry here that we give it a little time to come all the way up before pushing
+    # TODO: maybe change this to a health check later
+    while [[ $(date +%s) -lt ${DOCKER_READY_PUSH_REGISTRY_TIME} ]]; do
+        sleep 1
+    done
     echo "Pushing custom Docker images to internal registry"
     if ! docker-compose -f docker-build.yml push; then
         echo "Previous push command failed; exiting"

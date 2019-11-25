@@ -5,7 +5,8 @@
   "type": "object",
   "title": "Request",
   "required": [
-    "model"
+    "model",
+    "session-secret"
   ],
   "properties": {
     "model": {
@@ -44,6 +45,11 @@
     },
     "client_id": {
       "type": "number"
+    },
+    "session-secret": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
     }
   },
   "$comment": "If we add properties along the way, may not want this",

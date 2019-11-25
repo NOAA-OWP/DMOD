@@ -10,10 +10,10 @@ services:
     depends_on:
       - base
   scheduler:
-    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/mpi-scheduler
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/mgmt
     build: ./scheduler
-    depends_on:
-      - base
+    #depends_on:
+    #  - base
   nwm:
     image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-${NWM_NAME:-master}
     build:
@@ -25,6 +25,9 @@ services:
     #depends_on:
     #    - deps
     #For building, this only gives shared memory to each build step!!! shm_size: 2GB
+  request_handler:
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-request-handler
+    build: ./request_handler
 networks:
   mpi-net:
     external: true
