@@ -23,6 +23,7 @@ ENV PYTHONUNBUFFERED 1
 COPY ./manage.py ./
 COPY ./static ./static
 COPY ./schemas ./schemas
+COPY ./ssl ./ssl
 COPY ./maas_experiment ./maas_experiment
 COPY ./MaaS ./MaaS
 COPY ./entrypoint.sh ./
