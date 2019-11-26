@@ -1,34 +1,38 @@
-#!/usr/bin/env python3
-
-from .request_type import RequestType
-from abc import ABC
 import json
 import jsonschema
+from .maas_request import NWMRequest
+from .message import Message, MessageEventType
+from .session import SessionInitMessage
+from abc import ABC
 from jsonschema.exceptions import best_match
 from pathlib import Path
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, Type
 
 
-class JsonRequestValidator(ABC):
+class MessageJsonValidator(ABC):
 
-    def __init__(self, base_schema_filename, request_type: RequestType, schemas_dir=None):
+    def __init__(self, base_schema_filename, message_type: Type[Message], schemas_dir=None):
         if schemas_dir is None:
             script_dir = Path(__file__).resolve().parent
-            self.base_schemas_dir = script_dir.parent.joinpath('schemas')
+            self.base_schemas_dir = script_dir.joinpath('schemas')
         else:
             self.base_schemas_dir = schemas_dir
         resolve_path = str(self.base_schemas_dir) + '/'
         self.schema = None
         self.resolver = None
-        self._request_type: RequestType = request_type
+        self._message_type: Type[Message] = message_type
         with self.base_schemas_dir.joinpath(base_schema_filename).open(mode='r') as schema_file:
             self.schema = json.loads(schema_file.read())
             self.resolver = jsonschema.RefResolver("file://{}/".format(resolve_path), referrer=self.schema)
 
-    def validate_request(self, request: dict) -> Tuple[bool, Optional[Any]]:
+    def validate(self, request: dict) -> Tuple[bool, Optional[Any]]:
         """
-        Validate the given request.
+        Validate the given serialized :class:`Message`.
 
+        Parameters
+        ----------
+        request : dict
+            serialized representation of a :class:`Message`,
         :param request:
         :return: A tuple with whether the request is valid and either the error for invalid requests or None
         """
@@ -37,19 +41,23 @@ class JsonRequestValidator(ABC):
         return (error is None), error
 
     @property
-    def request_type(self) -> RequestType:
-        return self._request_type
+    def event_type(self) -> MessageEventType:
+        return self.message_type.get_message_event_type()
+
+    @property
+    def message_type(self) -> Type[Message]:
+        return self._message_type
 
 
-class JsonJobRequestValidator(JsonRequestValidator):
+class NWMRequestJsonValidator(MessageJsonValidator):
     def __init__(self, schemas_dir=None):
-        super().__init__(schemas_dir=schemas_dir, request_type=RequestType.JOB,
+        super().__init__(schemas_dir=schemas_dir, message_type=NWMRequest,
                          base_schema_filename='request.schema.json')
 
 
-class JsonAuthRequestValidator(JsonRequestValidator):
+class SessionInitMessageJsonValidator(MessageJsonValidator):
     def __init__(self, schemas_dir=None):
-        super().__init__(schemas_dir=schemas_dir, request_type=RequestType.AUTHENTICATION,
+        super().__init__(schemas_dir=schemas_dir, message_type=SessionInitMessage,
                          base_schema_filename='nwm.maas.auth.schema.json')
 
 
@@ -92,20 +100,9 @@ def validate_request(request):
     Validate model request against defined model schema
     """
     #TODO handle type of request
-    validator = JsonRequestValidator()
-    is_valid, error = validator.validate_request(request=request)
+    validator = MessageJsonValidator()
+    is_valid, error = validator.validate(request=request)
     if error is not None:
         raise error
     else:
         print("Valid")
-
-
-if __name__ == "__main__":
-    with open("./schemas/request.json", 'r') as data_file:
-        test_data = json.load( data_file )
-    print("Validating")
-    validate_request( test_data )
-    with open("./schemas/request_bad.json") as data_file:
-        test_data = json.load( data_file )
-    print("Validating")
-    validate_request( test_data )
