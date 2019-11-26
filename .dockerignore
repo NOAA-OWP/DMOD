@@ -1,0 +1,6 @@
+.git
+.gitignore
+*.iml
+.idea
+docker_host_volumes
+/venv
