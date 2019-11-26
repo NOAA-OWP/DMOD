@@ -1,10 +1,8 @@
 from itertools import chain
 
-
 def flatten(d):
     return chain.from_iterable([(k,v)] if not isinstance(v,dict) else flatten(v)
                                for k,v in d.items())
-
 
 def find(key, value):
     """Finf value for given key in nested dictionary list of json format"""

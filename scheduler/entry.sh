@@ -5,10 +5,12 @@
 # sudo chown mpi:mpi /var/run/docker.sock
 # INSTEAD, simply run the code that relies on the docker socket via sudo
 #
-# sudo python3 scheduler.py
-#
+## sudo python3 scheduler.py
 cd ..
-sudo python3 -m unittest discover -v > unittest_outfile
+sudo python3 -m scheduler.src.scheduler
+#
+# cd ..
+# sudo python3 -m unittest discover -v > unittest_outfile
 echo
 echo "back from python3 scheduler.py"
 

@@ -105,6 +105,7 @@ class RequestHandler(object):
 
         # Initialize SSL cert/key file paths as needed
         if ssl_dir is None and (localhost_pem is None or localhost_key is None):
+            #FIXME change the default ssl_dir relationship
             current_dir = Path(__file__).resolve().parent
             ssl_dir = current_dir.parent.joinpath('ssl')
         if localhost_pem is None:
@@ -341,5 +342,5 @@ class RequestHandler(object):
 
 
 if __name__ == '__main__':
-    handler = RequestHandler()
+    handler = RequestHandler(ssl_dir="../../communication/ssl")
     handler.run()

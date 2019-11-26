@@ -25,7 +25,8 @@ json_schemas_dir = current_dir.parent.joinpath('schemas')
 valid_request_json_file = json_schemas_dir.joinpath('request.json')
 
 client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-localhost_pem = current_dir.parent.joinpath('ssl', 'certificate.pem')
+ssl_dir = current_dir.parent.parent.joinpath('communication', 'ssl')
+localhost_pem = ssl_dir.joinpath('certificate.pem')
 host_name = gethostname()
 # localhost_pem = Path(__file__).resolve().parents[1].joinpath('macbook_ssl', "certificate.pem")
 # host_name = 'localhost'

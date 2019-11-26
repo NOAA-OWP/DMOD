@@ -7,16 +7,15 @@ from itertools import chain
 from pprint import pprint as pp
 from redis import Redis, WatchError
 
-## local imports for unittest
-import scheduler.utils.keynamehelper as keynamehelper
-import scheduler.generate as generate
+# local imports for unittest
+import utils.keynamehelper as keynamehelper
+import generate as generate
 
 ## local imports for production run
 # import utils.keynamehelper as keynamehelper
 # import generate as generate
 
 redis = None
-
 
 class Request:
     def __init__(self, user_id, cpus, mem):
@@ -138,7 +137,6 @@ def initialize_redis():
         print("redis connection error")
 
     clean_keys(redis)
-
 
 if __name__ == "__main__":
     initialize_redis()
