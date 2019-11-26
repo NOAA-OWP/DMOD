@@ -9,6 +9,14 @@ services:
     build: ./nwm/deps
     depends_on:
       - base
+  py-sources:
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwmaas-py-sources
+    build:
+      context: .
+      dockerfile: py_source.Dockerfile
+      #args:
+        #comms_version: ${PY_PACK_COMMS_VERSION?}
+        #comms_package_name: ${PY_PACK_COMMS_NAME?}
   scheduler:
     image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/mgmt
     build: ./scheduler
