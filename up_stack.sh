@@ -1,5 +1,4 @@
 #!/bin/bash
-
 NAME=$(basename "${0}")
 DOCKER_READY_PUSH_REGISTRY_TIME=0
 
