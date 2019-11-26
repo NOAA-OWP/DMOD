@@ -5,8 +5,13 @@ services:
     image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-base
     build: ./base
   deps:
-    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-deps:netcdf_${NETCDF_C_LIBRARY:-latest}
-    build: ./nwm/deps
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-deps:netcdf_${NETCDF_C_VERSION:-latest}
+    build:
+      context: ./nwm/deps
+      args:
+        DOCKER_INTERNAL_REGISTRY_HOST: ${DOCKER_INTERNAL_REGISTRY_HOST?}
+        DOCKER_INTERNAL_REGISTRY_PORT: ${DOCKER_INTERNAL_REGISTRY_PORT?}
+        NETCDF_C_VERSION: ${NETCDF_C_VERSION:-latest}
     depends_on:
       - base
   py-sources:
@@ -30,6 +35,9 @@ services:
         REPO_URL: ${NWM_REPO_URL?}
         BRANCH: ${NWM_BRANCH?}
         COMMIT: ${NWM_COMMIT}
+        DOCKER_INTERNAL_REGISTRY_HOST: ${DOCKER_INTERNAL_REGISTRY_HOST?}
+        DOCKER_INTERNAL_REGISTRY_PORT: ${DOCKER_INTERNAL_REGISTRY_PORT?}
+        NETCDF_C_VERSION: ${NETCDF_C_VERSION:-latest}
     #depends_on:
     #    - deps
     #For building, this only gives shared memory to each build step!!! shm_size: 2GB

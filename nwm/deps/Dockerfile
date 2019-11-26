@@ -1,4 +1,7 @@
-FROM 127.0.0.1:5000/nwm-base
+ARG NETCDF_C_VERSION
+ARG DOCKER_INTERNAL_REGISTRY_HOST
+ARG DOCKER_INTERNAL_REGISTRY_PORT
+FROM ${DOCKER_INTERNAL_REGISTRY_HOST}:${DOCKER_INTERNAL_REGISTRY_PORT}/nwm-base
 # In case the main package repositories are down, use the alternative base image:
 # FROM gliderlabs/alpine:3.4
 USER root
@@ -7,7 +10,8 @@ ARG REPOS="http://dl-cdn.alpinelinux.org/alpine/edge/testing"
 ARG REQUIRE="sudo build-base gfortran openssl curl curl-dev tar git m4 zlib-dev"
 
 # ARG NETCDF_C_VERSION="latest"
-ARG NETCDF_C_VERSION="v4.6.0"
+#ARG NETCDF_C_VERSION="v4.6.0"
+ARG NETCDF_C_VERSION
 ENV NETCDF_C_VERSION ${NETCDF_C_VERSION:-latest}
 ENV HYDRA_HOST_FILE /etc/opt/hosts
 # MPICH Build Options:
