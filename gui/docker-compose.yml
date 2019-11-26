@@ -23,8 +23,14 @@ services:
       - app_server
   # Define a container belonging exclusively to our django application
   app_server:
-    build: .
     image: maas-portal-development
+    build:
+      context: .
+      args:
+        docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY_HOST}:${DOCKER_INTERNAL_REGISTRY_PORT}
+        comms_package_name: nwm_maas_communication
+        #docker_internal_registry_host: ${DOCKER_INTERNAL_REGISTRY_HOST}
+        #docker_internal_registry_port: ${DOCKER_INTERNAL_REGISTRY_PORT}
     networks:
       - request-listener-net
     # Call this when starting the container
