@@ -83,8 +83,8 @@ class Scheduler:
         n = 0
         while (n <= Max_Redis_Init):
             try:
-                self.redis = Redis(host=os.environ.get("REDIS_HOST", "myredis"),
-                # self.redis = Redis(host=os.environ.get("REDIS_HOST", "localhost"),
+                #self.redis = Redis(host=os.environ.get("REDIS_HOST", "myredis"),
+                 self.redis = Redis(host=os.environ.get("REDIS_HOST", "localhost"),
                               port=os.environ.get("REDIS_PORT", 6379),
                               # db=0, encoding="utf-8", decode_responses=True,
                               db=0, decode_responses=True,
@@ -99,6 +99,9 @@ class Scheduler:
         # self._jobQ = queue.deque()
         # _MAX_JOBS is set to currently available total number of CPUs
         self._MAX_JOBS = MAX_JOBS
+
+    def return42(self):
+        return 42
 
     def create_resources(self):
         """ Create resource from the array of passed resource details"""
@@ -124,7 +127,7 @@ class Scheduler:
 
     def check_single_node_availability(self, user_id, cpus, mem):
         """
-        Check available resources to allocate job request to a single node to optimize 
+        Check available resources to allocate job request to a single node to optimize
         computation efficiency
         """
         if (cpus <= 0):
@@ -187,7 +190,7 @@ class Scheduler:
     def check_generalized_round_robin(self, user_id, cpus, mem):
         """
         Check available resources on host nodes and allocate in round robin manner even the request
-        can fit in a single node. This can be useful in test cases where large number of CPUs is 
+        can fit in a single node. This can be useful in test cases where large number of CPUs is
         inefficient for small domains and in filling the nodes when they are almost full
         """
         if (cpus <= 0):
@@ -616,7 +619,7 @@ class Scheduler:
     def write_hostfile(self, cpusList):
         '''
         Write allocated hosts and CPUs to hostfile on the scheduler container
-        This can be modified to write to a text file for an additional copy of 
+        This can be modified to write to a text file for an additional copy of
         the user job info
         '''
 
