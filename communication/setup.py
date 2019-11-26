@@ -17,7 +17,8 @@ setup(
     author_email='',
     url='',
     license='',
+    include_package_data=True,
     #install_requires=['websockets', 'jsonschema'],vi
-    install_requires=['jsonschema'],
+    install_requires=['websockets', 'jsonschema'],
     packages=find_namespace_packages(include=['nwm_maas.*'], exclude=('tests'))
 )
