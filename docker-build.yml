@@ -27,9 +27,9 @@ services:
     build:
       context: ./nwm
       args:
-          REPO_URL: ${REPO_URL?}
-          BRANCH: ${BRANCH?}
-          COMMIT: ${COMMIT}
+        REPO_URL: ${NWM_REPO_URL?}
+        BRANCH: ${NWM_BRANCH?}
+        COMMIT: ${NWM_COMMIT}
     #depends_on:
     #    - deps
     #For building, this only gives shared memory to each build step!!! shm_size: 2GB

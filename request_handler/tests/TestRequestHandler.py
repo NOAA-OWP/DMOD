@@ -16,7 +16,8 @@ class TestRequestHandler(unittest.TestCase):
     _valid_auth_json_file = _json_schemas_dir.joinpath('auth.json')
 
     _client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    _localhost_pem = _current_dir.parent.joinpath('ssl', 'certificate.pem')
+    _ssl_dir = _current_dir.parent.parent.joinpath('communication', 'ssl')
+    _localhost_pem = _ssl_dir.joinpath('certificate.pem')
     _host_name = gethostname()
     # _localhost_pem = Path(__file__).resolve().parents[1].joinpath('macbook_ssl', "certificate.pem")
     # _host_name = 'localhost'
@@ -44,10 +45,10 @@ class TestRequestHandler(unittest.TestCase):
         self.client_ssl_context = TestRequestHandler._client_ssl_context
         self.host_name = TestRequestHandler._host_name
         self.port = '3012'
-
+        self.ssl_dir = TestRequestHandler._ssl_dir
         self.session_secret = hashlib.sha256('blah'.encode('utf-8')).hexdigest()
 
-        self.request_handler = RequestHandler(hostname=self.host_name, port=self.port)
+        self.request_handler = RequestHandler(hostname=self.host_name, port=self.port, ssl_dir=self.ssl_dir)
         # self.running_handler = asyncio.gather(self._run_handler())
         self.uri = ('wss://{}:'.format(self.host_name) if self.client_ssl_context else 'ws://localhost:') + self.port
 

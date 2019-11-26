@@ -1,0 +1,31 @@
+version: "3"
+
+services:
+    base:
+        image: 127.0.0.1:5000/nwm-base
+        build: ./base
+    deps:
+        image: 127.0.0.1:5000/nwm-deps
+        build: ./nwm/deps
+        depends_on:
+            - base
+    scheduler:
+        image: 127.0.0.1:5000/mgmt
+        build: ./scheduler
+        # depends_on:
+        #     - base
+    nwm:
+        # image: 127.0.0.1:5000/nwm-${NWM_NAME:-master}
+        image: 127.0.0.1:5000/nwm-2.0
+        build: 
+            context: ./nwm
+            args:
+                - NWM_REPO_URL
+                - NWM_BRANCH
+                - NWM_COMMIT
+        #depends_on:
+        #    - deps
+        #For building, this only gives shared memory to each build step!!! shm_size: 2GB
+networks:
+    mpi-net:
+        external: true
