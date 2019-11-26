@@ -8,6 +8,11 @@ __pychache__/
 base/ssh/
 gui/db.sqlite3
 gui/ssl/
+
+communication/ssl/certificate.pem
+communication/ssl/*certificate*.pem
+communication/ssl/*privkey*.pem
+
 request_client/ssl/certificate.pem
 request_handler/ssl/
 request_handler/*.tar.gz
@@ -29,6 +34,7 @@ docker-deploy-data-hack.yml
 docker-deploy.yml-orig
 docker-registry.yml
 generate.py
+
 nwm/Dockerfile-new
 nwm/Dockerfile-orig
 nwm/Dockerfile.bkup
@@ -40,6 +46,7 @@ nwm/testfile
 parsing_nested.py
 redis_test/
 request.py
+
 scheduler.log
 scheduler/Dockerfile_old
 scheduler/distribute_domain.sh_36cores
