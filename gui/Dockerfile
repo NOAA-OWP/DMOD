@@ -27,7 +27,6 @@ ENV PYTHONUNBUFFERED 1
 # Copy selected portions of the project into the working directory (/usr/maas_portal)
 COPY ./manage.py ./
 COPY ./static ./static
-COPY ./schemas ./schemas
 COPY ./ssl ./ssl
 COPY ./maas_experiment ./maas_experiment
 COPY ./MaaS ./MaaS
