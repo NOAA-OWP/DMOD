@@ -1,26 +1,24 @@
 import asyncio
 import json
-import os
-import pathlib
 import ssl
 import traceback
+from abc import ABC, abstractmethod
+from pathlib import Path
+
 import websockets
+
 from .maas_request import MaaSRequest
 from .validator import NWMRequestJsonValidator
-from abc import ABC, abstractmethod
 
 
 class MaasRequestClient(ABC):
 
-    def __init__(self, endpoint_uri: str):
+    def __init__(self, endpoint_uri: str, ssl_directory: Path):
         self.endpoint_uri = endpoint_uri
 
-        self._client_ssl_context = None
-        current_dir = pathlib.Path(__file__).resolve().parent
         self.client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        endpoint_pem = current_dir.parent.parent.joinpath('ssl', 'certificate.pem')
-        host_name = os.environ.get('MAAS_ENDPOINT_HOST')
-        self.client_ssl_context.load_verify_locations(endpoint_pem)
+        endpoint_pem = ssl_directory.joinpath('certificate.pem')
+        self.client_ssl_context.load_verify_locations(str(endpoint_pem))
 
         # TODO: get full session implementation if possible
         self._session_id, self._session_secret, self._session_created, self._is_new_session = None, None, None, None
