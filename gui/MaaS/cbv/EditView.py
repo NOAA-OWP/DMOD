@@ -1,19 +1,13 @@
 """
 Defines a view that may be used to configure a MaaS request
 """
-import asyncio
-import json
 import os
-import pathlib
-import ssl
-import traceback
-import websockets
-from .. import MaaSRequest
-from ..validator import JsonAuthRequestValidator, JsonJobRequestValidator
-from abc import ABC, abstractmethod
 from django.http import HttpRequest, HttpResponse
 from django.views.generic.base import View
 from django.shortcuts import render
+from nwm_maas.communication import Distribution, get_available_models, get_available_outputs, get_request, \
+    NWMRequestJsonValidator, NWMRequest, MaaSRequest, MaasRequestClient, Scalar
+from pathlib import Path
 
 
 class RequestFormProcessor:
@@ -80,7 +74,7 @@ class RequestFormProcessor:
                     continue
 
                 # Create the distribution and add it to the list
-                distribution = MaaSRequest.Distribution(
+                distribution = Distribution(
                     int(distribution_min_value),
                     int(distribution_max_value),
                     distribution_type_value
@@ -97,7 +91,7 @@ class RequestFormProcessor:
                     continue
 
                 # Create the Scalar and add it to the list
-                scalar = MaaSRequest.Scalar(int(scalar_value))
+                scalar = Scalar(int(scalar_value))
                 self._parameters[parameter.replace(self.model + "_", "")] = scalar
 
     @property
@@ -112,14 +106,20 @@ class RequestFormProcessor:
         Return whether the MaaS job request represented by :attr:post_request is valid, lazily perform validation if it
         has not already been done.
 
+        In this implementation, the only supported type of :class:`MaasRequest` is the :class:`NWMRequest` type.  Before
+        using a validator, this method will confirm the type, and return False if it is something different.
+
         Returns
         -------
         bool
             whether the MaaS job request represented by :attr:post_request is valid
         """
         if self._is_valid is None:
-            self._is_valid, self._validation_error = JsonJobRequestValidator().validate_request(
-                self.maas_request.to_dict())
+            if not isinstance(self.maas_request, NWMRequest):
+                self._is_valid = False
+                self._validation_error = TypeError('Unsupport MaaS message type created by ' + self.__class__.__name__)
+            else:
+                self._is_valid, self._validation_error = NWMRequestJsonValidator().validate(self.maas_request.to_dict())
         return self._is_valid
 
     @property
@@ -135,8 +135,8 @@ class RequestFormProcessor:
         """
         if self._maas_request is None:
             if len(self.errors) == 0:
-                self._maas_request = MaaSRequest.get_request(self.model, self.version, self.output, self.parameters,
-                                                             self.maas_secret)
+                self._maas_request = get_request(self.model, self.version, self.output, self.parameters,
+                                                 self.maas_secret)
         return self._maas_request
 
     @property
@@ -159,51 +159,18 @@ class RequestFormProcessor:
         return self._validation_error
 
 
-class JobRequestClient(ABC):
+class PostFormJobRequestClient(MaasRequestClient):
+    """
+    A client for websocket interaction with the MaaS request handler, specifically for performing a job request based on
+    details provided in a particular HTTP POST request (i.e., with form info on the parameters of the job execution).
+    """
 
-    def __init__(self, endpoint_uri: str):
-        self.endpoint_uri = endpoint_uri
-
-        self._client_ssl_context = None
-        current_dir = pathlib.Path(__file__).resolve().parent
-        self.client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        endpoint_pem = current_dir.parent.parent.joinpath('ssl', 'certificate.pem')
-        host_name = os.environ.get('MAAS_ENDPOINT_HOST')
-        self.client_ssl_context.load_verify_locations(endpoint_pem)
-
-        # TODO: get full session implementation if possible
-        self._session_id, self._session_secret, self._session_created, self._is_new_session = None, None, None, None
-
-        self._maas_job_request = None
-        self._errors = None
-        self._warnings = None
-        self._info = None
-        self.resp_as_json = None
-        self.job_id = None
-
-    async def async_send_job_request(self, maas_request: MaaSRequest):
-        async with websockets.connect(self.endpoint_uri, ssl=self.client_ssl_context) as websocket:
-            await websocket.send(maas_request.to_json())
-            response = await websocket.recv()
-            # return json.dumps(response)
-            return response
-
-    # TODO: ...
-    async def authenticate_over_websocket(self):
-        async with websockets.connect(self.endpoint_uri, ssl=self.client_ssl_context) as websocket:
-            #async with websockets.connect(self.maas_endpoint_uri) as websocket:
-            # return await EditView._authenticate_over_websocket(websocket)
-            # Right now, it doesn't matter as long as it is valid
-            # TODO: Fix this to not be ... fixed ...
-            json_as_dict = {'username': 'someone', 'user_secret': 'something'}
-            # TODO: validate before sending
-            await websocket.send(json.dumps(json_as_dict))
-            auth_response = json.loads(await websocket.recv())
-            print('*************** Auth response: ' + json.dumps(auth_response))
-            maas_session_id = auth_response['data']['session_id']
-            maas_session_secret = auth_response['data']['session_secret']
-            maas_session_created = auth_response['data']['created']
-            return maas_session_id, maas_session_secret, maas_session_created
+    def __init__(self, endpoint_uri: str, http_request: HttpRequest, ssl_dir: Path = None):
+        if ssl_dir is None:
+            ssl_dir = Path(__file__).resolve().parent.parent.parent.joinpath('ssl')
+        super().__init__(endpoint_uri=endpoint_uri, ssl_directory=ssl_dir)
+        self.http_request = http_request
+        self.form_proc = None
 
     def _acquire_session_info(self, force_new: bool = False):
         """
@@ -223,139 +190,14 @@ class JobRequestClient(ABC):
         bool
             whether session details were acquired and set successfully
         """
-        self._is_new_session = False
         if not force_new and 'maas_session_secret' in self.http_request.COOKIES.keys():
             self._session_id = self.http_request.COOKIES['maas_session_id']
             self._session_secret = self.http_request.COOKIES['maas_session_secret']
             self._session_created = self.http_request.COOKIES['maas_session_created']
+            self._is_new_session = False
             return True
         else:
-            try:
-                auth_details = asyncio.get_event_loop().run_until_complete(self.authenticate_over_websocket())
-                self._session_id, self._session_secret, self._session_created = auth_details
-                self._is_new_session = True
-                return True
-            except:
-                return False
-
-    def _get_validation_error(self):
-        is_valid, error = JsonJobRequestValidator().validate_request(self.maas_job_request.to_dict())
-        return error
-
-    @abstractmethod
-    def _init_maas_job_request(self):
-        pass
-
-    def _is_maas_job_request_valid(self):
-        is_valid, error = JsonJobRequestValidator().validate_request(self.maas_job_request.to_dict())
-        return is_valid
-
-    def _job_request_failed_due_to_expired_session(self):
-        """
-        Test if the response to a websocket sent request in :attr:resp_as_json failed specifically because the utilized
-        session was valid, but no longer suitably authorized, indicating that it may make sense to try to authenticate a
-        new session for the request and try again (i.e., it may, assuming this problem didn't occur when already using a
-        freshly acquired session.)
-
-        Returns
-        -------
-        bool
-            whether a failure occur and it specifically was due to a lack of authorization over the used session
-        """
-        return self.resp_as_json is not None \
-               and not self.resp_as_json['success'] \
-               and self.resp_as_json['reason'] == 'Unauthorized' \
-               and not self._is_new_session
-
-    @property
-    @abstractmethod
-    def errors(self):
-        pass
-
-    @property
-    @abstractmethod
-    def info(self):
-        pass
-
-    @property
-    def is_new_session(self):
-        return self._is_new_session
-
-    @property
-    def maas_job_request(self):
-        if self._maas_job_request is None:
-            self._maas_job_request = self._init_maas_job_request()
-        return self._maas_job_request
-
-    def make_job_request(self, force_new_session: bool = False):
-        self._acquire_session_info(force_new=force_new_session)
-        # If able to get session details, proceed with making a job request
-        if self._session_secret is not None:
-            print("******************* Request: " + self.maas_job_request.to_json())
-            if self._is_maas_job_request_valid():
-                try:
-                    req_response = asyncio.get_event_loop().run_until_complete(self.async_send_job_request(self.maas_job_request))
-                    self.resp_as_json = json.loads(req_response)
-                    print('***************** Response: ' + req_response)
-                    if not self.validate_job_request_response():
-                        raise RuntimeError('Invalid response received for requested job: ' + str(req_response))
-                    # Try to get a new session if unauthorized (and we hadn't already gotten a new session)
-                    elif self._job_request_failed_due_to_expired_session():
-                        # Clear to we can try again with updated secret
-                        self._maas_job_request = None
-                        return self.make_job_request(force_new_session=True)
-                    elif not self.resp_as_json['success']:
-                        template = 'Request failed (reason: {}): {}'
-                        raise RuntimeError(template.format(self.resp_as_json['reason'], self.resp_as_json['message']))
-                    else:
-                        self.job_id = self.resp_as_json['data']['job_id']
-                except Exception as e:
-                    # TODO: log error instead of print
-                    msg = 'Encountered error submitting maas job request over session ' + str(self._session_id)
-                    msg += " : \n" + str(type(e)) + ': ' + str(e)
-                    print(msg)
-                    traceback.print_exc()
-                    self.errors.append(msg)
-            else:
-                msg = 'Could not submit invalid maas job request over session ' + str(self._session_id)
-                msg += ' (' + str(self._get_validation_error()) + ')'
-                print(msg)
-                self.errors.append(msg)
-        else:
-            self.errors.append("Unable to acquire session details or authenticate new session for request")
-
-    @property
-    def session_created(self):
-        return self._session_created
-
-    @property
-    def session_id(self):
-        return self._session_id
-
-    @property
-    def session_secret(self):
-        return self._session_secret
-
-    def validate_job_request_response(self):
-        # TODO: implement
-        return True
-
-    @property
-    @abstractmethod
-    def warnings(self):
-        pass
-
-
-class PostFormJobRequestClient(JobRequestClient):
-    """
-    A client for websocket interaction with the MaaS request handler, specifically for performing a job request based on
-    details provided in a particular HTTP POST request (i.e., with form info on the parameters of the job execution).
-    """
-
-    def __init__(self, endpoint_uri: str, http_request: HttpRequest):
-        super().__init__(endpoint_uri=endpoint_uri)
-        self.http_request = http_request
-        self.form_proc = None
+            return super()._acquire_session_info(force_new=force_new)
 
     def _init_maas_job_request(self):
         """
@@ -379,57 +221,6 @@ class PostFormJobRequestClient(JobRequestClient):
         if self._info is None:
             self._info = [self.form_proc.info] if self.form_proc is not None else []
         return self._info
-
-
-    # def old_make_job_request(self, force_new_session: bool = False):
-    #     """
-    #
-    #     Parameters
-    #     ----------
-    #     force_new_session
-    #
-    #     Returns
-    #     -------
-    #     tuple
-    #         A tuple with the generated :obj:RequestFormProcessor used to handle processing POST request params and the
-    #         response from the websocket request as a deserialized JSON object (or None if this failed or wasn't tried)
-    #     """
-    #     resp_as_json = None
-    #     self._acquire_session_info(force_new=force_new_session)
-    #     form_proc = RequestFormProcessor(post_request=self.http_request, maas_secret=self._session_secret)
-    #     # If able to get session details, proceed with making a job request
-    #     if self._session_secret is not None:
-    #         print("******************* Request: " + form_proc.maas_request.to_json())
-    #         if form_proc.is_valid:
-    #             try:
-    #                 req_response = asyncio.get_event_loop().run_until_complete(
-    #                     self.async_send_job_request(form_proc.maas_request))
-    #                 resp_as_json = json.loads(req_response)
-    #                 print('***************** Response: ' + req_response)
-    #                 # TODO: validate responses also
-    #                 # Try to get a new session if unauthorized (and we hadn't already gotten a new session)
-    #                 if self._job_request_failed_due_to_expired_session(resp_as_json):
-    #                     return self.make_job_request(force_new_session=True)
-    #                 elif not resp_as_json['success']:
-    #                     raise RuntimeError('Request failed (reason: ' + resp_as_json['reason'] + '): ' + resp_as_json['message'])
-    #                 else:
-    #                     self.job_id = resp_as_json['data']['job_id']
-    #             except Exception as e:
-    #                 # TODO: log error instead of print
-    #                 msg = 'Encountered error submitting maas job request over session ' + str(self._session_id)
-    #                 msg += " : \n" + str(type(e)) + ': ' + str(e)
-    #                 print(msg)
-    #                 traceback.print_exc()
-    #                 form_proc.errors.append(msg)
-    #         else:
-    #             msg = 'Could not submit invalid maas job request over session ' + str(self._session_id)
-    #             msg += ' (' + str(form_proc.validation_error) + ')'
-    #             print(msg)
-    #             form_proc.errors.append(msg)
-    #     else:
-    #         form_proc.errors.append("Unable to acquire session details or authenticate new session for request")
-    #
-    #     return form_proc, resp_as_json
 
     @property
     def warnings(self):
@@ -488,12 +279,12 @@ class EditView(View):
             split = words.split("_")
             return " ".join(split).title()
 
-        models = list(MaaSRequest.get_available_models().keys())
+        models = list(get_available_models().keys())
         outputs = list()
         distribution_types = list()
 
         # Create a mapping between each output type and a friendly representation of it
-        for output in MaaSRequest.get_available_outputs():
+        for output in get_available_outputs():
             output_definition = dict()
             output_definition['name'] = humanize(output)
             output_definition['value'] = output

@@ -6,3 +6,5 @@ websockets
 Faker
 flake8
 autopep8
+setuptools
+wheel
