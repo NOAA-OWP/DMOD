@@ -31,59 +31,65 @@ Options
     echo "${_O}" 1>&2
 }
 
+# For local development, get/set the base directory for bind-mount subdirectories
+get_dev_bind_mounts_root()
+{
+    local _PARENT_DIR
+
+    if [[ -z ${DEV_BIND_MOUNTS_BASE_DIR:-} ]]; then
+        _PARENT_DIR=$(cd "`dirname "${0}"`" && pwd)
+        echo "${_PARENT_DIR}" && exit
+        DEV_BIND_MOUNTS_BASE_DIR="${_PARENT_DIR}/docker_host_volumes"
+    fi
+}
+
+determine_default_image_store_bind_mount()
+{
+    local _SD
+    # Use /opt/nwm_c/images as default image store host volume directory, if it exists on the host
+    if [[ -e /opt/nwm_c/images ]]; then
+        _SD=/opt/nwm_c/images
+    # Otherwise, use a local (and git ignored) directory
+    else
+        get_dev_bind_mounts_root
+        _SD=${DEV_BIND_MOUNTS_BASE_DIR}/docker_host_volumes/images
+        [ ! -d ${_SD} ] && mkdir -p ${_SD}
+    fi
+    echo "${_SD}"
+}
+
+determine_default_domains_data_bind_mount()
+{
+    local _DD
+    # Use /opt/nwm_c/images as default image store host volume directory, if it exists on the host
+    if [[ -e /opt/nwm_c/images ]]; then
+        _DD=/opt/nwm_c/images
+    # Otherwise, use a local (and git ignored) directory
+    else
+        get_dev_bind_mounts_root
+        _DD=${DEV_BIND_MOUNTS_BASE_DIR}/docker_host_volumes/domains
+        [ ! -d ${_DD} ] && mkdir -p ${_DD}
+    fi
+    echo "${_DD}"
+}
+
 generate_default_env_file()
 {
     if [[ ! -e ${DEFAULT_ENV_OUTPUT_FILE:-.env} ]]; then
-        local _STORE=''
-        # Use /opt/nwm_c/images as default image store host volume directory, if it exists on the host
-        if [[ -e /opt/nwm_c/images ]]; then
-            _STORE=/opt/nwm_c/images
-        # Otherwise, use a local (and git ignored) directory
-        else
-            _STORE=./docker_host_volumes/images
-            [ ! -d ${_STORE} ] && mkdir -p ${_STORE}
-        fi
-        # Similar for this directory
-        local _DOMAINS_DIR=''
-        if [[ -e /apd_common/analysis_assim_extended ]]; then
-            _DOMAINS_DIR=/apd_common/analysis_assim_extended
-        else
-            _DOMAINS_DIR=./docker_host_volumes/domains
-            [ ! -d ${_DOMAINS_DIR} ] && mkdir -p ${_DOMAINS_DIR}
+        local _EXAMPLE_ENV="./example.env"
+        # Make sure the expected example default env file exists
+        if [[ ! -f ${_EXAMPLE_ENV} ]]; then
+            echo "Error: cannot proceed; basis for generated ${DEFAULT_ENV_OUTPUT_FILE:-.env} file '${_EXAMPLE_ENV}' does not exist"
+            exit 1
         fi
 
+        _IMBM=`determine_default_image_store_bind_mount`
+        _DDBM=`determine_default_domains_data_bind_mount`
 
-        cat > ${DEFAULT_ENV_OUTPUT_FILE:-.env} << EOF
-DOCKER_STACK_NAME=nwm
-
-DOCKER_MPI_NET_NAME=mpi-net
-DOCKER_MPI_NET_SUBNET=10.0.0.0/24
-DOCKER_MPI_NET_GATEWAY=10.0.0.1
-DOCKER_MPI_NET_VLAN=4097
-
-DOCKER_REQUESTS_NET_NAME=requests-net
-DOCKER_REQUESTS_NET_SUBNET=10.0.1.0/27
-DOCKER_REQUESTS_NET_GATEWAY=10.0.1.1
-
-DOCKER_HOST_IMAGE_STORE=${_STORE}
-DOCKER_VOL_DOMAINS=${_DOMAINS_DIR}
-
-DOCKER_INTERNAL_REGISTRY_STACK_NAME:=dev_registry_stack
-DOCKER_INTERNAL_REGISTRY_HOST=127.0.0.1
-DOCKER_INTERNAL_REGISTRY_PORT=5000
-
-DOCKER_REQUESTS_CONTAINER_PORT=3012
-
-# This variable should be set from the context of the file system inside the Docker GUI container
-# Alternatively, it can be set empty or removed, and no virtual env will be used
-# (No venv would mean requirements will be installed on every startup, thus making things slower)
-DOCKER_GUI_CONTAINER_VENV_DIR=/usr/maas_portal/venv
-
-# Similarly, this is in the context of the container
-DOCKER_REQUESTS_CONTAINER_VENV_DIR=/code/venv
-
-NWM_NAME=master
-EOF
+        cat ${_EXAMPLE_ENV} \
+            | sed "s|\(DOCKER_HOST_IMAGE_STORE=\).*|\1${_IMBM}|" \
+            | sed "s|\(DOCKER_VOL_DOMAINS=\).*|\1${_DDBM}|" \
+            >> ${DEFAULT_ENV_OUTPUT_FILE:-.env}
     fi
 }
 
@@ -110,7 +116,7 @@ init_if_not_exist_docker_networks()
             -d overlay \
             --scope swarm \
             --attachable \
-            -o "{\"com.docker.network.driver.overlay.vxlanid_list\": \"${DOCKER_MPI_NET_VLAN:=4097}\"}" \
+            -o "{\"com.docker.network.driver.overlay.vxlanid_list\": \"${DOCKER_MPI_NET_VXLAN_ID:=4097}\"}" \
             --subnet ${DOCKER_MPI_NET_SUBNET} \
             --gateway ${DOCKER_MPI_NET_GATEWAY} \
             ${DOCKER_MPI_NET_NAME}
@@ -198,10 +204,7 @@ while [[ ${#} -gt 0 ]]; do
         --init-env-show)
             DEFAULT_ENV_OUTPUT_FILE="/tmp/temp_upstack_env_$(date +'%Y%m%d%H%M%S')"
             generate_default_env_file
-            SEP='###################################################'
-            echo "${SEP}"
             cat "${DEFAULT_ENV_OUTPUT_FILE}"
-            echo "${SEP}"
             rm "${DEFAULT_ENV_OUTPUT_FILE}"
             exit
             ;;
