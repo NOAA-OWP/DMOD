@@ -58,9 +58,9 @@ class WebSocketClient:
             print("FS {}".format(data))
             await websocket.connection.send(data)
 
-            response = await websocket.connection.recv()
+            #response = await websocket.connection.recv()
             # return json.dumps(response)
-            return response
+            #return response
 
 class SchedulerClient(WebSocketClient):
     #TODO decide if this is really nessicary, it could be if structured calls
@@ -88,7 +88,9 @@ class SchedulerClient(WebSocketClient):
             response = "Job request not valid JSON format"
         return response
 
-
+    async def get_results(self):
+        async for message in self.connection:
+            yield message
 
 class MaasRequestClient(ABC):
 
