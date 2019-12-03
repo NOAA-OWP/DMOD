@@ -10,6 +10,85 @@ import websockets
 from .maas_request import MaaSRequest
 from .validator import NWMRequestJsonValidator
 
+class WebSocketClient:
+    """
+
+    """
+    def __init__(self, endpoint_uri: str, ssl_directory: Path):
+
+        self.endpoint_uri = endpoint_uri
+
+        self.client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        endpoint_pem = ssl_directory.joinpath('certificate.pem')
+        self.client_ssl_context.load_verify_locations(str(endpoint_pem))
+        #TODO try to connect, throw error if connection cannot be established
+        self.connection = None
+        self.active_connections = 0
+
+    async def __aenter__(self):
+        """
+            When context is entered, use existing connection or create if none exists
+        """
+        if self.connection is None:
+            self.connection = await websockets.client.connect(self.endpoint_uri, ssl=self.client_ssl_context)
+        self.active_connections += 1
+        return self
+
+    async def __aexit__(self, *exc_info):
+        """
+            When context exits, decrement the connection count, when no active connections, close
+        """
+        self.active_connections -= 1
+        if self.active_connections < 1:
+            await self.connection.close()
+            self.connection = None
+            self.active_connections = 0
+
+    async def async_send(self, data):
+        """
+            Send data to socket, wait for response
+
+            Parameters
+            ----------
+            data
+                string or byte array
+        """
+        async with self as websocket:
+            #TODO ensure correct type for data???
+            print("FS {}".format(data))
+            await websocket.connection.send(data)
+
+            response = await websocket.connection.recv()
+            # return json.dumps(response)
+            return response
+
+class SchedulerClient(WebSocketClient):
+    #TODO decide if this is really nessicary, it could be if structured calls
+    #to and from the scheduler are required.  As it is now, it is a VERY thin
+    #and probablly unnesscecary wrapper
+
+    async def send_to_scheduler(self, data):
+        """
+            Ensures data is JSON encoded, and send data to the scheduler websocket endpoint.
+
+            Parameters
+            ----------
+            data
+                Job request data, in JSON encoded format
+
+            Returns
+            -------
+            response
+                string containing scheduler response. TODO this should return code and msg
+        """
+        try:
+            data = json.loads(data)
+            response = await self.async_send(str(data))
+        except ValueError:
+            response = "Job request not valid JSON format"
+        return response
+
+
 
 class MaasRequestClient(ABC):
 
