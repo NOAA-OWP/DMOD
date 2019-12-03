@@ -10,7 +10,7 @@ from django.shortcuts import render
 import logging
 logger = logging.getLogger("gui_log")
 
-from nwm_maas.communication import Distribution, get_available_models, get_available_outputs, get_request, \
+from nwmaas.communication import Distribution, get_available_models, get_available_outputs, get_request, \
     NWMRequestJsonValidator, NWMRequest, MaaSRequest, MaasRequestClient, Scalar
 from pathlib import Path
 

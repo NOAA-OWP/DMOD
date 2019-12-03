@@ -9,9 +9,9 @@ base/ssh/
 gui/db.sqlite3
 gui/ssl/
 
-communication/nwm_maas/test/ssl/certificate.pem
-communication/nwm_maas/test/ssl/*certificate*.pem
-communication/nwm_maas/test/ssl/*privkey*.pem
+communication/nwmaas/test/ssl/certificate.pem
+communication/nwmaas/test/ssl/*certificate*.pem
+communication/nwmaas/test/ssl/*privkey*.pem
 
 request_client/ssl/certificate.pem
 request_handler/ssl/

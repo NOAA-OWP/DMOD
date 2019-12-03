@@ -7,7 +7,7 @@ sys.path.insert(0, parent_dir)
 #END PATH HACK
 
 from websockets import WebSocketServerProtocol
-from communication.nwm_maas.communication.websocket_interface import WebSocketInterface
+from communication.nwmaas.communication.websocket_interface import WebSocketInterface
 from scheduler.src.scheduler import Scheduler
 from pathlib import Path
 import json
