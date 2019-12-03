@@ -25,8 +25,16 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 from websockets import WebSocketServerProtocol
 
+#TOTAL HACK to import sibling package code
+import os,sys,inspect
+current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+top_dir = os.path.dirname( os.path.dirname(current_dir) )
+sys.path.insert(0, top_dir)
+#END PATH HACK
+
+from communication.nwm_maas.communication.client import SchedulerClient
 logging.basicConfig(
-    level=logging.ERROR,
+    level=logging.INFO,
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
     datefmt="%H:%M:%S"
 )
@@ -115,12 +123,25 @@ class RequestHandler(object):
 
         self._session_manager: SessionManager = SessionManager()
         self._sessions_to_websockets: Dict[Session, WebSocketServerProtocol] = {}
-
         self.ssl_context.load_cert_chain(localhost_pem, keyfile=localhost_key)
         # print(hostname)
         # Setup websocket server
         self.server = websockets.serve(self.listener, hostname, int(port), ssl=self.ssl_context)
+        self.scheduler_host='localhost.nwc.nws.noaa.gov'
+        self.scheduler_port=3013
+        #TODO clean up parameterization of host, port, ssl
 
+        #asyncio.get_event_loop().run_until_complete(self.test_sched( ssl_dir))
+    """FIXME remove this
+    async def test_sched(self, ssl_dir):
+
+        #TODO clean up parameterization of host, port, ssl
+        print("Preparing Scheduler Context")
+        async with SchedulerClient("wss://{}:{}".format(scheduler_host, scheduler_port), ssl_dir) as scheduler_client:
+            print("Testing clinet send")
+            resp = await scheduler_client.send_to_scheduler("[]")
+            print(resp)
+    """
     def _lookup_session_by_secret(self, secret: str) -> Optional[Session]:
         """
         Search for the :obj:`Session` instance with the given session secret value.
@@ -254,7 +275,14 @@ class RequestHandler(object):
             # job_id = # TODO
             job_id = 0
             mesg = 'Awaiting implementation of handler-to-scheduler communication' if job_id == 0 else ''
-
+            #TODO clean up parameterization of host, port, ssl
+            #The context manager manages a SINGLE connection to the scheduler server
+            #Adhoc calls to the scheduler can be made for this connection via the scheduler_client
+            #These adhoc calls will use the SAME connection the context was initialized with
+            with SchedulerClient("wss://{}:{}".format(self.scheduler_host, self.scheduler_port), ssl_dir) as scheduler_client:
+                response = await scheduler_client.send_to_scheduler(data)
+                print(response)
+                #TODO loop here to recieve multiple requests, try while execpt connectionClosed, let server tell us when to stop listening
             # TODO: consider registering the job and relationship with session, etc.
             success = job_id > 0
             reason = ('Success' if success else 'Failure') + ' starting job (returned id ' + str(job_id) + ')'
