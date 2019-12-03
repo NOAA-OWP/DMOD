@@ -137,10 +137,11 @@ class RequestHandler(object):
 
         #TODO clean up parameterization of host, port, ssl
         print("Preparing Scheduler Context")
-        async with SchedulerClient("wss://{}:{}".format(scheduler_host, scheduler_port), ssl_dir) as scheduler_client:
+        async with SchedulerClient("wss://{}:{}".format(self.scheduler_host, self.scheduler_port), ssl_dir) as scheduler_client:
             print("Testing clinet send")
-            resp = await scheduler_client.send_to_scheduler("[]")
-            print(resp)
+            await scheduler_client.send_to_scheduler("[]")
+            async for message in scheduler_client.get_results():
+                print(message)
     """
     def _lookup_session_by_secret(self, secret: str) -> Optional[Session]:
         """
@@ -280,8 +281,9 @@ class RequestHandler(object):
             #Adhoc calls to the scheduler can be made for this connection via the scheduler_client
             #These adhoc calls will use the SAME connection the context was initialized with
             with SchedulerClient("wss://{}:{}".format(self.scheduler_host, self.scheduler_port), ssl_dir) as scheduler_client:
-                response = await scheduler_client.send_to_scheduler(data)
-                print(response)
+                await scheduler_client.send_to_scheduler(data)
+                async for response in scheduler_client.get_results():
+                    print(response)
                 #TODO loop here to recieve multiple requests, try while execpt connectionClosed, let server tell us when to stop listening
             # TODO: consider registering the job and relationship with session, etc.
             success = job_id > 0
