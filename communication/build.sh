@@ -35,14 +35,14 @@ clean_all()
 
     get_egg_info_dir
     #echo "EGG dir is ${EGG_DIR:-<not set>}"
-    [ -d ${EGG_DIR:?} ] && echo "Removing ${EGG_DIR}" && rm -r "${EGG_DIR}"
+    [ -n "${EGG_DIR:-}" ] && [ -d ${EGG_DIR:?} ] && echo "Removing ${EGG_DIR}" && rm -r "${EGG_DIR}"
 }
 
 build_and_upgrade()
 {
     clean_all
     build
-    pip install --upgrade --find-links=${BASE_DIR}/dist ${PACKAGE_NAME:-nwm_maas_communication}
+    pip install --upgrade --find-links=${BASE_DIR}/dist ${PACKAGE_NAME:-nwmaas-communication}
 }
 
 while [ ${#} -gt 0 ]; do

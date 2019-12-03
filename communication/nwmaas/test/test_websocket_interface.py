@@ -86,7 +86,7 @@ class TestWebSocketInterface(unittest.TestCase):
             self._basic_listener_subproc_run_code = 'import sys\n'
             self._basic_listener_subproc_run_code += 'from pathlib import Path\n'
             self._basic_listener_subproc_run_code += 'sys.path.insert(0, \'{}\')\n'.format(str(self.package_dir))
-            self._basic_listener_subproc_run_code += 'from nwm_maas.communication import EchoHandler\n'
+            self._basic_listener_subproc_run_code += 'from nwmaas.communication import EchoHandler\n'
             self._basic_listener_subproc_run_code += 'ssl_dir = Path(\'{}\').resolve()\n'.format(self.test_ssl_dir)
             eh_init_args = 'listen_host=\'{}\', port=\'{}\', ssl_dir=ssl_dir'.format(self.host, self.port)
             self._basic_listener_subproc_run_code += 'eh = EchoHandler({})\n'.format(eh_init_args)

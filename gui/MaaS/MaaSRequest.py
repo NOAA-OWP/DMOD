@@ -4,7 +4,7 @@ Lays out details describing how a request may be created and the different types
 @author: Chris Tubbs
 """
 
-from nwm_maas.communication import MaaSRequest
+from nwmaas.communication import MaaSRequest
 
 
 class XYZRequest(MaaSRequest):

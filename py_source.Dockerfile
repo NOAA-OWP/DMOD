@@ -1,6 +1,6 @@
 FROM python:3.8-alpine as basis
 
-# Create intermediate Docker build stage for building nwm_maas_comms wheel distribution for pip
+# Create intermediate Docker build stage for building nwmaas_communication wheel distribution for pip
 FROM basis as build_comms
 # Copy source
 COPY ./communication ./nwm_service/communication

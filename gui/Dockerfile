@@ -6,7 +6,7 @@ FROM ${docker_internal_registry}/nwmaas-py-sources as sources
 
 FROM python:3.8-slim
 # Slurp (or set default) wheel package name ...
-ARG comms_package_name=nwm_maas_communication
+ARG comms_package_name=nwmaas-communication
 # Copy custom built packages from external sources image
 COPY --from=sources /DIST /DIST
 RUN pip install --upgrade --find-links=/DIST/comms ${comms_package_name} \
