@@ -42,7 +42,7 @@ build_and_upgrade()
 {
     clean_all
     build
-    pip install --upgrade --find-links=${BASE_DIR}/dist ${PACKAGE_NAME:-nwmaas-communication}
+    pip install --upgrade --force-reinstall --find-links=${BASE_DIR}/dist ${PACKAGE_NAME:-nwmaas-communication}
 }
 
 while [ ${#} -gt 0 ]; do
