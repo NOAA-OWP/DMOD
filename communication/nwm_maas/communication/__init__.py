@@ -3,5 +3,6 @@ from .maas_request import get_available_models, get_available_outputs, get_distr
     get_request, Distribution, MaaSRequest, NWMRequest, Scalar
 from .message import MessageEventType, Message, Response
 from .validator import SessionInitMessageJsonValidator, NWMRequestJsonValidator, MessageJsonValidator
+from .websocket_interface import EchoHandler, NoOpHandler, WebSocketInterface
 
 name = 'communication'
