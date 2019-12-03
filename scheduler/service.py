@@ -16,7 +16,7 @@ import asyncio
 import websockets
 
 logging.basicConfig(
-    level=logging.ERROR,
+    level=logging.INFO,
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
     datefmt="%H:%M:%S"
 )
@@ -46,6 +46,7 @@ class SchedulerHandler(WebSocketInterface):
             and <FIXME> is sent back to requester.
         """
         print("Scheduler Listener")
+
         try:
             async for message in websocket:
                 #TODO here we should handle already running jobs, as well as any cached
@@ -58,7 +59,8 @@ class SchedulerHandler(WebSocketInterface):
                 #FIXME one of the first scheduler interface changes will be a domain
                 #identity which services will have to mount to run
                 #initial cpu/mem will be static, bound to domain ID
-                await websocket.send( str( self.scheduler.return42() ) )
+                for i in range(3):
+                    await websocket.send( str( self.scheduler.return42() ) )
 
         except websockets.exceptions.ConnectionClosed:
             logging.info("Connection Closed at Consumer")
