@@ -356,6 +356,23 @@ class Scheduler:
         p.rpush(user_key, req_id)
         return req_id, cpus_dict
 
+    def metadata_mgmt(self, p, e_key, user_id, cpus_alloc, mem, NodeId, index):
+        """function to manage resources and store job info to dadabase"""
+        redis = self.redis
+        p.hincrby(e_key, "CPUs", -cpus_alloc)
+        p.hincrby(e_key, "MemoryBytes", -mem)
+        req_id = generate.order_id()
+        req_key = keynamehelper.create_key_name("job_request", req_id)
+        req_set_key = keynamehelper.create_key_name("job_request", user_id)
+        user_key = keynamehelper.create_key_name(user_id)
+        Hostname = str(redis.hget(e_key, "Hostname"))
+        cpus_dict = {'req_id': req_id, 'node_id': NodeId, 'Hostname': Hostname, 'cpus_alloc': cpus_alloc,
+                     'mem': mem, 'index': index}
+        p.hmset(req_key, cpus_dict)
+        p.sadd(req_set_key, cpus_dict['req_id'])
+        p.rpush(user_key, req_id)
+        return cpus_dict
+
     def print_resource_details(self):
         """Print the details of remaining resources after allocating the request """
         logging.info("Resources remaining:")
@@ -800,7 +817,6 @@ class Scheduler:
         recvJobReq = 1
         return recvJobReq
 
-
     def job_allocation_and_setup(self, user_id, cpus, mem):
         """
         check_availability_and_schedule() returns cpusList which contains CPU allocation on one or multiple nodes
@@ -919,16 +935,6 @@ def test_scheduler():
     # instantiate the scheduler
     # scheduler = Scheduler()
     scheduler = Scheduler()
-
-    # initialize redis client
-    scheduler.clean_redisKeys()
-
-    # build resource database
-    scheduler.create_resources()
-
-    ## find host from docker service info
-    # scheduler.service_to_host_mapping()
-
     user_id = "shengting.cui"
     cpus = 10
     mem = 5000000000
