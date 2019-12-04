@@ -1,8 +1,12 @@
 import datetime
 import hashlib
 import json
+import os
 import random
 from .message import Message, MessageEventType, Response
+from abc import ABC, abstractmethod
+from redis import Redis
+from redis.client import Pipeline
 from typing import Union
 
 
@@ -143,6 +147,25 @@ class Session:
         return self._session_secret
 
 
+# TODO: work more on this later, when authentication becomes more important
+class FullAuthSession(Session):
+
+    def __init__(self, ip_address, session_id, session_secret=None, created=datetime.datetime.now(), user='default'):
+        super().__init__(session_id=session_id, session_secret=session_secret, created=created)
+        self._serialized_attributes.append('ip_address')
+        self._serialized_attributes.append('user')
+        self._user = user if user is not None else 'default'
+        self._ip_address = ip_address
+
+    @property
+    def ip_address(self):
+        return self._ip_address
+
+    @property
+    def user(self):
+        return self._user
+
+
 class SessionInitMessage(Message):
     """
     The :class:`Message` subtype used by a client to request and authenticate a new :class:`Session` instance.
@@ -211,3 +234,141 @@ class SessionInitResponse(Response):
 
     def __init__(self, success: bool, reason: str, message: str = '', data=None):
         super().__init__(success=success, reason=reason, message=message, data=data)
+
+
+class SessionManager(ABC):
+
+    @abstractmethod
+    def create_session(self, ip_address: str, username: str) -> Session:
+        pass
+
+    @abstractmethod
+    def lookup_session(self, secret: str):
+        pass
+
+    @abstractmethod
+    def remove_session(self, session: Session):
+        pass
+
+
+class RedisBackendSessionManager(SessionManager):
+    _SESSION_KEY_PREFIX = 'session:'
+    _SESSION_HASH_SUBKEY_SECRET = 'secret'
+    _SESSION_HASH_SUBKEY_CREATED = 'created'
+
+    @classmethod
+    def get_key_for_session(cls, session: FullAuthSession):
+        return cls.get_key_for_session_by_id(session.session_id)
+
+    @classmethod
+    def get_key_for_session_by_id(cls, session_id):
+        return cls.get_session_key_prefix() + str(session_id)
+
+    @classmethod
+    def get_session_key_prefix(cls):
+        return cls._SESSION_KEY_PREFIX
+
+    def __init__(self):
+        self._redis_host = os.environ.get("REDIS_HOST", "redis")
+        self._redis_port = os.environ.get("REDIS_PORT", 6379)
+        self._redis_pass = os.environ.get("REDIS_PASS", '***REMOVED***')
+        #print('****************** redis host is: ' + self._redis_host)
+
+        self._redis = None
+
+        self._next_session_id_key = 'next_session_id'
+        self._all_session_secrets_hash_key = 'all_session_secrets'
+
+        self._session_redis_hash_subkey_ip_address = 'ip_address'
+        self._session_redis_hash_subkey_secret = 'secret'
+        self._session_redis_hash_subkey_user = 'user'
+        self._session_redis_hash_subkey_created = 'created'
+
+    def _update_session_record(self, session: FullAuthSession, pipeline: Pipeline, do_ip_address=False, do_secret=False,
+                               do_user=False):
+        """
+        Append to the execution tasks (without triggering execution) of a provided Pipeline to update appropriate
+        properties of a serialized Session hash record in Redis.
+
+        Parameters
+        ----------
+        session: FullAuthSession
+            The deserialized, updated Session object from which some data in a Redis session hash data structure should
+            be updated.
+        pipeline: Pipeline
+            The created Redis transactional pipeline.
+        do_ip_address: bool
+            Whether the ip_address key value should be updated for the session record.
+        do_secret: bool
+            Whether the secret key value should be updated for the session record.
+        do_user: bool
+            Whether the user key value should be updated for the session record.
+
+        Returns
+        -------
+
+        """
+        session_key = self.get_key_for_session(session)
+        # Build a map of the valid hash structure sub-keys in redis to tuples of (should-update-field-flag, new-value)
+        keys_and_flags = {
+            'ip_address': (do_ip_address, session.ip_address),
+            'secret': (do_secret, session.session_secret),
+            'user': (do_user, session.user)
+        }
+        for key in keys_and_flags:
+            if keys_and_flags[key][0]:
+                pipeline.hset(session_key, key, keys_and_flags[key][1])
+
+    def create_session(self, ip_address, username) -> Session:
+        pipeline = self.redis.pipeline()
+        try:
+            pipeline.watch(self._next_session_id_key)
+            session_id = pipeline.get(self._next_session_id_key)
+            if session_id is None:
+                session_id = 1
+                pipeline.set(self._next_session_id_key, 2)
+            else:
+                pipeline.incr(self._next_session_id_key, 1)
+            session = FullAuthSession(ip_address=ip_address, session_id=session_id, user=username)
+            session_key = self.get_key_for_session(session)
+            pipeline.hset(session_key, self._session_redis_hash_subkey_ip_address, session.ip_address)
+            pipeline.hset(session_key, self._session_redis_hash_subkey_secret, session.session_secret)
+            pipeline.hset(session_key, self._session_redis_hash_subkey_user, session.user)
+            pipeline.hset(session_key, self._session_redis_hash_subkey_created, session.get_created_serialized())
+            pipeline.hset(self._all_session_secrets_hash_key, session.session_secret, session.session_id)
+            pipeline.execute()
+            return session
+        finally:
+            pipeline.unwatch()
+            pipeline.reset()
+
+    def lookup_session(self, secret):
+        session_id = self.redis.hget(self._all_session_secrets_hash_key, secret)
+        if session_id is not None:
+            record_hash = self.redis.hgetall(self.get_key_for_session_by_id(session_id))
+            session = FullAuthSession(session_id=session_id,
+                                      session_secret=record_hash[self._session_redis_hash_subkey_secret],
+                                      #created=record_hash[self._session_redis_hash_subkey_created])
+                                      created=record_hash[self._session_redis_hash_subkey_created],
+                                      ip_address=record_hash[self._session_redis_hash_subkey_ip_address],
+                                      user=record_hash[self._session_redis_hash_subkey_user])
+            return session
+        else:
+            return None
+
+    @property
+    def redis(self):
+        if self._redis is None:
+            self._redis = Redis(host=self._redis_host,
+                                port=self._redis_port,
+                                # db=0, encoding="utf-8", decode_responses=True,
+                                db=0,
+                                decode_responses=True,
+                                password=self._redis_pass)
+        return self._redis
+
+    def remove_session(self, session: FullAuthSession):
+        pipeline = self.redis.pipeline()
+        pipeline.delete(self.get_key_for_session(session))
+        pipeline.hdel(self._all_session_secrets_hash_key, session.session_secret)
+        pipeline.execute()

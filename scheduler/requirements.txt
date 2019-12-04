@@ -1,2 +1,5 @@
+docker
+redis
+Faker
 websockets
 nwmaas-communication>=0.1.3
