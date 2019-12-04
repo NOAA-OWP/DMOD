@@ -24,7 +24,11 @@ services:
         #comms_package_name: ${PY_PACK_COMMS_NAME?}
   scheduler:
     image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/mgmt
-    build: ./scheduler
+    build:
+      context: ./scheduler
+      args:
+        docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY_HOST}:${DOCKER_INTERNAL_REGISTRY_PORT}
+        comms_package_name: nwmaas-communication
     #depends_on:
     #  - base
   nwm:
@@ -43,7 +47,11 @@ services:
     #For building, this only gives shared memory to each build step!!! shm_size: 2GB
   request_handler:
     image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-request-handler
-    build: ./request_handler
+    build:
+      context: ./request_handler
+      args:
+        docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY_HOST}:${DOCKER_INTERNAL_REGISTRY_PORT}
+        comms_package_name: nwmaas-communication
 networks:
   mpi-net:
     external: true

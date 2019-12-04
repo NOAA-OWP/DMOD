@@ -34,6 +34,9 @@ class Message(ABC):
     def to_dict(self) -> dict:
         pass
 
+    def __str__(self):
+        return str(self.to_json())
+
     def to_json(self) -> str:
         return json.dumps(self.to_dict())
 
@@ -104,3 +107,31 @@ class Response(Message, ABC):
 
     def to_dict(self) -> dict:
         return {'success': self.success, 'reason': self.reason, 'message': self.message, 'data': self.data}
+
+
+class InvalidMessage(Message):
+    """
+    An implementation of :class:`Message` to model deserialized request messages that are not some other valid message
+    type.
+    """
+
+    event_type: MessageEventType = MessageEventType.INVALID
+    """ :class:`Message`: the type of Message for which this type is the response"""
+
+    def __init__(self, content: dict):
+        self.content = content
+
+    def to_dict(self) -> dict:
+        return {'content': self.content}
+
+
+class InvalidMessageResponse(Response):
+
+    response_to_type = InvalidMessage
+    """ The type of :class:`Message` for which this type is the response"""
+
+    def __init__(self, data=None):
+        super().__init__(success=False,
+                         reason='Invalid Request Message',
+                         message='Request message was not formatted as any known valid type',
+                         data=data)

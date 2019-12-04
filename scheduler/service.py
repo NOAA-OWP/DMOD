@@ -7,7 +7,7 @@ sys.path.insert(0, parent_dir)
 #END PATH HACK
 
 from websockets import WebSocketServerProtocol
-from communication.nwmaas.communication.websocket_interface import WebSocketInterface
+from nwmaas.communication import WebSocketInterface
 from scheduler.src.scheduler import Scheduler
 from pathlib import Path
 import json
@@ -21,6 +21,7 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
     handlers=[logging.StreamHandler()]
 )
+
 
 class SchedulerHandler(WebSocketInterface):
     """
@@ -68,7 +69,6 @@ class SchedulerHandler(WebSocketInterface):
             logging.info("Connection Closed at Consumer")
         except asyncio.CancelledError:
             logging.info("Cancelling listerner task")
-
 
 
 if __name__ == "__main__":

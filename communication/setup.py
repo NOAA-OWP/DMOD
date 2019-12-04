@@ -19,6 +19,6 @@ setup(
     license='',
     include_package_data=True,
     #install_requires=['websockets', 'jsonschema'],vi
-    install_requires=['websockets', 'jsonschema'],
+    install_requires=['websockets', 'jsonschema', 'redis'],
     packages=find_namespace_packages(include=['nwmaas.*'], exclude=('tests'))
 )

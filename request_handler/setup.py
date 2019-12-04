@@ -14,6 +14,6 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=['websockets', 'jsonschema'],
+    install_requires=['websockets', 'nwmaas-communication>=0.1.3'],
     packages=find_packages(exclude=('tests', 'schemas', 'ssl', 'src'))
 )

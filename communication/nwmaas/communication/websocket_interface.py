@@ -16,7 +16,12 @@ import websockets
 import ssl
 import signal
 import logging
+from .maas_request import get_request, MaaSRequest
+from .message import Message, MessageEventType, InvalidMessage
+from .session import Session, SessionInitMessage, RedisBackendSessionManager
+from .validator import NWMRequestJsonValidator, SessionInitMessageJsonValidator
 from pathlib import Path
+from typing import Dict, Optional, Tuple
 from websockets import WebSocketServerProtocol
 
 logging.basicConfig(
@@ -130,6 +135,82 @@ class WebSocketInterface(ABC):
         logging.info("Shutting down due to exception")
         asyncio.create_task(self.shutdown())
 
+    async def deserialized_message(self, message_data: dict, event_type: MessageEventType = None, check_for_auth=False):
+        """
+        Deserialize
+
+        Parameters
+        ----------
+        message_data
+        event_type
+        check_for_auth
+
+        Returns
+        -------
+
+        """
+        try:
+            if event_type is None:
+                event_type, errors = await self.parse_request_type(data=message_data, check_for_auth=check_for_auth)
+
+            if event_type is None:
+                raise RuntimeError('Cannot deserialize message: could not parse request to any enumerated event type')
+            elif event_type == MessageEventType.NWM_MAAS_REQUEST:
+                # By default, but don't stick with this ...
+                model_name = MaaSRequest.model_name
+                # ... get based on key in the message
+                if isinstance(message_data['model'], dict):
+                    for key in message_data['model']:
+                        if key != 'session_secret':
+                            model_name = key
+                return get_request(model=model_name,
+                                   session_secret=message_data['session-secret'],
+                                   version=message_data['model'][model_name]['version'],
+                                   output=message_data['model'][model_name]['output'],
+                                   parameters=message_data['model'][model_name]['parameters'])
+            elif event_type == MessageEventType.SESSION_INIT:
+                return SessionInitMessage(username=message_data['username'], user_secret=message_data['user_secret'])
+            elif event_type == MessageEventType.INVALID:
+                return InvalidMessage(content=message_data)
+            else:
+                raise RuntimeError("Cannot deserialize message for unsupported event type {}".format(event_type))
+        except RuntimeError as re:
+            raise re
+
+    async def parse_request_type(self, data: dict, check_for_auth=False) -> Tuple[MessageEventType, dict]:
+        """
+        Parse for request for validity, optionally for authentication type, determining which type of request this is.
+
+        Parameters
+        ----------
+        data
+            The data, expected to be a request, to be examined
+
+        check_for_auth
+            Whether the logic for should be run to see if the data is a valid session initialization request
+
+        Returns
+        -------
+        A tuple of the determined :obj:`MessageEventType`, and a map of parsing errors encountered for attempted types
+        """
+        errors = {}
+        for t in MessageEventType:
+            if t != MessageEventType.INVALID:
+                errors[t] = None
+
+        if check_for_auth:
+            is_auth_req, error = SessionInitMessageJsonValidator().validate(data)
+            errors[MessageEventType.SESSION_INIT] = error
+            if is_auth_req:
+                return MessageEventType.SESSION_INIT, errors
+
+        is_job_req, error = NWMRequestJsonValidator().validate(data)
+        errors[MessageEventType.NWM_MAAS_REQUEST] = error
+        if is_job_req:
+            return MessageEventType.NWM_MAAS_REQUEST, errors
+
+        return MessageEventType.INVALID, errors
+
     async def shutdown(self, shutdown_signal=None):
         """
             Wait for current task to finish, cancel all others
@@ -160,6 +241,65 @@ class WebSocketInterface(ABC):
         finally:
             self.loop.close()
             logging.info("Handler Finished")
+
+
+class WebSocketSessionsInterface(WebSocketInterface, ABC):
+    """
+    Extension of :class:`WebSocketInterface` for authenticated communication via sessions.
+
+    Note that implementations of this type are not necessarily required to handle the logic for session init and/or
+    authentication.  They merely must recognize within their :meth:`listener` method whether applicable messages
+    properly demonstrate they are "within" a known session.
+    """
+    def __init__(self, listen_host='', port='3012', ssl_dir=None, cert_pem=None, priv_key_pem=None):
+        super().__init__(listen_host=listen_host, port=port, ssl_dir=ssl_dir, cert_pem=cert_pem,
+                         priv_key_pem=priv_key_pem)
+        self._sessions_to_websockets: Dict[Session, WebSocketServerProtocol] = {}
+
+    @property
+    @abstractmethod
+    def session_manager(self):
+        pass
+
+    def _lookup_session_by_secret(self, secret: str) -> Optional[Session]:
+        """
+        Search for the :obj:`Session` instance with the given session secret value.
+
+        Parameters
+        ----------
+        secret
+
+        Returns
+        -------
+        Optional[Session]
+            The session from the sessions-to-websockets mapping having the given secret, or None
+        """
+        return self.session_manager.lookup_session(secret=secret)
+
+    async def register_websocket_session(self, websocket: WebSocketServerProtocol, session: Session):
+        """
+        Register the known relationship of a session keyed to a specific websocket.
+
+        Parameters
+        ----------
+        websocket
+        session
+        """
+        self._sessions_to_websockets[session] = websocket
+
+    async def unregister_websocket_session(self, session: Session):
+        """
+        Unregister the known relationship of a session keyed to a specific websocket.
+
+        Parameters
+        ----------
+        websocket
+        session
+        """
+        if session is None:
+            return
+        else:
+            self._sessions_to_websockets.pop(session)
 
 
 class NoOpHandler(WebSocketInterface):

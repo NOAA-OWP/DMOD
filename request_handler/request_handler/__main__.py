@@ -57,8 +57,8 @@ def main():
         exit(1)
 
     # Init request handler
-    handler = RequestHandler(hostname=args.host, port=args.port, ssl_dir=Path(args.ssl_dir), localhost_pem=args.cert_path,
-                             localhost_key=args.key_path)
+    handler = RequestHandler(listen_host=args.host, port=args.port, ssl_dir=Path(args.ssl_dir), cert_pem=args.cert_path,
+                             priv_key_pem=args.key_path)
     handler.run()
 
 
