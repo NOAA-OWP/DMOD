@@ -934,58 +934,6 @@ def test_scheduler():
     ## find host from docker service info
     # scheduler.service_to_host_mapping()
 
-<<<<<<< HEAD
-    '''
-    user_id = "shengting.cui"
-    cpus = 125
-    mem = 5000000000
-    scheduler.create_user_from_username(user_id)
-    cpusList = scheduler.check_availability_and_schedule(user_id, cpus, mem)
-    print("\nIn test_scheduler, cpusList: ", cpusList)
-    print("\n")
-    cpusList = scheduler.retrieve_job_metadata(user_id)
-    scheduler.print_resource_details()
-    # scheduler.service_to_host_mapping()
-
-    # initialize variables for create_service()
-    image = "127.0.0.1:5000/nwm-2.0:latest"
-    constraints = []
-    # hostname = "{{.Service.Name}}-{{.Task.Slot}}"
-    hostname = "{{.Service.Name}}"
-    labels =  {"com.docker.stack.image": "127.0.0.1:5000/nwm-2.0",
-               "com.docker.stack.namespace": "nwm"
-              }
-    name = "nwm_mpi-worker_tmp"
-    # networks = ["mpi-net", "back40"]
-    networks = ["mpi-net"]
-    idx = 0
-    for cpu in cpusList:
-        name = "nwm_mpi-worker_"
-        constraints = "node.hostname == "
-        NodeId = cpu['node_id']
-        if (NodeId == "Node-0001"):
-            mounts = ['/opt/nwm_c/domains:/nwm/domains:rw']
-        else:
-            mounts = ['/local:/nwm/domains:rw']
-        cpus_alloc = str(cpu['cpus_alloc'])
-        # print("In test_scheduler, cpus_alloc = {}".format(cpus_alloc))
-        Hostname = cpu['Hostname']
-        logging.info("Hostname: {}".format(Hostname))
-        labels_tmp = {"Hostname": Hostname, "cpus_alloc": cpus_alloc}
-        labels.update(labels_tmp)
-        logging.info("labels: {}".format(labels))
-        constraints += Hostname
-        constraints = list(constraints.split("/"))
-        logging.info("constraints: {}".format(constraints))
-        name += str(idx)
-        idx += 1
-        schedule = scheduler.fromRequest(user_id, cpus_alloc, mem, idx)
-        schedule.startJobs(user_id, cpus, mem, image, constraints, hostname, labels, name, cpus_alloc, mounts, networks, idx, cpusLen, host_str)
-    print("\n")
-    scheduler.service_to_host_mapping()
-    # scheduler.write_to_hostfile()
-    '''
-
     user_id = "shengting.cui"
     cpus = 10
     mem = 5000000000
