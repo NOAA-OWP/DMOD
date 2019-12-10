@@ -124,6 +124,73 @@ class MaaSRequest(Message):
     ]
     """(:class:`list`) The collection of output variables that the model may generate"""
 
+    @classmethod
+    def factory_init_correct_subtype_from_deserialized_json(cls, json_obj: dict):
+        """
+        Much like :meth:`factory_init_from_deserialized_json`, except (sub)type agnostic, allowing this to determine the
+        correct type of :class:`MaasRequest` from the contents of the JSON, and return a call to that particular class's
+        :meth:`factory_init_from_deserialized_json`
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+
+        """
+        try:
+            model_name = list(json_obj['model'].keys())[0]
+            return get_available_models()[model_name].factory_init_for_subclass_from_deserialized_json(json_obj)
+        except:
+            return None
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        """
+        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
+
+        Recall this will look something like:
+
+        {
+            'model': {
+                'NWM': {
+                    'version': 2.1,
+                    'output': 'streamflow',
+                    'parameters': [
+                        {
+                            'land_cover': {
+                                'distribution': {
+                                    'min': 0,
+                                    'max': 10,
+                                    'type': 'lognormal'
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+            'session-secret': 'secret-string-val'
+        }
+
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+        A new object of this type instantiated from the deserialize JSON object dictionary, or none if the provided
+        parameter could not be used to instantiated a new object.
+        """
+        try:
+            model_name = cls.model_name
+            return cls(version=json_obj['model'][model_name]['version'],
+                       output=json_obj['model'][model_name]['output'],
+                       parameters=json_obj['model'][model_name]['parameters'],
+                       session_secret=json_obj['session-secret'])
+        except:
+            return None
+
     def __init__(self, version: float, output: str, parameters: dict, session_secret: str):
         """
         :param float version: The version of the model to use
@@ -311,10 +378,10 @@ class MaaSRequest(Message):
                                 }
                             }
                         }
-                    ],
-                    'session-secret': 'secret-string-val'
+                    ]
                 }
             }
+            'session-secret': 'secret-string-val'
         }
 
         :return: A dictionary containing all the data in such a way that it may be used by a web request
