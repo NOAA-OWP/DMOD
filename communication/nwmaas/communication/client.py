@@ -4,26 +4,32 @@ import ssl
 import traceback
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Optional, Union
 
 import websockets
 
-from .maas_request import MaaSRequest
+from .maas_request import MaaSRequest, NWMRequestResponse
+from .message import Message, Response
+from .scheduler_request import SchedulerRequestMessage, SchedulerRequestResponse
 from .validator import NWMRequestJsonValidator
 
 import logging
+
 logger = logging.getLogger("gui_log")
 
-class WebSocketClient:
+
+class WebSocketClient(ABC):
     """
 
     """
     def __init__(self, endpoint_uri: str, ssl_directory: Path):
-
+        super().__init__()
         self.endpoint_uri = endpoint_uri
 
         self.client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         endpoint_pem = ssl_directory.joinpath('certificate.pem')
         self.client_ssl_context.load_verify_locations(str(endpoint_pem))
+
         #TODO try to connect, throw error if connection cannot be established
         self.connection = None
         self.active_connections = 0
@@ -47,63 +53,123 @@ class WebSocketClient:
             self.connection = None
             self.active_connections = 0
 
-    async def async_send(self, data):
+    async def async_send(self, data: Union[str, bytearray], await_response: bool = False):
         """
-            Send data to socket, wait for response
+            Send data to websocket, by default returning immediately after, but optionally waiting for and returning the
+            response.
 
             Parameters
             ----------
             data
                 string or byte array
+
+            await_response
+                whether the method should also await a response on the websocket connection and return it
+
+            Returns
+            -------
+            response
+                the request response if one should be awaited, or None
         """
         async with self as websocket:
             #TODO ensure correct type for data???
             await websocket.connection.send(data)
+            return await websocket.connection.recv() if await_response else None
 
-            #response = await websocket.connection.recv()
-            # return json.dumps(response)
-            #return response
+    @abstractmethod
+    async def async_make_request(self, message: Message) -> Response:
+        """
+        Send (within Python's async functionality) the appropriate type of request :class:`Message` for this client
+        implementation type and return the response as a corresponding, appropriate :class:`Response` instance.
+
+        Parameters
+        ----------
+        message
+            the request message object
+
+        Returns
+        -------
+        response
+            the request response object
+        """
+        pass
+
 
 class SchedulerClient(WebSocketClient):
     #TODO decide if this is really nessicary, it could be if structured calls
     #to and from the scheduler are required.  As it is now, it is a VERY thin
     #and probablly unnesscecary wrapper
 
-    async def send_to_scheduler(self, data):
+    async def async_make_request(self, message: SchedulerRequestMessage) -> SchedulerRequestResponse:
+        """
+        Send (within Python's async functionality) the appropriate type of request :class:`Message` for this client
+        implementation type and return the response as a corresponding, appropriate :class:`Response` instance.
+
+        Parameters
+        ----------
+        message
+            the request message object
+
+        Returns
+        -------
+        response
+            the request response object
+        """
+        return await self.send_to_scheduler(message)
+
+    async def send_to_scheduler(self, message: SchedulerRequestMessage) -> SchedulerRequestResponse:
         """
             Ensures data is JSON encoded, and send data to the scheduler websocket endpoint.
 
             Parameters
             ----------
-            data
-                Job request data, in JSON encoded format
+            message
+                Job scheduling request data object
 
             Returns
             -------
             response
-                string containing scheduler response. TODO this should return code and msg
+                a :class:`SchedulerRequestResponse` response object
         """
+        response_json = {}
         try:
-            await self.async_send(json.dumps(data))
-            #Consume the the scheduler confirmation of job submission
-            response = await self.connection.recv()
-            return response
-        except ValueError:
-            response = "Job request not valid JSON format"
-        return response
+            # Send the request and get the scheduler confirmation of job submission
+            serialized_response = await self.async_send(data=str(message), await_response=True)
+            if serialized_response is None:
+                raise ValueError
+        except Exception as e:
+            logging.error('********** While sending request to scheduler, client encountered {}: {}'.format(
+                str(e.__class__.__name__), str(e)))
+            reason = 'Sending scheduler request response failed due to {}'.format(e.__class__.__name__)
+            return SchedulerRequestResponse(success=False, reason=reason, message=str(e), data=response_json)
+        try:
+            # Consume the response confirmation by deserializing first to JSON, then from this to a response object
+            response_json = json.loads(serialized_response)
+            response_object = SchedulerRequestResponse.factory_init_from_deserialized_json(response_json)
+            if response_object is None:
+                logging.error('********** While deserialize response from scheduler, client could not deserialize to object')
+                logging.error('********** Content was: ' + serialized_response)
+                reason = 'Could not deserialize response'
+                response_object = SchedulerRequestResponse(success=False, reason=reason, data=response_json)
+        except Exception as e:
+            logging.error('********** While deserialize response from scheduler, client encountered {}: {}'.format(
+                str(e.__class__.__name__), str(e)))
+            reason = 'Deserializing scheduler request response failed due to {}'.format(e.__class__.__name__)
+            response_object = SchedulerRequestResponse(success=False, reason=reason, message=str(e), data=response_json)
+        logging.debug('************* Scheduler client transmitting response object {}'.format(response_object.to_json()))
+        return response_object
 
     async def get_results(self):
+        logging.debug('************* Scheduler client preparing to yield results')
         async for message in self.connection:
+            logging.debug('************* Scheduler client yielding result: {}'.format(str(message)))
             yield message
 
-class MaasRequestClient(ABC):
+
+class MaasRequestClient(WebSocketClient, ABC):
 
     def __init__(self, endpoint_uri: str, ssl_directory: Path):
-        self.endpoint_uri = endpoint_uri
-
-        self.client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        endpoint_pem = ssl_directory.joinpath('request_handler','certificate.pem')
-        self.client_ssl_context.load_verify_locations(str(endpoint_pem))
+        super().__init__(endpoint_uri=endpoint_uri, ssl_directory=ssl_directory)
 
         # TODO: get full session implementation if possible
         self._session_id, self._session_secret, self._session_created, self._is_new_session = None, None, None, None
@@ -115,7 +181,7 @@ class MaasRequestClient(ABC):
         self.resp_as_json = None
         self.job_id = None
 
-    async def async_send_job_request(self, maas_request: MaaSRequest):
+    async def async_make_request(self, maas_request: MaaSRequest):
         async with websockets.connect(self.endpoint_uri, ssl=self.client_ssl_context) as websocket:
             await websocket.send(maas_request.to_json())
             response = await websocket.recv()
@@ -228,8 +294,9 @@ class MaasRequestClient(ABC):
             print("******************* Request: " + self.maas_job_request.to_json())
             if self._is_maas_job_request_valid():
                 try:
-                    req_response = asyncio.get_event_loop().run_until_complete(self.async_send_job_request(self.maas_job_request))
+                    req_response = asyncio.get_event_loop().run_until_complete(self.async_make_request(self.maas_job_request))
                     self.resp_as_json = json.loads(req_response)
+                    response_obj = NWMRequestResponse.factory_init_from_deserialized_json(self.resp_as_json)
                     print('***************** Response: ' + req_response)
                     if not self.validate_job_request_response():
                         raise RuntimeError('Invalid response received for requested job: ' + str(req_response))
