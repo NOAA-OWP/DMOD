@@ -5,15 +5,15 @@ FROM ${docker_internal_registry}/nwmaas-py-sources as sources
 
 FROM python:3.7-alpine
 ARG comms_package_name
-ARG container_ssl_directory=/ssl
-ENV CONTAINER_SSL_DIRECTORY ${container_ssl_directory}
+# A base SSL directory, which may or may not contain subdirectories specifically for service- or client-side certs
+ARG container_base_ssl_directory=/ssl
 
 WORKDIR /code
 
 COPY entrypoint.sh entrypoint.sh
 COPY request_handler/ request_handler/
 COPY requirements.txt requirements.txt
-COPY ssl/ ${container_ssl_directory}/
+COPY ssl/ ${container_base_ssl_directory}/
 COPY tests/ tests/
 
 # Copy custom built packages from external sources image
@@ -28,4 +28,4 @@ RUN pip install --no-cache-dir --find-links=/DIST/comms ${comms_package_name} \
 
 EXPOSE ${DOCKER_REQUESTS_CONTAINER_PORT:-3012}
 
-CMD python -m request_handler --port ${DOCKER_REQUESTS_CONTAINER_PORT:-3012} --ssl-dir ${CONTAINER_SSL_DIRECTORY} ${@}
+ENTRYPOINT ["/code/entrypoint.sh"]

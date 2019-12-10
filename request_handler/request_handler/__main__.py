@@ -27,6 +27,18 @@ def _handle_args():
                         help='Specify path for a particular SSL private key file to use',
                         dest='key_path',
                         default=None)
+    parser.add_argument('--scheduler-host',
+                        help='Set the appropriate hostname for the scheduler to connect with',
+                        dest='scheduler_host',
+                        default='localhost')
+    parser.add_argument('--scheduler-port',
+                        help='Set the appropriate port value for the scheduler to connect with',
+                        dest='scheduler_port',
+                        default='3013')
+    parser.add_argument('--scheduler-ssl-dir',
+                        help='Set the ssl directory for scheduler certs, if not the same as for the request handler',
+                        dest='scheduler_ssl_dir',
+                        default='3013')
     parser.prog = package_name
     return parser.parse_args()
 
@@ -57,8 +69,14 @@ def main():
         exit(1)
 
     # Init request handler
-    handler = RequestHandler(listen_host=args.host, port=args.port, ssl_dir=Path(args.ssl_dir), cert_pem=args.cert_path,
-                             priv_key_pem=args.key_path)
+    handler = RequestHandler(listen_host=args.host, 
+                             port=args.port, 
+                             ssl_dir=Path(args.ssl_dir), 
+                             cert_pem=args.cert_path,
+                             priv_key_pem=args.key_path, 
+                             scheduler_host=args.scheduler_host, 
+                             scheduler_port=args.scheduler_port, 
+                             scheduler_ssl_dir=Path(args.scheduler_ssl_dir))
     handler.run()
 
 
