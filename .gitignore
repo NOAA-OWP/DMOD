@@ -17,7 +17,7 @@ request_client/ssl/certificate.pem
 request_handler/ssl/
 request_handler/*.tar.gz
 request_handler/macbook_ssl/
-request_handler/ssl/certificate.pem
+request_handler/ssl/request_handler/certificate.pem
 request_handler/ssl/*certificate*.pem
 request_handler/ssl/*privkey*.pem
 scheduler/scheduler.log
@@ -33,7 +33,6 @@ docker-deploy-custom.yml-orig
 docker-deploy-data-hack.yml
 docker-deploy.yml-orig
 docker-registry.yml
-generate.py
 
 nwm/Dockerfile-new
 nwm/Dockerfile-orig
@@ -43,7 +42,6 @@ nwm/run.sh
 nwm/run_model.sh-work
 nwm/run_test.sh
 nwm/testfile
-parsing_nested.py
 redis_test/
 request.py
 
@@ -84,6 +82,7 @@ scheduler/scheduler.py_test2
 scheduler/scheduler.py_test3
 scheduler/scheduler.py_test4
 scheduler/scheduler.py_test5
+scheduler/ssl/
 scheduler/test.sh-old
 scheduler/test.sh-old1
 scheduler/test.sh-old1a
