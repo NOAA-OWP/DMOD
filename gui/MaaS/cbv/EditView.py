@@ -121,7 +121,7 @@ class RequestFormProcessor:
         if self._is_valid is None:
             if not isinstance(self.maas_request, NWMRequest):
                 self._is_valid = False
-                self._validation_error = TypeError('Unsupport MaaS message type created by ' + self.__class__.__name__)
+                self._validation_error = TypeError('Unsupport MaaS message type created by ' + str(self.__class__))
             else:
                 self._is_valid, self._validation_error = NWMRequestJsonValidator().validate(self.maas_request.to_dict())
         return self._is_valid

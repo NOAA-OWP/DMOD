@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 
 import os
 import logging
+import datetime
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -247,3 +248,4 @@ def log(message: str, level: int = DEFAULT_MESSAGE_LEVEL, logger_name: str = "GU
 
     # Log the newly formatted message at the given level
     logging.getLogger(logger_name).log(level, log_message)
+
