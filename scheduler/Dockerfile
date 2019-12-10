@@ -19,6 +19,9 @@ COPY run_domain.sh /nwm/scheduler/run_domain.sh
 COPY run.sh /nwm/scheduler/run.sh
 COPY __init__.py /nwm/scheduler/__init__.py
 COPY service.py /nwm/scheduler/service.py
+# TODO: parameterize this (especially the dest dir) here, in service.py if-main section, eventual __main__.py, and
+# TODO:     anywhere else appropriate using env variables or some other mechanism
+COPY ssl/scheduler/ /nwm/scheduler/ssl/scheduler/
 
 # Copy custom built packages from external sources image
 COPY --from=sources /DIST /DIST
