@@ -1,28 +1,51 @@
 import datetime
 import hashlib
-import json
 import os
 import random
 from .message import Message, MessageEventType, Response
+from .serializeable import Serializable
 from abc import ABC, abstractmethod
 from redis import Redis
 from redis.client import Pipeline
-from typing import Union
+from typing import Optional, Union
 
 
-class Session:
+class Session(Serializable):
     """
-    A bare-bones representation of a session between a :obj:`request_handler.RequestHandler` and some compatible client,
-    over which requests for jobs may be made, and potentially other communication may take place.
+    A bare-bones representation of a session between some compatible server and client, over which various requests may
+    be made, and potentially other communication may take place.
     """
 
     _DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
+
+    _serialized_attributes = ['session_id', 'session_secret', 'created']
+    """ list of str: the names of attributes/properties to include when serializing an instance """
 
     @classmethod
     def get_datetime_format(cls):
         return cls._DATETIME_FORMAT
 
-    def __init__(self, session_id: int, session_secret: str = None,
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        """
+        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+        A new object of this type instantiated from the deserialize JSON object dictionary
+        """
+        return cls(session_id=json_obj['session_id'], session_secret=json_obj['session_secret'],
+                   created=json_obj['created'])
+
+    @classmethod
+    def get_serialized_attributes(cls):
+        return tuple(cls._serialized_attributes)
+
+    def __init__(self, session_id: Union[str, int], session_secret: str = None,
                  created: Union[datetime.datetime, str] = datetime.datetime.now()):
         """
         Instantiate, either from an existing record - in which case values for 'secret' and 'created' are provided - or
@@ -31,7 +54,7 @@ class Session:
 
         Parameters
         ----------
-        session_id : int
+        session_id : Union[str, int]
             numeric session id value
         session_secret : :obj:`str`, optional
             the session secret, if deserializing this object from an existing session record
@@ -40,7 +63,7 @@ class Session:
             :method:`datetime.datetime.now()` by default
         """
 
-        self._session_id = session_id
+        self._session_id = int(session_id)
         if session_secret is None:
             random.seed()
             self._session_secret = hashlib.sha256(str(random.random()).encode('utf-8')).hexdigest()
@@ -57,14 +80,11 @@ class Session:
         except:
             self._created = datetime.datetime.now()
 
-        """ list of str: the names of attributes/properties to include when serializing an instance """
-        self._serialized_attributes = ['session_id', 'session_secret', 'created']
-
     def __eq__(self, other):
-        return isinstance(other, Session) and self._session_id == other.session_id
+        return isinstance(other, Session) and self.session_id == other.session_id
 
     def __hash__(self):
-        return self._session_id
+        return self.session_id
 
     @property
     def created(self):
@@ -89,7 +109,7 @@ class Session:
                 attributes[attr] = getattr(self, attr)
         return attributes
 
-    def get_as_json(self) -> object:
+    def get_as_json(self) -> str:
         """
         Get a serialized JSON representation of this instance.
 
@@ -98,7 +118,7 @@ class Session:
         object
             a serialized JSON representation of this instance
         """
-        return json.dumps(self.get_as_dict())
+        return self.to_json()
 
     def get_created_serialized(self):
         return self.created.strftime(Session._DATETIME_FORMAT)
@@ -139,21 +159,41 @@ class Session:
     @property
     def session_id(self):
         """int: The unique identifier for this session."""
-        return self._session_id
+        return int(self._session_id)
 
     @property
     def session_secret(self):
         """str: The unique random secret for this session."""
         return self._session_secret
 
+    def to_dict(self) -> dict:
+        return self.get_as_dict()
+
 
 # TODO: work more on this later, when authentication becomes more important
 class FullAuthSession(Session):
 
-    def __init__(self, ip_address, session_id, session_secret=None, created=datetime.datetime.now(), user='default'):
+    _serialized_attributes = ['session_id', 'session_secret', 'created', 'ip_address', 'user']
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        """
+        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+        A new object of this type instantiated from the deserialize JSON object dictionary
+        """
+        return cls(session_id=json_obj['session_id'], session_secret=json_obj['session_secret'],
+                   created=json_obj['created'], ip_address=json_obj['ip_address'], user=json_obj['user'])
+
+    def __init__(self, ip_address: str, session_id: Union[str, int], session_secret: str = None,
+                 created: Union[datetime.datetime, str] = datetime.datetime.now(), user: str = 'default'):
         super().__init__(session_id=session_id, session_secret=session_secret, created=created)
-        self._serialized_attributes.append('ip_address')
-        self._serialized_attributes.append('user')
         self._user = user if user is not None else 'default'
         self._ip_address = ip_address
 
@@ -187,6 +227,21 @@ class SessionInitMessage(Message):
 
     event_type: MessageEventType = MessageEventType.SESSION_INIT
     """ :class:`MessageEventType`: the event type for this message implementation """
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        """
+        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+        A new object of this type instantiated from the deserialize JSON object dictionary
+        """
+        return SessionInitMessage(username=json_obj['username'], user_secret=json_obj['user_secret'])
 
     def __init__(self, username: str, user_secret: str):
         self.username = username
@@ -319,17 +374,18 @@ class RedisBackendSessionManager(SessionManager):
             if keys_and_flags[key][0]:
                 pipeline.hset(session_key, key, keys_and_flags[key][1])
 
-    def create_session(self, ip_address, username) -> Session:
+    def create_session(self, ip_address, username) -> FullAuthSession:
         pipeline = self.redis.pipeline()
         try:
             pipeline.watch(self._next_session_id_key)
-            session_id = pipeline.get(self._next_session_id_key)
+            # Remember, Redis only persists strings (though it can implicitly convert from int to string on its side)
+            session_id: Optional[str] = pipeline.get(self._next_session_id_key)
             if session_id is None:
                 session_id = 1
                 pipeline.set(self._next_session_id_key, 2)
             else:
                 pipeline.incr(self._next_session_id_key, 1)
-            session = FullAuthSession(ip_address=ip_address, session_id=session_id, user=username)
+            session = FullAuthSession(ip_address=ip_address, session_id=int(session_id), user=username)
             session_key = self.get_key_for_session(session)
             pipeline.hset(session_key, self._session_redis_hash_subkey_ip_address, session.ip_address)
             pipeline.hset(session_key, self._session_redis_hash_subkey_secret, session.session_secret)
@@ -342,11 +398,11 @@ class RedisBackendSessionManager(SessionManager):
             pipeline.unwatch()
             pipeline.reset()
 
-    def lookup_session(self, secret):
-        session_id = self.redis.hget(self._all_session_secrets_hash_key, secret)
+    def lookup_session(self, secret) -> FullAuthSession:
+        session_id: Optional[str] = self.redis.hget(self._all_session_secrets_hash_key, secret)
         if session_id is not None:
             record_hash = self.redis.hgetall(self.get_key_for_session_by_id(session_id))
-            session = FullAuthSession(session_id=session_id,
+            session = FullAuthSession(session_id=int(session_id),
                                       session_secret=record_hash[self._session_redis_hash_subkey_secret],
                                       #created=record_hash[self._session_redis_hash_subkey_created])
                                       created=record_hash[self._session_redis_hash_subkey_created],
