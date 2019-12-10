@@ -10,6 +10,7 @@ from redis import Redis, WatchError
 # local imports for unittest
 import utils.keynamehelper as keynamehelper
 import generate as generate
+from deprecated import deprecated
 
 ## local imports for production run
 # import utils.keynamehelper as keynamehelper
@@ -17,6 +18,7 @@ import generate as generate
 
 redis = None
 
+@deprecated('Deprecated in favor of nwmaas.communication.SchedulerRequestMessage class.')
 class Request:
     def __init__(self, user_id, cpus, mem):
         # self.user_id = user_id
