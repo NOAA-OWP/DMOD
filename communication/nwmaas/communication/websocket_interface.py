@@ -24,11 +24,11 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 from websockets import WebSocketServerProtocol
 
-logging.basicConfig(
-    level=logging.ERROR,
-    format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
-    datefmt="%H:%M:%S"
-)
+#logging.basicConfig(
+#    level=logging.ERROR,
+#    format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
+#    datefmt="%H:%M:%S"
+#)
 
 
 class WebSocketInterface(ABC):
@@ -112,13 +112,15 @@ class WebSocketInterface(ABC):
         # add a default excpetion handler to the event loop
         self.loop.set_exception_handler(self.handle_exception)
 
+        self.ssl_dir = ssl_dir
+
         # Set up server/listener ssl context
         self.ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 
         # Initialize SSL cert/privkey file paths as needed
-        if ssl_dir is None and (cert_pem is None or priv_key_pem is None):
+        if self.ssl_dir is None and (cert_pem is None or priv_key_pem is None):
             current_dir = Path(__file__).resolve().parent
-            ssl_dir = current_dir.parent.joinpath('ssl')
+            self.ssl_dir = current_dir.parent.joinpath('ssl')
         if cert_pem is None:
             cert_pem = ssl_dir.joinpath('certificate.pem')
         if priv_key_pem is None:
@@ -296,10 +298,15 @@ class WebSocketSessionsInterface(WebSocketInterface, ABC):
         websocket
         session
         """
-        if session is None:
+        if session is None or session.session_id is None:
             return
         else:
-            self._sessions_to_websockets.pop(session)
+            logging.debug('************* Session Arg: ({}) {}'.format(session.__class__.__name__, str(session)))
+            for session_key in self._sessions_to_websockets:
+                logging.debug('************* Knowns Session: ({}) {}'.format(session.__class__.__name__, str(session_key)))
+            if session in self._sessions_to_websockets:
+                logging.debug('************* Popping websocket for session {}'.format(str(session)))
+                self._sessions_to_websockets.pop(session)
 
 
 class NoOpHandler(WebSocketInterface):
