@@ -1,16 +1,18 @@
 import json
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Type
+from typing import Type, Union
+from .serializeable import Serializable
 
 
 class MessageEventType(Enum):
     SESSION_INIT = 1,
     NWM_MAAS_REQUEST = 2,
+    SCHEDULER_REQUEST = 3,
     INVALID = -1
 
 
-class Message(ABC):
+class Message(Serializable, ABC):
     """
     Class representing communication message of some kind between parts of the NWM MaaS system.
     """
@@ -29,16 +31,6 @@ class Message(ABC):
             The event type for this message type
         """
         return cls.event_type
-
-    @abstractmethod
-    def to_dict(self) -> dict:
-        pass
-
-    def __str__(self):
-        return str(self.to_json())
-
-    def to_json(self) -> str:
-        return json.dumps(self.to_dict())
 
 
 class Response(Message, ABC):
@@ -71,6 +63,26 @@ class Response(Message, ABC):
 
     response_to_type = Message
     """ The type of :class:`Message` for which this type is the response"""
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        """
+        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+        A new object of this type instantiated from the deserialize JSON object dictionary, or none if the provided
+        parameter could not be used to instantiated a new object.
+        """
+        try:
+            return cls(success=json_obj['success'], reason=json_obj['reason'], message=json_obj['message'],
+                       data=json_obj['data'])
+        except:
+            return None
 
     @classmethod
     def get_message_event_type(cls) -> MessageEventType:
@@ -117,6 +129,25 @@ class InvalidMessage(Message):
 
     event_type: MessageEventType = MessageEventType.INVALID
     """ :class:`Message`: the type of Message for which this type is the response"""
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        """
+        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+        A new object of this type instantiated from the deserialize JSON object dictionary, or none if the provided
+        parameter could not be used to instantiated a new object.
+        """
+        try:
+            return cls(content=json_obj['content'])
+        except:
+            return None
 
     def __init__(self, content: dict):
         self.content = content
