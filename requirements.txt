@@ -8,3 +8,4 @@ flake8
 autopep8
 setuptools
 wheel
+Deprecated
