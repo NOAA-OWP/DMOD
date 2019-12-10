@@ -14,14 +14,14 @@ import asyncio
 import websockets
 import json
 import logging
-from nwmaas.communication import Response, InvalidMessageResponse, Session, SessionInitMessage, SessionInitResponse, \
-    MessageEventType, WebSocketInterface, WebSocketSessionsInterface, MaaSRequest, NWMRequestResponse, \
-    RedisBackendSessionManager
-from typing import Dict, Optional, Tuple, Type
+from nwmaas.communication import Response, InvalidMessageResponse, Session, FullAuthSession, SessionInitMessage, \
+    SessionInitResponse, MessageEventType, WebSocketInterface, WebSocketSessionsInterface, MaaSRequest, \
+    NWMRequestResponse, RedisBackendSessionManager, SchedulerClient, SchedulerRequestMessage
+from typing import Dict, Optional, Tuple, Type, Union
 from websockets import WebSocketServerProtocol
 
 logging.basicConfig(
-    level=logging.ERROR,
+    level=logging.DEBUG,
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
     datefmt="%H:%M:%S"
 )
@@ -57,20 +57,25 @@ class RequestHandler(WebSocketSessionsInterface):
         websocket server
     """
 
-    def __init__(self, listen_host='', port='3012', ssl_dir=None, cert_pem=None, priv_key_pem=None):
+    def __init__(self, listen_host='', port='3012', scheduler_host: str = 'localhost',
+                 scheduler_port: Union[str, int] = 3013, ssl_dir=None, cert_pem=None, priv_key_pem=None,
+                 scheduler_ssl_dir=None):
         super().__init__(listen_host=listen_host, port=port, ssl_dir=ssl_dir, cert_pem=cert_pem,
                          priv_key_pem=priv_key_pem)
         self._session_manager: RedisBackendSessionManager = RedisBackendSessionManager()
+        self.scheduler_host = scheduler_host
+        self.scheduler_port = int(scheduler_port)
+        self.scheduler_client_ssl_dir = scheduler_ssl_dir if scheduler_ssl_dir is not None else self.ssl_dir
 
     @property
     def session_manager(self):
         return self._session_manager
 
     async def _authenticate_user_session(self, session_init_message: SessionInitMessage, session_ip_addr: str
-                                         ) -> Tuple[Optional[Session], bool]:
+                                         ) -> Tuple[Optional[FullAuthSession], bool]:
         """
-        Authenticate and return a user :obj:`Session` from the given request message, creating and persisting a new
-        instance and record if the user does not already have a session.
+        Authenticate and return a user :obj:`FullAuthSession` from the given request message, creating and persisting a
+        new instance and record if the user does not already have a session.
 
         Notes
         ----------
@@ -109,7 +114,7 @@ class RequestHandler(WebSocketSessionsInterface):
         return session, new_created
 
     async def handle_auth_request(self, auth_message: SessionInitMessage, websocket: WebSocketServerProtocol,
-                                  client_ip: str) -> Tuple[Optional[Session], SessionInitResponse]:
+                                  client_ip: str) -> Tuple[Optional[FullAuthSession], SessionInitResponse]:
         """
         Handle data from a request determined to be RequestType.AUTHENTICATION, including attempting to get an auth
         session, and prepare an appropriate response.
@@ -131,7 +136,10 @@ class RequestHandler(WebSocketSessionsInterface):
         session, is_new_session = await self._authenticate_user_session(session_init_message=auth_message,
                                                                         session_ip_addr=client_ip)
         if session is not None:
-            await self.register_websocket_session(websocket, session)
+            session_txt = 'new session' if is_new_session else 'session'
+            logging.debug('*************** Obtained {} for auth message: {}'.format(session_txt, str(session)))
+            result = await self.register_websocket_session(websocket, session)
+            logging.debug('************************* Attempt to register session-websocket result: {}'.format(str(result)))
             resp = SessionInitResponse(success=True, reason='Successful Auth', data=json.loads(session.get_as_json()))
         else:
             msg = 'Unable to create or find authenticated user session from request'
@@ -139,22 +147,38 @@ class RequestHandler(WebSocketSessionsInterface):
 
         return session, resp
 
-    async def handle_job_request(self, model_request: MaaSRequest, session: Session):
+    async def handle_job_request(self, model_request: MaaSRequest, session: FullAuthSession):
         if session is None:
             session = self._lookup_session_by_secret(secret=model_request.session_secret)
 
         if session is not None and model_request.session_secret == session.session_secret:
             # TODO: push to redis stream, associating with this session somehow, and getting some kind of id back
-            # job_id = # TODO
             job_id = 0
             mesg = 'Awaiting implementation of handler-to-scheduler communication' if job_id == 0 else ''
-
+            #The context manager manages a SINGLE connection to the scheduler server
+            #Adhoc calls to the scheduler can be made for this connection via the scheduler_client
+            #These adhoc calls will use the SAME connection the context was initialized with
+            scheduler_url = "wss://{}:{}".format(self.scheduler_host, self.scheduler_port)
+            logging.debug("************* Preparing scheduler request message")
+            scheduler_message = SchedulerRequestMessage(model_request=model_request, user_id=session.user)
+            logging.debug("************* Scheduler request message ready:\n{}".format(str(scheduler_message)))
+            async with SchedulerClient(scheduler_url, self.scheduler_client_ssl_dir) as scheduler_client:
+                initial_response = await scheduler_client.send_to_scheduler(scheduler_message)
+                logging.debug("************* Scheduler client received response:\n{}".format(str(initial_response)))
+                if initial_response.success:
+                    job_id = initial_response.job_id
+                    # TODO: maybe here, formalize responses to a degree containing data
+                    #async for response in scheduler_client.get_results():
+                    #    logging.debug("************* Results:\n{}".format(str(response)))
+                    #    print(response)
+                #TODO loop here to receive multiple requests, try while execpt connectionClosed, let server tell us when to stop listening
             # TODO: consider registering the job and relationship with session, etc.
-            success = job_id > 0
+            success = initial_response.success
+            logging.error("************* initial response: " + str(initial_response))
             reason = ('Success' if success else 'Failure') + ' starting job (returned id ' + str(job_id) + ')'
-            data = json.dumps({'job_id': job_id})
             # TODO: right now, the only supported MaaSRequest we will see is a NWMRequest, but account for other things
-            response = NWMRequestResponse(success=success, reason=reason, message=mesg, data=data)
+            response = NWMRequestResponse(success=success, reason=reason, message=mesg,
+                                          data={'job_id': job_id, 'scheduler_response': initial_response.to_dict()})
         else:
             msg = 'Request does not correspond to an authenticated session'
             # TODO: right now, the only supported MaaSRequest we will see is a NWMRequest, but account for other things
@@ -186,6 +210,7 @@ class RequestHandler(WebSocketSessionsInterface):
                     session, response = await self.handle_job_request(model_request=req_message, session=session)
                     await websocket.send(str(response))
                 # TODO: add another message type (here and in client) for data transmission
+                # TODO: add another message type for closing a session
                 else:
                     msg = 'Received valid ' + event_type.name + ' request, but listener does not currently support'
                     response = UnsupportedMessageTypeResponse(actual_event_type=event_type,
@@ -200,7 +225,8 @@ class RequestHandler(WebSocketSessionsInterface):
         except asyncio.CancelledError:
             logging.info("Cancelling listerner task")
         finally:
-            await self.unregister_websocket_session(session=session)
+            if session is not None:
+                await self.unregister_websocket_session(session=session)
 
 
 if __name__ == '__main__':
