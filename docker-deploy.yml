@@ -2,9 +2,10 @@ version: "3.7"
 
 services:
   scheduler:
-    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT}/mgmt
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT}/scheduler
     networks:
       - mpi-net
+      - requests-net
     ports:
         - "3013:3013"
     volumes:
@@ -22,7 +23,7 @@ services:
     ports:
       - "6379:6379"
     networks:
-      mpi-net:
+      requests-net:
         aliases:
           - ${DOCKER_REDIS_SERVICE_ALIAS:-redis}
     entrypoint: ['redis-server', '/usr/local/etc/redis/redis.conf', '--requirepass', "${DOCKER_REDIS_PASS?}"]
@@ -36,7 +37,7 @@ services:
   request_handler:
     image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-request-handler
     networks:
-      - mpi-net
+      #- mpi-net
       - requests-net
     deploy:
       #mode: global
