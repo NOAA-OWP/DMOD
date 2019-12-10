@@ -17,7 +17,7 @@ import time
 from scheduler.utils import keynamehelper as keynamehelper
 from scheduler.utils import generate as generate
 from scheduler.utils import parsing_nested as pn
-from scheduler.src.request import Request
+from nwmaas.communication import SchedulerRequestMessage, SchedulerRequestResponse
 from scheduler.utils.clean import clean_keys
 
 ## local imports for unittest
@@ -562,7 +562,7 @@ class Scheduler:
             raise ConnectionError("Please check that the Docker Daemon is installed and running.")
 
     @classmethod
-    def fromRequest(cls, user_id, cpus, mem, idx):
+    def fromRequest(cls, request: SchedulerRequestMessage, idx: int):
         """Perform job queuing based on Request() class object"""
         # user_id = "shengting.cui"
         # cpus = 125
@@ -577,7 +577,6 @@ class Scheduler:
         #                 hostname, serv_labels, serv_name)
         # if (idx == 0):
         scheduler = cls()
-        request = Request(user_id, cpus, mem)
         scheduler.enqueue(request)
         return scheduler
 

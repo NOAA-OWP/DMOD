@@ -6,7 +6,8 @@ from scheduler.src.scheduler import Scheduler
 from scheduler.src.scheduler import check_for_incoming_req
 import scheduler.utils.keynamehelper as keynamehelper
 from scheduler.utils.clean import clean_keys
-from scheduler.src.request import Request
+#from scheduler.src.request import Request
+from nwmaas.communication import SchedulerRequestMessage
 from scheduler.utils import parsing_nested as pn
 
 redis = None
@@ -18,7 +19,7 @@ class TestScheduler(unittest.TestCase):
         self.user_id = "shengting.cui"
         self.cpus = 5
         self.mem = 5000000000
-        self.request = Request(self.user_id, self.cpus, self.mem)
+        self.request = SchedulerRequestMessage(user_id=self.user_id, cpus=self.cpus, mem=self.mem, model_request=None)
         self.scheduler.__class__._jobQ = queue.deque()
 
         self.resources = [{'node_id': "Node-0001",
@@ -313,7 +314,7 @@ class TestScheduler(unittest.TestCase):
         idx = 0
         # old value of _jobQ
         len_jobQ = len(self.scheduler.__class__._jobQ)
-        returnClass = self.scheduler.fromRequest(user_id, cpus, mem, idx)
+        returnClass = self.scheduler.fromRequest(self.request, idx)
         # new value of _jobQ
         len_jobQ1 = len(self.scheduler.__class__._jobQ)
         self.assertEqual(len_jobQ+1, len_jobQ1)
@@ -369,7 +370,7 @@ class TestScheduler(unittest.TestCase):
             constraints = list(constraints.split("/"))
             name = basename + str(idx)
             idx += 1
-            schedule = self.scheduler.fromRequest(user_id, cpus_alloc, mem, idx)
+            schedule = self.scheduler.fromRequest(self.request, idx)
             # This call directly creates 1-3 services: nwm_mpi-worker_tmp0, nwm_mpi-worker_tmp1, nwm_mpi-worker_tmp2
             service = schedule.runJob(request, image, constraints, hostname, labels, name, cpus_alloc, mounts, networks, idx, cpusLen, host_str)
         self.assertTrue(service is not None)
@@ -429,7 +430,7 @@ class TestScheduler(unittest.TestCase):
 
             len_jobQ = len(self.scheduler.__class__._jobQ)
             # print("before calling fromRequest(), len_jobQ = ", len_jobQ)
-            schedule = self.scheduler.fromRequest(user_id, cpus_alloc, mem, idx)
+            schedule = self.scheduler.fromRequest(self.request, idx)
             len_jobQ1 = len(self.scheduler.__class__._jobQ)
             self.assertEqual(len_jobQ+1, len_jobQ1)
             # print("after calling fromRequest(), len_jobQ = ", len_jobQ1)

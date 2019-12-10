@@ -7,7 +7,7 @@ sys.path.insert(0, parent_dir)
 #END PATH HACK
 
 from websockets import WebSocketServerProtocol
-from nwmaas.communication import WebSocketInterface
+from nwmaas.communication import WebSocketInterface, SchedulerRequestMessage, SchedulerRequestResponse
 from scheduler.src.scheduler import Scheduler
 from pathlib import Path
 import json
@@ -50,6 +50,7 @@ class SchedulerHandler(WebSocketInterface):
         print("Scheduler Listener")
 
         try:
+            # TODO: think about, if this was in an async loop, whether that makes sense, and exactly what it would be doing
             message = await websocket.recv()
             #TODO here we should handle already running jobs, as well as any cached
             #Do this by associating metadata in the request message with existing
@@ -57,18 +58,26 @@ class SchedulerHandler(WebSocketInterface):
             logging.info(f"Gor message: {message}")
             data = json.loads(message)
             logging.info(f"Got payload: {data}")
+            request_message = SchedulerRequestMessage.factory_init_from_deserialized_json(data)
+            test = self.scheduler.fromRequest(request_message, 0)
             #FIX THIS INTERFACE test.startJobs()
             #FIXME one of the first scheduler interface changes will be a domain
             #identity which services will have to mount to run
             #initial cpu/mem will be static, bound to domain ID
-            job_id = self.scheduler.job_allocation_and_setup("Testing", 4 , 0) 
-            await websocket.send( str(job_id) )
-            await websocket.send( "Results Pending" )
+
+            # Initial response ...
+            response = SchedulerRequestResponse(success=True, reason='Job Scheduled',
+                                                data={'job_id': self.scheduler.return42()})
+            await websocket.send(str(response))
+
+            # Then some "data" for testing purpose
+            #for i in range(3):
+            #    await websocket.send(str(self.scheduler.return42()))
 
         except websockets.exceptions.ConnectionClosed:
             logging.info("Connection Closed at Consumer")
         except asyncio.CancelledError:
-            logging.info("Cancelling listerner task")
+            logging.info("Cancelling listener task")
 
 
 if __name__ == "__main__":
@@ -86,6 +95,6 @@ if __name__ == "__main__":
     #scheduler.create_resources()
 
     #Instansite the handle_job_request
-    handler = SchedulerHandler(scheduler, ssl_dir=Path("./ssl/"), port=3013)
+    handler = SchedulerHandler(scheduler, ssl_dir=Path("./ssl/scheduler"), port=3013)
     #keynamehelper.set_prefix("stack0")
     handler.run()
