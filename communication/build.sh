@@ -1,13 +1,38 @@
 #!/usr/bin/env sh
 
 NAME="`basename ${0}`"
+DEFAULT_BASE_DIR="$(cd "$(dirname "${0}")"; pwd)"
 
 usage()
 {
     local _O="Usage:
     ${NAME} -h|-help|--help
-    ${NAME} [-d|--base_dir <dir_path>] build|clean
-    ${NAME} [-d|--base_dir <dir_path>] -venv <virtual_env_dir> upgrade
+    ${NAME} [options] <action>
+
+Options:
+    -d|--base_dir <dir_path>
+        Set the base directory from which to run specified action(s)
+        Default: ${DEFAULT_BASE_DIR}
+
+    --clean-finish
+        After specified action(s) performed, also run 'clean' action
+        Note: not compatible with all actions; e.g., 'build'
+
+    --venv <virtual_env_dir>
+        Set the directory of the virtual environment to load
+        (Required for 'upgrade' action)
+
+Actions:
+    build
+        Build new distribution files for the project package
+
+    clean
+        Clean up any directories and artifacts from a previous build
+
+    upgrade
+        Perform the steps of a 'clean' and a 'build', and then install
+        built distribution files into a local environment
+        (Requires '-venv' option to specify)
 "
     echo "${_O}" 2>&1
 }
@@ -46,24 +71,41 @@ build_and_upgrade()
     pip install --upgrade --find-links=${BASE_DIR}/dist ${PACKAGE_NAME:-nwmaas-communication}
 }
 
+# If the CLEAN_FINISH option was set to clean up at the end, check that the action being run is compatible
+# E.g., it probably doesn't make sense to automatically clean up just-built artifacts when running the 'build' action
+check_clean_finish_compat()
+{
+    if [ -n "${CLEAN_FINISH:-}" ]; then
+        if [ "${ACTION}" != 'clean' ] && [ "${ACTION}" != 'upgrade' ]; then
+            echo "Error: usage of '--clean-finish' option not supported with '${ACTION}' action"
+            usage
+            exit 1
+        fi
+    fi
+}
+
 while [ ${#} -gt 0 ]; do
     case "${1}" in
         -h|--help|-help)
             usage
             exit
             ;;
+        --clean-finish)
+            [ -n "${CLEAN_FINISH:-}" ] && usage && exit 1
+            CLEAN_FINISH='true'
+            ;;
         -d|--base_dir)
-            [ -n "${BASE_DIR:-}" ] && usge && exit 1
+            [ -n "${BASE_DIR:-}" ] && usage && exit 1
             BASE_DIR="${2}"
             shift
             ;;
-        -venv)
+        --venv)
             [ -n "${VENV_DIR:-}" ] && usage && exit 1
             VENV_DIR="`cd ${2} && pwd`"
             shift
             ;;
         build|clean|upgrade)
-            [ -n "${ACTION:-}" ] && usge && exit 1
+            [ -n "${ACTION:-}" ] && usage && exit 1
             ACTION="${1}"
             ;;
         *)
@@ -74,10 +116,12 @@ while [ ${#} -gt 0 ]; do
    shift
 done
 
-[ -z "${BASE_DIR:-}" ] && BASE_DIR="$(cd "$(dirname "${0}")"; pwd)"
 MANUALLY_ACTIVATED=0
 
-[ ! -d "${BASE_DIR:?}" ] && echo "Error: base dir ${BASE_DIR} does not exist" 1>&2 && usage && exit 1
+[ -z "${ACTION:-}" ] && echo "Error: no action specified" && usage && exit 1
+check_clean_finish_compat
+
+[ ! -d "${BASE_DIR:=${DEFAULT_BASE_DIR}}" ] && echo "Error: base dir ${BASE_DIR} does not exist" 1>&2 && usage && exit 1
 if [ "${ACTION}" == "upgrade" ]; then
     [ -z "${VENV_DIR:-}" ] && echo "Error: no virtual env directory given for upgrading package" && exit 1
     [ ! -d "${VENV_DIR:-}" ] && echo "Error: given virtual env directory path is not an existing directory" && exit 1
@@ -101,8 +145,10 @@ if [ "${ACTION}" == "build" ]; then
     build
 elif [ "${ACTION}" == "clean" ]; then
     clean_all
+    # Supports --clean-finish, but just ignore for this case
 elif [ "${ACTION}" == "upgrade" ]; then
     build_and_upgrade
+    [ -n "${CLEAN_FINISH}" ] && clean_all
     [ ${MANUALLY_ACTIVATED} -ne 0 ] && deactivate
 else
     cd "${CURRENT_DIR:?}"
