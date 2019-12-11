@@ -1,7 +1,7 @@
-import json
-from abc import ABC, abstractmethod
+from abc import ABC
 from enum import Enum
-from typing import Type, Union
+from typing import Type
+
 from .serializeable import Serializable
 
 
@@ -45,7 +45,7 @@ class Response(Message, ABC):
         A summary of what the response conveys; e.g., request action trigger or disallowed
     message : str
         A more detailed explanation of what the response conveys
-    data : dict
+    data : Union[dict, Serializeable, None]
         Subtype-specific serialized data that should be conveyed as a result of the initial message
 
     Attributes
@@ -56,13 +56,45 @@ class Response(Message, ABC):
         A summary of what the response conveys; e.g., request action trigger or disallowed
     message : str
         A more detailed explanation of what the response conveys
-    data : dict
+    data : Union[dict, Serializeable, None]
         Subtype-specific serialized data that should be conveyed as a result of the initial message
 
     """
 
     response_to_type = Message
     """ The type of :class:`Message` for which this type is the response"""
+
+    @classmethod
+    def _factory_init_data_attribute(cls, json_obj: dict):
+        """
+        Initialize the argument value for a constructor param used to set the :attr:`data` attribute appropriate for
+        this type, given the parent JSON object, which may mean simply returning the value or may mean deserializing the
+        value to some object type, depending on the implementation.
+
+        The intent is for this to be used by :meth:`factory_init_from_deserialized_json`, where initialization logic for
+        the value to be set as :attr:`data` from the provided param may vary depending on the particular class.
+
+        In the default implementation, the value found at the 'data' key is simply directly returned, or None is
+        returned if the 'data' key is not found.
+
+        Parameters
+        ----------
+        json_obj : dict
+            the parent JSON object containing the desired data value under the 'data' key
+
+        Returns
+        -------
+        data : dict
+            the resulting data value object
+
+        See Also
+        -------
+        factory_init_from_deserialized_json
+        """
+        try:
+            return json_obj['data']
+        except:
+            return None
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
@@ -75,12 +107,17 @@ class Response(Message, ABC):
 
         Returns
         -------
-        A new object of this type instantiated from the deserialize JSON object dictionary, or none if the provided
-        parameter could not be used to instantiated a new object.
+        response_obj : Response
+            A new object of this type instantiated from the deserialize JSON object dictionary, or none if the provided
+            parameter could not be used to instantiated a new object.
+
+        See Also
+        -------
+        _factory_init_data_attribute
         """
         try:
             return cls(success=json_obj['success'], reason=json_obj['reason'], message=json_obj['message'],
-                       data=json_obj['data'])
+                       data=cls._factory_init_data_attribute(json_obj))
         except:
             return None
 
@@ -118,7 +155,13 @@ class Response(Message, ABC):
         self.data = data
 
     def to_dict(self) -> dict:
-        return {'success': self.success, 'reason': self.reason, 'message': self.message, 'data': self.data}
+        if self.data is None:
+            data_dict_value = {}
+        elif isinstance(self.data, dict):
+            data_dict_value = self.data
+        else:
+            data_dict_value = self.data.to_dict()
+        return {'success': self.success, 'reason': self.reason, 'message': self.message, 'data': data_dict_value}
 
 
 class InvalidMessage(Message):
