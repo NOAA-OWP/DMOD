@@ -1,23 +1,14 @@
 #!/usr/bin/env python3
 
-"""
-This script is the entry point for the request handler service
-This script will:
-    Parse and validate a user request
-    Signal the scheduler to allocate and create the correct model service
-        Signal via redis stream (publish): req_id -> req_meta
-    Wait for responses to communicate back to user
-    Should be threaded with async hanlders
-
-"""
 import asyncio
-import websockets
 import json
 import logging
-from nwmaas.communication import Response, InvalidMessageResponse, Session, FullAuthSession, SessionInitMessage, \
+from typing import Optional, Tuple, Type, Union
+
+import websockets
+from nwmaas.communication import Response, InvalidMessageResponse, FullAuthSession, SessionInitMessage, \
     SessionInitResponse, MessageEventType, WebSocketInterface, WebSocketSessionsInterface, MaaSRequest, \
     NWMRequestResponse, RedisBackendSessionManager, SchedulerClient, SchedulerRequestMessage
-from typing import Dict, Optional, Tuple, Type, Union
 from websockets import WebSocketServerProtocol
 
 logging.basicConfig(
@@ -230,5 +221,4 @@ class RequestHandler(WebSocketSessionsInterface):
 
 
 if __name__ == '__main__':
-    handler = RequestHandler(ssl_dir="../../communication/ssl")
-    handler.run()
+    raise RuntimeError('Module {} called directly; use main package entrypoint instead')
