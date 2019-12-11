@@ -22,10 +22,6 @@ class Session(Serializable):
     """ list of str: the names of attributes/properties to include when serializing an instance """
 
     @classmethod
-    def get_datetime_format(cls):
-        return cls._DATETIME_FORMAT
-
-    @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
         """
         Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
@@ -42,8 +38,42 @@ class Session(Serializable):
                    created=json_obj['created'])
 
     @classmethod
+    def full_equals(cls, obj1, obj2) -> bool:
+        """
+        Test if two objects are both of this type and are more "fully" equal than can be determined from the standard
+        equality implementation, by comparing all the attributes from :meth:`get_serialized_attributes`.
+
+        Parameters
+        ----------
+        obj1
+        obj2
+
+        Returns
+        -------
+        fully_equal : bool
+            whether the objects are of the same type and with equal values for all serialized attributes
+        """
+        if obj1.__class__ != cls or obj2.__class__ != cls:
+            return False
+        try:
+            for attr in cls._serialized_attributes:
+                if getattr(obj1, attr) != getattr(obj2, attr):
+                    return False
+            return True
+        except Exception as e:
+            # TODO: do something with this exception
+            return False
+
+    @classmethod
+    def get_datetime_format(cls):
+        return cls._DATETIME_FORMAT
+
+    @classmethod
     def get_serialized_attributes(cls):
         return tuple(cls._serialized_attributes)
+
+    def __eq__(self, other):
+        return isinstance(other, Session) and self.session_id == other.session_id
 
     def __init__(self, session_id: Union[str, int], session_secret: str = None,
                  created: Union[datetime.datetime, str] = datetime.datetime.now()):
@@ -79,9 +109,6 @@ class Session(Serializable):
                 self._created = created
         except:
             self._created = datetime.datetime.now()
-
-    def __eq__(self, other):
-        return isinstance(other, Session) and self.session_id == other.session_id
 
     def __hash__(self):
         return self.session_id
@@ -188,8 +215,11 @@ class FullAuthSession(Session):
         -------
         A new object of this type instantiated from the deserialize JSON object dictionary
         """
-        return cls(session_id=json_obj['session_id'], session_secret=json_obj['session_secret'],
-                   created=json_obj['created'], ip_address=json_obj['ip_address'], user=json_obj['user'])
+        try:
+            return cls(session_id=json_obj['session_id'], session_secret=json_obj['session_secret'],
+                       created=json_obj['created'], ip_address=json_obj['ip_address'], user=json_obj['user'])
+        except:
+            return Session.factory_init_from_deserialized_json(json_obj)
 
     def __init__(self, ip_address: str, session_id: Union[str, int], session_secret: str = None,
                  created: Union[datetime.datetime, str] = datetime.datetime.now(), user: str = 'default'):
@@ -268,8 +298,8 @@ class SessionInitResponse(Response):
         A summary of the results of the session request
     message : str
         More details on the results of the session request, if any, typically only used when a request is unsuccessful
-    data : dict
-        For successful requests, the serialized session details, including the session_secret
+    data : Optional[Session]
+        For successful requests, the session object; otherwise, None
 
     Attributes
     ----------
@@ -279,16 +309,46 @@ class SessionInitResponse(Response):
         A summary of the results of the session request
     message : str
         More details on the results of the session request, if any, typically only used when a request is unsuccessful
-    data : dict
-        For successful requests, the serialized session details, including the session_secret
+    data : Optional[Session]
+        For successful requests, the session object; otherwise, None
 
     """
 
     response_to_type = SessionInitMessage
     """ :class:`Message`: the type of Message for which this type is the response"""
 
-    def __init__(self, success: bool, reason: str, message: str = '', data=None):
+    @classmethod
+    def _factory_init_data_attribute(cls, json_obj: dict) -> Optional[FullAuthSession]:
+        """
+        Initialize the argument value for a constructor param used to set the :attr:`data` attribute appropriate for
+        this type, given the parent JSON object, which for this type means deserializing the dict value to a session
+        object.
+
+        Parameters
+        ----------
+        json_obj
+            the parent JSON object containing the desired session data serialized value
+
+        Returns
+        -------
+        data
+            the resulting :class:`FullAuthSession` object after having be appropriately processed, or None if it could
+            not be
+        """
+        try:
+            return FullAuthSession.factory_init_from_deserialized_json(json_obj['data'])
+        except:
+            return None
+
+    def __init__(self, success: bool, reason: str, message: str = '', data: Session = None):
         super().__init__(success=success, reason=reason, message=message, data=data)
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ \
+               and self.success == other.success \
+               and self.reason == other.reason \
+               and self.message == other.message \
+               and self.data.__class__.full_equals(self.data, other.data) if isinstance(self.data, Session) else self.data == other.data
 
 
 class SessionManager(ABC):
