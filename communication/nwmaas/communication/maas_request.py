@@ -140,7 +140,7 @@ class MaaSRequest(Message):
         """
         try:
             model_name = list(json_obj['model'].keys())[0]
-            return get_available_models()[model_name].factory_init_for_subclass_from_deserialized_json(json_obj)
+            return get_available_models()[model_name].factory_init_from_deserialized_json(json_obj)
         except:
             return None
 
