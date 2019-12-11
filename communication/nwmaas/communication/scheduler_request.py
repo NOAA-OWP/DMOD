@@ -49,6 +49,13 @@ class SchedulerRequestMessage(Message):
             self.memory_unset = False
             self.memory = mem
 
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ \
+               and self.model_request == other.model_request \
+               and self.cpus == other.cpus \
+               and self.memory == other.memory \
+               and self.user_id == other.user_id
+
     def to_dict(self) -> dict:
         return {'model_request': self.model_request.to_dict(), 'user_id': self.user_id, 'cpus': self.cpus,
                 'mem': self.memory}
