@@ -1,7 +1,15 @@
 #!/usr/bin/env sh
 
 NAME="`basename ${0}`"
+# Default to using the directory of this script as a base directory
 DEFAULT_BASE_DIR="$(cd "$(dirname "${0}")"; pwd)"
+# Keep note of whether the script has activated a virtual python environment, and must later deactivate it
+# Uses the shell-style conventions of 0 => true and 1 => false
+VENV_WAS_ACTIVATED=1
+# Keep track of the working directory for the parent shell at the time the script was called
+STARTING_DIR=`pwd`
+# Name for package when running unit tests
+UNIT_TESTED_PACKAGE_NAME='communication.nwmaas.test'
 
 usage()
 {
@@ -20,7 +28,10 @@ Options:
 
     --venv <virtual_env_dir>
         Set the directory of the virtual environment to load
-        (Required for 'upgrade' action)
+        (Required for 'test' and 'upgrade'; unsupported otherwise)
+
+    -v|--verbose
+        Increased verbosity where supported
 
 Actions:
     build
@@ -29,10 +40,14 @@ Actions:
     clean
         Clean up any directories and artifacts from a previous build
 
+    test
+        Run tests for the package
+        (Requires '--venv' option to specify testing environment)
+
     upgrade
         Perform the steps of a 'clean' and a 'build', and then install
         built distribution files into a local environment
-        (Requires '-venv' option to specify)
+        (Requires '--venv' option to specify)
 "
     echo "${_O}" 2>&1
 }
@@ -84,6 +99,41 @@ check_clean_finish_compat()
     fi
 }
 
+run_tests()
+{
+    # From the base dir (where the package is at), we probably need to go up one directory level
+    cd ..
+    python -m unittest discover -s ${UNIT_TESTED_PACKAGE_NAME} ${SET_VERBOSE:-}
+}
+
+handle_venv_activation()
+{
+    # Handle setting up specified virtual environment when applicable
+    if [ -n "${VENV_DIR:-}" ]; then
+        # First, if not in any virtual environment, activate the specified one and note that the script has done so
+        if [ -z "${VIRTUAL_ENV}" ]; then
+            VENV_WAS_ACTIVATED=0
+            ${VENV_DIR}/bin/activate
+        # If already in the specified virtual environment, simply make note so script doesn't deactivate it when done
+        elif [ "${VIRTUAL_ENV:-x}" == "${VENV_DIR}" ]; then
+            VENV_WAS_ACTIVATED=1
+        # However, bail in the case the shell has a virtual environment activated, but NOT the one it expects
+        else
+            echo "Error: given virtual env directory '${VENV_DIR}' does not match already activated venv '${VIRTUAL_ENV}'"
+            exit 1
+        fi
+    fi
+}
+
+# Reset shell state the script may have modified - like the working directory and virtual environment - then exit
+reset_and_exit()
+{
+    [ "$(pwd)" != "${STARTING_DIR:?}" ] && cd "${STARTING_DIR:?}"
+    [ ${VENV_WAS_ACTIVATED} -eq 0 ] && deactivate
+    # If a code was passed (as the first arg), use it when exiting; assume 0 if nothing provided
+    exit ${1:-0}
+}
+
 while [ ${#} -gt 0 ]; do
     case "${1}" in
         -h|--help|-help)
@@ -104,7 +154,11 @@ while [ ${#} -gt 0 ]; do
             VENV_DIR="`cd ${2} && pwd`"
             shift
             ;;
-        build|clean|upgrade)
+        -v|--verbose)
+            [ -n "${SET_VERBOSE:-}" ] && usage && exit 1
+            SET_VERBOSE='-v'
+            ;;
+        build|clean|upgrade|test)
             [ -n "${ACTION:-}" ] && usage && exit 1
             ACTION="${1}"
             ;;
@@ -116,44 +170,39 @@ while [ ${#} -gt 0 ]; do
    shift
 done
 
-MANUALLY_ACTIVATED=0
-
 [ -z "${ACTION:-}" ] && echo "Error: no action specified" && usage && exit 1
 check_clean_finish_compat
-
 [ ! -d "${BASE_DIR:=${DEFAULT_BASE_DIR}}" ] && echo "Error: base dir ${BASE_DIR} does not exist" 1>&2 && usage && exit 1
-if [ "${ACTION}" == "upgrade" ]; then
-    [ -z "${VENV_DIR:-}" ] && echo "Error: no virtual env directory given for upgrading package" && exit 1
+
+# Sanity check venv is provided correctly when needed ...
+if [ "${ACTION}" == "upgrade" ] || [ "${ACTION}" == "test" ]; then
+    [ -z "${VENV_DIR:-}" ] && echo "Error: no directory given for required virtual env" && usage && exit 1
     [ ! -d "${VENV_DIR:-}" ] && echo "Error: given virtual env directory path is not an existing directory" && exit 1
     [ ! -e "${VENV_DIR}/bin/activate" ] && echo "Error: given virtual env directory does not appear to be valid venv" && exit 1
-    #
-    if [ -z "${VIRTUAL_ENV}" ]; then
-        MANUALLY_ACTIVATED=1
-        ${VENV_DIR}/bin/activate
-    elif [ "${VIRTUAL_ENV:-x}" == "${VENV_DIR:-}" ]; then
-        MANUALLY_ACTIVATED=0
-    else
-        echo "Error: given virtual env directory '${VENV_DIR}' does not match already sourced venv '${VIRTUAL_ENV}'"
-        exit 1
-    fi
+# ... or venv dir was provided unexpectedly when not needed (i.e., actions other than those in the leading 'if') ...
+elif [ -n "${VENV_DIR:-}" ]; then
+    echo "Error: --venv option not supported for action '${ACTION}'"
+    usage
+    exit 1
 fi
 
-CURRENT_DIR=`pwd`
+handle_venv_activation
 
 cd "${BASE_DIR:?}"
+
 if [ "${ACTION}" == "build" ]; then
     build
 elif [ "${ACTION}" == "clean" ]; then
     clean_all
     # Supports --clean-finish, but just ignore for this case
+elif [ "${ACTION}" == "test" ]; then
+    run_tests
 elif [ "${ACTION}" == "upgrade" ]; then
     build_and_upgrade
     [ -n "${CLEAN_FINISH}" ] && clean_all
-    [ ${MANUALLY_ACTIVATED} -ne 0 ] && deactivate
 else
-    cd "${CURRENT_DIR:?}"
     echo "Error: unknown action '${ACTION}'"
-    exit 1
+    reset_and_exit 1
 fi
-cd "${CURRENT_DIR:?}"
 
+reset_and_exit
