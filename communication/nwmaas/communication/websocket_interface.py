@@ -56,8 +56,23 @@ class WebSocketInterface(ABC):
         """
         pass
 
+    @classmethod
+    def _get_async_loop(cls):
+        """
+        Class method for getting the appropriate asyncio event loop, primarily to allow test-only implementations a way
+        to override the value used during instantiation without directly providing a constructor param.
+
+        The base implementation just returns the current event loop from :meth:`asyncio.get_event_loop`.
+
+        Returns
+        -------
+        AbstractEventLoop
+            the current event loop
+        """
+        return asyncio.get_event_loop()
+
     def __del__(self):
-        self.shutdown()
+        asyncio.run(self.shutdown())
 
     def __init__(self, listen_host='', port=3012, ssl_dir=None, cert_pem=None, priv_key_pem=None):
         """
@@ -102,7 +117,7 @@ class WebSocketInterface(ABC):
         # TODO: consider printing/logging warning (or switching to error) in case of bad argument type
         self._port = int(port)
         # Async event loop
-        self.loop = asyncio.get_event_loop()
+        self.loop = self._get_async_loop()
         # register signals for tasks to respond to
         self.signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
         for s in self.signals:
@@ -129,7 +144,7 @@ class WebSocketInterface(ABC):
         self.ssl_context.load_cert_chain(cert_pem, keyfile=priv_key_pem)
         # print(hostname)
         # Setup websocket server
-        self.server = websockets.serve(self.listener, self._listen_host, self._port, ssl=self.ssl_context)
+        self.server = websockets.serve(self.listener, self._listen_host, self._port, ssl=self.ssl_context, loop=self.loop)
 
     def handle_exception(self, loop, context):
         message = context.get('exception', context['message'])
@@ -315,6 +330,18 @@ class NoOpHandler(WebSocketInterface):
         Custom server init can be done by calling super().__init__(...)
     """
 
+    @classmethod
+    def _get_async_loop(cls):
+        """
+        Override of default, to provide a new, non-primary loop for testing purposes.
+
+        Returns
+        -------
+        AbstractEventLoop
+            a new asyncio event loop
+        """
+        return asyncio.new_event_loop()
+
     async def listener(self, websocket: WebSocketServerProtocol, path):
         print("NoOp Listener")
         await websocket.send("")
@@ -325,6 +352,19 @@ class EchoHandler(WebSocketInterface):
     Example class, largely for testing purposes, which just echos out the same message received over a websocket as
     its reply, then shuts down the listener
     """
+
+    @classmethod
+    def _get_async_loop(cls):
+        """
+        Override of default, to provide a new, non-primary loop for testing purposes.
+
+        Returns
+        -------
+        AbstractEventLoop
+            a new asyncio event loop
+        """
+        return asyncio.new_event_loop()
+
     async def listener(self, websocket: WebSocketServerProtocol, path):
         received_data = await websocket.recv()
         print("Echo Listener")
