@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import json
 import os
+import signal
 import ssl
 import sys
 import unittest
@@ -84,7 +85,7 @@ class TestWebSocketInterface(WebSocketInterfaceTestBase):
         if session_secret is not None:
             self.test_request_data[test_source]['session-secret'] = session_secret
         #return_code = self.run_coroutine(self.request_handler.parse(json.dumps(self.test_request_data)))
-        return self.run_coroutine(
+        return self.request_handler.loop.run_until_complete(
             self.request_handler.parse_request_type(self.test_request_data[test_source], check_for_auth))
 
     def test_parse_request_type_1a(self):
@@ -191,13 +192,16 @@ class IntegrationTestWebSocketInterface(WebSocketInterfaceTestBase):
         else:
             self.package_dir = Path(package_dir_name).resolve()
 
+        self._loop = asyncio.new_event_loop()
         self._basic_listener_subproc_run_code = None
         self.sub_proc = None
 
     def tearDown(self):
         super().tearDown()
         if self.sub_proc is not None:
-            self.sub_proc.terminate()
+            self.sub_proc.send_signal(signal.SIGTERM)
+            self._loop.run_until_complete(self.sub_proc.wait())
+        self._loop.close()
 
     async def _simple_send_receive(self, send_data: dict, sleep_time: int = 2):
         await asyncio.sleep(sleep_time)
@@ -236,7 +240,7 @@ class IntegrationTestWebSocketInterface(WebSocketInterfaceTestBase):
         The point of this test is more to test the overall design for using the listener method than the particular
         implementation for EchoHandler
         """
-        self.sub_proc = asyncio.run(self.async_run_subproc_from_code(self.basic_listener_subproc_run_code))
+        self.sub_proc = self._loop.run_until_complete(self.async_run_subproc_from_code(self.basic_listener_subproc_run_code))
         test_data = {"user": "test"}
         response = asyncio.run(asyncio.wait_for(self._simple_send_receive(test_data), timeout=15))
         json_rsp = json.loads(response)
@@ -247,7 +251,7 @@ class IntegrationTestWebSocketInterface(WebSocketInterfaceTestBase):
         Test to ensure tests in test_listener_1a() will not return false positive by confirming not equal responses are
         recognized as such.
         """
-        self.sub_proc = asyncio.run(self.async_run_subproc_from_code(self.basic_listener_subproc_run_code))
+        self.sub_proc = self._loop.run_until_complete(self.async_run_subproc_from_code(self.basic_listener_subproc_run_code))
         test_data = {"user": "test"}
         not_test_data = {"notuser": "nottest"}
         response = asyncio.run(asyncio.wait_for(self._simple_send_receive(test_data), timeout=15))
