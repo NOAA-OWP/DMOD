@@ -58,6 +58,11 @@ class RequestHandler(WebSocketSessionsInterface):
         self.scheduler_port = int(scheduler_port)
         self.scheduler_client_ssl_dir = scheduler_ssl_dir if scheduler_ssl_dir is not None else self.ssl_dir
 
+        scheduler_url = "wss://{}:{}".format(self.scheduler_host, self.scheduler_port)
+
+        self._scheduler_client = SchedulerClient(scheduler_url, self.scheduler_client_ssl_dir)
+        """SchedulerClient: Client for interacting with scheduler, which also is a context manager for connections."""
+
     @property
     def session_manager(self):
         return self._session_manager
@@ -153,7 +158,9 @@ class RequestHandler(WebSocketSessionsInterface):
             logging.debug("************* Preparing scheduler request message")
             scheduler_message = SchedulerRequestMessage(model_request=model_request, user_id=session.user)
             logging.debug("************* Scheduler request message ready:\n{}".format(str(scheduler_message)))
-            async with SchedulerClient(scheduler_url, self.scheduler_client_ssl_dir) as scheduler_client:
+            #async with SchedulerClient(scheduler_url, self.scheduler_client_ssl_dir) as scheduler_client:
+            # Should be able to do this to reuse same object/context/connection across tasks, even from other methods
+            async with self._scheduler_client as scheduler_client:
                 initial_response = await scheduler_client.send_to_scheduler(scheduler_message)
                 logging.debug("************* Scheduler client received response:\n{}".format(str(initial_response)))
                 if initial_response.success:
