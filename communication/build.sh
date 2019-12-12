@@ -3,6 +3,11 @@
 NAME="`basename ${0}`"
 SCRIPT_PARENT_DIR="$(cd "$(dirname "${0}")"; pwd)"
 
+# Source the main project .env file if we find it in the directory one level above the parent of this script
+if [ -e "${SCRIPT_PARENT_DIR}/../.env" ]; then
+    . "${SCRIPT_PARENT_DIR}/../.env"
+fi
+
 # Default to using the directory of this script as a base directory
 DEFAULT_BASE_DIR="${SCRIPT_PARENT_DIR}"
 
@@ -13,8 +18,8 @@ VENV_WAS_ACTIVATED=1
 # Keep track of the working directory for the parent shell at the time the script was called
 STARTING_DIR=`pwd`
 
-# Name of dist/pip package when installing
-PACKAGE_NAME='nwmaas-communication'
+# Name of dist/pip package when installing, which should be available from sourced .env
+PACKAGE_DIST_NAME="${PYTHON_PACKAGE_DIST_NAME_COMMS:?}"
 
 # Name for package when running unit tests
 UNIT_TESTED_PACKAGE_NAME='communication.nwmaas.test'
