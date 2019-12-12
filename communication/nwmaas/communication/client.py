@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import json
 import ssl
 import traceback
@@ -24,22 +25,52 @@ class WebSocketClient(ABC):
     """
     def __init__(self, endpoint_uri: str, ssl_directory: Path):
         super().__init__()
+
         self.endpoint_uri = endpoint_uri
+        """str: The endpoint for the client to connect to to open new websocket connections."""
 
-        self.client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        endpoint_pem = ssl_directory.joinpath('certificate.pem')
-        self.client_ssl_context.load_verify_locations(str(endpoint_pem))
+        self._ssl_directory = ssl_directory
+        """Path: The parent directory of the cert PEM file used for the client SSL context."""
 
-        #TODO try to connect, throw error if connection cannot be established
+        # Setup this as a property to allow more private means to override the actual filename of the cert PEM file
+        self._client_ssl_context = None
+        """ssl.SSLContext: The private field for the client SSL context property."""
+
+        self._cert_pem_file_basename: str = 'certificate.pem'
+        """str: The basename of the certificate PEM file to use."""
+
         self.connection = None
+        """Optional[websockets.client.Connect]: The open websocket connection, if set, for this client's context."""
+
+        self._opening_connection = False
+        """bool: Whether some task is in the process of opening a new connection in the context, but is awaiting."""
+
         self.active_connections = 0
+        """int: The number of active utilizations of the open :attr:`connection`."""
 
     async def __aenter__(self):
         """
             When context is entered, use existing connection or create if none exists
         """
+        # Basically, block here using await+sleep (with a timeout) if another task/event exec is opening a connection
+        # Implicitly, this would mean said task is in an await, and execution went back to event loop (i.e., this call)
+        # Also, for efficiency, delay datetime-related ops until first loop iteration, to avoid if the loop never runs
+        timeout_limit = None
+        while self._opening_connection and (timeout_limit is None or datetime.datetime.now() < timeout_limit):
+            if timeout_limit is None:
+                timeout_limit = datetime.datetime.now() + datetime.timedelta(seconds=15)
+            await asyncio.sleep(0.25)
+
+        # Safely conclude at this point that nothing else (worth paying attention to) is in the middle of opening a
+        # connection, so check whether there already is one ...
         if self.connection is None:
+            # If not, mark that this exec is opening a connection, before giving up control during the await
+            self._opening_connection = True
+            # Then asynchronously open the connection ...
             self.connection = await websockets.client.connect(self.endpoint_uri, ssl=self.client_ssl_context)
+            # And now, note that we are no longer in the middle of an attempt to open a connection
+            self._opening_connection = False
+
         self.active_connections += 1
         return self
 
@@ -93,6 +124,22 @@ class WebSocketClient(ABC):
             the request response object
         """
         pass
+
+    @property
+    def client_ssl_context(self) -> ssl.SSLContext:
+        """
+        Get the client SSL context property, lazily instantiating if necessary.
+
+        Returns
+        -------
+        ssl.SSLContext
+            the client SSL context for secure connections
+        """
+        if self._client_ssl_context is None:
+            self._client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            endpoint_pem = self._ssl_directory.joinpath(self._cert_pem_file_basename)
+            self.client_ssl_context.load_verify_locations(str(endpoint_pem))
+        return self._client_ssl_context
 
 
 class SchedulerClient(WebSocketClient):
