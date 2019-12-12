@@ -64,6 +64,9 @@ class SchedulerRequestMessage(Message):
 class SchedulerRequestResponse(Response):
     response_to_type = SchedulerRequestMessage
 
+    def __eq__(self, other):
+        return self.__class__ == other.__class__  and self.success == other.success and self.job_id == other.job_id
+
     @property
     def job_id(self):
         if self.success:
