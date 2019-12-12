@@ -18,7 +18,7 @@
 # - NAME
 # - DEFAULT_BASE_DIR
 # - BASE_DIR *
-# - PACKAGE_NAME
+# - PACKAGE_DIST_NAME
 # - ACTION *
 # - STARTING_DIR
 #
@@ -172,8 +172,8 @@ pkb_build_and_upgrade()
     pkb_build
     # This is just to make sure the variable is set, or bail
     ls ${BASE_DIR:?} > /dev/null
-    pip uninstall -y ${PACKAGE_NAME:?}
-    pip install --upgrade --find-links=${BASE_DIR:?}/dist ${PACKAGE_NAME?}
+    pip uninstall -y ${PACKAGE_DIST_NAME:?}
+    pip install --upgrade --find-links=${BASE_DIR:?}/dist ${PACKAGE_DIST_NAME?}
 }
 
 # If the CLEAN_FINISH option was set to clean up at the end, check that the action being run is compatible
