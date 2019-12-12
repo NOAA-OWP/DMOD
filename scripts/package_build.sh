@@ -46,9 +46,17 @@ Options:
         After specified action(s) performed, also run 'clean' action
         Note: not compatible with all actions; e.g., 'build'
 
+    --sys|--no-venv
+        Explicitly set that the base system Python environment is to be
+        used instead of a virtual environment; e.g., for 'build' action
+        while running the script inside a Docker container.
+        Note: supported actions will exit otherwise when no virtual
+        environment is set.
+        Note: conflicts with --venv option.
+
     --venv <virtual_env_dir>
         Set the directory of the virtual environment to load
-        (Required for 'test' and 'upgrade'; unsupported otherwise)
+        (Required for 'test' and 'upgrade')
 
     -v|--verbose
         Increased verbosity where supported
@@ -92,6 +100,7 @@ pkb_default_arg_parse()
                 ;;
             --venv)
                 [ -n "${VENV_DIR:-}" ] && pkb_default_usage && exit 1
+                [ -n "${USE_SYS_PYTHON:-}" ] && pkb_default_usage && exit 1
                 # Handle absolute versus relative paths properly
                 if expr "${2}" : '[/]' > /dev/null; then
                     VENV_DIR="${2}"
@@ -99,6 +108,11 @@ pkb_default_arg_parse()
                     VENV_DIR="$(pwd)/${2}"
                 fi
                 shift
+                ;;
+            --sys|--no-venv)
+                [ -n "${VENV_DIR:-}" ] && pkb_default_usage && exit 1
+                [ -n "${USE_SYS_PYTHON:-}" ] && pkb_default_usage && exit 1
+                USE_SYS_PYTHON='true'
                 ;;
             -v|--verbose)
                 [ -n "${SET_VERBOSE:-}" ] && pkb_default_usage && exit 1
@@ -217,6 +231,35 @@ pkb_reset_and_exit()
     fi
 }
 
+# Run a set of default sanity checks specifically related to setting (or not) a virtual env for the current ACTION
+pkb_default_venv_sanity_checks()
+{
+    # When **required** for the current ACTION, ensure a **valid** virtual environment setting is provided ...
+    if [ "${ACTION:?}" == "upgrade" ] || [ "${ACTION:?}" == "test" ]; then
+        [ -z "${VENV_DIR:-}" ] && echo "Error: no directory given for required virtual env" && usage && exit 1
+        [ ! -d "${VENV_DIR:-}" ] && echo "Error: given virtual env directory path is not an existing directory" && exit 1
+        [ ! -e "${VENV_DIR}/bin/activate" ] && echo "Error: given virtual env directory does not appear to be valid venv" && exit 1
+    # When a virtual environment setting is **optional** for the current ACTION ...
+    elif [ "${ACTION:?}" == "build" ]; then
+        # ... if set, make sure setting is **valid**
+        if [ -n "${VENV_DIR:-}" ]; then
+            [ ! -d "${VENV_DIR:-}" ] && echo "Error: given virtual env directory path is not an existing directory" && exit 1
+            [ ! -e "${VENV_DIR}/bin/activate" ] && echo "Error: given virtual env directory does not appear to be valid venv" && exit 1
+        # ... if not set, warn and exit unless the override flag was set for using the main system Python environment
+        elif [ "${USE_SYS_PYTHON:-x}" != "true" ]; then
+            echo "Error: set flag to use main system Python environment for '${ACTION:?}' when not setting virtual env"
+            usage
+            exit 1
+        fi
+    # When a virtual environment setting is **unsupported** for the current ACTION, but was still provided ...
+    elif [ -n "${VENV_DIR:-}" ]; then
+        echo "Error: --venv option not supported for action '${ACTION}'"
+        usage
+        exit 1
+    fi
+}
+
+# A default set of sanity checks
 pkb_default_sanity_checks()
 {
     # use implemented-script-specific versions of usage and check_clean_finish_compat
@@ -226,15 +269,5 @@ pkb_default_sanity_checks()
 
     [ ! -d "${BASE_DIR:=${DEFAULT_BASE_DIR:?}}" ] && echo "Error: base dir ${BASE_DIR} does not exist" 1>&2 && usage && exit 1
 
-    # Sanity check venv is provided correctly when needed ...
-    if [ "${ACTION}" == "upgrade" ] || [ "${ACTION}" == "test" ] || [ "${ACTION}" == "build" ]; then
-        [ -z "${VENV_DIR:-}" ] && echo "Error: no directory given for required virtual env" && usage && exit 1
-        [ ! -d "${VENV_DIR:-}" ] && echo "Error: given virtual env directory path is not an existing directory" && exit 1
-        [ ! -e "${VENV_DIR}/bin/activate" ] && echo "Error: given virtual env directory does not appear to be valid venv" && exit 1
-    # ... or venv dir was provided unexpectedly when not needed (i.e., actions other than those in the leading 'if') ...
-    elif [ -n "${VENV_DIR:-}" ]; then
-        echo "Error: --venv option not supported for action '${ACTION}'"
-        usage
-        exit 1
-    fi
+    pkb_default_venv_sanity_checks
 }
