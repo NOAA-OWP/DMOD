@@ -6,9 +6,9 @@ import logging
 from typing import Optional, Tuple, Type, Union
 
 import websockets
-from nwmaas.communication import Response, InvalidMessageResponse, FullAuthSession, SessionInitMessage, \
-    SessionInitResponse, MessageEventType, WebSocketInterface, WebSocketSessionsInterface, MaaSRequest, \
-    NWMRequestResponse, RedisBackendSessionManager, SchedulerClient, SchedulerRequestMessage
+from nwmaas.communication import Response, InvalidMessageResponse, FullAuthSession, SessionInitMessage, MaaSRequest, \
+    SessionInitResponse, FailedSessionInitInfo, MessageEventType, WebSocketInterface, WebSocketSessionsInterface, \
+    SessionInitFailureReason,  NWMRequestResponse, RedisBackendSessionManager, SchedulerClient, SchedulerRequestMessage
 from websockets import WebSocketServerProtocol
 
 logging.basicConfig(
@@ -68,7 +68,7 @@ class RequestHandler(WebSocketSessionsInterface):
         return self._session_manager
 
     async def _authenticate_user_session(self, session_init_message: SessionInitMessage, session_ip_addr: str
-                                         ) -> Tuple[Optional[FullAuthSession], bool]:
+                                         ) -> Tuple[Optional[FullAuthSession], bool, Optional[FailedSessionInitInfo]]:
         """
         Authenticate and return a user :obj:`FullAuthSession` from the given request message, creating and persisting a
         new instance and record if the user does not already have a session.
@@ -87,27 +87,88 @@ class RequestHandler(WebSocketSessionsInterface):
 
         Returns
         -------
-        Tuple[Optional[Session], bool]
-            The authenticated :obj:`Session` if the user was authenticated (or None if not), and whether a new session
-            was created
+        Tuple[Optional[Session], bool, Optional[FailedSessionInitInfo]
+            The authenticated :obj:`Session` if an authenticate/authorized session was obtained (or None if not),
+            whether a new session was created, and the failure info object if an authenticate/authorized session was not
+            obtained (or else None)
 
         """
         session = None
         new_created = False
+        init_failure_info: Optional[FailedSessionInitInfo] = None
 
-        # TODO: For now, every valid auth request is considered authorized and has a new session created; change later
-        is_user_authorized = True
-        needs_new_session = True
+        username = session_init_message.username
+        # TODO: finish implementing the methods used below
+        is_user_authenticated = await self._check_user_authenticated(username, session_init_message.user_secret)
+        is_user_authorized = is_user_authenticated and await self._check_user_authorized(username)
+        needs_new_session = is_user_authorized and not(await self._check_existing_session(username))
 
-        if is_user_authorized and needs_new_session:
-            session = self._session_manager.create_session(ip_address=session_ip_addr,
-                                                           username=session_init_message.username)
+        if is_user_authenticated and is_user_authorized and needs_new_session:
             new_created = True
-        elif is_user_authorized:
+            try:
+                session = self._session_manager.create_session(ip_address=session_ip_addr,
+                                                               username=session_init_message.username)
+            except Exception as e:
+                details = 'The session manager encountered a {} when attempting to create a new session: {}'.format(
+                    e.__class__.__name__, str(e))
+                init_failure_info = FailedSessionInitInfo(user=session_init_message.username,
+                                                          reason=SessionInitFailureReason.SESSION_MANAGER_FAIL,
+                                                          details=details)
+        elif is_user_authenticated and is_user_authorized:
+            # TODO: when this is changed, make sure to properly create the init failure object as needed
             # session = TODO: lookup existing somehow
             pass
+        elif is_user_authenticated:   # implies user was not authorized
+            init_failure_info = FailedSessionInitInfo(user=session_init_message.username,
+                                                      reason=SessionInitFailureReason.USER_NOT_AUTHORIZED,
+                                                      details='Authenticated user is not authorized for session access')
+        else:  # implies user was not authenticated
+            init_failure_info = FailedSessionInitInfo(user=session_init_message.username,
+                                                      reason=SessionInitFailureReason.AUTHENTICATION_DENIED,
+                                                      details='User was not authenticated')
+        return session, new_created, init_failure_info
 
-        return session, new_created
+    async def _check_user_authenticated(self, username: str, secret: str) -> bool:
+        # TODO: implement authentication piece; for now, assume always authenticated successfully
+        return True
+
+    async def _check_user_authorized(self, username: str) -> bool:
+        """
+        Check that the user with the given username is authorized to make model requests.
+
+        Parameters
+        ----------
+        username : str
+            the username of the user for which authorization is being checked
+
+        Returns
+        -------
+        ``True`` if the represented user is authorized to make model requests, or ``False`` otherwise
+        """
+        # TODO: implement authorization piece; for now, assume always authenticated user is always authorized
+        return True
+
+    async def _check_existing_session(self, username: str) -> bool:
+        """
+        Check whether a user with the given username already has an active session over which model requests can be
+        made, implying (assuming appropriate auth) the user requires a new session.
+
+        Note that this method does not take into account whether such a user is currently authenticated or whether such
+        a user is authorized to be granted sessions.  Further, it does not retrieve any existing session.  It only tests
+        whether there is an active session for the user.
+
+        Parameters
+        ----------
+        username : str
+            the username of the user for which an existing useable session is being checked
+
+        Returns
+        -------
+        ``True`` if the represented user already has an existing, active session over which model requests can be made,
+        or ``False`` otherwise
+        """
+        # TODO: implement check for existing useable session; for now, there never is one
+        return False
 
     async def handle_auth_request(self, auth_message: SessionInitMessage, websocket: WebSocketServerProtocol,
                                   client_ip: str) -> Tuple[Optional[FullAuthSession], SessionInitResponse]:
@@ -129,17 +190,17 @@ class RequestHandler(WebSocketSessionsInterface):
         and an prepared SessionInitResponse with details on the authentication attempt (including session info for the
         client if successful)
         """
-        session, is_new_session = await self._authenticate_user_session(session_init_message=auth_message,
-                                                                        session_ip_addr=client_ip)
+        session, is_new_session, fail_info = await self._authenticate_user_session(session_init_message=auth_message,
+                                                                                   session_ip_addr=client_ip)
         if session is not None:
             session_txt = 'new session' if is_new_session else 'session'
             logging.debug('*************** Obtained {} for auth message: {}'.format(session_txt, str(session)))
             result = await self.register_websocket_session(websocket, session)
             logging.debug('************************* Attempt to register session-websocket result: {}'.format(str(result)))
-            resp = SessionInitResponse(success=True, reason='Successful Auth', data=json.loads(session.get_as_json()))
+            resp = SessionInitResponse(success=True, reason='Successful Auth', data=session)
         else:
             msg = 'Unable to create or find authenticated user session from request'
-            resp = SessionInitResponse(success=False, reason='Failed Auth', message=msg, data=auth_message.to_dict())
+            resp = SessionInitResponse(success=False, reason='Failed Auth', message=msg, data=fail_info)
 
         return session, resp
 
