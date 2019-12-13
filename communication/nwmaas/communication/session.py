@@ -5,9 +5,22 @@ import random
 from .message import Message, MessageEventType, Response
 from .serializeable import Serializable
 from abc import ABC, abstractmethod
+from enum import Enum
 from redis import Redis
 from redis.client import Pipeline
 from typing import Optional, Union
+
+
+class SessionInitFailureReason(Enum):
+    AUTHENTICATION_SYS_FAIL = 1, # some error other than bad credentials prevented successful user authentication
+    AUTHENTICATION_DENIED = 2,  # the user's asserted identity was not authenticated due to the provided credentials
+    USER_NOT_AUTHORIZED = 3,  # the user was authenticated, but does not have authorized permission for a session
+    AUTH_ATTEMPT_TIMEOUT = 4,  # the authentication backend did not respond to the session initializer before a timeout
+    REQUEST_TIMED_OUT = 5,  # the session initializer did not respond to the session requestor before a timeout
+    SESSION_DETAILS_MISSING = 6,  # otherwise appearing successful, but the serialized session details were not sent
+    SESSION_MANAGER_FAIL = 7,  # after authentication and authorization were successful, there was an error in the session manager
+    OTHER = 8,  # an understood error occurred that is not currently covered by the available enum values
+    UNKNOWN = -1
 
 
 class Session(Serializable):
@@ -281,14 +294,85 @@ class SessionInitMessage(Message):
         return {'username': self.username, 'user_secret': self.user_secret}
 
 
+class FailedSessionInitInfo(Serializable):
+    """
+    A :class:`~.serializeable.Serializable` type for representing details on why a :class:`SessionInitMessage` didn't
+    successfully init a session.
+    """
+
+    @classmethod
+    def get_datetime_format(cls):
+        return Session.get_datetime_format()
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        try:
+            # Allow for fail_time to be not present or set to None ...
+            if 'fail_time' not in json_obj or json_obj['fail_time'] is None:
+                fail_time = None
+            # ... or to be already a datetime object ...
+            elif isinstance(json_obj['fail_time'], datetime.datetime):
+                fail_time = json_obj['fail_time']
+            # ... or to be a string that can be parsed to a datetime object (or else throw exception and return None)
+            else:
+                fail_time = datetime.datetime.strptime(json_obj['fail_time'], cls.get_datetime_format())
+
+            # Similarly, allow reason to be unspecified or None (i.e., UNKNOWN) ...
+            if 'reason' not in json_obj or json_obj['reason'] is None:
+                reason = SessionInitFailureReason.UNKNOWN
+            # ... or to be already a SessionInitFailureReason object ...
+            elif isinstance(json_obj['reason'], SessionInitFailureReason):
+                reason = json_obj['reason']
+            # ... or to be a valid SessionInitFailureReason name
+            else:
+                reason = SessionInitFailureReason[json_obj['reason']]
+
+            return FailedSessionInitInfo(user=json_obj['user'], reason=reason, fail_time=fail_time,
+                                         details=json_obj['details'])
+        except:
+            return None
+
+    def __eq__(self, other):
+        if self.__class__ != other.__class__ or self.user != other.user or self.reason != other.reason:
+            return False
+        if self.fail_time is not None and other.fail_time is not None and self.fail_time != other.fail_time:
+            return False
+        return True
+
+    def __init__(self, user: str, reason: SessionInitFailureReason = SessionInitFailureReason.UNKNOWN,
+                 fail_time: Optional[datetime.datetime] = None, details: Optional[str] = None):
+        self.user = user
+        self.reason = reason
+        self.fail_time = fail_time if fail_time is not None else datetime.datetime.now()
+        self.details = details
+
+    def to_dict(self) -> dict:
+        fail_time_str = self.fail_time.strftime(self.get_datetime_format()) if self.fail_time is not None else None
+        return {'user': self.user, 'reason': self.reason, 'fail_time': fail_time_str, 'details': self.details}
+
+
+
+# Define this custom type here for hinting
+SessionInitDataType = Union[Session, FailedSessionInitInfo]
+
+
 class SessionInitResponse(Response):
     """
-    The :class:`Response` subtype used to response to a :class:`SessionInitMessage`.
+    The :class:`~.message.Response` subtype used to response to a :class:`.SessionInitMessage`, either
+    conveying the new session's details or information about why session init failed.
 
-    In particular, the :attr:`data` attribute should contain a serialized version of the :class:`Session` created as a
-    result of the request, in the form of a JSON object (as provided by :meth:`Session.get_as_dict`).  In particular,
-    this includes the :attr:`Session.session_secret` attribute, which will be needed by the requesting client to send
-    further messages via the authenticated session.
+    In particular, the :attr:`data` attribute will be of one two types.  For responses
+    indicating success, :attr:`data` will contain a :class:`Session` object (likely a :class:`FullAuthSession`) created
+    as a result of the request.  This will have its :attr:`Session.session_secret` attribute, which will be needed by
+    the requesting client to send further messages via the authenticated session.
+
+    Alternatively, for responses indicating failure, :attr:`data` will contain a :class:`FailedSessionInitInfo` with
+    details about the failure.
+
+    In the init constructor, if the ``data`` param is not some of either of the expected types, or a dict that can be
+    deserialized to one, then :attr:`data` will be set as an :class:`FailedSessionInitInfo`.  This is due to the
+    de facto failure the response instance represents to a request for a session, if there is no valid :class:`Session`
+    in the response.  This will also override the ``success`` parameter, and force :attr:`success` to be false.
 
     Parameters
     ----------
@@ -298,8 +382,9 @@ class SessionInitResponse(Response):
         A summary of the results of the session request
     message : str
         More details on the results of the session request, if any, typically only used when a request is unsuccessful
-    data : Optional[Session]
-        For successful requests, the session object; otherwise, None
+    data : dict, `Session`, or `FailedSessionInitInfo`, optional
+        For successful requests, the session object (possibly serialized as a ``dict``); for failures, the failure info
+        object (again, possibly serialized as a ``dict``), or None
 
     Attributes
     ----------
@@ -309,46 +394,83 @@ class SessionInitResponse(Response):
         A summary of the results of the session request
     message : str
         More details on the results of the session request, if any, typically only used when a request is unsuccessful
-    data : Optional[Session]
-        For successful requests, the session object; otherwise, None
+    data : `.Session` or `.FailedSessionInitInfo`
+        For successful requests, the session object; for failures, the failure info object
 
     """
 
     response_to_type = SessionInitMessage
-    """ :class:`Message`: the type of Message for which this type is the response"""
+    """ Type[`SessionInitMessage`]: the type or subtype of :class:`Message` for which this type is the response"""
 
     @classmethod
-    def _factory_init_data_attribute(cls, json_obj: dict) -> Optional[FullAuthSession]:
+    def _factory_init_data_attribute(cls, json_obj: dict) -> Optional[SessionInitDataType]:
         """
         Initialize the argument value for a constructor param used to set the :attr:`data` attribute appropriate for
-        this type, given the parent JSON object, which for this type means deserializing the dict value to a session
-        object.
+        this type, given the parent JSON object, which for this type means deserializing the dict value to either a
+        session object or a failure info object.
 
         Parameters
         ----------
-        json_obj
+        json_obj : dict
             the parent JSON object containing the desired session data serialized value
 
         Returns
         -------
         data
-            the resulting :class:`FullAuthSession` object after having be appropriately processed, or None if it could
-            not be
+            the resulting :class:`Session` or :class:`FailedSessionInitInfo` object obtained after processing,
+            or None if no valid object could be processed of either type
         """
+        data = None
         try:
-            return FullAuthSession.factory_init_from_deserialized_json(json_obj['data'])
+            data = json_obj['data']
         except:
-            return None
+            det = 'Received serialized JSON response object that did not contain expected key for serialized session.'
+            return FailedSessionInitInfo(user='', reason=SessionInitFailureReason.SESSION_DETAILS_MISSING, details=det)
 
-    def __init__(self, success: bool, reason: str, message: str = '', data: Session = None):
-        super().__init__(success=success, reason=reason, message=message, data=data)
+        try:
+            # If we can, return the FullAuthSession or Session obtained by this class method
+            return FullAuthSession.factory_init_from_deserialized_json(data)
+        except:
+            try:
+                return FailedSessionInitInfo.factory_init_from_deserialized_json(data)
+            except:
+                return None
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ \
                and self.success == other.success \
                and self.reason == other.reason \
                and self.message == other.message \
-               and self.data.__class__.full_equals(self.data, other.data) if isinstance(self.data, Session) else self.data == other.data
+               and self.data.__class__.full_equals(self.data, other.data) if isinstance(self.data,
+                                                                                        Session) else self.data == other.data
+
+    def __init__(self, success: bool, reason: str, message: str = '', data: Optional[SessionInitDataType] = None):
+        super().__init__(success=success, reason=reason, message=message, data=data)
+
+        # If we received a dict for data, try to deserialize using the class method (failures will set to None,
+        # which will get handled by the next conditional logic)
+        if isinstance(self.data, dict):
+            # Remember, the class method expects a JSON obj dict with the data as a child element, not the data directly
+            self.data = self.__class__._factory_init_data_attribute({'success': self.success, 'data': data})
+
+        if self.data is None:
+            details = 'Instantiated SessionInitResponse object without session data; defaulting to failure'
+            self.data = FailedSessionInitInfo(user='', reason=SessionInitFailureReason.SESSION_DETAILS_MISSING,
+                                              details=details)
+        elif not (isinstance(self.data, Session) or isinstance(self.data, FailedSessionInitInfo)):
+            details = 'Instantiated SessionInitResponse object using unexpected type for data ({})'.format(
+                self.data.__class__.__name__)
+            try:
+                as_str = '; converted to string: \n{}'.format(str(self.data))
+                details += as_str
+            except:
+                # If we can't cast to string, don't worry; just leave out that part in details
+                pass
+            self.data = FailedSessionInitInfo(user='', reason=SessionInitFailureReason.SESSION_DETAILS_MISSING,
+                                              details=details)
+
+        # Make sure to reset/change self.success if self.data ends up being a failure info object
+        self.success = self.success and isinstance(self.data, Session)
 
 
 class SessionManager(ABC):
