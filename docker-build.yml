@@ -19,16 +19,16 @@ services:
     build:
       context: .
       dockerfile: py_source.Dockerfile
-      #args:
-        #comms_version: ${PY_PACK_COMMS_VERSION?}
-        #comms_package_name: ${PY_PACK_COMMS_NAME?}
+      args:
+        comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
+        request_handler_package_name: ${PYTHON_PACKAGE_DIST_NAME_REQUEST_HANDLER:?}
   scheduler:
     image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/scheduler
     build:
       context: ./scheduler
       args:
         docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY_HOST}:${DOCKER_INTERNAL_REGISTRY_PORT}
-        comms_package_name: nwmaas-communication
+        comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
     #depends_on:
     #  - base
   nwm:
@@ -51,7 +51,8 @@ services:
       context: ./request_handler
       args:
         docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY_HOST}:${DOCKER_INTERNAL_REGISTRY_PORT}
-        comms_package_name: nwmaas-communication
+        comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
+        request_handler_package_name: ${PYTHON_PACKAGE_DIST_NAME_REQUEST_HANDLER:?}
 networks:
   mpi-net:
     external: true
