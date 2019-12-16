@@ -17,7 +17,7 @@ def _handle_args():
                         #help='Change the base directory when using SSL certificate and key files with default names',
                         help='Set the ssl directory for scheduler certs',
                         dest='ssl_dir',
-                        default='/nwm/scheduler/ssl/scheduler/')
+                        default='/ssl/scheduler/')
     parser.prog = package_name
     return parser.parse_args()
 
