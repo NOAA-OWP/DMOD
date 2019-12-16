@@ -22,6 +22,7 @@ services:
       args:
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
         request_handler_package_name: ${PYTHON_PACKAGE_DIST_NAME_REQUEST_HANDLER:?}
+        scheduler_package_dist_name: ${PYTHON_PACKAGE_DIST_NAME_SCHEDULER:?}
   scheduler:
     image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/scheduler
     build:
@@ -29,6 +30,7 @@ services:
       args:
         docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY_HOST}:${DOCKER_INTERNAL_REGISTRY_PORT}
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
+        scheduler_package_dist_name: ${PYTHON_PACKAGE_DIST_NAME_SCHEDULER:?}
     #depends_on:
     #  - base
   nwm:
