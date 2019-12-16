@@ -1,31 +1,18 @@
 #!/usr/bin/env python3
 
-import sys
 import os
-import time
-import subprocess
 import queue
-import json, ast
 import docker
-# from itertools import chain
-from pprint import pprint as pp
 from redis import Redis, WatchError
 import logging
 import time
+from nwmaas.communication import SchedulerRequestMessage
 
 ## local imports
-from scheduler.utils import keynamehelper as keynamehelper
-from scheduler.utils import generate as generate
-from scheduler.utils import parsing_nested as pn
-from scheduler.src.request import Request
-from scheduler.utils.clean import clean_keys
-
-## local imports for unittest
-# import scheduler.utils.keynamehelper as keynamehelper
-# import scheduler.generate as generate
-# import scheduler.parsing_nested as pn
-# from scheduler.request import Request
-# from scheduler.utils.clean import clean_keys
+from .utils import keynamehelper as keynamehelper
+from .utils import generate as generate
+from .utils import parsing_nested as pn
+from .utils.clean import clean_keys
 
 # client = docker.from_env()
 # api_client = docker.APIClient()
@@ -64,12 +51,28 @@ resources = [{'node_id': "Node-0001",
           }
          ]
 
+resources = [{'node_id': "Node-0002",
+           'Hostname': "***REMOVED***",
+           'Availability': "active",
+           'State': "ready",
+           'CPUs': 96,
+           'MemoryBytes': 540483764224
+          },
+          {'node_id': "Node-0003",
+           'Hostname': "***REMOVED***",
+           'Availability': "active",
+           'State': "ready",
+           'CPUs': 96,
+           'MemoryBytes': 540483764224
+          }
+         ]
 
 class Scheduler:
     # def __init__(self, user_id, cpus, mem, resources,
     #              image, constraints, hostname, serv_labels, serv_name,
     #              docker_client=None, api_client=None):
     _jobQ = queue.deque()
+
     def __init__(self, docker_client=None, api_client=None, redis=None):
         if docker_client:
             self.docker_client = docker_client
@@ -83,8 +86,8 @@ class Scheduler:
         n = 0
         while (n <= Max_Redis_Init):
             try:
-                self.redis = Redis(host=os.environ.get("REDIS_HOST", "myredis"),
-                # self.redis = Redis(host=os.environ.get("REDIS_HOST", "localhost"),
+                 self.redis = Redis(host=os.environ.get("REDIS_HOST", "myredis"),
+                 #self.redis = Redis(host=os.environ.get("REDIS_HOST", "localhost"),
                               port=os.environ.get("REDIS_PORT", 6379),
                               # db=0, encoding="utf-8", decode_responses=True,
                               db=0, decode_responses=True,
@@ -96,9 +99,32 @@ class Scheduler:
             if (self.redis != None):
                 break
 
+        # initialize variables for create_service()
+        #self.image = "127.0.0.1:5000/nwm-2.0:latest"
+        self.image =  "127.0.0.1:5000/nwm-master:latest"
+
+        self.constraints = []
+        self.hostname = "{{.Service.Name}}"
+        self.labels =  {"com.docker.stack.image": "127.0.0.1:5000/nwm-2.0",
+                        "com.docker.stack.namespace": "nwm"
+                       }
+        self.name = "nwm_mpi-worker_tmp"
+        self.networks = ["mpi-net"]
+
         # self._jobQ = queue.deque()
         # _MAX_JOBS is set to currently available total number of CPUs
         self._MAX_JOBS = MAX_JOBS
+        #TODO find a clearer way to set this...probably need to to do it on init of the module, and pull from
+        #the env the stack the module is running in (or from the docker API???
+        self.keyname_prefix = "nwm-master" #FIXME parameterize
+        self.create_resources()
+        self.set_prefix()
+
+    def set_prefix(self):
+        keynamehelper.set_prefix(self.keyname_prefix)
+
+    def return42(self):
+        return 42
 
     def create_resources(self):
         """ Create resource from the array of passed resource details"""
@@ -124,7 +150,7 @@ class Scheduler:
 
     def check_single_node_availability(self, user_id, cpus, mem):
         """
-        Check available resources to allocate job request to a single node to optimize 
+        Check available resources to allocate job request to a single node to optimize
         computation efficiency
         """
         if (cpus <= 0):
@@ -156,18 +182,7 @@ class Scheduler:
                         continue
                     else:
                         cpus_alloc = cpus
-                        p.hincrby(e_key, "CPUs", -cpus_alloc)
-                        p.hincrby(e_key, "MemoryBytes", -mem)
-                        req_id = generate.order_id()
-                        req_key = keynamehelper.create_key_name("job_request", req_id)
-                        req_set_key = keynamehelper.create_key_name("job_request", user_id)
-                        user_key = keynamehelper.create_key_name(user_id)
-                        Hostname = str(redis.hget(e_key, "Hostname"))
-                        cpus_dict = {'req_id': req_id, 'node_id': NodeId, 'Hostname': Hostname, 'cpus_alloc': cpus_alloc,
-                                     'mem': mem, 'index': index}
-                        p.hmset(req_key, cpus_dict)
-                        p.sadd(req_set_key, cpus_dict['req_id'])
-                        p.rpush(user_key, req_id)
+                        req_id, cpus_dict = self.metadata_mgmt(p, e_key, user_id, cpus_alloc, mem, NodeId, index)
                         cpusList.append(cpus_dict)
                         p.execute()
                         # index += 1
@@ -182,12 +197,12 @@ class Scheduler:
         if len(cpusList) == 0:
             logging.info("\nIn check_single_node_availability, allocation not performed: requested {} CPUs too large".format(cpus))
         print("\nIn check_single_node_availability:\ncpusList = {}".format(cpusList))
-        return cpusList
+        return req_id, cpusList
 
     def check_generalized_round_robin(self, user_id, cpus, mem):
         """
         Check available resources on host nodes and allocate in round robin manner even the request
-        can fit in a single node. This can be useful in test cases where large number of CPUs is 
+        can fit in a single node. This can be useful in test cases where large number of CPUs is
         inefficient for small domains and in filling the nodes when they are almost full
         """
         if (cpus <= 0):
@@ -247,18 +262,7 @@ class Scheduler:
 
                     # if (cpus_alloc != 0):
                     if (cpus_alloc > 0):
-                        p.hincrby(e_key, "CPUs", -cpus_alloc)
-                        p.hincrby(e_key, "MemoryBytes", -mem)
-                        req_id = generate.order_id()
-                        req_key = keynamehelper.create_key_name("job_request", req_id)
-                        req_set_key = keynamehelper.create_key_name("job_request", user_id)
-                        user_key = keynamehelper.create_key_name(user_id)
-                        Hostname = str(redis.hget(e_key, "Hostname"))
-                        cpus_dict = {'req_id': req_id, 'node_id': NodeId, 'Hostname': Hostname, 'cpus_alloc': cpus_alloc,
-                                     'mem': mem, 'index': index}
-                        p.hmset(req_key, cpus_dict)
-                        p.sadd(req_set_key, cpus_dict['req_id'])
-                        p.rpush(user_key, req_id)
+                        req_id, cpus_dict = self.metadata_mgmt(p, e_key, user_id, cpus_alloc, mem, NodeId, index)
                         cpusList.append(cpus_dict)
                         p.execute()
                         index += 1
@@ -270,7 +274,7 @@ class Scheduler:
             else:
                 logging.debug("Allocation not performed for NodeId: {}, have {} CPUs, requested {} CPUs".format(NodeId, CPUs, cpus))
         print("\nIn check_generalized_round_robin: \ncpusList:", *cpusList, sep = "\n")
-        return cpusList
+        return req_id, cpusList
 
     def check_availability_and_schedule(self, user_id, cpus, mem):
         """Check available resources on host node and allocate based on user request"""
@@ -321,23 +325,7 @@ class Scheduler:
                         break
 
                     if (cpus_alloc > 0):
-                        p.hincrby(e_key, "CPUs", -cpus_alloc)
-                        p.hincrby(e_key, "MemoryBytes", -mem)
-                        req_id = generate.order_id()
-                        # request = {'req_id': req_id, 'user_id': user_id,
-                        #            'cpus': cpus, 'mem': mem,
-                        #            'resource_node_id': NodeId, 'ts': int(time.time())}
-                        req_key = keynamehelper.create_key_name("job_request", req_id)
-                        # user_id_num = user_id + job_id
-                        req_set_key = keynamehelper.create_key_name("job_request", user_id)
-                        user_key = keynamehelper.create_key_name(user_id)
-                        # p.hmset(req_key, request)
-                        Hostname = str(redis.hget(e_key, "Hostname"))
-                        cpus_dict = {'req_id': req_id, 'node_id': NodeId, 'Hostname': Hostname, 'cpus_alloc': cpus_alloc,
-                                     'mem': mem, 'index': index}
-                        p.hmset(req_key, cpus_dict)
-                        p.sadd(req_set_key, cpus_dict['req_id'])
-                        p.rpush(user_key, req_id)
+                        req_id, cpus_dict = self.metadata_mgmt(p, e_key, user_id, cpus_alloc, mem, NodeId, index)
                         cpusList.append(cpus_dict)
                         p.execute()
                         index += 1
@@ -349,7 +337,24 @@ class Scheduler:
             else:
                 logging.debug("Allocation not performed for NodeId: {}, have {} CPUs, requested {} CPUs".format(NodeId, CPUs, cpus))
         print("\nIn check_availability_and_schedule:\ncpusList: ", *cpusList, sep = "\n")
-        return cpusList
+        return req_id, cpusList
+
+    def metadata_mgmt(self, p, e_key, user_id, cpus_alloc, mem, NodeId, index):
+        """function to manage resources and store job info to dadabase"""
+        redis = self.redis
+        p.hincrby(e_key, "CPUs", -cpus_alloc)
+        p.hincrby(e_key, "MemoryBytes", -mem)
+        req_id = generate.order_id()
+        req_key = keynamehelper.create_key_name("job_request", req_id)
+        req_set_key = keynamehelper.create_key_name("job_request", user_id)
+        user_key = keynamehelper.create_key_name(user_id)
+        Hostname = str(redis.hget(e_key, "Hostname"))
+        cpus_dict = {'req_id': req_id, 'node_id': NodeId, 'Hostname': Hostname, 'cpus_alloc': cpus_alloc,
+                     'mem': mem, 'index': index}
+        p.hmset(req_key, cpus_dict)
+        p.sadd(req_set_key, cpus_dict['req_id'])
+        p.rpush(user_key, req_id)
+        return req_id, cpus_dict
 
     def print_resource_details(self):
         """Print the details of remaining resources after allocating the request """
@@ -377,7 +382,6 @@ class Scheduler:
         serviceList = []
         for service in service_list:
             service_id = service.id
-            # serv_list = client.services.list(filters={'name':'nwm_mpi-worker'})[0]
             serv_list = client.services.list(filters={'id': service_id})[0]
             service_attrs = serv_list.attrs
             flat_dict = pn.flatten(service_attrs)
@@ -398,14 +402,8 @@ class Scheduler:
                 Labels = Labels['com.docker.stack.image']
                 (_, Labels) = Labels.split('/')
                 Image = list(pn.find('Image', service_attrs))[0]
-                # (img_addr, img_name, img_ver, img_id) = (list(pn.find('Image', service_attrs))[0]).split(':')
                 (_, HostNode) = ((list(pn.find('Constraints', service_attrs))[0])[0]).split('==')
-                # Addr = list(pn.find('Addr', service_attrs))[0]
-                # pp(service_attrs)
                 service = client.services.get(service_id, insert_defaults=True)
-                # task = service.tasks(filters={'name':'nwm_mpi-worker_0'})
-                # pp(task)
-                # service_dict = {"Name": Name, "Labels": Labels, "HostNode": HostNode, "NameSpace": NameSpace, "img_id": img_id, "Addr": Addr}
                 service_dict = {"Name": Name, "Labels": Labels, "HostNode": HostNode, "NameSpace": NameSpace, "Hostname": Hostname, "cpus_alloc": cpus_alloc}
                 serviceList.append(service_dict)
                 s_key = keynamehelper.create_key_name("service", Name)
@@ -442,25 +440,23 @@ class Scheduler:
         print("\nIn get_node_info:\nnodeList: ", *nodeList, sep = "\n")
         return nodeList
 
-    def create_service(self, user_id, image, constraints, hostname, serv_labels, serv_name, mounts, networks, idx, cpusLen, host_str):
+    def create_service(self, user_id, constraints, hostname, serv_labels, serv_name, mounts, idx, cpusLen, host_str):
         """create new service with Healthcheck, host, and other info"""
-        # name = "nwm_mpi-worker"
-
         # docker api
         client = self.docker_client
         api_client = self.api_client
+        image = self.image
+        networks = self.networks
 
         Healthcheck = docker.types.Healthcheck(test = ["CMD-SHELL", 'echo Hello'],
                                                interval = 1000000 * 500,
                                                timeout = 1000000 * 6000,
                                                retries = 5,
                                                start_period = 1000000 * 6000)
+        restart = docker.types.RestartPolicy(condition='on-failure')
         if (idx < cpusLen):
             service = client.services.create(image = image,
                                          command = ['sh', '-c', 'sudo /usr/sbin/sshd -D'],
-                                         # command = ['sh', '-c', '/nwm/domains/test.sh; sudo /usr/sbin/sshd -D'],
-                                         # command = 'sudo /usr/sbin/sshd -D',
-                                         # command = 'sleep 60',
                                          constraints = constraints,
                                          hostname = hostname,
                                          labels = serv_labels,
@@ -468,16 +464,14 @@ class Scheduler:
                                          mounts = mounts,
                                          networks = networks,
                                          # user = user_id,
-                                         healthcheck = Healthcheck)
+                                         healthcheck = Healthcheck,
+                                         restart_policy=restart)
         else:
-            # args = ['nwm_mpi-worker_tmp0:3', 'nwm_mpi-worker_tmp1:3']
             args = host_str
             service = client.services.create(image = image,
                                          # command = ['sh', '-c', 'sudo /usr/sbin/sshd -D'],
                                          command = ['/nwm/run_model.sh'],
                                          args = args,
-                                         # command = ['sh', '-c', '/nwm/domains/test.sh; sudo /usr/sbin/sshd -D'],
-                                         # command = 'sleep 60',
                                          constraints = constraints,
                                          hostname = hostname,
                                          labels = serv_labels,
@@ -485,7 +479,8 @@ class Scheduler:
                                          mounts = mounts,
                                          networks = networks,
                                          # user = user_id,
-                                         healthcheck = Healthcheck)
+                                         healthcheck = Healthcheck,
+                                         restart_policy=restart)
 
         inspect = api_client.inspect_service(service.id, insert_defaults=True)
         logging.info("Output from inspect_service in create_service():")
@@ -508,14 +503,11 @@ class Scheduler:
         logging.info("\n")
         return service
 
-    def update_service(self, service, user_id):
+    def update_service(self, service, user_id, constraints, hostname, serv_labels, serv_name, mounts):
         """dynamically change a service based on needs"""
         """create new service with Healthcheck, host, and other info"""
         image = self.image
-        constraints = self.constraints
-        hostname = self.hostname
-        serv_labels = self.serv_labels
-        serv_name = self.serv_name
+        networks = self.networks
 
         # docker api
         client = self.docker_client
@@ -529,11 +521,6 @@ class Scheduler:
                         mounts = mounts,
                         networks = networks)#,
                         #user = user_id)
-        # inspect = api_client.inspect_service(service.id, insert_defaults=True)
-        # print("--- output from inspect_service after update ---")
-        # pp(inspect)
-        print("\n")
-
         # test out some service functions
         serv_list_tmp = client.services.list(filters={'name':'nwm_mpi-worker_tmp'})
         print("\nservice list:")
@@ -555,9 +542,7 @@ class Scheduler:
         # pp(task)
 
     def checkDocker(self):
-        # Currently only supporting local docker client
-        # However, see https://docker-py.readthedocs.io/en/stable/client.html
-        # to implement a remote docker server
+        """Test that docker is up running"""
         try:
             # Check docker client state
             docker.from_env().ping()
@@ -565,7 +550,7 @@ class Scheduler:
             raise ConnectionError("Please check that the Docker Daemon is installed and running.")
 
     @classmethod
-    def fromRequest(cls, user_id, cpus, mem, idx):
+    def fromRequest(cls, request: SchedulerRequestMessage, idx: int):
         """Perform job queuing based on Request() class object"""
         # user_id = "shengting.cui"
         # cpus = 125
@@ -580,14 +565,15 @@ class Scheduler:
         #                 hostname, serv_labels, serv_name)
         # if (idx == 0):
         scheduler = cls()
-        request = Request(user_id, cpus, mem)
         scheduler.enqueue(request)
         return scheduler
 
-    def runJob(self, request, image, constraints, hostname, serv_labels, serv_name, cpus_alloc, mounts, networks, idx, cpusLen, host_str):
+    def runJob(self, request, constraints, hostname, serv_labels, serv_name, cpus_alloc, mounts, idx, cpusLen, host_str):
+        """Call create_service to run a job based on request"""
         user_id = request.user_id
-        service = self.create_service(user_id, image, constraints, hostname, serv_labels, serv_name, mounts, networks, idx, cpusLen, host_str)
-        # os.system('grep processor /proc/cpuinfo | wc -l')
+        image = self.image
+        networks = self.networks
+        service = self.create_service(user_id, constraints, hostname, serv_labels, serv_name, mounts, idx, cpusLen, host_str)
         return service
 
     def enqueue(self, request):
@@ -597,7 +583,7 @@ class Scheduler:
         self.__class__._jobQ.append(request)
         # self._jobQ.append(request)
 
-    def build_host_list(self, basename, cpusList):
+    def build_host_list(self, basename, cpusList, req_id):
         '''
         build a list of strings that contain the container names and the allocated CPUs on the associated hosts
         '''
@@ -607,22 +593,23 @@ class Scheduler:
         # basename = 'nwm_mpi-worker_tmp'
         for cpu in cpusList:
             cpus_alloc = str(cpu['cpus_alloc'])
-            name = basename + str(idx)
+            #FIXME get nameing better orgainized across all functions
+            name = basename + str(idx)+"_{}".format(req_id)
             host_tmp = name+':'+cpus_alloc
             host_str.append(str(host_tmp))
             idx += 1
         return host_str
 
-    def write_hostfile(self, cpusList):
+    def write_hostfile(self, basename, cpusList):
         '''
         Write allocated hosts and CPUs to hostfile on the scheduler container
-        This can be modified to write to a text file for an additional copy of 
+        This can be modified to write to a text file for an additional copy of
         the user job info
         '''
 
         idx = 0
         host_str = ""
-        basename = "nwm_mpi-worker_tmp"
+        # basename = "nwm_mpi-worker_tmp"
         for cpu in cpusList:
             cpus_alloc = str(cpu['cpus_alloc'])
             name = basename + str(idx)
@@ -652,7 +639,6 @@ class Scheduler:
         service_list = client.services.list()
         for service in service_list:
             service_id = service.id
-            # serv_list = client.services.list(filters={'name':'nwm_mpi-worker'})[0]
             serv_list = client.services.list(filters={'id': service_id})[0]
             service_attrs = serv_list.attrs
             Name = list(pn.find('Name', service_attrs))[0]
@@ -661,8 +647,6 @@ class Scheduler:
                 Hostname = Labels['Hostname']
                 hostname = Hostname.split('.')[0]
                 cpus_alloc = Labels['cpus_alloc']
-                # print("In write_to_hostfile: hostname = {}".format(hostname))
-                # print("In write_to_hostfile: cpus_alloc = {}".format(cpus_alloc))
                 host_str += Name+':'+cpus_alloc+'\n'
 
         for service in service_list:
@@ -733,7 +717,7 @@ class Scheduler:
         return cpusList
 
 
-    def startJobs(self, user_id, cpus, mem, image, constraints, hostname, serv_labels, serv_name, cpus_alloc, mounts, networks, idx, cpusLen, host_str):
+    def startJobs(self, user_id, cpus, mem, constraints, hostname, serv_labels, serv_name, cpus_alloc, mounts, idx, cpusLen, host_str):
         """
         Using the set max jobs and max cpus spawn docker containers
         until the queue has been exhausted.
@@ -747,13 +731,13 @@ class Scheduler:
         # que = self._jobQ
         # for q in que:
             # print("In startJobs, _jobQ: user_id, cpus, mem: {} {} {}".format(q.user_id, q.cpus, q.mem))
-
+        print("Starting Job Outside Q Loop")
         while len(self._jobQ) != 0:
         # if len(self._jobQ) != 0:
             # if len(self.check_availability_and_schedule()) != 0:
             req = self._jobQ.popleft()
-            service = self.runJob(req, image, constraints, hostname, serv_labels, serv_name, cpus_alloc, mounts, networks, idx, cpusLen, host_str)
-            # running_services_list = client.services.list()
+            print("startJobs inside Q loopo, calling runJob")
+            service = self.runJob(req, constraints, hostname, serv_labels, serv_name, cpus_alloc, mounts, idx, cpusLen, host_str)
 
     def check_jobQ(self):
         """ Check jobs in the waiting queue """
@@ -822,7 +806,7 @@ class Scheduler:
     def clean_redisKeys(self):
         '''
         """ initialize Redis client """
-        # from utils.clean import clean_keys
+        # from nwmaas.scheduler.utils.clean import clean_keys
 
         global redis
         n = 0
@@ -843,22 +827,126 @@ class Scheduler:
         # time.sleep(5)
         '''
         clean_keys(self.redis)
+        self.set_prefix()
+        self.create_resources()
         # self.redis.flushdb()
         # self.redis.flushall()
 
-def check_for_incoming_req():
-    '''
-    Place holder for codes checking incoming job request
-    '''
-    time.sleep(5)
-    recvJobReq = 1
-    return recvJobReq
+    def check_for_incoming_req(self):
+        '''
+        Place holder for codes checking incoming job request
+        '''
+        time.sleep(5)
+        recvJobReq = 1
+        return recvJobReq
+
+
+    def job_allocation_and_setup(self, user_id, cpus, mem):
+        """
+        check_availability_and_schedule() returns cpusList which contains CPU allocation on one or multiple nodes
+        based on user request
+        It also saves the cpusList to the database as well as req_id as a key for finding the job request
+        for later use
+
+        check_single_node_availability() find the first node with enough CPUs to accomodate a job request, loading a
+        job request to a single node optimize the computation efficiency
+
+        check_generalized_round_robin() distributes a compute job among a set of nodes, even though the job can fit in
+        a single node. This is useful in some special cases
+        """
+        print("Len of Q at star of job_allocation_and_setup: {}".format(len(self._jobQ)))
+
+
+        idx = 0
+        recvJobReq = 1
+        # recvJobReq = self.check_for_incoming_req()
+        #while (recvJobReq != 0):
+        # create and save user info to database
+        self.create_user_from_username(user_id)
+
+        # First try schedule the job on a single node. If for some reason, job cannot be allocated on a single node,
+        # an empty list is returned, we try the check_generalized_round_robin() method. If this is not successful,
+        # we try the more general check_availability_and_schedule() method
+
+        # run_option is set based on request
+        # currently this is manually set
+        run_option = 1 
+
+        if (run_option == 1):
+            cpus = 4
+            req_id, cpusList = self.check_single_node_availability(user_id, cpus, mem)
+
+        elif (run_option == 2):
+            cpus = 10
+            req_id, cpusList = self.check_generalized_round_robin(user_id, cpus, mem)
+
+        else:
+            cpus = 140
+            req_id, cpusList = self.check_availability_and_schedule(user_id, cpus, mem)
+
+        if (len(cpusList) == 0):
+            print("Illegitimate request not scheduled")
+            return
+
+        cpusList = self.retrieve_job_metadata(user_id)
+        print("\nIn job_allocation_and_setup: cpusList:\n", *cpusList, sep = "\n")
+        self.print_resource_details()
+
+        # basename = 'nwm_mpi-worker_tmp'
+        basename = self.name
+        host_str = self.build_host_list(basename, cpusList, req_id)
+        self.write_hostfile(basename, cpusList)
+
+        # # initialize variables for create_service()
+        image = self.image
+        constraints = self.constraints
+        hostname = self.hostname
+        labels = self.labels
+        name = self.name
+        networks = self.networks
+
+        # idx = 0
+        cpusLen = len(cpusList)
+        for cpu in cpusList:
+            constraints = "node.hostname == "
+            NodeId = cpu['node_id']
+            if (NodeId == "Node-0001"):
+                mounts = ['/opt/nwm_c/domains:/nwm/domains:rw']
+            else:
+                mounts = ['/local:/nwm/domains:rw']
+            cpus_alloc = str(cpu['cpus_alloc'])
+            Hostname = cpu['Hostname']
+            logging.info("Hostname: {}".format(Hostname))
+            labels_tmp = {"Hostname": Hostname, "cpus_alloc": cpus_alloc}
+            labels.update(labels_tmp)
+            constraints += Hostname
+            constraints = list(constraints.split("/"))
+            serv_name = name + str(idx)+"_{}".format(req_id)
+            idx += 1
+            print("Len of Q before fromRequest: {}".format(len(self._jobQ)))
+            schedule = self.fromRequest(user_id, cpus_alloc, mem, idx)
+            print("Len of Q after fromRequest: {}".format(len(self._jobQ)))
+            # schedule.check_jobQ()
+            print("Allocate and Setup about to startJobs")
+            schedule.startJobs(user_id, cpus, mem, constraints, hostname, labels, serv_name, cpus_alloc, mounts, idx, cpusLen, host_str)
+            print("Allocate and Setup started job")
+        logging.info("\n")
+        schedule.check_jobQ()
+        jobQ = self._jobQ
+        for job in jobQ:
+            logging.info("In job_allocation_and_setup: user_id, cpus, mem: {} {} {}".format(job.user_id, job.cpus, job.mem))
+        self.service_to_host_mapping()
+        runningJobs = self.check_runningJobs()
+        recvJobReq -= 1
+        #end while
+        return req_id
+
 
 def test_scheduler():
-    """Test the scheduler using on the fly cpusList and the metadata from the saved database"""
-    # user_id = "shengting.cui"
-    # cpus = 24
-    # mem = 5000000000
+    """
+    Test the scheduler using on the fly cpusList 
+    or the metadata from the saved database
+    """
 
     # instantiate the scheduler
     scheduler = Scheduler()
@@ -869,182 +957,13 @@ def test_scheduler():
     # build resource database
     scheduler.create_resources()
 
-    # find host from docker service info
-    # this may eventually become part of job queue monitoring tool
+    ## find host from docker service info
     # scheduler.service_to_host_mapping()
 
-    # parsing job request
-    # schedule = scheduler.fromRequest(user_id, cpus, mem)
-
-    recvJobReq = 0
-    while (recvJobReq != 1):
-        recvJobReq = check_for_incoming_req()
-        if (recvJobReq):
-            user_id = "shengting.cui"
-            cpus = 10
-            mem = 5000000000
-            # create and save user info to database
-            scheduler.create_user_from_username(user_id)
-
-            """
-            check_availability_and_schedule() returns cpusList which contains CPU allocation on one or multiple nodes
-            based on user request
-            It also saves the cpusList to the database as well as req_id as a key for finding the job request
-            for later use
-
-            check_single_node_availability() find the first node with enough CPUs to accomodate a job request, loading a
-            job request to a single node optimize the computation efficiency
-
-            check_generalized_round_robin() distributes a compute job among a set of nodes, even though the job can fit in
-            a single node. This is useful in some special cases
-            """
-
-            # First try schedule the job on a single node. If for some reason, job cannot be allocated on a single node,
-            # an empty list is returned, we try the check_generalized_round_robin() method. If this is not successful,
-            # we try the more general check_availability_and_schedule() method
-            '''
-            if (cpus <= 96):
-                # cpus = 16
-                cpusList = scheduler.check_single_node_availability(user_id, cpus, mem)
-
-            if (len(cpusList) == 0):
-                # cpus = 10
-                cpusList = scheduler.check_generalized_round_robin(user_id, cpus, mem)
-
-            if (len(cpusList) == 0):
-                # cpus = 140
-                cpusList = scheduler.check_availability_and_schedule(user_id, cpus, mem)
-            '''
-            # cpus = 11
-            # cpusList = scheduler.check_generalized_round_robin(user_id, cpus, mem)
-            cpus = 16
-            cpusList = scheduler.check_single_node_availability(user_id, cpus, mem)
-
-            if (len(cpusList) == 0):
-                print("Illegitimate request not scheduled")
-                return
-
-            # scheduler.write_hostfile(cpusList)
-            print("\nIn test_scheduler, cpusList: ", cpusList)
-            print("\n")
-            cpusList = scheduler.retrieve_job_metadata(user_id)
-            print("\nIn test_scheduler: cpusList:\n", *cpusList, sep = "\n")
-            scheduler.print_resource_details()
-
-            '''
-            idx = 0
-            host_str = []
-            basename = 'nwm_mpi-worker_tmp'
-            for cpu in cpusList:
-                cpus_alloc = str(cpu['cpus_alloc'])
-                name = basename + str(idx)
-                host_tmp = name+':'+cpus_alloc
-                # host_str_tmp = str(host_tmp)
-                # print("host_str_tmp = ", host_str_tmp)
-                host_str.append(str(host_tmp))
-                idx += 1
-            '''
-            basename = 'nwm_mpi-worker_tmp'
-            host_str = scheduler.build_host_list(basename, cpusList)
-
-            # initialize variables for create_service()
-            image = "127.0.0.1:5000/nwm-2.0:latest"
-            constraints = []
-            # hostname = "{{.Service.Name}}-{{.Task.Slot}}"
-            hostname = "{{.Service.Name}}"
-            labels =  {"com.docker.stack.image": "127.0.0.1:5000/nwm-2.0",
-                       "com.docker.stack.namespace": "nwm"
-                      }
-            name = "nwm_mpi-worker_tmp"
-            # networks = ["mpi-net", "back40"]
-            networks = ["mpi-net"]
-
-            idx = 0
-            cpusLen = len(cpusList)
-            for cpu in cpusList:
-                name = "nwm_mpi-worker_tmp"
-                constraints = "node.hostname == "
-                NodeId = cpu['node_id']
-                if (NodeId == "Node-0001"):
-                    mounts = ['/opt/nwm_c/domains:/nwm/domains:rw']
-                else:
-                    mounts = ['/local:/nwm/domains:rw']
-                cpus_alloc = str(cpu['cpus_alloc'])
-                # print("In test_scheduler, cpus_alloc = {}".format(cpus_alloc))
-                Hostname = cpu['Hostname']
-                logging.info("Hostname: {}".format(Hostname))
-                labels_tmp = {"Hostname": Hostname, "cpus_alloc": cpus_alloc}
-                labels.update(labels_tmp)
-                constraints += Hostname
-                constraints = list(constraints.split("/"))
-                name += str(idx)
-                idx += 1
-                schedule = scheduler.fromRequest(user_id, cpus_alloc, mem, idx)
-                # schedule.check_jobQ()
-                schedule.startJobs(user_id, cpus, mem, image, constraints, hostname, labels, name, cpus_alloc, mounts, networks, idx, cpusLen, host_str)
-            logging.info("\n")
-            schedule.check_jobQ()
-            jobQ = scheduler._jobQ
-            for job in jobQ:
-                logging.info("In test_scheduler: user_id, cpus, mem: {} {} {}".format(job.user_id, job.cpus, job.mem))
-            scheduler.service_to_host_mapping()
-            runningJobs = scheduler.check_runningJobs()
-            # scheduler.write_to_hostfile()
-            # scheduler.update_service(service)
-            recvJobReq = 0
-            break    # This is for testing, should not be needed in the final version
-
-    '''
     user_id = "shengting.cui"
-    cpus = 125
+    cpus = 10
     mem = 5000000000
-    scheduler.create_user_from_username(user_id)
-    cpusList = scheduler.check_availability_and_schedule(user_id, cpus, mem)
-    print("\nIn test_scheduler, cpusList: ", cpusList)
-    print("\n")
-    cpusList = scheduler.retrieve_job_metadata(user_id)
-    scheduler.print_resource_details()
-    # scheduler.service_to_host_mapping()
-
-    # initialize variables for create_service()
-    image = "127.0.0.1:5000/nwm-2.0:latest"
-    constraints = []
-    # hostname = "{{.Service.Name}}-{{.Task.Slot}}"
-    hostname = "{{.Service.Name}}"
-    labels =  {"com.docker.stack.image": "127.0.0.1:5000/nwm-2.0",
-               "com.docker.stack.namespace": "nwm"
-              }
-    name = "nwm_mpi-worker_tmp"
-    # networks = ["mpi-net", "back40"]
-    networks = ["mpi-net"]
-    idx = 0
-    for cpu in cpusList:
-        name = "nwm_mpi-worker_"
-        constraints = "node.hostname == "
-        NodeId = cpu['node_id']
-        if (NodeId == "Node-0001"):
-            mounts = ['/opt/nwm_c/domains:/nwm/domains:rw']
-        else:
-            mounts = ['/local:/nwm/domains:rw']
-        cpus_alloc = str(cpu['cpus_alloc'])
-        # print("In test_scheduler, cpus_alloc = {}".format(cpus_alloc))
-        Hostname = cpu['Hostname']
-        logging.info("Hostname: {}".format(Hostname))
-        labels_tmp = {"Hostname": Hostname, "cpus_alloc": cpus_alloc}
-        labels.update(labels_tmp)
-        logging.info("labels: {}".format(labels))
-        constraints += Hostname
-        constraints = list(constraints.split("/"))
-        logging.info("constraints: {}".format(constraints))
-        name += str(idx)
-        idx += 1
-        schedule = scheduler.fromRequest(user_id, cpus_alloc, mem, idx)
-        schedule.startJobs(user_id, cpus, mem, image, constraints, hostname, labels, name, cpus_alloc, mounts, networks, idx, cpusLen, host_str)
-    print("\n")
-    scheduler.service_to_host_mapping()
-    # scheduler.write_to_hostfile()
-    '''
-
+    scheduler.job_allocation_and_setup(user_id, cpus, mem)
 
 if __name__ == "__main__":
     keynamehelper.set_prefix("stack0")

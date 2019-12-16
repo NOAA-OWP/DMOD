@@ -11,7 +11,7 @@ RUN pip install Faker
 
 COPY conf/redis.conf /usr/local/etc/redis/redis.conf
 COPY generate.py /
-COPY utils/* /utils/
+COPY nwmaas.scheduler.utils/* /nwmaas.scheduler.utils/
 COPY parsing_nested.py /
 COPY request.py /
 COPY scheduler.py /

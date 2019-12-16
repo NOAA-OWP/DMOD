@@ -10,17 +10,15 @@ ARG comms_package_name
 #RUN apk update && apk add --no-cache openssl python3 python3-dev bash && rm -rf /var/cache/apk/* && alias python=python3 && pip3 install --no-cache-dir --upgrade pip
 
 COPY requirements.txt /nwm/scheduler/requirements.txt
-COPY conf/redis.conf /usr/local/etc/redis/redis.conf
-COPY utils/ /nwm/scheduler/utils/
-COPY src/ /nwm/scheduler/src/
-COPY entry.sh /nwm/scheduler/entry.sh
-COPY distribute_domain.sh /nwm/scheduler/distribute_domain.sh
-COPY run_domain.sh /nwm/scheduler/run_domain.sh
-COPY run.sh /nwm/scheduler/run.sh
-COPY __init__.py /nwm/scheduler/__init__.py
-COPY service.py /nwm/scheduler/service.py
-# TODO: parameterize this (especially the dest dir) here, in service.py if-main section, eventual __main__.py, and
-# TODO:     anywhere else appropriate using env variables or some other mechanism
+COPY nwmaas/ /nwm/scheduler/nwmaas/
+#COPY conf/redis.conf /usr/local/etc/redis/redis.conf
+#COPY nwmaas/scheduler/utils /nwm/scheduler/utils/
+#COPY deprecated/entry.sh /nwm/scheduler/entry.sh
+#COPY distribute_domain.sh /nwm/scheduler/distribute_domain.sh
+#COPY deprecated/run_domain.sh /nwm/scheduler/run_domain.sh
+#COPY run.sh /nwm/scheduler/run.sh
+#COPY __init__.py /nwm/scheduler/__init__.py
+#COPY nwmaas/scheduler/service.py /nwm/scheduler/service.py
 COPY ssl/scheduler/ /nwm/scheduler/ssl/scheduler/
 
 # Copy custom built packages from external sources image
@@ -51,4 +49,4 @@ RUN apk update \
 #CMD ["/bin/bash"]
 # CMD ["/bin/bash", "entry.sh"]
 # CMD ["python3", "scheduler.py"]
-CMD ["python3", "service.py"]
+ENTRYPOINT ["python3", "-m", "nwmaas.scheduler"]
