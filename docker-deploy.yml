@@ -18,6 +18,10 @@ services:
         constraints:
           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_1:-node.role==manager}
           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
+    environment:
+      - LISTEN_PORT=${DOCKER_SCHEDULER_CONTAINER_PORT:-3013}
+      - PACKAGE_NAME=${PYTHON_PACKAGE_NAME_SCHEDULER:?}
+      - SERVICE_SSL_DIR=${DOCKER_SCHEDULER_CONTAINER_SERVICE_SSL_DIR:-/ssl/scheduler}
   myredis:
     image: redis
     ports:
