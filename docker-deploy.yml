@@ -28,7 +28,7 @@ services:
           - ${DOCKER_REDIS_SERVICE_ALIAS:-redis}
     entrypoint: ['redis-server', '/usr/local/etc/redis/redis.conf', '--requirepass', "${DOCKER_REDIS_PASS?}"]
     volumes:
-      - ./scheduler/conf/redis.config:/usr/local/etc/redis/redis.conf
+      - ./scheduler/conf/redis.conf:/usr/local/etc/redis/redis.conf
     deploy:
       placement:
         constraints:

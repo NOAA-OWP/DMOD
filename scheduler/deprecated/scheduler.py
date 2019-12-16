@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
 
-import sys
 import os
-import time
-import subprocess
 import queue
-import json, ast
 import docker
 # from itertools import chain
-from pprint import pprint as pp
 from redis import Redis, WatchError
 import logging
 import time
@@ -17,15 +12,15 @@ import time
 import utils.keynamehelper as keynamehelper
 import generate as generate
 import parsing_nested as pn
-from request import Request
+from deprecated.request import Request
 from utils.clean import clean_keys
 
 ## local imports for unittest
-# import scheduler.utils.keynamehelper as keynamehelper
+# import scheduler.nwmaas.scheduler.utils.keynamehelper as keynamehelper
 # import scheduler.generate as generate
 # import scheduler.parsing_nested as pn
 # from scheduler.request import Request
-# from scheduler.utils.clean import clean_keys
+# from scheduler.nwmaas.scheduler.utils.clean import clean_keys
 
 # client = docker.from_env()
 # api_client = docker.APIClient()
@@ -822,7 +817,7 @@ class Scheduler:
     def clean_redisKeys(self):
         '''
         """ initialize Redis client """
-        # from utils.clean import clean_keys
+        # from nwmaas.scheduler.utils.clean import clean_keys
 
         global redis
         n = 0

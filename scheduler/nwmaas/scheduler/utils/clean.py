@@ -4,7 +4,7 @@ the defined seperator to achive this
 from redis import StrictRedis
 import os
 import sys
-import scheduler.utils.keynamehelper as keynamehelper
+from . import keynamehelper as keynamehelper
 
 
 def clean_keys(redis_c, prefix=None):

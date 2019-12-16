@@ -1,17 +1,16 @@
 import unittest
 import inspect
 import queue
-
-from scheduler.src.scheduler import Scheduler
-from scheduler.src.scheduler import check_for_incoming_req
-import scheduler.utils.keynamehelper as keynamehelper
-from scheduler.utils.clean import clean_keys
-#from scheduler.src.request import Request
 from nwmaas.communication import SchedulerRequestMessage
-from scheduler.utils import parsing_nested as pn
+
+from ..scheduler.scheduler import Scheduler
+from ..scheduler.scheduler import check_for_incoming_req
+from ..scheduler.utils import keynamehelper as keynamehelper
+from ..scheduler.utils import parsing_nested as pn
 
 redis = None
 keynamehelper.set_prefix("stack0")
+
 
 class TestScheduler(unittest.TestCase):
     def setUp(self):

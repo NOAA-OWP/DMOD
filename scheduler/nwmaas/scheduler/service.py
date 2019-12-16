@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 #TOTAL HACK to import sibling package code
-import os,sys,inspect
-current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, parent_dir)
+#import os,sys,inspect
+#current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+#parent_dir = os.path.dirname(current_dir)
+#sys.path.insert(0, parent_dir)
 #END PATH HACK
 
 from websockets import WebSocketServerProtocol
 from nwmaas.communication import WebSocketInterface, SchedulerRequestMessage, SchedulerRequestResponse
-from scheduler.src.scheduler import Scheduler
+from .scheduler import Scheduler
 from pathlib import Path
 import json
 import logging
