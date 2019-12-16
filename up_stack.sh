@@ -38,8 +38,11 @@ get_dev_bind_mounts_root()
 
     if [[ -z ${DEV_BIND_MOUNTS_BASE_DIR:-} ]]; then
         _PARENT_DIR=$(cd "`dirname "${0}"`" && pwd)
-        echo "${_PARENT_DIR}" && exit
-        DEV_BIND_MOUNTS_BASE_DIR="${_PARENT_DIR}/docker_host_volumes"
+        [ -d "${_PARENT_DIR}/docker_host_volumes" ] && DEV_BIND_MOUNTS_BASE_DIR="${_PARENT_DIR}/docker_host_volumes"
+    fi
+
+    if [[ -n ${DEV_BIND_MOUNTS_BASE_DIR:-} ]]; then
+        echo "${DEV_BIND_MOUNTS_BASE_DIR}"
     fi
 }
 
@@ -51,9 +54,11 @@ determine_default_image_store_bind_mount()
         _SD=/opt/nwm_c/images
     # Otherwise, use a local (and git ignored) directory
     else
-        get_dev_bind_mounts_root
-        _SD=${DEV_BIND_MOUNTS_BASE_DIR}/docker_host_volumes/images
-        [ ! -d ${_SD} ] && mkdir -p ${_SD}
+        if [[ -z ${DEV_BIND_MOUNTS_BASE_DIR:-} ]]; then
+            get_dev_bind_mounts_root > /dev/null
+        fi
+        _SD="${DEV_BIND_MOUNTS_BASE_DIR:?}/images"
+        [ ! -d "${_SD}" ] && mkdir -p "${_SD}"
     fi
     echo "${_SD}"
 }
@@ -62,19 +67,24 @@ determine_default_domains_data_bind_mount()
 {
     local _DD
     # Use /opt/nwm_c/images as default image store host volume directory, if it exists on the host
-    if [[ -e /opt/nwm_c/images ]]; then
-        _DD=/opt/nwm_c/images
+    if [[ -e /opt/nwm_c/domains ]]; then
+        _DD=/opt/nwm_c/domains
     # Otherwise, use a local (and git ignored) directory
     else
-        get_dev_bind_mounts_root
-        _DD=${DEV_BIND_MOUNTS_BASE_DIR}/docker_host_volumes/domains
-        [ ! -d ${_DD} ] && mkdir -p ${_DD}
+        if [[ -z ${DEV_BIND_MOUNTS_BASE_DIR:-} ]]; then
+            get_dev_bind_mounts_root > /dev/null
+        fi
+        _DD="${DEV_BIND_MOUNTS_BASE_DIR}/domains"
+        [ ! -d "${_DD}" ] && mkdir -p "${_DD}"
     fi
     echo "${_DD}"
 }
 
 generate_default_env_file()
 {
+    local _DDBM
+    local _IMBM
+
     if [[ ! -e ${DEFAULT_ENV_OUTPUT_FILE:-.env} ]]; then
         local _EXAMPLE_ENV="./example.env"
         # Make sure the expected example default env file exists
