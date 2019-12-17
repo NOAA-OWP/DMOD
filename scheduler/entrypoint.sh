@@ -14,6 +14,6 @@ fi
 
 #set +e
 
-python -m ${PACKAGE_NAME:?} \
+python -u -m ${PACKAGE_NAME:?} \
     --port ${LISTEN_PORT:?} \
     --ssl-dir ${SERVICE_SSL_DIR:?}

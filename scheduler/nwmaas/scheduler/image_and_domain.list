@@ -1,0 +1,6 @@
+nwm_image_tag: '127.0.0.1:5000/nwm-2.0:latest'
+domain_croton_NY: '/opt/nwm_c/domains'
+domain_SixMileCreek: '/opt/nwm_c/domains/SixMileCreek'
+nwm_domain_list:
+  - 'domain_croton_NY'
+  - 'domain_SixMileCreek'

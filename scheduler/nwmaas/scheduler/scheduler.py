@@ -356,23 +356,6 @@ class Scheduler:
         p.rpush(user_key, req_id)
         return req_id, cpus_dict
 
-    def metadata_mgmt(self, p, e_key, user_id, cpus_alloc, mem, NodeId, index):
-        """function to manage resources and store job info to dadabase"""
-        redis = self.redis
-        p.hincrby(e_key, "CPUs", -cpus_alloc)
-        p.hincrby(e_key, "MemoryBytes", -mem)
-        req_id = generate.order_id()
-        req_key = keynamehelper.create_key_name("job_request", req_id)
-        req_set_key = keynamehelper.create_key_name("job_request", user_id)
-        user_key = keynamehelper.create_key_name(user_id)
-        Hostname = str(redis.hget(e_key, "Hostname"))
-        cpus_dict = {'req_id': req_id, 'node_id': NodeId, 'Hostname': Hostname, 'cpus_alloc': cpus_alloc,
-                     'mem': mem, 'index': index}
-        p.hmset(req_key, cpus_dict)
-        p.sadd(req_set_key, cpus_dict['req_id'])
-        p.rpush(user_key, req_id)
-        return cpus_dict
-
     def print_resource_details(self):
         """Print the details of remaining resources after allocating the request """
         logging.info("Resources remaining:")
@@ -781,28 +764,9 @@ class Scheduler:
 
 
     def clean_redisKeys(self):
-        '''
         """ initialize Redis client """
         # from utils.clean import clean_keys
-
-        global redis
-        n = 0
-        while (n <= Max_Redis_Init):
-            try:
-                redis = Redis(host=os.environ.get("REDIS_HOST", "myredis"),
-                # redis = Redis(host=os.environ.get("REDIS_HOST", "localhost"),
-                              port=os.environ.get("REDIS_PORT", 6379),
-                              db=0, decode_responses=True,
-                              password='***REMOVED***')
-            except:
-                logging.debug("redis connection error")
-            time.sleep(1)
-            n += 1
-            if (redis != None):
-                break
-
         # time.sleep(5)
-        '''
         clean_keys(self.redis)
         self.set_prefix()
         self.create_resources()

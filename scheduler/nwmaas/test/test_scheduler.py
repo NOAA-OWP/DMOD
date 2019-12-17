@@ -202,13 +202,13 @@ class TestScheduler(unittest.TestCase):
         # self.scheduler.print_resource_details()
 
     def test_7_print_resource_details(self):
-        print("")
+        # print("")
         for resource in self.resources:
             e_key = keynamehelper.create_key_name("resource", resource['node_id'])
             self.assertTrue(isinstance(e_key, str))
             # may use assertLogs(logger) here
             # logging.info("hgetall(e_key): {}".format(self.scheduler.redis.hgetall(e_key)))
-            print("test_7: hgetall(e_key): {}".format(self.scheduler.redis.hgetall(e_key)))
+            # print("test_7: hgetall(e_key): {}".format(self.scheduler.redis.hgetall(e_key)))
 
     def test_8_service_to_host_mapping(self):
         '''
@@ -528,7 +528,8 @@ class TestScheduler(unittest.TestCase):
                 my_serviceLen += 1
                 s_key = keynamehelper.create_key_name("service", Name)
                 self.assertIsNotNone(self.scheduler.redis.hgetall(s_key))
-                print("check_runningJobs, hgetall(s_key): {}".format(self.scheduler.redis.hgetall(s_key)))
+                print("In test_18_check_runningJobs: s_key = ", s_key)
+                # print("check_runningJobs, hgetall(s_key): {}".format(self.scheduler.redis.hgetall(s_key)))
             else:
                 pass
 
