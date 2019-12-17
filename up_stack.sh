@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 NAME=$(basename "${0}")
 DOCKER_READY_PUSH_REGISTRY_TIME=0
+DEFAULT_DOWN_STACK_WAIT_TIME=5
 
 usage()
 {
@@ -12,6 +13,12 @@ Usage:
     ${NAME} [opts] update   Only build image for the 'nwm' service, without using cache
 
 Options
+    -d | --down             Instead of starting, bring down an already running stack
+    
+    -w | --down-wait [<t>]  When taking down a stack with --down, an amount of time to wait
+                            before returning, to help make sure stack is down
+                            Note: if explicit, must be between 1 and 19 seconds (default: 5)
+    
     --build-only            Only build the image(s); do not push or deploy
 
     --init-env              Initialize a default .env file, not already existing, then exit
@@ -182,6 +189,72 @@ build_docker_images()
     fi
 }
 
+# Main exec workflow when bringing up the stack
+up_stack()
+{
+    init_if_not_exist_docker_networks
+
+    # Make sure the local SSH keys are generated for the base image
+    [[ ! -d ./base/ssh ]] && mkdir ./base/ssh
+    [[ ! -e ./base/ssh/id_rsa ]] && ssh-keygen -t rsa -N '' -f ./base/ssh/id_rsa
+    
+    init_registry_service_if_needed
+    
+    # Build (or potentially just update) our images
+    build_docker_images
+    
+    # Bail here if option set to only build
+    if [[ -n "${DO_BUILD_ONLY:-}" ]]; then
+        exit
+    fi
+    # Otherwise, proceed ...
+    
+    # Push to registry (unless we should skip)
+    if [[ -z "${DO_SKIP_REGISTRY_PUSH:-}" ]]; then
+        # Make sure we wait until the "ready-to-push" time determine in the logic for starting the registry service
+        # Make sure if we start the registry here that we give it a little time to come all the way up before pushing
+        # TODO: maybe change this to a health check later
+        while [[ $(date +%s) -lt ${DOCKER_READY_PUSH_REGISTRY_TIME} ]]; do
+            sleep 1
+        done
+        echo "Pushing custom Docker images to internal registry"
+        if ! docker-compose -f docker-build.yml push; then
+            echo "Previous push command failed; exiting"
+            exit 1
+        fi
+    else
+        echo "Skipping step to push images to registry"
+    fi
+    
+    # Or bail here if this option is set
+    if [[ -n "${DO_SKIP_DEPLOY:-}" ]]; then
+        exit
+    fi
+    echo "Deploying NWM stack"
+    #docker stack deploy --compose-file docker-deploy.yml "nwm-${NWM_NAME:-master}"
+    deploy_docker_stack_from_compose_using_env docker-deploy.yml "${DOCKER_NWM_STACK_NAME:?}"
+}
+
+down_stack()
+{
+    local _COUNT=''
+    
+    if [[ -z "${DOWN_STACK_WAIT_TIME:-}" ]]; then
+        DOWN_STACK_WAIT_TIME=${DEFAULT_DOWN_STACK_WAIT_TIME}
+    elif [[ ! ${DOWN_STACK_WAIT_TIME} =~ ^[0-1]?[0-9]$ ]]; then
+        echo "Warning: stack down wait time of ${DOWN_STACK_WAIT_TIME} is out of allowed range; using default"
+        DOWN_STACK_WAIT_TIME=${DEFAULT_DOWN_STACK_WAIT_TIME}
+    fi
+    
+    _COUNT=$(docker stack services "${DOCKER_NWM_STACK_NAME}" 2>/dev/null | wc -l)
+    SERVICES_DOWN_COUNT=$((${SERVICES_DOWN_COUNT:-0}+${_COUNT}))
+    docker stack rm "${DOCKER_NWM_STACK_NAME}"
+    
+    if [[ ${SERVICES_DOWN_COUNT} -gt 0 ]]; then
+        sleep ${DOWN_STACK_WAIT_TIME}
+    fi
+}
+
 # If no .env file exists, create one with some default values
 if [[ ! -e .env ]]; then
     echo "Creating default .env file in current directory"
@@ -199,6 +272,21 @@ while [[ ${#} -gt 0 ]]; do
             ;;
         --build-only)
             DO_BUILD_ONLY='true'
+            ;;
+        -d|--down)
+            [ -n "${ACTION:-}" ] && usage && exit 1
+            ACTION='down'
+            ;;
+        -w|--down-wait)
+            [ -n "${DOWN_STACK_WAIT_TIME:-}" ] && usage && exit 1
+            # Support both without a valid time amount (between 1 and 19 seconds) ...
+            if [[ ! ${2} =~ ^[0-1]?[0-9]$ ]]; then
+                DOWN_STACK_WAIT_TIME=${DEFAULT_DOWN_STACK_WAIT_TIME}
+            # ... or with a valid time amount arg (resulting in the need for the extra arg shift)
+            else
+                DOWN_STACK_WAIT_TIME=${2}
+                shift
+            fi
             ;;
         --init-env)
             # This will have just happened (if necessary) from the code above the loop, so just exit
@@ -238,46 +326,22 @@ while [[ ${#} -gt 0 ]]; do
     shift
 done
 
+[ -z "${ACTION:-}" ] && ACTION='up'
+[ -z "${DOCKER_NWM_STACK_NAME:-}" ] && DOCKER_NWM_STACK_NAME="nwm-${NWM_NAME:-master}"
+
 # TODO: consider doing some sanity checking on sourced .env values
 
-init_if_not_exist_docker_networks
-
-# Make sure the local SSH keys are generated for the base image
-[[ ! -d ./base/ssh ]] && mkdir ./base/ssh
-[[ ! -e ./base/ssh/id_rsa ]] && ssh-keygen -t rsa -N '' -f ./base/ssh/id_rsa
-
-init_registry_service_if_needed
-
-# Build (or potentially just update) our images
-build_docker_images
-
-# Bail here if option set to only build
-if [[ -n "${DO_BUILD_ONLY:-}" ]]; then
-    exit
-fi
-# Otherwise, proceed ...
-
-# Push to registry (unless we should skip)
-if [[ -z "${DO_SKIP_REGISTRY_PUSH:-}" ]]; then
-    # Make sure we wait until the "ready-to-push" time determine in the logic for starting the registry service
-    # Make sure if we start the registry here that we give it a little time to come all the way up before pushing
-    # TODO: maybe change this to a health check later
-    while [[ $(date +%s) -lt ${DOCKER_READY_PUSH_REGISTRY_TIME} ]]; do
-        sleep 1
-    done
-    echo "Pushing custom Docker images to internal registry"
-    if ! docker-compose -f docker-build.yml push; then
-        echo "Previous push command failed; exiting"
+case "${ACTION:-}" in
+    down)
+        down_stack
+        exit $?
+        ;;
+    up)
+        up_stack
+        exit $?
+        ;;
+    *)
+        usage
         exit 1
-    fi
-else
-    echo "Skipping step to push images to registry"
-fi
-
-# Or bail here if this option is set
-if [[ -n "${DO_SKIP_DEPLOY:-}" ]]; then
-    exit
-fi
-echo "Deploying NWM stack"
-#docker stack deploy --compose-file docker-deploy.yml "nwm-${NWM_NAME:-master}"
-deploy_docker_stack_from_compose_using_env docker-deploy.yml "nwm-${NWM_NAME:-master}"
+        ;;
+esac
