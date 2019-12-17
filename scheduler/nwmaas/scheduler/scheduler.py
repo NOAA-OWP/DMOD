@@ -86,12 +86,13 @@ class Scheduler:
         n = 0
         while (n <= Max_Redis_Init):
             try:
-                 self.redis = Redis(host=os.environ.get("REDIS_HOST", "myredis"),
-                 #self.redis = Redis(host=os.environ.get("REDIS_HOST", "localhost"),
-                              port=os.environ.get("REDIS_PORT", 6379),
-                              # db=0, encoding="utf-8", decode_responses=True,
-                              db=0, decode_responses=True,
-                              password='***REMOVED***')
+                #self.redis = Redis(host=os.environ.get("REDIS_HOST", "localhost"),
+                self.redis = Redis(host=os.environ.get("REDIS_HOST", "myredis"),
+                                   port=os.environ.get("REDIS_PORT", 6379),
+                                   #encoding="utf-8",
+                                   db=0,
+                                   decode_responses=True,
+                                   password='***REMOVED***')
             except:
                 logging.debug("redis connection error")
             time.sleep(1)
