@@ -239,19 +239,12 @@ down_stack()
 {
     local _COUNT=''
     
-    if [[ -z "${DOWN_STACK_WAIT_TIME:-}" ]]; then
-        DOWN_STACK_WAIT_TIME=${DEFAULT_DOWN_STACK_WAIT_TIME}
-    elif [[ ! ${DOWN_STACK_WAIT_TIME} =~ ^[0-1]?[0-9]$ ]]; then
-        echo "Warning: stack down wait time of ${DOWN_STACK_WAIT_TIME} is out of allowed range; using default"
-        DOWN_STACK_WAIT_TIME=${DEFAULT_DOWN_STACK_WAIT_TIME}
-    fi
-    
     _COUNT=$(docker stack services "${DOCKER_NWM_STACK_NAME}" 2>/dev/null | wc -l)
     SERVICES_DOWN_COUNT=$((${SERVICES_DOWN_COUNT:-0}+${_COUNT}))
     docker stack rm "${DOCKER_NWM_STACK_NAME}"
     
     if [[ ${SERVICES_DOWN_COUNT} -gt 0 ]]; then
-        sleep ${DOWN_STACK_WAIT_TIME}
+        sleep ${DOWN_STACK_WAIT_TIME:-0}
     fi
 }
 
