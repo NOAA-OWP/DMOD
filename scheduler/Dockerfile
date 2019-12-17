@@ -15,6 +15,11 @@ COPY ssl/scheduler/ /ssl/scheduler/
 
 # Copy custom built packages from external sources image
 COPY --from=sources /DIST /DIST
+RUN pip install pyyaml
+COPY --chown=mpi:mpi conf/redis.conf /usr/local/etc/redis/redis.conf
+# TODO: this file and dest have to match whwere this is looking (need to parameterize for scheduler instantiation, 
+# TODO: add optional bind mount config for service start, and move in local host filesystem)
+COPY --chown=mpi:mpi nwmaas/scheduler/image_and_domain.list /nwm/
 
 RUN apk update \
     && apk add --no-cache openssl bash \
