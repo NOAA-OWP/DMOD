@@ -1,9 +1,5 @@
 #!/usr/bin/env sh
 
-# Some default values to try for virtual environment directory if one is needed but not explicitly passed
-DEFAULT_VENV_DIRS=("${STARTING_DIR:?}/venv" "${STARTING_DIR:?}/.venv" "${SCRIPT_PARENT_DIR:?}/venv" "${SCRIPT_PARENT_DIR:?}/.venv")
-
-
 # Validate that an arg is a path to a valid venv directory, echoing the path to stdout if it is, and also returning 0 or
 # 1 consistent with standard shell T/F.
 # Also, print out messages to stderr when not valid, unless suppressed with '-q' arg.
@@ -38,11 +34,10 @@ py_dev_validate_venv_dir()
     fi
 }
 
-# Detect a valid default virtual env (if one is not already set in the VENV_DIR variable) from the defaults in
-# DEFAULT_VENV_DIRS, and use the first valid one found to set VENV_DIR.
+# Detect a valid default virtual env (if one is not already set in the VENV_DIR variable) from a preset group
 py_dev_detect_default_venv_directory()
 {
-    for d in "${DEFAULT_VENV_DIRS[@]}"; do
+    for d in "${STARTING_DIR:?}/venv" "${STARTING_DIR:?}/.venv" "${SCRIPT_PARENT_DIR:?}/venv" "${SCRIPT_PARENT_DIR:?}/.venv"; do
         [ -n "${VENV_DIR:-}" ] && break
         VENV_DIR="$(py_dev_validate_venv_dir ${d})"
         [ -n "${VENV_DIR:-}" ] && echo "Detected default virtual env directory: ${VENV_DIR}"
@@ -89,7 +84,12 @@ py_dev_extract_package_dist_name_from_setup()
         | sed -E 's/^(.*,)*[ ]*name[ ]*=[ ]*.([^,]*)[^,],.*/\2/g'
 }
 
-# If appropriate, activate the provided virtual environment, and note this is done; or, error-exit if an attempt failed
+# If appropriate, activate the virtual env set within VENV_DIR, and note whether this is done in VENV_WAS_ACTIVATED.
+#
+# Function returns with an error if venv activation was appropriate but could not be done due to an error or ambiguity
+# (e.g., an already-active venv where VIRTUAL_ENV != VENV_DIR)
+#
+# It is not an error in the context of this function for no VENV_DIR value to be set (basically, this just returns).
 py_dev_activate_venv()
 {
     # Handle setting up specified virtual environment when applicable
