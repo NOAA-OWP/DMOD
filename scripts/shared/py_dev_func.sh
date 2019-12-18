@@ -1,0 +1,112 @@
+#!/usr/bin/env sh
+
+# Some default values to try for virtual environment directory if one is needed but not explicitly passed
+DEFAULT_VENV_DIRS=("${STARTING_DIR:?}/venv" "${STARTING_DIR:?}/.venv" "${SCRIPT_PARENT_DIR:?}/venv" "${SCRIPT_PARENT_DIR:?}/.venv")
+
+
+# Validate that an arg is a path to a valid venv directory, echoing the path to stdout if it is, and also returning 0 or
+# 1 consistent with standard shell T/F.
+# Also, print out messages to stderr when not valid, unless suppressed with '-q' arg.
+py_dev_validate_venv_dir()
+{
+    # Allow for one extra arg '-q' to indicate option for quiet error output
+    if [ ${#} -gt 0 ] && [ "${1}" = '-q' ]; then
+        _VENV_VALIDATE_DIR_PRINT_MESSAGE='true'
+        shift
+    # Also nested call if -q arg is second
+    elif [ ${#} -gt 0 ] && [ "${2}" = '-q' ]; then
+        py_dev_validate_venv_dir -q "${1}" ${@:3}
+        return $?
+    fi
+
+    if [ ${#} -lt 1 ]; then
+        [ -z "${_VENV_VALIDATE_DIR_PRINT_MESSAGE:-}" ] && >&2 echo "Error: invalid attempt to verify virtual env directory"
+        return 1
+    elif [ ${#} -gt 1 ]; then
+        [ -z "${_VENV_VALIDATE_DIR_PRINT_MESSAGE:-}" ] && >&2 echo "Warning: unexpected arguments passed to function verifying virtual env directory"
+    fi
+
+    if [ ! -d "${1}" ]; then
+        [ -z "${_VENV_VALIDATE_DIR_PRINT_MESSAGE:-}" ] && >&2 echo "Error: proposed venv directory '${1}' does not exist"
+        return 1
+    elif [ ! -e "${1}/bin/activate" ]; then
+        [ -z "${_VENV_VALIDATE_DIR_PRINT_MESSAGE:-}" ] && >&2 echo "Error: proposed venv directory '${1}' does not have a 'bin/activate' file"
+        return 1
+    else
+        echo "${1}"
+        return $?
+    fi
+}
+
+# Detect a valid default virtual env (if one is not already set in the VENV_DIR variable) from the defaults in
+# DEFAULT_VENV_DIRS, and use the first valid one found to set VENV_DIR.
+py_dev_detect_default_venv_directory()
+{
+    for d in "${DEFAULT_VENV_DIRS[@]}"; do
+        [ -n "${VENV_DIR:-}" ] && break
+        VENV_DIR="$(py_dev_validate_venv_dir ${d})"
+        [ -n "${VENV_DIR:-}" ] && echo "Detected default virtual env directory: ${VENV_DIR}"
+    done
+}
+
+#
+py_dev_get_egg_info_dir()
+{
+    _EGG_DIR_BASE=`ls | grep -e '.*\.egg-info$'`
+
+    if [ -z "${EGG_DIR:-}" ]; then
+        if [ -n "${_EGG_DIR_BASE:-}" ]; then
+            EGG_DIR="${BASE_DIR:?}/${_EGG_DIR_BASE}"
+        fi
+    fi
+}
+
+# Clean up artifacts from a previous python dist build execution in the current directory
+py_dev_clean_dist()
+{
+    _PY_DEV_CLEAN_DIST_EGG_DIR="$(ls | grep -e '.*\.egg-info$')"
+    python setup.py clean --all 2>/dev/null
+    [ -d ./build ] && echo "Removing $(pwd)/build" && rm -r ./build
+    [ -d ./dist ] && echo "Removing $(pwd)/dist" && rm -r ./dist
+
+    if [ -n "${_PY_DEV_CLEAN_DIST_EGG_DIR}" ] && [ -d "${_PY_DEV_CLEAN_DIST_EGG_DIR}" ]; then
+        echo "Removing ${_PY_DEV_CLEAN_DIST_EGG_DIR}"
+        rm -r "${_PY_DEV_CLEAN_DIST_EGG_DIR}"
+    fi
+}
+
+# Determine the distribution name of the Python package based in the current working directory from its setup.py
+py_dev_extract_package_dist_name_from_setup()
+{
+    if [ ! -e setup.py ]; then
+        >&2 echo "Error: expected $(pwd)/setup.py not found; cannot determine package dist name"
+        return 1
+    fi
+
+    cat setup.py \
+        | grep -v import \
+        | grep -e '^\(.*,\)\?[ ]*name[ ]*=[ ]*\(.\)\([^,]*\)[^, ][ ]*,' \
+        | sed -E 's/^(.*,)*[ ]*name[ ]*=[ ]*.([^,]*)[^,],.*/\2/g'
+}
+
+# If appropriate, activate the provided virtual environment, and note this is done; or, error-exit if an attempt failed
+py_dev_activate_venv()
+{
+    # Handle setting up specified virtual environment when applicable
+    if [ -n "${VENV_DIR:-}" ]; then
+        # First, if not in any virtual environment, activate the specified one and note that the script has done so
+        if [ -z "${VIRTUAL_ENV:-}" ]; then
+            >&2 echo "Activating virtual environment from ${VENV_DIR}"
+            VENV_WAS_ACTIVATED=0
+            . ${VENV_DIR}/bin/activate
+        # If already in the specified virtual environment, simply make note so script doesn't deactivate it when done
+        elif [ "${VIRTUAL_ENV:-x}" = "${VENV_DIR}" ]; then
+            >&2 echo "Virtual environment from ${VENV_DIR} is already active in the current shell"
+            VENV_WAS_ACTIVATED=1
+        # However, bail in the case the shell has a virtual environment activated, but NOT the one it expects
+        else
+            >&2 echo "Error: given virtual env directory '${VENV_DIR}' does not match already activated venv '${VIRTUAL_ENV}'"
+            return 1
+        fi
+    fi
+}

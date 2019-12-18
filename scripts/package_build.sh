@@ -1,3 +1,4 @@
+# TODO: deprecating ... remove things using this, then delete
 # Central location for reuseable functions to source for various package-specific build.sh helper script.
 # Functions are prefixed with 'pkb_' to effectively namespace them.
 
