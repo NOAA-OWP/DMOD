@@ -223,7 +223,7 @@ class SessionManager:
                 pipeline.set(self._next_session_id_key, 2)
             else:
                 pipeline.incr(self._next_session_id_key, 1)
-            session = FullAuthSession(ip_address=ip_address, session_id=session_id, user=username)
+            session = FullAuthSession(ip_address=ip_address, session_id=int(session_id), user=username)
             session_key = self.get_key_for_session(session)
             pipeline.hset(session_key, self._session_redis_hash_subkey_ip_address, session.ip_address)
             pipeline.hset(session_key, self._session_redis_hash_subkey_secret, session.session_secret)
@@ -240,7 +240,7 @@ class SessionManager:
         session_id = self.redis.hget(self._all_session_secrets_hash_key, secret)
         if session_id is not None:
             record_hash = self.redis.hgetall(self.get_key_for_session_by_id(session_id))
-            session = FullAuthSession(session_id=session_id,
+            session = FullAuthSession(session_id=int(session_id),
                                       session_secret=record_hash[self._session_redis_hash_subkey_secret],
                                       #created=record_hash[self._session_redis_hash_subkey_created])
                                       created=record_hash[self._session_redis_hash_subkey_created],
