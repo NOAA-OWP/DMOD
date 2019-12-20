@@ -29,6 +29,7 @@ from websockets import WebSocketServerProtocol
 import os,sys,inspect
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 top_dir = os.path.dirname( os.path.dirname(current_dir) )
+top_dir = os.path.dirname( current_dir )
 sys.path.insert(0, top_dir)
 #END PATH HACK
 
@@ -36,7 +37,8 @@ from communication.nwm_maas.communication.client import SchedulerClient
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
-    datefmt="%H:%M:%S"
+    datefmt="%H:%M:%S",
+    handlers=[logging.StreamHandler()]
 )
 
 
@@ -116,28 +118,33 @@ class RequestHandler(object):
             #FIXME change the default ssl_dir relationship
             current_dir = Path(__file__).resolve().parent
             ssl_dir = current_dir.parent.joinpath('ssl')
+        #FIXME hack
+        request_handler_ssl_dir = ssl_dir.joinpath('request_handler')
         if localhost_pem is None:
-            localhost_pem = ssl_dir.joinpath('certificate.pem')
+            localhost_pem = request_handler_ssl_dir.joinpath('certificate.pem')
         if localhost_key is None:
-            localhost_key = ssl_dir.joinpath('privkey.pem')
+            localhost_key = request_handler_ssl_dir.joinpath('privkey.pem')
 
         self._session_manager: SessionManager = SessionManager()
         self._sessions_to_websockets: Dict[Session, WebSocketServerProtocol] = {}
+        self._session_jobs: Dict[Session, List[str]] = {}
         self.ssl_context.load_cert_chain(localhost_pem, keyfile=localhost_key)
         # print(hostname)
         # Setup websocket server
         self.server = websockets.serve(self.listener, hostname, int(port), ssl=self.ssl_context)
-        self.scheduler_host='localhost.***REMOVED***'
+        #FIXME parameterize in constructuion both name and port.  Let service.py read container/stack env to do this
+        self.scheduler_host='nwm-master_scheduler'
         self.scheduler_port=3013
+        self.scheduler_ssl_dir=ssl_dir.joinpath('scheduler')
         #TODO clean up parameterization of host, port, ssl
 
         #asyncio.get_event_loop().run_until_complete(self.test_sched( ssl_dir))
     """FIXME remove this
-    async def test_sched(self, ssl_dir):
+    async def test_sched(self):
 
         #TODO clean up parameterization of host, port, ssl
         print("Preparing Scheduler Context")
-        async with SchedulerClient("wss://{}:{}".format(self.scheduler_host, self.scheduler_port), ssl_dir) as scheduler_client:
+        async with SchedulerClient("wss://{}:{}".format(self.scheduler_host, self.scheduler_port), self.scheduler_ssl_dir) as scheduler_client:
             print("Testing clinet send")
             await scheduler_client.send_to_scheduler("[]")
             async for message in scheduler_client.get_results():
@@ -280,19 +287,32 @@ class RequestHandler(object):
             #The context manager manages a SINGLE connection to the scheduler server
             #Adhoc calls to the scheduler can be made for this connection via the scheduler_client
             #These adhoc calls will use the SAME connection the context was initialized with
-            with SchedulerClient("wss://{}:{}".format(self.scheduler_host, self.scheduler_port), ssl_dir) as scheduler_client:
-                await scheduler_client.send_to_scheduler(data)
-                async for response in scheduler_client.get_results():
-                    print(response)
-                #TODO loop here to recieve multiple requests, try while execpt connectionClosed, let server tell us when to stop listening
+            async with SchedulerClient("wss://{}:{}".format(self.scheduler_host, self.scheduler_port), self.scheduler_ssl_dir) as scheduler_client:
+                try:
+                    print(f"Handler sending to scheduler: {data}")  
+                    job_id = await scheduler_client.send_to_scheduler(data)
+                    if job_id != "":
+                        jobs = self._session_jobs.get(session, [])
+                        jobs.append(job_id)
+                        self._session_jobs[session] = jobs
+                    else:
+                        raise Exception("No Job Scheduleded")
+                    data = {'job_id': job_id, 'results':[]}
+                    async for response in scheduler_client.get_results():
+                        logging.info(response)
+                        result = response
+                        data['results'].append(result)
+                
+                except websockets.exceptions.ConnectionClosed:
+                    print("Scheduler Connection Closed")
+                    #TODO loop here to recieve multiple requests, try while execpt connectionClosed, let server tell us when to stop listening
             # TODO: consider registering the job and relationship with session, etc.
-            success = job_id > 0
+            success = job_id != "" #> 0
             reason = ('Success' if success else 'Failure') + ' starting job (returned id ' + str(job_id) + ')'
-            data = json.dumps({'job_id': job_id})
             response = RequestResponse(success=success, reason=reason, message=mesg, data=data)
         else:
             msg = 'Request does not correspond to an authenticated session'
-            response = RequestResponse(success=False, reason='Unauthorized', message=msg)
+            response = RequestResponse(success=False, reason='Unauthorized', message=msg, data={})
         return session, response
 
     async def listener(self, websocket: WebSocketServerProtocol, path):
@@ -304,7 +324,7 @@ class RequestHandler(object):
         try:
             async for message in websocket:
                 data = json.loads(message)
-                logging.info(f"Got payload: {data}")
+                print(f"Got payload: {data}")
                 should_check_for_auth = session is None
                 request_type, errors_map = await self.parse_request_type(data=data, check_for_auth=should_check_for_auth)
 
@@ -316,6 +336,9 @@ class RequestHandler(object):
                     await websocket.send(str(response))
                 elif request_type == RequestType.JOB:
                     session, response = await self.handle_job_request(data=data, session=session)
+                    #TODO remove this or find good way to pop this out of session....should move this to redis probably
+                    print(response)
+                    response.data['all_jobs'] = self._session_jobs.get(session, [])
                     await websocket.send(str(response))
                     # TODO: add another message type (here and in client) for data transmission
                 else:
@@ -331,14 +354,18 @@ class RequestHandler(object):
             await self.unregister_websocket_session(session=session)
 
     async def register_websocket_session(self, websocket: WebSocketServerProtocol, session: Session):
-        self._sessions_to_websockets[session] = websocket
-
+        try:
+            self._sessions_to_websockets[session] = websocket
+        except TypeError:
+            logging.error("Session Type FUBAR: {} is type {}".format(session.session_id, type(session.session_id)))
+            raise
     async def unregister_websocket_session(self, session: Session):
         if session is None:
             return
         else:
-            self._sessions_to_websockets.pop(session)
-
+            #TODO probably catch the KeyError exception and be more graceful??? Or does unregister care???
+            self._sessions_to_websockets.pop(session.session_id, None)
+            self._session_jobs.pop(session.session_id, None)
     async def shutdown(self, signal=None):
         """
             Wait for current task to finish, cancel all others
