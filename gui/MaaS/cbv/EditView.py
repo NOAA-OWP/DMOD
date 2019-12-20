@@ -1,14 +1,18 @@
 """
 Defines a view that may be used to configure a MaaS request
 """
+
 import os
 from django.http import HttpRequest, HttpResponse
 from django.views.generic.base import View
 from django.shortcuts import render
+
+import logging
+logger = logging.getLogger("gui_log")
+
 from nwm_maas.communication import Distribution, get_available_models, get_available_outputs, get_request, \
     NWMRequestJsonValidator, NWMRequest, MaaSRequest, MaasRequestClient, Scalar
 from pathlib import Path
-
 
 class RequestFormProcessor:
     """
@@ -190,15 +194,20 @@ class PostFormJobRequestClient(MaasRequestClient):
         bool
             whether session details were acquired and set successfully
         """
+        logger.info("PostFormJobRequestClient._acquire_session_info:  getting session info")
         if not force_new and 'maas_session_secret' in self.http_request.COOKIES.keys():
             self._session_id = self.http_request.COOKIES['maas_session_id']
             self._session_secret = self.http_request.COOKIES['maas_session_secret']
             self._session_created = self.http_request.COOKIES['maas_session_created']
             self._is_new_session = False
+            logger.info("Session From PostFormJobRequestClient")
             return True
         else:
-            return super()._acquire_session_info(force_new=force_new)
-
+            logger.info("Session from ModelRequestClient: force_new={}".format(force_new))
+            tmp = super()._acquire_session_info(force_new=force_new)
+            logger.info("Session Info Return: {}".format(tmp))
+            return tmp
+        
     def _init_maas_job_request(self):
         """
         Set or reset the :attr:`form_proc` field and return its :attr:`RequestFormProcessor`.`maas_request` property.
@@ -321,8 +330,9 @@ class EditView(View):
         :param kwargs: A dictionary of named arguments
         :return: A rendered page
         """
-        request_client = PostFormJobRequestClient(endpoint_uri=self.maas_endpoint_uri, http_request=request)
 
+        request_client = PostFormJobRequestClient(endpoint_uri=self.maas_endpoint_uri, http_request=request)
+        logger.info("EditView.post: making job request")
         request_client.make_job_request(force_new_session=False)
 
         http_response = self.get(request=request, errors=request_client.errors, warnings=request_client.warnings,
