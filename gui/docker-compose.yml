@@ -21,7 +21,12 @@ services:
     # Make this container depend on the container holding the application server
     depends_on:
       - app_server
-  # Define a container belonging exclusively to our django application
+      # Define a container belonging exclusively to our django application
+    deploy:
+       placement:
+         constraints:
+           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_1:-node.role==manager}
+           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default} 
   app_server:
     image: maas-portal-development
     build:
@@ -55,6 +60,11 @@ services:
     # Expose Django's port to the internal network so that nginx may access it
     expose:
       - 8000
+    deploy:
+       placement:
+         constraints:
+           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_1:-node.role==manager}
+           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default} 
 
 networks:
   request-listener-net:
