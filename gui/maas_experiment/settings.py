@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 """
 
 import os
+import logging
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -178,3 +179,71 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "static/")
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse'
+        }
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler'
+        }
+    },
+    'loggers': {
+        'gui_log': {
+            'handlers': ['console', ],
+            'level': 'DEBUG'
+        }
+    }
+}
+
+CRITICAL_LEVEL = logging.CRITICAL
+"""Logging level used to indicate critical messages"""
+
+ERROR_LEVEL = logging.ERROR
+"""Logging level used to indicate errors"""
+
+WARNING_LEVEL = logging.WARNING
+"""Logging level used to indicate warnings"""
+
+INFO_LEVEL = logging.INFO
+"""Logging level used to indicate basic information"""
+
+DEBUG_LEVEL = logging.DEBUG
+"""Logging level used to indicate messages useful for debugging"""
+
+UNKNOWN_LEVEL = logging.NOTSET
+"""Logging level to use when a proper logging level is not found"""
+
+DEFAULT_MESSAGE_LEVEL = INFO_LEVEL
+"""The logging level used when none is given"""
+
+def log(message: str, level: int = DEFAULT_MESSAGE_LEVEL, logger_name: str = "GUI"):
+    """
+    Logs the given message at the given level in the given log.
+
+    These are all available as module level variables
+
+    :param str message: The message to log
+    :param str level: The logging level to write as.
+    :param str logger_name: The name of the logger to write to
+    """
+
+    # We want to make sure that we're using a valid level; if it isn't in our approved list, we use the level
+    # equivalent to "uh...I dunno..." since we just want to write
+    if level is None or level not in [CRITICAL_LEVEL, ERROR_LEVEL, WARNING_LEVEL, INFO_LEVEL, DEBUG_LEVEL]:
+        level = UNKNOWN_LEVEL
+
+    # We want to log messages in the form of '[2019-06-04 12:27:14-0500] Something happened...',
+    # so we need to determine the time and append it to the message
+    timestamp = datetime.now(tz=reference.LocalTimezone()).strftime("%Y-%m-%d %I:%M:%S%z")
+    log_message = "[{}]{}".format(timestamp, message)
+
+    # Log the newly formatted message at the given level
+    logging.getLogger(logger_name).log(level, log_message)
