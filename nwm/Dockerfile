@@ -25,4 +25,5 @@ RUN echo "export PATH=${PATH}" >> /etc/profile
 #RUN apk add elfutils-libelf --repository http://dl-cdn.alpinelinux.org/alpine/edge/main
 #RUN apk add --update perf --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing
 USER ${USER}
+COPY run_model.sh /nwm/
 WORKDIR /nwm/domains
