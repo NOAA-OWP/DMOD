@@ -7,7 +7,7 @@ sys.path.insert(0, parent_dir)
 #END PATH HACK
 
 from websockets import WebSocketServerProtocol
-from communication.nwm_maas.communication.websocket_interface import WebSocketInterface
+from communication.communication.websocket_interface import WebSocketInterface
 from scheduler.src.scheduler import Scheduler
 from pathlib import Path
 import json
@@ -16,9 +16,10 @@ import asyncio
 import websockets
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
-    datefmt="%H:%M:%S"
+    datefmt="%H:%M:%S",
+    handlers=[logging.StreamHandler()]
 )
 
 class SchedulerHandler(WebSocketInterface):
@@ -48,19 +49,20 @@ class SchedulerHandler(WebSocketInterface):
         print("Scheduler Listener")
 
         try:
-            async for message in websocket:
-                #TODO here we should handle already running jobs, as well as any cached
-                #Do this by associating metadata in the request message with existing
-                #metadata tracked by scheduler
-                data = json.loads(message)
-                logging.info(f"Got payload: {data}")
-                test = self.scheduler.fromRequest("Nels.Frazier", 24, 'alot', 0)
-                #FIX THIS INTERFACE test.startJobs()
-                #FIXME one of the first scheduler interface changes will be a domain
-                #identity which services will have to mount to run
-                #initial cpu/mem will be static, bound to domain ID
-                for i in range(3):
-                    await websocket.send( str( self.scheduler.return42() ) )
+            message = await websocket.recv()
+            #TODO here we should handle already running jobs, as well as any cached
+            #Do this by associating metadata in the request message with existing
+            #metadata tracked by scheduler
+            logging.info(f"Gor message: {message}")
+            data = json.loads(message)
+            logging.info(f"Got payload: {data}")
+            #FIX THIS INTERFACE test.startJobs()
+            #FIXME one of the first scheduler interface changes will be a domain
+            #identity which services will have to mount to run
+            #initial cpu/mem will be static, bound to domain ID
+            job_id = self.scheduler.job_allocation_and_setup("Testing", 4 , 0) 
+            await websocket.send( str(job_id) )
+            await websocket.send( "Results Pending" )
 
         except websockets.exceptions.ConnectionClosed:
             logging.info("Connection Closed at Consumer")
@@ -70,16 +72,20 @@ class SchedulerHandler(WebSocketInterface):
 
 
 if __name__ == "__main__":
+    #TODO add args to allow different service definition,
+    #i.e. dev test
+    #if args.dev:
+    #   run_dev_stuff()
+    #else: run_prod()
     # instantiate the scheduler
     scheduler = Scheduler()
 
     # initialize redis client
     scheduler.clean_redisKeys()
-
     # build resource database
     #scheduler.create_resources()
 
     #Instansite the handle_job_request
-    handler = SchedulerHandler(scheduler, ssl_dir=Path("../communication/ssl/"), port=3013)
+    handler = SchedulerHandler(scheduler, ssl_dir=Path("./ssl/"), port=3013)
     #keynamehelper.set_prefix("stack0")
     handler.run()
