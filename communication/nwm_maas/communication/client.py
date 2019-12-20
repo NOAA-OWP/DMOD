@@ -10,6 +10,9 @@ import websockets
 from .maas_request import MaaSRequest
 from .validator import NWMRequestJsonValidator
 
+import logging
+logger = logging.getLogger("gui_log")
+
 class WebSocketClient:
     """
 
@@ -55,7 +58,6 @@ class WebSocketClient:
         """
         async with self as websocket:
             #TODO ensure correct type for data???
-            print("FS {}".format(data))
             await websocket.connection.send(data)
 
             #response = await websocket.connection.recv()
@@ -82,8 +84,10 @@ class SchedulerClient(WebSocketClient):
                 string containing scheduler response. TODO this should return code and msg
         """
         try:
-            data = json.loads(data)
-            response = await self.async_send(str(data))
+            await self.async_send(json.dumps(data))
+            #Consume the the scheduler confirmation of job submission
+            response = await self.connection.recv()
+            return response
         except ValueError:
             response = "Job request not valid JSON format"
         return response
@@ -98,7 +102,7 @@ class MaasRequestClient(ABC):
         self.endpoint_uri = endpoint_uri
 
         self.client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        endpoint_pem = ssl_directory.joinpath('certificate.pem')
+        endpoint_pem = ssl_directory.joinpath('request_handler','certificate.pem')
         self.client_ssl_context.load_verify_locations(str(endpoint_pem))
 
         # TODO: get full session implementation if possible
@@ -156,11 +160,15 @@ class MaasRequestClient(ABC):
         """
         self._is_new_session = False
         try:
+            logger.info("Connection to request handler web socket")
             auth_details = asyncio.get_event_loop().run_until_complete(self.authenticate_over_websocket())
+            logger.info("auth_details returned")
             self._session_id, self._session_secret, self._session_created = auth_details
             self._is_new_session = True
             return True
         except:
+            logger.info("Expecting exception to follow")
+            logger.exception("Failed _acquire_session_info")
             return False
 
     def _get_validation_error(self):
@@ -213,6 +221,7 @@ class MaasRequestClient(ABC):
         return self._maas_job_request
 
     def make_job_request(self, force_new_session: bool = False):
+        logger.debug("client Making Job Request")
         self._acquire_session_info(force_new=force_new_session)
         # If able to get session details, proceed with making a job request
         if self._session_secret is not None:
@@ -234,6 +243,10 @@ class MaasRequestClient(ABC):
                         raise RuntimeError(template.format(self.resp_as_json['reason'], self.resp_as_json['message']))
                     else:
                         self.job_id = self.resp_as_json['data']['job_id']
+                        results = self.resp_as_json['data']['results']
+                        jobs = self.resp_as_json['data']['all_jobs']
+                        self.info.append("Scheduler started job, id {}, results: {}".format(self.job_id, results))
+                        self.info.append("All user jobs: {}".format(jobs))
                 except Exception as e:
                     # TODO: log error instead of print
                     msg = 'Encountered error submitting maas job request over session ' + str(self._session_id)
@@ -247,6 +260,7 @@ class MaasRequestClient(ABC):
                 print(msg)
                 self.errors.append(msg)
         else:
+            logger.info("client Unable to aquire session details")
             self.errors.append("Unable to acquire session details or authenticate new session for request")
 
     @property
