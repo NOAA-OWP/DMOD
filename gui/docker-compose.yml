@@ -21,12 +21,12 @@ services:
     # Make this container depend on the container holding the application server
     depends_on:
       - app_server
-      # Define a container belonging exclusively to our django application
     deploy:
        placement:
          constraints:
            - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_1:-node.role==manager}
-           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default} 
+           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
+  # Define a container belonging exclusively to our django application
   app_server:
     image: maas-portal-development
     build:
