@@ -239,6 +239,8 @@ class RequestHandler(WebSocketSessionsInterface):
             response = NWMRequestResponse(success=success, reason=reason, message=mesg,
                                           data={'job_id': job_id, 'scheduler_response': initial_response.to_dict()})
         else:
+            if session is not None and model_request.session_secret != session.session_secret:
+                logging.debug("************* Secrets do not agree: " + model_request.session_secret + ' | ' + session.session_secret)
             msg = 'Request does not correspond to an authenticated session'
             # TODO: right now, the only supported MaaSRequest we will see is a NWMRequest, but account for other things
             response = NWMRequestResponse(success=False, reason='Unauthorized', message=msg)
