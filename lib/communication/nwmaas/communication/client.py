@@ -9,13 +9,14 @@ from typing import Optional, Union
 
 import websockets
 
-from .maas_request import MaaSRequest, NWMRequestResponse
+from .maas_request import MaaSRequest, MaaSRequestResponse, NWMRequest, NWMRequestResponse
 from .message import Message, Response
 from .scheduler_request import SchedulerRequestMessage, SchedulerRequestResponse
 from .validator import NWMRequestJsonValidator
 
 import logging
 
+# TODO: refactor this to allow for implementation-specific overriding more easily
 logger = logging.getLogger("gui_log")
 
 
@@ -215,25 +216,72 @@ class SchedulerClient(WebSocketClient):
 
 class MaasRequestClient(WebSocketClient, ABC):
 
+    @staticmethod
+    def _job_request_failed_due_to_expired_session(response_obj: MaaSRequestResponse):
+        """
+        Test if the response to a websocket-sent request failed specifically because the utilized session was valid, but
+        no longer suitably authorized, indicating that it may make sense to try to authenticate a new session for the
+        request and try again (i.e., it may, assuming this problem didn't occur when already using a freshly acquired
+        session.)
+
+        Parameters
+        ----------
+        response_obj
+
+        Returns
+        -------
+        bool
+            whether a failure occur and it specifically was due to a lack of authorization over the used session
+        """
+        return response_obj is not None and not response_obj.success and response_obj.reason == 'Unauthorized'
+
+    @staticmethod
+    def _run_validation(message: Union[MaaSRequest, MaaSRequestResponse]):
+        """
+        Run validation for the given message object using the appropriate validator subtype.
+
+        Parameters
+        ----------
+        message
+            The message to validate, which will be either a ``MaaSRequest``  or a ``MaaSRequestResponse`` subtype.
+
+        Returns
+        -------
+        tuple
+            A tuple with the first item being whether or not the message was valid, and the second being either None or
+            the particular error that caused the message to be identified as invalid
+
+        Raises
+        -------
+        RuntimeError
+            Raised if the message is of a particular type for which there is not a supported validator type configured.
+        """
+        if message is None:
+            return False, None
+        elif isinstance(message, NWMRequest):
+            is_valid, error = NWMRequestJsonValidator().validate(message.to_dict())
+            return is_valid, error
+        elif isinstance(message, NWMRequestResponse):
+            # TODO: implement (in particular, a suitable validator type)
+            return True, None
+        else:
+            raise RuntimeError('Unsupported MaaSRequest subtype: ' + str(message.__class__))
+
     def __init__(self, endpoint_uri: str, ssl_directory: Path):
         super().__init__(endpoint_uri=endpoint_uri, ssl_directory=ssl_directory)
 
         # TODO: get full session implementation if possible
         self._session_id, self._session_secret, self._session_created, self._is_new_session = None, None, None, None
 
-        self._maas_job_request = None
         self._errors = None
         self._warnings = None
         self._info = None
-        self.resp_as_json = None
-        self.job_id = None
 
-    async def async_make_request(self, maas_request: MaaSRequest):
+    async def async_make_request(self, maas_request: MaaSRequest) -> MaaSRequestResponse:
         async with websockets.connect(self.endpoint_uri, ssl=self.client_ssl_context) as websocket:
             await websocket.send(maas_request.to_json())
             response = await websocket.recv()
-            # return json.dumps(response)
-            return response
+            return maas_request.__class__.factory_init_correct_response_subtype(json_obj=json.loads(response))
 
     # TODO: ...
     async def authenticate_over_websocket(self):
@@ -252,26 +300,7 @@ class MaasRequestClient(WebSocketClient, ABC):
             maas_session_created = auth_response['data']['created']
             return maas_session_id, maas_session_secret, maas_session_created
 
-    @abstractmethod
-    def _acquire_session_info(self, force_new: bool = False):
-        """
-        Attempt to set the session information properties needed to submit a maas job request.
-
-        Note that while superclass method is fully implemented to get a new session over the websocket connection, it is
-        still marked as abstract to require an override to be present (even if it is just a call to the super method).
-
-        Parameters
-        ----------
-        force_new
-            whether to force acquiring details for a new session, regardless of data available is available on an
-            existing session
-
-        Returns
-        -------
-        bool
-            whether session details were acquired and set successfully
-        """
-        self._is_new_session = False
+    def _acquire_new_session(self):
         try:
             logger.info("Connection to request handler web socket")
             auth_details = asyncio.get_event_loop().run_until_complete(self.authenticate_over_websocket())
@@ -284,34 +313,29 @@ class MaasRequestClient(WebSocketClient, ABC):
             logger.exception("Failed _acquire_session_info")
             return False
 
-    def _get_validation_error(self):
-        is_valid, error = NWMRequestJsonValidator().validate(self.maas_job_request.to_dict())
-        return error
-
     @abstractmethod
-    def _init_maas_job_request(self):
-        pass
-
-    def _is_maas_job_request_valid(self):
-        is_valid, error = NWMRequestJsonValidator().validate(self.maas_job_request.to_dict())
-        return is_valid
-
-    def _job_request_failed_due_to_expired_session(self):
+    def _acquire_session_info(self, use_current_values: bool = True, force_new: bool = False):
         """
-        Test if the response to a websocket sent request in :attr:resp_as_json failed specifically because the utilized
-        session was valid, but no longer suitably authorized, indicating that it may make sense to try to authenticate a
-        new session for the request and try again (i.e., it may, assuming this problem didn't occur when already using a
-        freshly acquired session.)
+        Attempt to set the session information properties needed to submit a maas job request.
+
+        Parameters
+        ----------
+        use_current_values
+            Whether to use currently held attribute values for session details, if already not None (disregarded if
+            ``force_new`` is ``True``).
+        force_new
+            Whether to force acquiring a new session, regardless of data available is available on an existing session.
 
         Returns
         -------
         bool
-            whether a failure occur and it specifically was due to a lack of authorization over the used session
+            whether session details were acquired and set successfully
         """
-        return self.resp_as_json is not None \
-               and not self.resp_as_json['success'] \
-               and self.resp_as_json['reason'] == 'Unauthorized' \
-               and not self._is_new_session
+        pass
+
+    @abstractmethod
+    def _init_maas_job_request(self):
+        pass
 
     @property
     @abstractmethod
@@ -327,55 +351,57 @@ class MaasRequestClient(WebSocketClient, ABC):
     def is_new_session(self):
         return self._is_new_session
 
-    @property
-    def maas_job_request(self):
-        if self._maas_job_request is None:
-            self._maas_job_request = self._init_maas_job_request()
-        return self._maas_job_request
-
-    def make_job_request(self, force_new_session: bool = False):
+    def make_job_request(self, maas_job_request: MaaSRequest, force_new_session: bool = False):
         logger.debug("client Making Job Request")
         self._acquire_session_info(force_new=force_new_session)
+        # Make sure to set if empty or reset if a new session was forced and just acquired
+        if force_new_session or maas_job_request.session_secret is None:
+            maas_job_request.session_secret = self._session_secret
         # If able to get session details, proceed with making a job request
         if self._session_secret is not None:
-            print("******************* Request: " + self.maas_job_request.to_json())
-            if self._is_maas_job_request_valid():
-                try:
-                    req_response = asyncio.get_event_loop().run_until_complete(self.async_make_request(self.maas_job_request))
-                    self.resp_as_json = json.loads(req_response)
-                    response_obj = NWMRequestResponse.factory_init_from_deserialized_json(self.resp_as_json)
-                    print('***************** Response: ' + req_response)
-                    if not self.validate_job_request_response():
-                        raise RuntimeError('Invalid response received for requested job: ' + str(req_response))
-                    # Try to get a new session if unauthorized (and we hadn't already gotten a new session)
-                    elif self._job_request_failed_due_to_expired_session():
-                        # Clear to we can try again with updated secret
-                        self._maas_job_request = None
-                        return self.make_job_request(force_new_session=True)
-                    elif not self.resp_as_json['success']:
-                        template = 'Request failed (reason: {}): {}'
-                        raise RuntimeError(template.format(self.resp_as_json['reason'], self.resp_as_json['message']))
-                    else:
-                        self.job_id = self.resp_as_json['data']['job_id']
-                        results = self.resp_as_json['data']['results']
-                        jobs = self.resp_as_json['data']['all_jobs']
-                        self.info.append("Scheduler started job, id {}, results: {}".format(self.job_id, results))
-                        self.info.append("All user jobs: {}".format(jobs))
-                except Exception as e:
-                    # TODO: log error instead of print
-                    msg = 'Encountered error submitting maas job request over session ' + str(self._session_id)
-                    msg += " : \n" + str(type(e)) + ': ' + str(e)
+            print("******************* Request: " + maas_job_request.to_json())
+            try:
+                is_request_valid, request_validation_error = self._run_validation(message=maas_job_request)
+                if is_request_valid:
+                    try:
+                        response_obj: MaaSRequestResponse = asyncio.get_event_loop().run_until_complete(
+                            self.async_make_request(maas_job_request))
+                        print('***************** Response: ' + str(response_obj))
+                        if not self.validate_job_request_response(response_obj):
+                            raise RuntimeError('Invalid response received for requested job: ' + str(response_obj))
+                        # Try to get a new session if unauthorized (and we hadn't already gotten a new session)
+                        elif self._job_request_failed_due_to_expired_session(response_obj) and not force_new_session:
+                            return self.make_job_request(maas_job_request=maas_job_request, force_new_session=True)
+                        elif not response_obj.success:
+                            template = 'Request failed (reason: {}): {}'
+                            raise RuntimeError(template.format(response_obj.reason, response_obj.message))
+                        else:
+                            #self.job_id = self.resp_as_json['data']['job_id']
+                            #results = self.resp_as_json['data']['results']
+                            #jobs = self.resp_as_json['data']['all_jobs']
+                            #self.info.append("Scheduler started job, id {}, results: {}".format(self.job_id, results))
+                            #self.info.append("All user jobs: {}".format(jobs))
+                            self.info.append("Scheduler started job, id {}".format(response_obj.data['job_id']))
+                            return response_obj
+                    except Exception as e:
+                        # TODO: log error instead of print
+                        msg = 'Encountered error submitting maas job request over session ' + str(self._session_id)
+                        msg += " : \n" + str(type(e)) + ': ' + str(e)
+                        print(msg)
+                        traceback.print_exc()
+                        self.errors.append(msg)
+                else:
+                    msg = 'Could not submit invalid maas job request over session ' + str(self._session_id)
+                    msg += ' (' + str(request_validation_error) + ')'
                     print(msg)
-                    traceback.print_exc()
                     self.errors.append(msg)
-            else:
-                msg = 'Could not submit invalid maas job request over session ' + str(self._session_id)
-                msg += ' (' + str(self._get_validation_error()) + ')'
-                print(msg)
-                self.errors.append(msg)
+            except RuntimeError as e:
+                print(str(e))
+                self.errors.append(str(e))
         else:
             logger.info("client Unable to aquire session details")
             self.errors.append("Unable to acquire session details or authenticate new session for request")
+        return None
 
     @property
     def session_created(self):
@@ -389,9 +415,8 @@ class MaasRequestClient(WebSocketClient, ABC):
     def session_secret(self):
         return self._session_secret
 
-    def validate_job_request_response(self):
-        # TODO: implement
-        return True
+    def validate_job_request_response(self, maas_request_response: MaaSRequestResponse):
+        return self._run_validation(message=maas_request_response)[0]
 
     @property
     @abstractmethod
