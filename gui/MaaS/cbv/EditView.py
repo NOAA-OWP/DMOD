@@ -14,6 +14,7 @@ from nwmaas.communication import Distribution, get_available_models, get_availab
     NWMRequestJsonValidator, NWMRequest, MaaSRequest, MaasRequestClient, Scalar
 from pathlib import Path
 
+
 class RequestFormProcessor:
     """
     Class that receives an HTTP POST request of the form submission for a desired job, and converts this to a
@@ -176,7 +177,7 @@ class PostFormJobRequestClient(MaasRequestClient):
         self.http_request = http_request
         self.form_proc = None
 
-    def _acquire_session_info(self, force_new: bool = False):
+    def _acquire_session_info(self, use_current_values: bool = True, force_new: bool = False):
         """
         Attempt to set the session information properties needed to submit a maas job request.
 
@@ -186,8 +187,11 @@ class PostFormJobRequestClient(MaasRequestClient):
 
         Parameters
         ----------
+        use_current_values
+            Whether to use currently held attribute values for session details, if already not None (disregarded if
+            ``force_new`` is ``True``).
         force_new
-            whether to force acquiring details for a new session, regardless of data available in cookies from the request
+            Whether to force acquiring a new session, regardless of data available is available on an existing session.
 
         Returns
         -------
@@ -195,16 +199,18 @@ class PostFormJobRequestClient(MaasRequestClient):
             whether session details were acquired and set successfully
         """
         logger.info("PostFormJobRequestClient._acquire_session_info:  getting session info")
-        if not force_new and 'maas_session_secret' in self.http_request.COOKIES.keys():
+        if not force_new and use_current_values and self._session_id and self._session_secret and self._session_created:
+            logger.info('Using previously acquired session details (new session not forced)')
+            return True
+        elif not force_new and 'maas_session_secret' in self.http_request.COOKIES.keys():
             self._session_id = self.http_request.COOKIES['maas_session_id']
             self._session_secret = self.http_request.COOKIES['maas_session_secret']
             self._session_created = self.http_request.COOKIES['maas_session_created']
-            self._is_new_session = False
             logger.info("Session From PostFormJobRequestClient")
-            return True
+            return self._session_id and self._session_secret and self._session_created
         else:
             logger.info("Session from ModelRequestClient: force_new={}".format(force_new))
-            tmp = super()._acquire_session_info(force_new=force_new)
+            tmp = self._acquire_new_session()
             logger.info("Session Info Return: {}".format(tmp))
             return tmp
         
@@ -333,7 +339,8 @@ class EditView(View):
 
         request_client = PostFormJobRequestClient(endpoint_uri=self.maas_endpoint_uri, http_request=request)
         logger.info("EditView.post: making job request")
-        request_client.make_job_request(force_new_session=False)
+        response = request_client.make_job_request(maas_job_request=request_client._init_maas_job_request(),
+                                                   force_new_session=False)
 
         http_response = self.get(request=request, errors=request_client.errors, warnings=request_client.warnings,
                                  info=request_client.info, *args, **kwargs)
@@ -346,7 +353,7 @@ class EditView(View):
             http_response.set_cookie('maas_session_id', request_client.session_id)
             http_response.set_cookie('maas_session_secret', request_client.session_secret)
             http_response.set_cookie('maas_session_created', request_client.session_created)
-        # Also set a cookie if a job was started and we have the id
-        if request_client.job_id is not None:
-            http_response.set_cookie('maas_job_id', request_client.job_id)
+        # Set a cookie if a job was started and we have the id (rely on client to manage multiple job ids)
+        if response is not None and 'job_id' in response.data:
+            http_response.set_cookie('new_job_id', response.data['job_id'])
         return http_response
