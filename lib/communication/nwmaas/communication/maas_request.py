@@ -5,6 +5,7 @@ Lays out details describing how a request may be created and the different types
 """
 
 from .message import Message, MessageEventType, Response
+from abc import ABC, abstractmethod
 
 
 def get_available_models() -> dict:
@@ -123,6 +124,22 @@ class MaaSRequest(Message):
         'streamflow'
     ]
     """(:class:`list`) The collection of output variables that the model may generate"""
+
+    @classmethod
+    @abstractmethod
+    def factory_init_correct_response_subtype(cls, json_obj: dict):
+        """
+        Init a :obj:`Response` instance of the appropriate subtype for this class from the provided JSON object.
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+
+        """
+        pass
 
     @classmethod
     def factory_init_correct_subtype_from_deserialized_json(cls, json_obj: dict):
@@ -442,6 +459,12 @@ class MaaSRequest(Message):
         return {'model': model, 'session-secret': self.session_secret}
 
 
+class MaaSRequestResponse(Response, ABC):
+
+    def __init__(self, success: bool, reason: str, message: str = '', data=None):
+        super().__init__(success=success, reason=reason, message=message, data=data)
+
+
 class NWMRequest(MaaSRequest):
 
     event_type = MessageEventType.NWM_MAAS_REQUEST
@@ -479,17 +502,36 @@ class NWMRequest(MaaSRequest):
     ]
     """(:class:`list`) The collection of distribution types that the model may handle"""
 
+    @classmethod
+    def factory_init_correct_response_subtype(cls, json_obj: dict) -> MaaSRequestResponse:
+        """
+        Init a :obj:`Response` instance of the appropriate subtype for this class from the provided JSON object.
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+
+        """
+        return NWMRequestResponse.factory_init_from_deserialized_json(json_obj=json_obj)
+
     def __init__(self, session_secret: str, version: float = 0.0, output: str = 'streamflow', parameters: dict = None):
         super(NWMRequest, self).__init__(version=version, output=output, parameters=parameters,
                                          session_secret=session_secret)
 
 
-class NWMRequestResponse(Response):
+class NWMRequestResponse(MaaSRequestResponse):
 
     response_to_type = NWMRequest
 
     def __init__(self, success: bool, reason: str, message: str = '', data=None):
         super().__init__(success=success, reason=reason, message=message, data=data)
+
+    @property
+    def job_id(self):
+        return self.data['job_id']
 
 
 def get_parameters() -> dict:
