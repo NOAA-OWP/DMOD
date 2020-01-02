@@ -44,7 +44,7 @@ def create_key_name(*vals):
 
      [ prefix + sepatartor] + [ [ separator + value] ]
   """
-  return ((__prefix__ + __sep__) if (__prefix__ != "") else b"")\
+  return ((__prefix__ + __sep__) if (__prefix__ != b"") else "")\
          + "%s" % __sep__.join(ensure_str(vals))
 
 def create_field_name(*vals):
