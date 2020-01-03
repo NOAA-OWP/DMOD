@@ -5,6 +5,8 @@ FROM ${docker_internal_registry}/nwmaas-py-sources as sources
 
 FROM python:3.7-alpine
 ARG comms_package_name
+ARG access_package_name
+ARG externalrequests_package_name
 ARG request_handler_package_name
 # A base SSL directory, which may or may not contain subdirectories specifically for service- or client-side certs
 ARG container_base_ssl_directory=/ssl
@@ -19,7 +21,9 @@ COPY ssl/ ${container_base_ssl_directory}/
 COPY --from=sources /DIST /DIST
 
 # Install custom and generally available packages, starting with any custom from external source image
-RUN pip install --no-cache-dir --find-links=/DIST/comms ${comms_package_name} \
+RUN pip install --no-cache-dir --find-links=/DIST/internal_deps ${comms_package_name} \
+    && pip install --no-cache-dir --find-links=/DIST/internal_deps ${access_package_name} \
+    && pip install --no-cache-dir --find-links=/DIST/internal_deps ${externalrequests_package_name} \
     && pip install --no-cache-dir --find-links=/DIST/request_handler ${request_handler_package_name} \
     # After eventually installing all custom packages like this, clean up ... \
     && rm -r /DIST \
