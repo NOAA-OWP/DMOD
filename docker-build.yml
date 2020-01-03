@@ -56,6 +56,8 @@ services:
       args:
         docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY_HOST}:${DOCKER_INTERNAL_REGISTRY_PORT}
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
+        access_package_name: ${PYTHON_PACKAGE_DIST_NAME_ACCESS:?}
+        externalrequests_package_name: ${PYTHON_PACKAGE_DIST_NAME_EXTERNAL_REQUESTS:?}
         request_handler_package_name: ${PYTHON_PACKAGE_DIST_NAME_REQUEST_HANDLER:?}
 networks:
   mpi-net:
