@@ -1,7 +1,10 @@
 from setuptools import setup, find_namespace_packages
 
-with open('README.md', 'r') as readme:
-    long_description = readme.read()
+try:
+    with open('README.md', 'r') as readme:
+        long_description = readme.read()
+except:
+    long_description = ''
 
 exec(open('nwmaas/access/_version.py').read())
 
