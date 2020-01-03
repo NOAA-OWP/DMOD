@@ -9,7 +9,7 @@ FROM python:3.8-slim
 ARG comms_package_name=nwmaas-communication
 # Copy custom built packages from external sources image
 COPY --from=sources /DIST /DIST
-RUN pip install --upgrade --find-links=/DIST/comms ${comms_package_name} \
+RUN pip install --upgrade --find-links=/DIST/internal_deps ${comms_package_name} \
     # After eventually installing all dist files like this, clean up ... \
     && rm -r /DIST
 # Update the aptitude package listing so that packages may be loaded and installed
