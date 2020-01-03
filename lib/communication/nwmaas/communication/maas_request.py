@@ -4,7 +4,7 @@ Lays out details describing how a request may be created and the different types
 @author: Chris Tubbs
 """
 
-from .message import Message, MessageEventType, Response
+from .message import AbstractInitRequest, MessageEventType, Response
 from abc import ABC, abstractmethod
 
 
@@ -88,7 +88,7 @@ class Distribution(object):
         return self.__str__()
 
 
-class MaaSRequest(Message):
+class MaaSRequest(AbstractInitRequest):
     """
     The base class underlying all types of MaaS requests
     """
