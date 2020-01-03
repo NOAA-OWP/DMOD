@@ -2,7 +2,7 @@ import datetime
 import hashlib
 import os
 import random
-from .message import Message, MessageEventType, Response
+from .message import AbstractInitRequest, MessageEventType, Response
 from .serializeable import Serializable
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -249,7 +249,7 @@ class FullAuthSession(Session):
         return self._user
 
 
-class SessionInitMessage(Message):
+class SessionInitMessage(AbstractInitRequest):
     """
     The :class:`Message` subtype used by a client to request and authenticate a new :class:`Session` instance.
 
@@ -349,7 +349,6 @@ class FailedSessionInitInfo(Serializable):
     def to_dict(self) -> dict:
         fail_time_str = self.fail_time.strftime(self.get_datetime_format()) if self.fail_time is not None else None
         return {'user': self.user, 'reason': self.reason, 'fail_time': fail_time_str, 'details': self.details}
-
 
 
 # Define this custom type here for hinting
