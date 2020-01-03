@@ -1,12 +1,15 @@
 from setuptools import setup, find_namespace_packages
 
-with open('README.md', 'r') as readme:
-    long_description = readme.read()
+try:
+    with open('README.md', 'r') as readme:
+        long_description = readme.read()
+except:
+    long_description = ''
 
 exec(open('nwmaas/externalrequests/_version.py').read())
 
 setup(
-    name='nwmaas-external',
+    name='nwmaas-externalrequests',
     version=__version__,
     description='Library package with classes for handling external interactions',
     long_description=long_description,
