@@ -1,9 +1,9 @@
 from .maas_request import MaaSRequest
-from .message import Message, MessageEventType, Response
+from .message import AbstractInitRequest, MessageEventType, Response
 from typing import Optional
 
 
-class SchedulerRequestMessage(Message):
+class SchedulerRequestMessage(AbstractInitRequest):
 
     event_type: MessageEventType = MessageEventType.SCHEDULER_REQUEST
     """ :class:`MessageEventType`: the event type for this message implementation """
