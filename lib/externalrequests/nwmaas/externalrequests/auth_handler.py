@@ -45,7 +45,7 @@ class InnerSessionAuthUtil:
         self._is_authorized = None
         self._is_needs_new_session = None
 
-    def _auth_session(self):
+    async def _auth_session(self):
         """
         Perform the attempt to get an authenticated, authorized session for making requests from an external client.
 
@@ -109,39 +109,39 @@ class InnerSessionAuthUtil:
         return False
 
     @property
-    def failure_info(self) -> Optional[FailedSessionInitInfo]:
+    async def failure_info(self) -> Optional[FailedSessionInitInfo]:
         if self._failure_info is None and self._session is None:
-            self._auth_session()
+            await self._auth_session()
         return self._failure_info
 
     @property
-    def is_authenticated(self):
+    async def is_authenticated(self):
         if self._is_authenticated is None:
             self._is_authenticated = await self._authenticator.authenticate(self.username, self.user_secret)
         return self._is_authenticated
 
     @property
-    def is_authorized(self):
+    async def is_authorized(self):
         if self._is_authorized is None:
             self._is_authorized = self.is_authenticated and await self._authorizer.check_authorized(self.username)
         return self._is_authorized
 
     @property
-    def is_needs_new_session(self):
+    async def is_needs_new_session(self):
         if self._is_needs_new_session is None:
             self._is_needs_new_session = self.is_authorized and not(await self._check_existing_session(self.username))
         return self._is_needs_new_session
 
     @property
-    def newly_created(self) -> bool:
+    async def newly_created(self) -> bool:
         if self._newly_created is None:
-            self._auth_session()
+            await self._auth_session()
         return self._newly_created
 
     @property
-    def session(self) -> Optional[Session]:
+    async def session(self) -> Optional[Session]:
         if self._failure_info is None and self._session is None:
-            self._auth_session()
+            await self._auth_session()
         return self._session
 
 
@@ -176,10 +176,8 @@ class AuthHandler(AbstractRequestHandler):
         if auth_util.session is not None:
             session_txt = 'new session' if auth_util.newly_created else 'session'
             logging.debug('*************** Got {} for auth message: {}'.format(session_txt, str(auth_util.session)))
-            # TODO: move this logic (below 2 lines) to whatever uses this and has the session (i.e., some service)
-            #result = await self.register_websocket_session(websocket, session)
-            #logging.debug('************************* Attempt to register session-websocket result: {}'.format(str(result)))
-            return SessionInitResponse(success=True, reason='Successful Auth', data=auth_util.session)
+            return SessionInitResponse(success=True, reason='Successful Auth', data=await auth_util.session)
         else:
             msg = 'Unable to create or find authenticated user session from request'
-            return SessionInitResponse(success=False, reason='Failed Auth', message=msg, data=auth_util.failure_info)
+            return SessionInitResponse(success=False, reason='Failed Auth', message=msg,
+                                       data=await auth_util.failure_info)
