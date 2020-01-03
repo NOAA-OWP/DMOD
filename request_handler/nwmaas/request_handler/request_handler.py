@@ -8,7 +8,8 @@ from typing import Optional, Tuple, Type, Union
 import websockets
 from nwmaas.communication import Response, InvalidMessageResponse, FullAuthSession, SessionInitMessage, MaaSRequest, \
     SessionInitResponse, FailedSessionInitInfo, MessageEventType, WebSocketInterface, WebSocketSessionsInterface, \
-    SessionInitFailureReason,  NWMRequestResponse, RedisBackendSessionManager, SchedulerClient, SchedulerRequestMessage
+    SessionInitFailureReason,  NWMRequestResponse, SchedulerClient, SchedulerRequestMessage
+from nwmaas.access import RedisBackendSessionManager
 from websockets import WebSocketServerProtocol
 
 logging.basicConfig(

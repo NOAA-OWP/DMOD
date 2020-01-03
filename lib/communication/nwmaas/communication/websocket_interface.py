@@ -18,7 +18,7 @@ import signal
 import logging
 from .maas_request import get_request, MaaSRequest
 from .message import Message, MessageEventType, InvalidMessage
-from .session import Session, SessionInitMessage, RedisBackendSessionManager
+from .session import Session, SessionInitMessage
 from .validator import NWMRequestJsonValidator, SessionInitMessageJsonValidator
 from pathlib import Path
 from typing import Dict, Optional, Tuple

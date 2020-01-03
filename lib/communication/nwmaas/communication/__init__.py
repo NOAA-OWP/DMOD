@@ -6,7 +6,7 @@ from .message import AbstractInitRequest, MessageEventType, Message, Response, I
 from .request_handler import AbstractRequestHandler
 from .scheduler_request import SchedulerRequestMessage, SchedulerRequestResponse
 from .session import Session, FullAuthSession, SessionInitMessage, SessionInitResponse, FailedSessionInitInfo, \
-    SessionInitFailureReason, SessionManager, RedisBackendSessionManager
+    SessionInitFailureReason, SessionManager
 from .validator import SessionInitMessageJsonValidator, NWMRequestJsonValidator, MessageJsonValidator
 from .websocket_interface import EchoHandler, NoOpHandler, WebSocketInterface, WebSocketSessionsInterface
 
