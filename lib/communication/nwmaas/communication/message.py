@@ -33,14 +33,26 @@ class Message(Serializable, ABC):
         return cls.event_type
 
 
+class AbstractInitRequest(Message, ABC):
+    """
+    Abstract type representing a :class:`Message` that is an initiating message in some conversation, used when some
+    kind of response is expected back.
+
+    Typically, implementations of this type will be for modeling requests for something from a listening service: e.g.,
+    for information or for some action to be performed.  This is not absolutely necessary, though; what matters is the
+    serial send-reply nature of the particular interaction involved, and that instances of this type start such
+    interactions.
+    """
+
+
 class Response(Message, ABC):
     """
-    Class representing in particular the type for a response to some other :class:`Message` sub-type.
+    Class representing in particular the type for a response to some :class:`AbstractInitRequest` sub-type.
 
     Parameters
     ----------
     success : bool
-        Was the purpose encapsulated by the corresponding Message fulfilled; e.g., to perform a task or transfer info
+        Was the purpose encapsulated by the corresponding message fulfilled; e.g., to perform a task or transfer info
     reason : str
         A summary of what the response conveys; e.g., request action trigger or disallowed
     message : str
@@ -51,7 +63,7 @@ class Response(Message, ABC):
     Attributes
     ----------
     success : bool
-        Was the purpose encapsulated by the corresponding Message fulfilled; e.g., to perform a task or transfer info
+        Was the purpose encapsulated by the corresponding message fulfilled; e.g., to perform a task or transfer info
     reason : str
         A summary of what the response conveys; e.g., request action trigger or disallowed
     message : str
@@ -61,8 +73,8 @@ class Response(Message, ABC):
 
     """
 
-    response_to_type = Message
-    """ The type of :class:`Message` for which this type is the response"""
+    response_to_type = AbstractInitRequest
+    """ The type of :class:`AbstractInitRequest` for which this type is the response"""
 
     @classmethod
     def _factory_init_data_attribute(cls, json_obj: dict):
@@ -137,9 +149,9 @@ class Response(Message, ABC):
         return cls.get_response_to_type().event_type
 
     @classmethod
-    def get_response_to_type(cls) -> Type[Message]:
+    def get_response_to_type(cls) -> Type[AbstractInitRequest]:
         """
-        Get the specific :class:`Message` sub-type for which this type models the response.
+        Get the specific :class:`AbstractInitRequest` sub-type for which this type models the response.
 
         Returns
         -------
@@ -164,14 +176,14 @@ class Response(Message, ABC):
         return {'success': self.success, 'reason': self.reason, 'message': self.message, 'data': data_dict_value}
 
 
-class InvalidMessage(Message):
+class InvalidMessage(AbstractInitRequest):
     """
     An implementation of :class:`Message` to model deserialized request messages that are not some other valid message
     type.
     """
 
     event_type: MessageEventType = MessageEventType.INVALID
-    """ :class:`Message`: the type of Message for which this type is the response"""
+    """ :class:`MessageEventType`: the type of ``MessageEventType`` for which this message is applicable. """
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
@@ -202,7 +214,7 @@ class InvalidMessage(Message):
 class InvalidMessageResponse(Response):
 
     response_to_type = InvalidMessage
-    """ The type of :class:`Message` for which this type is the response"""
+    """ The type of :class:`AbstractInitRequest` for which this type is the response"""
 
     def __init__(self, data=None):
         super().__init__(success=False,
