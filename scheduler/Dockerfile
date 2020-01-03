@@ -29,7 +29,7 @@ RUN apk update \
     && alias python=python3 \
     && pip3 install --no-cache-dir --upgrade pip \
     # Install custom and generally available packages, starting with any custom from external source image \
-    && pip3 install --no-cache-dir --find-links=/DIST/comms ${comms_package_name} \
+    && pip3 install --no-cache-dir --find-links=/DIST/internal_deps ${comms_package_name} \
     && pip3 install --no-cache-dir --find-links=/DIST/scheduler ${scheduler_package_dist_name} \
     # After eventually installing all custom packages like this, clean up ... \
     && rm -r /DIST \
