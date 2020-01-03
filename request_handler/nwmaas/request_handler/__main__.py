@@ -1,6 +1,6 @@
 import argparse
 from . import name as package_name
-from . import RequestHandler
+from . import RequestsService
 from pathlib import Path
 from socket import gethostname
 
@@ -69,14 +69,14 @@ def main():
         exit(1)
 
     # Init request handler
-    handler = RequestHandler(listen_host=args.host,
-                             port=args.port,
-                             ssl_dir=Path(args.ssl_dir),
-                             cert_pem=args.cert_path,
-                             priv_key_pem=args.key_path,
-                             scheduler_host=args.scheduler_host,
-                             scheduler_port=args.scheduler_port,
-                             scheduler_ssl_dir=Path(args.scheduler_ssl_dir))
+    handler = RequestsService(listen_host=args.host,
+                              port=args.port,
+                              ssl_dir=Path(args.ssl_dir),
+                              cert_pem=args.cert_path,
+                              priv_key_pem=args.key_path,
+                              scheduler_host=args.scheduler_host,
+                              scheduler_port=args.scheduler_port,
+                              scheduler_ssl_dir=Path(args.scheduler_ssl_dir))
     handler.run()
 
 
