@@ -21,6 +21,8 @@ services:
       dockerfile: py_source.Dockerfile
       args:
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
+        access_package_name: ${PYTHON_PACKAGE_DIST_NAME_ACCESS:?}
+        externalrequests_package_name: ${PYTHON_PACKAGE_DIST_NAME_EXTERNAL_REQUESTS:?}
         request_handler_package_name: ${PYTHON_PACKAGE_DIST_NAME_REQUEST_HANDLER:?}
         scheduler_package_dist_name: ${PYTHON_PACKAGE_DIST_NAME_SCHEDULER:?}
   scheduler:
