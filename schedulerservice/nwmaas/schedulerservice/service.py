@@ -8,7 +8,7 @@
 
 from websockets import WebSocketServerProtocol
 from nwmaas.communication import WebSocketInterface, SchedulerRequestMessage, SchedulerRequestResponse
-from .scheduler import Scheduler
+from nwmaas.scheduler import Scheduler
 from pathlib import Path
 import json
 import logging
