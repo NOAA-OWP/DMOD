@@ -1,8 +1,8 @@
 version: "3.7"
 
 services:
-  scheduler:
-    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT}/scheduler
+  scheduler-service:
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT}/scheduler-service
     networks:
       - mpi-net
       - requests-net
@@ -20,7 +20,7 @@ services:
           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
     environment:
       - LISTEN_PORT=${DOCKER_SCHEDULER_CONTAINER_PORT:-3013}
-      - PACKAGE_NAME=${PYTHON_PACKAGE_NAME_SCHEDULER:?}
+      - SERVICE_PACKAGE_NAME=${PYTHON_PACKAGE_NAME_SCHEDULER_SERVICE:?}
       - SERVICE_SSL_DIR=${DOCKER_SCHEDULER_CONTAINER_SERVICE_SSL_DIR:-/ssl/scheduler}
   myredis:
     image: redis
@@ -31,8 +31,9 @@ services:
         aliases:
           - ${DOCKER_REDIS_SERVICE_ALIAS:-redis}
     entrypoint: ['redis-server', '/usr/local/etc/redis/redis.conf', '--requirepass', "${DOCKER_REDIS_PASS?}"]
+    # TODO: look at giving this its own service directory
     volumes:
-      - ./scheduler/conf/redis.conf:/usr/local/etc/redis/redis.conf
+      - ./schedulerservice/conf/redis.conf:/usr/local/etc/redis/redis.conf
     deploy:
       placement:
         constraints:
@@ -57,7 +58,7 @@ services:
       #- REDIS_USER=
       - REDIS_PASS=${DOCKER_REDIS_PASS?}
       - LISTEN_PORT=${DOCKER_REQUESTS_CONTAINER_PORT:-3012}
-      - PACKAGE_NAME=${PYTHON_PACKAGE_NAME_REQUEST_SERVICE:?}
+      - SERVICE_PACKAGE_NAME=${PYTHON_PACKAGE_NAME_REQUEST_SERVICE:?}
       - SERVICE_SSL_DIR=${DOCKER_REQUESTS_CONTAINER_SERVICE_SSL_DIR:-/ssl}
       - SCHEDULER_ENDPOINT_HOST=${DOCKER_REQUESTS_SCHEDULER_ENDPOINT_HOST:?}
       - SCHEDULER_ENDPOINT_PORT=${DOCKER_SCHEDULER_PORT:-3013}
