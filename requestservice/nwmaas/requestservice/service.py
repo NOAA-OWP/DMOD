@@ -32,7 +32,7 @@ class UnsupportedMessageTypeResponse(Response):
         self.listener_type = listener_type
 
 
-class RequestsService(WebSocketSessionsInterface):
+class RequestService(WebSocketSessionsInterface):
     """
     Requests listener service class to receive and process async requests via websockets.
 
