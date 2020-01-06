@@ -6,6 +6,7 @@ FROM ${docker_internal_registry}/nwmaas-py-sources as sources
 FROM python:3.7-alpine
 ARG comms_package_name
 ARG scheduler_package_dist_name
+ARG scheduler_service_package_dist_name
 
 WORKDIR /code
 
@@ -28,10 +29,9 @@ RUN apk update \
     && rm -rf /var/cache/apk/* \
     && alias python=python3 \
     && pip3 install --no-cache-dir --upgrade pip \
-    # Install custom and generally available packages, starting with any custom from external source image \
-    && pip3 install --no-cache-dir --find-links=/DIST/internal_deps ${comms_package_name} \
-    && pip3 install --no-cache-dir --find-links=/DIST/scheduler ${scheduler_package_dist_name} \
-    # After eventually installing all custom packages like this, clean up ... \
+    # Install service package, along with custom and generally available dependencies, which should all be in /DIST \
+    && pip3 install --no-cache-dir --find-links=/DIST ${scheduler_service_package_dist_name} \
+    # After installing everything needed from /DIST, clean up ... \
     && rm -r /DIST \
     && mkdir -p ~/.ssh \
     && printf "Host *\n        ServerAliveInterval 300\n        ServerAliveCountMax 2\n" >> ~/.ssh/config
