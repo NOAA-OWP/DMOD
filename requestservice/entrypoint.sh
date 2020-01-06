@@ -14,7 +14,7 @@ fi
 
 #set +e
 
-python -m ${PACKAGE_NAME:?} \
+python -m ${SERVICE_PACKAGE_NAME:?} \
     --port ${LISTEN_PORT:?} \
     --ssl-dir ${SERVICE_SSL_DIR:?} \
     --scheduler-host ${SCHEDULER_ENDPOINT_HOST:?} \
