@@ -7,7 +7,7 @@ FROM python:3.7-alpine
 ARG comms_package_name
 ARG access_package_name
 ARG externalrequests_package_name
-ARG request_handler_package_name
+ARG request_service_package_name
 # A base SSL directory, which may or may not contain subdirectories specifically for service- or client-side certs
 ARG container_base_ssl_directory=/ssl
 
@@ -24,7 +24,7 @@ COPY --from=sources /DIST /DIST
 RUN pip install --no-cache-dir --find-links=/DIST/internal_deps ${comms_package_name} \
     && pip install --no-cache-dir --find-links=/DIST/internal_deps ${access_package_name} \
     && pip install --no-cache-dir --find-links=/DIST/internal_deps ${externalrequests_package_name} \
-    && pip install --no-cache-dir --find-links=/DIST/request_handler ${request_handler_package_name} \
+    && pip install --no-cache-dir --find-links=/DIST/requestservice ${request_service_package_name} \
     # After eventually installing all custom packages like this, clean up ... \
     && rm -r /DIST \
     # Then also pull in any other dependencies via pip \

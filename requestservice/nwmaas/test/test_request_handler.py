@@ -4,7 +4,7 @@ import json
 import jsonschema
 from pathlib import Path
 from nwmaas.communication import MessageEventType
-from request_handler.request_handler import RequestHandler
+#from requestsservice.request_handler import RequestHandler
 from socket import gethostname
 import ssl
 import unittest

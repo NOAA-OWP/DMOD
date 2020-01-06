@@ -23,7 +23,7 @@ services:
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
         access_package_name: ${PYTHON_PACKAGE_DIST_NAME_ACCESS:?}
         externalrequests_package_name: ${PYTHON_PACKAGE_DIST_NAME_EXTERNAL_REQUESTS:?}
-        request_handler_package_name: ${PYTHON_PACKAGE_DIST_NAME_REQUEST_HANDLER:?}
+        request_service_package_name: ${PYTHON_PACKAGE_DIST_NAME_REQUEST_SERVICE:?}
         scheduler_package_dist_name: ${PYTHON_PACKAGE_DIST_NAME_SCHEDULER:?}
   scheduler:
     image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/scheduler
@@ -49,16 +49,16 @@ services:
     #depends_on:
     #    - deps
     #For building, this only gives shared memory to each build step!!! shm_size: 2GB
-  request_handler:
-    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-request-handler
+  request-service:
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-request-service
     build:
-      context: ./request_handler
+      context: requestservice
       args:
         docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY_HOST}:${DOCKER_INTERNAL_REGISTRY_PORT}
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
         access_package_name: ${PYTHON_PACKAGE_DIST_NAME_ACCESS:?}
         externalrequests_package_name: ${PYTHON_PACKAGE_DIST_NAME_EXTERNAL_REQUESTS:?}
-        request_handler_package_name: ${PYTHON_PACKAGE_DIST_NAME_REQUEST_HANDLER:?}
+        request_service_package_name: ${PYTHON_PACKAGE_DIST_NAME_REQUEST_SERVICE:?}
 networks:
   mpi-net:
     external: true

@@ -38,8 +38,8 @@ services:
         constraints:
           - ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT_1:--node.role==manager}
           - ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
-  request_handler:
-    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-request-handler
+  request-service:
+    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-request-service
     networks:
       #- mpi-net
       - requests-net
@@ -57,7 +57,7 @@ services:
       #- REDIS_USER=
       - REDIS_PASS=${DOCKER_REDIS_PASS?}
       - LISTEN_PORT=${DOCKER_REQUESTS_CONTAINER_PORT:-3012}
-      - PACKAGE_NAME=${PYTHON_PACKAGE_NAME_REQUEST_HANDLER:?}
+      - PACKAGE_NAME=${PYTHON_PACKAGE_NAME_REQUEST_SERVICE:?}
       - SERVICE_SSL_DIR=${DOCKER_REQUESTS_CONTAINER_SERVICE_SSL_DIR:-/ssl}
       - SCHEDULER_ENDPOINT_HOST=${DOCKER_REQUESTS_SCHEDULER_ENDPOINT_HOST:?}
       - SCHEDULER_ENDPOINT_PORT=${DOCKER_SCHEDULER_PORT:-3013}

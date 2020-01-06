@@ -3,10 +3,10 @@ from setuptools import setup, find_namespace_packages
 with open('README.md', 'r') as readme:
     long_description = readme.read()
 
-exec(open('nwmaas/request_handler/_version.py').read())
+exec(open('nwmaas/requestservice/_version.py').read())
 
 setup(
-    name='nwmaas-request-handler',
+    name='nwmaas-requestservice',
     version=__version__,
     description='',
     long_description=long_description,
