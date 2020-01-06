@@ -1,2 +1,2 @@
 
-name = 'scheduler'
+name = 'schedulerservice'
