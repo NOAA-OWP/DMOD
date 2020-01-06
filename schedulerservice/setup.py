@@ -3,10 +3,10 @@ from setuptools import setup, find_namespace_packages
 with open('README.md', 'r') as readme:
     long_description = readme.read()
 
-exec(open('nwmaas/scheduler/_version.py').read())
+exec(open('nwmaas/schedulerservice/_version.py').read())
 
 setup(
-    name='nwmaas-scheduler',
+    name='nwmaas-schedulerservice',
     version=__version__,
     description='',
     long_description=long_description,
