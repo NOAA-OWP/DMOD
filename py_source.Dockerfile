@@ -24,19 +24,19 @@ RUN ./scripts/dist_package.sh --sys lib/communication && mv lib/communication/di
     && pip install --no-cache-dir --find-links=/DIST ${externalrequests_package_name}
 
 ##### Create intermediate Docker build stage for building nwmaas-request-handler wheel distribution for pip
-FROM internal_deps as build_request_handler
-ARG request_handler_package_name
+FROM internal_deps as build_request_service
+ARG request_service_package_name
 # Set this in the environment, as it's required by the ./build.sh script, but probably won't get sourced from an .env
-ENV PYTHON_PACKAGE_DIST_NAME_REQUEST_HANDLER=${request_handler_package_name}
+ENV PYTHON_PACKAGE_DIST_NAME_REQUEST_SERVICE=${request_service_package_name}
 # Copy source
-COPY ./request_handler /nwm_service/request_handler
+COPY ./requestservice /nwm_service/requestservice
 # Move to source dir
-WORKDIR ./request_handler
+WORKDIR ./requestservice
 # Create easy-to-find dist dir at root, install build dependencies, run build helper script, and move wheel file to easy-to-find location
-RUN mkdir /request_handler_dist \
+RUN mkdir /requestservice_dist \
     # Remember, from previous intermediate Docker build stage, nwmaas-communication will already be installed \
     && ./build.sh --sys build \
-    && mv ./dist/*.whl /request_handler_dist/.
+    && mv ./dist/*.whl /requestservice_dist/.
 
 ##### Create intermediate Docker build stage for building nwmaas-scheduler wheel distribution for pip
 FROM internal_deps as build_scheduler
@@ -56,8 +56,8 @@ RUN mkdir /scheduler_dist \
 #### Create final Docker build stage for desired image
 FROM python:3.8-alpine
 # Copy complete python source packages to location
-COPY ./lib ./gui ./request_handler ./scheduler /nwm_service/
+COPY ./lib ./gui ./requestservice ./scheduler /nwm_service/
 # And for every build dist/wheel package copy wheel file into analogous location for this stage
 COPY --from=internal_deps /DIST /DIST/internal_deps
-COPY --from=build_request_handler /request_handler_dist /DIST/request_handler
+COPY --from=build_request_service /requestservice_dist /DIST/requestservice
 COPY --from=build_scheduler /scheduler_dist /DIST/scheduler

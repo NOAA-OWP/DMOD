@@ -1,6 +1,6 @@
 SSL considerations in dockerfiles and unbuffered stdout from python:
     +RUN export PYTHONUNBUFFERED=1
-    +CMD python -u -m request_handler --port ${DOCKER_REQUESTS_CONTAINER_PORT:-3012} --ssl-dir=./ssl ${@}
+    +CMD python -u -m requestservice --port ${DOCKER_REQUESTS_CONTAINER_PORT:-3012} --ssl-dir=./ssl ${@}
 
     THIS COULD APPLY IN THE DOCKERFILE AND/OR THE entrypoint SCRIPTS!
 

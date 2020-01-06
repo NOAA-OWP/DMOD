@@ -14,12 +14,12 @@ communication/nwmaas/test/ssl/*certificate*.pem
 communication/nwmaas/test/ssl/*privkey*.pem
 
 request_client/ssl/certificate.pem
-request_handler/ssl/
+requestservice/ssl/
 request_handler/*.tar.gz
-request_handler/macbook_ssl/
-request_handler/ssl/request_handler/certificate.pem
-request_handler/ssl/*certificate*.pem
-request_handler/ssl/*privkey*.pem
+requestservice/macbook_ssl/
+requestservice/ssl/requestservice/certificate.pem
+requestservice/ssl/*certificate*.pem
+requestservice/ssl/*privkey*.pem
 scheduler/scheduler.log
 
 base/Dockerfile.bkup
