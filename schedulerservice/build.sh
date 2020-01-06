@@ -19,7 +19,7 @@ VENV_WAS_ACTIVATED=1
 STARTING_DIR="$(pwd)"
 
 # Name of dist/pip package when installing, which should be available from sourced .env
-PACKAGE_DIST_NAME="${PYTHON_PACKAGE_DIST_NAME_SCHEDULER:?}"
+PACKAGE_DIST_NAME="${PYTHON_PACKAGE_DIST_NAME_SCHEDULER_SERVICE:?}"
 
 # Name for package when running unit tests
 UNIT_TESTED_PACKAGE_NAME="$(basename ${SCRIPT_PARENT_DIR}).nwmaas.test"
