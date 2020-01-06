@@ -3,10 +3,9 @@ import inspect
 import queue
 from nwmaas.communication import SchedulerRequestMessage
 
-from ..scheduler.scheduler import Scheduler
-from ..scheduler.scheduler import check_for_incoming_req
-from ..scheduler.utils import keynamehelper as keynamehelper
-from ..scheduler.utils import parsing_nested as pn
+from nwmaas.scheduler import Scheduler
+from nwmaas.scheduler.utils import keynamehelper as keynamehelper
+from nwmaas.scheduler.utils import parsing_nested as pn
 
 redis = None
 keynamehelper.set_prefix("stack0")
@@ -49,7 +48,7 @@ class TestScheduler(unittest.TestCase):
         # self.scheduler.clean_redisKeys()
  
     def test_1(self):
-        returnValue = check_for_incoming_req()
+        returnValue = self.scheduler.check_for_incoming_req()
         self.assertEqual(returnValue, 1)
 
     @unittest.skip("skipping test_2_create_resources: method used in setUp()")
