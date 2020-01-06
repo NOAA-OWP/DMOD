@@ -21,14 +21,9 @@ COPY ssl/ ${container_base_ssl_directory}/
 COPY --from=sources /DIST /DIST
 
 # Install custom and generally available packages, starting with any custom from external source image
-RUN pip install --no-cache-dir --find-links=/DIST/internal_deps ${comms_package_name} \
-    && pip install --no-cache-dir --find-links=/DIST/internal_deps ${access_package_name} \
-    && pip install --no-cache-dir --find-links=/DIST/internal_deps ${externalrequests_package_name} \
-    && pip install --no-cache-dir --find-links=/DIST/requestservice ${request_service_package_name} \
+RUN pip install --no-index --find-links=/DIST ${request_service_package_name} \
     # After eventually installing all custom packages like this, clean up ... \
-    && rm -r /DIST \
-    # Then also pull in any other dependencies via pip \
-    && pip install --no-cache-dir --requirement requirements.txt
+    && rm -r /DIST
 
 EXPOSE ${DOCKER_REQUESTS_CONTAINER_PORT:-3012}
 
