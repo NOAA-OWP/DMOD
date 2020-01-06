@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 from . import name as package_name
-from .scheduler import Scheduler
+from nwmaas.scheduler import Scheduler
 from .service import SchedulerHandler
 
 
