@@ -91,4 +91,7 @@ trap cleanup_before_exit 0 1 2 3 6 15
 
 UNIT_TESTED_PACKAGE_NAME="$(basename "${PACKAGE_DIR}").${PACKAGE_NAMESPACE_ROOT:?}.test"
 
+# Change to the parent directory of the package to test so ensure paths align when running Python unittest
+cd $(dirname "${PACKAGE_DIR}")
+
 python -m unittest discover -s ${UNIT_TESTED_PACKAGE_NAME} ${SET_VERBOSE:-}
