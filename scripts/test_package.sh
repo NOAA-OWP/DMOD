@@ -9,6 +9,8 @@ SCRIPT_PARENT_DIR="$(cd "$(dirname "${0}")"; pwd)"
 # Import shared functions used for python-dev-related scripts
 . ${SCRIPT_PARENT_DIR}/shared/py_dev_func.sh
 
+DEFAULT_TEST_DIR_BASENAME='test'
+
 usage()
 {
     local _O="${NAME:?}:
@@ -19,6 +21,11 @@ Usage:
     ${NAME:?} [opts] <directory>
 
 Options:
+    --test-dir-basename | -n <name>
+        Set the expected basename of the subdirectory in a
+        (namespace) package directory where test files are
+        expected (default: '${DEFAULT_TEST_DIR_BASENAME}')
+
     --venv <dir>
         Set the directory of the virtual environment to use.
         By default, the following directories will be checked,
@@ -58,6 +65,11 @@ while [ ${#} -gt 0 ]; do
             usage
             exit
             ;;
+        -n|--test-dir-basename)
+            [ -n "${TEST_DIR_BASENAME:-}" ] && usage && exit 1
+            TEST_DIR_BASENAME="${2}"
+            shift
+            ;;
         --venv)
             [ -n "${VENV_DIR:-}" ] && usage && exit 1
             VENV_DIR="$(py_dev_validate_venv_dir "${2}")"
@@ -90,7 +102,7 @@ py_dev_activate_venv
 trap cleanup_before_exit 0 1 2 3 6 15
 
 # Sanity check that the package's test directory exists; otherwise, they'll be no tests to run
-PACKAGE_TEST_DIRECTORY="${PACKAGE_DIR}/${PACKAGE_NAMESPACE_ROOT:?}/test"
+PACKAGE_TEST_DIRECTORY="${PACKAGE_DIR}/${PACKAGE_NAMESPACE_ROOT:?}/${TEST_DIR_BASENAME:-${DEFAULT_TEST_DIR_BASENAME:?}}"
 if [ ! -d "${PACKAGE_TEST_DIRECTORY}" ]; then
     echo "Error: expected test directory ${PACKAGE_TEST_DIRECTORY} not found"
     exit 1
