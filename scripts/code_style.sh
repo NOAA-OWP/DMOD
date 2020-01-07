@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 
-NAME=$(basename "${0}")
-SCRIPT_DIR="$( cd "$( dirname "${0}" )" >/dev/null 2>&1 && pwd )"
+INFO='Execute Python code style helper tasks on specified packages or modules'
+SCRIPT_PARENT_DIR="$( cd "$( dirname "${0}" )" >/dev/null 2>&1 && pwd )"
+
+# Import shared default script startup source
+. ${SCRIPT_PARENT_DIR}/shared/default_script_setup.sh
+
+# Import shared functions used for python-dev-related scripts
+. ${SCRIPT_PARENT_DIR}/shared/py_dev_func.sh
 
 LINTER_CMD='flake8'
 AUTOPEP_CMD='autopep8'
@@ -9,22 +15,34 @@ DEFAULT_MAX_LINE_LENGTH=120
 
 usage()
 {
-    local _O="Usage:
-    ${NAME} -h|--help
-    ${NAME} [options...] <action>
-Options:
-    --venv
-        Specify a virtual environment should be loaded for running actions
-        By default, venv/ in script's directory is used
+    local _O="${NAME:?}:
+${INFO:?}
 
-    --venv-path <dir>
-        Set the virtual environment directory (implies --venv)
+Usage:
+    ${NAME:?} -h|--help
+    ${NAME:?} [options...] <action>
+
+Options:
+    --venv <dir>
+        Set the directory of the virtual environment to use.
+        By default, the following directories will be checked,
+        with the first apparently valid virtual env being used:
+        - ./venv/
+        - ./.venv/
+        - ${SCRIPT_PARENT_DIR:-?}/venv/
+        - ${SCRIPT_PARENT_DIR:-?}/.venv/
+
+    --sys|--no-venv
+        Set that the base system Python environment is to be
+        used instead of a virtual environment.
+        Note: conflicts with --venv option.
 
     --path <path>
         Path to file or directory of interest for action
 
     --diff
-        For 'fix' action, show a diff rather than actually making changes
+        For 'fix' action, show a diff rather than actually making
+        changes
 
     --extra-aggressive | -aa
         For 'fix' action, be extra aggressive in changes
@@ -58,6 +76,24 @@ run_autofix()
         "${CHECK_PATH:-.}"
 }
 
+# Make sure we end up in the same starting directory, and deactivate venv if it was activated
+cleanup_before_exit()
+{
+    # Make sure we don't accidentally run this more than once
+    CLEANUP_DONE=$((${CLEANUP_DONE:=0}+1))
+    if [ ${CLEANUP_DONE} -gt 1 ]; then
+        >&2 echo "Warning: cleanup function being run for ${CLEANUP_DONE} time"
+    fi
+    # Go back to shell starting dir
+    cd "${STARTING_DIR:?}"
+
+    # If the flag is set that a virtual environment was activated, then deactivate it
+    if [ ${VENV_WAS_ACTIVATED:-1} -eq 0 ]; then
+        >&2 echo "Deactiving active virtual env at ${VIRTUAL_ENV}"
+        deactivate
+    fi
+}
+
 # Options args loop
 while [[ ${#} -gt 0 ]]; do
     case "${1}" in
@@ -75,16 +111,17 @@ while [[ ${#} -gt 0 ]]; do
             [[ ! -e "${CHECK_PATH}" ]] && echo "Error: check path ${CHECK_PATH} does not exist" && usage && exit 1
             shift
             ;;
-        --venv-path)
-            [[ -n "${VENV_PATH:-}" ]] && usage && exit 1
-            VENV_PATH="${2}"
-            USE_VENV='true'
-            [[ ! -d "${VENV_PATH}" ]] && echo "Error: virtual environment directory ${VENV_PATH} does not exist" && usage && exit 1
+         --venv)
+            [ -n "${VENV_DIR:-}" ] && usage && exit 1
+            [ -n "${USE_SYS_PYTHON:-}" ] && usage && exit 1
+            VENV_DIR="$(py_dev_validate_venv_dir "${2}")"
+            [ -z "${VENV_DIR:-}" ] && echo "Error: provided arg ${2} is not a valid virtual env directory" && exit 1
             shift
             ;;
-        --venv)
-            # Allow this multiple times, since it gets implied by --venv-path
-            USE_VENV='true'
+        --sys|--no-venv)
+            [ -n "${USE_SYS_PYTHON:-}" ] && usage && exit 1
+            [ -n "${VENV_DIR:-}" ] && usage && exit 1
+            USE_SYS_PYTHON='true'
             ;;
         --max-line-length)
             [[ -n "${MAX_LINE_LENGTH:-}" ]] && usage && exit 1
@@ -115,25 +152,20 @@ while [[ ${#} -gt 0 ]]; do
     shift
 done
 
-# Before handling actions, load any set virtual environments
-if [[ "${USE_VENV:-}" == "true" ]]; then
-    if [[ ! -d "${VENV_PATH:=${SCRIPT_DIR}/venv}" ]]; then
-        echo "Error: virtual environment directory ${VENV_PATH} does not exist"
-        usage
-        exit 1
-    elif [[ ! -e "${VENV_PATH}/bin/activate" ]]; then
-        echo "Error: ${VENV_PATH} does not appear to be a valid virtual environment directory"
-        usage
-        exit 1
-    # If already in a virtual env, only continue if it's the same that has been set
-    elif [[ -n "${VIRTUAL_ENV:-}" ]] && [[ ! "${VIRTUAL_ENV}" -ef "${VENV_PATH}" ]]; then
-        echo "Error: already in separate virtual environment ${VIRTUAL_ENV}; deactivate this before running script"
-        exit 1
-    elif [[ -z "${VIRTUAL_ENV:-}" ]]; then
-        echo "Sourcing ${VENV_PATH}/bin/activate"
-        source "${VENV_PATH}/bin/activate"
-    fi
+# Unless --sys or --no-venv was set, make sure we have a valid VENV_DIR value, attempting to set a default if needed.
+if [ -z "${USE_SYS_PYTHON:-}" ]; then
+    # Look for a default venv to use if needed
+    py_dev_detect_default_venv_directory
+
+    # Bail here if a valid venv is not set
+    [ -z "${VENV_DIR:-}" ] && echo "Error: no valid virtual env directory could be determined or was given" && exit 1
 fi
+
+# Take appropriate action to activate the virtual environment if needed
+py_dev_activate_venv
+
+# Trap to make sure we "clean up" script activity before exiting
+trap cleanup_before_exit 0 1 2 3 6 15
 
 # Action args loop
 while [[ ${#} -gt 0 ]]; do
