@@ -11,6 +11,7 @@ SCRIPT_PARENT_DIR="$(cd "$(dirname "${0}")"; pwd)"
 
 DEFAULT_TEST_DIR_BASENAME='test'
 DEFAULT_UNIT_TEST_FILE_PATTERN="test_*.py"
+DEFAULT_INTEGRATION_TEST_FILE_PATTERN="it_*.py"
 
 usage()
 {
@@ -71,9 +72,13 @@ while [ ${#} -gt 0 ]; do
             usage
             exit
             ;;
+        --all|-a)
+            [ -n "${TEST_FILE_PATTERN:-}" ] && usage && exit 1
+            TEST_FILE_PATTERN='both'
+            ;;
         --integration|-it)
             [ -n "${TEST_FILE_PATTERN:-}" ] && usage && exit 1
-            TEST_FILE_PATTERN="it_*.py"
+            TEST_FILE_PATTERN="${DEFAULT_INTEGRATION_TEST_FILE_PATTERN}"
             ;;
         -n|--test-dir-basename)
             [ -n "${TEST_DIR_BASENAME:-}" ] && usage && exit 1
@@ -122,7 +127,11 @@ fi
 
 echo "==========================================================================="
 
-TEST_FILES="$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${TEST_FILE_PATTERN}")"
+if [ "${TEST_FILE_PATTERN}" == "both" ]; then
+    TEST_FILES="$(find "${PACKAGE_TEST_DIRECTORY}" -type f \( -name "${DEFAULT_UNIT_TEST_FILE_PATTERN}" -o -name "${DEFAULT_INTEGRATION_TEST_FILE_PATTERN}" \) )"
+else
+    TEST_FILES="$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${TEST_FILE_PATTERN}")"
+fi
 python -m unittest ${TEST_FILES} ${SET_VERBOSE:-}
 
 echo "==========================================================================="
