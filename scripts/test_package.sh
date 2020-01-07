@@ -10,6 +10,7 @@ SCRIPT_PARENT_DIR="$(cd "$(dirname "${0}")"; pwd)"
 . ${SCRIPT_PARENT_DIR}/shared/py_dev_func.sh
 
 DEFAULT_TEST_DIR_BASENAME='test'
+DEFAULT_UNIT_TEST_FILE_PATTERN="test_*.py"
 
 usage()
 {
@@ -25,6 +26,11 @@ Options:
         Set the expected basename of the subdirectory in a
         (namespace) package directory where test files are
         expected (default: '${DEFAULT_TEST_DIR_BASENAME}')
+
+    --integration | -it
+        Execute 'integration'-type unit tests (identified as
+        being in files named 'it_*.py') instead of more typical
+        unit tests (identified as being in files name test_*.py)
 
     --venv <dir>
         Set the directory of the virtual environment to use.
@@ -65,6 +71,10 @@ while [ ${#} -gt 0 ]; do
             usage
             exit
             ;;
+        --integration|-it)
+            [ -n "${TEST_FILE_PATTERN:-}" ] && usage && exit 1
+            TEST_FILE_PATTERN="it_*.py"
+            ;;
         -n|--test-dir-basename)
             [ -n "${TEST_DIR_BASENAME:-}" ] && usage && exit 1
             TEST_DIR_BASENAME="${2}"
@@ -89,6 +99,8 @@ while [ ${#} -gt 0 ]; do
     shift
 done
 
+[ -z "${TEST_FILE_PATTERN}" ] && TEST_FILE_PATTERN="${DEFAULT_UNIT_TEST_FILE_PATTERN}"
+
 # Look for a default venv to use if needed
 py_dev_detect_default_venv_directory
 
@@ -110,11 +122,7 @@ fi
 
 echo "==========================================================================="
 
-if [ $(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "test_*.py" | wc -l) -lt 1 ]; then
-    echo "No test Python test files found in ${PACKAGE_TEST_DIRECTORY}"
-else
-    TEST_FILES="$(ls "${PACKAGE_TEST_DIRECTORY}"/test_*.py)"
-    python -m unittest ${TEST_FILES} ${SET_VERBOSE:-}
-fi
+TEST_FILES="$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${TEST_FILE_PATTERN}")"
+python -m unittest ${TEST_FILES} ${SET_VERBOSE:-}
 
 echo "==========================================================================="
