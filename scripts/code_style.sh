@@ -49,6 +49,12 @@ Options:
 
     --max-line-length <number>
         Set the max line length (default for this script is ${DEFAULT_MAX_LINE_LENGTH})
+
+    --output | -o <file>
+        Log STDOUT output resulting from the given action to a
+        file at the supplied path, if there is not already some
+        file at this path
+
 Actions:
     fix     Make automatic style corrections
     check   Execute the linter (currently ${LINTER_CMD})
@@ -144,6 +150,16 @@ while [[ ${#} -gt 0 ]]; do
             fi
             AGGRESSIVENESS="-aa"
             ;;
+        --output|-o)
+            [ -n "${ACTION_OUTPUT_FILE:-}" ] && usage && exit 1
+            ACTION_OUTPUT_FILE="${2}"
+            shift
+            if [ -e "${ACTION_OUTPUT_FILE}" ]; then
+                >&2 echo "Error: file already exists at supplied path for action output '${ACTION_OUTPUT_FILE}'"
+                >&2 echo "Either remove the existing file or specify a different path"
+                exit 1
+            fi
+            ;;
         *)
             # Break out of options loop to proceed to actions loop
             break
@@ -201,7 +217,14 @@ done
 
 [[ -z "${ACTION:-}" ]] && usage && exit
 
-${ACTION}
-
-# Deactivate virtual environment if one was loaded
-[[ -n "${USE_VENV:-}" ]] && deactivate
+if [ -n "${ACTION_OUTPUT_FILE:-}" ]; then
+    ${ACTION} >> "${ACTION_OUTPUT_FILE}"
+    echo ""
+    echo "Action output logged to ${ACTION_OUTPUT_FILE}"
+    echo ""
+else
+    echo ""
+    echo "-------------------------------------------------------------"
+    echo ""
+    ${ACTION}
+fi
