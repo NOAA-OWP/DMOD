@@ -89,9 +89,20 @@ py_dev_activate_venv
 # Trap to make sure we "clean up" script activity before exiting
 trap cleanup_before_exit 0 1 2 3 6 15
 
-UNIT_TESTED_PACKAGE_NAME="$(basename "${PACKAGE_DIR}").${PACKAGE_NAMESPACE_ROOT:?}.test"
+# Sanity check that the package's test directory exists; otherwise, they'll be no tests to run
+PACKAGE_TEST_DIRECTORY="${PACKAGE_DIR}/${PACKAGE_NAMESPACE_ROOT:?}/test"
+if [ ! -d "${PACKAGE_TEST_DIRECTORY}" ]; then
+    echo "Error: expected test directory ${PACKAGE_TEST_DIRECTORY} not found"
+    exit 1
+fi
 
-# Change to the parent directory of the package to test so ensure paths align when running Python unittest
-cd $(dirname "${PACKAGE_DIR}")
+echo "==========================================================================="
 
-python -m unittest discover -s ${UNIT_TESTED_PACKAGE_NAME} ${SET_VERBOSE:-}
+if [ $(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "test_*.py" | wc -l) -lt 1 ]; then
+    echo "No test Python test files found in ${PACKAGE_TEST_DIRECTORY}"
+else
+    TEST_FILES="$(ls "${PACKAGE_TEST_DIRECTORY}"/test_*.py)"
+    python -m unittest ${TEST_FILES} ${SET_VERBOSE:-}
+fi
+
+echo "==========================================================================="
