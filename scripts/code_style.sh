@@ -20,7 +20,7 @@ ${INFO:?}
 
 Usage:
     ${NAME:?} -h|--help
-    ${NAME:?} [options...] <action>
+    ${NAME:?} [options...] <action> <path> [paths...]
 
 Options:
     --venv <dir>
@@ -36,9 +36,6 @@ Options:
         Set that the base system Python environment is to be
         used instead of a virtual environment.
         Note: conflicts with --venv option.
-
-    --path <path>
-        Path to file or directory of interest for action
 
     --diff
         For 'fix' action, show a diff rather than actually making
@@ -68,7 +65,7 @@ run_linter()
     ${LINTER_CMD} \
         --max-line-length=${MAX_LINE_LENGTH:-${DEFAULT_MAX_LINE_LENGTH}} \
         --count \
-        "${CHECK_PATH:-}"
+        "${1:-}"
 }
 
 run_autofix()
@@ -79,7 +76,7 @@ run_autofix()
         ${AGGRESSIVENESS--a} \
         --max-line-length ${MAX_LINE_LENGTH:-${DEFAULT_MAX_LINE_LENGTH}} \
         "${LIST_FIXES:-}" \
-        "${CHECK_PATH:-.}"
+        "${1:-.}"
 }
 
 # Make sure we end up in the same starting directory, and deactivate venv if it was activated
@@ -183,8 +180,8 @@ py_dev_activate_venv
 # Trap to make sure we "clean up" script activity before exiting
 trap cleanup_before_exit 0 1 2 3 6 15
 
-# Action args loop
-while [[ ${#} -gt 0 ]]; do
+# Process action arg
+if [[ ${#} -gt 0 ]]; then
     case "${1}" in
         fix|autopep8)
             ! command -v  ${AUTOPEP_CMD} > /dev/null && echo "Error: cannot find command ${AUTOPEP_CMD} in environment path" && exit 1
@@ -213,18 +210,59 @@ while [[ ${#} -gt 0 ]]; do
             exit 1
     esac
     shift
-done
-
+fi
 [[ -z "${ACTION:-}" ]] && usage && exit
 
+# Loop for path args to process via action
+declare -a PATHS
+while [[ ${#} -gt 0 ]]; do
+    # Make sure we don't repeat any paths (or at least don't process them twice)
+    for p in "${PATHS[@]}"; do
+        if [ "${p}" == "${1}" ]; then
+           continue 2 # continues the loop a 2nd level up (the while)
+        fi
+    done
+
+    # Also, make sure added paths exist
+    if [ -e "${1}" ]; then
+        PATHS[${#PATHS[@]}]="${1}"
+    else
+        >&2 echo "Error: supplied path for action '${1}' does not exist; exiting"
+        exit 1
+    fi
+    shift
+done
+
+# Formatting for when action is outputted to STDOUT
+if [ -z "${ACTION_OUTPUT_FILE:-}" ]; then
+    echo ""
+    echo "-------------------------------------------------------------"
+    echo ""
+fi
+
+# If no paths, implies just current path, so:
+if [[ ${#PATHS[@]} -lt 1 ]]; then
+    if [ -n "${ACTION_OUTPUT_FILE:-}" ]; then
+        ${ACTION} >> "${ACTION_OUTPUT_FILE}"
+    else
+        ${ACTION}
+    fi
+else
+    for p in "${PATHS[@]}"; do
+        if [ -n "${ACTION_OUTPUT_FILE:-}" ]; then
+            ${ACTION} ${p} >> "${ACTION_OUTPUT_FILE}"
+            echo "" >> "${ACTION_OUTPUT_FILE}"
+        else
+            ${ACTION} ${p}
+            echo ""
+        fi
+    done
+fi
+
+# Info message to STDOUT when action output is logged to file
 if [ -n "${ACTION_OUTPUT_FILE:-}" ]; then
     ${ACTION} >> "${ACTION_OUTPUT_FILE}"
     echo ""
     echo "Action output logged to ${ACTION_OUTPUT_FILE}"
     echo ""
-else
-    echo ""
-    echo "-------------------------------------------------------------"
-    echo ""
-    ${ACTION}
 fi
