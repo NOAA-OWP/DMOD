@@ -26,16 +26,26 @@ class InnerSessionAuthUtil:
     """
 
     _DUMMY_AUTH_UTIL = DummyAuthUtil()
+    # FIXME: replace with real implementations of these interfaces
+    _DEFAULT_AUTHENTICATOR = _DUMMY_AUTH_UTIL
+    _DEFAULT_AUTHORIZER = _DUMMY_AUTH_UTIL
 
-    def __init__(self, session_init_message: SessionInitMessage, session_ip_addr: str, session_manager: SessionManager):
+    def __init__(self, session_init_message: SessionInitMessage, session_ip_addr: str, session_manager: SessionManager,
+                 authenticator: Authenticator = None, authorizer: Authorizer = None):
         self.username = session_init_message.username
         self.user_secret = session_init_message.user_secret
         self.session_ip_addr = session_ip_addr
         self.session_manager = session_manager
 
-        # FIXME: replace with real implementations of these interfaces
-        self._authenticator: Authenticator = self._DUMMY_AUTH_UTIL
-        self._authorizer: Authorizer = self._DUMMY_AUTH_UTIL
+        self._authenticator: Authenticator = authenticator
+        self._authorizer: Authorizer = authorizer
+
+        # Initialize with defaults if needed
+        if self._authenticator is None:
+            self._authenticator: Authenticator = self._DEFAULT_AUTHENTICATOR
+
+        if self._authorizer is None:
+            self._authorizer: Authorizer = self._DEFAULT_AUTHORIZER
 
         self._session = None
         self._newly_created = False
