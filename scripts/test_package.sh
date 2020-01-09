@@ -62,6 +62,7 @@ cleanup_before_exit()
     # If the flag is set that a virtual environment was activated, then deactivate it
     if [ ${VENV_WAS_ACTIVATED:-1} -eq 0 ]; then
         >&2 echo "Deactiving active virtual env at ${VIRTUAL_ENV}"
+        >&2 echo ""
         deactivate
     fi
 }
