@@ -291,7 +291,7 @@ class WebSocketSessionsInterface(WebSocketInterface, ABC):
         Optional[Session]
             The session from the sessions-to-websockets mapping having the given secret, or None
         """
-        return self.session_manager.lookup_session(secret=secret)
+        return self.session_manager.lookup_session_by_secret(session_secret=secret)
 
     async def register_websocket_session(self, websocket: WebSocketServerProtocol, session: Session):
         """
