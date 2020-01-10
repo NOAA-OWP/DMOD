@@ -47,27 +47,26 @@ class Session(Serializable):
         return cls(session_id=json_obj['session_id'], session_secret=json_obj['session_secret'],
                    created=json_obj['created'])
 
-    @classmethod
-    def full_equals(cls, obj1, obj2) -> bool:
+    def full_equals(self, other) -> bool:
         """
-        Test if two objects are both of this type and are more "fully" equal than can be determined from the standard
-        equality implementation, by comparing all the attributes from :meth:`get_serialized_attributes`.
+        Test if this object and another are both of the exact same type and are more "fully" equal than can be
+        determined from the standard equality implementation, by comparing all the attributes from
+        :meth:`get_serialized_attributes`.
 
         Parameters
         ----------
-        obj1
-        obj2
+        other
 
         Returns
         -------
         fully_equal : bool
             whether the objects are of the same type and with equal values for all serialized attributes
         """
-        if obj1.__class__ != cls or obj2.__class__ != cls:
+        if self.__class__ != other.__class__:
             return False
         try:
-            for attr in cls._serialized_attributes:
-                if getattr(obj1, attr) != getattr(obj2, attr):
+            for attr in self.__class__._serialized_attributes:
+                if getattr(self, attr) != getattr(other, attr):
                     return False
             return True
         except Exception as e:
@@ -437,8 +436,7 @@ class SessionInitResponse(Response):
                and self.success == other.success \
                and self.reason == other.reason \
                and self.message == other.message \
-               and self.data.__class__.full_equals(self.data, other.data) if isinstance(self.data,
-                                                                                        Session) else self.data == other.data
+               and self.data.full_equals(other.data) if isinstance(self.data, Session) else self.data == other.data
 
     def __init__(self, success: bool, reason: str, message: str = '', data: Optional[SessionInitDataType] = None):
         super().__init__(success=success, reason=reason, message=message, data=data)
