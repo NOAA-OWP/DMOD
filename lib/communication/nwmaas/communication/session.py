@@ -470,17 +470,30 @@ class SessionInitResponse(Response):
 
 
 class SessionManager(ABC):
+    """
+    Interface for a :class:`Session` manager object that can maintain and query a collection of valid sessions.
+
+    Note in particular the separation of lookup-type methods, rather than a single method with multiple optional args.
+    The intent was to separate behavior to avoid ambiguity and convoluted logic among implementations to address cases
+    when multiple arguments associate with different sessions.
+    """
 
     @abstractmethod
     def create_session(self, ip_address: str, username: str) -> Session:
         pass
 
     @abstractmethod
-    def lookup_session(self, secret: str):
+    def lookup_session_by_id(self, session_id: int) -> Optional[Session]:
+        pass
+
+    @abstractmethod
+    def lookup_session_by_secret(self, session_secret: str) -> Optional[Session]:
+        pass
+
+    @abstractmethod
+    def lookup_session_by_username(self, username: str) -> Optional[Session]:
         pass
 
     @abstractmethod
     def remove_session(self, session: Session):
         pass
-
-
