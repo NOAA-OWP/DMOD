@@ -7,6 +7,8 @@ from redis.client import Pipeline
 from nwmaas.communication import FullAuthSession, SessionManager
 
 
+# TODO: add something to periodically scrub sessions due to some expiring criteria
+# TODO: also add something that allows the expiring criteria to be "extended" for a session (or some similar notion)
 class RedisBackendSessionManager(SessionManager):
     _SESSION_KEY_PREFIX = 'session:'
     _SESSION_HASH_SUBKEY_SECRET = 'secret'
@@ -31,11 +33,6 @@ class RedisBackendSessionManager(SessionManager):
     #    return cls._USER_KEY_PREFIX
 
     def __init__(self):
-        self._redis_host = os.environ.get("REDIS_HOST", "redis")
-        self._redis_port = os.environ.get("REDIS_PORT", 6379)
-        self._redis_pass = os.environ.get("REDIS_PASS", '')
-        #print('****************** redis host is: ' + self._redis_host)
-
         self._redis = None
 
         self._next_session_id_key = 'next_session_id'
@@ -122,12 +119,11 @@ class RedisBackendSessionManager(SessionManager):
     @property
     def redis(self):
         if self._redis is None:
-            self._redis = Redis(host=self._redis_host,
-                                port=self._redis_port,
-                                # db=0, encoding="utf-8", decode_responses=True,
+            self._redis = Redis(host=os.getenv("REDIS_HOST", "redis"),
+                                port=os.getenv("REDIS_PORT", 6379),
                                 db=0,
                                 decode_responses=True,
-                                password=self._redis_pass)
+                                password=os.getenv("REDIS_PASS", ''))
         return self._redis
 
     def remove_session(self, session: FullAuthSession):
