@@ -60,15 +60,19 @@ class RequestService(WebSocketSessionsInterface):
         self.scheduler_port = int(scheduler_port)
         self.scheduler_client_ssl_dir = scheduler_ssl_dir if scheduler_ssl_dir is not None else self.ssl_dir
 
+        # FIXME: implement real authenticator
+        self.authenticator = DummyAuthUtil()
         # FIXME: implement real authorizer
-        self.authorizer = DummyAuthUtil()
+        self.authorizer = self.authenticator
 
         scheduler_url = "wss://{}:{}".format(self.scheduler_host, self.scheduler_port)
 
         self._scheduler_client = SchedulerClient(scheduler_url, self.scheduler_client_ssl_dir)
         """SchedulerClient: Client for interacting with scheduler, which also is a context manager for connections."""
 
-        self._auth_handler: AuthHandler = AuthHandler(session_manager=self._session_manager)
+        self._auth_handler: AuthHandler = AuthHandler(session_manager=self._session_manager,
+                                                      authenticator=self.authenticator,
+                                                      authorizer=self.authorizer)
         # TODO: make sure this is still valid after finishing implementation
         self._nwmaas_request_handler = NWMRequestHandler(session_manager=self._session_manager,
                                                          authorizer=self.authorizer,
