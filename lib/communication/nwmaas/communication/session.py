@@ -47,32 +47,6 @@ class Session(Serializable):
         return cls(session_id=json_obj['session_id'], session_secret=json_obj['session_secret'],
                    created=json_obj['created'])
 
-    def full_equals(self, other) -> bool:
-        """
-        Test if this object and another are both of the exact same type and are more "fully" equal than can be
-        determined from the standard equality implementation, by comparing all the attributes from
-        :meth:`get_serialized_attributes`.
-
-        Parameters
-        ----------
-        other
-
-        Returns
-        -------
-        fully_equal : bool
-            whether the objects are of the same type and with equal values for all serialized attributes
-        """
-        if self.__class__ != other.__class__:
-            return False
-        try:
-            for attr in self.__class__._serialized_attributes:
-                if getattr(self, attr) != getattr(other, attr):
-                    return False
-            return True
-        except Exception as e:
-            # TODO: do something with this exception
-            return False
-
     @classmethod
     def get_datetime_format(cls):
         return cls._DATETIME_FORMAT
@@ -126,6 +100,32 @@ class Session(Serializable):
     def created(self):
         """:obj:`datetime.datetime`: The date and time this session was created."""
         return self._created
+
+    def full_equals(self, other) -> bool:
+        """
+        Test if this object and another are both of the exact same type and are more "fully" equal than can be
+        determined from the standard equality implementation, by comparing all the attributes from
+        :meth:`get_serialized_attributes`.
+
+        Parameters
+        ----------
+        other
+
+        Returns
+        -------
+        fully_equal : bool
+            whether the objects are of the same type and with equal values for all serialized attributes
+        """
+        if self.__class__ != other.__class__:
+            return False
+        try:
+            for attr in self.__class__._serialized_attributes:
+                if getattr(self, attr) != getattr(other, attr):
+                    return False
+            return True
+        except Exception as e:
+            # TODO: do something with this exception
+            return False
 
     def get_as_dict(self) -> dict:
         """
