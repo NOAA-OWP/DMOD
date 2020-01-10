@@ -151,9 +151,9 @@ class AuthHandler(AbstractRequestHandler):
                                          authenticator=self._authenticator,
                                          authorizer=self._authorizer)
 
-        if auth_util.session is not None:
-            session_txt = 'new session' if auth_util.newly_created else 'session'
-            logging.debug('*************** Got {} for auth message: {}'.format(session_txt, str(auth_util.session)))
+        if await auth_util.session is not None:
+            session_txt = 'new session' if await auth_util.newly_created else 'session'
+            logging.debug('*************** Got {} for auth message: {}'.format(session_txt, str(await auth_util.session)))
             return SessionInitResponse(success=True, reason='Successful Auth', data=await auth_util.session)
         else:
             msg = 'Unable to create or find authenticated user session from request'
