@@ -71,10 +71,10 @@ class InnerSessionAuthUtil:
         self._newly_created = False
 
         if await self.is_authenticated and await self.is_authorized and await self.is_needs_new_session:
-            self._newly_created = True
             try:
                 self._session = self.session_manager.create_session(ip_address=self.session_ip_addr,
                                                                     username=self.username)
+                self._newly_created = True
             except Exception as e:
                 details = 'The session manager encountered a {} when attempting to create a new session: {}'.format(
                     e.__class__.__name__, str(e))
