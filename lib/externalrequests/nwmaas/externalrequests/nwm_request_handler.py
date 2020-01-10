@@ -22,15 +22,37 @@ class NWMRequestHandler(AbstractRequestHandler):
         self._scheduler_url = "wss://{}:{}".format(self._scheduler_host, self._scheduler_port)
 
         # TODO: implement properly
-        self._required_access_type = None
+        self._default_required_access_type = None
 
         self.scheduler_client_ssl_dir = scheduler_ssl_dir
 
         self._scheduler_client = SchedulerClient(self._scheduler_url, self.scheduler_client_ssl_dir)
         """SchedulerClient: Client for interacting with scheduler, which also is a context manager for connections."""
 
-    async def _is_authorized(self, session: FullAuthSession):
-        return self._authorizer.check_authorized(session.user, self._required_access_type)
+    async def _is_authorized(self, request: NWMRequest, session: FullAuthSession):
+        required_access_types = await self.determine_required_access_types(request, session)
+        for access_type in required_access_types:
+            if not await self._authorizer.check_authorized(session.user, access_type):
+                return False
+        return True
+
+    async def determine_required_access_types(self, request: NWMRequest, user) -> tuple:
+        """
+        Determine the appropriate access type the given user needs to have in order for the user to be authorized to
+        submit this request, in the context of the current state of the system.
+
+        Parameters
+        ----------
+        request
+        user
+
+        Returns
+        -------
+        A tuple of required access types required for authorization for the given request at this time.
+        """
+        # TODO: implement this somehow later, perhaps to examine current running job count for the user, or however else
+        #   may be appropriate ... for now, just use the default type (which happens to be "everything")
+        return self._default_required_access_type,
 
     async def handle_request(self, request: NWMRequest, **kwargs) -> NWMRequestResponse:
         """
