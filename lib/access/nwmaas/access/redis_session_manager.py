@@ -36,7 +36,10 @@ class RedisBackendSessionManager(SessionManager):
         self._redis = None
 
         self._next_session_id_key = 'next_session_id'
+
+        # Keys for hashes created to do fast reverse-lookup for session ids (generally to then lookup the sessions)
         self._all_session_secrets_hash_key = 'all_session_secrets'
+        self._all_users_hash_key = 'all_users'
 
         self._session_redis_hash_subkey_ip_address = 'ip_address'
         self._session_redis_hash_subkey_secret = 'secret'
@@ -95,26 +98,34 @@ class RedisBackendSessionManager(SessionManager):
             pipeline.hset(session_key, self._session_redis_hash_subkey_secret, session.session_secret)
             pipeline.hset(session_key, self._session_redis_hash_subkey_user, session.user)
             pipeline.hset(session_key, self._session_redis_hash_subkey_created, session.get_created_serialized())
+
+            # Then write to the hashes to reverse lookup (via session id) using other session attributes
             pipeline.hset(self._all_session_secrets_hash_key, session.session_secret, session.session_id)
+            pipeline.hset(self._all_users_hash_key, session.user, session.session_id)
+
             pipeline.execute()
             return session
         finally:
             pipeline.unwatch()
             pipeline.reset()
 
-    def lookup_session(self, secret) -> FullAuthSession:
-        session_id: Optional[str] = self.redis.hget(self._all_session_secrets_hash_key, secret)
-        if session_id is not None:
-            record_hash = self.redis.hgetall(self.get_key_for_session_by_id(session_id))
-            session = FullAuthSession(session_id=int(session_id),
-                                      session_secret=record_hash[self._session_redis_hash_subkey_secret],
-                                      #created=record_hash[self._session_redis_hash_subkey_created])
-                                      created=record_hash[self._session_redis_hash_subkey_created],
-                                      ip_address=record_hash[self._session_redis_hash_subkey_ip_address],
-                                      user=record_hash[self._session_redis_hash_subkey_user])
-            return session
-        else:
+    def lookup_session_by_id(self, session_id: int) -> Optional[FullAuthSession]:
+        record_hash = self.redis.hgetall(self.get_key_for_session_by_id(session_id))
+        if record_hash is None:
             return None
+        return FullAuthSession(session_id=session_id,
+                               session_secret=record_hash[self._session_redis_hash_subkey_secret],
+                               created=record_hash[self._session_redis_hash_subkey_created],
+                               ip_address=record_hash[self._session_redis_hash_subkey_ip_address],
+                               user=record_hash[self._session_redis_hash_subkey_user])
+
+    def lookup_session_by_secret(self, session_secret: str) -> Optional[FullAuthSession]:
+        session_id: Optional[str] = self.redis.hget(self._all_session_secrets_hash_key, session_secret)
+        return None if session_id is None else self.lookup_session_by_id(int(session_id))
+
+    def lookup_session_by_username(self, username: str) -> Optional[FullAuthSession]:
+        session_id: Optional[str] = self.redis.hget(self._all_users_hash_key, username)
+        return None if session_id is None else self.lookup_session_by_id(int(session_id))
 
     @property
     def redis(self):
@@ -129,5 +140,12 @@ class RedisBackendSessionManager(SessionManager):
     def remove_session(self, session: FullAuthSession):
         pipeline = self.redis.pipeline()
         pipeline.delete(self.get_key_for_session(session))
+
+        # Then cleanup reverse-lookup hashes
         pipeline.hdel(self._all_session_secrets_hash_key, session.session_secret)
+        pipeline.hdel(self._all_users_hash_key, session.user)
+
         pipeline.execute()
+
+    def user_has_valid_session(self, username: str):
+        pass
