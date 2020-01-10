@@ -1,6 +1,6 @@
 import logging
 
-from nwmaas.access import Authenticator, Authorizer, DummyAuthUtil
+from nwmaas.access import Authenticator, Authorizer
 from nwmaas.communication import AbstractRequestHandler, FailedSessionInitInfo, Session, SessionInitFailureReason, \
     SessionInitMessage, SessionInitResponse, SessionManager
 from typing import Optional
@@ -25,13 +25,8 @@ class InnerSessionAuthUtil:
     named :meth:`_auth_session`.
     """
 
-    _DUMMY_AUTH_UTIL = DummyAuthUtil()
-    # FIXME: replace with real implementations of these interfaces
-    _DEFAULT_AUTHENTICATOR = _DUMMY_AUTH_UTIL
-    _DEFAULT_AUTHORIZER = _DUMMY_AUTH_UTIL
-
     def __init__(self, session_init_message: SessionInitMessage, session_ip_addr: str, session_manager: SessionManager,
-                 authenticator: Authenticator = None, authorizer: Authorizer = None):
+                 authenticator: Authenticator, authorizer: Authorizer):
         self.username = session_init_message.username
         self.user_secret = session_init_message.user_secret
         self.session_ip_addr = session_ip_addr
@@ -39,13 +34,6 @@ class InnerSessionAuthUtil:
 
         self._authenticator: Authenticator = authenticator
         self._authorizer: Authorizer = authorizer
-
-        # Initialize with defaults if needed
-        if self._authenticator is None:
-            self._authenticator: Authenticator = self._DEFAULT_AUTHENTICATOR
-
-        if self._authorizer is None:
-            self._authorizer: Authorizer = self._DEFAULT_AUTHORIZER
 
         self._session = None
         self._newly_created = False
@@ -133,8 +121,10 @@ class InnerSessionAuthUtil:
 
 class AuthHandler(AbstractRequestHandler):
 
-    def __init__(self, session_manager: SessionManager):
+    def __init__(self, session_manager: SessionManager, authenticator: Authenticator, authorizer: Authorizer):
         self._session_manager = session_manager
+        self._authenticator = authenticator
+        self._authorizer = authorizer
 
     async def handle_request(self, request: SessionInitMessage, **kwargs) -> SessionInitResponse:
         """
@@ -157,7 +147,9 @@ class AuthHandler(AbstractRequestHandler):
         """
         auth_util = InnerSessionAuthUtil(session_init_message=request,
                                          session_ip_addr=kwargs['client_ip'],
-                                         session_manager=self._session_manager)
+                                         session_manager=self._session_manager,
+                                         authenticator=self._authenticator,
+                                         authorizer=self._authorizer)
 
         if auth_util.session is not None:
             session_txt = 'new session' if auth_util.newly_created else 'session'
