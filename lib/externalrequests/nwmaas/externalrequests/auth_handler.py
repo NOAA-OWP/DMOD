@@ -81,10 +81,9 @@ class InnerSessionAuthUtil:
                 self._failure_info = FailedSessionInitInfo(user=self.username,
                                                            reason=SessionInitFailureReason.SESSION_MANAGER_FAIL,
                                                            details=details)
+        # Return the already-existing session when auth is good and there is already one
         elif await self.is_authenticated and await self.is_authorized:
-            # FIXME: when this is changed, make sure to properly create the init failure object as needed
-            # self._session = FIXME: lookup existing somehow
-            pass
+            self._session = self.session_manager.lookup_session_by_username(self.username)
         elif await self.is_authenticated:   # implies user was not authorized
             self._failure_info = FailedSessionInitInfo(user=self.username,
                                                        reason=SessionInitFailureReason.USER_NOT_AUTHORIZED,
