@@ -1,5 +1,7 @@
-from typing import Any
-from ..externalrequests.auth_handler import Authenticator, Authorizer
+from typing import Any, Optional
+
+from nwmaas.communication import FullAuthSession
+from ..externalrequests.auth_handler import Authenticator, Authorizer, SessionManager
 
 
 class SucceedTestAuthUtil(Authenticator, Authorizer):
@@ -35,3 +37,50 @@ class FailureTestingAuthUtil(Authenticator, Authorizer):
 
     async def get_authorized_access_types(self, username: str):
         return None
+
+
+class TestingSession(FullAuthSession):
+
+    def __init__(self, ip_address, session_id, user):
+        super().__init__(ip_address=ip_address, session_id=session_id, user=user)
+
+
+class TestingSessionManager(SessionManager):
+
+    def __init__(self):
+        self._next_id = 1
+        self._sessions = {}
+        self._secrets_to_ids = {}
+        self._users_to_ids = {}
+
+    def create_session(self, ip_address: str, username: str) -> TestingSession:
+        session_id = self._next_id
+        self._next_id += 1
+        session = TestingSession(ip_address=ip_address, session_id=session_id, user=username)
+        self._sessions[session_id] = session
+        self._secrets_to_ids[session.session_secret] = session_id
+        self._users_to_ids[session.user] = session_id
+        return session
+
+    def lookup_session_by_id(self, session_id: int) -> Optional[TestingSession]:
+        if session_id not in self._sessions:
+            return None
+        return self._sessions[session_id]
+
+    def lookup_session_by_secret(self, session_secret: str) -> Optional[TestingSession]:
+        if session_secret is None or session_secret not in self._secrets_to_ids:
+            return None
+        session_id = self._secrets_to_ids[session_secret]
+        return self.lookup_session_by_id(session_id)
+
+    def lookup_session_by_username(self, username: str) -> Optional[TestingSession]:
+        if username is None or username not in self._users_to_ids:
+            return None
+        session_id = self._users_to_ids[username]
+        return self.lookup_session_by_id(session_id)
+
+    def remove_session(self, session: TestingSession):
+        if session.session_id in self._sessions and session.session_secret in self._secrets_to_ids:
+            self._sessions.pop(session.session_id)
+            self._secrets_to_ids.pop(session.session_secret)
+            self._users_to_ids.pop(session.user)
