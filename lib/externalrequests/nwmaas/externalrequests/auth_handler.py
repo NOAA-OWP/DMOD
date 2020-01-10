@@ -94,30 +94,6 @@ class InnerSessionAuthUtil:
                                                        reason=SessionInitFailureReason.AUTHENTICATION_DENIED,
                                                        details='User was not authenticated')
 
-    # FIXME: move this to session handler class instead
-    async def _check_existing_session(self, username: str) -> bool:
-        """
-        Check whether a user with the given username already has an active session over which model requests can be
-        made, implying (assuming appropriate auth) the user requires a new session.
-
-        Note that this method does not take into account whether such a user is currently authenticated or whether such
-        a user is authorized to be granted sessions.  Further, it does not retrieve any existing session.  It only tests
-        whether there is an active session for the user.
-
-        Parameters
-        ----------
-        username : str
-            the username of the user for which an existing useable session is being checked
-
-        Returns
-        -------
-        ``True`` if the represented user already has an existing, active session over which model requests can be made,
-        or ``False`` otherwise
-        """
-        # FIXME: implement check for existing useable session; for now, there never is one
-        # FIXME: note that this will require finishing the existing-session-lookup case in AuthHandler._auth_session()
-        return False
-
     @property
     async def failure_info(self) -> Optional[FailedSessionInitInfo]:
         if self._failure_info is None and self._session is None:
@@ -139,7 +115,8 @@ class InnerSessionAuthUtil:
     @property
     async def is_needs_new_session(self):
         if self._is_needs_new_session is None:
-            self._is_needs_new_session = await self.is_authorized and not(await self._check_existing_session(self.username))
+            self._is_needs_new_session = await self.is_authorized and not (
+                self.session_manager.lookup_session_by_username(self.username))
         return self._is_needs_new_session
 
     @property
