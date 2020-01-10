@@ -70,7 +70,7 @@ class InnerSessionAuthUtil:
         # Leave as None though when instantiating to avoid case where this is set without auth being tried
         self._newly_created = False
 
-        if self.is_authenticated and self.is_authorized and self.is_needs_new_session:
+        if await self.is_authenticated and await self.is_authorized and await self.is_needs_new_session:
             self._newly_created = True
             try:
                 self._session = self.session_manager.create_session(ip_address=self.session_ip_addr,
@@ -81,11 +81,11 @@ class InnerSessionAuthUtil:
                 self._failure_info = FailedSessionInitInfo(user=self.username,
                                                            reason=SessionInitFailureReason.SESSION_MANAGER_FAIL,
                                                            details=details)
-        elif self.is_authenticated and self.is_authorized:
+        elif await self.is_authenticated and await self.is_authorized:
             # FIXME: when this is changed, make sure to properly create the init failure object as needed
             # self._session = FIXME: lookup existing somehow
             pass
-        elif self.is_authenticated:   # implies user was not authorized
+        elif await self.is_authenticated:   # implies user was not authorized
             self._failure_info = FailedSessionInitInfo(user=self.username,
                                                        reason=SessionInitFailureReason.USER_NOT_AUTHORIZED,
                                                        details='Authenticated user not authorized for access')
@@ -133,13 +133,13 @@ class InnerSessionAuthUtil:
     @property
     async def is_authorized(self):
         if self._is_authorized is None:
-            self._is_authorized = self.is_authenticated and await self._authorizer.check_authorized(self.username)
+            self._is_authorized = await self.is_authenticated and await self._authorizer.check_authorized(self.username)
         return self._is_authorized
 
     @property
     async def is_needs_new_session(self):
         if self._is_needs_new_session is None:
-            self._is_needs_new_session = self.is_authorized and not(await self._check_existing_session(self.username))
+            self._is_needs_new_session = await self.is_authorized and not(await self._check_existing_session(self.username))
         return self._is_needs_new_session
 
     @property
