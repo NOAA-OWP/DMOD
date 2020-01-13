@@ -26,7 +26,7 @@ class Session(Serializable):
     be made, and potentially other communication may take place.
     """
 
-    _DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S'
+    _DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
 
     _serialized_attributes = ['session_id', 'session_secret', 'created']
     """ list of str: the names of attributes/properties to include when serializing an instance """
