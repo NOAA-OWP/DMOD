@@ -136,27 +136,6 @@ exec_test_files()
     python -m unittest ${1} ${SET_VERBOSE:-}
 }
 
-find_and_exec_integration_test_files()
-{
-    if [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}" ] \
-            && [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_TEARDOWN_FILE_BASENAME}" ]
-    then
-        python "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}"
-        exec_test_files "$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${1}")"
-        python "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_TEARDOWN_FILE_BASENAME}"
-    else
-        if [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}" ]; then
-            >&2 echo "WARN: IT setup file exists in '${PACKAGE_TEST_DIRECTORY}' without teardown; skipping"
-        fi
-
-        exec_test_files "$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${1}")"
-
-        if [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_TEARDOWN_FILE_BASENAME}" ]; then
-            >&2 echo "WARN: IT teardown file exists in '${PACKAGE_TEST_DIRECTORY}' without setup; skipping"
-        fi
-    fi
-}
-
 find_and_exec_test_files()
 {
     # Unit testing
