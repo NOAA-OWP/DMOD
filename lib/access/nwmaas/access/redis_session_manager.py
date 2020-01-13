@@ -135,7 +135,8 @@ class RedisBackendSessionManager(SessionManager):
 
     def lookup_session_by_id(self, session_id: int) -> Optional[FullAuthSession]:
         record_hash = self.redis.hgetall(self.get_key_for_session_by_id(session_id))
-        if record_hash is None:
+        # Comes back from Redis as a dict, perhaps empty if nothing is found for this session id
+        if record_hash is None or len(record_hash) == 0:
             return None
         return FullAuthSession(session_id=session_id,
                                session_secret=record_hash[self._session_redis_hash_subkey_secret],
