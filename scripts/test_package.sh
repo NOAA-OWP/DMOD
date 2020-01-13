@@ -149,6 +149,13 @@ find_and_exec_test_files()
         . "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}"
         # Then run the setup function
         ${INTEGRATION_TEST_SETUP_FUNC}
+        _R=${?}
+        if [ ${_R} -ne 0 ]; then
+            >&2 echo ""
+            >&2 echo "ERROR: integration testing failed - could not exec environment setup function (returned: ${_R})"
+            >&2 echo ""
+            exit ${_R}
+        fi
         # Then execute all IT tests
         exec_test_files "$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${1}")"
         # Finally, run the sourced teardown function
