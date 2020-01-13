@@ -13,10 +13,12 @@ DEFAULT_TEST_DIR_BASENAME='test'
 DEFAULT_UNIT_TEST_FILE_PATTERN="test_*.py"
 DEFAULT_INTEGRATION_TEST_FILE_PATTERN="it_*.py"
 
-# Basenames for files in test directories that should be run once (i.e., not once per test) to setup/teardown
-# appropriate parts of the integration testing environment
-INTEGRATION_TEST_SETUP_FILE_BASENAME="setup_it_env.py"
-INTEGRATION_TEST_TEARDOWN_FILE_BASENAME="teardown_it_env.py"
+# Basename for file in test directories that should be sourced and have functions run per global test exec (i.e., not
+# once per individual test) to setup and teardown appropriate parts of the integration testing environment
+INTEGRATION_TEST_SETUP_FILE_BASENAME="setup_it_env.sh"
+# The valid argument options for aforementioned file
+INTEGRATION_TEST_SETUP_FUNC="do_setup"
+INTEGRATION_TEST_TEARDOWN_FUNC="do_teardown"
 
 usage()
 {
@@ -141,26 +143,19 @@ find_and_exec_test_files()
     # Unit testing
     if [ "${1}" = "${DEFAULT_UNIT_TEST_FILE_PATTERN}" ]; then
         exec_test_files "$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${1}")"
-    # Integration testing, with existing setup and teardown files in directory
-    elif [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}" ] \
-            && [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_TEARDOWN_FILE_BASENAME}" ]
-    then
-        python "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}"
+    # Integration testing, with existing setup file in directory
+    elif [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}" ]; then
+        # Source the setup file
+        . "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}"
+        # Then run the setup function
+        ${INTEGRATION_TEST_SETUP_FUNC}
+        # Then execute all IT tests
         exec_test_files "$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${1}")"
-        python "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_TEARDOWN_FILE_BASENAME}"
-    # Integration testing, but without either the setup or the teardown file (or without both) in directory
+        # Finally, run the sourced teardown function
+        ${INTEGRATION_TEST_TEARDOWN_FUNC}
+    # Integration testing, but without the setup file in directory
     else
-        # ... in which case, we want to warning that the other is missing, either here ...
-        if [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}" ]; then
-            >&2 echo "WARN: IT setup file exists in '${PACKAGE_TEST_DIRECTORY}' without teardown; skipping"
-        fi
-
         exec_test_files "$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${1}")"
-
-        # ... or here ...
-        if [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_TEARDOWN_FILE_BASENAME}" ]; then
-            >&2 echo "WARN: IT teardown file exists in '${PACKAGE_TEST_DIRECTORY}' without setup; skipping"
-        fi
     fi
 }
 
