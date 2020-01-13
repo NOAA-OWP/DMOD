@@ -59,7 +59,7 @@ class Session(Serializable):
         return isinstance(other, Session) and self.session_id == other.session_id
 
     def __init__(self, session_id: Union[str, int], session_secret: str = None,
-                 created: Union[datetime.datetime, str] = datetime.datetime.now()):
+                 created: Union[datetime.datetime, str, None] = None):
         """
         Instantiate, either from an existing record - in which case values for 'secret' and 'created' are provided - or
         from a newly acquired session id - in which case 'secret' is randomly generated, 'created' is set to now(), and
@@ -84,7 +84,9 @@ class Session(Serializable):
             self._session_secret = session_secret
 
         try:
-            if isinstance(created, str):
+            if created is None:
+                self._created = datetime.datetime.now()
+            elif isinstance(created, str):
                 self._created = datetime.datetime.strptime(created, Session._DATETIME_FORMAT)
             elif not isinstance(created, datetime.datetime):
                 raise RuntimeError()
@@ -231,7 +233,7 @@ class FullAuthSession(Session):
             return Session.factory_init_from_deserialized_json(json_obj)
 
     def __init__(self, ip_address: str, session_id: Union[str, int], session_secret: str = None,
-                 created: Union[datetime.datetime, str] = datetime.datetime.now(), user: str = 'default'):
+                 created: Union[datetime.datetime, str, None] = None, user: str = 'default'):
         super().__init__(session_id=session_id, session_secret=session_secret, created=created)
         self._user = user if user is not None else 'default'
         self._ip_address = ip_address
