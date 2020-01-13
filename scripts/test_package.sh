@@ -139,7 +139,7 @@ exec_test_files()
 find_and_exec_test_files()
 {
     # Unit testing
-    if [ "${1}" == "${DEFAULT_UNIT_TEST_FILE_PATTERN}" ]; then
+    if [ "${1}" = "${DEFAULT_UNIT_TEST_FILE_PATTERN}" ]; then
         exec_test_files "$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${1}")"
     # Integration testing, with existing setup and teardown files in directory
     elif [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}" ] \
