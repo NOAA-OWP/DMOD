@@ -13,6 +13,11 @@ DEFAULT_TEST_DIR_BASENAME='test'
 DEFAULT_UNIT_TEST_FILE_PATTERN="test_*.py"
 DEFAULT_INTEGRATION_TEST_FILE_PATTERN="it_*.py"
 
+# Basenames for files in test directories that should be run once (i.e., not once per test) to setup/teardown
+# appropriate parts of the integration testing environment
+INTEGRATION_TEST_SETUP_FILE_BASENAME="setup_it_env.py"
+INTEGRATION_TEST_TEARDOWN_FILE_BASENAME="teardown_it_env.py"
+
 usage()
 {
     local _O="${NAME:?}:
@@ -29,9 +34,9 @@ Options:
         expected (default: '${DEFAULT_TEST_DIR_BASENAME}')
 
     --integration | -it
-        Execute 'integration'-type unit tests (identified as
-        being in files named 'it_*.py') instead of more typical
-        unit tests (identified as being in files name test_*.py)
+        Execute integration tests (identified as being in
+        files named '${DEFAULT_INTEGRATION_TEST_FILE_PATTERN}') instead of typical unit tests
+        (identified as being in files named '${DEFAULT_UNIT_TEST_FILE_PATTERN}')
 
     --venv <dir>
         Set the directory of the virtual environment to use.
@@ -126,13 +131,72 @@ if [ ! -d "${PACKAGE_TEST_DIRECTORY}" ]; then
     exit 1
 fi
 
+exec_test_files()
+{
+    python -m unittest ${1} ${SET_VERBOSE:-}
+}
+
+find_and_exec_integration_test_files()
+{
+    if [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}" ] \
+            && [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_TEARDOWN_FILE_BASENAME}" ]
+    then
+        python "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}"
+        exec_test_files "$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${1}")"
+        python "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_TEARDOWN_FILE_BASENAME}"
+    else
+        if [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}" ]; then
+            >&2 echo "WARN: IT setup file exists in '${PACKAGE_TEST_DIRECTORY}' without teardown; skipping"
+        fi
+
+        exec_test_files "$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${1}")"
+
+        if [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_TEARDOWN_FILE_BASENAME}" ]; then
+            >&2 echo "WARN: IT teardown file exists in '${PACKAGE_TEST_DIRECTORY}' without setup; skipping"
+        fi
+    fi
+}
+
+find_and_exec_test_files()
+{
+    # Unit testing
+    if [ "${1}" == "${DEFAULT_UNIT_TEST_FILE_PATTERN}" ]; then
+        exec_test_files "$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${1}")"
+    # Integration testing, with existing setup and teardown files in directory
+    elif [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}" ] \
+            && [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_TEARDOWN_FILE_BASENAME}" ]
+    then
+        python "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}"
+        exec_test_files "$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${1}")"
+        python "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_TEARDOWN_FILE_BASENAME}"
+    # Integration testing, but without either the setup or the teardown file (or without both) in directory
+    else
+        # ... in which case, we want to warning that the other is missing, either here ...
+        if [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}" ]; then
+            >&2 echo "WARN: IT setup file exists in '${PACKAGE_TEST_DIRECTORY}' without teardown; skipping"
+        fi
+
+        exec_test_files "$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${1}")"
+
+        # ... or here ...
+        if [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_TEARDOWN_FILE_BASENAME}" ]; then
+            >&2 echo "WARN: IT teardown file exists in '${PACKAGE_TEST_DIRECTORY}' without setup; skipping"
+        fi
+    fi
+}
+
 echo "==========================================================================="
 
 if [ "${TEST_FILE_PATTERN}" == "both" ]; then
-    TEST_FILES="$(find "${PACKAGE_TEST_DIRECTORY}" -type f \( -name "${DEFAULT_UNIT_TEST_FILE_PATTERN}" -o -name "${DEFAULT_INTEGRATION_TEST_FILE_PATTERN}" \) )"
+    echo "Running unit tests:"
+    echo "--------------------------"
+    find_and_exec_test_files "${DEFAULT_UNIT_TEST_FILE_PATTERN}"
+    echo "=================================="
+    echo "Running integration tests:"
+    echo "--------------------------"
+    find_and_exec_test_files "${DEFAULT_INTEGRATION_TEST_FILE_PATTERN}"
 else
-    TEST_FILES="$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${TEST_FILE_PATTERN}")"
+    find_and_exec_test_files "${TEST_FILE_PATTERN}"
 fi
-python -m unittest ${TEST_FILES} ${SET_VERBOSE:-}
 
 echo "==========================================================================="
