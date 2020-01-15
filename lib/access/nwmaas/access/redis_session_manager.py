@@ -207,25 +207,26 @@ class RedisBackendSessionManager(SessionManager):
         pipeline = self.redis.pipeline()
         try:
             pipeline.watch(self._next_session_id_key)
-            # Remember, Redis only persists strings (though it can implicitly convert from int to string on its side)
-            session_id_str: Optional[str] = pipeline.get(self._next_session_id_key)
-            if session_id_str is None:
-                session_id = self.get_initial_session_id_value()
-                pipeline.set(self._next_session_id_key, session_id + 1)
-            else:
-                pipeline.incr(self._next_session_id_key, 1)
+
+            # Do this in a loop to account for (unlikely) possibility that someone manually used a key out of order
+            session_id = None
+            while session_id is None:
+                # Get a session id, base on stored (or initialized) value at _next_session_id_key, then bump said value
+                # Remember, Redis persists strings (though it can implicitly convert from int to string on its side)
+                session_id_str: Optional[str] = pipeline.get(self._next_session_id_key)
+                if session_id_str is None:
+                    session_id = self.get_initial_session_id_value()
+                    pipeline.set(self._next_session_id_key, session_id + 1)
+                else:
+                    session_id = int(session_id_str)
+                    pipeline.incr(self._next_session_id_key, 1)
+                # However, if the key is already in use (via manual selection), we have to try again
+                if pipeline.hlen(self.get_key_for_session_by_id(session_id)) != 0:
+                    session_id = None
+
             session = FullAuthSession(ip_address=ip_address, session_id=session_id, user=username)
-            session_key = self.get_key_for_session(session)
-            pipeline.hset(session_key, self._session_redis_hash_subkey_ip_address, session.ip_address)
-            pipeline.hset(session_key, self._session_redis_hash_subkey_secret, session.session_secret)
-            pipeline.hset(session_key, self._session_redis_hash_subkey_user, session.user)
-            pipeline.hset(session_key, self._session_redis_hash_subkey_created, session.get_created_serialized())
-
-            # Then write to the hashes to reverse lookup (via session id) using other session attributes
-            pipeline.hset(self._all_session_secrets_hash_key, session.session_secret, session.session_id)
-            pipeline.hset(self._all_users_hash_key, session.user, session.session_id)
-
-            pipeline.execute()
+            # NOTE: no need to check the next session id in the call below, since we just did that above
+            self._write_session_via_pipeline(session=session, pipeline=pipeline, check_next_id=False)
             return session
         finally:
             pipeline.unwatch()
