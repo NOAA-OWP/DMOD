@@ -25,6 +25,24 @@ class RedisBackendSessionManager(SessionManager):
     #_USER_HASH_SUBKEY_ACCESS_TYPES = 'access_types'
 
     @classmethod
+    def get_initial_session_id_value(cls):
+        """
+        Get the first value value for session id values, used to bootstrap ids when the last-used id can't be looked up.
+
+        Note this is primarily used when ids are iterative, or at least deterministically ordered.  However, it should
+        still return a valid value (though not necessarily the same value for each invocation) even if ids are not
+        deterministically ordered for the subclass implementation.
+
+        For this implementation, since the class uses incrementing numeric ids, the starting value is simply ``1``.
+
+        Returns
+        -------
+        int
+            The starting id value for sessions, which for this type is always ``1``.
+        """
+        return 1
+
+    @classmethod
     def get_key_for_session(cls, session: FullAuthSession):
         return cls.get_key_for_session_by_id(session.session_id)
 
