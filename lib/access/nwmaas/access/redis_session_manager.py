@@ -131,6 +131,78 @@ class RedisBackendSessionManager(SessionManager):
             if keys_and_flags[key][0]:
                 pipeline.hset(session_key, key, keys_and_flags[key][1])
 
+    def _write_session_via_pipeline(self, session: FullAuthSession, pipeline: Optional[Pipeline] = None,
+                                    write_attr_subkeys: Optional[set] = None, check_next_id: bool = True):
+        """
+        Persist data for the given session to a Redis hash using the given pipeline (or new one if ``None`` is passed),
+        potentially writing only certain attributes based on ``write_attr_subkey``.
+
+        The ``write_attr_subkeys`` param is examined to determine which session attributes should be written.  Only the
+        attributes with corresponding valid keys (i.e., keys within :attr:`_session_redis_hash_subkeys_set`) will have
+        their data persisted.  If the param is not a set with at least one valid subkey, including cases when the param
+        is ``None``, is empty, or is not a set, then all supported attributes have data persisted.
+
+        If ``check_next_id`` is ``True``, which is the default, the method will also examine the value at the
+        :attr:`_next_session_id_key` key to get the next new session id.  If the session provided has this same id, then
+        the value of the next new session id will be incremented.
+
+        Parameters
+        ----------
+        session
+        pipeline
+        write_attr_subkeys
+        check_next_id
+        """
+        # Optimize by doing the various checks to see if everything should be written ...
+        if write_attr_subkeys is None or not isinstance(write_attr_subkeys, set) or len(write_attr_subkeys) == 0:
+            write_all = True
+        # ... including if the param is non-empty but doesn't hold any valid subkeys
+        else:
+            valid_subkey_count = 0
+            for si in write_attr_subkeys:
+                if si in self._session_redis_hash_subkeys_set:
+                    valid_subkey_count += 1
+            write_all = valid_subkey_count == 0
+
+        session_key = self.get_key_for_session(session)
+
+        # Map the valid subkeys to the values that should be written for them, to make logic a little more elegant below
+        persistable_values = {self._session_redis_hash_subkey_ip_address: session.ip_address,
+                              self._session_redis_hash_subkey_secret: session.session_secret,
+                              self._session_redis_hash_subkey_user: session.user,
+                              self._session_redis_hash_subkey_created: session.get_created_serialized(),
+                              self._session_redis_hash_subkey_last_accessed: session.get_last_accessed_serialized()}
+
+        did_internal_init_pipeline = False
+        if pipeline is None or not isinstance(pipeline, Pipeline):
+            pipeline = self.redis.pipeline()
+            did_internal_init_pipeline = True
+
+        try:
+            if check_next_id:
+                pipeline.watch(self._next_session_id_key)
+                # Remember, Redis only persists strings (though it can implicitly convert from int to string on its side)
+                current_next_id = pipeline.get(self._next_session_id_key)
+                if current_next_id is not None and int(current_next_id) == session.session_id:
+                    pipeline.incr(self._next_session_id_key, 1)
+
+            # Now use are mapping above to have the pipeline hset values appropriately
+            for subkey in persistable_values:
+                if write_all or subkey in write_attr_subkeys:
+                    pipeline.hset(session_key, subkey, persistable_values[subkey])
+
+            # Then write to hashes to reverse lookup (via session id) using other session attributes, if writing everything
+            if write_all:
+                pipeline.hset(self._all_session_secrets_hash_key, session.session_secret, session.session_id)
+                pipeline.hset(self._all_users_hash_key, session.user, session.session_id)
+
+            pipeline.execute()
+        finally:
+            if check_next_id:
+                pipeline.unwatch()
+            if did_internal_init_pipeline:
+                pipeline.reset()
+
     def create_session(self, ip_address, username) -> FullAuthSession:
         pipeline = self.redis.pipeline()
         try:
