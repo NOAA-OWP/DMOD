@@ -128,13 +128,13 @@ class RedisBackendSessionManager(SessionManager):
         try:
             pipeline.watch(self._next_session_id_key)
             # Remember, Redis only persists strings (though it can implicitly convert from int to string on its side)
-            session_id: Optional[str] = pipeline.get(self._next_session_id_key)
-            if session_id is None:
-                session_id = 1
-                pipeline.set(self._next_session_id_key, 2)
+            session_id_str: Optional[str] = pipeline.get(self._next_session_id_key)
+            if session_id_str is None:
+                session_id = self.get_initial_session_id_value()
+                pipeline.set(self._next_session_id_key, session_id + 1)
             else:
                 pipeline.incr(self._next_session_id_key, 1)
-            session = FullAuthSession(ip_address=ip_address, session_id=int(session_id), user=username)
+            session = FullAuthSession(ip_address=ip_address, session_id=session_id, user=username)
             session_key = self.get_key_for_session(session)
             pipeline.hset(session_key, self._session_redis_hash_subkey_ip_address, session.ip_address)
             pipeline.hset(session_key, self._session_redis_hash_subkey_secret, session.session_secret)
