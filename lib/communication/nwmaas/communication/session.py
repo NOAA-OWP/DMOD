@@ -32,6 +32,20 @@ class Session(Serializable):
     """ list of str: the names of attributes/properties to include when serializing an instance """
 
     @classmethod
+    def _init_datetime_val(cls, value):
+        try:
+            if value is None:
+                return datetime.datetime.now()
+            elif isinstance(value, str):
+                return datetime.datetime.strptime(value, Session._DATETIME_FORMAT)
+            elif not isinstance(value, datetime.datetime):
+                raise RuntimeError()
+            else:
+                return value
+        except:
+            return datetime.datetime.now()
+
+    @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
         """
         Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
@@ -83,17 +97,7 @@ class Session(Serializable):
         else:
             self._session_secret = session_secret
 
-        try:
-            if created is None:
-                self._created = datetime.datetime.now()
-            elif isinstance(created, str):
-                self._created = datetime.datetime.strptime(created, Session._DATETIME_FORMAT)
-            elif not isinstance(created, datetime.datetime):
-                raise RuntimeError()
-            else:
-                self._created = created
-        except:
-            self._created = datetime.datetime.now()
+        self._created = self._init_datetime_val(created)
 
     def __hash__(self):
         return self.session_id
