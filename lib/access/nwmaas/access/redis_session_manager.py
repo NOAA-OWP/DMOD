@@ -1,10 +1,11 @@
 import os
+import datetime
 from typing import Optional
 
 from redis import Redis
 from redis.client import Pipeline
 
-from nwmaas.communication import FullAuthSession, SessionManager
+from nwmaas.communication import FullAuthSession, Session, SessionManager
 
 
 # TODO: add something to periodically scrub sessions due to some expiring criteria
@@ -87,6 +88,7 @@ class RedisBackendSessionManager(SessionManager):
         self._session_redis_hash_subkey_secret = 'secret'
         self._session_redis_hash_subkey_user = 'user'
         self._session_redis_hash_subkey_created = 'created'
+        self._session_redis_hash_subkey_last_accessed = 'last_accessed'
 
     def _update_session_record(self, session: FullAuthSession, pipeline: Pipeline, do_ip_address=False, do_secret=False,
                                do_user=False):
@@ -160,7 +162,8 @@ class RedisBackendSessionManager(SessionManager):
                                session_secret=record_hash[self._session_redis_hash_subkey_secret],
                                created=record_hash[self._session_redis_hash_subkey_created],
                                ip_address=record_hash[self._session_redis_hash_subkey_ip_address],
-                               user=record_hash[self._session_redis_hash_subkey_user])
+                               user=record_hash[self._session_redis_hash_subkey_user],
+                               last_accessed=record_hash[self._session_redis_hash_subkey_last_accessed])
 
     def lookup_session_by_secret(self, session_secret: str) -> Optional[FullAuthSession]:
         session_id: Optional[str] = self.redis.hget(self._all_session_secrets_hash_key, session_secret)
