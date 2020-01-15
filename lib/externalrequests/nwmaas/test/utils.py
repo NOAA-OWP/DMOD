@@ -1,3 +1,4 @@
+import datetime
 from typing import Any, Optional
 
 from nwmaas.communication import FullAuthSession
@@ -78,6 +79,9 @@ class TestingSessionManager(SessionManager):
             return None
         session_id = self._users_to_ids[username]
         return self.lookup_session_by_id(session_id)
+
+    def refresh_session(self, session: TestingSession) -> bool:
+        session._last_accessed = datetime.datetime.now()
 
     def remove_session(self, session: TestingSession):
         if session.session_id in self._sessions and session.session_secret in self._secrets_to_ids:
