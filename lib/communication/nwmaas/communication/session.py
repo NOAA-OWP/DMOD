@@ -28,10 +28,10 @@ class Session(Serializable):
 
     _DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
 
-    _full_equality_attributes = ['session_id', 'session_secret', 'created']
+    _full_equality_attributes = ['session_id', 'session_secret', 'created', 'last_accessed']
     """ list of str: the names of attributes/properties to include when testing instances for complete equality """
 
-    _serialized_attributes = ['session_id', 'session_secret', 'created']
+    _serialized_attributes = ['session_id', 'session_secret', 'created', 'last_accessed']
     """ list of str: the names of attributes/properties to include when serializing an instance """
 
     @classmethod
@@ -61,8 +61,10 @@ class Session(Serializable):
         -------
         A new object of this type instantiated from the deserialize JSON object dictionary
         """
-        return cls(session_id=json_obj['session_id'], session_secret=json_obj['session_secret'],
-                   created=json_obj['created'])
+        return cls(session_id=json_obj['session_id'],
+                   session_secret=json_obj['session_secret'],
+                   created=json_obj['created'],
+                   last_accessed=json_obj['last_accessed'])
 
     @classmethod
     def get_datetime_format(cls):
@@ -101,8 +103,11 @@ class Session(Serializable):
     def __eq__(self, other):
         return isinstance(other, Session) and self.session_id == other.session_id
 
-    def __init__(self, session_id: Union[str, int], session_secret: str = None,
-                 created: Union[datetime.datetime, str, None] = None):
+    def __init__(self,
+                 session_id: Union[str, int],
+                 session_secret: str = None,
+                 created: Union[datetime.datetime, str, None] = None,
+                 last_accessed: Union[datetime.datetime, str, None] = None):
         """
         Instantiate, either from an existing record - in which case values for 'secret' and 'created' are provided - or
         from a newly acquired session id - in which case 'secret' is randomly generated, 'created' is set to now(), and
@@ -127,6 +132,7 @@ class Session(Serializable):
             self._session_secret = session_secret
 
         self._created = self._init_datetime_val(created)
+        self._last_accessed = self._init_datetime_val(last_accessed)
 
     def __hash__(self):
         return self.session_id
@@ -197,6 +203,9 @@ class Session(Serializable):
     def get_created_serialized(self):
         return self.created.strftime(Session._DATETIME_FORMAT)
 
+    def get_last_accessed_serialized(self):
+        return self._last_accessed.strftime(Session._DATETIME_FORMAT)
+
     def is_serialized_attribute(self, attribute) -> bool:
         """
         Test whether an attribute of the given name is included in the serialized version of the instance returned by
@@ -234,8 +243,8 @@ class Session(Serializable):
 # TODO: work more on this later, when authentication becomes more important
 class FullAuthSession(Session):
 
-    _full_equality_attributes = ['session_id', 'session_secret', 'created', 'ip_address', 'user']
-    _serialized_attributes = ['session_id', 'session_secret', 'created', 'ip_address', 'user']
+    _full_equality_attributes = ['session_id', 'session_secret', 'created', 'ip_address', 'user', 'last_accessed']
+    _serialized_attributes = ['session_id', 'session_secret', 'created', 'ip_address', 'user', 'last_accessed']
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
@@ -251,20 +260,34 @@ class FullAuthSession(Session):
         A new object of this type instantiated from the deserialize JSON object dictionary
         """
         try:
-            return cls(session_id=json_obj['session_id'], session_secret=json_obj['session_secret'],
-                       created=json_obj['created'], ip_address=json_obj['ip_address'], user=json_obj['user'])
+            return cls(session_id=json_obj['session_id'],
+                       session_secret=json_obj['session_secret'],
+                       created=json_obj['created'],
+                       ip_address=json_obj['ip_address'],
+                       user=json_obj['user'],
+                       last_accessed=json_obj['last_accessed'])
         except:
             return Session.factory_init_from_deserialized_json(json_obj)
 
-    def __init__(self, ip_address: str, session_id: Union[str, int], session_secret: str = None,
-                 created: Union[datetime.datetime, str, None] = None, user: str = 'default'):
-        super().__init__(session_id=session_id, session_secret=session_secret, created=created)
+    def __init__(self,
+                 ip_address: str,
+                 session_id: Union[str, int],
+                 session_secret: str = None,
+                 user: str = 'default',
+                 created: Union[datetime.datetime, str, None] = None,
+                 last_accessed: Union[datetime.datetime, str, None] = None):
+        super().__init__(session_id=session_id, session_secret=session_secret, created=created,
+                         last_accessed=last_accessed)
         self._user = user if user is not None else 'default'
         self._ip_address = ip_address
 
     @property
     def ip_address(self):
         return self._ip_address
+
+    @property
+    def last_accessed(self):
+        return self._last_accessed
 
     @property
     def user(self):
