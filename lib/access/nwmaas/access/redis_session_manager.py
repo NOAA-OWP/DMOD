@@ -90,6 +90,12 @@ class RedisBackendSessionManager(SessionManager):
         self._session_redis_hash_subkey_created = 'created'
         self._session_redis_hash_subkey_last_accessed = 'last_accessed'
 
+        self._session_redis_hash_subkeys_set = {self._session_redis_hash_subkey_ip_address,
+                                                self._session_redis_hash_subkey_secret,
+                                                self._session_redis_hash_subkey_user,
+                                                self._session_redis_hash_subkey_created,
+                                                self._session_redis_hash_subkey_last_accessed}
+
     def _update_session_record(self, session: FullAuthSession, pipeline: Pipeline, do_ip_address=False, do_secret=False,
                                do_user=False):
         """
