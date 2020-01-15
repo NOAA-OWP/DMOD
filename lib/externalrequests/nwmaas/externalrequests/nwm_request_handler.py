@@ -75,7 +75,7 @@ class NWMRequestHandler(AbstractRequestHandler):
         """
         session: FullAuthSession = kwargs['session'] if kwargs and 'session' in kwargs else None
 
-        is_authorized = self._is_authorized(session)
+        is_authorized = self._is_authorized(request=request, session=session)
 
         if session is not None and request.session_secret == session.session_secret and is_authorized:
             # TODO: push to redis stream, associating with this session somehow, and getting some kind of id back
