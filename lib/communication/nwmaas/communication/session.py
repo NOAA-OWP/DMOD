@@ -28,6 +28,9 @@ class Session(Serializable):
 
     _DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
 
+    _full_equality_attributes = ['session_id', 'session_secret', 'created']
+    """ list of str: the names of attributes/properties to include when testing instances for complete equality """
+
     _serialized_attributes = ['session_id', 'session_secret', 'created']
     """ list of str: the names of attributes/properties to include when serializing an instance """
 
@@ -66,7 +69,33 @@ class Session(Serializable):
         return cls._DATETIME_FORMAT
 
     @classmethod
-    def get_serialized_attributes(cls):
+    def get_full_equality_attributes(cls) -> tuple:
+        """
+        Get a tuple-ized (and therefore immutable) collection of attribute names for those attributes used for
+        determining more complete or "full" equality between instances than is provided by the standard "equals"
+        operation, as is used in :meth:`full_equals`.
+
+        Returns
+        -------
+        tuple of str:
+            a tuple-ized (and therefore immutable) collection of attribute names for those attributes used for
+            determining full/complete equality between instances.
+        """
+        return tuple(cls._full_equality_attributes)
+
+    @classmethod
+    def get_serialized_attributes(cls) -> tuple:
+        """
+        Get a tuple-ized (and therefore immutable) collection of attribute names for those attributes included in
+        serialized representations of the instance.
+
+        A common case for usage is for getting expected/required names for serializing a class to JSON.
+
+        Returns
+        -------
+        tuple of str:
+            a tuple-ized (and therefore immutable) collection of attribute names for attributes used in serialization
+        """
         return tuple(cls._serialized_attributes)
 
     def __eq__(self, other):
@@ -113,6 +142,9 @@ class Session(Serializable):
         determined from the standard equality implementation, by comparing all the attributes from
         :meth:`get_serialized_attributes`.
 
+        In general, the standard :meth:`__eq__` implementation will only determine if two instances represent the same
+        modeled session.
+
         Parameters
         ----------
         other
@@ -125,7 +157,7 @@ class Session(Serializable):
         if self.__class__ != other.__class__:
             return False
         try:
-            for attr in self.__class__._serialized_attributes:
+            for attr in self.get_full_equality_attributes():
                 if getattr(self, attr) != getattr(other, attr):
                     return False
             return True
@@ -215,6 +247,7 @@ class Session(Serializable):
 # TODO: work more on this later, when authentication becomes more important
 class FullAuthSession(Session):
 
+    _full_equality_attributes = ['session_id', 'session_secret', 'created', 'ip_address', 'user']
     _serialized_attributes = ['session_id', 'session_secret', 'created', 'ip_address', 'user']
 
     @classmethod
