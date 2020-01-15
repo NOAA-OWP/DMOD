@@ -34,6 +34,8 @@ class Session(Serializable):
     _serialized_attributes = ['session_id', 'session_secret', 'created', 'last_accessed']
     """ list of str: the names of attributes/properties to include when serializing an instance """
 
+    _session_timeout_delta = datetime.timedelta(minutes=30.0)
+
     @classmethod
     def _init_datetime_val(cls, value):
         try:
@@ -99,6 +101,10 @@ class Session(Serializable):
             a tuple-ized (and therefore immutable) collection of attribute names for attributes used in serialization
         """
         return tuple(cls._serialized_attributes)
+
+    @classmethod
+    def get_session_timeout_delta(cls) -> datetime.timedelta:
+        return cls._session_timeout_delta
 
     def __eq__(self, other):
         return isinstance(other, Session) and self.session_id == other.session_id
@@ -205,6 +211,9 @@ class Session(Serializable):
 
     def get_last_accessed_serialized(self):
         return self._last_accessed.strftime(Session._DATETIME_FORMAT)
+
+    def is_expired(self):
+        return self._last_accessed + self.get_session_timeout_delta() < datetime.datetime.now()
 
     def is_serialized_attribute(self, attribute) -> bool:
         """
