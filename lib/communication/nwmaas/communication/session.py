@@ -519,5 +519,9 @@ class SessionManager(ABC):
         pass
 
     @abstractmethod
+    def refresh_session(self, session: Session) -> bool:
+        pass
+
+    @abstractmethod
     def remove_session(self, session: Session):
         pass
