@@ -95,41 +95,6 @@ class RedisBackendSessionManager(SessionManager):
                                                 self._session_redis_hash_subkey_created,
                                                 self._session_redis_hash_subkey_last_accessed}
 
-    def _update_session_record(self, session: FullAuthSession, pipeline: Pipeline, do_ip_address=False, do_secret=False,
-                               do_user=False):
-        """
-        Append to the execution tasks (without triggering execution) of a provided Pipeline to update appropriate
-        properties of a serialized Session hash record in Redis.
-
-        Parameters
-        ----------
-        session: DetailedSession
-            The deserialized, updated Session object from which some data in a Redis session hash data structure should
-            be updated.
-        pipeline: Pipeline
-            The created Redis transactional pipeline.
-        do_ip_address: bool
-            Whether the ip_address key value should be updated for the session record.
-        do_secret: bool
-            Whether the secret key value should be updated for the session record.
-        do_user: bool
-            Whether the user key value should be updated for the session record.
-
-        Returns
-        -------
-
-        """
-        session_key = self.get_key_for_session(session)
-        # Build a map of the valid hash structure sub-keys in redis to tuples of (should-update-field-flag, new-value)
-        keys_and_flags = {
-            'ip_address': (do_ip_address, session.ip_address),
-            'secret': (do_secret, session.session_secret),
-            'user': (do_user, session.user)
-        }
-        for key in keys_and_flags:
-            if keys_and_flags[key][0]:
-                pipeline.hset(session_key, key, keys_and_flags[key][1])
-
     def _write_session_via_pipeline(self, session: FullAuthSession, pipeline: Optional[Pipeline] = None,
                                     write_attr_subkeys: Optional[set] = None, check_next_id: bool = True):
         """
