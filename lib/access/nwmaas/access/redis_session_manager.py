@@ -9,7 +9,6 @@ from nwmaas.communication import FullAuthSession, Session, SessionManager
 
 
 # TODO: add something to periodically scrub sessions due to some expiring criteria
-# TODO: also add something that allows the expiring criteria to be "extended" for a session (or some similar notion)
 class RedisBackendSessionManager(SessionManager):
     _DEFAULT_REDIS_HOST = 'redis'
     _DEFAULT_REDIS_PASS = ''
@@ -261,6 +260,24 @@ class RedisBackendSessionManager(SessionManager):
                                 decode_responses=True,
                                 password=self._redis_pass)
         return self._redis
+
+    def refresh_session(self, session: Session) -> bool:
+        if session.is_expired():
+            return False
+        looked_up = self.lookup_session_by_id(session.session_id)
+        if looked_up is None or looked_up.is_expired() or looked_up.session_secret != session.session_secret:
+            return False
+        new_last_accessed = datetime.datetime.now()
+        looked_up._last_accessed = new_last_accessed
+        # TODO(later): consider adding a maximum session time to cap refreshes
+        pipeline = self.redis.pipeline()
+        attr_write_set = {self._session_redis_hash_subkey_last_accessed}
+        try:
+            self._write_session_via_pipeline(session=looked_up, pipeline=pipeline, write_attr_subkeys=attr_write_set)
+            session._last_accessed = new_last_accessed
+            return True
+        finally:
+            pipeline.reset()
 
     def remove_session(self, session: FullAuthSession):
         pipeline = self.redis.pipeline()
