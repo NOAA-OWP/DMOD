@@ -218,19 +218,6 @@ class Session(Serializable):
         return False
 
     @property
-    def json_attributes(self) -> tuple:
-        """
-        Get a tuplized (and therefore immutable) copy of the attribute names for serialized JSON representations of the
-        instance.
-
-        Returns
-        -------
-        tuple of str:
-            a tuplized (and therefore immutable) copy of the attribute names for serialized JSON representations
-        """
-        return tuple(self._serialized_attributes)
-
-    @property
     def session_id(self):
         """int: The unique identifier for this session."""
         return int(self._session_id)
