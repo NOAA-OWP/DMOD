@@ -600,7 +600,10 @@ class NWMRequestResponse(MaaSRequestResponse):
 
     @property
     def job_id(self):
-        return self.data['job_id']
+        if not isinstance(self.data, dict):
+            return -1
+        else:
+            return self.data[self.get_data_dict_key_for_job_id()]
 
 
 def get_parameters() -> dict:
