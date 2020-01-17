@@ -105,7 +105,7 @@ class NWMRequestHandler(AbstractRequestHandler):
             #async with SchedulerClient(scheduler_url, self.scheduler_client_ssl_dir) as scheduler_client:
             # Should be able to do this to reuse same object/context/connection across tasks, even from other methods
             async with self._scheduler_client as scheduler_client:
-                initial_response = await scheduler_client.send_to_scheduler(scheduler_message)
+                initial_response = await scheduler_client.async_make_request(scheduler_message)
                 logging.debug("************* Scheduler client received response:\n{}".format(str(initial_response)))
                 if initial_response.success:
                     job_id = initial_response.job_id

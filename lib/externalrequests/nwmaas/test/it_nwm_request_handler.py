@@ -42,7 +42,7 @@ class DummySchedulerClient(SchedulerClient):
         """
         return None if self._next_job_id == self._first_job_id else self._next_job_id - 1
 
-    async def send_to_scheduler(self, message: SchedulerRequestMessage) -> SchedulerRequestResponse:
+    async def async_make_request(self, message: SchedulerRequestMessage) -> SchedulerRequestResponse:
         """
         Override superclass implementation with stub that returns either a generic successful response or generic
         failure response based on the :attr:`test_successful` instance attribute.
