@@ -13,17 +13,18 @@ class TestSessionInitResponse(unittest.TestCase):
 
         # Example 0
         self.request_strings.append(
-            '{"success": true, "reason": "Successful Auth", "message": "", "data": {"session_id": 1, "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c", "created": "2019-12-10 16:27:54", "ip_address": "10.0.1.6", "user": "someone"}}')
+            '{"success": true, "reason": "Successful Auth", "message": "", "data": {"session_id": 1, "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c", "created": "2019-12-10 16:27:54.000000", "ip_address": "10.0.1.6", "user": "someone", "last_accessed": "2019-12-10 16:27:54.000000"}}')
         self.request_jsons.append({"success": True, "reason": "Successful Auth", "message": "",
                                    "data": {"session_id": 1,
                                             "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c",
-                                            "created": "2019-12-10 16:27:54", "ip_address": "10.0.1.6",
-                                            "user": "someone"}})
+                                            "created": "2019-12-10 16:27:54.000000", "ip_address": "10.0.1.6",
+                                            "user": "someone", "last_accessed": "2019-12-10 16:27:54.000000"}})
         self.request_objs.append(
             SessionInitResponse(success=True, reason='Successful Auth', message='',
                                 data=FullAuthSession(session_id=1,
                                                      session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
-                                                     created='2019-12-10 16:27:54',
+                                                     created='2019-12-10 16:27:54.000000',
+                                                     last_accessed='2019-12-10 16:27:54.000000',
                                                      ip_address='10.0.1.6',
                                                      user='someone')))
 
