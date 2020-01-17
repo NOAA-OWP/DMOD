@@ -47,7 +47,7 @@ class Session(Serializable):
                 raise RuntimeError()
             else:
                 return value
-        except:
+        except Exception as e:
             return datetime.datetime.now()
 
     @classmethod
