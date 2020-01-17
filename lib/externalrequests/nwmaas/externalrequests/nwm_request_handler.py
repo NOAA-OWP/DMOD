@@ -84,14 +84,18 @@ class NWMRequestHandler(AbstractRequestHandler):
         response: NWMRequestResponse
             An appropriate ``NWMRequestResponse`` object.
         """
-        session: FullAuthSession = kwargs['session'] if kwargs and 'session' in kwargs else None
-
-        is_authorized = self._is_authorized(request=request, session=session)
-
-        if session is not None and request.session_secret == session.session_secret and is_authorized:
+        session = self._session_manager.lookup_session_by_secret(request.session_secret)
+        # TODO: look at introducing specific failure reasons here via an enum, and putting that into the data.
+        if session is None:
+            reason = 'No Session Provided'
+            msg = 'Request {} does not correspond to a known authenticated session'.format(request.to_json())
+        elif not await self._is_authorized(request=request, session=session):
+            reason = 'Unauthorized'
+            msg = 'User {} in session [{}] not authorized for NWM job request {}'.format(
+                session.user, str(session.session_id), request.to_json())
+            logging.debug("*************" + msg)
+        else:
             # TODO: push to redis stream, associating with this session somehow, and getting some kind of id back
-            job_id = 0
-            mesg = 'Awaiting implementation of handler-to-scheduler communication' if job_id == 0 else ''
             #The context manager manages a SINGLE connection to the scheduler server
             #Adhoc calls to the scheduler can be made for this connection via the scheduler_client
             #These adhoc calls will use the SAME connection the context was initialized with
@@ -113,22 +117,11 @@ class NWMRequestHandler(AbstractRequestHandler):
                 #   let server tell us when to stop listening
             # TODO: consider registering the job and relationship with session, etc.
             success = initial_response.success
-            logging.error("************* initial response: " + str(initial_response))
-            reason = ('Success' if success else 'Failure') + ' starting job (returned id ' + str(job_id) + ')'
+            success_str = 'Success' if success else 'Failure'
+            reason = 'Received {} Scheduler Response'.format(success_str)
+            mesg = '{} submitting job to scheduler (returned id {})'.format(success_str, str(initial_response.job_id))
             # TODO: right now, the only supported MaaSRequest we will see is a NWMRequest, but account for other things
-            response = NWMRequestResponse(success=success, reason=reason, message=mesg,
-                                          data={'job_id': job_id, 'scheduler_response': initial_response.to_dict()})
-        else:
-            if session is None:
-                msg = 'Request does not correspond to an authenticated session'
-            elif session is not None and request.session_secret != session.session_secret:
-                msg = 'Request does not correspond to an authenticated session: secrets do not agree'
-                msg += '(' + request.session_secret + ' | ' + session.session_secret + ')'
-                logging.debug("*************" + msg)
-            elif not is_authorized:
-                msg = 'Session {} not authorized for NWM job request {}'.format(
-                    str(session.session_id), request.to_json())
-                logging.debug("*************" + msg)
-            # TODO: right now, the only supported MaaSRequest we will see is a NWMRequest, but account for other things
-            response = NWMRequestResponse(success=False, reason='Unauthorized', message=msg)
-        return response
+            return NWMRequestResponse(success=success, reason=reason, message=mesg, scheduler_response=initial_response)
+
+        # If we didn't just return by executing 'else' condition above (i.e., we don't have an authorized session) ...
+        return NWMRequestResponse(success=False, reason=reason, message=msg)
