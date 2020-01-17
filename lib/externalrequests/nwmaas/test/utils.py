@@ -42,8 +42,9 @@ class FailureTestingAuthUtil(Authenticator, Authorizer):
 
 class TestingSession(FullAuthSession):
 
-    def __init__(self, ip_address, session_id, user):
-        super().__init__(ip_address=ip_address, session_id=session_id, user=user)
+    def __init__(self, ip_address, session_id, user, session_secret=None, created=None, last_accessed=None):
+        super().__init__(ip_address=ip_address, session_id=session_id, user=user, session_secret=session_secret,
+                         created=created, last_accessed=last_accessed)
 
 
 class TestingSessionManager(SessionManager):
