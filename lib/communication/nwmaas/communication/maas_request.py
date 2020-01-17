@@ -560,6 +560,14 @@ class NWMRequestResponse(MaaSRequestResponse):
     response_to_type = NWMRequest
 
     @classmethod
+    def _convert_scheduler_response_to_data_attribute(cls, scheduler_response=None):
+        job_id_key = cls.get_data_dict_key_for_job_id()
+        sched_resp_key = cls.get_data_dict_key_for_scheduler_response()
+        if scheduler_response is None:
+            return None
+        return {job_id_key: scheduler_response.job_id, sched_resp_key: scheduler_response.to_dict()}
+
+    @classmethod
     def get_data_dict_key_for_job_id(cls):
         """
         Get the standard key name used in the :attr:`data` attribute dictionary for storing the ``job_id`` value.
@@ -584,8 +592,11 @@ class NWMRequestResponse(MaaSRequestResponse):
         """
         return cls._data_dict_key_scheduler_response
 
-    def __init__(self, success: bool, reason: str, message: str = '', data=None):
-        super().__init__(success=success, reason=reason, message=message, data=data)
+    def __init__(self, success: bool, reason: str, message: str = '', scheduler_response=None):
+        super().__init__(success=success,
+                         reason=reason,
+                         message=message,
+                         data=self._convert_scheduler_response_to_data_attribute(scheduler_response))
 
     @property
     def job_id(self):
