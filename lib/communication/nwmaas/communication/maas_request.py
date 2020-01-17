@@ -555,7 +555,34 @@ class NWMRequestResponse(MaaSRequestResponse):
     }
     """
 
+    _data_dict_key_job_id = 'job_id'
+    _data_dict_key_scheduler_response = 'scheduler_response'
     response_to_type = NWMRequest
+
+    @classmethod
+    def get_data_dict_key_for_job_id(cls):
+        """
+        Get the standard key name used in the :attr:`data` attribute dictionary for storing the ``job_id`` value.
+        Returns
+        -------
+        str
+            the standard key name used in the :attr:`data` attribute dictionary for storing the ``job_id`` value
+        """
+        return cls._data_dict_key_job_id
+
+    @classmethod
+    def get_data_dict_key_for_scheduler_response(cls):
+        """
+        Get the standard key name used in the :attr:`data` attribute dictionary for storing the serialized scheduler
+        response value.
+
+        Returns
+        -------
+        str
+            the standard key name used in the :attr:`data` attribute dictionary for storing the serialized scheduler
+            response value
+        """
+        return cls._data_dict_key_scheduler_response
 
     def __init__(self, success: bool, reason: str, message: str = '', data=None):
         super().__init__(success=success, reason=reason, message=message, data=data)
