@@ -29,8 +29,23 @@ class NWMRequestHandler(AbstractRequestHandler):
         self._scheduler_client = SchedulerClient(self._scheduler_url, self.scheduler_client_ssl_dir)
         """SchedulerClient: Client for interacting with scheduler, which also is a context manager for connections."""
 
-    async def _is_authorized(self, request: NWMRequest, session: FullAuthSession):
-        required_access_types = await self.determine_required_access_types(request, session)
+    async def _is_authorized(self, request: NWMRequest, session: FullAuthSession) -> bool:
+        """
+        Determine whether the initiating user/session for a received request is currently authorized to submit such a
+        request for processing.
+
+        Parameters
+        ----------
+        request
+        session
+
+        Returns
+        -------
+
+        """
+        # TODO: implement more completely (and implement actual authorizer)
+        # TODO: in particular, finish implementation of utilized determine_required_access_types()
+        required_access_types = await self.determine_required_access_types(request, session.user)
         for access_type in required_access_types:
             if not await self._authorizer.check_authorized(session.user, access_type):
                 return False
@@ -38,8 +53,8 @@ class NWMRequestHandler(AbstractRequestHandler):
 
     async def determine_required_access_types(self, request: NWMRequest, user) -> tuple:
         """
-        Determine the appropriate access type the given user needs to have in order for the user to be authorized to
-        submit this request, in the context of the current state of the system.
+        Determine the necessary access types for which the given user needs to be authorized in order for the user to
+        be allow to submit this request, in the context of the current state of the system.
 
         Parameters
         ----------
@@ -50,8 +65,9 @@ class NWMRequestHandler(AbstractRequestHandler):
         -------
         A tuple of required access types required for authorization for the given request at this time.
         """
-        # TODO: implement this somehow later, perhaps to examine current running job count for the user, or however else
-        #   may be appropriate ... for now, just use the default type (which happens to be "everything")
+        # TODO: implement; in particular, consider things like current job count for user, and whether different access
+        #   types are required at different counts.
+        # FIXME: for now, just use the default type (which happens to be "everything")
         return self._default_required_access_type,
 
     async def handle_request(self, request: NWMRequest, **kwargs) -> NWMRequestResponse:
@@ -62,11 +78,6 @@ class NWMRequestHandler(AbstractRequestHandler):
         ----------
         request: NWMRequest
             A ``NWMRequest`` message instance with details of the job being requested.
-
-        Other Parameters
-        ----------
-        session: FullAuthSession
-            The session over which the request was made, used to determine if the request is sufficiently authorized.
 
         Returns
         -------
@@ -98,7 +109,8 @@ class NWMRequestHandler(AbstractRequestHandler):
                     #async for response in scheduler_client.get_results():
                     #    logging.debug("************* Results:\n{}".format(str(response)))
                     #    print(response)
-                #TODO loop here to receive multiple requests, try while execpt connectionClosed, let server tell us when to stop listening
+                # TODO loop here to receive multiple requests, try while execpt connectionClosed,
+                #   let server tell us when to stop listening
             # TODO: consider registering the job and relationship with session, etc.
             success = initial_response.success
             logging.error("************* initial response: " + str(initial_response))
