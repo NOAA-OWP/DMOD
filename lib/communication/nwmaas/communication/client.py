@@ -163,22 +163,6 @@ class SchedulerClient(WebSocketClient):
         response
             the request response object
         """
-        return await self.send_to_scheduler(message)
-
-    async def send_to_scheduler(self, message: SchedulerRequestMessage) -> SchedulerRequestResponse:
-        """
-            Ensures data is JSON encoded, and send data to the scheduler websocket endpoint.
-
-            Parameters
-            ----------
-            message
-                Job scheduling request data object
-
-            Returns
-            -------
-            response
-                a :class:`SchedulerRequestResponse` response object
-        """
         response_json = {}
         try:
             # Send the request and get the scheduler confirmation of job submission
