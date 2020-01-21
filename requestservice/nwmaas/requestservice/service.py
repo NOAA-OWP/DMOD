@@ -111,10 +111,7 @@ class RequestService(WebSocketSessionsInterface):
                             str(result)))
                     await websocket.send(str(response))
                 elif event_type == MessageEventType.NWM_MAAS_REQUEST:
-                    # TODO: make sure this is still valid after finishing implementation
-                    if session is None:
-                        session = self._lookup_session_by_secret(secret=req_message.session_secret)
-                    response = await self._nwmaas_request_handler.handle_request(request=req_message, session=session)
+                    response = await self._nwmaas_request_handler.handle_request(request=req_message)
                     logging.debug('************************* Handled request response: {}'.format(str(response)))
                     await websocket.send(str(response))
                 # FIXME: add another message type (here and in client) for data transmission
