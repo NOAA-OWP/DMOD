@@ -176,17 +176,24 @@ class SchedulerClient(WebSocketClient):
         try:
             # Consume the response confirmation by deserializing first to JSON, then from this to a response object
             response_json = json.loads(serialized_response)
-            response_object = SchedulerRequestResponse.factory_init_from_deserialized_json(response_json)
-            if response_object is None:
-                logging.error('********** Client could not deserialize response content to scheduler response object')
-                logging.error('********** Content was: ' + serialized_response)
-                reason = 'Could not deserialize response'
-                response_object = SchedulerRequestResponse(success=False, reason=reason, data=response_json)
+            try:
+                response_object = SchedulerRequestResponse.factory_init_from_deserialized_json(response_json)
+                if response_object is None:
+                    logging.error('********** Client did not deserialize response content to scheduler response object')
+                    logging.error('********** Content was: ' + serialized_response)
+                    reason = 'Could Not Deserialize Response Object'
+                    response_object = SchedulerRequestResponse(success=False, reason=reason, data=response_json)
+            except Exception as e2:
+                logging.error('********** While deserialize response from scheduler, client encountered {}: {}'.format(
+                    str(e2.__class__.__name__), str(e2)))
+                reason = 'Deserializing scheduler request response failed due to {}'.format(e2.__class__.__name__)
+                response_object = SchedulerRequestResponse(success=False, reason=reason, message=str(e2),
+                                                           data=response_json)
         except Exception as e:
-            logging.error('********** While deserialize response from scheduler, client encountered {}: {}'.format(
-                str(e.__class__.__name__), str(e)))
-            reason = 'Deserializing scheduler request response failed due to {}'.format(e.__class__.__name__)
-            response_object = SchedulerRequestResponse(success=False, reason=reason, message=str(e), data=response_json)
+            reason = 'Invalid JSON Response'
+            msg = 'Encountered ' + e.__class__.__name__ + ' loading response to JSON: ' + str(e)
+            response_object = SchedulerRequestResponse(success=False, reason=reason, message=msg, data=response_json)
+
         logging.debug('************* Scheduler client returning response object {}'.format(response_object.to_json()))
         return response_object
 
