@@ -10,16 +10,13 @@ import json, ast
 import docker
 # from itertools import chain
 from pprint import pprint as pp
-from redis import Redis, WatchError
+
 import logging
 import time
 from nwmaas.communication import SchedulerRequestMessage
 
 ## local imports
-from .utils import keynamehelper as keynamehelper
-from .utils import generate as generate
-from .utils import parsing_nested as pn
-from .utils.clean import clean_keys
+from .. import resourcemanager.RedisManager as RedisManager
 
 MAX_JOBS = 210
 Max_Redis_Init = 5
@@ -29,47 +26,6 @@ logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
     datefmt="%H:%M:%S")
-
-resources = [{'node_id': "Node-0001",
-           'Hostname': "***REMOVED***",
-           'Availability': "active",
-           'State': "ready",
-           'CPUs': 18,
-           'MemoryBytes': 33548128256
-          },
-          {'node_id': "Node-0002",
-           'Hostname': "***REMOVED***",
-           'Availability': "active",
-           'State': "ready",
-           'CPUs': 96,
-           'MemoryBytes': 540483764224
-          },
-          {'node_id': "Node-0003",
-           'Hostname': "***REMOVED***",
-           'Availability': "active",
-           'State': "ready",
-           'CPUs': 96,
-           'MemoryBytes': 540483764224
-          }
-         ]
-
-"""
-resources = [{'node_id': "Node-0002",
-           'Hostname': "***REMOVED***",
-           'Availability': "active",
-           'State': "ready",
-           'CPUs': 96,
-           'MemoryBytes': 540483764224
-          },
-          {'node_id': "Node-0003",
-           'Hostname': "***REMOVED***",
-           'Availability': "active",
-           'State': "ready",
-           'CPUs': 96,
-           'MemoryBytes': 540483764224
-          }
-         ]
-"""
 
 class Scheduler:
     _jobQ = queue.deque()
@@ -82,22 +38,6 @@ class Scheduler:
             self.docker_client = docker.from_env()
             self.api_client = docker.APIClient()
 
-        # initialize Redis client
-        n = 0
-        while (n <= Max_Redis_Init):
-            try:
-                 self.redis = Redis(host=os.environ.get("REDIS_HOST", "myredis"),
-                 #self.redis = Redis(host=os.environ.get("REDIS_HOST", "localhost"),
-                              port=os.environ.get("REDIS_PORT", 6379),
-                              # db=0, encoding="utf-8", decode_responses=True,
-                              db=0, decode_responses=True,
-                              password='***REMOVED***')
-            except:
-                logging.debug("redis connection error")
-            time.sleep(1)
-            n += 1
-            if (self.redis != None):
-                break
 
         ## initialize variables for create_service()
         ## default image
@@ -115,26 +55,14 @@ class Scheduler:
         # self._jobQ = queue.deque()
         # _MAX_JOBS is set to currently available total number of CPUs
         self._MAX_JOBS = MAX_JOBS
-        #TODO find a clearer way to set this...probably need to to do it on init of the module, and pull from
-        #the env the stack the module is running in (or from the docker API???
-        # self.keyname_prefix = "nwm-master" #FIXME parameterize
-        self.keyname_prefix = "nwm-scheduler" #FIXME parameterize
-        self.create_resources()
-        self.set_prefix()
 
-    def set_prefix(self):
-        keynamehelper.set_prefix(self.keyname_prefix)
+        #Init resource manager
+        self.resource_manager = RedisManager("maas")
 
     def return42(self):
         return 42
 
-    def create_resources(self):
-        """ Create resource from the array of passed resource details"""
-        e_set_key = keynamehelper.create_key_name("resources")
-        for resource in resources:
-            e_key = keynamehelper.create_key_name("resource", resource['node_id'])
-            self.redis.hmset(e_key, resource)
-            self.redis.sadd(e_set_key, resource['node_id'])
+
 
     def create_user_from_username(self, user_id):
         """
@@ -817,7 +745,7 @@ class Scheduler:
 
         # run_option is set based on request
         # currently this is manually set
-        run_option = 1 
+        run_option = 1
 
         if (run_option == 1):
             cpus = 4
@@ -892,7 +820,7 @@ class Scheduler:
 
 def test_scheduler():
     """
-    Test the scheduler using on the fly cpusList 
+    Test the scheduler using on the fly cpusList
     or the metadata from the saved database
     """
 
