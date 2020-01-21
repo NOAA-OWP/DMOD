@@ -273,9 +273,8 @@ class Scheduler:
     def print_resource_details(self):
         """Print the details of remaining resources after allocating the request """
         logging.info("Resources remaining:")
-        for resource in resources:
-            e_key = keynamehelper.create_key_name("resource", resource['node_id'])
-            logging.info("hgetall(e_key): {}".format(self.redis.hgetall(e_key)))
+        for resource in self.resource_manager.get_resources():
+            logging.info("Resource: {}".format(resource))
         logging.info("-" * 20)
         logging.info("\n")
 
