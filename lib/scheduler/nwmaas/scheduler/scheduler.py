@@ -62,56 +62,35 @@ class Scheduler:
     def return42(self):
         return 42
 
-    def check_single_node_availability(self, user_id, cpus, mem):
+    def single_node(self, user_id, requested_cpus, requested_mem):
         """
         Check available resources to allocate job request to a single node to optimize
         computation efficiency
         """
-        if (cpus <= 0):
-            logging.debug("Invalid CPUs request: cpus = {}, CPUs should be an integer > 0".format(cpus))
-            return
-
         if (not isinstance(cpus, int)):
-            logging.debug("Invalid CPUs request: cpus = {}, CPUs must be a positive integer".format(cpus))
+            logging.debug("Invalid CPUs request: requested_cpus = {}, CPUs must be a positive integer".format(requested_cpus))
             return
-
-        redis = self.redis
+        if (requested_cpus <= 0):
+            logging.debug("Invalid CPUs request: requested_cpus = {}, CPUs should be an integer > 0".format(requested_cpus))
+            return
 
         index = 0
-        cpusList = []
-        cpus_dict = {}
-        for resource in resources:
-            NodeId = resource['node_id']
-            e_key = keynamehelper.create_key_name("resource", NodeId)
-            # if (cpus != 0):
-            if (cpus > 0):
-                p = redis.pipeline()
-                try:
-                    redis.watch(e_key)
-                    # CPUs = int(redis.hget(e_key, resource['CPUs']))
-                    CPUs = int(redis.hget(e_key, "CPUs"))
-                    # MemoryBytes = int(redis.hget(e_key, "MemoryBytes"))
-                    MemoryBytes = int(redis.hget(e_key, "MemoryBytes"))
-                    if (CPUs < cpus):
-                        continue
-                    else:
-                        cpus_alloc = cpus
-                        req_id, cpus_dict = self.metadata_mgmt(p, e_key, user_id, cpus_alloc, mem, NodeId, index)
-                        cpusList.append(cpus_dict)
-                        p.execute()
-                        # index += 1
-                        break
-                except WatchError:
-                    logging.debug("Write Conflict check_single_node_availability: {}".format(e_key))
-                finally:
-                    p.reset()
-                    logging.info("In check_single_node_availability: Allocation complete!")
-            else:
-                logging.debug("Allocation not performed for NodeId: {}, have {} CPUs, requested {} CPUs".format(NodeId, CPUs, cpus))
-        if len(cpusList) == 0:
-            logging.info("\nIn check_single_node_availability, allocation not performed: requested {} CPUs too large".format(cpus))
-        # print("\nIn check_single_node_availability:\ncpusList = {}".format(cpusList))
-        return req_id, cpusList
+        for resrouce in self.resource_manager.get_resource_ids():
+
+            #Try to fit all requested cpus on a single resource
+            cpu_allocation_map = self.resource_manager.allocate_resource(resource, requested_cpus)
+            if cpu_allocation_map: #Resource allocation successful, have a map
+                break
+            index += 1
+
+        if not cpu_allocation_map:
+            #Could not allocate single node
+            #TODO implement queueing
+            return
+        cpu_allocation_map['index'] = index
+        request_id = self.resource_manager.create_job_entry(cpu_allocation_map)
+
+        return request_id, [cpu_allocation_map]
 
     def check_generalized_round_robin(self, user_id, cpus, mem):
         """
@@ -701,7 +680,7 @@ class Scheduler:
         It also saves the cpusList to the database as well as req_id as a key for finding the job request
         for later use
 
-        check_single_node_availability() find the first node with enough CPUs to accomodate a job request, loading a
+        single_node() find the first node with enough CPUs to accomodate a job request, loading a
         job request to a single node optimize the computation efficiency
 
         check_generalized_round_robin() distributes a compute job among a set of nodes, even though the job can fit in
@@ -734,7 +713,7 @@ class Scheduler:
 
         if (run_option == 1):
             cpus = 4
-            req_id, cpusList = self.check_single_node_availability(user_id, cpus, mem)
+            req_id, cpusList = self.single_node(user_id, cpus, mem)
 
         elif (run_option == 2):
             cpus = 10
