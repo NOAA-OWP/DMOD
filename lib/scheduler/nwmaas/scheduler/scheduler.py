@@ -62,20 +62,6 @@ class Scheduler:
     def return42(self):
         return 42
 
-
-
-    def create_user_from_username(self, user_id):
-        """
-           Get user id from the user input, store in database
-           More info may be saved in the future
-        """
-        try:
-            c_key = keynamehelper.create_key_name("user", user_id)
-            user = {'user_id': user_id}
-            self.redis.hmset(c_key, user)
-        except:
-            logging.debug("user not created")
-
     def check_single_node_availability(self, user_id, cpus, mem):
         """
         Check available resources to allocate job request to a single node to optimize
