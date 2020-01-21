@@ -187,7 +187,7 @@ class SchedulerClient(WebSocketClient):
                 str(e.__class__.__name__), str(e)))
             reason = 'Deserializing scheduler request response failed due to {}'.format(e.__class__.__name__)
             response_object = SchedulerRequestResponse(success=False, reason=reason, message=str(e), data=response_json)
-        logging.debug('************* Scheduler client transmitting response object {}'.format(response_object.to_json()))
+        logging.debug('************* Scheduler client returning response object {}'.format(response_object.to_json()))
         return response_object
 
     async def get_results(self):
