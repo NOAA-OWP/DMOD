@@ -170,8 +170,7 @@ class SchedulerClient(WebSocketClient):
             if serialized_response is None:
                 raise ValueError
         except Exception as e:
-            logging.error('********** While sending request to scheduler, client encountered {}: {}'.format(
-                str(e.__class__.__name__), str(e)))
+            logging.error('********* Encountered {} sending scheduler request: {}'.format(str(e), e.__class__.__name__))
             reason = 'Request Send Failure ({})'.format(e.__class__.__name__)
             return SchedulerRequestResponse(success=False, reason=reason, message=str(e), data=response_json)
         try:
@@ -179,7 +178,7 @@ class SchedulerClient(WebSocketClient):
             response_json = json.loads(serialized_response)
             response_object = SchedulerRequestResponse.factory_init_from_deserialized_json(response_json)
             if response_object is None:
-                logging.error('********** While deserialize response from scheduler, client could not deserialize to object')
+                logging.error('********** Client could not deserialize response content to scheduler response object')
                 logging.error('********** Content was: ' + serialized_response)
                 reason = 'Could not deserialize response'
                 response_object = SchedulerRequestResponse(success=False, reason=reason, data=response_json)
