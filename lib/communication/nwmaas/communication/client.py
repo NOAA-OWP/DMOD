@@ -172,7 +172,7 @@ class SchedulerClient(WebSocketClient):
         except Exception as e:
             logging.error('********** While sending request to scheduler, client encountered {}: {}'.format(
                 str(e.__class__.__name__), str(e)))
-            reason = 'Sending scheduler request response failed due to {}'.format(e.__class__.__name__)
+            reason = 'Request Send Failure ({})'.format(e.__class__.__name__)
             return SchedulerRequestResponse(success=False, reason=reason, message=str(e), data=response_json)
         try:
             # Consume the response confirmation by deserializing first to JSON, then from this to a response object
