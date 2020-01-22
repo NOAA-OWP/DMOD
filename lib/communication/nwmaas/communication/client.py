@@ -358,11 +358,11 @@ class MaasRequestClient(WebSocketClient, ABC):
                         response_obj: MaaSRequestResponse = asyncio.get_event_loop().run_until_complete(
                             self.async_make_request(maas_job_request))
                         print('***************** Response: ' + str(response_obj))
-                        if not self.validate_job_request_response(response_obj):
-                            raise RuntimeError('Invalid response received for requested job: ' + str(response_obj))
-                        # Try to get a new session if unauthorized (and we hadn't already gotten a new session)
-                        elif self._job_request_failed_due_to_expired_session(response_obj) and not force_new_session:
+                        # Try to get a new session if session is expired (and we hadn't already gotten a new session)
+                        if self._job_request_failed_due_to_expired_session(response_obj) and not force_new_session:
                             return self.make_job_request(maas_job_request=maas_job_request, force_new_session=True)
+                        elif not self.validate_job_request_response(response_obj):
+                            raise RuntimeError('Invalid response received for requested job: ' + str(response_obj))
                         elif not response_obj.success:
                             template = 'Request failed (reason: {}): {}'
                             raise RuntimeError(template.format(response_obj.reason, response_obj.message))
