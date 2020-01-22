@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 from nwmaas.access import Authorizer
 from nwmaas.communication import AbstractRequestHandler, FullAuthSession, NWMRequest, NWMRequestResponse, \
-    SchedulerClient, SchedulerRequestMessage, SessionManager
+    SchedulerClient, SchedulerRequestMessage, SessionManager, InitRequestResponseReason
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -85,12 +85,11 @@ class NWMRequestHandler(AbstractRequestHandler):
             An appropriate ``NWMRequestResponse`` object.
         """
         session = self._session_manager.lookup_session_by_secret(request.session_secret)
-        # TODO: look at introducing specific failure reasons here via an enum, and putting that into the data.
         if session is None:
-            reason = 'No Session Provided'
+            reason = InitRequestResponseReason.UNRECOGNIZED_SESSION_SECRET
             msg = 'Request {} does not correspond to a known authenticated session'.format(request.to_json())
         elif not await self._is_authorized(request=request, session=session):
-            reason = 'Unauthorized'
+            reason = InitRequestResponseReason.UNAUTHORIZED
             msg = 'User {} in session [{}] not authorized for NWM job request {}'.format(
                 session.user, str(session.session_id), request.to_json())
             logging.debug("*************" + msg)
@@ -118,10 +117,10 @@ class NWMRequestHandler(AbstractRequestHandler):
             # TODO: consider registering the job and relationship with session, etc.
             success = initial_response.success
             success_str = 'Success' if success else 'Failure'
-            reason = 'Received {} Scheduler Response'.format(success_str)
+            reason = InitRequestResponseReason.ACCEPTED if success else InitRequestResponseReason.REJECTED
             mesg = '{} submitting job to scheduler (returned id {})'.format(success_str, str(initial_response.job_id))
             # TODO: right now, the only supported MaaSRequest we will see is a NWMRequest, but account for other things
-            return NWMRequestResponse(success=success, reason=reason, message=mesg, scheduler_response=initial_response)
+            return NWMRequestResponse(success=success, reason=reason.name, message=mesg, scheduler_response=initial_response)
 
         # If we didn't just return by executing 'else' condition above (i.e., we don't have an authorized session) ...
-        return NWMRequestResponse(success=False, reason=reason, message=msg)
+        return NWMRequestResponse(success=False, reason=reason.name, message=msg)
