@@ -1,5 +1,7 @@
+import json
 import unittest
-from ..communication.maas_request import NWMRequest
+from ..communication.maas_request import NWMRequest, NWMRequestResponse
+from ..test.test_nwm_request_response import TestNWMRequestResponse
 
 
 class TestNWMRequest(unittest.TestCase):
@@ -65,6 +67,17 @@ class TestNWMRequest(unittest.TestCase):
         example_index = 1
         obj = NWMRequest.factory_init_from_deserialized_json(self.request_jsons[example_index])
         self.assertEqual(obj.session_secret, self.request_objs[example_index].session_secret)
+
+    # TODO: more tests for this
+    def test_factory_init_correct_response_subtype_1_a(self):
+        """
+        Test ``factory_init_correct_response_subtype()`` that a valid response object is deserialized from the relevant
+        example case string.
+        """
+        example_str = TestNWMRequestResponse.get_raw_response_string_example_1()
+        json_obj = json.loads(example_str)
+        obj = NWMRequest.factory_init_correct_response_subtype(json_obj)
+        self.assertEqual(obj.__class__, NWMRequestResponse)
 
     def test_to_dict_0_a(self):
         """
