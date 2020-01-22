@@ -12,6 +12,25 @@ class MessageEventType(Enum):
     INVALID = -1
 
 
+class InitRequestResponseReason(Enum):
+    """
+    Values for the ``reason`` attribute in responses to ``AbstractInitRequest`` messages.
+    """
+
+    UNRECOGNIZED_SESSION_SECRET = 1
+    """The containing session for the init request could not be identified from the session secret in the message."""
+    EXPIRED_SESSION = 2
+    """The containing session for the init request is considered expired, and thus can no longer make requests."""
+    UNAUTHORIZED = 3
+    """The containing session for the init request does not authorize the user to make such a request."""
+    ACCEPTED = 4
+    """The request was deemed authorized, and it was accepted by the receiver."""
+    REJECTED = 5
+    """The request was deemed authorized, but the receive rejected the request for other reasons."""
+    UNKNOWN = 6
+    """The reason for the particular response is unknown or not well defined in the enum type."""
+
+
 class Message(Serializable, ABC):
     """
     Class representing communication message of some kind between parts of the NWM MaaS system.
