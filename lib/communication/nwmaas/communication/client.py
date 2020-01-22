@@ -10,7 +10,7 @@ from typing import Optional, Union
 import websockets
 
 from .maas_request import MaaSRequest, MaaSRequestResponse, NWMRequest, NWMRequestResponse
-from .message import Message, Response
+from .message import Message, Response, InitRequestResponseReason
 from .scheduler_request import SchedulerRequestMessage, SchedulerRequestResponse
 from .validator import NWMRequestJsonValidator
 
@@ -209,10 +209,9 @@ class MaasRequestClient(WebSocketClient, ABC):
     @staticmethod
     def _job_request_failed_due_to_expired_session(response_obj: MaaSRequestResponse):
         """
-        Test if the response to a websocket-sent request failed specifically because the utilized session was valid, but
-        no longer suitably authorized, indicating that it may make sense to try to authenticate a new session for the
-        request and try again (i.e., it may, assuming this problem didn't occur when already using a freshly acquired
-        session.)
+        Test if the response to a websocket-sent request failed specifically because the utilized session is consider to
+        be expired, either because the session is explicitly expired or there is no longer a record of the session with
+        the session secret in the init request (i.e., it is implicitly expired).
 
         Parameters
         ----------
@@ -223,7 +222,9 @@ class MaasRequestClient(WebSocketClient, ABC):
         bool
             whether a failure occur and it specifically was due to a lack of authorization over the used session
         """
-        return response_obj is not None and not response_obj.success and response_obj.reason == 'Unauthorized'
+        is_expired = response_obj.reason_enum == InitRequestResponseReason.UNRECOGNIZED_SESSION_SECRET
+        is_expired = is_expired or response_obj.reason_enum == InitRequestResponseReason.EXPIRED_SESSION
+        return response_obj is not None and not response_obj.success and is_expired
 
     @staticmethod
     def _run_validation(message: Union[MaaSRequest, MaaSRequestResponse]):
