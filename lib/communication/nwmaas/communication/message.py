@@ -105,7 +105,7 @@ class Response(Message, ABC):
         """
         try:
             return json_obj['data']
-        except:
+        except Exception as e:
             return None
 
     @classmethod
@@ -130,7 +130,7 @@ class Response(Message, ABC):
         try:
             return cls(success=json_obj['success'], reason=json_obj['reason'], message=json_obj['message'],
                        data=cls._factory_init_data_attribute(json_obj))
-        except:
+        except Exception as e:
             return None
 
     @classmethod
