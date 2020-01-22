@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from nwmaas.access import RedisBackendSessionManager
 from nwmaas.communication import NWMRequest, NWMRequestResponse, SchedulerClient, SchedulerRequestMessage, \
-    SchedulerRequestResponse
+    SchedulerRequestResponse, InitRequestResponseReason
 from ..test import FailureTestingAuthUtil, SucceedTestAuthUtil, TestingSession, TestingSessionManager
 from ..externalrequests import NWMRequestHandler
 
@@ -161,7 +161,7 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         self.session_manager.remove_session(session)
 
         response = asyncio.run(self.handler.handle_request(request=request), debug=True)
-        self.assertEquals(response.reason, 'No Session Provided')
+        self.assertEqual(response.reason, InitRequestResponseReason.UNRECOGNIZED_SESSION_SECRET.name)
 
     def test_handle_request_1_c(self):
         """
@@ -177,7 +177,7 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         self.handler._authorizer = self.fail_authorizer
 
         response = asyncio.run(self.handler.handle_request(request=request), debug=True)
-        self.assertEquals(response.reason, 'Unauthorized')
+        self.assertEquals(response.reason, InitRequestResponseReason.UNAUTHORIZED.name)
 
     def test_handle_request_2_a(self):
         """
@@ -211,7 +211,7 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         self.handler._scheduler_client = dummy_scheduler_client
 
         response = asyncio.run(self.handler.handle_request(request=request), debug=True)
-        expected_reason = 'Received Success Scheduler Response'
+        expected_reason = InitRequestResponseReason.ACCEPTED.name
         self.assertEquals(response.reason, expected_reason)
 
     def test_handle_request_2_c(self):
@@ -309,7 +309,7 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         self.handler._scheduler_client = dummy_scheduler_client
 
         response = asyncio.run(self.handler.handle_request(request=request), debug=True)
-        expected_reason = 'Received Failure Scheduler Response'
+        expected_reason = InitRequestResponseReason.REJECTED.name
         self.assertEquals(response.reason, expected_reason)
 
     def test_handle_request_3_c(self):
