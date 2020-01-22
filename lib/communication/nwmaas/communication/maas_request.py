@@ -560,12 +560,42 @@ class NWMRequestResponse(MaaSRequestResponse):
     response_to_type = NWMRequest
 
     @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        """
+        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+        response_obj : Response
+            A new object of this type instantiated from the deserialize JSON object dictionary, or none if the provided
+            parameter could not be used to instantiated a new object.
+
+        See Also
+        -------
+        _factory_init_data_attribute
+        """
+        try:
+            return cls(success=json_obj['success'], reason=json_obj['reason'], message=json_obj['message'],
+                       scheduler_response=json_obj['data'])
+        except Exception as e:
+            return None
+
+    @classmethod
     def _convert_scheduler_response_to_data_attribute(cls, scheduler_response=None):
         job_id_key = cls.get_data_dict_key_for_job_id()
         sched_resp_key = cls.get_data_dict_key_for_scheduler_response()
         if scheduler_response is None:
             return None
-        return {job_id_key: scheduler_response.job_id, sched_resp_key: scheduler_response.to_dict()}
+        elif isinstance(scheduler_response, dict) and len(scheduler_response) == 0:
+            return {}
+        elif isinstance(scheduler_response, dict):
+            return scheduler_response
+        else:
+            return {job_id_key: scheduler_response.job_id, sched_resp_key: scheduler_response.to_dict()}
 
     @classmethod
     def get_data_dict_key_for_job_id(cls):
