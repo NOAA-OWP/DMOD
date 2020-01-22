@@ -4,7 +4,7 @@ Lays out details describing how a request may be created and the different types
 @author: Chris Tubbs
 """
 
-from .message import AbstractInitRequest, MessageEventType, Response
+from .message import AbstractInitRequest, MessageEventType, Response, InitRequestResponseReason
 from abc import ABC, abstractmethod
 
 
@@ -463,6 +463,13 @@ class MaaSRequestResponse(Response, ABC):
 
     def __init__(self, success: bool, reason: str, message: str = '', data=None):
         super().__init__(success=success, reason=reason, message=message, data=data)
+
+    @property
+    def reason_enum(self):
+        try:
+            return InitRequestResponseReason[self.reason]
+        except:
+            return InitRequestResponseReason.UNKNOWN
 
 
 class NWMRequest(MaaSRequest):
