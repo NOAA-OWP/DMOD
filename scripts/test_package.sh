@@ -165,6 +165,7 @@ find_and_exec_test_files()
     # Unit testing
     if [ "${1}" = "${DEFAULT_UNIT_TEST_FILE_PATTERN}" ]; then
         exec_test_files "$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${1}")"
+        return ${?}
     # Integration testing, with existing setup file in directory
     elif [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}" ]; then
         # Source the setup file
@@ -180,11 +181,14 @@ find_and_exec_test_files()
         fi
         # Then execute all IT tests
         exec_test_files "$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${1}")"
+        _R=${?}
         # Finally, run the sourced teardown function
         ${INTEGRATION_TEST_TEARDOWN_FUNC}
+        return ${_R}
     # Integration testing, but without the setup file in directory
     else
         exec_test_files "$(find "${PACKAGE_TEST_DIRECTORY}" -type f -name "${1}")"
+        return ${?}
     fi
 }
 
@@ -204,12 +208,18 @@ elif [ "${TEST_FILE_PATTERN}" == "both" ]; then
     echo "Running unit tests:"
     echo "--------------------------"
     find_and_exec_test_files "${DEFAULT_UNIT_TEST_FILE_PATTERN}"
+    _R1=${?}
     echo "=================================="
     echo "Running integration tests:"
     echo "--------------------------"
     find_and_exec_test_files "${DEFAULT_INTEGRATION_TEST_FILE_PATTERN}"
+    _R2=${?}
+    _R_FINAL=$((_R1+_R2))
+
 else
     find_and_exec_test_files "${TEST_FILE_PATTERN}"
+    _R_FINAL=${?}
 fi
 
 echo "==========================================================================="
+exit ${_R_FINAL}
