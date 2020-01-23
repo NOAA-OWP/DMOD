@@ -106,6 +106,10 @@ if [ -z "${USE_SYS_PYTHON:-}" ]; then
         # Bail here if a valid venv is not set
         [ -z "${VENV_DIR:-}" ] && echo "Error: no valid virtual env directory could be determined or was given" && exit 1
     fi
+    # Also make sure we validate the directory before proceeding
+    py_dev_validate_venv_dir "${VENV_DIR}" > /dev/null
+    # Then exit unless that was validated
+    exit_with_if_non_zero $?
 fi
 
 # Take appropriate action to activate the virtual environment if needed
