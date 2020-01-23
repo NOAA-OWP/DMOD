@@ -28,13 +28,10 @@ ARG request_service_package_name
 ENV PYTHON_PACKAGE_DIST_NAME_REQUEST_SERVICE=${request_service_package_name}
 # Copy source
 COPY ./requestservice /nwm_service/requestservice
-# Move to source dir
-WORKDIR ./requestservice
 # Create easy-to-find dist dir at root, install build dependencies, run build helper script, and move wheel file to easy-to-find location
 RUN mkdir /requestservice_dist \
-    # Remember, from previous intermediate Docker build stage, nwmaas-communication will already be installed \
-    && ./build.sh --sys build \
-    && mv ./dist/*.whl /requestservice_dist/.
+    && ./scripts/dist_package.sh --sys ./requestservice \
+    && mv ./requestservice/dist/*.whl /requestservice_dist/.
 
 ##### Create intermediate Docker build stage for building nwmaas-schedulerservice wheel distribution for pip
 FROM internal_deps as build_scheduler_service
@@ -43,13 +40,10 @@ ARG scheduler_service_package_dist_name
 ENV PYTHON_PACKAGE_DIST_NAME_SCHEDULER_SERVICE=${scheduler_service_package_dist_name}
 # Copy source
 COPY ./schedulerservice /nwm_service/schedulerservice
-# Move to source dir
-WORKDIR ./schedulerservice
 # Create easy-to-find dist dir at root, install build dependencies, run build helper script, and move wheel file to easy-to-find location
 RUN mkdir /schedulerservice_dist \
-    # Remember, from previous intermediate Docker build stage, nwmaas-communication will already be installed \
-    && ./build.sh --sys build \
-    && mv ./dist/*.whl /schedulerservice_dist/.
+    && ./scripts/dist_package.sh --sys ./schedulerservice \
+    && mv ./schedulerservice/dist/*.whl /schedulerservice_dist/.
 
 #### Create final Docker build stage for desired image
 FROM python:3.8-alpine
