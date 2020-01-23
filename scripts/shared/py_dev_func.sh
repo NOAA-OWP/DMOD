@@ -43,8 +43,12 @@ py_dev_validate_venv_dir()
 # Detect a valid default virtual env (if one is not already set in the VENV_DIR variable) from a preset group
 py_dev_detect_default_venv_directory()
 {
+    # Bail right away if VENV_DIR was already set
+    if [ -n "${VENV_DIR:-}" ]; then
+        return 0
+    fi
+
     for d in "${STARTING_DIR:?}/venv" "${STARTING_DIR:?}/.venv" "${SCRIPT_PARENT_DIR:?}/venv" "${SCRIPT_PARENT_DIR:?}/.venv"; do
-        [ -n "${VENV_DIR:-}" ] && break
         VENV_DIR="$(py_dev_validate_venv_dir ${d})"
         [ -n "${VENV_DIR:-}" ] && echo "Detected default virtual env directory: ${VENV_DIR}"
     done
