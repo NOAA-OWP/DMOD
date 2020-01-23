@@ -21,12 +21,12 @@ Options
     
     --build-only            Only build the image(s); do not push or deploy
 
-    --init-env              Initialize a default .env file, not already existing, then exit
+    --env-init              Initialize a default .env file, not already existing, then exit
                             This will be done by default when necessary before image builds
 
-    --init-env-clear        Initialize a default .env file, clearing any existing, then exit
+    --env-reset             Initialize a default .env file, clearing any existing, then exit
 
-    --init-env-show         Output values used when initializing a default .env, then exit
+    --env-show-init         Output values used when initializing a default .env, then exit
 
     --no-deploy             Build the image(s) and push to registry, but do not deploy
 
@@ -300,18 +300,18 @@ while [[ ${#} -gt 0 ]]; do
                 shift
             fi
             ;;
-        --init-env)
+        --env-init)
             # This will have just happened (if necessary) from the code above the loop, so just exit
             [[ -z "${ENV_JUST_CREATED:-}" ]] && echo "File .env already exists; not re-initializing"
             exit
             ;;
-        --init-env-clear)
+        --env-reset)
             # Remove whatever exists and re-init a default file
             [[ -e .env ]] && rm .env
             generate_default_env_file
             exit
             ;;
-        --init-env-show)
+        --env-show-init)
             DEFAULT_ENV_OUTPUT_FILE="/tmp/temp_upstack_env_$(date +'%Y%m%d%H%M%S')"
             generate_default_env_file
             cat "${DEFAULT_ENV_OUTPUT_FILE}"
