@@ -3,6 +3,19 @@ NAME=$(basename "${0}")
 DOCKER_READY_PUSH_REGISTRY_TIME=0
 DEFAULT_DOWN_STACK_WAIT_TIME=5
 
+DEFAULT_BUILD_COMPOSE_BASENAME='docker-build.yml'
+DEFAULT_DEPLOY_COMPOSE_BASENAME='docker-deploy.yml'
+
+STACKS_DIR='./stacks'
+
+PY_SOURCES_STACK='py_sources'
+
+PY_SOURCES_COMPOSE_FILE="${STACKS_DIR}/${PY_SOURCES_STACK}/${DEFAULT_BUILD_COMPOSE_BASENAME}"
+DEV_REGISTRY_DEPLOY_COMPOSE_FILE='docker-registry.yml'
+
+MAIN_STACK_BUILD_COMPOSE_FILE="${DEFAULT_BUILD_COMPOSE_BASENAME}"
+MAIN_STACK_DEPLOY_COMPOSE_FILE="${DEFAULT_DEPLOY_COMPOSE_BASENAME}"
+
 usage()
 {
     local _O="${NAME}
@@ -162,8 +175,8 @@ init_registry_service_if_needed()
         echo "Options set to not use internal Docker registry for pushing or pulling of images; skipping init steps"
     elif [[ $(docker stack services -q --filter "name=${DOCKER_INTERNAL_REGISTRY_SERVICE_NAME}" "${DOCKER_INTERNAL_REGISTRY_STACK_NAME}" | wc -l) -eq 0 ]]; then
         echo "Starting internal Docker registry"
-        #docker stack deploy --compose-file docker-registry.yml "${DOCKER_STACK_NAME}"
-        deploy_docker_stack_from_compose_using_env docker-registry.yml "${DOCKER_INTERNAL_REGISTRY_STACK_NAME}"
+        #docker stack deploy --compose-file "${DEV_REGISTRY_DEPLOY_COMPOSE_FILE:?}" "${DOCKER_STACK_NAME}"
+        deploy_docker_stack_from_compose_using_env "${DEV_REGISTRY_DEPLOY_COMPOSE_FILE:?}" "${DOCKER_INTERNAL_REGISTRY_STACK_NAME}"
         # If starting, set our "ready-to-push" time to 5 seconds in the future
         DOCKER_READY_PUSH_REGISTRY_TIME=$((5+$(date +%s)))
     else
@@ -177,12 +190,12 @@ build_main_stack_images()
 {
     echo "Building custom Docker images for main stack"
     if [[ -n "${DO_UPDATE:-}" ]]; then
-        if ! docker-compose -f docker-build.yml build --no-cache nwm; then
+        if ! docker-compose -f "${MAIN_STACK_BUILD_COMPOSE_FILE:?}" build --no-cache nwm; then
             echo "Previous build command failed; exiting"
             exit 1
         fi
     else
-        if ! docker-compose -f docker-build.yml build; then
+        if ! docker-compose -f "${MAIN_STACK_BUILD_COMPOSE_FILE:?}" build; then
             echo "Previous build command failed; exiting"
             exit 1
         fi
@@ -192,7 +205,7 @@ build_main_stack_images()
 build_python_packages_stack_images()
 {
     echo "Building custom Python package Docker images"
-    if [ ! -e "${PY_SOURCES_COMPOSE_FILE:=./stacks/py_sources/docker-build.yml}" ]; then
+    if [ ! -e "${PY_SOURCES_COMPOSE_FILE:?}" ]; then
         >&2 echo "Error: set py_sources Compose build file '${PY_SOURCES_COMPOSE_FILE}' not found"
         exit 1
     fi
@@ -241,7 +254,7 @@ up_stack()
             echo "Previous push command failed; exiting"
             exit 1
         fi
-        if ! docker-compose -f docker-build.yml push; then
+        if ! docker-compose -f "${MAIN_STACK_BUILD_COMPOSE_FILE:?}" push; then
             echo "Previous push command failed; exiting"
             exit 1
         fi
@@ -254,8 +267,8 @@ up_stack()
         exit
     fi
     echo "Deploying NWM stack"
-    #docker stack deploy --compose-file docker-deploy.yml "nwm-${NWM_NAME:-master}"
-    deploy_docker_stack_from_compose_using_env docker-deploy.yml "${DOCKER_NWM_STACK_NAME:?}"
+    #docker stack deploy --compose-file "${MAIN_STACK_DEPLOY_COMPOSE_FILE:?}" "nwm-${NWM_NAME:-master}"
+    deploy_docker_stack_from_compose_using_env "${MAIN_STACK_DEPLOY_COMPOSE_FILE:?}" "${DOCKER_NWM_STACK_NAME:?}"
 }
 
 down_stack()
