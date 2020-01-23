@@ -99,11 +99,13 @@ done
 
 # Unless --sys or --no-venv was set, make sure we have a valid VENV_DIR value, attempting to set a default if needed.
 if [ -z "${USE_SYS_PYTHON:-}" ]; then
-    # Look for a default venv to use if needed
-    py_dev_detect_default_venv_directory
-
-    # Bail here if a valid venv is not set
-    [ -z "${VENV_DIR:-}" ] && echo "Error: no valid virtual env directory could be determined or was given" && exit 1
+    # Assuming a VENV_DIR wasn't set via command line ...
+    if [ -z "${VENV_DIR:-}" ]; then
+        # Look for a default venv to use if needed
+        py_dev_detect_default_venv_directory
+        # Bail here if a valid venv is not set
+        [ -z "${VENV_DIR:-}" ] && echo "Error: no valid virtual env directory could be determined or was given" && exit 1
+    fi
 fi
 
 # Take appropriate action to activate the virtual environment if needed
