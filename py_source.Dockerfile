@@ -37,7 +37,7 @@ RUN mkdir /requestservice_dist \
     && mv ./dist/*.whl /requestservice_dist/.
 
 ##### Create intermediate Docker build stage for building nwmaas-schedulerservice wheel distribution for pip
-FROM internal_deps as build_scheduler
+FROM internal_deps as build_scheduler_service
 ARG scheduler_service_package_dist_name
 # Set this in the environment, as it's required by the ./build.sh script, but probably won't get sourced from an .env
 ENV PYTHON_PACKAGE_DIST_NAME_SCHEDULER_SERVICE=${scheduler_service_package_dist_name}
@@ -58,4 +58,4 @@ COPY ./lib ./gui ./requestservice ./schedulerservice /nwm_service/
 # And for every build dist/wheel package copy wheel file into analogous location for this stage
 COPY --from=internal_deps /DIST/* /DIST/
 COPY --from=build_request_service /requestservice_dist/* /DIST/
-COPY --from=build_scheduler /schedulerservice_dist/* /DIST/
+COPY --from=build_scheduler_service /schedulerservice_dist/* /DIST/
