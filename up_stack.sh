@@ -173,9 +173,9 @@ init_registry_service_if_needed()
     fi
 }
 
-build_docker_images()
+build_main_stack_images()
 {
-    echo "Building custom Docker images"
+    echo "Building custom Docker images for main stack"
     if [[ -n "${DO_UPDATE:-}" ]]; then
         if ! docker-compose -f docker-build.yml build --no-cache nwm; then
             echo "Previous build command failed; exiting"
@@ -187,6 +187,25 @@ build_docker_images()
             exit 1
         fi
     fi
+}
+
+build_python_packages_stack_images()
+{
+    echo "Building custom Python package Docker images"
+    if [ ! -e "${PY_SOURCES_COMPOSE_FILE:=./stacks/py_sources/docker-build.yml}" ]; then
+        >&2 echo "Error: set py_sources Compose build file '${PY_SOURCES_COMPOSE_FILE}' not found"
+        exit 1
+    fi
+    if ! docker-compose -f ${PY_SOURCES_COMPOSE_FILE} build; then
+        >&2 echo "Error: could not build py_sources images from '${PY_SOURCES_COMPOSE_FILE}'"
+        exit 1
+    fi
+}
+
+build_docker_images()
+{
+    build_python_packages_stack_images
+    build_main_stack_images
 }
 
 # Main exec workflow when bringing up the stack
