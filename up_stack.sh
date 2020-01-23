@@ -237,6 +237,10 @@ up_stack()
             sleep 1
         done
         echo "Pushing custom Docker images to internal registry"
+        if ! docker-compose -f ${PY_SOURCES_COMPOSE_FILE:?} push; then
+            echo "Previous push command failed; exiting"
+            exit 1
+        fi
         if ! docker-compose -f docker-build.yml push; then
             echo "Previous push command failed; exiting"
             exit 1
