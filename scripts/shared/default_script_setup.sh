@@ -32,6 +32,24 @@ if [ -z "${STARTING_DIR:-}" ]; then
     STARTING_DIR="`pwd`"
 fi
 
+# Helper script, useful when local variables aren't a thing, that receives a value (implied to be the return code of
+# previous function or nested command), simply returning if the code is 0, but exiting the entire script with the value
+# as the exit code if the value is non-zero.
+exit_with_if_non_zero()
+{
+    if [ ${#} -ne 1 ]; then
+        >&2 echo "Warning: called exit_with_if_non_zero() with wrong number of arguments; ignoring and proceeding"
+    fi
+    # Do this to test the value is an integer (-eq will be false for the same arg except for ints)
+    if [ "${1}" -eq "${1}" ] 2>/dev/null; then
+        if [ ${1} -ne 0 ]; then
+            exit ${1}
+        fi
+    else
+        >&2 echo "Warning: called exit_with_if_non_zero() with wrong type of argument; ignoring and proceeding"
+    fi
+}
+
 set_project_root()
 {
     if git rev-parse --show-toplevel > /dev/null 2>&1; then
