@@ -43,6 +43,11 @@ Options
 
     --no-deploy             Build the image(s) and push to registry, but do not deploy
 
+    --registry-stack-up | -ru Just bring up the dedicated stack for an internal registry, if
+                              properly configured to support one.
+
+    --registry-stack-down | -rd Just bring down the dedicated registry stack, if one is running
+
     --skip-registry         Skip the step of pushing built images to registry
 
     --no-internal-registry  Do not check for or start an internal Docker registry (requires
@@ -356,6 +361,14 @@ while [[ ${#} -gt 0 ]]; do
             rm "${DEFAULT_ENV_OUTPUT_FILE}"
             exit
             ;;
+        --registry-stack-down|-rd)
+            [ -n "${ACTION:-}" ] && usage && exit 1
+            ACTION='registry_stack_down'
+            ;;
+        --registry-stack-up|-ru)
+            [ -n "${ACTION:-}" ] && usage && exit 1
+            ACTION='registry_stack_up'
+            ;;
         --skip-registry)
             DO_SKIP_REGISTRY_PUSH='true'
             ;;
@@ -389,6 +402,14 @@ case "${ACTION:-}" in
         ;;
     up)
         up_stack
+        exit $?
+        ;;
+    registry_stack_down)
+        docker_remove_stack "${DOCKER_INTERNAL_REGISTRY_STACK_NAME:-dev_registry_stack}"
+        exit $?
+        ;;
+    registry_stack_up)
+        init_registry_service_if_needed
         exit $?
         ;;
     *)
