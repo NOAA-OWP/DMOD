@@ -305,19 +305,6 @@ up_stack()
     deploy_docker_stack_from_compose_using_env "${MAIN_STACK_DEPLOY_COMPOSE_FILE:?}" "${DOCKER_NWM_STACK_NAME:?}"
 }
 
-down_stack()
-{
-    local _COUNT=''
-    
-    _COUNT=$(docker stack services "${DOCKER_NWM_STACK_NAME}" 2>/dev/null | wc -l)
-    SERVICES_DOWN_COUNT=$((${SERVICES_DOWN_COUNT:-0}+${_COUNT}))
-    docker stack rm "${DOCKER_NWM_STACK_NAME}"
-    
-    if [[ ${SERVICES_DOWN_COUNT} -gt 0 ]]; then
-        sleep ${DOWN_STACK_WAIT_TIME:-0}
-    fi
-}
-
 # If no .env file exists, create one with some default values
 if [[ ! -e .env ]]; then
     echo "Creating default .env file in current directory"
@@ -396,7 +383,8 @@ done
 
 case "${ACTION:-}" in
     down)
-        down_stack
+        # Just take down the main NWM stack
+        docker_remove_stack "${DOCKER_NWM_STACK_NAME}"
         exit $?
         ;;
     up)
