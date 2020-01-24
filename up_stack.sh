@@ -11,7 +11,6 @@ STACKS_DIR='./stacks'
 PY_SOURCES_STACK='py_sources'
 
 PY_SOURCES_COMPOSE_FILE="${STACKS_DIR}/${PY_SOURCES_STACK}/${DEFAULT_BUILD_COMPOSE_BASENAME}"
-DEV_REGISTRY_DEPLOY_COMPOSE_FILE='docker-registry.yml'
 
 MAIN_STACK_BUILD_COMPOSE_FILE="${DEFAULT_BUILD_COMPOSE_BASENAME}"
 MAIN_STACK_DEPLOY_COMPOSE_FILE="${DEFAULT_DEPLOY_COMPOSE_BASENAME}"
@@ -50,7 +49,8 @@ Options
 
     --skip-registry         Skip the step of pushing built images to registry
 
-    --no-internal-registry  Do not check for or start an internal Docker registry (requires
+    --no-internal-registry  Do not perform any management tasks checking for or starting an
+                            internal Docker registry in a local, dedicated stack (requires
                             all pushes/pulls be from other configured registries)
 "
     echo "${_O}" 1>&2
@@ -206,22 +206,32 @@ init_if_not_exist_docker_networks()
 init_registry_service_if_needed()
 {
     # Make sure the internal Docker image registry container is running if configured to use it
-
-    [[ -z "${DOCKER_INTERNAL_REGISTRY_STACK_NAME:-}" ]] && DOCKER_INTERNAL_REGISTRY_STACK_NAME=dev_registry_stack
-    [[ -z "${DOCKER_INTERNAL_REGISTRY_SERVICE_NAME:-}" ]] && DOCKER_INTERNAL_REGISTRY_SERVICE_NAME="${DOCKER_INTERNAL_REGISTRY_STACK_NAME}_registry"
-
-    if [[ ${DO_SKIP_INTERNAL_REGISTRY} == 'true' ]]; then
-        echo "Options set to not use internal Docker registry for pushing or pulling of images; skipping init steps"
-    elif [[ $(docker stack services -q --filter "name=${DOCKER_INTERNAL_REGISTRY_SERVICE_NAME}" "${DOCKER_INTERNAL_REGISTRY_STACK_NAME}" | wc -l) -eq 0 ]]; then
-        echo "Starting internal Docker registry"
-        #docker stack deploy --compose-file "${DEV_REGISTRY_DEPLOY_COMPOSE_FILE:?}" "${DOCKER_STACK_NAME}"
-        deploy_docker_stack_from_compose_using_env "${DEV_REGISTRY_DEPLOY_COMPOSE_FILE:?}" "${DOCKER_INTERNAL_REGISTRY_STACK_NAME}"
-        # If starting, set our "ready-to-push" time to 5 seconds in the future
-        DOCKER_READY_PUSH_REGISTRY_TIME=$((5+$(date +%s)))
-    else
+    if [[ -z "${DOCKER_INTERNAL_REGISTRY_IS_MANAGED:-}" ]]; then
+        # If unset, equate to false, but print something about it
+        >&2 echo "Warning: DOCKER_INTERNAL_REGISTRY_IS_MANAGED unset : not starting dedicated registry stack"
+        return
+    elif [[ "${DOCKER_INTERNAL_REGISTRY_IS_MANAGED:-}" == "false" ]]; then
+        return
+    elif [[ "${DOCKER_INTERNAL_REGISTRY_IS_MANAGED:-}" != "true" ]]; then
+        >&2 echo "Warning: DOCKER_INTERNAL_REGISTRY_IS_MANAGED set to unsupported value : use either 'true' or 'false'"
+        exit 1
+    elif [[ ${DO_SKIP_MANAGING_REGISTRY_STACK:-} == 'true' ]]; then
+        echo "Script arg set to skip managing dedicated Docker registry stack : not performing stack check or init"
+        return
+    elif [[ "${DO_SKIP_REGISTRY_PUSH:-}" == "true" ]]; then
+        echo "Script arg set to skip registry push tasks : not performing registry stack check or init"
+        return
+    elif [[ "$(docker_check_stack_running ${DOCKER_INTERNAL_REGISTRY_STACK_NAME:-dev_registry_stack})" == "true" ]]; then
         echo "Internal Docker registry is online"
         # If the registry was already started, we can push starting right now
         DOCKER_READY_PUSH_REGISTRY_TIME=$(date +%s)
+    else
+        echo "Starting internal Docker registry in dedicated stack"
+        local _EMSG
+        _EMSG="Error: DOCKER_INTERNAL_REGISTRY_STACK_CONFIG not set in .env - cannot determine registry stack config"
+        deploy_docker_stack_from_compose_using_env "${DOCKER_INTERNAL_REGISTRY_STACK_CONFIG:?${_EMSG}}" "${DOCKER_INTERNAL_REGISTRY_STACK_NAME}"
+        # If starting, set our "ready-to-push" time to 5 seconds in the future
+        DOCKER_READY_PUSH_REGISTRY_TIME=$((5+$(date +%s)))
     fi
 }
 
@@ -373,7 +383,7 @@ while [[ ${#} -gt 0 ]]; do
             DO_SKIP_REGISTRY_PUSH='true'
             ;;
         --no-internal-registry)
-            DO_SKIP_INTERNAL_REGISTRY='true'
+            DO_SKIP_MANAGING_REGISTRY_STACK='true'
             ;;
         --no-deploy)
             DO_SKIP_DEPLOY='true'
