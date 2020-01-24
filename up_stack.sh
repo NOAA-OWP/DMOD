@@ -123,6 +123,40 @@ generate_default_env_file()
     fi
 }
 
+docker_check_stack_running()
+{
+    if [ ${#} -ne 1 ]; then
+        >&2 echo "Error: invalid args to docker_check_stack_running() function"
+        exit 1
+    fi
+
+    # For any stack with the expected name as a substring ...
+    for s in $(docker stack ls --format "{{.Name}}" | grep "${1}"); do
+        # If we find a matching stack name that is an exact match ...
+        if [ "${s}" == "${1}" ]; then
+            echo "true"
+            return 0
+        fi
+    done
+    # Otherwise ...
+    echo "false"
+    return 1
+}
+
+# Remove the stack with the specified name, if it is running
+docker_remove_stack()
+{
+    if [ ${#} -ne 1 ]; then
+        >&2 echo "Error: invalid args to docker_remove_stack() function"
+        exit 1
+    fi
+
+    if [ "$(docker_check_stack_running "${1}")" == "true" ]; then
+        docker stack rm "${1}"
+        sleep ${DOWN_STACK_WAIT_TIME:-0}
+    fi
+}
+
 # Work-around to use the .env file loading for compose files when deploying with docker stack (which doesn't by itself)
 # See: https://github.com/moby/moby/issues/29133
 deploy_docker_stack_from_compose_using_env()
