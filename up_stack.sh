@@ -18,40 +18,55 @@ MAIN_STACK_DEPLOY_COMPOSE_FILE="${DEFAULT_DEPLOY_COMPOSE_BASENAME}"
 usage()
 {
     local _O="${NAME}
-    Build images, push to internal registry, and deploy NWM Docker stack
+    Build images, push to appropriate registry, and deploy NWM Docker stack
 
 Usage:
     ${NAME} [opts]          Perform full build for images
-    ${NAME} [opts] update   Only build image for the 'nwm' service, without using cache
+    ${NAME} [opts] update   Only build image for 'nwm' service, not using cache
 
 Options
-    -d | --down             Instead of starting, bring down an already running stack
+    --down|-d
+        Instead of starting, bring down an already running stack
     
-    -w | --down-wait [<t>]  When taking down a stack with --down, an amount of time to wait
-                            before returning, to help make sure stack is down
-                            Note: if explicit, must be between 1 and 19 seconds (default: 5)
+    --down-wait|-w [<t>]
+        When taking down a stack with --down, an amount of time to wait
+        before returning, to help make sure stack is down
+
+        Note: if explicit, must be between 1 and 19 seconds (default: 5)
     
-    --build-only            Only build the image(s); do not push or deploy
+    --build-only
+        Only build the image(s); do not push or deploy
 
-    --env-init              Initialize a default .env file, not already existing, then exit
-                            This will be done by default when necessary before image builds
+    --env-init
+        Initialize a default .env file, not already existing, then exit
 
-    --env-reset             Initialize a default .env file, clearing any existing, then exit
+        Note: this is done by default when necessary before image builds
 
-    --env-show-init         Output values used when initializing a default .env, then exit
+    --env-reset
+        Initialize a default .env file, clearing any existing, then exit
 
-    --no-deploy             Build the image(s) and push to registry, but do not deploy
+    --env-show-init
+        Output values used when initializing a default .env, then exit
 
-    --registry-stack-up | -ru Just bring up the dedicated stack for an internal registry, if
-                              properly configured to support one.
+    --no-deploy
+        Build the image(s) and push to registry, but do not deploy
 
-    --registry-stack-down | -rd Just bring down the dedicated registry stack, if one is running
+    --no-internal-registry
+        Do not perform any management tasks checking for or starting an
+        internal Docker registry in a local, dedicated stack (requires
+        all pushes/pulls be from other configured registries)
 
-    --skip-registry         Skip the step of pushing built images to registry
+    --registry-stack-up|-ru
+        Just bring up the dedicated stack for an internal registry, if
+        properly configured to support one, then exit
 
-    --no-internal-registry  Do not perform any management tasks checking for or starting an
-                            internal Docker registry in a local, dedicated stack (requires
-                            all pushes/pulls be from other configured registries)
+    --registry-stack-down|-rd
+        Just bring down the dedicated registry stack, if one is running,
+        then exit
+
+    --skip-registry
+        Skip the step of pushing built images to registry
+
 "
     echo "${_O}" 1>&2
 }
