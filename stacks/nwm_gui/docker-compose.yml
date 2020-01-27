@@ -1,36 +1,34 @@
 version: "3.7"
 
-# Declare all services that will be formed within their own containers
 services:
   # Define a container belonging exclusively to nginx
   nginx:
-    # Use the most barebones postgres instance
     image: nginx:1.16
     networks:
       - request-listener-net
     # Only restart if a failure occurs
     restart: on-failure
-    # Forward everything hitting localhost on port 1337 to port 80 within the container
     ports:
       - ${DOCKER_GUI_NGINX_PORT:-8081}:80
-    # Link everything within the static volume to /usr/wres-gui/static within the container -
+    # Link everything within the static volume to /usr/maas_portal/static within the container -
     # this will help share resources
     volumes:
       - static_volume:/usr/maas_portal/static
-      - ${DOCKER_GUI_NGINX_CONFIG_FILE:-./nginx/default.conf}:/etc/nginx/conf.d/default.conf
+      - ../../${DOCKER_GUI_NGINX_CONFIG_FILE:-./gui/nginx/default.conf}:/etc/nginx/conf.d/default.conf
     # Make this container depend on the container holding the application server
     depends_on:
       - app_server
     deploy:
        placement:
          constraints:
-           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_1:-node.role==manager}
-           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
+           - ${DOCKER_GUI_DEPLOY_CONSTRAINT_1:-node.role==manager}
+           - ${DOCKER_GUI_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
   # Define a container belonging exclusively to our django application
   app_server:
     image: maas-portal-development
     build:
-      context: .
+      context: ../..
+      dockerfile: ./stacks/nwm_gui/Dockerfile
       args:
         docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY_HOST}:${DOCKER_INTERNAL_REGISTRY_PORT}
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
@@ -40,12 +38,8 @@ services:
       - request-listener-net
     # Call this when starting the container
     entrypoint: /usr/maas_portal/entrypoint.sh
-    #command: gunicorn maas_experiment.wsgi:application --bind 0.0.0.0:8000
     # Only restart if a failure was encountered
     restart: on-failure
-    #networks:
-    #  - ${DOCKER_MPI_NET_NAME}
-    # Run in debug mode and set all of the variables needed to connect to the postgres server on the internal network
     environment:
       #- VENV_DIR=${DOCKER_GUI_CONTAINER_VENV_DIR:-}
       #- CERT_PATH # used by dispatch.py
@@ -55,7 +49,7 @@ services:
       - MAAS_PORTAL_DEBUG=${DOCKER_GUI_MAAS_PORTAL_DEBUG:-true}
     volumes:
       - static_volume:/usr/maas_portal/static
-      - .:/usr/maas_portal
+      - ../../gui:/usr/maas_portal
       #- ${DOCKER_GUI_HOST_VENV_DIR:-/tmp/blah}:${DOCKER_GUI_CONTAINER_VENV_DIR:-/tmp/blah}
     # Expose Django's port to the internal network so that nginx may access it
     expose:
@@ -63,8 +57,8 @@ services:
     deploy:
        placement:
          constraints:
-           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_1:-node.role==manager}
-           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default} 
+           - ${DOCKER_GUI_DEPLOY_CONSTRAINT_1:-node.role==manager}
+           - ${DOCKER_GUI_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
 
 networks:
   request-listener-net:
