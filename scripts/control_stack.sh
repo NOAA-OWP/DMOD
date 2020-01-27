@@ -23,7 +23,6 @@ fi
 DEFAULT_COMPOSE_FILENAME="docker-compose.yml"
 
 DOCKER_DIR="${PROJECT_ROOT_ABS_PATH:?}/stacks"
-STACK_DIRECTORY="${PROJECT_ROOT_ABS_PATH:?}/stacks/${STACK_NAME}"
 
 ACTION_ORDER_STRING="check stop build push deploy"
 ACTION_COUNT=0
@@ -78,7 +77,7 @@ Stack Selection:
     The stack to operate on is selected by giving the config
     sub-directory for the stack under the main directory:
 
-    ${STACK_DIRECTORY}
+    ${DOCKER_DIR}
 
 Actions:
     check
