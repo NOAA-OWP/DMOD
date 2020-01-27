@@ -22,7 +22,7 @@ fi
 
 DEFAULT_COMPOSE_FILENAME="docker-compose.yml"
 
-DOCKER_DIR="${PROJECT_ROOT_ABS_PATH:?}/stacks"
+DOCKER_DIR="${PROJECT_ROOT_ABS_PATH:?}/docker"
 
 ACTION_ORDER_STRING="check stop build push deploy"
 ACTION_COUNT=0
