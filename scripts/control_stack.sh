@@ -22,7 +22,7 @@ fi
 
 DEFAULT_COMPOSE_FILENAME="docker-compose.yml"
 
-STACKS_ROOT_DIR="${PROJECT_ROOT_ABS_PATH:?}/stacks"
+DOCKER_DIR="${PROJECT_ROOT_ABS_PATH:?}/stacks"
 STACK_DIRECTORY="${PROJECT_ROOT_ABS_PATH:?}/stacks/${STACK_NAME}"
 
 ACTION_ORDER_STRING="check stop build push deploy"
@@ -319,7 +319,7 @@ if [ -z "${STACK_DIR_NAME:-}" ]; then
     short_usage
     exit 1
 fi
-STACK_DIR_PATH="${STACKS_ROOT_DIR}/${STACK_DIR_NAME}"
+STACK_DIR_PATH="${DOCKER_DIR}/${STACK_DIR_NAME}"
 if [ ! -d "${STACK_DIR_PATH}" ]; then
     >&2 echo "Error: stack directory '${STACK_DIR_PATH}' does not exist!"
     short_usage
