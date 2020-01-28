@@ -42,7 +42,7 @@ RUN apk update && apk upgrade \
 # # ------------------------------------------------------------
 USER root
 
-COPY ./ssh/ ${SSHDIR}/
+COPY ssh ${SSHDIR}/
 
 RUN cat ${SSHDIR}/*.pub >> ${SSHDIR}/authorized_keys \
     && chmod -R 600 ${SSHDIR}/* \
