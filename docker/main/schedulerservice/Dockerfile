@@ -14,7 +14,6 @@ COPY ./entrypoint.sh entrypoint.sh
 
 # Copy custom built packages from external sources image
 COPY --from=sources /DIST /DIST
-RUN pip install pyyaml
 #COPY --chown=mpi:mpi conf/redis.conf /usr/local/etc/redis/redis.conf
 COPY conf/redis.conf /usr/local/etc/redis/redis.conf
 # TODO: this file and dest have to match whwere this is looking (need to parameterize for scheduler instantiation,
