@@ -67,7 +67,8 @@ services:
     working_dir: /code
     ports:
       - "${DOCKER_REQUESTS_HOST_PORT:-3012}:${DOCKER_REQUESTS_CONTAINER_PORT:-3012}"
-    #volumes:
+    volumes:
+      - ../../ssl:/ssl
     #  - ./request_handler:/code
 
 networks:

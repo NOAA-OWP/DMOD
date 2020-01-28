@@ -13,9 +13,7 @@ ARG container_base_ssl_directory=/ssl
 
 WORKDIR /code
 
-COPY entrypoint.sh entrypoint.sh
-COPY requirements.txt requirements.txt
-COPY ssl/ ${container_base_ssl_directory}/
+COPY ./entrypoint.sh entrypoint.sh
 
 # Copy custom built packages from external sources image
 COPY --from=sources /DIST /DIST
