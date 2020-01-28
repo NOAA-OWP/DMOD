@@ -14,7 +14,7 @@ communication/nwmaas/test/ssl/*certificate*.pem
 communication/nwmaas/test/ssl/*privkey*.pem
 
 request_client/ssl/certificate.pem
-requestservice/ssl/
+ssl/
 request_handler/*.tar.gz
 requestservice/macbook_ssl/
 requestservice/ssl/requestservice/certificate.pem
