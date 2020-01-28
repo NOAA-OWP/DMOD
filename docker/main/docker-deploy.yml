@@ -10,7 +10,7 @@ services:
         - "3013:3013"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${DOCKER_VOL_DOMAINS?}:/nwm/domains
+      - ../../${DOCKER_VOL_DOMAINS?}:/nwm/domains
       #- ${DOCKER_VOL_ANALYSIS_ASSIM}:/nwm/conus
       #- /apd_common/anthro/:/apd_common/anthro
     deploy:
@@ -33,7 +33,7 @@ services:
     entrypoint: ['redis-server', '/usr/local/etc/redis/redis.conf', '--requirepass', "${DOCKER_REDIS_PASS?}"]
     # TODO: look at giving this its own service directory
     volumes:
-      - ./schedulerservice/conf/redis.conf:/usr/local/etc/redis/redis.conf
+      - ../../schedulerservice/conf/redis.conf:/usr/local/etc/redis/redis.conf
     deploy:
       placement:
         constraints:
