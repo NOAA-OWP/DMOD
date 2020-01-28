@@ -17,7 +17,7 @@ services:
   scheduler-service:
     image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/scheduler-service
     build:
-      context: ../../schedulerservice
+      context: ./schedulerservice
       args:
         docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY_HOST}:${DOCKER_INTERNAL_REGISTRY_PORT}
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}

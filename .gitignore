@@ -17,10 +17,10 @@ request_client/ssl/certificate.pem
 ssl/
 request_handler/*.tar.gz
 requestservice/macbook_ssl/
-requestservice/ssl/requestservice/certificate.pem
-requestservice/ssl/*certificate*.pem
-requestservice/ssl/*privkey*.pem
-schedulerservice/scheduler.log
+ssl/requestservice/certificate.pem
+ssl/*certificate*.pem
+ssl/*privkey*.pem
+docker/main/schedulerservice/scheduler.log
 
 base/Dockerfile.bkup
 custom_up_stack.sh-orig
