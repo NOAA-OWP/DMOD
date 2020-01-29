@@ -5,7 +5,7 @@ __pychache__/
 /docker_host_volumes/
 /venv/
 .env
-base/ssh/
+docker/main/base/ssh/
 gui/db.sqlite3
 gui/ssl/
 
@@ -22,7 +22,7 @@ ssl/*certificate*.pem
 ssl/*privkey*.pem
 docker/main/schedulerservice/scheduler.log
 
-base/Dockerfile.bkup
+docker/main/base/Dockerfile.bkup
 custom_up_stack.sh-orig
 docker-build-custom.yml-orig
 docker-build.yml-orig
@@ -33,14 +33,14 @@ docker-deploy-custom.yml-orig
 docker-deploy-data-hack.yml
 docker-deploy.yml-orig
 
-nwm/Dockerfile-new
-nwm/Dockerfile-orig
-nwm/Dockerfile.bkup
-nwm/hostfile
-nwm/run.sh
-nwm/run_model.sh-work
-nwm/run_test.sh
-nwm/testfile
+docker/main/nwm/Dockerfile-new
+docker/main/nwm/Dockerfile-orig
+docker/main/nwm/Dockerfile.bkup
+docker/main/nwm/hostfile
+docker/main/nwm/run.sh
+docker/main/nwm/run_model.sh-work
+docker/main/nwm/run_test.sh
+docker/main/nwm/testfile
 redis_test/
 request.py
 
