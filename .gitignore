@@ -32,7 +32,6 @@ docker-deploy-custom.yml-old
 docker-deploy-custom.yml-orig
 docker-deploy-data-hack.yml
 docker-deploy.yml-orig
-docker-registry.yml
 
 nwm/Dockerfile-new
 nwm/Dockerfile-orig
