@@ -223,8 +223,11 @@ bail_if_action_failed()
 {
     # 1 : action return code
     # 2 : action name
+    # 3 : (optional) when error, exit quietly without message to stderr
     if [ ${1:?} -ne 0 ]; then
-        >&2 echo "Error: requested '${2:?}' action failed (${1}); exiting without proceeding further"
+        if [ "${3:-}" != "-q" ]; then
+            >&2 echo "Error: requested '${2:?}' action failed (${1}); exiting without proceeding further"
+        fi
         exit ${1}
     fi
 }
@@ -232,7 +235,8 @@ bail_if_action_failed()
 exec_requested_actions()
 {
     if [ -n "${DO_CHECK_ACTION:-}" ]; then
-        echo "Checking if stack ${STACK_NAME:?} is running: $(docker_dev_check_stack_running "${STACK_NAME:?}")"
+        docker_dev_check_stack_running "${STACK_NAME:?}"
+        bail_if_action_failed $? check -q
     fi
 
     if [ -n "${DO_STOP_ACTION:-}" ]; then
