@@ -2,49 +2,47 @@ version: "3.7"
 
 services:
   base:
-    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-base
+    image: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/nwm-base
     build: ./base
   deps:
-    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-deps:netcdf_${NETCDF_C_VERSION:-latest}
+    image: ${DOCKER_INTERNAL_REGISTRY:?}/nwm-deps:netcdf_${NETCDF_C_VERSION:-latest}
     build:
       context: ./nwm/deps
       args:
-        DOCKER_INTERNAL_REGISTRY_HOST: ${DOCKER_INTERNAL_REGISTRY_HOST?}
-        DOCKER_INTERNAL_REGISTRY_PORT: ${DOCKER_INTERNAL_REGISTRY_PORT?}
+        DOCKER_INTERNAL_REGISTRY: ${DOCKER_INTERNAL_REGISTRY:?}
         NETCDF_C_VERSION: ${NETCDF_C_VERSION:-latest}
     depends_on:
       - base
   scheduler-service:
-    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/scheduler-service
+    image: ${DOCKER_INTERNAL_REGISTRY:?}/scheduler-service
     build:
       context: ./schedulerservice
       args:
-        docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY_HOST}:${DOCKER_INTERNAL_REGISTRY_PORT}
+        docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY}
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
         scheduler_package_dist_name: ${PYTHON_PACKAGE_DIST_NAME_SCHEDULER:?}
         scheduler_service_package_dist_name: ${PYTHON_PACKAGE_DIST_NAME_SCHEDULER_SERVICE:?}
     #depends_on:
     #  - base
   nwm:
-    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-${NWM_NAME:-master}
+    image: ${DOCKER_INTERNAL_REGISTRY:?}/nwm-${NWM_NAME:-master}
     build:
       context: ./nwm
       args:
         REPO_URL: ${NWM_REPO_URL?}
         BRANCH: ${NWM_BRANCH?}
         COMMIT: ${NWM_COMMIT}
-        DOCKER_INTERNAL_REGISTRY_HOST: ${DOCKER_INTERNAL_REGISTRY_HOST?}
-        DOCKER_INTERNAL_REGISTRY_PORT: ${DOCKER_INTERNAL_REGISTRY_PORT?}
+        DOCKER_INTERNAL_REGISTRY: ${DOCKER_INTERNAL_REGISTRY:?}
         NETCDF_C_VERSION: ${NETCDF_C_VERSION:-latest}
     #depends_on:
     #    - deps
     #For building, this only gives shared memory to each build step!!! shm_size: 2GB
   request-service:
-    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-request-service
+    image: ${DOCKER_INTERNAL_REGISTRY:?}/nwm-request-service
     build:
       context: ./requestservice
       args:
-        docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY_HOST}:${DOCKER_INTERNAL_REGISTRY_PORT}
+        docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY}
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
         access_package_name: ${PYTHON_PACKAGE_DIST_NAME_ACCESS:?}
         externalrequests_package_name: ${PYTHON_PACKAGE_DIST_NAME_EXTERNAL_REQUESTS:?}
