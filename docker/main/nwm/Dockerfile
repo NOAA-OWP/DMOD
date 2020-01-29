@@ -1,7 +1,6 @@
 ARG NETCDF_C_VERSION
-ARG DOCKER_INTERNAL_REGISTRY_HOST
-ARG DOCKER_INTERNAL_REGISTRY_PORT
-FROM ${DOCKER_INTERNAL_REGISTRY_HOST}:${DOCKER_INTERNAL_REGISTRY_PORT}/nwm-deps:netcdf_${NETCDF_C_VERSION:-latest}
+ARG DOCKER_INTERNAL_REGISTRY
+FROM ${DOCKER_INTERNAL_REGISTRY}/nwm-deps:netcdf_${NETCDF_C_VERSION:-latest}
 #Passing the ARG variables from compose via .env file will squash these defaults with empty strings
 #Seems like the work around is to replicate the default values in the build env, or to check for
 #empty and set to default as is shown commented out below.
