@@ -2,7 +2,7 @@ version: "3.7"
 
 services:
   scheduler-service:
-    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT}/scheduler-service
+    image: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/scheduler-service
     networks:
       - mpi-net
       - requests-net
@@ -41,7 +41,7 @@ services:
           - ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT_1:--node.role==manager}
           - ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
   request-service:
-    image: ${DOCKER_INTERNAL_REGISTRY_HOST?}:${DOCKER_INTERNAL_REGISTRY_PORT?}/nwm-request-service
+    image: ${DOCKER_INTERNAL_REGISTRY:?}/nwm-request-service
     networks:
       #- mpi-net
       - requests-net
