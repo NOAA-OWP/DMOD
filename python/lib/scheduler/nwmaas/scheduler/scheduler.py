@@ -1,12 +1,7 @@
 #!/usr/bin/env python3
 
-import sys
 import os
-from os.path import join, dirname, realpath
-import time
-import subprocess
 import queue
-import json, ast
 import docker
 # from itertools import chain
 from pprint import pprint as pp
