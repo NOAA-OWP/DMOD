@@ -4,8 +4,7 @@ import queue
 from nwmaas.communication import SchedulerRequestMessage
 
 from nwmaas.scheduler import Scheduler
-from nwmaas.scheduler.utils import keynamehelper as keynamehelper
-from nwmaas.scheduler.utils import parsing_nested as pn
+from nwmaas.scheduler.utils import keynamehelper as keynamehelper, parsing_nested as pn
 
 redis = None
 keynamehelper.set_prefix("stack0")
