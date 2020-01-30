@@ -5,7 +5,7 @@ from pathlib import Path
 from nwmaas.access import RedisBackendSessionManager
 from nwmaas.communication import NWMRequest, NWMRequestResponse, SchedulerClient, SchedulerRequestMessage, \
     SchedulerRequestResponse, InitRequestResponseReason
-from ..test import FailureTestingAuthUtil, SucceedTestAuthUtil, TestingSession, TestingSessionManager
+from ..test import FailureTestingAuthUtil, SucceedTestAuthUtil
 from ..externalrequests import NWMRequestHandler
 
 
