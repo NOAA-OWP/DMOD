@@ -48,6 +48,7 @@ services:
     volumes:
       - static_volume:/usr/maas_portal/static
       - ../../gui:/usr/maas_portal
+      - ../../ssl/requestservice:/usr/maas_portal/ssl
       #- ${DOCKER_GUI_HOST_VENV_DIR:-/tmp/blah}:${DOCKER_GUI_CONTAINER_VENV_DIR:-/tmp/blah}
     # Expose Django's port to the internal network so that the web server may access it
     expose:
