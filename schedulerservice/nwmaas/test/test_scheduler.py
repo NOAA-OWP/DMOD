@@ -10,7 +10,8 @@ from nwmaas.scheduler.utils import parsing_nested as pn
 redis = None
 keynamehelper.set_prefix("stack0")
 
-
+#FIXME port these tests to refactored scheduler
+#FIXME create resource management tests
 class TestScheduler(unittest.TestCase):
     def setUp(self):
         self.scheduler = Scheduler()
@@ -46,7 +47,7 @@ class TestScheduler(unittest.TestCase):
 
         # Uncomment the following line to accurately test retrieve_metadata() function
         # self.scheduler.clean_redisKeys()
- 
+
     def test_1(self):
         returnValue = self.scheduler.check_for_incoming_req()
         self.assertEqual(returnValue, 1)
@@ -77,7 +78,7 @@ class TestScheduler(unittest.TestCase):
         # self.assertRaises(Exception, self.scheduler.create_user_from_username, "~#&:'.&^*$@+{?<>%*]|/")
         ## self.assertRaises(AssertionError, self.scheduler.create_user_from_username, "&^*$@+{?<>%*]|/")
         pass
-        
+
     def test_4_check_single_node_availability(self):
         returnValue = self.scheduler.check_single_node_availability("shengting.cui", -11, 5000000000)
         # self.assertIsNotNone(returnValue)
