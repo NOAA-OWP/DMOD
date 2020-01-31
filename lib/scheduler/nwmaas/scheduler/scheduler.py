@@ -29,7 +29,7 @@ logging.basicConfig(
 
 class Scheduler:
     _jobQ = queue.deque()
-    def __init__(self, docker_client=None, api_client=None, redis=None):
+    def __init__(self, docker_client=None, api_client=None, **kwargs):
         if docker_client:
             self.docker_client = docker_client
             self.api_client = api_client
@@ -57,7 +57,7 @@ class Scheduler:
         self._MAX_JOBS = MAX_JOBS
 
         #Init resource manager
-        self.resource_manager = RedisManager("maas")
+        self.resource_manager = RedisManager("maas", kwargs)
 
     def return42(self):
         return 42
@@ -529,15 +529,6 @@ class Scheduler:
         for job in que:
             print("In check_jobQ: user_id, cpus, mem: {} {} {}".format(job.user_id, job.cpus, job.mem))
 
-    def clean_redisKeys(self):
-        """ initialize Redis client """
-        # from utils.clean import clean_keys
-        # time.sleep(5)
-        clean_keys(self.redis)
-        self.set_prefix()
-        self.create_resources()
-        # self.redis.flushdb()
-        # self.redis.flushall()
 
     def check_for_incoming_req(self):
         '''

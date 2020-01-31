@@ -87,12 +87,7 @@ if __name__ == "__main__":
     #   run_dev_stuff()
     #else: run_prod()
     # instantiate the scheduler
-    scheduler = Scheduler()
-
-    # initialize redis client
-    scheduler.clean_redisKeys()
-    # build resource database
-    #scheduler.create_resources()
+    scheduler = Scheduler(type="dev")
 
     #Instansite the handle_job_request
     handler = SchedulerHandler(scheduler, ssl_dir=Path("./ssl/scheduler"), port=3013)

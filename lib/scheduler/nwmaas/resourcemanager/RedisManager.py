@@ -8,7 +8,6 @@ import logging
 from .utils import keynamehelper as keynamehelper
 from .utils import generate as generate
 from .utils import parsing_nested as pn
-from .utils.clean import clean_keys
 
 from .ResourceManager import ResourceManager
 
@@ -48,7 +47,7 @@ class RedisManager(ResourceManager):
         Implementation class for defining a redis backed ResourceManager
     """
 
-    def __init__(self, resource_pool: str):
+    def __init__(self, resource_pool: str, **kwargs):
         # initialize Redis client
         n = 0
         while (n <= Max_Redis_Init):
@@ -86,8 +85,15 @@ class RedisManager(ResourceManager):
             self.keyname_prefix = "maas-scheduler" #FIXME parameterize
             self.set_prefix()
             """
-            #self.create_resources()
+            dev_opt = kwargs.get('type', 'prod')
+            if dev_opt == 'dev':
+                self._dev_setup()
 
+    def _dev_setup(self):
+        from .utils.clean import clean_keys
+        clean_keys(self.redis)
+        self.set_prefix()
+        self.set_resources(resources)
 
     def set_prefix(self):
         keynamehelper.set_prefix(self.keyname_prefix)
@@ -286,7 +292,7 @@ class RedisManager(ResourceManager):
             explictit for job handling, and maybe even an independent
             redis instance.  This may move in the near future.
         """
-        
+
         req_id = generate.order_id()
         #Set to add the running job ID to
         job_state = keynamehelper.create_key_name(self.resource_pool_key, "running")
