@@ -529,48 +529,6 @@ class Scheduler:
         for job in que:
             print("In check_jobQ: user_id, cpus, mem: {} {} {}".format(job.user_id, job.cpus, job.mem))
 
-    def check_runningJobs(self):
-        """
-        Check the running job queue
-        Running job snapshot is needed for restart
-        """
-        # docker api
-        client = self.docker_client
-        api_client = self.api_client
-        srv_basename = self.name
-
-        # test out some service functions
-        service_list = client.services.list()
-        runningJobList = []
-        for service in service_list:
-            # iterate through entire service list
-            service_id = service.id
-            service_attrs = service.attrs
-            flat_dict = pn.flatten(service_attrs)
-            Name = list(pn.find('Name', service_attrs))[0]
-            service_name = service.name
-            # if 'nwm_mpi-worker_tmp' in Name:
-            if srv_basename in Name:
-                Labels = list(pn.find('Labels', service_attrs))[0]
-                NameSpace = Labels['com.docker.stack.namespace']
-                Hostname = Labels['Hostname']
-                cpus_alloc = Labels['cpus_alloc']
-                logging.info("In check_runningJobs: Hostname = {}".format(Hostname))
-                logging.info("In check_runningJobs: cpus_alloc = {}".format(cpus_alloc))
-                Labels = Labels['com.docker.stack.image']
-                (_, Labels) = Labels.split('/')
-                logging.info("In check_runningJobs: Labels = {}".format(Labels))
-                (_, HostNode) = ((list(pn.find('Constraints', service_attrs))[0])[0]).split('==')
-                logging.info("In check_runningJobs: HostNode = {}".format(HostNode))
-                service = client.services.get(service_id, insert_defaults=True)
-                service_dict = {"Name": Name, "Labels": Labels, "HostNode": HostNode, "NameSpace": NameSpace, "Hostname": Hostname, "cpus_alloc": cpus_alloc}
-                runningJobList.append(service_dict)
-                s_key = keynamehelper.create_key_name("service", Name)
-                self.redis.hmset(s_key, service_dict)
-        logging.info("\n")
-        return runningJobList
-
-
     def clean_redisKeys(self):
         """ initialize Redis client """
         # from utils.clean import clean_keys
@@ -692,7 +650,7 @@ class Scheduler:
         jobQ = self._jobQ
         for job in jobQ:
             logging.info("In job_allocation_and_setup: user_id, cpus, mem: {} {} {}".format(job.user_id, job.cpus, job.mem))
-        runningJobs = self.check_runningJobs()
+
         recvJobReq -= 1
         #end while
         return req_id
