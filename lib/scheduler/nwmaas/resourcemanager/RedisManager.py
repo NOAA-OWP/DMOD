@@ -286,6 +286,7 @@ class RedisManager(ResourceManager):
 
     def create_job_entry(self, cpu_allocation_map):
         """
+            FIXME cpu_allocation_map should be list of maps!  Store all allocs in redis
             Create a job id and add it to the redis instance
             TODO this might be better in a different class
             explictit for job handling, and maybe even an independent

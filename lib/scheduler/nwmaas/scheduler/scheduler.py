@@ -30,6 +30,7 @@ logging.basicConfig(
 
 class Scheduler:
     _jobQ = queue.deque()
+
     def __init__(self, docker_client=None, api_client=None, **kwargs):
         if docker_client:
             self.docker_client = docker_client
@@ -51,6 +52,7 @@ class Scheduler:
                         "com.docker.stack.namespace": "nwm"
                        }
         self.name = "nwm_mpi-worker_tmp"
+        #FIXME parameterize network
         self.networks = ["mpi-net"]
 
         # self._jobQ = queue.deque()
