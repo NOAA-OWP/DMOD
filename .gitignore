@@ -6,8 +6,8 @@ __pychache__/
 /venv/
 .env
 docker/main/base/ssh/
-gui/db.sqlite3
-gui/ssl/
+python/gui/db.sqlite3
+python/gui/ssl/
 
 communication/nwmaas/test/ssl/certificate.pem
 communication/nwmaas/test/ssl/*certificate*.pem
