@@ -147,24 +147,23 @@ class Scheduler:
             logging.debug("Allocation not performed: have {} CPUs, requested {} CPUs".format( allocated_cpus, requested_cpus))
             return
 
-    def check_generalized_round_robin(self, user_id, cpus, mem):
+    def round_robin(self, user_id, requested_cpus, requested_mem):
         """
-        Check available resources on host nodes and allocate in round robin manner even the request
-        can fit in a single node. This can be useful in test cases where large number of CPUs is
-        inefficient for small domains and in filling the nodes when they are almost full
+            Check available resources on host nodes and allocate in round robin manner even the request
+            can fit in a single node. This can be useful in test cases where large number of CPUs is
+            inefficient for small domains and in filling the nodes when they are almost full
         """
-        if (cpus <= 0):
-            logging.debug("Invalid CPUs request: cpus = {},  CPUs should be an integer > 0".format(cpus))
-            return
-
         if (not isinstance(cpus, int)):
-            logging.debug("Invalid CPUs request: cpus = {}, CPUs must be a positive integer".format(cpus))
+            logging.debug("Invalid CPUs request: requested_cpus = {}, CPUs must be a positive integer".format(requested_cpus))
+            return
+        if (requested_cpus <= 0):
+            logging.debug("Invalid CPUs request: requested_cpus = {}, CPUs should be an integer > 0".format(requested_cpus))
             return
 
-        redis = self.redis
+        resources = self.resource_manager.get_resource_ids()
         num_node = len(resources)
-        int_cpus = int(cpus / num_node)
-        remain_cpus = cpus % num_node
+        int_cpus = int(requested_cpus / num_node)
+        remaining_cpus = requeted_cpus % num_node
 
         allocList = []
         iter = 0
@@ -175,56 +174,44 @@ class Scheduler:
                 allocList.append(int_cpus)
             iter += 1
 
-        # checking there are enough resources
-        iter = 0
-        # cpusList = []
-        for resource in resources:
-            NodeId = resource['node_id']
-            e_key = keynamehelper.create_key_name("resource", NodeId)
-            CPUs = int(redis.hget(e_key, "CPUs"))
-            cpus_alloc = allocList[iter]
-            if (cpus_alloc > CPUs):
-                logging.debug("\nIn check_generalized_round_robin:")
-                logging.debug("Requested CPUs greater than CPUs available: requested = {}, available = {}, NodeId = {}".\
-                      format(cpus_alloc, CPUs, NodeId))
-                # return cpusList
-                return
-            iter += 1
-
         index = 0
         cpusList = []
-        cpus_dict = {}
+        error = True
         for resource in resources:
-            NodeId = resource['node_id']
-            e_key = keynamehelper.create_key_name("resource", NodeId)
-            # if (cpus != 0):
-            if (cpus > 0):
-                p = redis.pipeline()
-                try:
-                    redis.watch(e_key)
-                    # CPUs = int(redis.hget(e_key, resource['CPUs']))
-                    CPUs = int(redis.hget(e_key, "CPUs"))
-                    # MemoryBytes = int(redis.hget(e_key, "MemoryBytes"))
-                    MemoryBytes = int(redis.hget(e_key, "MemoryBytes"))
-                    cpus_alloc = allocList[index]
-
-                    # if (cpus_alloc != 0):
-                    if (cpus_alloc > 0):
-                        req_id, cpus_dict = self.metadata_mgmt(p, e_key, user_id, cpus_alloc, mem, NodeId, index)
-                        cpusList.append(cpus_dict)
-                        p.execute()
-                        index += 1
-                except WatchError:
-                    logging.debug("Write Conflict check_generalized_round_robin: {}".format(e_key))
-                finally:
-                    p.reset()
-                    logging.info("In check_generalized_round_robin: Allocation complete!")
+            #Get the desired allocation from this resource
+            required_resource_cpus = allocList[index]
+            if required_resource_cpus > 0:
+                #Need exact allocation on this resource
+                cpu_allocation_map = self.resource_manager.allocate_resource(resource, required_resource_cpus)
+                if cpu_allocation_map:
+                    #Resource allocation successful, have a map
+                    cpu_allocation_map['index'] = index
+                    cpusList.append(cpu_allocation_map)
+                    index += 1
+                    error = False
+                else:
+                    #Something went wrong, in particular didn't get an exact Allocation
+                    #on this resource to match required_resource_cpus, so no alloation was
+                    #granted on this resource
+                    error = True
+                    break
             else:
-                logging.debug("Allocation not performed for NodeId: {}, have {} CPUs, requested {} CPUs".format(NodeId, CPUs, cpus))
-        # print("\nIn check_generalized_round_robin: \ncpusList:", *cpusList, sep = "\n")
-        return req_id, cpusList
-
-
+                #Note may want to devise a gauranteed loop stop criteria when First
+                #occurance of allocList is 0.  Otherwise this else case is not needed
+                continue
+        if not error:
+            logging.info("In round_robin: Allocation complete!")
+            request_id = self.resource_manager.create_job_entry(cpu_allocation_map)
+            return request_id, cpusList
+        else:
+            #Return any allocated resources we mave have partially aquired
+            self.resource_manager.release_resources(cpuList)
+            #FIXME implement this! Also consider if this is a good idea...not
+            #sure if a full atomic grab of all required resource is better
+            #then attempting several partial, and rolling back.  This is cleaner
+            #code, with single DB calls isolated in two functions, but may cause
+            #some unforseen consequences and odd race conditions in production
+            return
 
     def metadata_mgmt(self, p, e_key, user_id, cpus_alloc, mem, NodeId, index):
         """function to manage resources and store job info to dadabase"""
@@ -677,7 +664,7 @@ class Scheduler:
         single_node() find the first node with enough CPUs to accomodate a job request, loading a
         job request to a single node optimize the computation efficiency
 
-        check_generalized_round_robin() distributes a compute job among a set of nodes, even though the job can fit in
+        round_robin() distributes a compute job among a set of nodes, even though the job can fit in
         a single node. This is useful in some special cases
         """
         # print("Len of Q at star of job_allocation_and_setup: {}".format(len(self._jobQ)))
@@ -698,7 +685,7 @@ class Scheduler:
         (image_tag, domain_dir) = userRequest.load_image_and_domain(domain_name)
 
         # First try schedule the job on a single node. If for some reason, job cannot be allocated on a single node,
-        # an empty list is returned, we try the check_generalized_round_robin() method. If this is not successful,
+        # an empty list is returned, we try the round_robin() method. If this is not successful,
         # we try the more general fill_nodes() method
 
         # run_option is set based on request
@@ -711,7 +698,7 @@ class Scheduler:
 
         elif (run_option == 2):
             cpus = 10
-            req_id, cpusList = self.check_generalized_round_robin(user_id, cpus, mem)
+            req_id, cpusList = self.round_robin(user_id, cpus, mem)
 
         else:
             cpus = 140
