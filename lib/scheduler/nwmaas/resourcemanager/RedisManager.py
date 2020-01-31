@@ -302,3 +302,55 @@ class RedisManager(ResourceManager):
         job_key = keynamehelper.create_key_name("job", req_id)
         #map of resources this job is using
         self.redis.hmset(job_key, cpu_allocaion_map)
+
+    """
+        FIXME parking this function here since it is closely related to the
+        the creat_job_entry function.  I don't think the user_id centric pinning
+        is the best way, nor I think requests should be the targer, should be
+        jobs.  This starts to hint at a "job manager" set of classes/interfaces
+        this allows to decouple the concetps of requests, allocations, and jobs.
+
+        The following function should be more througuly reviewed and designed.
+    """
+    def retrieve_job_metadata(self, user_id):
+        """
+        Retrieve queued job info from the database using user_id as a key to the req_id list
+        Using req_id to uniquely retrieve the job request dictionary: cpus_dict
+        Build nested cpusList from cpus_dict
+        The code only retrieve one job that make up cpusList. Complete job list is handled in check_jobQ
+        For comprehensive info on all jobs by a user in the database, a loop can be used to call this method
+        """
+        return #DEACIVATING THIS FUNCTION TILL FIXME ABOVE SORTED
+        redis = self.redis
+        cpusList = []
+        user_key = keynamehelper.create_key_name(user_id)
+
+        # case for index = 0, the first popped index is necessarily 0
+        # lpop and rpush are used to guaranttee that the earlist queued job gets to run first
+        req_id = redis.lpop(user_key)
+        if (req_id != None):
+            print("In retrieve_job_metadata: user_key", user_key, "req_id = ", req_id)
+            req_key = keynamehelper.create_key_name("job_request", req_id)
+            cpus_dict = redis.hgetall(req_key)
+            cpusList.append(cpus_dict)
+            index = cpus_dict['index']             # index = 0
+            if (int(index) != 0):
+                raise Exception("Metadata access error, index = ", index, " req_id = ", req_id)
+
+        # cases for the rest of index != 0, job belongs to a different request if index = 0
+        while (req_id != None):                    # previous req_id
+            req_id = redis.lpop(user_key)          # new req_id
+            if (req_id != None):
+                req_key = keynamehelper.create_key_name("job_request", req_id)
+                cpus_dict = redis.hgetall(req_key)
+                index = cpus_dict['index']         # new index
+                if (int(index) == 0):
+                    redis.lpush(user_key, req_id)  # return the popped value, the job request belongs to a different request if index = 0
+                    break
+                else:
+                    cpusList.append(cpus_dict)
+                print("In retrieve_job_metadata: user_key", user_key, "req_id = ", req_id)
+        print("\nIn retrieve_job_metadata: cpusList:\n", *cpusList, sep = "\n")
+        print("\nIn retrieve_job_metadata:")
+        print("\n")
+        return cpusList
