@@ -17,9 +17,10 @@ from nwmaas.communication import SchedulerRequestMessage
 
 ## local imports
 from .. import resourcemanager.RedisManager as RedisManager
+from .utils import parsing_nested as pn
 
 MAX_JOBS = 210
-Max_Redis_Init = 5
+
 
 logging.basicConfig(
     filename='scheduler.log',
@@ -485,7 +486,6 @@ def test_scheduler():
     scheduler.job_allocation_and_setup(user_id, cpus, mem)
 
 if __name__ == "__main__":
-    keynamehelper.set_prefix("nwm-scheduler")
     # while True:     # Using this while loop causes a name nwm_mpi-worker_tmp0 exists error when looping through 2nd time
     test_scheduler()  # to run test_scheduler(). The while loop does work as expected.
     # while True:

@@ -7,7 +7,6 @@ import logging
 ## local imports
 from .utils import keynamehelper as keynamehelper
 from .utils import generate as generate
-from .utils import parsing_nested as pn
 
 from .ResourceManager import ResourceManager
 
