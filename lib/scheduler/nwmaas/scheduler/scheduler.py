@@ -221,32 +221,6 @@ class Scheduler:
         logging.info("-" * 20)
         logging.info("\n")
 
-    def get_node_info(self):
-        client = self.docker_client
-        api_client = self.api_client
-
-        logging.info("\nnodes info:")
-        nodes_list = client.nodes.list()
-        nodeList = []
-        for node in nodes_list:
-            node_id = node.id
-            node = client.nodes.get(node_id)
-            node_attrs = node.attrs
-            ID = list(pn.find('ID', node_attrs))[0]
-            Hostname = list(pn.find('Hostname', node_attrs))[0]
-            CPUs = int( list(pn.find('NanoCPUs', node_attrs))[0] ) / 1000000000
-            MemoryMB = int( list(pn.find('MemoryBytes', node_attrs))[0] ) / 1000000
-            State = list(pn.find('State', node_attrs))[0]
-            Addr = list(pn.find('Addr', node_attrs))[0]
-            node_dict = {"ID": ID, "HostName": Hostname, "CPUs": CPUs, "MemoryMB": MemoryMB, "State": State, "Addr": Addr}
-            nodeList.append(node_dict)
-            n_key = keynamehelper.create_key_name("Node", Hostname)
-            self.redis.hmset(n_key, node_dict)
-            logging.info("In get_node_info: node_dict = {}".format(node_dict))
-        logging.info("-" * 50)
-        print("\nIn get_node_info:\nnodeList: ", *nodeList, sep = "\n")
-        return nodeList
-
     def create_service(self, user_id, image_tag, constraints, hostname, serv_labels, serv_name, mounts, idx, cpusLen, host_str):
         """create new service with Healthcheck, host, and other info"""
         # docker api
