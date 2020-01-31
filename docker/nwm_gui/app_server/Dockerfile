@@ -19,16 +19,16 @@ RUN apt-get update && apt-get install -y python3-django
 WORKDIR /usr/maas_portal
 # Copy the requirements.txt file in the current directory for the application to the
 # working directory of the docker image (/usr/wres-gui)
-COPY ./gui/requirements.txt ./
+COPY ./python/gui/requirements.txt ./
 # Install all the python packages described in the requirements file
 RUN pip install -r requirements.txt
 # Ensures that raw data directed at a terminal moves in one go rather than being buffered
 ENV PYTHONUNBUFFERED 1
 # Copy selected portions of the project into the working directory (/usr/maas_portal)
-COPY ./gui/manage.py ./
-COPY ./gui/static ./static
-COPY ./gui/maas_experiment ./maas_experiment
-COPY ./gui/MaaS ./MaaS
-COPY ./gui/entrypoint.sh ./
+COPY ./python/gui/manage.py ./
+COPY ./python/gui/static ./static
+COPY ./python/gui/maas_experiment ./maas_experiment
+COPY ./python/gui/MaaS ./MaaS
+COPY ./python/gui/entrypoint.sh ./
 # Set the entry point so that it is run every time the container is started
 ENTRYPOINT ["/usr/maas_portal/entrypoint.sh"]
