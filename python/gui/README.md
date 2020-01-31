@@ -1,12 +1,12 @@
-Here is a sample web based frontend provided by Chris Tubbs.
+# About
 
-There Requests/validation here needs to be rectified with MaaS requests/validation,
-and the the Django app should be connected to the request handler end point (and/or piped directly to
-the scheduler connection, as this is handling the request and validating it using the same schema validation.)
+Herein is the source for a simple web based frontend based largely on existing code provided by Chris Tubbs.
 
-TODO align these efforts and settle on the design of request handling/validation.
-One train of thought is that the request handling can be replicated as an independent service,
-this falls into the "Zero Trust" type paradigm, where the web server collecting user input validates it,
-and the request is then sent to the MaaS service handler and gets validated again (Depending on the deployment of
-the web front end, this isn't a bad idea to mitigate MITM issues.  However, if the web server is "trusted", this is
-a redunant step.  Either way, the same code can be used in both places, and should be aligned.
+Within _MaaS/cbv/EditView.py_ is a class named `PostFormJobRequestClient` that implements `MaasRequestClient` and serves as the client for communicating with the request service.  It is used by the `EditView` class, which currently is the main view for the webapp.  
+
+# Distribution Differences
+
+The GUI source does not follow the same conventions as some other internal packages.  In particular, the project doesn't generate wheel files for distributing.  As such, it gets its own sub-directory immediately under _python/_, rather than being considered a *library* or *service* package. 
+
+Instead of dist files, the GUI stack build and deploy configuration will construct an image that the source appropriately copied into the image's filesystem.  It also has an entrypoint.sh script that executes the GUI appropriately.
+
