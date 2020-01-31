@@ -221,54 +221,6 @@ class Scheduler:
         logging.info("-" * 20)
         logging.info("\n")
 
-    def service_to_host_mapping(self):
-        """find host name based on service info"""
-
-        # docker api
-        client = self.docker_client
-        api_client = self.api_client
-
-        # test out some service functions
-        service_list = client.services.list()
-        for service in service_list:
-            service_id = service.id
-            var = "service:" + service_id
-
-        serviceList = []
-        for service in service_list:
-            service_id = service.id
-            serv_list = client.services.list(filters={'id': service_id})[0]
-            service_attrs = serv_list.attrs
-            flat_dict = pn.flatten(service_attrs)
-            # pp(list(flatten(service_attrs)))
-            Name = list(pn.find('Name', service_attrs))[0]
-            service_id = serv_list.id
-            service_name = serv_list.name
-            service_attrs = serv_list.attrs
-            flat_dict = pn.flatten(service_attrs)
-            Name = list(pn.find('Name', service_attrs))[0]
-            if 'nwm_mpi-worker_' not in Name:
-                continue
-            else:
-                Labels = list(pn.find('Labels', service_attrs))[0]
-                NameSpace = Labels['com.docker.stack.namespace']
-                Hostname = Labels['Hostname']
-                cpus_alloc = Labels['cpus_alloc']
-                Labels = Labels['com.docker.stack.image']
-                (_, Labels) = Labels.split('/')
-                Image = list(pn.find('Image', service_attrs))[0]
-                (_, HostNode) = ((list(pn.find('Constraints', service_attrs))[0])[0]).split('==')
-                service = client.services.get(service_id, insert_defaults=True)
-                service_dict = {"Name": Name, "Labels": Labels, "HostNode": HostNode, "NameSpace": NameSpace, "Hostname": Hostname, "cpus_alloc": cpus_alloc}
-                serviceList.append(service_dict)
-                s_key = keynamehelper.create_key_name("service", Name)
-                self.redis.hmset(s_key, service_dict)
-                logging.info("In service_to_host_mapping: service_dict = {}".format(service_dict))
-        logging.info("-" * 50)
-        inspect = api_client.inspect_service(service.id, insert_defaults=True)
-        # print("\nIn service_to_host_mapping:\nserviceList: ", *serviceList, sep = "\n")
-        return serviceList
-
     def get_node_info(self):
         client = self.docker_client
         api_client = self.api_client
@@ -740,7 +692,6 @@ class Scheduler:
         jobQ = self._jobQ
         for job in jobQ:
             logging.info("In job_allocation_and_setup: user_id, cpus, mem: {} {} {}".format(job.user_id, job.cpus, job.mem))
-        self.service_to_host_mapping()
         runningJobs = self.check_runningJobs()
         recvJobReq -= 1
         #end while
