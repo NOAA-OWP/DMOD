@@ -286,46 +286,6 @@ class Scheduler:
         logging.info("\n")
         return service
 
-    def update_service(self, service, user_id, image_tag, constraints, hostname, serv_labels, serv_name, mounts):
-        """dynamically change a service based on needs"""
-        """create new service with Healthcheck, host, and other info"""
-        # image = self.image
-        image = image_tag
-        networks = self.networks
-        srv_basename = self.name
-
-        # docker api
-        client = self.docker_client
-        api_client = self.api_client
-
-        service.update(image=image,
-                        constraints = constraints,
-                        hostname = hostname,
-                        labels = serv_labels,
-                        name = serv_name,
-                        mounts = mounts,
-                        networks = networks)#,
-                        #user = user_id)
-        # test out some service functions
-        serv_list_tmp = client.services.list(filters={'name':srv_basename})
-        print("\nservice list:")
-        print(serv_list_tmp)
-        serv_list = client.services.list(filters={'name':srv_basename})[0]
-        print("\nservice list")
-        print(serv_list)
-        print("\nafter updating:")
-        service_id = serv_list.id
-        print ('service_id: ', service_id)
-        service_name = serv_list.name
-        print ('service_name: ', service_name)
-        service_attrs = serv_list.attrs
-        print ("service_attrs:")
-        # pp(service_attrs)
-        service = client.services.get(service_id, insert_defaults=True)
-        task = service.tasks(filters={'name':srv_basename})
-        print("\ntask:")
-        # pp(task)
-
     def checkDocker(self):
         """Test that docker is up running"""
         try:
