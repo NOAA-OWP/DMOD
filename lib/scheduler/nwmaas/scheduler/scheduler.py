@@ -431,50 +431,6 @@ class Scheduler:
                 with open('hostfile', 'w') as hostfile:
                     hostfile.write(host_str)
 
-    def retrieve_job_metadata(self, user_id):
-        """
-        Retrieve queued job info from the database using user_id as a key to the req_id list
-        Using req_id to uniquely retrieve the job request dictionary: cpus_dict
-        Build nested cpusList from cpus_dict
-        The code only retrieve one job that make up cpusList. Complete job list is handled in check_jobQ
-        For comprehensive info on all jobs by a user in the database, a loop can be used to call this method
-        """
-
-        redis = self.redis
-        cpusList = []
-        user_key = keynamehelper.create_key_name(user_id)
-
-        # case for index = 0, the first popped index is necessarily 0
-        # lpop and rpush are used to guaranttee that the earlist queued job gets to run first
-        req_id = redis.lpop(user_key)
-        if (req_id != None):
-            print("In retrieve_job_metadata: user_key", user_key, "req_id = ", req_id)
-            req_key = keynamehelper.create_key_name("job_request", req_id)
-            cpus_dict = redis.hgetall(req_key)
-            cpusList.append(cpus_dict)
-            index = cpus_dict['index']             # index = 0
-            if (int(index) != 0):
-                raise Exception("Metadata access error, index = ", index, " req_id = ", req_id)
-
-        # cases for the rest of index != 0, job belongs to a different request if index = 0
-        while (req_id != None):                    # previous req_id
-            req_id = redis.lpop(user_key)          # new req_id
-            if (req_id != None):
-                req_key = keynamehelper.create_key_name("job_request", req_id)
-                cpus_dict = redis.hgetall(req_key)
-                index = cpus_dict['index']         # new index
-                if (int(index) == 0):
-                    redis.lpush(user_key, req_id)  # return the popped value, the job request belongs to a different request if index = 0
-                    break
-                else:
-                    cpusList.append(cpus_dict)
-                print("In retrieve_job_metadata: user_key", user_key, "req_id = ", req_id)
-        print("\nIn retrieve_job_metadata: cpusList:\n", *cpusList, sep = "\n")
-        print("\nIn retrieve_job_metadata:")
-        print("\n")
-        return cpusList
-
-
     def startJobs(self, user_id, cpus, mem, image_tag, constraints, hostname, serv_labels, serv_name, cpus_alloc, mounts, idx, cpusLen, host_str):
         """
         Using the set max jobs and max cpus spawn docker containers
@@ -566,10 +522,12 @@ class Scheduler:
             print("Illegitimate request not scheduled")
             return
 
+        #FIXME retrieve_job_metadata doesn't do anything, needs work
+        #see comments in RedisManager
         use_metadata = False
         if (use_metadata):
             # This need to be fixed to return both req_id and cpusList
-            cpusList = self.retrieve_job_metadata(user_id)
+            cpusList = self.resource_manager.retrieve_job_metadata(user_id)
             print("\nIn job_allocation_and_setup: cpusList:\n", *cpusList, sep = "\n")
         self.print_resource_details()
 
