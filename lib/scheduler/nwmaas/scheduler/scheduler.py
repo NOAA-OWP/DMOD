@@ -373,64 +373,6 @@ class Scheduler:
             idx += 1
         return host_str
 
-    def write_hostfile(self, basename, cpusList):
-        '''
-        Write allocated hosts and CPUs to hostfile on the scheduler container
-        This can be modified to write to a text file for an additional copy of
-        the user job info
-        '''
-
-        idx = 0
-        host_str = ""
-        for cpu in cpusList:
-            cpus_alloc = str(cpu['cpus_alloc'])
-            name = basename + str(idx)
-            host_str += name+':'+cpus_alloc+'\n'
-            idx += 1
-
-        client = self.docker_client
-        service_list = client.services.list()
-        for service in service_list:
-            service_id = service.id
-            serv_list = client.services.list(filters={'id': service_id})[0]
-            service_attrs = serv_list.attrs
-            Name = list(pn.find('Name', service_attrs))[0]
-            # if 'nwm_mpi-worker_tmp0' in Name:
-            if 'nwm-_scheduler' in Name:
-                with open('hostfile', 'w') as hostfile:
-                    hostfile.write(host_str)
-
-
-    def write_to_hostfile(self):
-        """write hostname and cpu allocation to hostfile"""
-        # docker api
-        client = self.docker_client
-
-        # docker service ls
-        host_str = ""
-        service_list = client.services.list()
-        for service in service_list:
-            service_id = service.id
-            serv_list = client.services.list(filters={'id': service_id})[0]
-            service_attrs = serv_list.attrs
-            Name = list(pn.find('Name', service_attrs))[0]
-            if 'nwm_mpi-worker_' in Name:
-                Labels = list(pn.find('Labels', service_attrs))[0]
-                Hostname = Labels['Hostname']
-                hostname = Hostname.split('.')[0]
-                cpus_alloc = Labels['cpus_alloc']
-                host_str += Name+':'+cpus_alloc+'\n'
-
-        for service in service_list:
-            service_id = service.id
-            serv_list = client.services.list(filters={'id': service_id})[0]
-            service_attrs = serv_list.attrs
-            Name = list(pn.find('Name', service_attrs))[0]
-            # if 'nwm_mpi-worker_tmp0' in Name:
-            if 'nwm_mpi-worker_' in Name:
-                with open('hostfile', 'w') as hostfile:
-                    hostfile.write(host_str)
-
     def startJobs(self, user_id, cpus, mem, image_tag, constraints, hostname, serv_labels, serv_name, cpus_alloc, mounts, idx, cpusLen, host_str):
         """
         Using the set max jobs and max cpus spawn docker containers
@@ -458,15 +400,6 @@ class Scheduler:
         # print("In check_jobQ, que = ", que)
         for job in que:
             print("In check_jobQ: user_id, cpus, mem: {} {} {}".format(job.user_id, job.cpus, job.mem))
-
-
-    def check_for_incoming_req(self):
-        '''
-        Place holder for codes checking incoming job request
-        '''
-        time.sleep(5)
-        recvJobReq = 1
-        return recvJobReq
 
     def job_allocation_and_setup(self, user_id, cpus, mem):
         """
@@ -534,7 +467,6 @@ class Scheduler:
         # basename = 'nwm_mpi-worker_tmp'
         basename = self.name
         host_str = self.build_host_list(basename, cpusList, req_id)
-        self.write_hostfile(basename, cpusList)
 
         # # initialize variables for create_service()
         # image = self.image
