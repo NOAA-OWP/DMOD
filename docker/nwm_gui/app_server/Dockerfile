@@ -29,6 +29,6 @@ COPY ./python/gui/manage.py ./
 COPY ./python/gui/static ./static
 COPY ./python/gui/maas_experiment ./maas_experiment
 COPY ./python/gui/MaaS ./MaaS
-COPY ./python/gui/entrypoint.sh ./
+COPY ./docker/nwm_gui/app_server/entrypoint.sh ./
 # Set the entry point so that it is run every time the container is started
 ENTRYPOINT ["/usr/maas_portal/entrypoint.sh"]
