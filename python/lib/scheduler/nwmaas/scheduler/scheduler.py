@@ -226,9 +226,9 @@ class Scheduler:
 
     def round_robin(self, user_id: str, requested_cpus: int, requested_mem: int) -> tuple:
         """
-            Check available resources on host nodes and allocate in round robin manner even the request
-            can fit in a single node. This can be useful in test cases where large number of CPUs is
-            inefficient for small domains and in filling the nodes when they are almost full
+        Check available resources on host nodes and allocate in round robin manner even the request
+        can fit in a single node. This can be useful in test cases where large number of CPUs is
+        inefficient for small domains and in filling the nodes when they are almost full.
 
         Parameters
         ----------
@@ -465,7 +465,7 @@ class Scheduler:
         # self._jobQ.append(request)
 
     def build_host_list(self, basename: str, cpusList: list, req_id: str, run_domain_dir: str) -> list:
-        '''
+        """
         build a list of strings that contain the container names and the allocated CPUs on the associated hosts
 
         Parameters
@@ -484,7 +484,7 @@ class Scheduler:
         -------
         host_str
             List of string containing number of hosts, hostname and CPUs allocation, and run domain directory
-        '''
+        """
         idx = 0
         num_hosts = str(len(cpusList))
         host_str = [num_hosts]
