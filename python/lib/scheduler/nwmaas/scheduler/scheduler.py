@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
 
-import os
 import queue
 import docker
-# from itertools import chain
-from pprint import pprint as pp
 
 import logging
-import time
 from nwmaas.communication import SchedulerRequestMessage
 
 ## local imports
