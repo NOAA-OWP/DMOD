@@ -68,15 +68,19 @@ class RedisManager(ResourceManager):
             if (self.redis != None):
                 break
             # self._jobQ = queue.deque()
+
+            # TODO: this currently is neither set in a valid way nor utilized by anything ... remove or update
             # _MAX_JOBS is set to currently available total number of CPUs
-            self._MAX_JOBS = MAX_JOBS
+            #self._MAX_JOBS = MAX_JOBS
+
             #Redis configuration and usage setup
             #TODO find a clearer way to set this...probably need to to do it on init of the module, and pull from
             #the env the stack the module is running in (or from the docker API???
             # self.keyname_prefix = "nwm-master" #FIXME parameterize
             #resources is a NON-SCOPED key, global for all "schedulers"
             #FIXME parameterize resource pool, allowing a scheduler to be initialized to use an existing pool in redis
-            self.set_prefix("") #A bug in keynamehelper emerges when prefix is not explicitly set to a string
+            self.keyname_prefix = ''
+            self.set_prefix() #A bug in keynamehelper emerges when prefix is not explicitly set to a string
             self.resource_pool = resource_pool #"maas"
             #Key to redis set containing ID's for all resources available to this "pool"
             #These resrouces can be viewed at redis key resource_pool_key:ID
@@ -157,7 +161,7 @@ class RedisManager(ResourceManager):
         #unlock additional scheduling techniques.
         for resource in resources:
             resource_metadata_key = keynamehelper.create_key_name(self.resource_pool_key, resource)
-            yield redis.hgetall(resource_metadata_key)
+            yield self.redis.hgetall(resource_metadata_key)
 
 
     def get_resource_ids(self) -> Iterable[Union[str, int]]:
@@ -198,13 +202,13 @@ class RedisManager(ResourceManager):
 
       """
       resource_key = keynamehelper.create_key_name(self.resource_pool_key, resource_id)
-      hostname = str(redis.hget(resource_key, "Hostname"))
+      hostname = str(self.redis.hget(resource_key, "Hostname"))
       cpus_allocated = 0
 
       with self.redis.pipeline() as pipe: #Use the context manager to cleanup connection, i.e. pipe.reset() automatically
           while True: #Attempt the transaction with check and set semantics
               try:
-                  redis.watch(resource_key) #Will get WatchError if the value changes between now and pipe.execute()
+                  self.redis.watch(resource_key) #Will get WatchError if the value changes between now and pipe.execute()
                   #pipe.execute will use the pipe connection, but execute immediately due to the above watch ^^
                   available_cpus = int(pipe.hget(resource_key, "CPUs"))
                   available_memory = int(pipe.hget(resource_key, "MemoryBytes"))
@@ -216,7 +220,7 @@ class RedisManager(ResourceManager):
                       pipe.hincrby(resource_key, "CPUs", -requested_cpus)
                       pipe.hincrby(resource_key, "MemoryBytes", -requested_memory) #TODO/FIXME
                       #req_id, cpus_dict = self.metadata_mgmt(p, e_key, user_id, cpus_alloc, mem, NodeId, index)
-                      p.execute() #End transaction
+                      pipe.execute() #End transaction
                       allocated_cpus = requested_cpus
                       error = False
                   elif(partial and available_cpus > 0):
@@ -243,7 +247,7 @@ class RedisManager(ResourceManager):
                   #Break the infinite watch error retry loop
                   break
               except WatchError:
-                  logging.debug("Write Conflict allocate_resource: {}. Retrying...".format(e_key))
+                  logging.debug("Write Conflict allocate_resource: {}. Retrying...".format(resource_key))
                   #Try the transaction again
                   continue
       #Return the allocation map, {} if failure
@@ -259,7 +263,7 @@ class RedisManager(ResourceManager):
                 An iterable of maps containing the metadata returned by allocate_resources
         """
         #Give back any allocated resources to the master resrouce table
-        for resource in allocated_resource:
+        for resource in allocated_resources:
             resource_id = resource['node_id']
             resource_key = keynamehelper.create_key_name(self.resource_pool_key, resource_id)
             with self.redis.pipeline() as pipe:
@@ -282,8 +286,8 @@ class RedisManager(ResourceManager):
         #Should pipline this for efficiency
         for resource in self.get_resources():
             resource_metadata_key = keynamehelper.create_key_name(self.resource_pool_key, resource)
-            CPUs = int(redis.hget(resource_metadata_key, "CPUs"))
-            total_CPUs += CPUs
+            CPUs = int(self.redis.hget(resource_metadata_key, "CPUs"))
+            total_available += CPUs
         return total_available
 
     def create_job_entry(self, cpu_allocation_map):
@@ -303,7 +307,7 @@ class RedisManager(ResourceManager):
         #Job key to store metadata about this job at
         job_key = keynamehelper.create_key_name("job", req_id)
         #map of resources this job is using
-        self.redis.hmset(job_key, cpu_allocaion_map)
+        self.redis.hmset(job_key, cpu_allocation_map)
 
     """
         FIXME parking this function here since it is closely related to the
