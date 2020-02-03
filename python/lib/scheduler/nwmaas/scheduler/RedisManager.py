@@ -10,7 +10,7 @@ import time
 from .utils import keynamehelper as keynamehelper
 from .utils import generate as generate
 
-from .ResourceManager import ResourceManager
+from .resource_manager import ResourceManager
 
 Max_Redis_Init = 5
 
