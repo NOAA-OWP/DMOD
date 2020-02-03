@@ -3,7 +3,7 @@ from typing import Iterable, Mapping, Union
 from abc import ABC, abstractmethod
 import logging
 
-#As a pure ABC probably don't need logging
+# As a pure ABC probably don't need logging
 logging.basicConfig(
     filename='ResourceManager.log',
     level=logging.DEBUG,
@@ -17,7 +17,7 @@ class ResourceManager(ABC):
     """
 
     @abstractmethod
-    def set_resources(self, resources: Iterable[ Mapping[ str, Union[ str, int] ] ]):
+    def set_resources(self, resources: Iterable[Mapping[str, Union[str, int]]]):
         """
             Set the provided resources into the manager's resource tracker.
 
@@ -43,7 +43,7 @@ class ResourceManager(ABC):
         pass
 
     @abstractmethod
-    def get_resources(self) -> Union[ Iterable[ str ], Iterable[ Mapping[ str, Union[ str, int ] ] ] ]:
+    def get_resources(self) -> Union[Iterable[str], Iterable[Mapping[str, Union[str, int]]]]:
         """
             Get metadata of all managed resoures.
 
@@ -77,9 +77,9 @@ class ResourceManager(ABC):
 
     @abstractmethod
     def allocate_resource(self, resource_id: str, requested_cpus: int,
-                          requested_memory:int =0, partial:bool =False) -> Mapping[str, Union[str, int]]:
-      """
-        Attemt to allocate the requested resources.  Successful allocation will return
+                          requested_memory: int = 0, partial: bool = False) -> Mapping[str, Union[str, int]]:
+        """
+        Attempt to allocate the requested resources.  Successful allocation will return
         a non empty map.
 
         Parameters
@@ -90,19 +90,19 @@ class ResourceManager(ABC):
         requested_cpus
             integer numbre of cpus to attempt to allocate
 
-        requested_momory
+        requested_memory
             integer number of bytes to allocate.  currently optional
 
         partial
-            whether to partially fullfil the requested allocation and return
+            whether to partially fulfill the requested allocation and return
             an allocation map with less than the requested allocation
 
 
-      """
-      pass
+        """
+        pass
 
     @abstractmethod
-    def release_resources(self, allocated_resources: Iterable[ Mapping[ str, Union[ str, int ] ] ]):
+    def release_resources(self, allocated_resources: Iterable[Mapping[str, Union[str, int]]]):
         """
             Give back any allocated resources to the manager.
 
