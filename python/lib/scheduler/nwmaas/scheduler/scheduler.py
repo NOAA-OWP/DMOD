@@ -662,7 +662,7 @@ class Scheduler:
         # recvJobReq = self.check_for_incoming_req()
         #while (recvJobReq != 0):
         # create and save user info to database
-        self.create_user_from_username(user_id)
+        #self.create_user_from_username(user_id)
 
         # In operation, domain_name will be taken from user request
         domain_name = "domain_croton_NY"
