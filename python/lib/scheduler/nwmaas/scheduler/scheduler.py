@@ -213,7 +213,7 @@ class Scheduler:
         else:
             #Something went wrong
             #Return any allocated resources we mave have partially aquired
-            self.resource_manager.release_resources(cpuList)
+            self.resource_manager.release_resources(cpusList)
             #consider if this is a good idea...not
             #sure if a full atomic grab of all required resource is better
             #then attempting several partial, and rolling back.  This is cleaner
@@ -301,7 +301,7 @@ class Scheduler:
             return request_id, cpusList
         else:
             #Return any allocated resources we mave have partially aquired
-            self.resource_manager.release_resources(cpuList)
+            self.resource_manager.release_resources(cpusList)
             #FIXME implement this! Also consider if this is a good idea...not
             #sure if a full atomic grab of all required resource is better
             #then attempting several partial, and rolling back.  This is cleaner
@@ -420,7 +420,6 @@ class Scheduler:
     def fromRequest(cls, request: SchedulerRequestMessage) -> 'Scheduler':
         """Perform job queuing based on Request() class object"""
         scheduler = cls()
-        # request = Request(user_id, cpus, mem)
         scheduler.enqueue(request)
         return scheduler
 
