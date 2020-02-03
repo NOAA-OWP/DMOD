@@ -70,7 +70,7 @@ class Scheduler:
 
         ## initialize variables for create_service()
         ## default image
-        self.image = "127.0.0.1:5000/nwm-2.0:latest"
+        self._default_image = "127.0.0.1:5000/nwm-2.0:latest"
         ## self.image =  "127.0.0.1:5000/nwm-master:latest"
 
         self.constraints = []
