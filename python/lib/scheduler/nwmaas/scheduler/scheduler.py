@@ -11,7 +11,7 @@ import time
 from nwmaas.communication import SchedulerRequestMessage
 
 ## local imports
-from ..resourcemanager.RedisManager import RedisManager
+from .RedisManager import RedisManager
 from .utils import parsing_nested as pn
 
 MAX_JOBS = 210
