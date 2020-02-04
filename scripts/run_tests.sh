@@ -31,6 +31,10 @@ Options:
     --list-packages | -l
         List the supported packages that are tested
 
+    --quiet | -q
+        Quieter output; in particular, don't display count of
+        number of tests run for each package (conflicts with -v)
+
     --venv <dir>
         Set the directory of the virtual environment to use.
         By default, the following directories will be checked,
@@ -63,9 +67,9 @@ print_test_result()
     # 1: name
     # 2: result (0 or 1)
     if [ ${2} == 0 ]; then
-        echo "Results for package ${1} : passed"
+        echo "${1} : passed"
     else
-        echo "Results for package ${1} : failed"
+        echo "${1} : failed"
         TOTAL_RESULT=$((TOTAL_RESULT+1))
     fi
     return ${2}
@@ -79,13 +83,9 @@ test_package_quietly()
 
 test_package()
 {
-    echo "-----------------------------------"
     echo "${SUPPORTED_PACKAGES[${1}]}"
     ${PACKAGE_TESTING_SCRIPT} ${IT_ARG:-} ${VERBOSE_ARG:-} ${SUPPORTED_PACKAGES[${1}]}
     PACKAGE_RESULT[${1}]=$?
-    echo ""
-    echo ""
-    echo ""
     return ${PACKAGE_RESULT[${1}]}
 }
 
@@ -103,6 +103,11 @@ while [ ${#} -gt 0 ]; do
             list_packages
             exit
             ;;
+        --quiet|-q)
+            [ -n "${DO_QUIET:-}" ] && usage && exit 1
+            [ -n "${SET_VERBOSE:-}" ] && usage && exit 1
+            DO_QUIET='true'
+            ;;
         --venv)
             [ -n "${VENV_DIR:-}" ] && usage && exit 1
             VENV_DIR="$(py_dev_validate_venv_dir "${2}")"
@@ -111,6 +116,7 @@ while [ ${#} -gt 0 ]; do
             ;;
         -v|-vv)
             [ -n "${SET_VERBOSE:-}" ] && usage && exit 1
+            [ -n "${DO_QUIET:-}" ] && usage && exit 1
             SET_VERBOSE='true'
             if [ "${1}" == "-vv" ]; then
                 VERBOSE_ARG="-v"
@@ -151,14 +157,26 @@ fi
 # Perform testing on the supported packages
 len=${#SUPPORTED_PACKAGES[@]}
 for (( i=0; i<${len}; i++)); do
-    if [ -z "${SET_VERBOSE:-}" ]; then
+    if [ -n "${DO_QUIET:-}" ]; then
         test_package_quietly ${i}
         # When testing quietly, print results immediately, since they won't get buried in the noise
         print_test_result ${SUPPORTED_PACKAGES[${i}]} $?
+    elif [ -z "${SET_VERBOSE:-}" ]; then
+        _TEMP_FILE="./.run_tests_temp_package_test_output_${i}"
+        test_package ${i} > "${_TEMP_FILE}" 2>&1
+        _P_RES=${PACKAGE_RESULT[${i}]}
+        _TEST_COUNTS=`cat "${_TEMP_FILE}" | grep Ran`
+        _RESULTS=`cat "${_TEMP_FILE}" | tail -n 5 | grep -i 'fail\|ok'`
+        echo "${SUPPORTED_PACKAGES[${i}]}: ${_RESULTS} (${_TEST_COUNTS})"
+        rm "${_TEMP_FILE}"
     else
         # For verbose, test function saves results to PACKAGE_RESULT
         # This is so we can wait to print results in a summary all at the end
+        echo "-----------------------------------"
         test_package ${i}
+        echo ""
+        echo ""
+        echo ""
     fi
 done
 
