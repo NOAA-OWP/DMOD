@@ -18,7 +18,12 @@ fi
 . ${SHARED_FUNCS_DIR}/py_dev_func.sh
 
 # Paths relative to project root
-SUPPORTED_PACKAGES=(lib/access lib/communication lib/externalrequests lib/scheduler)
+# First, add python lib packages
+LIB_PACKAGE_NAMES=(access communication externalrequests scheduler)
+LIB_PACKAGE_ROOT='python/lib'
+for i in $(seq 0 3); do
+    SUPPORTED_PACKAGES[${i}]="${LIB_PACKAGE_ROOT}/${LIB_PACKAGE_NAMES[${i}]}"
+done
 PACKAGE_TESTING_SCRIPT=${SCRIPT_PARENT_DIR}/test_package.sh
 
 usage()
