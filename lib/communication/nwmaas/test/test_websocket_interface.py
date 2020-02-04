@@ -46,6 +46,65 @@ class WebSocketInterfaceTestBase(unittest.TestCase):
         """
         return await asyncio.create_subprocess_exec(sys.executable, '-c', sub_proc_code, stdout=asyncio.subprocess.PIPE)
 
+    def _dir_contains(self, directory: Path, file_names: list, files_are_sub_dirs: bool = False):
+        if isinstance(file_names, list):
+            for file_name_str in file_names:
+                child = directory.joinpath(file_name_str)
+                if not child.exists():
+                    return False
+                if files_are_sub_dirs and not child.is_dir():
+                    return False
+        return True
+
+    def find_proj_root(self, descendant: Path, file_names: list, dir_names: list, max_levels: int = 25):
+        """
+        Try to find the project root directory based on expected lists of files and/or directories it contains,
+        recursively ascending from a given starting directory.
+
+        Given a starting file assumed to be a descendent of the project root directory (or the root directory itself),
+        examine that file to see if it is the project root.  Determine this by checking if it is a directory with all of
+        a specified list of child files and or child directories.  If it is the project root, return it; if not,
+        recursively perform the same steps on the file's parent directory, until this has been done for a maximum number
+        of levels or the filesystem root is reached (in which case ``None`` is returned).
+
+        Parameters
+        ----------
+        descendant : Path
+            A starting point to being searching from, expected to either be or be a descendent of the sought directory
+
+        file_names : list of str
+            A list of the names of non-directory child files that are expected in the sought directory, as a means of
+            identifying it
+
+        dir_names : list of str
+            A list of the names of child directories that are expected in the sought directory, as a means of
+            identifying it
+
+        max_levels : int
+            A limit on the number of levels that should be traverse before giving up, with a value less than 1
+            indicating the search should proceed until the root of the filesystem/drive.
+
+        Returns
+        -------
+        Path
+            The sought project root directory if it can be found, or ``None``
+        """
+        count_test_files = len(file_names) if isinstance(file_names, list) else 0
+        count_test_files += len(dir_names) if isinstance(dir_names, list) else 0
+        if count_test_files == 0:
+            raise RuntimeError("_find_proj_root() must be given at least one expected file/dir in project root")
+        levels = 0
+        if descendant.is_dir() and self._dir_contains(descendant, file_names) and self._dir_contains(descendant, dir_names, True):
+            return descendant
+        for d in descendant.parents:
+            if max_levels < 1 or levels < max_levels:
+                levels += 1
+            else:
+                break
+            if self._dir_contains(d, file_names) and self._dir_contains(d, dir_names, True):
+                return d
+        return None
+
     def setUp(self):
         test_dir_name = os.getenv('TEST_SSL_CERT_DIR')
         if test_dir_name is None:
