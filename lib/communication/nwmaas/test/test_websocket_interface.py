@@ -107,10 +107,25 @@ class WebSocketInterfaceTestBase(unittest.TestCase):
 
     def setUp(self):
         test_dir_name = os.getenv('TEST_SSL_CERT_DIR')
+        # First, try the old way
         if test_dir_name is None:
-            self.test_ssl_dir = Path(__file__).resolve().parent.joinpath('ssl')
+            try:
+                self.test_ssl_dir = Path(__file__).resolve().parent.parent.parent.joinpath('ssl')
+            except:
+                self.test_ssl_dir = None
         else:
             self.test_ssl_dir = Path(test_dir_name).resolve()
+
+        # But if this isn't a valid, search the new way
+        if self.test_ssl_dir is None or not self.test_ssl_dir.exists() or not self.test_ssl_dir.is_dir():
+            # Find the project root to then get the SSL dir
+            expected_files = ['.gitignore', 'example.env']
+            expected_sub_dirs = ['.git', 'ssl']
+            proj_root = self.find_proj_root(Path(__file__).resolve().parent, expected_files, expected_sub_dirs)
+            if proj_root is None:
+                msg = 'Unable to find project root with expected files [{}] and sub dirs [{}]; cannot locate SSL dir'
+                raise RuntimeError(msg.format(str(expected_files), str(expected_sub_dirs)))
+            self.test_ssl_dir = proj_root.joinpath('ssl').joinpath('requestservice')
 
         self._client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         self._client_ssl_context.load_verify_locations(self.test_ssl_dir.joinpath('certificate.pem'))
