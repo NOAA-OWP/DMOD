@@ -168,9 +168,9 @@ class SchedulerClient(WebSocketClient):
             # Send the request and get the scheduler confirmation of job submission
             serialized_response = await self.async_send(data=str(message), await_response=True)
             if serialized_response is None:
-                raise ValueError
+                raise ValueError('Serialized response from {} async message was `None`'.format(self.__class__.__name__))
         except Exception as e:
-            logging.error('********* Encountered {} sending scheduler request: {}'.format(str(e), e.__class__.__name__))
+            logger.error('Encountered {} sending scheduler request: {}'.format(e.__class__.__name__, str(e)))
             reason = 'Request Send Failure ({})'.format(e.__class__.__name__)
             return SchedulerRequestResponse(success=False, reason=reason, message=str(e), data=response_json)
         try:
