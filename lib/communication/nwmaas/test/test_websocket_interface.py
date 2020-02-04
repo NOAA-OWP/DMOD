@@ -125,7 +125,7 @@ class WebSocketInterfaceTestBase(unittest.TestCase):
             if proj_root is None:
                 msg = 'Unable to find project root with expected files [{}] and sub dirs [{}]; cannot locate SSL dir'
                 raise RuntimeError(msg.format(str(expected_files), str(expected_sub_dirs)))
-            self.test_ssl_dir = proj_root.joinpath('ssl').joinpath('requestservice')
+            self.test_ssl_dir = proj_root.joinpath('ssl').joinpath('local')
 
         self._client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         self._client_ssl_context.load_verify_locations(str(self.test_ssl_dir.joinpath('certificate.pem')))
