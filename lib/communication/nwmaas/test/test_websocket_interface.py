@@ -128,7 +128,7 @@ class WebSocketInterfaceTestBase(unittest.TestCase):
             self.test_ssl_dir = proj_root.joinpath('ssl').joinpath('requestservice')
 
         self._client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        self._client_ssl_context.load_verify_locations(self.test_ssl_dir.joinpath('certificate.pem'))
+        self._client_ssl_context.load_verify_locations(str(self.test_ssl_dir.joinpath('certificate.pem')))
 
         self.port = '3012'
         self.host = gethostname()
