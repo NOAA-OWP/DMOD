@@ -1,5 +1,11 @@
 #!/usr/bin/env sh
 
+# Keep note of whether the script has activated a virtual python environment, and must later deactivate it
+# Uses the shell-style conventions of 0 => true and 1 => false
+VENV_WAS_ACTIVATED=1
+
+PACKAGE_NAMESPACE_ROOT=nwmaas
+
 # Validate that an arg is a path to a valid venv directory, echoing the path to stdout if it is, and also returning 0 or
 # 1 consistent with standard shell T/F.
 # Also, print out messages to stderr when not valid, unless suppressed with '-q' arg.
