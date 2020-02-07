@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from typing import Iterable, Mappable, Union
+from typing import Iterable, Mapping, Union
 from abc import ABC, abstractmethod
 import logging
 
@@ -43,7 +43,7 @@ class ResourceManager(ABC):
         pass
 
     @abstractmethod
-    def get_resources(self) -> Union[ Iterable[ str ], Iterable[ Mappable[ str, Union[ str, int ] ] ] ]:
+    def get_resources(self) -> Union[ Iterable[ str ], Iterable[ Mapping[ str, Union[ str, int ] ] ] ]:
         """
             Get metadata of all managed resoures.
 
@@ -77,7 +77,7 @@ class ResourceManager(ABC):
 
     @abstractmethod
     def allocate_resource(self, resource_id: str, requested_cpus: int,
-                          requested_memory:int =0, partial:bool =False) -> Mappable[str, Union[str, int]]:
+                          requested_memory:int =0, partial:bool =False) -> Mapping[str, Union[str, int]]:
       """
         Attemt to allocate the requested resources.  Successful allocation will return
         a non empty map.
@@ -102,7 +102,7 @@ class ResourceManager(ABC):
       pass
 
     @abstractmethod
-    def release_resources(self, allocated_resources: Iterable[ Mappable[ str, Union[ str, int ] ] ]):
+    def release_resources(self, allocated_resources: Iterable[ Mapping[ str, Union[ str, int ] ] ]):
         """
             Give back any allocated resources to the manager.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from typing import Iterable, Mappable, Union
+from typing import Iterable, Mapping, Union
 from abc import ABC, abstractmethod
 from redis import Redis, WatchError
 import logging
@@ -130,7 +130,7 @@ class RedisManager(ResourceManager):
             self.redis.sadd(resource_list_key, resource_id)
 
 
-    def get_resources(self) -> Iterable[Mappable[str, Union[str, int]]]:
+    def get_resources(self) -> Iterable[Mapping[str, Union[str, int]]]:
         """ TODO kwarg for ids only vs full metadata
             list or generator???
             Get metadata of all managed resoures.
@@ -173,7 +173,7 @@ class RedisManager(ResourceManager):
 
     @abstractmethod
     def allocate_resource(self, resource_id: str, requested_cpus: int,
-                          requested_memory:int =0, partial:bool =False) -> Mappable[str, Union[str, int]]:
+                          requested_memory:int =0, partial:bool =False) -> Mapping[str, Union[str, int]]:
       """
         Attemt to allocate the requested resources.  Successful allocation will return
         a non empty map.
@@ -240,14 +240,14 @@ class RedisManager(ResourceManager):
                                             'mem': requested_memory}
                   #Break the infinite watch error retry loop
                   break
-          except WatchError:
-              logging.debug("Write Conflict allocate_resource: {}. Retrying...".format(e_key))
-              #Try the transaction again
-              continue
+              except WatchError:
+                  logging.debug("Write Conflict allocate_resource: {}. Retrying...".format(e_key))
+                  #Try the transaction again
+                  continue
       #Return the allocation map, {} if failure
       return cpu_allocation_map
 
-    def release_resources(self, allocated_resources: Iterable[ Mappable[ str, Union[ str, int ] ] ]):
+    def release_resources(self, allocated_resources: Iterable[ Mapping[ str, Union[ str, int ] ] ]):
         """
             Give back any allocated resources to the manager.
 
