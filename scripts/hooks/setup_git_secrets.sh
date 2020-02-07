@@ -187,8 +187,14 @@ install_hook()
     # 2 : command option
     if [ ! -e "${PROJECT_ROOT:?}/.git/hooks/${1}" ]; then
         echo "#!/usr/bin/env bash" > "${PROJECT_ROOT:?}/.git/hooks/${1}"
+        echo "git secrets --${2} -- \"\$@\"" >> "${PROJECT_ROOT:?}/.git/hooks/${1}"
+    else
+        >&2 echo "WARN: there is already an existing ${PROJECT_ROOT:?}/.git/hooks/${1} hook for the project."
+        >&2 echo ""
+        >&2 echo "To incorporate the usage of git-secrets into this hook, manaully add the following line to the file:"
+        >&2 echo "    git secrets --${2} -- \"\$@\""
+        return 1
     fi
-    echo "git secrets --${2} -- \"\$@\"" >> "${PROJECT_ROOT:?}/.git/hooks/${1}"
 }
 
 install_all_hooks()
