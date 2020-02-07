@@ -16,7 +16,7 @@ import time
 from nwmaas.communication import SchedulerRequestMessage
 
 ## local imports
-from .. import resourcemanager.RedisManager as RedisManager
+from ..resourcemanager.RedisManager import RedisManager
 from .utils import parsing_nested as pn
 
 MAX_JOBS = 210
@@ -31,7 +31,7 @@ logging.basicConfig(
 class Scheduler:
     _jobQ = queue.deque()
 
-    def __init__(self, docker_client=None, api_client=None, **kwargs):
+    def __init__(self, docker_client=None, api_client=None, resource_manager=None, **kwargs):
         if docker_client:
             self.docker_client = docker_client
             self.api_client = api_client
@@ -59,8 +59,11 @@ class Scheduler:
         # _MAX_JOBS is set to currently available total number of CPUs
         self._MAX_JOBS = MAX_JOBS
 
-        #Init resource manager
-        self.resource_manager = RedisManager("maas", kwargs)
+        #Init resource manager TODO clean up
+        if resource_manager:
+            self.resource_manager = resource_manager
+        else:
+            self.resource_manager = RedisManager("maas", kwargs)
 
     def return42(self):
         return 42
