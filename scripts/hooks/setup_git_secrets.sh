@@ -14,6 +14,7 @@ SHARED_FUNCS_DIR="${SCRIPT_PARENT_DIR}/../shared"
 EXECUTABLE_BASENAME="git-secrets"
 MANFILE_BASENAME="git-secrets.1"
 REMOTE_REPO_URL="https://github.com/awslabs/git-secrets.git"
+SECRETS_PROVIDER_SCRIPT="$(dirname "${0}")/secrets_provider.sh"
 
 USAGE_HEADER="${NAME:?}
 
@@ -21,7 +22,7 @@ ${INFO:?}
 
 USAGE:
     ${NAME:?} [opts] <repo_dir> [<install_dir>]
-    ${NAME:?} [--clear|-c] --apply-patterns
+    ${NAME:?} [--clear|-c] --apply-provider
     ${NAME:?} --install-hooks
     ${NAME:?} -h|-help|--help
     ${NAME:?} --info"
@@ -56,15 +57,14 @@ if the optional arg for 'install_dir' is present, the script:
         - commit-msg
         - pre-commit
         - prepare-commit-msg
-    - applies several disallowed patterns to the repo's Git config
-      for the hooks and 'git-secrets' to warn about
+    - applies a secrets provider to the repo's Git config for supplying
+      the patterns for 'git-secrets' and utilizing hooks to warn about
 
-When passed --apply-patterns, only apply several disallowed patterns
-to the project's Git config (see --clear for handling any existing).
-This is useful if 'git-secrets' is already setup on the local machine.
+When passed --apply-provider, only apply the custom secrets provider
+script to the project's Git config (optionally clearing any previous).
 
 When passed --install-hooks, only install the above mentioned hooks
-to .git/hooks/.  Again, this is
+to .git/hooks/.
 
 See 'OPTIONS' for ways some of this behavior can be controlled.
 
@@ -79,9 +79,9 @@ ARGUMENTS:
         with these steps being skipped if this argument is not
         provided
 
-    --apply-patterns
-        Just apply the disallowed patterns to the local Git config
-        that git-secrets will search for
+    --apply-provider
+        Just add the 'git-secrets' secret provider for project to
+        local Git config (see 'git-secrets' for info on providers)
 
         This must be used on its own or with only the optional
         --clear flag.
@@ -91,13 +91,9 @@ ARGUMENTS:
 
 OPTIONS:
     --clear|-c
-        Optionally used with --apply-patterns to indicate any
-        existing disallowed patterns in the Git config should be
-        cleared before applying new patterns
-
-        By default, ${NAME} will not apply patterns if
-        there are already disallowed patterns added in the Git
-        config.
+        Optionally used with --apply-provider to indicate any
+        existing secrets providers in the Git config should be
+        cleared before applying this script's provider value
 
     --profile|-p <file>
         Set the path to the profile config file to append to in
@@ -205,26 +201,16 @@ install_all_hooks()
     install_hook "prepare-commit-msg" "prepare_commit_msg_hook"
 }
 
-# Add git secrets patterns (to the local git config)
-apply_secrets_patterns()
+# Add secrets provider (to the local git config)
+apply_secrets_provider()
 {
-    if [ $(git secrets --list | wc -l) -gt 0 ]; then
-        if [ "${DO_CLEAR_PATTERNS:-}" = "true" ]; then
-            # Clear any previously existing 'secrets.patterns' key values
-            >&2 echo "Clearing previously set git-secrets disallowed patterns"
-            git config --unset-all secrets.patterns
-        else
-            >&2 echo "Error: previously set git-secrets disallowed patterns exist"
-            >&2 echo "Run ${NAME} with the '--clear' and '--apply-patterns' flags to reset"
-            return 1
-        fi
+    if [ $(git config --get-all secrets.providers | wc -l) -gt 0 ] && [ "${DO_CLEAR_PROVIDERS:-}" = "true" ]; then
+        >&2 echo "Clearing previously set git-secrets secrets providers:"
+        >&2 git config --get-all secrets.providers | sed 's/^/    /'
+        git config --unset-all secrets.providers
     fi
 
-    # Redis config file
-    git secrets --add 'requirepass\s+[A-Za-z0-9][^\s]*\s*$'
-    # In particular, for when initializing a Redis Python client object, but easily could apply to other situations
-    git secrets --add 'password\s*=\s*"[^"]+"'
-    git secrets --add "password\s*=\s*'[^']+'"
+    git secrets --add-provider -- "${SECRETS_PROVIDER_SCRIPT}"
 }
 
 if [ ${#} -eq 0 ]; then
@@ -250,13 +236,13 @@ while [ ${#} -gt 0 ]; do
             [ -n "${DO_SKIP_PATH:-}" ] && usage && exit 1
             [ -n "${REPO_DIR:-}" ] && usage && exit 1
             [ -n "${INSTALL_DIR:-}" ] && usage && exit 1
-            [ -n "${DO_CLEAR_PATTERNS:-}" ] && usage && exit 1
+            [ -n "${DO_CLEAR_PROVIDERS:-}" ] && usage && exit 1
             # Also, this has to be the last arg
             [ ${#} -gt 1 ] && usage && exit 1
             install_all_hooks
             exit $?
             ;;
-        --apply-patterns)
+        --apply-provider)
             # When this runs, then only this runs
             [ -n "${PROFILE_CONFIG:-}" ] && usage && exit 1
             [ -n "${DO_REMOVE_REPO:-}" ] && usage && exit 1
@@ -266,12 +252,12 @@ while [ ${#} -gt 0 ]; do
             [ -n "${INSTALL_DIR:-}" ] && usage && exit 1
             # Also, this has to be the last arg
             [ ${#} -gt 1 ] && usage && exit 1
-            apply_secrets_patterns
+            apply_secrets_provider
             exit $?
             ;;
         --clear|-c)
-            [ -n "${DO_CLEAR_PATTERNS:-}" ] && usage && exit 1
-            DO_CLEAR_PATTERNS='true'
+            [ -n "${DO_CLEAR_PROVIDERS:-}" ] && usage && exit 1
+            DO_CLEAR_PROVIDERS='true'
             ;;
         --profile|-p)
             [ -n "${PROFILE_CONFIG:-}" ] && usage && exit 1
@@ -291,7 +277,7 @@ while [ ${#} -gt 0 ]; do
             DO_SKIP_PATH='true'
             ;;
         *)
-            [ -n "${DO_CLEAR_PATTERNS:-}" ] && usage && exit 1
+            [ -n "${DO_CLEAR_PROVIDERS:-}" ] && usage && exit 1
             if [ -z "${REPO_DIR:-}" ]; then
                 REPO_DIR="${1}"
             elif [ -z "${INSTALL_DIR:-}" ]; then
@@ -358,4 +344,4 @@ if [ -n "${INSTALL_DIR:-}" ]; then
     fi
 fi
 
-apply_secrets_patterns
+apply_secrets_provider
