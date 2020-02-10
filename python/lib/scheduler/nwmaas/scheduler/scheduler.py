@@ -749,13 +749,21 @@ class Scheduler:
             serv_name = name + str(idx)+"_{}".format(req_id)
             idx += 1
             # FIXME: this doesn't work (and Request no longer exists) ... switch to using SchedulerRequestMessage maybe
-            schReqMsg = SchedulerRequestMessage(model_request="model_request", user_id=user_id, cpus=cpus_alloc, mem=mem)
-            schedule = self.fromRequest(schReqMsg)
+            # FIXME: somehow an actual MaaSRequest object needs to be created or passed for use in a scheduler request
+            model_request = None
+            schReqMsg = SchedulerRequestMessage(model_request=model_request, user_id=user_id, cpus=cpus_alloc, mem=mem)
+            # TODO: confirm there is no reason to use this (why return and use a new Scheduler object, when its only a
+            #   local variable within a method of another Scheduler object?)
+            #schedule = self.fromRequest(schReqMsg)
+            self.enqueue(schReqMsg)
             # schedule.check_jobQ()
             serviceParams = DockerSrvParams(image_tag, constraints, hostname, labels, serv_name, mounts)
-            schedule.startJobs(serviceParams, user_id, cpus, mem, cpus_alloc, idx, cpusLen, host_str)
+            self.startJobs(serviceParams, user_id, cpus, mem, cpus_alloc, idx, cpusLen, host_str)
         logging.info("\n")
-        schedule.check_jobQ()
+        # TODO: make sure this stays consistent with the choice above regarding whether a new object from fromRequest()
+        #   should be used, or this Scheduler object directly, for enqueuing the request.
+        #schedule.check_jobQ()
+        self.check_jobQ()
         jobQ = self._jobQ
         for job in jobQ:
             logging.info("In job_allocation_and_setup: user_id, cpus, mem: {} {} {}".format(job.user_id, job.cpus, job.mem))
