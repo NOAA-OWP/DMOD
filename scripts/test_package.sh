@@ -38,6 +38,16 @@ Usage:
     ${NAME:?} [opts] <directory>
 
 Options:
+    --test-class <class_pattern>
+        Specify (as a matching pattern, not an guaranteed
+        exact name) the name of a particular class for which
+        tests should be run
+
+    --test-method <method_pattern>
+        Specify (as a matching pattern, not an guaranteed
+        exact name) the name of a particular method for which
+        tests should be run
+
     --test-dir-basename | -n <name>
         Set the expected basename of the subdirectory in a
         (namespace) package directory where test files are
@@ -119,6 +129,16 @@ while [ ${#} -gt 0 ]; do
             [ -n "${DO_TEARDOWN_IT:-}" ] && usage && exit 1
             DO_SETUP_IT='true'
             ;;
+        --test-class)
+            [ -n "${TEST_CLASS_PATTERN:-}" ] && usage && exit
+            TEST_CLASS_PATTERN="${2}"
+            shift
+            ;;
+        --test-method)
+            [ -n "${TEST_METHOD_PATTERN:-}" ] && usage && exit
+            TEST_METHOD_PATTERN="${2}"
+            shift
+            ;;
         --teardown-it)
             [ -n "${DO_SETUP_IT:-}" ] && usage && exit 1
             DO_TEARDOWN_IT='true'
@@ -168,7 +188,11 @@ fi
 
 exec_test_files()
 {
-    python -m unittest ${1} ${SET_VERBOSE:-}
+    if [ -n "${TEST_CLASS_PATTERN:-}" ] || [ -n "${TEST_METHOD_PATTERN:-}" ]; then
+        python -m unittest -k ${TEST_CLASS_PATTERN:-}.${TEST_METHOD_PATTERN:-} ${1} ${SET_VERBOSE:-}
+    else
+        python -m unittest ${1} ${SET_VERBOSE:-}
+    fi
 }
 
 find_and_exec_test_files()
