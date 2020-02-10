@@ -47,7 +47,6 @@ set_project_root()
 if [ -z "${PROJECT_ROOT:-}" ]; then
     set_project_root
     PROJ_SCRIPTS_SRC_DIR="${PROJECT_ROOT:?}/scripts"
-    HOOKS_SRC_DIR="${PROJ_SCRIPTS_SRC_DIR}/hooks"
 
     # TODO: for any other common script paths that may be needed, set them here, so if ever changed, only need updating
     # TODO:     in one place.
