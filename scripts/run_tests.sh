@@ -3,11 +3,19 @@
 INFO='Run unit or integration tests for a group of supported Python packages'
 SCRIPT_PARENT_DIR="$(cd "$(dirname "${0}")"; pwd)"
 
+# Set SHARED_FUNCS_DIR (as needed by default_script_setup.sh) to the correct path before using it to source its contents
+SHARED_FUNCS_DIR="${SCRIPT_PARENT_DIR}/shared"
+if [ ! -d "${SHARED_FUNCS_DIR}" ]; then
+    >&2 echo "Error: could not find shared script functions script at expected location:"
+    >&2 echo "    ${SHARED_FUNCS_DIR}"
+    exit 1
+fi
+
 # Import shared default script startup source
-. ${SCRIPT_PARENT_DIR}/shared/default_script_setup.sh
+. ${SHARED_FUNCS_DIR}/default_script_setup.sh
 
 # Import shared functions used for python-dev-related scripts
-. ${SCRIPT_PARENT_DIR}/shared/py_dev_func.sh
+. ${SHARED_FUNCS_DIR}/py_dev_func.sh
 
 # Paths relative to project root
 SUPPORTED_PACKAGES=(lib/access lib/communication lib/externalrequests lib/scheduler)
