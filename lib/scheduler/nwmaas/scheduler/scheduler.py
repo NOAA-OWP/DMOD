@@ -133,7 +133,7 @@ class Scheduler:
         [cpu_allocation_map]
             List of allocated computational resources on host nodes if allocation successful, otherwise, return None
         """
-        if (not isinstance(cpus, int)):
+        if (not isinstance(requested_cpus, int)):
             logging.debug("Invalid CPUs request: requested_cpus = {}, CPUs must be a positive integer".format(requested_cpus))
             return
         if (requested_cpus <= 0):
@@ -141,6 +141,8 @@ class Scheduler:
             return
 
         index = 0
+        cpu_allocation_map = {}
+
         for resrouce in self.resource_manager.get_resource_ids():
 
             #Try to fit all requested cpus on a single resource
@@ -178,17 +180,17 @@ class Scheduler:
         [cpu_allocation_map]
             List of allocated computational resources on host nodes if allocation successful, otherwise, return None
         """
-        if (not isinstance(cpus, int)):
+        if (not isinstance(requested_cpus, int)):
             logging.debug("Invalid CPUs request: requested_cpus = {}, CPUs must be a positive integer".format(requested_cpus))
             return
         if (requested_cpus <= 0):
             logging.debug("Invalid CPUs request: requested_cpus = {}, CPUs should be an integer > 0".format(requested_cpus))
             return
 
-        if (cpus > self.resource_manager.get_available_cpu_count()):
-            print("\nRequested CPUs greater than CPUs available: requested = {}, available = {}".format(cpus, total_CPUs))
-            #FIXME do what when we return??? 
-            # Could we return above message to the user? This will need communicate with the interface layer
+        available_cpus = self.resource_manager.get_available_cpu_count()
+        if (requested_cpus > available_cpus):
+            print("\nRequested CPUs greater than CPUs available: requested = {}, available = {}".format(requested_cpus, available_cpus))
+            #FIXME do what when we return???
             return
 
         index = 0
@@ -254,7 +256,7 @@ class Scheduler:
         [cpu_allocation_map]
             List of allocated computational resources on host nodes if allocation successful, otherwise, return None
         """
-        if (not isinstance(cpus, int)):
+        if (not isinstance(requested_cpus, int)):
             logging.debug("Invalid CPUs request: requested_cpus = {}, CPUs must be a positive integer".format(requested_cpus))
             return
         if (requested_cpus <= 0):
@@ -262,6 +264,9 @@ class Scheduler:
             return
 
         resources = self.resource_manager.get_resource_ids()
+        if len(resources) < 1:
+            return
+
         num_node = len(resources)
         int_cpus = int(requested_cpus / num_node)
         remaining_cpus = requeted_cpus % num_node
@@ -422,7 +427,7 @@ class Scheduler:
             raise ConnectionError("Please check that the Docker Daemon is installed and running.")
 
     @classmethod
-    def fromRequest(cls, request: SchedulerRequestMessage) -> Scheduler:
+    def fromRequest(cls, request: SchedulerRequestMessage) -> 'Scheduler':
         """Perform job queuing based on Request() class object"""
         scheduler = cls()
         # request = Request(user_id, cpus, mem)
