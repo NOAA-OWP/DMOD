@@ -59,7 +59,8 @@ class SchedulerHandler(WebSocketInterface):
             data = json.loads(message)
             logging.info(f"Got payload: {data}")
             request_message = SchedulerRequestMessage.factory_init_from_deserialized_json(data)
-            test = self.scheduler.fromRequest(request_message, 0)
+            #test = self.scheduler.fromRequest(request_message, 0)
+            self.scheduler.enqueue(request_message)
             #FIX THIS INTERFACE test.startJobs()
             #FIXME one of the first scheduler interface changes will be a domain
             #identity which services will have to mount to run
