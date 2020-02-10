@@ -90,7 +90,7 @@ class Scheduler:
         if resource_manager:
             self.resource_manager = resource_manager
         else:
-            self.resource_manager = RedisManager("maas", kwargs)
+            self.resource_manager = RedisManager("maas", **kwargs)
 
     def return42(self):
         """
