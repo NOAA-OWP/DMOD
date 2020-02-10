@@ -3,14 +3,16 @@
 INFO='Perform control tasks for a stack'
 SCRIPT_PARENT_DIR="$(cd "$(dirname "${0}")"; pwd)"
 
+SHARED_FUNCS_DIR="${SCRIPT_PARENT_DIR}/shared"
+
 # Import shared default script startup source
-. ${SCRIPT_PARENT_DIR}/shared/default_script_setup.sh
+. ${SHARED_FUNCS_DIR}/default_script_setup.sh
 
 # Import shared functions used for python-dev-related scripts
-. ${SCRIPT_PARENT_DIR}/shared/py_dev_func.sh
+. ${SHARED_FUNCS_DIR}/py_dev_func.sh
 
 # Import shared functions used for Docker-dev-related scripts
-. ${SCRIPT_PARENT_DIR}/shared/docker_dev_func.sh
+. ${SHARED_FUNCS_DIR}/docker_dev_func.sh
 
 if [ -e ".env" ]; then
     . ".env"
