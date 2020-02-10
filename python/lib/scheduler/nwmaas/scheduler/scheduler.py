@@ -418,7 +418,18 @@ class Scheduler:
 
     @classmethod
     def fromRequest(cls, request: SchedulerRequestMessage) -> 'Scheduler':
-        """Perform job queuing based on Request() class object"""
+        """
+        Create a new scheduler object, enqueue the given request on the scheduler, and finally return the new object.
+
+        Parameters
+        ----------
+        request
+
+        Returns
+        -------
+        Scheduler
+            Return a new :class:`Scheduler` object with the given request enqueued.
+        """
         scheduler = cls()
         scheduler.enqueue(request)
         return scheduler
