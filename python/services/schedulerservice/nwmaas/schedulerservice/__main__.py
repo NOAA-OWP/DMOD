@@ -28,9 +28,6 @@ def main():
     # instantiate the scheduler
     scheduler = Scheduler()
 
-    # initialize redis client
-    scheduler.clean_redisKeys()
-
     # build resource database
     #scheduler.create_resources()
 
