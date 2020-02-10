@@ -82,3 +82,7 @@ networks:
 # Define persistent volumes that may be shared and persisted between containers
 volumes:
   gui_static_volume:
+
+secrets:
+  myredis_pass:
+    file: ../secrets/myredis_password.txt

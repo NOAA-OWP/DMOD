@@ -41,6 +41,8 @@ docker/main/nwm/run.sh
 docker/main/nwm/run_model.sh-work
 docker/main/nwm/run_test.sh
 docker/main/nwm/testfile
+/docker/secrets/*
+
 redis_test/
 request.py
 
