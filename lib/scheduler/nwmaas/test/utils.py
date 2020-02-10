@@ -33,7 +33,7 @@ class EmptyResourceManager(ResourceManager):
 
     def release_resources(self):
         pass
-    
+
     def set_resources(self):
         self.resources={}
 
@@ -48,7 +48,7 @@ class EmptyResourceManager(ResourceManager):
             Get the identifiers for all managed resources
 
         """
-        []
+        return []
 
     def allocate_resource(self, resource_id: str, requested_cpus: int,
                           requested_memory:int =0, partial:bool =False):
