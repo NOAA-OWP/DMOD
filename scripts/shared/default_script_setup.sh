@@ -62,7 +62,8 @@ set_project_root()
 }
 
 # Make sure if we double-source this that the values below don't get reset
-if [ -z "${PROJECT_ROOT:-}" ]; then
+# Also, make this compatible for running outside the actual repo (e.g., inside a Docker container)
+if [ -z "${PROJECT_ROOT:-}" ] && [ -z "${OUT_OF_GIT_REPO:-}" ]; then
     set_project_root
     PROJ_SCRIPTS_SRC_DIR="${PROJECT_ROOT:?}/scripts"
 
