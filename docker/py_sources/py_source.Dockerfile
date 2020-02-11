@@ -5,7 +5,9 @@ COPY ./requirements.txt /nwm_service/requirements.txt
 # Along with setup and wheel to build, install all project pip dependencies for package building later
 RUN mkdir /DIST && pip download --no-cache-dir --destination-directory /DIST -r /nwm_service/requirements.txt
 # Needed for sourced functions used by build scripts in later stages
-COPY ./scripts /nwm_service/scripts
+RUN mkdir -p /nwm_service/scripts/shared
+COPY ./scripts/dist_package.sh /nwm_service/scripts
+COPY ./scripts/shared /nwm_service/scripts/shared
 # Copy python sources
 COPY ./python /nwm_service/python
 # Move to source dir
