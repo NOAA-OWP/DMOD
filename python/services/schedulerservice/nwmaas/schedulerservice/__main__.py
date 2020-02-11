@@ -7,6 +7,10 @@ from .service import SchedulerHandler
 
 def _handle_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--images-and-domains-yaml',
+                        help='Set the YAML file for the images and domains configuration',
+                        dest='images_and_domains_yaml',
+                        default='image_and_domain.list')
     parser.add_argument('--port',
                         help='Set the appropriate listening port value',
                         dest='port',
@@ -25,8 +29,9 @@ def _handle_args():
 def main():
     args = _handle_args()
 
+    # TODO: look at handling if the value in args.images_and_domains_yaml doesn't correspond to an actual file
     # instantiate the scheduler
-    scheduler = Scheduler()
+    scheduler = Scheduler(images_and_domains_yaml=args.images_and_domains_yaml)
 
     # build resource database
     #scheduler.create_resources()
