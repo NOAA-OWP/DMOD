@@ -9,6 +9,8 @@ docker/main/base/ssh/
 python/gui/db.sqlite3
 python/gui/ssl/
 
+ResourceManager.log
+
 communication/nwmaas/test/ssl/certificate.pem
 communication/nwmaas/test/ssl/*certificate*.pem
 communication/nwmaas/test/ssl/*privkey*.pem
