@@ -19,6 +19,8 @@ ARG comms_package_name
 ARG access_package_name
 ARG externalrequests_package_name
 ARG scheduler_package_name
+# Set this so script below will not run logic that only applies to when in a full Git repo directory tree
+ENV OUT_OF_GIT_REPO=true
 RUN for p in communication access externalrequests scheduler; do \
         ./scripts/dist_package.sh --sys python/lib/${p} && mv python/lib/${p}/dist/*.whl /DIST/.; \
     done
@@ -30,6 +32,8 @@ ARG scheduler_service_package_dist_name
 # Set these expressly in the environment, since probably not sourced from env (not sure if still needed)
 ENV PYTHON_PACKAGE_DIST_NAME_REQUEST_SERVICE=${request_service_package_name}
 ENV PYTHON_PACKAGE_DIST_NAME_SCHEDULER_SERVICE=${scheduler_service_package_dist_name}
+# Set this so script below will not run logic that only applies to when in a full Git repo directory tree
+ENV OUT_OF_GIT_REPO=true
 # Build service dist packages
 RUN for p in requestservice schedulerservice; do \
         ./scripts/dist_package.sh --sys python/services/${p}  && mv python/services/${p}/dist/*.whl /DIST/. ; \
