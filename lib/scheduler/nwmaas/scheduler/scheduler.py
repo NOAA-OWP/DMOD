@@ -143,8 +143,7 @@ class Scheduler:
         index = 0
         cpu_allocation_map = {}
 
-        for resrouce in self.resource_manager.get_resource_ids():
-
+        for resource in self.resource_manager.get_resource_ids():
             #Try to fit all requested cpus on a single resource
             cpu_allocation_map = self.resource_manager.allocate_resource(resource, requested_cpus)
             if cpu_allocation_map: #Resource allocation successful, have a map
