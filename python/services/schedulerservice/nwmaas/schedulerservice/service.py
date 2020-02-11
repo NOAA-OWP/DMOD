@@ -88,7 +88,8 @@ if __name__ == "__main__":
     #   run_dev_stuff()
     #else: run_prod()
     # instantiate the scheduler
-    scheduler = Scheduler(type="dev")
+    yaml_file = "image_and_domain.list"
+    scheduler = Scheduler(images_and_domains_yaml=yaml_file, type="dev")
 
     #Instansite the handle_job_request
     handler = SchedulerHandler(scheduler, ssl_dir=Path("./ssl/scheduler"), port=3013)
