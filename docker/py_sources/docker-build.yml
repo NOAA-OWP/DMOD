@@ -5,7 +5,7 @@ services:
     image: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/nwmaas-py-sources
     build:
       context: ../../
-      dockerfile: py_sources.Dockerfile
+      dockerfile: ./docker/py_sources/py_sources.Dockerfile
       args:
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
         access_package_name: ${PYTHON_PACKAGE_DIST_NAME_ACCESS:?}
