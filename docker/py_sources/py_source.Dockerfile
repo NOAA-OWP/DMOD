@@ -42,7 +42,7 @@ RUN for p in requestservice schedulerservice; do \
 #### Create final Docker build stage for desired image
 FROM python:3.8-alpine
 # Copy complete python source packages to location
-COPY ./python ./gui /nwm_service/
+COPY ./python /nwm_service/
 # And for every built dist/wheel package copy wheel file into analogous location for this stage
 COPY --from=lib_packages /DIST/* /DIST/
 COPY --from=service_packages /DIST/* /DIST/
