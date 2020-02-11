@@ -419,7 +419,7 @@ class Scheduler:
             raise ConnectionError("Please check that the Docker Daemon is installed and running.")
 
     @classmethod
-    def fromRequest(cls, request: SchedulerRequestMessage) -> 'Scheduler':
+    def fromRequest(cls, request: SchedulerRequestMessage, images_and_domains_yaml='image_and_domain.list') -> 'Scheduler':
         """
         Create a new scheduler object, enqueue the given request on the scheduler, and finally return the new object.
 
@@ -432,7 +432,7 @@ class Scheduler:
         Scheduler
             Return a new :class:`Scheduler` object with the given request enqueued.
         """
-        scheduler = cls()
+        scheduler = cls(images_and_domains_yaml=images_and_domains_yaml)
         scheduler.enqueue(request)
         return scheduler
 
@@ -781,7 +781,8 @@ def test_scheduler():
 
     # instantiate the scheduler
     # scheduler = Scheduler()
-    scheduler = Scheduler()
+    yaml_file = "image_and_domain.list"
+    scheduler = Scheduler(images_and_domains_yaml=yaml_file)
     user_id = "shengting.cui"
     cpus = 10
     mem = 5000000000
