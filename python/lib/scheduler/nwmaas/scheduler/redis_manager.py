@@ -48,6 +48,26 @@ class RedisManager(ResourceManager):
         Implementation class for defining a redis backed ResourceManager
     """
 
+    _DEFAULT_DOCKER_SECRET_REDIS_PASS = 'myredis_pass'
+    _DEFAULT_REDIS_PASS = ''
+    _ENV_NAME_DOCKER_SECRET_REDIS_PASS = 'DOCKER_SECRET_REDIS_PASS'
+    _ENV_NAME_REDIS_PASS = 'REDIS_PASS'
+
+    @classmethod
+    def get_docker_secret_redis_pass(cls):
+        return os.getenv(cls._ENV_NAME_DOCKER_SECRET_REDIS_PASS, cls._DEFAULT_DOCKER_SECRET_REDIS_PASS)
+
+    @classmethod
+    def get_redis_pass(cls):
+        password_filename = '/run/secrets/' + cls.get_docker_secret_redis_pass()
+        try:
+            with open(password_filename, 'r') as redis_pass_secret_file:
+                return redis_pass_secret_file.read()
+        except:
+            pass
+        # Fall back to env if no secrets file, further falling back to default if no env value
+        return os.getenv(cls._ENV_NAME_REDIS_PASS, cls._DEFAULT_REDIS_PASS)
+
     def __init__(self, resource_pool: str, **kwargs):
         # initialize Redis client
         n = 0
@@ -59,7 +79,7 @@ class RedisManager(ResourceManager):
                               # db=0, encoding="utf-8", decode_responses=True,
                               db=0, decode_responses=True,
                               #FIXME scrub
-                              password='***REMOVED***')
+                              password=self.get_redis_pass())
             #FIXME execpt only redis failures here
             except:
                 logging.debug("redis connection error")
@@ -177,7 +197,6 @@ class RedisManager(ResourceManager):
         #TODO for large enough resource sets, switch to SSCAN and cursor iteration
         return self.redis.smembers(self.resource_pool_key)
 
-    @abstractmethod
     def allocate_resource(self, resource_id: str, requested_cpus: int,
                           requested_memory:int =0, partial:bool =False) -> Mapping[str, Union[str, int]]:
       """
