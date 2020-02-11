@@ -1,15 +1,15 @@
 ##### Create base level intermediate build stage
 FROM python:3.7-alpine as basis
+# Copy project requirements file, which should have everything needed to build any package within project
+COPY ./requirements.txt /nwm_service/requirements.txt
+# Along with setup and wheel to build, install all project pip dependencies for package building later
+RUN mkdir /DIST && pip download --no-cache-dir --destination-directory /DIST -r /nwm_service/requirements.txt
 # Needed for sourced functions used by build scripts in later stages
 COPY ./scripts /nwm_service/scripts
 # Copy python sources
 COPY ./python /nwm_service/python
-# Copy project requirements file, which should have everything needed to build any package within project
-COPY ./requirements.txt /nwm_service/requirements.txt
 # Move to source dir
 WORKDIR ./nwm_service
-# Along with setup and wheel to build, install all project pip dependencies for package building later
-RUN mkdir /DIST && pip download --no-cache-dir --destination-directory /DIST -r /nwm_service/requirements.txt
 
 ##### Create intermediate Docker build stage for building wheel distributions for lib packages
 FROM basis as lib_packages
