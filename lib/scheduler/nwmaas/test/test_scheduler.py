@@ -196,10 +196,19 @@ class TestScheduler(unittest.TestCase):
         id, allocation = self.scheduler.round_robin(self.user_name, request_cpus, self.requested_memory)
         self.assertIsNotNone(id)
         self.assertIsNotNone(allocation)
-        self.assertEqual(len(allocation), 1)
-        self.assertEqual(allocation[0]['cpus_allocated'], request_cpus)
+        self.assertEqual(len(allocation), 3)
+        #Validate resources on first node
+        self.assertEqual(allocation[0]['cpus_allocated'], 2)
         self.assertEqual(allocation[0]['Hostname'], 'hostname1')
         self.assertEqual(allocation[0]['node_id'], 'Node-0001')
+        #Validate resources on second node
+        self.assertEqual(allocation[1]['cpus_allocated'], 2)
+        self.assertEqual(allocation[1]['Hostname'], 'hostname2')
+        self.assertEqual(allocation[1]['node_id'], 'Node-0002')
+        #Validate resources on third node
+        self.assertEqual(allocation[2]['cpus_allocated'], 1)
+        self.assertEqual(allocation[2]['Hostname'], 'hostname3')
+        self.assertEqual(allocation[2]['node_id'], 'Node-0003')
 
     def test_fill_nodes_3_a(self):
         """

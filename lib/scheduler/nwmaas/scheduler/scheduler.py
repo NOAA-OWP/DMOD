@@ -262,18 +262,18 @@ class Scheduler:
             logging.debug("Invalid CPUs request: requested_cpus = {}, CPUs should be an integer > 0".format(requested_cpus))
             return
 
-        resources = self.resource_manager.get_resource_ids()
+        resources = list( self.resource_manager.get_resource_ids() )
         if len(resources) < 1:
             return
 
         num_node = len(resources)
         int_cpus = int(requested_cpus / num_node)
-        remaining_cpus = requeted_cpus % num_node
+        remaining_cpus = requested_cpus % num_node
 
         allocList = []
         iter = 0
         while iter < num_node:
-            if (iter < remain_cpus):
+            if (iter < remaining_cpus):
                 allocList.append(int_cpus+1)
             else:
                 allocList.append(int_cpus)
