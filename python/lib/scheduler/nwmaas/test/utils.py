@@ -1,4 +1,5 @@
-from ..resourcemanager.ResourceManager import ResourceManager
+from ..scheduler.resource_manager import ResourceManager
+
 
 class MockResourceManager(ResourceManager):
     """
