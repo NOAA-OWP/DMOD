@@ -19,6 +19,8 @@ services:
         constraints:
           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_1:-node.role==manager}
           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
+    secrets:
+      - myredis_pass
     environment:
       - LISTEN_PORT=${DOCKER_SCHEDULER_CONTAINER_PORT:-3013}
       - SERVICE_PACKAGE_NAME=${PYTHON_PACKAGE_NAME_SCHEDULER_SERVICE:?}
@@ -52,6 +54,8 @@ services:
           - ${DOCKER_REQUESTS_DEPLOY_CONSTRAINT_1:-node.hostname==***REMOVED***}
           - ${DOCKER_REQUESTS_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
       replicas: 1
+    secrets:
+      - myredis_pass
     environment:
       - REDIS_HOST=${DOCKER_REDIS_SERVICE_ALIAS:-redis}
       #- REDIS_PORT=
