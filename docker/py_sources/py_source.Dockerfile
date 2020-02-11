@@ -1,3 +1,5 @@
+################################################################################################################
+################################################################################################################
 ##### Create base level intermediate build stage
 FROM python:3.7-alpine as basis
 # Copy project requirements file, which should have everything needed to build any package within project
@@ -13,6 +15,10 @@ COPY ./python /nwm_service/python
 # Move to source dir
 WORKDIR ./nwm_service
 
+################################################################################################################
+
+################################################################################################################
+################################################################################################################
 ##### Create intermediate Docker build stage for building wheel distributions for lib packages
 FROM basis as lib_packages
 ARG comms_package_name
@@ -24,7 +30,10 @@ ENV OUT_OF_GIT_REPO=true
 RUN for p in communication access externalrequests scheduler; do \
         ./scripts/dist_package.sh --sys python/lib/${p} && mv python/lib/${p}/dist/*.whl /DIST/.; \
     done
+################################################################################################################
 
+################################################################################################################
+################################################################################################################
 ##### Create intermediate Docker build stage for building wheel distributions for service packages
 FROM basis as service_packages
 ARG request_service_package_name
@@ -38,7 +47,10 @@ ENV OUT_OF_GIT_REPO=true
 RUN for p in requestservice schedulerservice; do \
         ./scripts/dist_package.sh --sys python/services/${p}  && mv python/services/${p}/dist/*.whl /DIST/. ; \
     done
+################################################################################################################
 
+################################################################################################################
+################################################################################################################
 #### Create final Docker build stage for desired image
 FROM python:3.8-alpine
 # Copy complete python source packages to location
@@ -46,3 +58,4 @@ COPY ./python /nwm_service/
 # And for every built dist/wheel package copy wheel file into analogous location for this stage
 COPY --from=lib_packages /DIST/* /DIST/
 COPY --from=service_packages /DIST/* /DIST/
+################################################################################################################
