@@ -13,7 +13,9 @@ class RedisBackendSessionManager(SessionManager):
     _DEFAULT_REDIS_HOST = 'redis'
     _DEFAULT_REDIS_PASS = ''
     _DEFAULT_REDIS_PORT = 6379
+    _DEFAULT_DOCKER_SECRET_REDIS_PASS = 'myredis_pass'
 
+    _ENV_NAME_DOCKER_SECRET_REDIS_PASS = 'DOCKER_SECRET_REDIS_PASS'
     _ENV_NAME_REDIS_HOST = 'REDIS_HOST'
     _ENV_NAME_REDIS_PASS = 'REDIS_PASS'
     _ENV_NAME_REDIS_PORT = 'REDIS_PORT'
@@ -23,6 +25,10 @@ class RedisBackendSessionManager(SessionManager):
     _SESSION_HASH_SUBKEY_CREATED = 'created'
     #_USER_KEY_PREFIX = 'user:'
     #_USER_HASH_SUBKEY_ACCESS_TYPES = 'access_types'
+
+    @classmethod
+    def get_docker_secret_redis_pass(cls):
+        return os.getenv(cls._ENV_NAME_DOCKER_SECRET_REDIS_PASS, cls._DEFAULT_DOCKER_SECRET_REDIS_PASS)
 
     @classmethod
     def get_initial_session_id_value(cls):
@@ -56,6 +62,13 @@ class RedisBackendSessionManager(SessionManager):
 
     @classmethod
     def get_redis_pass(cls):
+        password_filename = '/run/secrets/' + cls.get_docker_secret_redis_pass()
+        try:
+            with open(password_filename, 'r') as redis_pass_secret_file:
+                return redis_pass_secret_file.read()
+        except:
+            pass
+        # Fall back to env if no secrets file, further falling back to default if no env value
         return os.getenv(cls._ENV_NAME_REDIS_PASS, cls._DEFAULT_REDIS_PASS)
 
     @classmethod
