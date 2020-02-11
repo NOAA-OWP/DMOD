@@ -11,17 +11,11 @@ python/gui/ssl/
 
 ResourceManager.log
 
-communication/nwmaas/test/ssl/certificate.pem
-communication/nwmaas/test/ssl/*certificate*.pem
-communication/nwmaas/test/ssl/*privkey*.pem
+**/*.pem
 
-request_client/ssl/certificate.pem
 ssl/
 request_handler/*.tar.gz
 requestservice/macbook_ssl/
-ssl/requestservice/certificate.pem
-ssl/*certificate*.pem
-ssl/*privkey*.pem
 docker/main/schedulerservice/scheduler.log
 
 docker/main/base/Dockerfile.bkup
