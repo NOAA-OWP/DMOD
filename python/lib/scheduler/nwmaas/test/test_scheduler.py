@@ -5,6 +5,7 @@ from . import EmptyResourceManager, MockResourceManager
 class TestScheduler(unittest.TestCase):
 
     def setUp(self) -> None:
+        yaml_file = "image_and_domain.list"
         self.user_name = 'test'
         self.requested_cpus = 10
         self.requested_memory = 1000000
@@ -12,7 +13,7 @@ class TestScheduler(unittest.TestCase):
         self.empty_resources = EmptyResourceManager()
         self.mock_resources = MockResourceManager()
         #Create a scheduler with no resources
-        self.scheduler = Scheduler(resource_manager=self.empty_resources)
+        self.scheduler = Scheduler(images_and_domains_yaml=yaml_file, resource_manager=self.empty_resources)
 
     def tearDown(self) -> None:
         self.scheduler.docker_client.close()
