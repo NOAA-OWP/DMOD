@@ -33,14 +33,20 @@ services:
       requests-net:
         aliases:
           - ${DOCKER_REDIS_SERVICE_ALIAS:-redis}
-    entrypoint: ['redis-server', '/usr/local/etc/redis/redis.conf', '--requirepass', "${DOCKER_REDIS_PASS?}"]
+    entrypoint: "/entrypoint.sh"
     volumes:
+      - ./myredis/entrypoint.sh:/entrypoint.sh
       - ./myredis/redis.conf:/usr/local/etc/redis/redis.conf
     deploy:
       placement:
         constraints:
           - ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT_1:--node.role==manager}
           - ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
+    secrets:
+      - myredis_pass
+    environment:
+      # Used by the entrypoint.sh script
+      - DOCKER_SECRET_REDIS_PASS=myredis_pass
   request-service:
     image: ${DOCKER_INTERNAL_REGISTRY:?}/nwm-request-service
     networks:
@@ -60,7 +66,6 @@ services:
       - REDIS_HOST=${DOCKER_REDIS_SERVICE_ALIAS:-redis}
       #- REDIS_PORT=
       #- REDIS_USER=
-      - REDIS_PASS=${DOCKER_REDIS_PASS?}
       - LISTEN_PORT=${DOCKER_REQUESTS_CONTAINER_PORT:-3012}
       - SERVICE_PACKAGE_NAME=${PYTHON_PACKAGE_NAME_REQUEST_SERVICE:?}
       - SERVICE_SSL_DIR=${DOCKER_REQUESTS_CONTAINER_SERVICE_SSL_DIR:-/ssl}
