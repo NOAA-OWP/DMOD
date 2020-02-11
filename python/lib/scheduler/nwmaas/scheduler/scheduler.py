@@ -49,7 +49,7 @@ class DockerSrvParams():
 class Scheduler:
     _jobQ = queue.deque()
 
-    def __init__(self, docker_client=None, api_client=None, resource_manager=None, **kwargs):
+    def __init__(self, images_and_domains_yaml, docker_client=None, api_client=None, resource_manager=None, **kwargs):
         """
         Parameters
         ----------
@@ -60,6 +60,7 @@ class Scheduler:
         redis
             Redis API
         """
+        self._images_and_domains_yaml = images_and_domains_yaml
         if docker_client:
             self.docker_client = docker_client
             self.api_client = api_client
@@ -584,8 +585,7 @@ class Scheduler:
         """
 
         # Load the yaml file into dictionary
-        yaml_file = "image_and_domain.list"
-        with open(yaml_file) as fn:
+        with open(self._images_and_domains_yaml) as fn:
             yml_obj = yaml.safe_load(fn)
 
         # key_list = {'domain_croton_NY':'domain_croton_NY',
