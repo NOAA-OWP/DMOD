@@ -5,6 +5,7 @@ import docker
 
 import logging
 from nwmaas.communication import SchedulerRequestMessage
+import yaml
 
 ## local imports
 from .redis_manager import RedisManager
