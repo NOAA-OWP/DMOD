@@ -7,7 +7,6 @@ __pychache__/
 .env
 docker/main/base/ssh/
 python/gui/db.sqlite3
-python/gui/ssl/
 
 ResourceManager.log
 
@@ -79,7 +78,6 @@ python/services/schedulerservice/scheduler.py_test2
 python/services/schedulerservice/scheduler.py_test3
 python/services/schedulerservice/scheduler.py_test4
 python/services/schedulerservice/scheduler.py_test5
-python/services/schedulerservice/ssl/
 python/services/schedulerservice/test.sh-old
 python/services/schedulerservice/test.sh-old1
 python/services/schedulerservice/test.sh-old1a
