@@ -38,6 +38,17 @@ class RsaKeyPair:
 
     """
 
+    def __eq__(self, other: 'RsaKeyPair') -> bool:
+        return self.generation_time == other.generation_time \
+               and self._get_private_key_text() == other._get_private_key_text() \
+               and self.private_key_file.absolute() == other.private_key_file.absolute()
+
+    def __ge__(self, other):
+        return not self < other
+
+    def __gt__(self, other):
+        return not self <= other
+
     def __init__(self, directory: Union[str, Path, None], name: str = 'id_rsa'):
         self._name = name.strip()
         if self._name is None or len(self._name) < 1:
@@ -64,17 +75,6 @@ class RsaKeyPair:
                                      str(self.private_key_file.absolute()),
                                      self.generation_time.strftime('%Y-%m-%d,%H:%M:%S.%f'))
         return hash_str.__hash__()
-
-    def __eq__(self, other: 'RsaKeyPair') -> bool:
-        return self.generation_time == other.generation_time \
-               and self._get_private_key_text() == other._get_private_key_text() \
-               and self.private_key_file.absolute() == other.private_key_file.absolute()
-
-    def __ge__(self, other):
-        return not self < other
-
-    def __gt__(self, other):
-        return not self <= other
 
     def __le__(self, other: 'RsaKeyPair') -> bool:
         return self == other or self < other
@@ -104,26 +104,6 @@ class RsaKeyPair:
         else:
             return None
 
-    def write_key_files(self, write_private=True, write_public=True):
-        """
-        Write private and/or public keys to files at :attr:`private_key_file` and :attr:`public_key_file` respectively,
-        assuming the respective file does not already exist.
-
-        Parameters
-        ----------
-        write_private : bool
-            An option, ``True`` by default, for whether the private key should be written to :attr:`private_key_file`
-
-        write_public : bool
-            An option, ``True`` by default, for whether the public key should be written to :attr:`public_key_file`
-        """
-        self._load_key_text()
-        if write_private and not self.private_key_file.exists():
-            self.private_key_file.write_text(self._get_private_key_text())
-            self._is_deserialized = False
-        if write_public and not self.public_key_file.exists():
-            self.public_key_file.write_text(self._public_key_text)
-
     def delete_key_files(self) -> tuple:
         """
         Delete the files at the paths specified by :attr:`private_key_file` and :attr:`public_key_file`, as long as
@@ -148,14 +128,6 @@ class RsaKeyPair:
             self.public_key_file.unlink()
             deleted_public = True
         return deleted_private, deleted_public
-
-    @property
-    def generation_time(self):
-        if self._generation_time is None:
-            if not self.private_key_file.exists():
-                self.write_key_files()
-            self._generation_time = self._read_private_key_ctime(skip_file_exists_check=True)
-        return self._generation_time
 
     @property
     def directory(self) -> Path:
@@ -191,6 +163,14 @@ class RsaKeyPair:
             elif not d_path.is_dir():
                 raise ValueError("Existing non-directory file at path provided for key pair directory")
         self._directory = d_path
+
+    @property
+    def generation_time(self):
+        if self._generation_time is None:
+            if not self.private_key_file.exists():
+                self.write_key_files()
+            self._generation_time = self._read_private_key_ctime(skip_file_exists_check=True)
+        return self._generation_time
 
     @property
     def is_deserialized(self) -> bool:
@@ -286,3 +266,23 @@ class RsaKeyPair:
         if self._public_key_file is None:
             self._public_key_file = None if self.directory is None else self.directory.joinpath(self._name + '.pub')
         return self._public_key_file
+
+    def write_key_files(self, write_private=True, write_public=True):
+        """
+        Write private and/or public keys to files at :attr:`private_key_file` and :attr:`public_key_file` respectively,
+        assuming the respective file does not already exist.
+
+        Parameters
+        ----------
+        write_private : bool
+            An option, ``True`` by default, for whether the private key should be written to :attr:`private_key_file`
+
+        write_public : bool
+            An option, ``True`` by default, for whether the public key should be written to :attr:`public_key_file`
+        """
+        self._load_key_text()
+        if write_private and not self.private_key_file.exists():
+            self.private_key_file.write_text(self._get_private_key_text())
+            self._is_deserialized = False
+        if write_public and not self.public_key_file.exists():
+            self.public_key_file.write_text(self._public_key_text)
