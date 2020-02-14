@@ -17,7 +17,7 @@ class TestRsaKeyPair(unittest.TestCase):
         Test that the first testing key pair generates and writes a private key file.
         """
         key_pair = self.rsa_key_pairs[1]
-        key_pair.generate_key_pair()
+        key_pair.write_key_files()
         self.assertTrue(key_pair.private_key_file.exists())
 
     def test_generate_key_pair_1_b(self):
@@ -25,7 +25,7 @@ class TestRsaKeyPair(unittest.TestCase):
         Test that the first testing key pair generates and writes a public key file.
         """
         key_pair = self.rsa_key_pairs[1]
-        key_pair.generate_key_pair()
+        key_pair.write_key_files()
         self.assertTrue(key_pair.public_key_file.exists())
 
     def test_generate_key_pair_1_c(self):
@@ -33,7 +33,7 @@ class TestRsaKeyPair(unittest.TestCase):
         Test that the first testing key pair generates and writes a private key file that can be reserialized.
         """
         key_pair = self.rsa_key_pairs[1]
-        key_pair.generate_key_pair()
+        key_pair.write_key_files()
         # This should result in the same file names as key_pair, and so the constructor should resolve that it needs to
         # load the key, not regenerate it
         reserialized_key = RsaKeyPair(directory=key_pair.directory, name=key_pair.name)
@@ -45,7 +45,7 @@ class TestRsaKeyPair(unittest.TestCase):
         same private key value.
         """
         key_pair = self.rsa_key_pairs[1]
-        key_pair.generate_key_pair()
+        key_pair.write_key_files()
         # This should result in the same file names as key_pair, and so the constructor should resolve that it needs to
         # load the key, not regenerate it
         reserialized_key = RsaKeyPair(directory=key_pair.directory, name=key_pair.name)
@@ -57,7 +57,7 @@ class TestRsaKeyPair(unittest.TestCase):
         same private key PEM value.
         """
         key_pair = self.rsa_key_pairs[1]
-        key_pair.generate_key_pair()
+        key_pair.write_key_files()
         # This should result in the same file names as key_pair, and so the constructor should resolve that it needs to
         # load the key, not regenerate it
         reserialized_key = RsaKeyPair(directory=key_pair.directory, name=key_pair.name)
