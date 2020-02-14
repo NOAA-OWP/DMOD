@@ -205,34 +205,9 @@ class QueMonitor():
                 RestartPolicy = pn.find('RestartPolicy', service_attrs)
                 *RestartPolicy, = RestartPolicy
                 print("In check_runningJobs: RestartPolicy = ", *RestartPolicy)
-                """
-                Healthcheck = list(pn.find('Healthcheck', service_attrs))[0]
-                print("In check_runningJobs: Healthcheck = ")
-                pp(Healthcheck)
-                print("In check_runningJobs: Healthcheck = ", Healthcheck)
-                """
                 Healthcheck = pn.find('Healthcheck', service_attrs)
                 *Healthcheck, = Healthcheck
                 print("In check_runningJobs: Healthcheck = ", *Healthcheck)
-
-                """
-                Labels = pn.find('Labels', service_attrs)
-                print("In check_runningJobs: Labels = ", *Labels)
-                Labels =list(Labels)
-                for label in Labels:
-                    print("In check_runningJobs: label = {}".format(label))
-                Labels = list(pn.find('Labels', service_attrs))[0]
-                L_image =  Labels['com.docker.stack.image']
-                NameSpace = Labels['com.docker.stack.namespace']
-                HostNode = Labels['Hostname']
-                cpus_alloc = Labels['cpus_alloc']
-                Labels = {'com.docker.stack.image': L_image, 'com.docker.stack.namespace': NameSpace, 'Hostname': HostNode, 'cpus_alloc': cpus_alloc}
-                print("In check_runningJobs: L_image = ", L_image)
-                print("In check_runningJobs: NameSpace = ", NameSpace)
-                print("In check_runningJobs: HostNode = {}".format(HostNode))
-                print("In check_runningJobs: cpus_alloc = {}".format(cpus_alloc))
-                print("In check_runningJobs: Labels = ", Labels)
-                """
                 Labels = pn.find('Labels', service_attrs)
                 *Labels, = Labels
                 print("In check_runningJobs: Labels = ", *Labels)
@@ -250,35 +225,30 @@ class QueMonitor():
                 service_dict_rds = {"Image": Image, "Name": Name, "Constraints": Constraints, "Labels": Labels,
                                     "HostNode": HostNode, "Mounts": Mounts, "cpus_alloc": cpus_alloc}
                 runningJobList.append(service_dict)
-                # runningJobList.append(service_dict_rds)
-                s_key = keynamehelper.create_key_name("service", service_name)
+                # Taking a snapshot of current running jobs and push it on to Redis
+                # s_key = keynamehelper.create_key_name("service", service_name)
                 # TODO Convert the compound objects in service_dict_rds to byte, string or number before pushing to Redis
                 # self.redis.hmset(s_key, service_dict_rds)
         print("\nend of que_monitor.check_runningJobs")
         print("-" * 30)
         return runningJobList, service_dict
 
-    def resubmit(self, runningJobList: list, service_dict: dict) -> docker.from_env().services.create:
+    def resubmit(self, service_dict: dict, service_name: str) -> docker.from_env().services.create:
         """
         Resubmit a job that failed to start/run/complete successfully using the service attributes extracted from the initial service
 
         Parameters
         ----------
-        runningJobList
-            List of all initial worker service dictionary containing the key attributes
         service_dict
             Dictionary containing service attributes of the initial service
+        service_name
+            Name of the initial service       
 
         Returns
         -------
         service
             Service object created
         """
-
-        print("runningJobList:")
-        pp(runningJobList)
-        print("-" * 30, "\n")
-
         Image = (service_dict['Image'])[0]
         print("service_dict: Image = ", Image)
         print("Image isinstance of str:", isinstance(Image, str))
@@ -367,8 +337,8 @@ class QueMonitor():
 
         Returns
         -------
-        runningJobList
-            A list of all current worker service's task state
+        service_state_list
+            A list of dict containing taskState and service_name of all current running jobs
         """
         # docker api
         client = self.docker_client
@@ -419,13 +389,13 @@ class QueMonitor():
                     elif (taskState == 'complete'):
                         logging.info("Job {} successfully finished".format(serviceName))
                         service.remove()
-                        time.sleep(10)
+                        # time.sleep(10)
                     elif (taskState == 'failed'):
                         logging.info("Job {} failed to complete".format(serviceName))
                         logging.info("Please examine the task logs for cause before removing the service")
                         # Check reasons and consider resubmit
                         service.remove()
-                        time.sleep(10)
+                        # time.sleep(10)
                     elif (taskState == 'shutdown'):
                         # TODO consider resubmit
                         logging.info("Docker requested {} to shutdown".format(serviceName))
@@ -437,6 +407,11 @@ class QueMonitor():
                         service.remove()
                     elif (taskState == 'ophaned'):
                         # TODO consider resubmit
+                        # TODO check node state and possibly resubmit to a different node
+                        logging.info("The node for {} down for too long".format(serviceName))
+                        service.remove()
+                    elif (taskState == 'remove'):
+                        # TODO consider resubmit
                         # TODO check node state and resubmit
                         logging.info("The node for {} down for too long".format(serviceName))
                         service.remove()
@@ -447,6 +422,178 @@ class QueMonitor():
                     service_state_list.append(service_state)
         return service_state_list
 
+    def build_state_list_reqid_set(self, service_state_list: list) -> list:
+        """
+        Enumerate through all possible jobs in the service list and classfify them into possible
+        Docker task state. Create a list for each and push associated request_id into a related set
+
+        Parameters
+        ----------
+
+        service_state_list
+            A list of task state for all jobs in Docker service
+
+        Returns
+        -------
+            A nested list of dict containing task state list and associated request_id set
+        """
+        failed_list = []
+        complete_list = []
+        rejected_list = []
+        orphaned_list = []
+        shutdown_list = []
+        remove_list = []
+        running_list = []
+        failed_set = set()
+        complete_set = set()
+        rejected_set = set()
+        orphaned_set = set()
+        shutdown_set = set()
+        remove_set = set()
+        running_set = set()
+        for service_state in service_state_list:
+            jobState = service_state['taskState']
+            service_name = service_state['service_name']
+            (_, _, _, req_id) = service_name.split('_')
+            print("jobState =", jobState, "service_name =", service_name)
+            if (jobState == 'failed'):
+                failed_list.append(service_name)
+                failed_set.add(req_id)
+            elif (jobState == 'complete'):
+                complete_list.append(service_name)
+                complete_set.add(req_id)
+            elif (jobState == 'rejected'):
+                rejected_list.append(service_name)
+                rejected_set.add(req_id)
+            elif (jobState == 'orphaned'):
+                orphaned_list.append(service_name)
+                orphaned_set.add(req_id)
+            elif (jobState == 'shutdown'):
+                shutdown_list.append(service_name)
+                shutdown_set.add(req_id)
+            elif (jobState == 'remove'):
+                remove_list.append(service_name)
+                remove_set.add(req_id)
+            elif (jobState == 'running'):
+                running_list.append(service_name)
+                running_set.add(req_id)
+            else:
+                pass
+        state_list = [{"failed_list": failed_list, "failed_set": failed_set}, 
+                      {"complete_list": complete_list, "complete_set": complete_set},
+                      {"rejected_list": rejected_list, "rejected_set": rejected_set},
+                      {"orphaned_list": orphaned_list, "orphaned_set": orphaned_set},
+                      {"shutdown_list": shutdown_list, "shutdown_set": shutdown_set},
+                      {"remove_list": remove_list, "remove_set": remove_set},
+                      {"running_list": running_list, "running_set": running_set}]
+        return state_list
+
+    def servname_gen(self, state_set: set, state_list: list) -> list:
+        """
+        Generator function for identifying the service names belong to one single job
+
+        Parameters
+        ----------
+        state_set
+            Set that contains the request_id
+        state_list
+            List that contains the service task state
+
+        Returns
+        -------
+        servname_list
+            Service name in list format
+        """
+        while state_set:
+            req_id_state = state_set.pop()
+            print("\nreq_id_state =", req_id_state)
+            servname_list = []
+            for service_name in state_list:
+                (_, _, serv_name, req_id) = service_name.split('_')
+                print("req_id", req_id)
+                if (req_id == req_id_state):
+                    servname_list.append(service_name)
+                    # print("serv_name =", serv_name)
+                    lens = len(serv_name)
+                    # print("lens =", lens)
+                    index = serv_name[4:lens]
+                    # print("index = {}".format(index))
+                    # print("servname_list:", servname_list)
+            yield servname_list
+
+    def service_actions(self, runningJobList, state_list):
+        for jobState in state_list:
+            # task state failed
+            # FIXME this is only used in test run
+            failed_list = jobState['failed_list']
+            failed_set = jobState['failed_set']
+            if len(failed_list) > 0:
+                for servname in self.servname_gen(failed_set, failed_list):
+                    service_name = servname[0]
+                    for job in runningJobList:
+                        Name = job['Name']
+                        if Name == service_name:
+                            service_dict = job
+                            #TODO add number of retries for resubmit?
+                            service = self.resubmit(service_dict, service_name)
+            # task state complete
+            # FIXME this is only used in test run
+            """
+            complete_list = jobState['complete_list']
+            complete_set = jobState['complete_set']
+            if len(complete_list) > 0:
+                for servname in self.servname_gen(complete_set, complete_list):
+                    service_name = servname[0]
+                    for job in runningJobList:
+                        Name = job['Name']
+                        if Name == service_name:
+                            service_dict = job
+                            service = self.resubmit(service_dict, service_name)
+            """
+            # task state rejected
+            rejected_list = jobState['rejected_list']
+            rejected_set = jobState['rejected_set']
+            if len(rejected_list) > 0:
+                for servname in self.servname_gen(rejected_set, rejected_list):
+                    service_name = servname[0]
+                    for job in runningJobList:
+                        Name = job['Name']
+                        if Name == service_name:
+                            service_dict = job
+                            service = self.resubmit(service_dict, service_name)
+            # task state orphaned
+            orphaned_list = jobState['orphaned_list']
+            orphaned_set = jobState['orphaned_set']
+            if len(orphaned_list) > 0:
+                for servname in self.servname_gen(orphaned_set, orphaned_list):
+                    service_name = servname[0]
+                    for job in runningJobList:
+                        Name = job['Name']
+                        if Name == service_name:
+                            service_dict = job
+                            service = self.resubmit(service_dict, service_name)
+            # task state shutdown
+            shutdown_list = jobState['shutdown_list']
+            shutdown_set = jobState['shutdown_set']
+            if len(shutdown_list) > 0:
+                for servname in self.servname_gen(shutdown_set, shutdown_list):
+                    service_name = servname[0]
+                    for job in runningJobList:
+                        Name = job['Name']
+                        if Name == service_name:
+                            service_dict = job
+                            service = self.resubmit(service_dict, service_name)
+            # task state remove
+            remove_list = jobState['remove_list']
+            remove_set = jobState['remove_set']
+            if len(remove_list) > 0:
+                for servname in self.servname_gen(remove_set, remove_list):
+                    service_name = servname[0]
+                    for job in runningJobList:
+                        Name = job['Name']
+                        if Name == service_name:
+                            service_dict = job
+                            service = self.resubmit(service_dict, service_name)
 
     def get_node_info(self) -> docker.from_env().nodes.list:
         """
@@ -536,6 +683,7 @@ class QueMonitor():
         print("End of retrieve_job_metadata")
         return cpusList, user_key
 
+    #TODO A better function may be implemented for checking current available rerources
     def print_resource_details(self):
         """Print the details of remaining resources after allocating the request """
         logging.info("Resources remaining:")
@@ -552,16 +700,15 @@ if __name__ == "__main__":
     api_client = q.api_client
 
     time.sleep(5)
-    # TODO Consider the case when q.check_job_state() returns None
-    service_state_list = q.check_job_state()
+    #FIXME check_job_state() should not be called before check_runningJobs() in operational run to save service info
+    # before beibg removed from service list
+    # service_state_list = q.check_job_state()
     print("flush the buffer", flush=True)
     print("-" * 16, flush=True)
 
     q.check_jobQ()
 
-    # TODO add pipeline
-    request = q.retrieve_redis_list()
-    time.sleep(30)
+    #FIXME check_runningJobs() should be callled before each check_job_state() to save service info
     (runningJobList, service_dict) = q.check_runningJobs()
     # print("runningJobList: ", *runningJobList)
     print("runningJobList:")
@@ -572,87 +719,19 @@ if __name__ == "__main__":
 
     time.sleep(90)
     service_state_list = q.check_job_state()
-    failed_list = []
-    complete_list = []
-    rejected_list = []
-    orphaned_list = []
-    running_list = []
-    for service_state in service_state_list:
-        jobState = service_state['taskState']
-        service_name = service_state['service_name']
-        print("jobState =", jobState, "service_name =", service_name)
-        if (jobState == 'failed'):
-            failed_list.append(service_name)
-        elif (jobState == 'complete'):
-            complete_list.append(service_name)
-        elif (jobState == 'rejected'):
-            rejected_list.append(service_name)
-        elif (jobState == 'orphaned'):
-            rejected_list.append(service_name)
-        elif (jobState == 'running'):
-            running_list.append(service_name)
-        else:
-            pass
 
-    if (len(failed_list) >= 0):
-        for service_name in failed_list:
-            (_, _, serv_name, _) = service_name.split('_')
-            print("serv_name =", serv_name)
-            lens = len(serv_name)
-            print("lens =", lens)
-            index = serv_name[4:lens]
-            print("index = {}".format(index))
+    state_list = q.build_state_list_reqid_set(service_state_list)
+    q.service_actions(runningJobList, state_list)
 
-    if (len(complete_list) >= 0):
-        for service_name in complete_list:
-            (_, _, serv_name, _) = service_name.split('_')
-            print("serv_name =", serv_name)
-            lens = len(serv_name)
-            print("lens =", lens)
-            index = serv_name[4:lens]
-            print("index = {}".format(index))
-
-    if (len(rejected_list) >= 0):
-        for service_name in rejected_list:
-            (_, _, serv_name, _) = service_name.split('_')
-            lens = len(serv_name)
-            index = serv_name[4:lens]
-
-    if (len(orphaned_list) >= 0):
-        for service_name in orphaned_list:
-            (_, _, serv_name, _) = service_name.split('_')
-            lens = len(serv_name)
-            index = serv_name[4:lens]
-
-    if (len(running_list) >= 0):
-        for service_name in running_list:
-            (_, _, serv_name, _) = service_name.split('_')
-            lens = len(serv_name)
-            index = serv_name[4:lens]
-
-    #TODO add more cases, test with more than one node
-    #TODO add number of retries for resubmit
-    if (jobState == 'complete') or (jobState == 'failed'):
-        service = q.resubmit(runningJobList, service_dict)
+    # if (jobState == 'complete') or (jobState == 'failed'):
+    #     for service_name in service_list:
+    #         service = q.resubmit(runningJobList, service_dict, service_name)
 
     nodeList = q.get_node_info()
 
-    # TODO Write a function to group running jobs into the same mpi jobs
-    (cpusList, user_key) = q.retrieve_job_metadata("shengting.cui")
-    print("Calling retrieve_job_metadata():")
-    print("user_key = ", user_key)
-    print("user_key isinstance of str:", isinstance(user_key, str))
-    len_cpusList = len(cpusList)
-    print("len_cpusList = ", len_cpusList)
-    job_name_list = []
-    for cpu in cpusList:
-        req_id = cpu['req_id']
-        index = cpu['index']
-        job_name = q.name + index +"_" + req_id
-        job_name_list.append(job_name)
-        print("job_name = ", job_name)
-    print("job_name_list =", job_name_list)
+    # (cpusList, user_key) = q.retrieve_job_metadata("shengting.cui")
 
+    #TODO create a function that returns the current availble resources using Redis
     q.print_resource_details()
 
     print("end of que_monitor")
