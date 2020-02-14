@@ -1,5 +1,5 @@
 import unittest
-from ..scheduler.ssh_utils import RsaKeyPair
+from ..scheduler.rsa_key_pair import RsaKeyPair
 
 
 class TestRsaKeyPair(unittest.TestCase):
