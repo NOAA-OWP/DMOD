@@ -50,6 +50,23 @@ class RsaKeyPair:
         return not self <= other
 
     def __init__(self, directory: Union[str, Path, None], name: str = 'id_rsa'):
+        """
+        Initialize an instance.
+
+        Initializing an instance, setting the ``directory`` and ``name`` properties, and creating the other required
+        backing attributes used by the object, setting them to ``None`` (except for ::attribute:`_files_written`, which
+        is set to ``False``.
+
+        Parameters
+        ----------
+        directory : str, Path, None
+            The path (either as a :class:`Path` or string) to the parent directory for the backing key files, or
+            ``None`` if the default of ``.ssh/`` in the user's home directory should be used.
+
+        name : str
+            The name to use for the key pair, which will also be the basename of the private key file and the basis of
+            the basename of the public key file (``id_rsa`` by default).
+        """
         self._name = name.strip()
         if self._name is None or len(self._name) < 1:
             raise ValueError("Invalid key pair name")
@@ -132,8 +149,21 @@ class RsaKeyPair:
     @property
     def directory(self) -> Path:
         """
-        Get the directory in which the key pair files have been or will be written, as a :class:`Path`, lazily
-        instantiating if needed (using the property setter) to ``.ssh/`` within the home directory of the user.
+        The directory in which the key pair files have been or will be written, as a :class:`Path`.
+
+        The property getter will lazily instantiate the backing attribute to ``<USER_HOME>/.ssh/`` if the attribute is
+        set to ``None``.  This is done using the property setter function, thus triggering its potential side effects.
+
+        The property setter will accept string or ::class:`Path` objects, as well as ``None``.
+
+        The setter may, as a side effect, create the directory represented by the argument in the filesystem.  This is
+        done in cases when a valid argument other than ``None`` is received, and no file or directory currently exists
+        in the file system at that path. For string arguments, the string is first stripped of whitespace and converted
+        to a ::class:`Path` object before checking if the directory should be created. All of this logic is executed
+        before setting the backing attribute, so if an error is raised, then the attribute value will not be modified.
+
+        In particular, if the setter receives an argument representing a path to an existing, non-directory file, then a
+        the setter will raise ::class:`ValueError`, and the attribute will remain unchanged.
 
         Returns
         -------
@@ -146,15 +176,6 @@ class RsaKeyPair:
 
     @directory.setter
     def directory(self, d: Union[str, Path, None]):
-        """
-        Set the directory in which the key pair files have been or will be written, creating the actual directory in the
-        filesystem if given a valid, non-existing path.
-
-        Parameters
-        ----------
-        d : str, Path, or None
-            A representation of the value to set for the directory, either as a str or :class:`Path`, or simply ``None``
-        """
         # Make sure we are working with either None or the equivalent Path object for a path as a string
         d_path = Path(d.strip()) if isinstance(d, str) else d
         if d_path is not None:
