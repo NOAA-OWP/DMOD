@@ -20,8 +20,11 @@ class SshKeyUtil:
 
         In cases when the directory at ::attribute:`_ssh_keys_directory` does not exist, it will be created.
 
-        Pool and reuse amounts are limited to the interval [0, 25].  When the argument for setting such an attribute is
-        outside the valid range, the attribute will be set to the closest in-range value.
+        Reuse pool size and max reuse count are limited to the interval [0, 25].  When the argument for setting such an
+        attribute is outside the valid range, the attribute will be set to the closest in-range value.
+
+        By default, ``reusable_pool_size`` is set to 0, which results in reuse being disabled.  The default for
+        ``max_reuse`` is 10.
 
         Parameters
         ----------
