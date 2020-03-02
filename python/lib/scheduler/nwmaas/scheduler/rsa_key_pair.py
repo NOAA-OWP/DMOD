@@ -156,7 +156,7 @@ class RsaKeyPair:
             A representation of the value to set for the directory, either as a str or :class:`Path`, or simply ``None``
         """
         # Make sure we are working with either None or the equivalent Path object for a path as a string
-        d_path = Path(d) if isinstance(d, str) else d
+        d_path = Path(d.strip()) if isinstance(d, str) else d
         if d_path is not None:
             if not d_path.exists():
                 d_path.mkdir()
