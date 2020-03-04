@@ -132,6 +132,33 @@ class RedisManager(ResourceManager):
     def set_prefix(self):
         keynamehelper.set_prefix(self.keyname_prefix)
 
+    def add_resource(self, resource: Mapping[ str, Union[ str, int] ]):
+        """
+            Add a single resource to this managers pool
+
+            Parameters
+            ----------
+            resource
+            Map defining the resource to add with the following metadata
+            {  'node_id': "Node-0001",
+               'Hostname': "my-host",
+               'Availability': "active",
+               'State': "ready",
+               'CPUs': 18,
+               'MemoryBytes': 33548128256
+             }
+        """
+
+        resource_id = resource['node_id']
+        #Create a resource identity key for resource metadata hash map
+        resource_metadata_key = keynamehelper.create_key_name("resource", resource_id)
+        if self.redis.exists(resource_metadata_key) == 0:
+            #Only add resources if they don't already exist
+            #Add resource metadata for this resource
+            self.redis.hmset(resource_metadata_key, resource)
+            #add resource_id to set of all resources
+            self.redis.sadd(resource_list_key, resource_id)
+
     def set_resources(self, resources: Iterable[ Mapping[ str, Union[ str, int] ] ]):
         """
             Set the provided resources into the manager's resource tracker.
@@ -156,14 +183,7 @@ class RedisManager(ResourceManager):
         #Create a global resources set key
         resource_list_key = keynamehelper.create_key_name("resources")
         for resource in resources:
-            resource_id = resource['node_id']
-            #Create a resource identity key for resource metadata hash map
-            resource_metadata_key = keynamehelper.create_key_name("resource", resource_id)
-            #Add resource metadata for this resource
-            self.redis.hmset(resource_metadata_key, resource)
-            #add resource_id to set of all resources
-            self.redis.sadd(resource_list_key, resource_id)
-
+            add_resource(resource)
 
     def get_resources(self) -> Iterable[Mapping[str, Union[str, int]]]:
         """ TODO kwarg for ids only vs full metadata
