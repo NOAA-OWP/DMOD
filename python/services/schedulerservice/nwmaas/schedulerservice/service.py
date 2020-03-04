@@ -1,11 +1,4 @@
 #!/usr/bin/env python3
-#TOTAL HACK to import sibling package code
-#import os,sys,inspect
-#current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-#parent_dir = os.path.dirname(current_dir)
-#sys.path.insert(0, parent_dir)
-#END PATH HACK
-
 from websockets import WebSocketServerProtocol
 from nwmaas.communication import WebSocketInterface, SchedulerRequestMessage, SchedulerRequestResponse
 from nwmaas.scheduler import Scheduler
@@ -34,7 +27,7 @@ class SchedulerHandler(WebSocketInterface):
         scheduler instance to schedule requested jobs
     """
 
-    def __init__(self, scheduler, *args, **kwargs):
+    def __init__(self, scheduler: Scheduler, *args, **kwargs):
         """
             Initialize the WebSocketInterface with any user defined custom server config
         """
@@ -82,16 +75,4 @@ class SchedulerHandler(WebSocketInterface):
 
 
 if __name__ == "__main__":
-    #TODO add args to allow different service definition,
-    #i.e. dev test
-    #if args.dev:
-    #   run_dev_stuff()
-    #else: run_prod()
-    # instantiate the scheduler
-    yaml_file = "image_and_domain.list"
-    scheduler = Scheduler(images_and_domains_yaml=yaml_file, type="dev")
-
-    #Instansite the handle_job_request
-    handler = SchedulerHandler(scheduler, ssl_dir=Path("./ssl/scheduler"), port=3013)
-    #keynamehelper.set_prefix("stack0")
-    handler.run()
+    raise RuntimeError('Module {} called directly; use main package entrypoint instead')
