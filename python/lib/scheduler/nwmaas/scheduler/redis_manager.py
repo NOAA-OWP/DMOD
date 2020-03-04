@@ -71,8 +71,8 @@ class RedisManager(ResourceManager):
                  redis_pass: Optional[str] = None, **kwargs):
         # initialize Redis client
         if redis_host is None:
-            #Try to read redis host from environment var, else set it default 'myredis'
-            redis_host = host=os.environ.get("REDIS_HOST", "myredis")
+            #Try to read redis host from environment var, else set it default 'redis'
+            redis_host = host=os.environ.get("REDIS_HOST", "redis")
         if redis_port is None:
             #Try to read port from environment, else use default 6379
             redis_port = os.environ.get("REDIS_PORT", 6379)
