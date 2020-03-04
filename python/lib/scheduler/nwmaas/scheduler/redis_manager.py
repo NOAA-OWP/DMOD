@@ -19,29 +19,6 @@ logging.basicConfig(
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
     datefmt="%H:%M:%S")
 
-resources = [{'node_id': "Node-0001",
-           'Hostname': "***REMOVED***",
-           'Availability': "active",
-           'State': "ready",
-           'CPUs': 18,
-           'MemoryBytes': 33548128256
-          },
-          {'node_id': "Node-0002",
-           'Hostname': "***REMOVED***",
-           'Availability': "active",
-           'State': "ready",
-           'CPUs': 96,
-           'MemoryBytes': 540483764224
-          },
-          {'node_id': "Node-0003",
-           'Hostname': "***REMOVED***",
-           'Availability': "active",
-           'State': "ready",
-           'CPUs': 96,
-           'MemoryBytes': 540483764224
-          }
-         ]
-
 class RedisManager(ResourceManager):
     """
         Implementation class for defining a redis backed ResourceManager
@@ -195,8 +172,9 @@ class RedisManager(ResourceManager):
         #some other metadata, i.e. least full... would require an additional DB
         #read to read metadata for each resource in resource_pool_key but would
         #unlock additional scheduling techniques.
-        for resource in resources:
-            resource_metadata_key = keynamehelper.create_key_name(self.resource_pool_key, resource)
+        for resource in self.get_resource_ids():
+            #FIXME decide on resource_pool_key usage
+            resource_metadata_key = keynamehelper.create_key_name( "resource", resource) #(self.resource_pool_key, resource)
             yield self.redis.hgetall(resource_metadata_key)
 
 
