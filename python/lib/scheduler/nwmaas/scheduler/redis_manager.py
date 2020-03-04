@@ -96,41 +96,25 @@ class RedisManager(ResourceManager):
             n += 1
             if (self.redis != None):
                 break
-            # self._jobQ = queue.deque()
 
-            # TODO: this currently is neither set in a valid way nor utilized by anything ... remove or update
-            # _MAX_JOBS is set to currently available total number of CPUs
-            #self._MAX_JOBS = MAX_JOBS
+        self.set_prefix("") #A bug in keynamehelper emerges when prefix is not explicitly set to a string
+        self.resource_pool = resource_pool #"maas"
+        #Key to redis set containing ID's for all resources available to this "pool"
+        #These resrouces can be viewed at redis key resource_pool_key:ID
+        self.resource_pool_key = keynamehelper.create_key_name("resources", self.resource_pool)
 
-            #Redis configuration and usage setup
-            #TODO find a clearer way to set this...probably need to to do it on init of the module, and pull from
-            #the env the stack the module is running in (or from the docker API???
-            # self.keyname_prefix = "nwm-master" #FIXME parameterize
-            #resources is a NON-SCOPED key, global for all "schedulers"
-            #FIXME parameterize resource pool, allowing a scheduler to be initialized to use an existing pool in redis
-            self.keyname_prefix = ''
-            self.set_prefix() #A bug in keynamehelper emerges when prefix is not explicitly set to a string
-            self.resource_pool = resource_pool #"maas"
-            #Key to redis set containing ID's for all resources available to this "pool"
-            #These resrouces can be viewed at redis key resource_pool_key:ID
-            self.resource_pool_key = keynamehelper.create_key_name("resources", self.resource_pool)
-
-            """ Don't prefix the scheduler instance.  This MIGHT work for partitioning sinilar to the key structure above, not sure...
-            self.keyname_prefix = "maas-scheduler" #FIXME parameterize
-            self.set_prefix()
-            """
-            dev_opt = kwargs.get('type', 'prod')
-            if dev_opt == 'dev':
-                self._dev_setup()
+        dev_opt = kwargs.get('type', 'prod')
+        if dev_opt == 'dev':
+            self._dev_setup()
 
     def _dev_setup(self):
         from .utils.clean import clean_keys
         clean_keys(self.redis)
-        self.set_prefix()
+        self.set_prefix("dev")
         self.set_resources(resources)
 
-    def set_prefix(self):
-        keynamehelper.set_prefix(self.keyname_prefix)
+    def set_prefix(self, prefix):
+        keynamehelper.set_prefix(prefix)
 
     def add_resource(self, resource: Mapping[ str, Union[ str, int] ], resource_list_key: str):
         """
