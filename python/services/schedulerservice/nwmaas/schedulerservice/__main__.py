@@ -1,4 +1,5 @@
 import argparse
+import yaml
 from pathlib import Path
 from . import name as package_name
 from nwmaas.scheduler import Scheduler
@@ -23,9 +24,18 @@ def _handle_args():
                         help='Set the ssl directory for scheduler certs',
                         dest='ssl_dir',
                         default='/ssl/scheduler/')
+    parser.add_argument('--resource-list',
+                        help='yaml file with a list of resources to use',
+                        dest='resource_list_file',
+                        default='./resources.yml')
+
     parser.prog = package_name
     return parser.parse_args()
 
+def read_resource_list(resource_file : Path):
+    with open(resource_file) as file:
+        resource_list = yaml.load(file, Loader=yaml.FullLoader)
+        return resource_list['resources']
 
 def main():
     args = _handle_args()
@@ -34,11 +44,11 @@ def main():
     #if args.dev:
     #   run_dev_stuff()
     #else: run_prod()
-
+    resource_list = read_resource_list(Path(args.resource_list_file))
     # instantiate the resource manager for the scheduler
     #TODO configure redis here, i.e. host, port, pass?  Or rely on env?
     resource_manager = RedisManager("maas")
-
+    resource_manager.set_resources(resource_list)
     # instantiate the scheduler
     # TODO: look at handling if the value in args.images_and_domains_yaml doesn't correspond to an actual file
     # instantiate the scheduler
