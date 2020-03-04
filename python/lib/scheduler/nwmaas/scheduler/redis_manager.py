@@ -132,7 +132,7 @@ class RedisManager(ResourceManager):
     def set_prefix(self):
         keynamehelper.set_prefix(self.keyname_prefix)
 
-    def add_resource(self, resource: Mapping[ str, Union[ str, int] ]):
+    def add_resource(self, resource: Mapping[ str, Union[ str, int] ], resource_list_key: str):
         """
             Add a single resource to this managers pool
 
@@ -147,6 +147,9 @@ class RedisManager(ResourceManager):
                'CPUs': 18,
                'MemoryBytes': 33548128256
              }
+
+             resource_list_key
+                string identifying the resource list to associate this resource with
         """
 
         resource_id = resource['node_id']
@@ -180,10 +183,10 @@ class RedisManager(ResourceManager):
             -------
             None
         """
-        #Create a global resources set key
-        resource_list_key = keynamehelper.create_key_name("resources")
+        #Assuming all resources set via this method belong to our pool
+        #TODO allow a resource manager to get/set from different pools?
         for resource in resources:
-            add_resource(resource)
+            self.add_resource(resource, self.resource_pool_key)
 
     def get_resources(self) -> Iterable[Mapping[str, Union[str, int]]]:
         """ TODO kwarg for ids only vs full metadata
