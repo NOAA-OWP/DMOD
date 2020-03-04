@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-import os
-from typing import Iterable, Mapping, Union
+from typing import Iterable, Mapping, Union, Optional
 from abc import ABC, abstractmethod
 from redis import Redis, WatchError
 import logging
@@ -68,18 +67,28 @@ class RedisManager(ResourceManager):
         # Fall back to env if no secrets file, further falling back to default if no env value
         return os.getenv(cls._ENV_NAME_REDIS_PASS, cls._DEFAULT_REDIS_PASS)
 
-    def __init__(self, resource_pool: str, **kwargs):
+    def __init__(self, resource_pool: str, redis_host: Optional[str] = None, redis_port: Optional[int] = None,
+                 redis_pass: Optional[str] = None, **kwargs):
         # initialize Redis client
+        if redis_host is None:
+            #Try to read redis host from environment var, else set it default 'myredis'
+            redis_host = host=os.environ.get("REDIS_HOST", "myredis")
+        if redis_port is None:
+            #Try to read port from environment, else use default 6379
+            redis_port = os.environ.get("REDIS_PORT", 6379)
+        if redis_pass is None:
+            #Read password from environment
+            redis_pass = self.get_redis_pass()
+
         n = 0
         while (n <= Max_Redis_Init):
             try:
-                 self.redis = Redis(host=os.environ.get("REDIS_HOST", "myredis"),
+                 self.redis = Redis(host=redis_host,
                  #self.redis = Redis(host=os.environ.get("REDIS_HOST", "localhost"),
-                              port=os.environ.get("REDIS_PORT", 6379),
+                              port=redis_port,
                               # db=0, encoding="utf-8", decode_responses=True,
                               db=0, decode_responses=True,
-                              #FIXME scrub
-                              password=self.get_redis_pass())
+                              password=redis_pass)
             #FIXME execpt only redis failures here
             except:
                 logging.debug("redis connection error")
