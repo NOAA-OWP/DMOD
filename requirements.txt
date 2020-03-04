@@ -1,3 +1,4 @@
+pyyaml
 docker
 django-generate
 jsonschema
