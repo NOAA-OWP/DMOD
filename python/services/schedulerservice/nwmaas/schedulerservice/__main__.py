@@ -3,7 +3,8 @@ from pathlib import Path
 from . import name as package_name
 from nwmaas.scheduler import Scheduler
 from .service import SchedulerHandler
-
+from nwmaas.scheduler import Scheduler
+from nwmaas.resourcemanager import RedisManager
 
 def _handle_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -28,13 +29,20 @@ def _handle_args():
 
 def main():
     args = _handle_args()
+    #TODO add args to allow different service definition,
+    #i.e. dev test
+    #if args.dev:
+    #   run_dev_stuff()
+    #else: run_prod()
 
+    # instantiate the resource manager for the scheduler
+    #TODO configure redis here, i.e. host, port, pass?  Or rely on env?
+    resource_manager = RedisManager("maas")
+
+    # instantiate the scheduler
     # TODO: look at handling if the value in args.images_and_domains_yaml doesn't correspond to an actual file
     # instantiate the scheduler
-    scheduler = Scheduler(images_and_domains_yaml=args.images_and_domains_yaml)
-
-    # build resource database
-    #scheduler.create_resources()
+    scheduler = Scheduler(images_and_domains_yaml=args.images_and_domains_yaml, resource_manager=resource_manager, type="dev")
 
     #Instansite the handle_job_request
     handler = SchedulerHandler(scheduler, ssl_dir=Path(args.ssl_dir), port=args.port)
