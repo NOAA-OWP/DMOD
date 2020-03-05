@@ -250,3 +250,89 @@ class SshKeyUtilImpl(SshKeyUtil):
     def ssh_keys_directory(self) -> Path:
         return self._ssh_keys_directory
 
+
+class DecoratingSshKeyUtil(SshKeyUtil, ABC):
+    """
+    Extension of ::class:`SshKeyUtil` that decorates an inner, nested instance, received during instantiation.
+
+    Implementations of the abstract methods in ::class:`SshKeyUtil` are all basically "pass-through."  Each method
+    simply performs a call to the same method of the nested ::class:`SshKeyUtil` attribute, passing through the same
+    arguments, and (when applicable) returning the result.
+    """
+
+    def __init__(self, ssh_key_util: SshKeyUtil):
+        self._ssh_key_util = ssh_key_util
+
+    def acquire_ssh_rsa_key(self) -> RsaKeyPair:
+        """
+        Retrieve, register, and return a previously not-in-use RSA key pair, either from the reuse pool or from being
+        newly generated.
+
+        Returns
+        -------
+        RsaKeyPair
+            A previously not-in-use RSA key pair, registered as in-use immediately before being returned
+        """
+        return self._ssh_key_util.acquire_ssh_rsa_key()
+
+    def get_existing_keys(self) -> Set[RsaKeyPair]:
+        """
+        Return all known and managed key pairs for this instance, including all those currently acquired and all those
+        in the reuse pool.
+
+        Returns
+        -------
+        Set[RsaKeyPair]
+            The set of all managed ::class:`RsaKeyPair` objects
+        """
+        return self._ssh_key_util.get_existing_keys()
+
+    def get_registered_keys(self) -> Set[RsaKeyPair]:
+        """
+        Return the set of all registered key pairs.
+
+        Return the set of all registered RsaKeyPair objects; i.e., those known to be currently in use.
+
+        Returns
+        -------
+        Set[RsaKeyPair]
+            All currently registered key pairs
+        """
+        return self._ssh_key_util.get_registered_keys()
+
+    @property
+    def max_reuse(self):
+        return self._ssh_key_util.max_reuse
+
+    def register_ssh_rsa_key(self, key_pair: RsaKeyPair, prior_usages: int = 0):
+        """
+        Manually register an existing key pair as being in-use, also optionally setting the number of prior usages.
+
+        Previously registered key pairs will result in no action being performed.
+
+        Out-of-range ``prior_usage`` values will be replaced with 0.
+
+        Parameters
+        ----------
+        key_pair
+        prior_usages
+        """
+        self._ssh_key_util.register_ssh_rsa_key(key_pair=key_pair, prior_usages=prior_usages)
+
+    def release_ssh_rsa_key(self, key_pair: RsaKeyPair):
+        """
+        Release a registered RSA key pair once it is no longer needed for exclusive use, either making it available for
+        reuse or retiring the key.
+
+        Parameters
+        ----------
+        key_pair : RsaKeyPair
+            A key pair that is no longer needed for exclusive use
+        """
+        self._ssh_key_util.release_ssh_rsa_key(key_pair=key_pair)
+
+    @property
+    def ssh_keys_directory(self) -> Path:
+        return self._ssh_key_util.ssh_keys_directory
+
+
