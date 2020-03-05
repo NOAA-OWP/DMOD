@@ -73,6 +73,8 @@ class RedisManager(ResourceManager):
             n += 1
             if (self.redis != None):
                 break
+        if self.redis == None:
+            raise RuntimeError("Unable to connect to redis database")
 
         self.set_prefix("") #A bug in keynamehelper emerges when prefix is not explicitly set to a string
         self.resource_pool = resource_pool #"maas"
@@ -93,7 +95,7 @@ class RedisManager(ResourceManager):
     def set_prefix(self, prefix):
         keynamehelper.set_prefix(prefix)
 
-    def add_resource(self, resource: Mapping[ str, Union[ str, int] ], resource_list_key: str):
+    def add_resource(self, resource: Mapping[ str, Union[ str, int] ], resource_pool_key: str):
         """
             Add a single resource to this managers pool
 
@@ -109,19 +111,22 @@ class RedisManager(ResourceManager):
                'MemoryBytes': 33548128256
              }
 
-             resource_list_key
+             resource_pool_key
                 string identifying the resource list to associate this resource with
         """
-
+        #FIXME properly validate the existance of meta data at some point in the chain
         resource_id = resource['node_id']
         #Create a resource identity key for resource metadata hash map
-        resource_metadata_key = keynamehelper.create_key_name("resource", resource_id)
+        resource_metadata_key = keynamehelper.create_field_name(resource_pool_key,
+                                                              "meta", resource_id)
+        #print("MANAGER ADD RESOURCE -- METADATA KEY: {}".format(resource_metadata_key))
+        #print("MANAGER ADD RESOURCE -- POOL KEY: {}".format(resource_pool_key))
         if self.redis.exists(resource_metadata_key) == 0:
             #Only add resources if they don't already exist
             #Add resource metadata for this resource
             self.redis.hmset(resource_metadata_key, resource)
             #add resource_id to set of all resources
-            self.redis.sadd(resource_list_key, resource_id)
+            self.redis.sadd(resource_pool_key, resource_id)
 
     def set_resources(self, resources: Iterable[ Mapping[ str, Union[ str, int] ] ]):
         """
@@ -174,7 +179,7 @@ class RedisManager(ResourceManager):
         #unlock additional scheduling techniques.
         for resource in self.get_resource_ids():
             #FIXME decide on resource_pool_key usage
-            resource_metadata_key = keynamehelper.create_key_name( "resource", resource) #(self.resource_pool_key, resource)
+            resource_metadata_key = keynamehelper.create_field_name(self.resource_pool_key, 'meta', resource) #(self.resource_pool_key, resource)
             yield self.redis.hgetall(resource_metadata_key)
 
 
@@ -195,7 +200,7 @@ class RedisManager(ResourceManager):
                           requested_memory:int =0, partial:bool =False) -> Mapping[str, Union[str, int]]:
       """
         Attemt to allocate the requested resources.  Successful allocation will return
-        a non empty map.
+        a non empty map. TODO document return map structure
 
         Parameters
         ----------
@@ -214,14 +219,19 @@ class RedisManager(ResourceManager):
 
 
       """
-      resource_key = keynamehelper.create_key_name(self.resource_pool_key, resource_id)
+      resource_key = keynamehelper.create_field_name(self.resource_pool_key, 'meta', resource_id)
+      #print("MANAGER::ALLOCATE KEY -- {}".format(resource_key))
+      if requested_cpus <= 0 or not self.redis.exists(resource_key):
+          return {}
+
       hostname = str(self.redis.hget(resource_key, "Hostname"))
       cpus_allocated = 0
-
+      error = True #Assume error unless explicitly verified allocation occurs
+      cpu_allocation_map = {} #assume no allocation until explicitly provided
       with self.redis.pipeline() as pipe: #Use the context manager to cleanup connection, i.e. pipe.reset() automatically
           while True: #Attempt the transaction with check and set semantics
               try:
-                  self.redis.watch(resource_key) #Will get WatchError if the value changes between now and pipe.execute()
+                  pipe.watch(resource_key) #Will get WatchError if the value changes between now and pipe.execute()
                   #pipe.execute will use the pipe connection, but execute immediately due to the above watch ^^
                   available_cpus = int(pipe.hget(resource_key, "CPUs"))
                   available_memory = int(pipe.hget(resource_key, "MemoryBytes"))
@@ -232,7 +242,6 @@ class RedisManager(ResourceManager):
                       pipe.multi()
                       pipe.hincrby(resource_key, "CPUs", -requested_cpus)
                       pipe.hincrby(resource_key, "MemoryBytes", -requested_memory) #TODO/FIXME
-                      #req_id, cpus_dict = self.metadata_mgmt(p, e_key, user_id, cpus_alloc, mem, NodeId, index)
                       pipe.execute() #End transaction
                       allocated_cpus = requested_cpus
                       error = False
@@ -242,7 +251,6 @@ class RedisManager(ResourceManager):
                       pipe.multi()
                       pipe.hincrby(resource_key, "CPUs", -available_cpus)
                       pipe.hincrby(resource_key, "MemoryBytes", -requested_memory) #TODO/FIXME
-                      #req_id, cpus_dict = self.metadata_mgmt(p, e_key, user_id, cpus_alloc, mem, NodeId, index)
                       pipe.execute()
                       allocated_cpus = available_cpus
                       error = False
@@ -278,7 +286,9 @@ class RedisManager(ResourceManager):
         #Give back any allocated resources to the master resrouce table
         for resource in allocated_resources:
             resource_id = resource['node_id']
-            resource_key = keynamehelper.create_key_name(self.resource_pool_key, resource_id)
+            resource_key = keynamehelper.create_field_name(self.resource_pool_key, 'meta', resource_id)
+            if not self.redis.exists(resource_key):
+                raise RuntimeError("RedisManager::release_resources -- No key {} exists to release resources to".format(resource_key))
             with self.redis.pipeline() as pipe:
                 #Don't need to loop since we are reading/writing, just writing
                 pipe.hincrby(resource_key, "CPUs", resource['cpus_allocated'])
@@ -297,31 +307,38 @@ class RedisManager(ResourceManager):
         #TODO move total available to redis key by itself, update after all allcoation/release
         total_available = 0
         #Should pipline this for efficiency
-        for resource in self.get_resources():
-            resource_metadata_key = keynamehelper.create_key_name(self.resource_pool_key, resource)
+        for resource in self.get_resource_ids():
+            resource_metadata_key = keynamehelper.create_field_name(self.resource_pool_key, "meta", resource)
             CPUs = int(self.redis.hget(resource_metadata_key, "CPUs"))
             total_available += CPUs
         return total_available
 
-    def create_job_entry(self, cpu_allocation_map):
+    def create_job_entry(self, allocations: Iterable[ Mapping[ str, Union[ str, int ] ]]) -> str:
         """
             FIXME cpu_allocation_map should be list of maps!  Store all allocs in redis
             Create a job id and add it to the redis instance
             TODO this might be better in a different class
             explictit for job handling, and maybe even an independent
             redis instance.  This may move in the near future.
+
+            Returns
+            -------
+            job_id identifier for the job which can be used to query the redis instance managing
+                   the job meta data
         """
 
-        req_id = generate.order_id()
+        job_id = generate.order_id()
         #Set to add the running job ID to
-        job_state = keynamehelper.create_key_name(self.resource_pool_key, "running")
-        self.redis.sadd(job_state, req_id)
+        job_state = keynamehelper.create_field_name(self.resource_pool_key, "running")
+        self.redis.sadd(job_state, job_id)
 
-        #Job key to store metadata about this job at
-        job_key = keynamehelper.create_key_name("job", req_id)
-        #map of resources this job is using
-        self.redis.hmset(job_key, cpu_allocation_map)
-
+        for i, cpu_allocation_map in enumerate(allocations):
+            #Job key to store metadata about this job at
+            job_key = keynamehelper.create_key_name("job", job_id, str(i))
+            #map of resources this job is using
+            #print("MANAGER CREATE JOB ENTRY -- KEY {}".format(job_key))
+            self.redis.hmset(job_key, cpu_allocation_map)
+        return job_id
     """
         FIXME parking this function here since it is closely related to the
         the creat_job_entry function.  I don't think the user_id centric pinning
@@ -333,8 +350,8 @@ class RedisManager(ResourceManager):
     """
     def retrieve_job_metadata(self, user_id):
         """
-        Retrieve queued job info from the database using user_id as a key to the req_id list
-        Using req_id to uniquely retrieve the job request dictionary: cpus_dict
+        Retrieve queued job info from the database using user_id as a key to the job_id list
+        Using job_id to uniquely retrieve the job request dictionary: cpus_dict
         Build nested cpusList from cpus_dict
         The code only retrieve one job that make up cpusList. Complete job list is handled in check_jobQ
         For comprehensive info on all jobs by a user in the database, a loop can be used to call this method
@@ -346,29 +363,29 @@ class RedisManager(ResourceManager):
 
         # case for index = 0, the first popped index is necessarily 0
         # lpop and rpush are used to guaranttee that the earlist queued job gets to run first
-        req_id = redis.lpop(user_key)
-        if (req_id != None):
-            print("In retrieve_job_metadata: user_key", user_key, "req_id = ", req_id)
-            req_key = keynamehelper.create_key_name("job_request", req_id)
+        job_id = redis.lpop(user_key)
+        if (job_id != None):
+            print("In retrieve_job_metadata: user_key", user_key, "job_id = ", job_id)
+            req_key = keynamehelper.create_key_name("job_request", job_id)
             cpus_dict = redis.hgetall(req_key)
             cpusList.append(cpus_dict)
             index = cpus_dict['index']             # index = 0
             if (int(index) != 0):
-                raise Exception("Metadata access error, index = ", index, " req_id = ", req_id)
+                raise Exception("Metadata access error, index = ", index, " job_id = ", job_id)
 
         # cases for the rest of index != 0, job belongs to a different request if index = 0
-        while (req_id != None):                    # previous req_id
-            req_id = redis.lpop(user_key)          # new req_id
-            if (req_id != None):
-                req_key = keynamehelper.create_key_name("job_request", req_id)
+        while (job_id != None):                    # previous job_id
+            job_id = redis.lpop(user_key)          # new job_id
+            if (job_id != None):
+                req_key = keynamehelper.create_key_name("job_request", job_id)
                 cpus_dict = redis.hgetall(req_key)
                 index = cpus_dict['index']         # new index
                 if (int(index) == 0):
-                    redis.lpush(user_key, req_id)  # return the popped value, the job request belongs to a different request if index = 0
+                    redis.lpush(user_key, job_id)  # return the popped value, the job request belongs to a different request if index = 0
                     break
                 else:
                     cpusList.append(cpus_dict)
-                print("In retrieve_job_metadata: user_key", user_key, "req_id = ", req_id)
+                print("In retrieve_job_metadata: user_key", user_key, "job_id = ", job_id)
         print("\nIn retrieve_job_metadata: cpusList:\n", *cpusList, sep = "\n")
         print("\nIn retrieve_job_metadata:")
         print("\n")
