@@ -51,19 +51,20 @@ class SshKeyUtil:
         # TODO: search directory for existing keys and either retire or make available for use
 
         # A dictionary of currently acquired key pair objects to prior usage counts (i.e., on first use, this is 0)
-        self._acquired_keys_usage_counts = dict()
+        self._registered_keys_usage_counts = dict()
 
         # A heap of tuples: (usage count, key pair object)
         self._reuse_pool = []
 
     def acquire_ssh_rsa_key(self) -> RsaKeyPair:
         """
-        Request a not-in-use RSA key pair for use.
+        Retrieve, register, and return a previously not-in-use RSA key pair, either from the reuse pool or from being
+        newly generated.
 
         Returns
         -------
         RsaKeyPair
-            A not-in-use RSA key pair
+            A previously not-in-use RSA key pair, registered as in-use immediately before being returned
         """
         if len(self._reuse_pool) > 0:
             usages, key_pair = heapq.heappop()
@@ -71,13 +72,58 @@ class SshKeyUtil:
             timestamp_based_name = '{}_id_rsa'.format(str(datetime.datetime.now().timestamp()))
             key_pair = RsaKeyPair(directory=self._ssh_keys_directory, name=timestamp_based_name)
             usages = 0
-        self._acquired_keys_usage_counts[key_pair] = usages
+        self._registered_keys_usage_counts[key_pair] = usages
         return key_pair
+
+    def get_existing_keys(self) -> Set[RsaKeyPair]:
+        """
+        Return all known and managed key pairs for this instance, including all those currently acquired and all those
+        in the reuse pool.
+
+        Returns
+        -------
+        Set[RsaKeyPair]
+            The set of all managed ::class:`RsaKeyPair` objects
+        """
+        key_pairs = set(self.get_registered_keys())
+        for t in self._reuse_pool:
+            key_pairs.add(t[1])
+        return key_pairs
+
+    def get_registered_keys(self) -> Set[RsaKeyPair]:
+        """
+        Return the set of all registered key pairs.
+
+        Return the set of all registered RsaKeyPair objects; i.e., those known to be currently in use.
+
+        Returns
+        -------
+        Set[RsaKeyPair]
+            All currently registered key pairs
+        """
+        key_pairs = set(self._registered_keys_usage_counts.keys())
+        return key_pairs
+
+    def register_ssh_rsa_key(self, key_pair: RsaKeyPair, prior_usages: int = 0):
+        """
+        Manually register an existing key pair as being in-use, also optionally setting the number of prior usages.
+
+        Previously registered key pairs will result in no action being performed.
+
+        Out-of-range ``prior_usage`` values will be replaced with 0.
+
+        Parameters
+        ----------
+        key_pair
+        prior_usages
+        """
+        if key_pair not in self._registered_keys_usage_counts:
+            self._registered_keys_usage_counts[key_pair] = prior_usages if 0 <= prior_usages <= self._max_reuse else 0
 
     def release_ssh_rsa_key(self, key_pair: RsaKeyPair):
         """
-        Release a previously-acquired RSA key pair once it is no longer needed for exclusive use, either making it
-        available for reuse or retiring the key.
+        Release a registered RSA key pair once it is no longer needed for exclusive use, either making it available for
+        reuse or retiring the key.
 
         Parameters
         ----------
@@ -87,12 +133,12 @@ class SshKeyUtil:
         if key_pair is None:
             # TODO: consider doing something else here
             return
-        if key_pair not in self._acquired_keys_usage_counts:
+        if key_pair not in self._registered_keys_usage_counts:
             raise RuntimeError("Unexpected key pair released with private key file: {}".format(
                 str(key_pair.private_key_file)))
 
         # Get prior usage and increment by one for this time
-        usage = self._acquired_keys_usage_counts.pop(key_pair) + 1
+        usage = self._registered_keys_usage_counts.pop(key_pair) + 1
 
         # If pool is full or this key has been reused to the max, just clean it up
         if usage >= self._max_reuse or len(self._reuse_pool) >= self._pool_size:
