@@ -104,6 +104,10 @@ class SshKeyUtil:
         key_pairs = set(self._registered_keys_usage_counts.keys())
         return key_pairs
 
+    @property
+    def max_reuse(self):
+        return self._max_reuse
+
     def register_ssh_rsa_key(self, key_pair: RsaKeyPair, prior_usages: int = 0):
         """
         Manually register an existing key pair as being in-use, also optionally setting the number of prior usages.
@@ -146,3 +150,8 @@ class SshKeyUtil:
         # Otherwise, add to heap
         else:
             heapq.heappush(self._reuse_pool, (usage, key_pair))
+
+    @property
+    def ssh_keys_directory(self) -> Path:
+        return self._ssh_keys_directory
+
