@@ -1,5 +1,30 @@
-from ..scheduler.resource_manager import ResourceManager
+from ..resourcemanager.ResourceManager import ResourceManager
+from copy import deepcopy
 
+_mock_resources = [{'node_id': "Node-0001",
+           'Hostname': "hostname1",
+           'Availability': "active",
+           'State': "ready",
+           'CPUs': 5,
+           'MemoryBytes': 30000000000
+          },
+          {'node_id': "Node-0002",
+           'Hostname': "hostname2",
+           'Availability': "active",
+           'State': "ready",
+           'CPUs': 96,
+           'MemoryBytes': 500000000000
+          },
+          {'node_id': "Node-0003",
+           'Hostname': "hostname3",
+           'Availability': "active",
+           'State': "ready",
+           'CPUs': 42,
+           'MemoryBytes': 200000000000
+          }
+         ]
+def mock_resources():
+    return deepcopy(_mock_resources)
 
 class MockResourceManager(ResourceManager):
     """
@@ -8,32 +33,10 @@ class MockResourceManager(ResourceManager):
     """
 
     def __init__(self):
-        mock_resources = [{'node_id': "Node-0001",
-                   'Hostname': "hostname1",
-                   'Availability': "active",
-                   'State': "ready",
-                   'CPUs': 5,
-                   'MemoryBytes': 30000000000
-                  },
-                  {'node_id': "Node-0002",
-                   'Hostname': "hostname2",
-                   'Availability': "active",
-                   'State': "ready",
-                   'CPUs': 96,
-                   'MemoryBytes': 500000000000
-                  },
-                  {'node_id': "Node-0003",
-                   'Hostname': "hostname3",
-                   'Availability': "active",
-                   'State': "ready",
-                   'CPUs': 42,
-                   'MemoryBytes': 200000000000
-                  }
-                 ]
-        self.set_resources(mock_resources)
+        self.set_resources(mock_resources())
         self.resource_map = {'Node-0001':0, 'Node-0002':1, 'Node-0003':2}
 
-    def release_resources(self):
+    def release_resources(self, allocated_resources):
         pass
 
     def set_resources(self, resources):
@@ -119,7 +122,7 @@ class EmptyResourceManager(ResourceManager):
     def __init__(self):
         self.resources={}
 
-    def release_resources(self):
+    def release_resources(self, allocated_resources):
         pass
 
     def set_resources(self):
