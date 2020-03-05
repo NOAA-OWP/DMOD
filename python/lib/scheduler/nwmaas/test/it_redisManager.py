@@ -1,5 +1,5 @@
 import unittest
-from ..resourcemanager.RedisManager import RedisManager
+from ..scheduler.redis_manager import RedisManager
 from . import mock_resources
 
 class IntegrationTestRedisManager(unittest.TestCase):

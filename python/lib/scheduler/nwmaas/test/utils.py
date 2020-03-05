@@ -1,4 +1,4 @@
-from ..resourcemanager.ResourceManager import ResourceManager
+from ..scheduler.resource_manager import ResourceManager
 from copy import deepcopy
 
 _mock_resources = [{'node_id': "Node-0001",
