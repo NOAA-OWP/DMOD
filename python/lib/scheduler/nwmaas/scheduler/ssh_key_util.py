@@ -1,6 +1,7 @@
 import datetime
 import heapq
 from pathlib import Path
+from typing import Set
 
 from nwmaas.scheduler.rsa_key_pair import RsaKeyPair
 
