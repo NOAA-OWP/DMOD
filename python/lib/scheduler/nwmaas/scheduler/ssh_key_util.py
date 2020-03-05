@@ -1,12 +1,106 @@
 import datetime
 import heapq
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Set
 
 from nwmaas.scheduler.rsa_key_pair import RsaKeyPair
 
 
-class SshKeyUtil:
+class SshKeyUtil(ABC):
+    """
+    Abstraction for an object for providing a number of SSH keys for exclusive use.
+    """
+
+    @abstractmethod
+    def acquire_ssh_rsa_key(self) -> RsaKeyPair:
+        """
+        Retrieve, register, and return a previously not-in-use RSA key pair, either from the reuse pool or from being
+        newly generated.
+
+        Returns
+        -------
+        RsaKeyPair
+            A previously not-in-use RSA key pair, registered as in-use immediately before being returned
+        """
+        pass
+
+    @abstractmethod
+    def get_existing_keys(self) -> Set[RsaKeyPair]:
+        """
+        Return all known and managed key pairs for this instance, including all those currently acquired and all those
+        in the reuse pool.
+
+        Returns
+        -------
+        Set[RsaKeyPair]
+            The set of all managed ::class:`RsaKeyPair` objects
+        """
+        pass
+
+    @abstractmethod
+    def get_registered_keys(self) -> Set[RsaKeyPair]:
+        """
+        Return the set of all registered key pairs.
+
+        Return the set of all registered RsaKeyPair objects; i.e., those known to be currently in use.
+
+        Returns
+        -------
+        Set[RsaKeyPair]
+            All currently registered key pairs
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def max_reuse(self):
+        pass
+
+    @abstractmethod
+    def register_ssh_rsa_key(self, key_pair: RsaKeyPair, prior_usages: int = 0):
+        """
+        Manually register an existing key pair as being in-use, also optionally setting the number of prior usages.
+
+        Previously registered key pairs will result in no action being performed.
+
+        Out-of-range ``prior_usage`` values will be replaced with 0.
+
+        Parameters
+        ----------
+        key_pair
+        prior_usages
+        """
+        pass
+
+    @abstractmethod
+    def release_ssh_rsa_key(self, key_pair: RsaKeyPair):
+        """
+        Release a registered RSA key pair once it is no longer needed for exclusive use, either making it available for
+        reuse or retiring the key.
+
+        Parameters
+        ----------
+        key_pair : RsaKeyPair
+            A key pair that is no longer needed for exclusive use
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def ssh_keys_directory(self) -> Path:
+        """
+        Get the path to the directory containing the registered SSH keys' backing files on the file system.
+
+        Returns
+        -------
+        Path
+            The path to the directory containing the registered SSH keys' backing files on the file system.
+        """
+        pass
+
+
+class SshKeyUtilImpl(SshKeyUtil):
     """
     An object for providing a number of SSH keys for exclusive use.
     """
