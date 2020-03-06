@@ -12,7 +12,7 @@ def _handle_args():
     parser.add_argument('--images-and-domains-yaml',
                         help='Set the YAML file for the images and domains configuration',
                         dest='images_and_domains_yaml',
-                        default='image_and_domain.list')
+                        default='image_and_domain.yaml')
     parser.add_argument('--port',
                         help='Set the appropriate listening port value',
                         dest='port',

@@ -15,8 +15,8 @@ COPY ./entrypoint.sh entrypoint.sh
 # Copy custom built packages from external sources image
 COPY --from=sources /DIST /DIST
 #COPY --chown=mpi:mpi conf/redis.conf /usr/local/etc/redis/redis.conf
-#COPY --chown=mpi:mpi nwmaas/scheduler/image_and_domain.list /nwm/
-COPY ./image_and_domain.list /nwm/
+#COPY --chown=mpi:mpi nwmaas/scheduler/image_and_domain.yaml /nwm/
+COPY ./image_and_domain.yaml /nwm/
 
 RUN apk update \
     && apk add --no-cache openssl bash \
