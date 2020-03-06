@@ -25,7 +25,7 @@ COPY --chown=mpi:mpi conf/redis.conf /usr/local/etc/redis/redis.conf
 COPY --chown=mpi:mpi utils/* /nwm/monitor/utils/
 COPY --chown=mpi:mpi lib/ /nwm/monitor/lib/
 COPY --chown=mpi:mpi src/* /nwm/monitor/src/
-#COPY --chown=mpi:mpi src/image_and_domain.list /nwm/
+#COPY --chown=mpi:mpi src/image_and_domain.yaml /nwm/
 COPY --chown=mpi:mpi entry.sh /nwm/monitor
 COPY --chown=mpi:mpi __init__.py /nwm/monitor
 # Unittest

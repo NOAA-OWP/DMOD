@@ -5,7 +5,7 @@ from . import EmptyResourceManager, MockResourceManager
 class TestScheduler(unittest.TestCase):
 
     def setUp(self) -> None:
-        yaml_file = "image_and_domain.list"
+        yaml_file = "image_and_domain.yaml"
         self.user_name = 'test'
         self.requested_cpus = 10
         self.requested_memory = 1000000
