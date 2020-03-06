@@ -1,3 +1,17 @@
+# TODO make this more general
+# i.e. model:
+#         nwm:
+#           images:
+#             - latest
+#             - master
+#          domains:
+#             - croton
+#             - sixmile
+#         other:
+#          images:
+#             - versionX
+#           domains:
+#             - a
 nwm_image_tag:
   - '127.0.0.1:5000/nwm-2.0:latest'
   - '127.0.0.1:5000/nwm-master'
