@@ -20,7 +20,7 @@ logging.basicConfig(
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
     datefmt="%H:%M:%S")
 
-class DockerSrvParams():
+class DockerServiceParameters():
     def __init__(self, image_tag: str = None, constraints: list = [], hostname: str = None, \
                  labels: dict = {}, serv_name: str = None, mounts: list = []):
         """
@@ -319,7 +319,7 @@ class Scheduler:
         logging.info("-" * 20)
         logging.info("\n")
 
-    def create_service(self, serviceParams: DockerSrvParams, user_id: str, idx: int, cpusLen: int, host_str: str) \
+    def create_service(self, serviceParams: DockerServiceParameters, user_id: str, idx: int, cpusLen: int, host_str: str) \
         -> docker.from_env().services.create:
         """
         Create new service with Healthcheck, host, and other info
@@ -327,7 +327,7 @@ class Scheduler:
         Parameters
         ----------
         serviceParams
-            A DockerSrvParams class object
+            A DockerServiceParameters class object
         user_id
             User identification string
         idx
@@ -436,7 +436,7 @@ class Scheduler:
         scheduler.enqueue(request)
         return scheduler
 
-    def runJob(self, request: SchedulerRequestMessage, serviceParams: DockerSrvParams, idx: int, \
+    def runJob(self, request: SchedulerRequestMessage, serviceParams: DockerServiceParameters, idx: int, \
                cpusLen: int, host_str: str) -> docker.from_env().services.create:
         """
         Call create_service to run a job based on request
@@ -444,7 +444,7 @@ class Scheduler:
         Parameters
         ----------
         serviceParams
-            A DockerSrvParams class object
+            A DockerServiceParameters class object
         cpus_alloc
             CPUs allocated on a node to create a Docker service for a job request
         idx
@@ -512,7 +512,7 @@ class Scheduler:
         print("host_str", host_str)
         return host_str
 
-    def startJobs(self, serviceParams: DockerSrvParams, user_id: str, cpus: int, mem: int, \
+    def startJobs(self, serviceParams: DockerServiceParameters, user_id: str, cpus: int, mem: int, \
                   cpus_alloc: int, idx: int, cpusLen: int, host_str: str):
         """
         Using the set max jobs and max cpus spawn docker containers
@@ -521,7 +521,7 @@ class Scheduler:
         Parameters
         ----------
         serviceParams
-            A DockerSrvParams class object
+            A DockerServiceParameters class object
         user_id
             Job request user id
         cpus
@@ -758,7 +758,7 @@ class Scheduler:
             #schedule = self.fromRequest(schReqMsg)
             self.enqueue(schReqMsg)
             # schedule.check_jobQ()
-            serviceParams = DockerSrvParams(image_tag, constraints, hostname, labels, serv_name, mounts)
+            serviceParams = DockerServiceParameters(image_tag, constraints, hostname, labels, serv_name, mounts)
             self.startJobs(serviceParams, user_id, cpus, mem, cpus_alloc, idx, cpusLen, host_str)
         logging.info("\n")
         # TODO: make sure this stays consistent with the choice above regarding whether a new object from fromRequest()

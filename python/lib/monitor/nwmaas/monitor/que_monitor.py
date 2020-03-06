@@ -19,7 +19,7 @@ from ..utils import generate as generate
 from ..utils import parsing_nested as pn
 from ..utils.clean import clean_keys
 from ..lib import scheduler_request as sch_req
-from ..src.scheduler import DockerSrvParams
+from ..src.scheduler import DockerServiceParameters
 
 MAX_JOBS = 210
 Max_Redis_Init = 5
