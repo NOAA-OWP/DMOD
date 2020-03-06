@@ -69,7 +69,8 @@ class Scheduler:
             self.docker_client = docker.from_env()
             self.api_client = docker.APIClient()
 
-
+        #FIXME make networks, stack name __init__ params
+        #FIXME shouldn't have default nwm image if scheudler is generic
         ## initialize variables for create_service()
         ## default image
         self._default_image = "127.0.0.1:5000/nwm-2.0:latest"
@@ -77,9 +78,11 @@ class Scheduler:
 
         self.constraints = []
         self.hostname = "{{.Service.Name}}"
+        #FIXME set label based on image_and_domain.yaml
         self.labels =  {"com.docker.stack.image": "127.0.0.1:5000/nwm-2.0",
                         "com.docker.stack.namespace": "nwm"
                        }
+        #FIXME set name from model conf (images and domains)
         self.name = "nwm_mpi-worker_serv"
         #FIXME parameterize network
         self.networks = ["mpi-net"]
@@ -419,10 +422,10 @@ class Scheduler:
             raise ConnectionError("Please check that the Docker Daemon is installed and running.")
 
     @classmethod
-    def fromRequest(cls, request: SchedulerRequestMessage, images_and_domains_yaml='image_and_domain.list') -> 'Scheduler':
+    def fromRequest(cls, request: SchedulerRequestMessage, images_and_domains_yaml='image_and_domain.yaml') -> 'Scheduler':
         """
         Create a new scheduler object, enqueue the given request on the scheduler, and finally return the new object.
-
+        #FIXME this doesn't seem right.  Also, image_and_domain.yaml as a default isn't good since it doesn't exist locally
         Parameters
         ----------
         request
@@ -474,6 +477,7 @@ class Scheduler:
         request
             A user request as defined in the SchedulerRequestMessage class
         """
+        #FIXME somehow need to kick off allocations!  enqueue could try if que is empty
         self.__class__._jobQ.append(request)
         # self._jobQ.append(request)
 
@@ -562,7 +566,7 @@ class Scheduler:
 
     def load_image_and_domain(self, image_name: str, domain_name: str) -> tuple:
         """
-        Read a list of image_name and domain_name from the yaml file: image_and_domain.list
+        Read a list of image_name and domain_name from the yaml file: image_and_domain.yaml
         Derive domain directory to be used for computing
         The image_name needed and user requested domain_name must be in the list for a valid job request,
         otherwise, it is not supported
@@ -620,7 +624,7 @@ class Scheduler:
             raise Exception("Failed to set up the run domain on the container")
 
         # Selecting the image that corresponds to user job request
-        # If needed, ddifferent "image_tag" list can be created in "image_and_domain.list" file for different models,
+        # If needed, ddifferent "image_tag" list can be created in "image_and_domain.yaml" file for different models,
         # then the following code can be run for each image_tag names
         # The code also ensure the required image exists on the system
         # selected_image = image_name
@@ -683,6 +687,7 @@ class Scheduler:
         # image_name  = "127.0.0.1:5000/nwm-2.0:latest"
         # FIXME: this doesn't work (and Request no longer exists) ... switch to using SchedulerRequestMessage maybe
         # userRequest = Request(user_id, cpus, mem)
+        #FIXME read all image/domain at init and select from internal cache (i.e. dict) or even push to redis for long term cache
         (image_tag, domain_dir, run_domain_dir) = self.load_image_and_domain(image_name, domain_name)
 
         # First try schedule the job on a single node. If for some reason, job cannot be allocated on a single node,
@@ -781,7 +786,8 @@ def test_scheduler():
 
     # instantiate the scheduler
     # scheduler = Scheduler()
-    yaml_file = "image_and_domain.list"
+    #FIXME this file doesn't exist relative to to scheduler.py
+    yaml_file = "image_and_domain.yaml"
     scheduler = Scheduler(images_and_domains_yaml=yaml_file)
     user_id = "shengting.cui"
     cpus = 10
