@@ -1,8 +1,14 @@
 import datetime
 import heapq
+import re
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Set
+from docker.models.services import Service
+from docker.errors import NotFound
+from docker.types import SecretReference
+from typing import Optional, Set, Tuple, Union
+
+from .docker_utils import DockerSecretsUtil
 
 from nwmaas.scheduler.rsa_key_pair import RsaKeyPair
 
@@ -336,3 +342,309 @@ class DecoratingSshKeyUtil(SshKeyUtil, ABC):
         return self._ssh_key_util.ssh_keys_directory
 
 
+class SshKeyDockerSecretsUtil(DecoratingSshKeyUtil, DockerSecretsUtil):
+    """
+    An extension (actually a decorator) of ::class:`SshKeyUtil` with additional functionality from the
+    ::class:`DockerSecretsUtil` interface for creating and managing Docker secrets for the managed SSH keys.
+
+    This implementation of ::class:`SshKeyUtil` assumes that key pairs registered by this instance will all be created
+    having names equal to an associated Docker service id of the service that will use the keys.  This invariant can
+    be maintained by only using the ::method:`init_key_pair_and_secrets_for_service` to register key pairs.
+
+    Additionally, to ensure no keys are reused, the prior usages of keys registered using
+    ::method:`init_key_pair_and_secrets_for_service` will always be set to the max number allowed by the nested
+    ::class:`SshKeyUtil` instance.  This ensures they are always retired when released.
+    """
+
+    @classmethod
+    def get_key_pair_secret_names(cls, key_pair: RsaKeyPair) -> Tuple[str, str]:
+        """
+        Get, as a tuple of strings, the appropriate names for Docker secrets corresponding to the the private and public
+        keys respectively of the provided ::class:`RsaKeyPair`.
+
+        Parameters
+        ----------
+        key_pair : RsaKeyPair
+            A key pair for which the standardized names for Docker secrets (for the private and public keys) are wanted.
+
+        Returns
+        -------
+        Tuple[str, str]
+            The appropriate names for the secret for the private and public keys respectively, as a tuple of two strings
+        """
+        return '{}{}'.format(cls.get_private_key_secret_name_prefix(), key_pair.name), \
+               '{}{}'.format(cls.get_public_key_secret_name_prefix(), key_pair.name)
+
+    @classmethod
+    def get_private_key_secret_name_prefix(cls) -> str:
+        """
+        Get the standard prefix to use for the names of Docker secrets for ::class:`RsaKeyPair` private keys.
+
+        Returns
+        -------
+        str
+            the standard prefix to use for the names of Docker secrets for ::class:`RsaKeyPair` private keys
+        """
+        return 'ssh_priv_key_'
+
+    @classmethod
+    def get_public_key_secret_name_prefix(cls) -> str:
+        """
+        Get the standard prefix to use for the names of Docker secrets for ::class:`RsaKeyPair` public keys.
+
+        Returns
+        -------
+        str
+            the standard prefix to use for the names of Docker secrets for ::class:`RsaKeyPair` public keys
+        """
+        return 'ssh_pub_key_'
+
+    def __init__(self, ssh_key_util: SshKeyUtil, docker_client):
+        super(DecoratingSshKeyUtil).__init__(ssh_key_util=ssh_key_util)
+        super(DockerSecretsUtil).__init__(docker_client=docker_client)
+
+    def _get_key_pair_for_referenced_secret(self, ref_for_secrets: Union[str, SecretReference]) -> RsaKeyPair:
+        """
+        Return the associated, registered ::class:`RsaKeyPair` object for a Docker secret represented by the given
+        implicit reference.
+
+        Return the associated ::class:`RsaKeyPair` object for the Docker secret represented implicitly by the supplied
+        argument, where the argument can be either the name of the key pair for the secret, the name of the secret, or
+        the secret's ::class:`SecretReference` object.
+
+        If a string is passed in ``ref_for_secrets``, then its format is checked to determine whether it is a secret
+        name.  If it matches the pattern of a secret name, the key pair name substring is parsed out.  If it does not,
+        the string is assumed to itself be a key pair name.  Whether based on the entire string or the substring, the
+        key pair name string is used to obtain the actual registered ::class:`RsaKeyPair` from the results of
+        ::method:`get_registered_keys`.
+
+        If a ::class:`SecretReference` is used, then its name is used as an argument in a recursive call to this method,
+        the result returned.
+
+        Parameters
+        ----------
+        ref_for_secrets : Union[str, SecretReference]
+            Either the name of a key pair, the name of a key's secret, or a secret reference object for a key secret.
+
+        Returns
+        -------
+        RsaKeyPair
+            The associated key pair object.
+
+        Raises
+        -------
+        ValueError
+            If the value of ``ref_for_secrets`` cannot be used to find an associated, currently-registered
+            ::class:`RsaKeyPair` object.
+
+        """
+        if isinstance(ref_for_secrets, SecretReference):
+            return self._get_key_pair_for_referenced_secret(ref_for_secrets['SecretName'])
+        else:
+            priv_pattern = re.compile(self.get_private_key_secret_name_prefix() + '(.*)')
+            priv_match = priv_pattern.match(ref_for_secrets)
+            pub_pattern = re.compile(self.get_private_key_secret_name_prefix() + '(.*)')
+            pub_match = pub_pattern.match(ref_for_secrets)
+
+            if priv_match is not None:
+                key_pair_name = priv_match.group(1)
+            elif pub_match is not None:
+                key_pair_name = pub_match.group(1)
+            else:
+                key_pair_name = ref_for_secrets
+
+            kp = self._get_registered_key_pair_by_name(key_pair_name)
+            if kp is not None:
+                return kp
+
+        raise ValueError("Unrecognized name for SSH key pair or associated Docker Secret used to look up key pair "
+                         "object ({})".format(key_pair_name))
+
+    def _get_registered_key_pair_by_name(self, name: str) -> Optional[RsaKeyPair]:
+        """
+        Get the registered key pair with the given name, or ``None`` if there is none.
+
+        Parameters
+        ----------
+        name : str
+
+        Returns
+        -------
+        Optional[RsaKeyPair]
+            The registered key pair with the given name, or ``None`` if there is none.
+        """
+        for kp in self.get_registered_keys():
+            if kp.name == name:
+                return kp
+        return None
+
+    def _lookup_secret_by_name(self, name: str) -> Optional[SecretReference]:
+        """
+        Look up and return the ::class:`SecretReference` object for the Docker secret having the given name, or
+        return ``None`` if no such secret can be found.
+
+        Parameters
+        ----------
+        name : str
+            The name of the Docker secret of interest.
+
+        Returns
+        -------
+        Optional[SecretReference]
+            The ::class:`SecretReference` object for the desired Docker secret, or ``None`` if none is found.
+        """
+        try:
+            return self.docker_client.secrets.get(name)
+        except NotFound:
+            return None
+
+    def acquire_ssh_rsa_key(self) -> RsaKeyPair:
+        """
+        An override of the super-method, which should not be call directly for this implementation, and thus results in
+        a raised ::class:`RuntimeError`.
+
+        Raises
+        -------
+        RuntimeError
+        """
+        raise RuntimeError('Method {} cannot be executed directly by {}; use {} instead'.format(
+            'acquire_ssh_rsa_key()',
+            self.__class__.__name__,
+            'init_key_pair_and_secrets_for_service(Service)'))
+
+    def get_key_pair_for_service(self, service: Service) -> Optional[RsaKeyPair]:
+        """
+        Helper method to easily get the registered ::class:`RsaKeyPair` object associated with the given Docker service,
+        or ``None`` if there is no such registered key pair.
+
+        Parameters
+        ----------
+        service : Service
+            The related Docker service.
+
+        Returns
+        -------
+        Optional[RsaKeyPair]
+            The registered ::class:`RsaKeyPair` object associated with the Docker service, or ``None`` if there is none.
+        """
+        return self._get_registered_key_pair_by_name(service.name)
+
+    def init_key_pair_and_secrets_for_service(self, service: Service):
+        """
+        Create a dedicated ::class:`RsaKeyPair` for use by this service, register the key pair, create Docker secrets
+        for the private and public keys, and attach the secrets to the service.
+
+        Additionally, to ensure no keys are reused, the prior usages of keys is set when registering, to the max number
+        allowed by the nested ::attribute:`_ssh_key_util`.  This ensures keys are always retired when released.
+
+        Parameters
+        ----------
+        service : Service
+            A Docker service.
+        """
+        key_pair = RsaKeyPair(directory=self.ssh_keys_directory, name=service.id)
+        self._ssh_key_util.register_ssh_rsa_key(key_pair=key_pair, prior_usages=self._ssh_key_util.max_reuse)
+
+        priv_key_secret_name, pub_key_secret_name = self.get_key_pair_secret_names(key_pair)
+        private_key_secret_ref = self.create_docker_secret(name=priv_key_secret_name, data=key_pair.private_key_pem)
+        public_key_secret_ref = self.create_docker_secret(name=pub_key_secret_name, data=key_pair.public_key)
+        self.add_secrets_for_service(service, private_key_secret_ref, public_key_secret_ref)
+
+    @property
+    def max_reuse(self):
+        return 0
+
+    def register_ssh_rsa_key(self, key_pair: RsaKeyPair, prior_usages: int = 0):
+        """
+        An override of the super-method, which should not be call directly for this implementation, and thus results in
+        a raised ::class:`RuntimeError`.
+
+        Parameters
+        ----------
+        key_pair
+        prior_usages
+
+        Raises
+        -------
+        RuntimeError
+        """
+        raise RuntimeError('Method {} cannot be executed directly by {}; use {} instead'.format(
+            'register_ssh_rsa_key(RsaKeyPair, int)',
+            self.__class__.__name__,
+            'init_key_pair_and_secrets_for_service(Service)'))
+
+    def release_all_for_stopped_services(self):
+        """
+        Release any still-registered key pairs for Docker services that are no longer running, cleaning up any
+        associated Docker secrets as well.
+
+        The method assumes that key pairs registered by this instance and its spawned services will all be created
+        having names equal to the Docker service id of the service that will use the keys.  As such, if the service is
+        no longer found, it has finished, and the key pair of the same name can be cleaned up.
+        """
+        for key_pair in self.get_registered_keys():
+            try:
+                service = self.docker_client.services.get(key_pair.name)
+            except NotFound as e:
+                self.release_ssh_key_and_secrets(lookup_obj=key_pair, assume_service_removed=True)
+
+    def release_ssh_key_and_secrets(self,
+                                    lookup_obj: Union[RsaKeyPair, str, SecretReference],
+                                    assume_service_removed: bool = False,
+                                    should_delete: bool = True):
+        """
+        Release the appropriate SSH-key-related Docker secrets from use by their service (if it still exists), delete
+        the secrets, and release the key pair.
+
+        If a string or ::class:`SecretReference` is passed in ``lookup_obj``, the
+        ::method:`_get_key_pair_for_referenced_secret` is used to obtain the appropriate key pair object.  Otherwise,
+        the ``lookup_obj`` is expected to itself be a ::class:`RsaKeyPair` object.
+
+        If a ::class:`RsaKeyPair` object is passed in ``lookup_obj``, then the names for the private and public key
+        secrets can be derived from the name of the key pair.  Also, the service id is directly equal to the name of the
+        key pair, making the service itself easy to find.
+
+        Parameters
+        ----------
+        lookup_obj : Union[RsaKeyPair, str, SecretReference]
+            Either the related key pair or a means of referencing it that can be used by
+            ::method:`_get_key_pair_for_referenced_secret` to find the key pair.
+
+        assume_service_removed : bool
+            Whether it is safe to assume the related Docker service has already been removed, and thus it is not.
+
+        should_delete : bool
+            Whether the secret should be deleted/removed, which is ``True`` by default.
+        """
+        # First, ensure we have an RsaKeyPair object
+        key_pair = None
+        if isinstance(lookup_obj, SecretReference) or isinstance(lookup_obj, str):
+            # Note that this will raise a ValueError here if it can't find a key pair object
+            key_pair = self._get_key_pair_for_referenced_secret(lookup_obj)
+        elif isinstance(lookup_obj, RsaKeyPair):
+            key_pair = lookup_obj
+        if key_pair is None:
+            raise TypeError(
+                "Invalid type passed to release SSH key secrets (was {})".format(lookup_obj.__class__.__name__))
+
+        # Then obtain the secrets based on knowing the key pair
+        private_key_secret_ref = self.docker_client.secrets.get(self.get_key_pair_secret_names(key_pair)[0])
+        public_key_secret_ref = self.docker_client.secrets.get(self.get_key_pair_secret_names(key_pair)[1])
+
+        # Determine if service still exists and, if so, remove secrets from it
+        if not assume_service_removed:
+            try:
+                service = self.docker_client.services.get(key_pair.name)
+                self.remove_secrets_for_service(service, private_key_secret_ref, public_key_secret_ref)
+            except NotFound:
+                pass
+
+        # Delete the secrets
+        if should_delete:
+            if private_key_secret_ref is not None:
+                private_key_secret_ref.remove()
+            if public_key_secret_ref is not None:
+                public_key_secret_ref.remove()
+
+        # Finally, release the key pair
+        self.release_ssh_rsa_key(key_pair)
