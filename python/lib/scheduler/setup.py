@@ -17,6 +17,6 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=['docker', 'redis', 'Faker', 'nwmaas-communication>=0.2.0'],
+    install_requires=['docker', 'Faker', 'nwmaas-communication>=0.2.0', 'nwmaas-redis>=0.0.1'],
     packages=find_namespace_packages(exclude=('test', 'src'))
 )
