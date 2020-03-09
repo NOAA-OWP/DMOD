@@ -1,34 +1,19 @@
-import os
 import datetime
 from typing import Optional
 
-from redis import Redis
 from redis.client import Pipeline
 
 from nwmaas.communication import FullAuthSession, Session, SessionManager
+from nwmaas.redis import RedisBacked
 
 
 # TODO: add something to periodically scrub sessions due to some expiring criteria
-class RedisBackendSessionManager(SessionManager):
-    _DEFAULT_REDIS_HOST = 'redis'
-    _DEFAULT_REDIS_PASS = ''
-    _DEFAULT_REDIS_PORT = 6379
-    _DEFAULT_DOCKER_SECRET_REDIS_PASS = 'myredis_pass'
-
-    _ENV_NAME_DOCKER_SECRET_REDIS_PASS = 'DOCKER_SECRET_REDIS_PASS'
-    _ENV_NAME_REDIS_HOST = 'REDIS_HOST'
-    _ENV_NAME_REDIS_PASS = 'REDIS_PASS'
-    _ENV_NAME_REDIS_PORT = 'REDIS_PORT'
-
+class RedisBackendSessionManager(SessionManager, RedisBacked):
     _SESSION_KEY_PREFIX = 'session:'
     _SESSION_HASH_SUBKEY_SECRET = 'secret'
     _SESSION_HASH_SUBKEY_CREATED = 'created'
     #_USER_KEY_PREFIX = 'user:'
     #_USER_HASH_SUBKEY_ACCESS_TYPES = 'access_types'
-
-    @classmethod
-    def get_docker_secret_redis_pass(cls):
-        return os.getenv(cls._ENV_NAME_DOCKER_SECRET_REDIS_PASS, cls._DEFAULT_DOCKER_SECRET_REDIS_PASS)
 
     @classmethod
     def get_initial_session_id_value(cls):
@@ -57,25 +42,6 @@ class RedisBackendSessionManager(SessionManager):
         return cls.get_session_key_prefix() + str(session_id)
 
     @classmethod
-    def get_redis_host(cls):
-        return os.getenv(cls._ENV_NAME_REDIS_HOST, cls._DEFAULT_REDIS_HOST)
-
-    @classmethod
-    def get_redis_pass(cls):
-        password_filename = '/run/secrets/' + cls.get_docker_secret_redis_pass()
-        try:
-            with open(password_filename, 'r') as redis_pass_secret_file:
-                return redis_pass_secret_file.read()
-        except:
-            pass
-        # Fall back to env if no secrets file, further falling back to default if no env value
-        return os.getenv(cls._ENV_NAME_REDIS_PASS, cls._DEFAULT_REDIS_PASS)
-
-    @classmethod
-    def get_redis_port(cls):
-        return os.getenv(cls._ENV_NAME_REDIS_PORT, cls._DEFAULT_REDIS_PORT)
-
-    @classmethod
     def get_session_key_prefix(cls):
         return cls._SESSION_KEY_PREFIX
 
@@ -85,10 +51,7 @@ class RedisBackendSessionManager(SessionManager):
 
     def __init__(self, redis_host: Optional[str] = None, redis_port: Optional[int] = None,
                  redis_pass: Optional[str] = None):
-        self._redis = None
-        self._redis_host = redis_host if redis_host is not None else self.get_redis_host()
-        self._redis_port = redis_port if redis_port is not None else self.get_redis_port()
-        self._redis_pass = redis_pass if redis_pass is not None else self.get_redis_pass()
+        super().__init__(redis_host=redis_host, redis_port=redis_port, redis_pass=redis_pass)
 
         self._next_session_id_key = 'next_session_id'
 
@@ -228,16 +191,6 @@ class RedisBackendSessionManager(SessionManager):
     def lookup_session_by_username(self, username: str) -> Optional[FullAuthSession]:
         session_id: Optional[str] = self.redis.hget(self._all_users_hash_key, username)
         return None if session_id is None else self.lookup_session_by_id(int(session_id))
-
-    @property
-    def redis(self):
-        if self._redis is None:
-            self._redis = Redis(host=self._redis_host,
-                                port=self._redis_port,
-                                db=0,
-                                decode_responses=True,
-                                password=self._redis_pass)
-        return self._redis
 
     def refresh_session(self, session: Session) -> bool:
         if session.is_expired():
