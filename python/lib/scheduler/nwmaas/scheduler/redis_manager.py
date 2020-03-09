@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 from typing import Iterable, Mapping, Union, Optional
-from abc import ABC, abstractmethod
-from redis import Redis, WatchError
+from redis import WatchError
 import logging
-import time
 
 ## local imports
-from .utils import keynamehelper as keynamehelper
 from .utils import generate as generate
 
 from .resource_manager import ResourceManager
+from nwmaas.redis import RedisBacked
 
 Max_Redis_Init = 5
 
@@ -19,81 +17,30 @@ logging.basicConfig(
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
     datefmt="%H:%M:%S")
 
-class RedisManager(ResourceManager):
+
+class RedisManager(ResourceManager, RedisBacked):
     """
         Implementation class for defining a redis backed ResourceManager
     """
 
-    _DEFAULT_DOCKER_SECRET_REDIS_PASS = 'myredis_pass'
-    _DEFAULT_REDIS_PASS = ''
-    _ENV_NAME_DOCKER_SECRET_REDIS_PASS = 'DOCKER_SECRET_REDIS_PASS'
-    _ENV_NAME_REDIS_PASS = 'REDIS_PASS'
-
-    @classmethod
-    def get_docker_secret_redis_pass(cls):
-        return os.getenv(cls._ENV_NAME_DOCKER_SECRET_REDIS_PASS, cls._DEFAULT_DOCKER_SECRET_REDIS_PASS)
-
-    @classmethod
-    def get_redis_pass(cls):
-        password_filename = '/run/secrets/' + cls.get_docker_secret_redis_pass()
-        try:
-            with open(password_filename, 'r') as redis_pass_secret_file:
-                return redis_pass_secret_file.read()
-        except:
-            pass
-        # Fall back to env if no secrets file, further falling back to default if no env value
-        return os.getenv(cls._ENV_NAME_REDIS_PASS, cls._DEFAULT_REDIS_PASS)
-
     def __init__(self, resource_pool: str, redis_host: Optional[str] = None, redis_port: Optional[int] = None,
                  redis_pass: Optional[str] = None, **kwargs):
         # initialize Redis client
-        if redis_host is None:
-            #Try to read redis host from environment var, else set it default 'redis'
-            redis_host = host=os.environ.get("REDIS_HOST", "redis")
-        if redis_port is None:
-            #Try to read port from environment, else use default 6379
-            redis_port = os.environ.get("REDIS_PORT", 6379)
-        if redis_pass is None:
-            #Read password from environment
-            redis_pass = self.get_redis_pass()
-
-        n = 0
-        while (n <= Max_Redis_Init):
-            try:
-                 self.redis = Redis(host=redis_host,
-                 #self.redis = Redis(host=os.environ.get("REDIS_HOST", "localhost"),
-                              port=redis_port,
-                              # db=0, encoding="utf-8", decode_responses=True,
-                              db=0, decode_responses=True,
-                              password=redis_pass)
-            #FIXME execpt only redis failures here
-            except:
-                logging.debug("redis connection error")
-            time.sleep(1)
-            n += 1
-            if (self.redis != None):
-                break
-        if self.redis == None:
-            raise RuntimeError("Unable to connect to redis database")
-
-        self.set_prefix("") #A bug in keynamehelper emerges when prefix is not explicitly set to a string
-        self.resource_pool = resource_pool #"maas"
-        #Key to redis set containing ID's for all resources available to this "pool"
-        #These resrouces can be viewed at redis key resource_pool_key:ID
-        self.resource_pool_key = keynamehelper.create_key_name("resources", self.resource_pool)
+        super().__init__(redis_host=redis_host, redis_port=redis_port, redis_pass=redis_pass,
+                         max_redis_init_attempts=Max_Redis_Init)
 
         dev_opt = kwargs.get('type', 'prod')
         if dev_opt == 'dev':
             self._dev_setup()
 
-    def _dev_setup(self):
-        from .utils.clean import clean_keys
-        clean_keys(self.redis)
-        self.set_prefix("dev")
-        self.set_resources(resources)
+        self.resource_pool = resource_pool #"maas"
+        #Key to redis set containing ID's for all resources available to this "pool"
+        #These resrouces can be viewed at redis key resource_pool_key:ID
+        self.resource_pool_key = self.create_key_name("resources", self.resource_pool)
 
-    def set_prefix(self, prefix):
-        keynamehelper.set_prefix(prefix)
+    def _dev_setup(self):
+        super(RedisBacked)._dev_setup()
+        self.set_resources(resources)
 
     def add_resource(self, resource: Mapping[ str, Union[ str, int] ], resource_pool_key: str):
         """
@@ -117,8 +64,7 @@ class RedisManager(ResourceManager):
         #FIXME properly validate the existance of meta data at some point in the chain
         resource_id = resource['node_id']
         #Create a resource identity key for resource metadata hash map
-        resource_metadata_key = keynamehelper.create_field_name(resource_pool_key,
-                                                              "meta", resource_id)
+        resource_metadata_key = self.create_field_name(resource_pool_key, "meta", resource_id)
         #print("MANAGER ADD RESOURCE -- METADATA KEY: {}".format(resource_metadata_key))
         #print("MANAGER ADD RESOURCE -- POOL KEY: {}".format(resource_pool_key))
         if self.redis.exists(resource_metadata_key) == 0:
@@ -179,9 +125,8 @@ class RedisManager(ResourceManager):
         #unlock additional scheduling techniques.
         for resource in self.get_resource_ids():
             #FIXME decide on resource_pool_key usage
-            resource_metadata_key = keynamehelper.create_field_name(self.resource_pool_key, 'meta', resource) #(self.resource_pool_key, resource)
+            resource_metadata_key = self.create_field_name(self.resource_pool_key, 'meta', resource) #(self.resource_pool_key, resource)
             yield self.redis.hgetall(resource_metadata_key)
-
 
     def get_resource_ids(self) -> Iterable[Union[str, int]]:
         """
@@ -219,7 +164,7 @@ class RedisManager(ResourceManager):
 
 
       """
-      resource_key = keynamehelper.create_field_name(self.resource_pool_key, 'meta', resource_id)
+      resource_key = self.create_field_name(self.resource_pool_key, 'meta', resource_id)
       #print("MANAGER::ALLOCATE KEY -- {}".format(resource_key))
       if requested_cpus <= 0 or not self.redis.exists(resource_key):
           return {}
@@ -286,7 +231,7 @@ class RedisManager(ResourceManager):
         #Give back any allocated resources to the master resrouce table
         for resource in allocated_resources:
             resource_id = resource['node_id']
-            resource_key = keynamehelper.create_field_name(self.resource_pool_key, 'meta', resource_id)
+            resource_key = self.create_field_name(self.resource_pool_key, 'meta', resource_id)
             if not self.redis.exists(resource_key):
                 raise RuntimeError("RedisManager::release_resources -- No key {} exists to release resources to".format(resource_key))
             with self.redis.pipeline() as pipe:
@@ -308,7 +253,7 @@ class RedisManager(ResourceManager):
         total_available = 0
         #Should pipline this for efficiency
         for resource in self.get_resource_ids():
-            resource_metadata_key = keynamehelper.create_field_name(self.resource_pool_key, "meta", resource)
+            resource_metadata_key = self.create_field_name(self.resource_pool_key, "meta", resource)
             CPUs = int(self.redis.hget(resource_metadata_key, "CPUs"))
             total_available += CPUs
         return total_available
@@ -329,12 +274,12 @@ class RedisManager(ResourceManager):
 
         job_id = generate.order_id()
         #Set to add the running job ID to
-        job_state = keynamehelper.create_field_name(self.resource_pool_key, "running")
+        job_state = self.create_field_name(self.resource_pool_key, "running")
         self.redis.sadd(job_state, job_id)
 
         for i, cpu_allocation_map in enumerate(allocations):
             #Job key to store metadata about this job at
-            job_key = keynamehelper.create_key_name("job", job_id, str(i))
+            job_key = self.create_key_name("job", job_id, str(i))
             #map of resources this job is using
             #print("MANAGER CREATE JOB ENTRY -- KEY {}".format(job_key))
             self.redis.hmset(job_key, cpu_allocation_map)
@@ -359,14 +304,14 @@ class RedisManager(ResourceManager):
         return #DEACIVATING THIS FUNCTION TILL FIXME ABOVE SORTED
         redis = self.redis
         cpusList = []
-        user_key = keynamehelper.create_key_name(user_id)
+        user_key = self.create_key_name(user_id)
 
         # case for index = 0, the first popped index is necessarily 0
         # lpop and rpush are used to guaranttee that the earlist queued job gets to run first
         job_id = redis.lpop(user_key)
         if (job_id != None):
             print("In retrieve_job_metadata: user_key", user_key, "job_id = ", job_id)
-            req_key = keynamehelper.create_key_name("job_request", job_id)
+            req_key = self.create_key_name("job_request", job_id)
             cpus_dict = redis.hgetall(req_key)
             cpusList.append(cpus_dict)
             index = cpus_dict['index']             # index = 0
@@ -377,7 +322,7 @@ class RedisManager(ResourceManager):
         while (job_id != None):                    # previous job_id
             job_id = redis.lpop(user_key)          # new job_id
             if (job_id != None):
-                req_key = keynamehelper.create_key_name("job_request", job_id)
+                req_key = self.create_key_name("job_request", job_id)
                 cpus_dict = redis.hgetall(req_key)
                 index = cpus_dict['index']         # new index
                 if (int(index) == 0):
