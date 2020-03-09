@@ -26,6 +26,49 @@ class RedisBacked(ABC):
     _ENV_NAME_REDIS_PORT = 'REDIS_PORT'
 
     @classmethod
+    def _init_redis_client(cls, host: str, port: int, passwd: str, max_attempts: int) -> Optional[Redis]:
+        """
+        Actual logic for attempts to initialize Redis client.
+
+        Intent is for this to only be used during by object initializer.  Other than keeping code clean, the goal is to
+        have something easily separable from the rest of initializer.  The allows for better isolation of logic during
+        testing. As such, there is limited sanity checking of parameters.
+
+        Parameters
+        ----------
+        host : str
+            The Redis host.
+
+        port : int
+            The listening port of the Redis host.
+
+        passwd : str
+            The password to authenticate with the Redis host.
+
+        max_attempts : int
+            The max attempts before returning.
+
+        Returns
+        -------
+        Optional[Redis]
+            An initialize Redis client object, or ``None`` if all attempts failed.
+        """
+        n = 0
+        while n <= max_attempts:
+            # Sleep for one second on any retries, but not the first attempt.
+            if n == 0:
+                time_sleep(1)
+            try:
+                return Redis(host=host, port=port, db=0, decode_responses=True, password=passwd)
+            # FIXME except only redis failures here
+            except:
+                # TODO: implement some kind of logging
+                #logging.debug("redis connection error")
+                pass
+            n += 1
+        return None
+
+    @classmethod
     def get_docker_secret_name_for_redis_pass(cls) -> str:
         """
         Get the name of the Docker secret for securely storing the Redis password.
@@ -184,19 +227,8 @@ class RedisBacked(ABC):
         if max_redis_init_attempts < 1:
             max_redis_init_attempts = 1
 
-        n = 0
-        while n <= max_redis_init_attempts:
-            try:
-                self._redis = Redis(host=redis_host, port=redis_port, db=0, decode_responses=True, password=redis_pass)
-            # FIXME except only redis failures here
-            except:
-                # TODO: implement some kind of logging
-                #logging.debug("redis connection error")
-                pass
-            n += 1
-            if self._redis is not None:
-                break
-            time_sleep(1)
+        self._redis = self._init_redis_client(host=redis_host, port=redis_port, passwd=redis_pass,
+                                              max_attempts=max_redis_init_attempts)
         if self._redis is None:
             raise RuntimeError("Unable to connect to redis database")
 
