@@ -1,9 +1,10 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from os import getenv
 from redis import Redis
 from time import sleep as time_sleep
 from typing import Optional
 from .keynamehelper import KeyNameHelper
+
 
 class RedisBacked(ABC):
     """
