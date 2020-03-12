@@ -98,6 +98,7 @@ class RequestedJob(Job):
     def __init__(self, job_request: SchedulerRequestMessage):
         self._originating_request = job_request
         self._allocations = None
+        self._rsa_key_pair = None
 
     def add_allocation(self, allocation: ResourceAllocation):
         """
@@ -144,5 +145,13 @@ class RequestedJob(Job):
     @property
     def parameters(self) -> dict:
         return self._originating_request.model_request.parameters
+
+    @property
+    def rsa_key_pair(self) -> Optional[RsaKeyPair]:
+        return self._rsa_key_pair
+
+    @rsa_key_pair.setter
+    def rsa_key_pair(self, key_pair: RsaKeyPair):
+        self._rsa_key_pair = key_pair
 
 
