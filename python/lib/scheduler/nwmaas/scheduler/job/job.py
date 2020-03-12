@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from nwmaas.communication.scheduler_request import SchedulerRequestMessage
-from typing import Optional
+from typing import List, Optional, Union
+from uuid import UUID
 
 from nwmaas.scheduler.rsa_key_pair import RsaKeyPair
 from nwmaas.scheduler.resources.resource_allocation import ResourceAllocation
@@ -98,6 +99,7 @@ class RequestedJob(Job):
     def __init__(self, job_request: SchedulerRequestMessage):
         self._originating_request = job_request
         self._allocations = None
+        self.job_uuid = None
         self._rsa_key_pair = None
 
     def add_allocation(self, allocation: ResourceAllocation):
@@ -125,6 +127,32 @@ class RequestedJob(Job):
     @property
     def cpu_count(self) -> int:
         return self._originating_request.cpus
+
+    @property
+    def job_id(self) -> Optional[str]:
+        """
+        The unique job id for this job in the manager, if one has been set for it, or ``None``.
+
+        The getter for the property returns the ::attribute:`UUID.bytes` field of the ::attribute:`job_uuid` property,
+        if it is set, or ``None`` if it is not set.
+
+        The setter for the property will actually set the ::attribute:`job_uuid` attribute, via a call to the setter for
+        the ::attribute:`job_uuid` property.  ::attribute:`job_id`'s setter can accept either a ::class:`UUID` or a
+        string, with the latter case being used to initialize a ::class:`UUID` object.
+
+        Returns
+        -------
+        Optional[str]
+            The unique job id for this job in the manager, if one has been set for it, or ``None``.
+        """
+        return self.job_uuid.bytes if isinstance(self.job_uuid, UUID) else None
+
+    @job_id.setter
+    def job_id(self, job_id: Union[str, UUID]):
+        if isinstance(job_id, UUID):
+            self.job_uuid = job_id
+        else:
+            self.job_uuid = UUID(str(job_id))
 
     @property
     def memory_size(self) -> int:
