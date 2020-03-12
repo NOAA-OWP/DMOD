@@ -177,13 +177,13 @@ class RedisBacked(ABC):
             return cls._DEFAULT_REDIS_PORT
 
     def __init__(self, redis_host: Optional[str] = None, redis_port: Optional[int] = None,
-                 redis_pass: Optional[str] = None, max_redis_init_attempts: int = 5):
+                 redis_pass: Optional[str] = None, max_redis_init_attempts: int = 5, **kwargs):
         """
         Initialize an instance by creating an open Redis connection object using the given parameters or suitable
         replacements for those set to ``None``.
 
-        Method will replace ``None`` values for host, port, and/or password parameters before attempting to open
-        connection, using returned values from ::method:`get_redis_host`, ::method:`get_redis_port`, and
+        During initialization, the parameters for Redis host, port, and/or password will have a value of ``None``
+        replaced with the returned value from ::method:`get_redis_host`, ::method:`get_redis_port`, and/or
         ::method:`get_redis_pass` respectively.
 
         Once the parameter values are set, the method will attempt to initialize a ::class:`Redis` connection object
@@ -193,8 +193,14 @@ class RedisBacked(ABC):
         non-integer argument is passed (meaning also that the argument cannot be cast to an integer).  Additionally,
         argument values of less than one will still be tried once, though not re-tried.
 
-        Method also sets ::attribute:`keynamehelper` attribute to the value returned by
+        Objects also have their ::attribute:`keynamehelper` attribute set at initialization to the value returned by
         ::method:``KeyNameHelper.get_default_instance``.
+
+        Instances can be initialized in either ``prod``, ``local``, or ``dev`` operational modes, via setting a ``type``
+        keyword arg to one of those values.  This affects the Redis DB index that is used for the connection (see its
+        ``db`` keyword arg) and whether the object removes all the keys within that Redis DB index upon initialization.
+        For ``prod``, ``local``, or ``dev``, these are ``(0, False)``, ``(4, False)``, and ``(5, True)`` respectively.
+        The DB index value is tracked in the "private" ::attribute:`_db_num` attribute.
 
         Parameters
         ----------
@@ -210,6 +216,15 @@ class RedisBacked(ABC):
         max_redis_init_attempts : int
             The maximum number of times to attempt opening a Redis connection before allowing raised exceptions to pass
             through uncaught, equal to ``5`` by default.
+
+        kwargs
+            Keyed init parameters as described in *Keyword Args* section.
+
+        Keyword Args
+        ------------
+        type : str
+            The object's operational mode (``prod``, ``local``, or ``dev``, with ``prod`` being the implied default).
+
         """
         # initialize Redis client
         if redis_host is None:
@@ -230,13 +245,27 @@ class RedisBacked(ABC):
         if max_redis_init_attempts < 1:
             max_redis_init_attempts = 1
 
+        dev_opt = kwargs.get('type', 'prod')
+        if dev_opt == 'dev':
+            self._db_num = 5
+            self._reset_keys = True
+        elif dev_opt == 'local':
+            self._db_num = 4
+            self._reset_keys = False
+        else:
+            self._db_num = 0
+            self._reset_keys = False
+
         self._redis = self._init_redis_client(host=redis_host, port=redis_port, passwd=redis_pass,
-                                              max_attempts=max_redis_init_attempts)
+                                              max_attempts=max_redis_init_attempts, db_num=self._db_num)
         if self._redis is None:
             raise RuntimeError("Unable to connect to redis database")
 
         # Now just get a default KeyNameHelper
         self.keynamehelper = KeyNameHelper.get_default_instance()
+
+        if self._reset_keys:
+            self._clean_keys()
 
     def _clean_keys(self, prefix=None):
         """
