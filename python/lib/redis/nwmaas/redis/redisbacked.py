@@ -306,4 +306,3 @@ class RedisBacked(ABC):
             The ::class:`Redis` object for the created Redis connection.
         """
         return self._redis
-
