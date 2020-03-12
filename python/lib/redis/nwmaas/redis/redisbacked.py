@@ -284,10 +284,8 @@ class RedisBacked(ABC):
             print("No prefix, no way am I going to remove '*' !")
         return count
 
-    def _dev_setup(self):
-        # TODO: fix this in superclass
-        self._clean_keys()
-        self.keynamehelper = KeyNameHelper(prefix='dev', separator=KeyNameHelper.get_default_separator())
+    def create_derived_key(self, base_key: str, *args):
+        return self.keynamehelper.create_derived_key(base_key, *args)
 
     def create_key_name(self, *args):
         return self.keynamehelper.create_key_name(*args)
