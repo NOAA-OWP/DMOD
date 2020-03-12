@@ -48,6 +48,27 @@ class KeyNameHelper:
         self._prefix = prefix
         self._separator = separator
 
+    def create_derived_key(self, base_key: str, *vals):
+        """
+        Create a key much like ::method:`create_key_name`, except use the provided ``base_key`` as the start, and then
+        append the separated variadic values.
+
+        Parameters
+        ----------
+        base_key : str
+            The base key, serving as a replacement for ``prefix``, which should also have the ::attribute:`prefix` at
+            the start of its value.
+
+        vals
+            Variadic values to each join (using ::attribute:`separator`) to ``base_key`` to construct a derived key.
+
+        Returns
+        -------
+        str
+            A Redis key with ``base_key`` as its start and then the appended values.
+        """
+        return base_key + self.separator + "%s" % self.separator.join(self.ensure_str(vals))
+
     def create_field_name(self, *vals):
         """Create the field name based on the following format
 
