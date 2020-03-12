@@ -26,7 +26,7 @@ class RedisBacked(ABC):
     _ENV_NAME_REDIS_PORT = 'REDIS_PORT'
 
     @classmethod
-    def _init_redis_client(cls, host: str, port: int, passwd: str, max_attempts: int) -> Optional[Redis]:
+    def _init_redis_client(cls, host: str, port: int, passwd: str, max_attempts: int, db_num: int) -> Optional[Redis]:
         """
         Actual logic for attempts to initialize Redis client.
 
@@ -48,6 +48,9 @@ class RedisBacked(ABC):
         max_attempts : int
             The max attempts before returning.
 
+        db_num : int
+            The Redis ``db`` parameter value to use.
+
         Returns
         -------
         Optional[Redis]
@@ -59,7 +62,7 @@ class RedisBacked(ABC):
             if n == 0:
                 time_sleep(1)
             try:
-                return Redis(host=host, port=port, db=0, decode_responses=True, password=passwd)
+                return Redis(host=host, port=port, db=db_num, decode_responses=True, password=passwd)
             # FIXME except only redis failures here
             except:
                 # TODO: implement some kind of logging
