@@ -3,6 +3,7 @@ from nwmaas.communication.scheduler_request import SchedulerRequestMessage
 from typing import Optional
 
 from nwmaas.scheduler.rsa_key_pair import RsaKeyPair
+from nwmaas.scheduler.resources.resource_allocation import ResourceAllocation
 
 
 class Job(ABC):
@@ -12,14 +13,14 @@ class Job(ABC):
 
     @property
     @abstractmethod
-    def allocation(self) -> Optional[dict]:
+    def allocations(self) -> Optional[List[ResourceAllocation]]:
         """
         The scheduler allocation for this job.
 
         Returns
         -------
-        Optional[dict]
-            The scheduler allocation for this job, or ``None`` if it is queued or otherwise not yet allocated.
+        Optional[List[ResourceAllocation]]
+            The scheduler resource allocations for this job, or ``None`` if it is queued or otherwise not yet allocated.
         """
         pass
 
@@ -96,15 +97,29 @@ class RequestedJob(Job):
 
     def __init__(self, job_request: SchedulerRequestMessage):
         self._originating_request = job_request
-        self._allocation = None
+        self._allocations = None
+
+    def add_allocation(self, allocation: ResourceAllocation):
+        """
+        Add a resource allocation to this object's list of allocations in ::attribute:`allocations`, initializing it if
+        previously set to ``None``.
+
+        Parameters
+        ----------
+        allocation : ResourceAllocation
+            A resource allocation object to add.
+        """
+        if self._allocations is None:
+            self.allocations = list()
+        self.allocations.append(allocation)
 
     @property
-    def allocation(self) -> Optional[dict]:
-        return self._allocation
+    def allocations(self) -> Optional[List[ResourceAllocation]]:
+        return self._allocations
 
-    @allocation.setter
-    def allocation(self, allocation: dict):
-        self._allocation = allocation
+    @allocations.setter
+    def allocations(self, allocations: List[ResourceAllocation]):
+        self._allocations = allocations
 
     @property
     def cpu_count(self) -> int:
