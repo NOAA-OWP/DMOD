@@ -16,6 +16,8 @@ import logging
 import time
 
 ## local imports
+from .resources.redis_manager import RedisManager
+from .utils import parsing_nested as pn
 from scheduler.utils import keynamehelper as keynamehelper
 from scheduler.utils import generate as generate
 from scheduler.utils import parsing_nested as pn
@@ -24,6 +26,7 @@ from scheduler.utils.clean import clean_keys
 from scheduler.lib import scheduler_request as sch_req
 
 MAX_JOBS = 210
+
 Max_Redis_Init = 5
 
 logging.basicConfig(
@@ -32,6 +35,8 @@ logging.basicConfig(
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
     datefmt="%H:%M:%S")
 
+
+class DockerServiceParameters():
 resources = [{'node_id': "Node-0001",
            'Hostname': "***REMOVED***",
            'Availability': "active",
@@ -451,7 +456,7 @@ class Scheduler:
                       NodeId: str, index: int) -> tuple:
         """
         Function to manage resources and store job info to dadabase
-        
+
         Parameters
         ----------
         p
@@ -505,7 +510,7 @@ class Scheduler:
     def service_to_host_mapping(self) -> docker.from_env().services.list:
         """
         Find host name based on service info
-       
+
         Returns
         -------
         serviceList
@@ -816,7 +821,7 @@ class Scheduler:
     def build_host_list(self, basename: str, cpusList: list, req_id: str, run_domain_dir: str) -> str:
         '''
         build a list of strings that contain the container names and the allocated CPUs on the associated hosts
-        
+
         Parameters
         ----------
         basename
@@ -828,7 +833,7 @@ class Scheduler:
         run_domain_dir
             Domain directory in the Docker service container where the job is to be run, this info is needed
             for automatic service expansion
-       
+
         Returns
         -------
         host_str
@@ -921,7 +926,7 @@ class Scheduler:
         Parameter
         ---------
         user_id
-            User Identification 
+            User Identification
 
         Returns
         -------
@@ -1097,7 +1102,7 @@ class Scheduler:
         selected_image
             The selected image out of the valid image list in the yaml file, there is a match
         selected_domain_dir
-            The selected domain directory out of the valid domain name : domain directory dicts in the yaml file 
+            The selected domain directory out of the valid domain name : domain directory dicts in the yaml file
         run_domain_dir
             The run domain directory in the docker container, based on the domain name to directory mapping in the yaml file
         """
@@ -1210,7 +1215,7 @@ class Scheduler:
 
         # run_option is set based on request
         # currently this is manually set
-        run_option = 1 
+        run_option = 1
 
         if (run_option == 1):
             cpus = 4
@@ -1287,7 +1292,7 @@ class Scheduler:
 
 def test_scheduler():
     """
-    Test the scheduler using on the fly cpusList 
+    Test the scheduler using on the fly cpusList
     or the metadata from the saved database
     """
     schReqMsg = sch_req.SchedulerRequestMessage(model_request="model_request", user_id="shengting.cui")

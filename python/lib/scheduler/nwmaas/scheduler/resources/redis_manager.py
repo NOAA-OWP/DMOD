@@ -6,7 +6,7 @@ import logging
 ## local imports
 from .resource_manager import ResourceManager
 from nwmaas.redis import RedisBacked
-from .resources import Resource, ResourceAllocation
+from nwmaas.scheduler.resources import Resource, ResourceAllocation
 
 Max_Redis_Init = 5
 
