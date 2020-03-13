@@ -1,7 +1,7 @@
 from .scheduler import Scheduler
 from .ssh_key_util import SshKeyUtil, SshKeyUtilImpl
-from .redis_manager import RedisManager
-from .resource_manager import ResourceManager
+from .resources.resource_manager import ResourceManager
+from .resources.redis_manager import RedisManager
 from .utils import *
 from .job import Job, JobManager, JobManagerFactory
 
