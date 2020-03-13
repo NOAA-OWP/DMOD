@@ -18,12 +18,12 @@ import time
 ## local imports
 from .resources.redis_manager import RedisManager
 from .utils import parsing_nested as pn
-from scheduler.utils import keynamehelper as keynamehelper
-from scheduler.utils import generate as generate
-from scheduler.utils import parsing_nested as pn
+from .utils import keynamehelper as keynamehelper
+from .utils import generate as generate
+from .utils import parsing_nested as pn
 # from scheduler.src.request import Request
-from scheduler.utils.clean import clean_keys
-from scheduler.lib import scheduler_request as sch_req
+from .utils.clean import clean_keys
+from nwmaas.communication import scheduler_request as sch_req
 
 MAX_JOBS = 210
 
@@ -36,7 +36,6 @@ logging.basicConfig(
     datefmt="%H:%M:%S")
 
 
-class DockerServiceParameters():
 resources = [{'node_id': "Node-0001",
            'Hostname': "***REMOVED***",
            'Availability': "active",
@@ -60,23 +59,6 @@ resources = [{'node_id': "Node-0001",
           }
          ]
 
-"""
-resources = [{'node_id': "Node-0002",
-           'Hostname': "***REMOVED***",
-           'Availability': "active",
-           'State': "ready",
-           'CPUs': 96,
-           'MemoryBytes': 540483764224
-          },
-          {'node_id': "Node-0003",
-           'Hostname': "***REMOVED***",
-           'Availability': "active",
-           'State': "ready",
-           'CPUs': 96,
-           'MemoryBytes': 540483764224
-          }
-         ]
-"""
 
 class DockerSrvParams():
     def __init__(self, image_tag: str = None, constraints: list = [], hostname: str = None, \
