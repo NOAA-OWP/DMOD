@@ -60,28 +60,19 @@ class JobManagerFactory:
 class JobManager(ABC):
 
     @abstractmethod
-    def create_job(self, cpu_count: int,  memory_size: int, parameters: dict, allocation: Optional[dict] = None,
-                   key_pair: Optional[RsaKeyPair] = None, **kwargs) -> Job:
+    def create_job(self, **kwargs) -> Job:
         """
         Create and return a new job object.
 
+        Implementations will vary, but they should all directly or indirectly (i.e., nested as attributes of some other
+        object) provide the following parameters within keyword args.
+
+            ``cpu_count`` - A count of CPUs for the job (``int``).
+            ``memory_size`` - A size of memory needed for the job (``int``).
+            ``parameters`` - A dictionary of job config parameters (``dict``).
+
         Parameters
         ----------
-        cpu_count : int
-            A count of CPUs for the job.
-
-        memory_size : int
-            A size of memory needed for the job.
-
-        parameters : dict
-            A dictionary of job config parameters
-
-        allocation : Optional[dict]
-            An optional dictionary of the scheduled allocation for the job.
-
-        key_pair : Optional[RsaKeyPair]
-            An optional RSA key pair of use with SSH for create job service(s)
-
         kwargs
             Other appropriate, implementation-specific keyed parameters supported for creating the job object.
 
