@@ -93,6 +93,23 @@ class JobManager(ABC):
         pass
 
     @abstractmethod
+    def delete_job(self, job_id) -> bool:
+        """
+        Delete the job record for the job with the given id value.
+
+        Parameters
+        ----------
+        job_id
+            The unique id for a job of interest to delete.
+
+        Returns
+        -------
+        bool
+            ``True`` if a record was successfully deleted, otherwise ``False``.
+        """
+        pass
+
+    @abstractmethod
     def does_job_exist(self, job_id) -> bool:
         """
         Test whether a job with the given job id exists.
