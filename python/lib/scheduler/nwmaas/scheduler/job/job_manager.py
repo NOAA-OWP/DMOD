@@ -1,10 +1,8 @@
-import os
-import time
 from abc import ABC, abstractmethod
-from redis import Redis
-from typing import Optional
-from uuid import uuid4 as generate_uuid
-from .job import Job
+from typing import Dict, List, Optional
+from uuid import uuid4 as random_uuid
+from .job import Job, RequestedJob
+from ..resources.resource_allocation import ResourceAllocation
 from ..rsa_key_pair import RsaKeyPair
 
 from nwmaas.redis import RedisBacked
