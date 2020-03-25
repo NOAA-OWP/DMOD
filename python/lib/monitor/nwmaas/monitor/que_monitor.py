@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
+import logging
 
+from nwmaas.scheduler import RedisManager
+from nwmaas.redis import RedisBacked
+
+from typing import Optional
+#FIXME clean up imports
 import sys
 import os
 from os.path import join, dirname, realpath
@@ -9,17 +15,18 @@ import queue
 import json, ast
 import docker
 from pprint import pprint as pp
+#FIXME URGENT refactor all resource management usning redisManager
 from redis import Redis, WatchError
 import logging
 
 ## local imports
 # from .scheduler import Scheduler
-from ..utils import keynamehelper as keynamehelper
-from ..utils import generate as generate
-from ..utils import parsing_nested as pn
-from ..utils.clean import clean_keys
-from ..lib import scheduler_request as sch_req
-from ..src.scheduler import DockerSrvParams
+#from ..utils import keynamehelper as keynamehelper
+#from ..utils import generate as generate
+#from ..utils import parsing_nested as pn
+#from ..utils.clean import clean_keys
+#from ..lib import scheduler_request as sch_req
+#from ..src.scheduler import DockerSrvParams
 
 MAX_JOBS = 210
 Max_Redis_Init = 5
@@ -55,11 +62,13 @@ resources = [{'node_id': "Node-0001",
           }
          ]
 
-class QueMonitor():
+class QueMonitor(RedisBacked):
     _jobQ = queue.deque()
     _jobQList = "redisQList"
-    def __init__(self, docker_client: docker.from_env() = None, \
+    def __init__(self, resource_pool: str, docker_client: docker.from_env() = None, \
                  api_client: docker.APIClient() = None, \
+                  redis_host: Optional[str] = None, redis_port: Optional[int] = None,
+                              redis_pass: Optional[str] = None,
                  redis: Redis = None):
         """
         Parameters
@@ -71,6 +80,8 @@ class QueMonitor():
         redis
             Redis API
         """
+        super().__init__(resource_pool=resource_pool, redis_host=redis_host,
+                         redis_pass=redis_pass, **kwargs)
         if docker_client:
             self.docker_client = docker_client
             self.api_client = api_client
@@ -79,22 +90,6 @@ class QueMonitor():
             self.docker_client = docker.from_env()
             self.api_client = docker.APIClient()
 
-        # initialize Redis client
-        n = 0
-        while (n <= Max_Redis_Init):
-            try:
-                 self.redis = Redis(host=os.environ.get("REDIS_HOST", "myredis"),
-                 # self.redis = Redis(host=os.environ.get("REDIS_HOST", "localhost"),
-                              port=os.environ.get("REDIS_PORT", 6379),
-                              # db=0, encoding="utf-8", decode_responses=True,
-                              db=0, decode_responses=True,
-                              password='***REMOVED***')
-            except:
-                logging.debug("redis connection error")
-            time.sleep(1)
-            n += 1
-            if (self.redis != None):
-                break
         ## initialize variables for create_service()
         ## default image
         self.image = "127.0.0.1:5000/nwm-2.0:latest"
@@ -269,7 +264,7 @@ class QueMonitor():
         service_dict
             Dictionary containing service attributes of the initial service
         service_name
-            Name of the initial service       
+            Name of the initial service
 
         Returns
         -------
@@ -467,7 +462,7 @@ class QueMonitor():
                     print("In check_job_state: service_state_list =")
                     pp(service_state_list)
                     print("-" * 15)
-        print("=" * 30)           
+        print("=" * 30)
         return service_state_list
 
     def build_state_list_reqid_set(self, service_state_list: list) -> dict:
