@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import logging
 
-from nwmaas.scheduler import RedisManager
-from nwmaas.redis import RedisBacked
+from nwmaas.redis import RedisBacked, KeyNameHelper
+import nwmaas.scheduler.utils.parsing_nested as pn
 
 from typing import Optional
 #FIXME clean up imports
@@ -21,7 +21,7 @@ import logging
 
 ## local imports
 # from .scheduler import Scheduler
-#from ..utils import keynamehelper as keynamehelper
+#from ..utils import self.keynamehelper as self.keynamehelper
 #from ..utils import generate as generate
 #from ..utils import parsing_nested as pn
 #from ..utils.clean import clean_keys
@@ -39,37 +39,13 @@ logging.basicConfig(
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
     datefmt="%H:%M:%S")
 
-resources = [{'node_id': "Node-0001",
-           'Hostname': "***REMOVED***",
-           'Availability': "active",
-           'State': "ready",
-           'CPUs': 18,
-           'MemoryBytes': 33548128256
-          },
-          {'node_id': "Node-0002",
-           'Hostname': "***REMOVED***",
-           'Availability': "active",
-           'State': "ready",
-           'CPUs': 96,
-           'MemoryBytes': 540483764224
-          },
-          {'node_id': "Node-0003",
-           'Hostname': "***REMOVED***",
-           'Availability': "active",
-           'State': "ready",
-           'CPUs': 96,
-           'MemoryBytes': 540483764224
-          }
-         ]
-
 class QueMonitor(RedisBacked):
     _jobQ = queue.deque()
     _jobQList = "redisQList"
-    def __init__(self, resource_pool: str, docker_client: docker.from_env() = None, \
-                 api_client: docker.APIClient() = None, \
-                  redis_host: Optional[str] = None, redis_port: Optional[int] = None,
-                              redis_pass: Optional[str] = None,
-                 redis: Redis = None):
+    def __init__(self, resource_pool: str,
+                 docker_client: docker.from_env() = None, api_client: docker.APIClient() = None,
+                 redis_host: Optional[str] = None, redis_port: Optional[int] = None,
+                 redis_pass: Optional[str] = None, **kwargs):
         """
         Parameters
         ----------
@@ -81,7 +57,7 @@ class QueMonitor(RedisBacked):
             Redis API
         """
         super().__init__(resource_pool=resource_pool, redis_host=redis_host,
-                         redis_pass=redis_pass, **kwargs)
+                         redis_port=redis_port, redis_pass=redis_pass, **kwargs)
         if docker_client:
             self.docker_client = docker_client
             self.api_client = api_client
@@ -110,22 +86,9 @@ class QueMonitor(RedisBacked):
         #the env the stack the module is running in (or from the docker API???
         # self.keyname_prefix = "nwm-master" #FIXME parameterize
         self.keyname_prefix = "nwm-monitor" #FIXME parameterize
-        self.create_resources()
-        self.set_prefix()
-
-    def set_prefix(self):
-        """
-        Set the prefix for a set of Redis key names to start
-        """
-        keynamehelper.set_prefix(self.keyname_prefix)
-
-    def create_resources(self):
-        """ Create resource from the array of passed resource details"""
-        e_set_key = keynamehelper.create_key_name("resources")
-        for resource in resources:
-            e_key = keynamehelper.create_key_name("resource", resource['node_id'])
-            self.redis.hmset(e_key, resource)
-            self.redis.sadd(e_set_key, resource['node_id'])
+        self.keynamehelper = KeyNameHelper(self.keyname_prefix, ':')
+        #FIXME if resource is needed must load externally (file, redis, resourceManager)
+        #self.create_resources()
 
     def checkDocker(self):
         """Test that docker is up running"""
@@ -135,6 +98,7 @@ class QueMonitor(RedisBacked):
         except:
             raise ConnectionError("Please check that the Docker Daemon is installed and running.")
 
+    #FIXME share queue with scheduler via redis
     def check_jobQ(self):
         """ Check jobs in the waiting queue """
         print("In que_monitor.check_jobQ, length of jobQ:", len(self._jobQ))
@@ -170,7 +134,7 @@ class QueMonitor(RedisBacked):
         #FIXME Remove an element from the set after appropriate action is performed on the job
         if (ncall == 0):
             runningJobList = []
-
+        service_dict = {} #NJF  bugfix when no services runtime error
         for service in service_list:
             # iterate through entire service list
             service_id = service.id
@@ -247,7 +211,7 @@ class QueMonitor(RedisBacked):
                 service_dict_redis = {"Image": Image_redis, "Name": Name_redis, "HostNode": HostNode, "cpus_alloc": cpus_alloc}
                 runningJobList.append(service_dict)
                 # Taking a snapshot of current running jobs and push it on to Redis
-                s_key = keynamehelper.create_key_name("service", service_name)
+                s_key = self.keynamehelper.create_key_name("service", service_name)
                 # TODO Convert the compound objects in service_dict_redis to byte, string or number before pushing to Redis
                 self.redis.hmset(s_key, service_dict_redis)
                 print("-" * 10)
@@ -693,6 +657,9 @@ class QueMonitor(RedisBacked):
                                 service_dict = job
                                 service = self.resubmit(service_dict, service_name)
 
+    #Since we are using a partitioning scheme with "resource_pool", should limit
+    #this function to only care about the pool a given instance of monitor is
+    #monitoring.
     def get_node_info(self) -> docker.from_env().nodes.list:
         """
         Obtain service node info using Docker API
@@ -720,13 +687,14 @@ class QueMonitor(RedisBacked):
             Addr = list(pn.find('Addr', node_attrs))[0]
             node_dict = {"ID": ID, "HostName": Hostname, "CPUs": CPUs, "MemoryMB": MemoryMB, "State": State, "Addr": Addr}
             nodeList.append(node_dict)
-            n_key = keynamehelper.create_key_name("Node", Hostname)
+            n_key = self.keynamehelper.create_key_name("Node", Hostname)
             self.redis.hmset(n_key, node_dict)
             logging.info("In get_node_info: node_dict = {}".format(node_dict))
         logging.info("-" * 50)
         print("\nIn get_node_info:\nnodeList: ", *nodeList, sep = "\n")
         return nodeList
 
+    #TODO remove
     #FIXME Keep in place for the moment
     #FIXME Some form of variation of this function may be needed for communication with scheduler
     def retrieve_job_metadata(self, user_id: str) -> list:
@@ -750,14 +718,14 @@ class QueMonitor(RedisBacked):
 
         redis = self.redis
         cpusList = []
-        user_key = keynamehelper.create_key_name(user_id)
+        user_key = self.keynamehelper.create_key_name(user_id)
 
         # case for index = 0, the first popped index is necessarily 0
         # lpop and rpush are used to guaranttee that the earlist queued job gets to run first
         req_id = redis.lpop(user_key)
         if (req_id != None):
             print("In retrieve_job_metadata: user_key", user_key, "req_id = ", req_id)
-            req_key = keynamehelper.create_key_name("job_request", req_id)
+            req_key = self.keynamehelper.create_key_name("job_request", req_id)
             cpus_dict = redis.hgetall(req_key)
             cpusList.append(cpus_dict)
             index = cpus_dict['index']             # index = 0
@@ -768,7 +736,7 @@ class QueMonitor(RedisBacked):
         while (req_id != None):                    # previous req_id
             req_id = redis.lpop(user_key)          # new req_id
             if (req_id != None):
-                req_key = keynamehelper.create_key_name("job_request", req_id)
+                req_key = self.keynamehelper.create_key_name("job_request", req_id)
                 cpus_dict = redis.hgetall(req_key)
                 index = cpus_dict['index']         # new index
                 if (int(index) == 0):
@@ -782,22 +750,28 @@ class QueMonitor(RedisBacked):
         return cpusList, user_key
 
     #TODO A better function may be implemented for checking current available rerources
+    #TODO REMOVE/LINK TO RESOURCE MANAGER
     def print_resource_details(self):
         """Print the details of remaining resources after allocating the request """
         print("Resources remaining:")
+        #FIXME this is BROKEN. If resource definitions are needed, they must be externally linked.
+        #I.e. read a resource file or read from redis or use resource manager
         for resource in resources:
-            e_key = keynamehelper.create_key_name("resource", resource['node_id'])
+            e_key = self.keynamehelper.create_key_name("resource", resource['node_id'])
             print("hgetall(e_key): {}".format(self.redis.hgetall(e_key)))
         print("-" * 20)
         print("\n")
 
-if __name__ == "__main__":
-    keynamehelper.set_prefix("nwm-monitor")
-    q = QueMonitor()
+def main():
+    #keynamehelper.set_prefix("nwm-monitor")
+    #FIXME remove main at some point
+    q = QueMonitor("maas", redis_host='localhost',
+    redis_port=19379,
+    redis_pass='***REMOVED***')
+
     client = q.docker_client
     api_client = q.api_client
 
-    time.sleep(30)
     #FIXME check_job_state() should not be called before check_runningJobs() in operational run to save service info
     # before beibg removed from service list
     # service_state_list = q.check_job_state()
@@ -820,7 +794,7 @@ if __name__ == "__main__":
         print("Job name =", job['Name'])
     print("-" * 30, "\n")
 
-    time.sleep(60)
+    #time.sleep(60)
     service_state_list = q.check_job_state()
 
     state_dict = q.build_state_list_reqid_set(service_state_list)
@@ -835,6 +809,9 @@ if __name__ == "__main__":
     # (cpusList, user_key) = q.retrieve_job_metadata("shengting.cui")
 
     #TODO create a function that returns the current availble resources using Redis
-    q.print_resource_details()
+    #q.print_resource_details()
 
     print("end of que_monitor")
+
+if __name__ == "__main__":
+    main()
