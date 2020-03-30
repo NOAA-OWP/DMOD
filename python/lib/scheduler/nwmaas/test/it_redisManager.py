@@ -1,7 +1,7 @@
 import unittest
+import os
 from ..scheduler.resources.redis_manager import RedisManager
 from . import mock_resources
-
 
 class IntegrationTestRedisManager(unittest.TestCase):
     """
@@ -32,10 +32,13 @@ class IntegrationTestRedisManager(unittest.TestCase):
         return count
 
     def setUp(self) -> None:
+        test_pass = os.environ.get('IT_REDIS_CONTAINER_PASS')
+        test_port = os.environ.get('IT_REDIS_CONTAINER_HOST_PORT')
+
         self.resource_manager = RedisManager(resource_pool = 'test_pool',
                                              redis_host='127.0.0.1',
-                                             redis_port=19379,
-                                             redis_pass='***REMOVED***')
+                                             redis_port=test_port,
+                                             redis_pass=test_pass)
         #Set up some intial redis state
         self.redis = self.resource_manager.redis
         self.pool_key = self.resource_manager.resource_pool_key

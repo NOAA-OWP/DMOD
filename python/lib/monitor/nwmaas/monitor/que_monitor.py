@@ -765,9 +765,12 @@ class QueMonitor(RedisBacked):
 def main():
     #keynamehelper.set_prefix("nwm-monitor")
     #FIXME remove main at some point
+    test_pass = os.environ.get('IT_REDIS_CONTAINER_PASS')
+    test_port = os.environ.get('IT_REDIS_CONTAINER_HOST_PORT')
+
     q = QueMonitor("maas", redis_host='localhost',
-    redis_port=19379,
-    redis_pass='***REMOVED***')
+    redis_port=test_port,
+    redis_pass=test_pass)
 
     client = q.docker_client
     api_client = q.api_client

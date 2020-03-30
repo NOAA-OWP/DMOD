@@ -1,6 +1,7 @@
 import datetime
 import time
 import unittest
+import os
 
 from ..access.redis_session_manager import FullAuthSession, RedisBackendSessionManager
 
@@ -43,9 +44,11 @@ class IntegrationTestRedisBackendSessionManager(unittest.TestCase):
                                last_accessed=last_access)
 
     def setUp(self) -> None:
+        test_pass = os.environ.get('IT_REDIS_CONTAINER_PASS')
+        test_port = os.environ.get('IT_REDIS_CONTAINER_HOST_PORT')
         self._session_manager = RedisBackendSessionManager(redis_host='127.0.0.1',
-                                                           redis_port=19379,
-                                                           redis_pass='***REMOVED***')
+                                                           redis_port=test_port,
+                                                           redis_pass=test_pass)
         self._redis_user_1 = 'test_user_1'
         self._redis_user_2 = 'test_user_2'
         self._redis_user_3 = 'test_user_3'
