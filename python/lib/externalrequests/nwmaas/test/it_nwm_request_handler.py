@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import unittest
+import os
 from pathlib import Path
 from nwmaas.access import RedisBackendSessionManager
 from nwmaas.communication import NWMRequest, NWMRequestResponse, SchedulerClient, SchedulerRequestMessage, \
@@ -109,9 +110,12 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         self._session_ip_2 = '127.0.0.3'
         self._session_ip_3 = '127.0.0.4'
 
+        test_pass = os.environ.get('IT_REDIS_CONTAINER_PASS')
+        test_port = os.environ.get('IT_REDIS_CONTAINER_HOST_PORT')
+
         self.session_manager = RedisBackendSessionManager(redis_host='127.0.0.1',
-                                                          redis_port=19379,
-                                                          redis_pass='***REMOVED***')
+                                                          redis_port=test_port,
+                                                          redis_pass=test_pass)
 
         self.fail_authorizer = FailureTestingAuthUtil()
         self.success_authorizer = SucceedTestAuthUtil()
@@ -365,6 +369,3 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         response = asyncio.run(self.handler.handle_request(request=request), debug=True)
         sched_resp = SchedulerRequestResponse.factory_init_from_deserialized_json(response.data['scheduler_response'])
         self.assertFalse(sched_resp.success)
-
-
-
