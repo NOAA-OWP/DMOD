@@ -28,6 +28,9 @@ INTEGRATION_TEST_SETUP_FILE_BASENAME="setup_it_env.sh"
 INTEGRATION_TEST_SETUP_FUNC="do_setup"
 INTEGRATION_TEST_TEARDOWN_FUNC="do_teardown"
 
+# A basename for testing-specific environment file (i.e., like a .env file)
+TEST_ENV_FILE_BASENAME='.test_env'
+
 usage()
 {
     local _O="${NAME:?}:
@@ -205,6 +208,17 @@ find_and_exec_test_files()
     elif [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}" ]; then
         # Source the setup file
         . "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}"
+
+        # Source any global testing env settings
+        if [ -e "${SCRIPT_PARENT_DIR}/${TEST_ENV_FILE_BASENAME}" ]; then
+            . "${SCRIPT_PARENT_DIR}/${TEST_ENV_FILE_BASENAME}"
+        fi
+
+        # Then, source any package-specific testing env settings (which should allow these to override earlier sourced values)
+        if [ -e "${PACKAGE_TEST_DIRECTORY}/${TEST_ENV_FILE_BASENAME}" ]; then
+            . "${PACKAGE_TEST_DIRECTORY}/${TEST_ENV_FILE_BASENAME}"
+        fi
+
         # Then run the setup function
         ${INTEGRATION_TEST_SETUP_FUNC}
         _R=${?}
