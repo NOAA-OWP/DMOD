@@ -4,8 +4,6 @@
 
 Begin by making a local copy of the repository
 `git clone <url_to_repo>`
-For internal development, use
-`git clone ssh://***REMOVED***:/apd_common/nwm_service/repo`
 
 Don't forget to ensure identity is set properly, by default, git doesn't configure e-mail address well!  You can set your machines global policy using
 
