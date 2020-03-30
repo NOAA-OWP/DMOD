@@ -58,7 +58,7 @@ services:
       placement:
         constraints:
           # FIXME find a way to map one worker to each worker node automatically???
-          - ${DOCKER_REQUESTS_DEPLOY_CONSTRAINT_1:-node.hostname==***REMOVED***}
+          - ${DOCKER_REQUESTS_DEPLOY_CONSTRAINT_1:-node.role==manager}
           - ${DOCKER_REQUESTS_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
       replicas: 1
     secrets:
