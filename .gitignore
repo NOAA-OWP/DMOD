@@ -101,3 +101,6 @@ schedulerservice/test/test_scheduler.py_old
 
 *resources.yml
 *.log
+
+# Ignore testing-specific env files
+.test_env
