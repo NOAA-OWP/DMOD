@@ -28,8 +28,7 @@ client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 ssl_dir = current_dir.parent.parent.joinpath('communication', 'ssl')
 localhost_pem = ssl_dir.joinpath('certificate.pem')
 host_name = gethostname()
-# localhost_pem = Path(__file__).resolve().parents[1].joinpath('macbook_ssl', "certificate.pem")
-# host_name = 'localhost'
+
 client_ssl_context.load_verify_locations(localhost_pem)
 server_test = 0
 client_test = 0

@@ -20,8 +20,7 @@ class TestRequestHandler(unittest.TestCase):
     _ssl_dir = _current_dir.parent.parent.joinpath('communication', 'ssl')
     _localhost_pem = _ssl_dir.joinpath('certificate.pem')
     _host_name = gethostname()
-    # _localhost_pem = Path(__file__).resolve().parents[1].joinpath('macbook_ssl', "certificate.pem")
-    # _host_name = 'localhost'
+    
     _client_ssl_context.load_verify_locations(_localhost_pem)
 
     @staticmethod
@@ -50,4 +49,3 @@ class TestRequestHandler(unittest.TestCase):
         pass
 
     # TODO: add implementation-specific/relevant tests
-
