@@ -1,0 +1,8 @@
+## A name for the Docker container used to run a Redis instance during integration testing
+IT_REDIS_CONTAINER_NAME=
+
+## The port-forwarded port on the host machine for the containerized Redis service
+IT_REDIS_CONTAINER_HOST_PORT=
+
+## The containerized Redis service's password
+IT_REDIS_CONTAINER_PASS=
