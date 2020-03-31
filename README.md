@@ -1,9 +1,3 @@
-#### OWP Open Source Project Template Instructions
-
-## Installation
-
-----
-
 # Distributed Model on Demand
 
 **Description**:  Put a meaningful, short, plain-language description of what
