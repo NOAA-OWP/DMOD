@@ -11,3 +11,4 @@ setuptools
 wheel
 Deprecated
 cryptography
+python-dotenv
