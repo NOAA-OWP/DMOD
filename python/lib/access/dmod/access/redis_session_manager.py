@@ -1,4 +1,5 @@
 import datetime
+import logging
 from typing import Optional
 
 from redis.client import Pipeline
@@ -9,6 +10,7 @@ from dmod.redis import RedisBacked
 
 # TODO: add something to periodically scrub sessions due to some expiring criteria
 class RedisBackendSessionManager(SessionManager, RedisBacked):
+    _LOGGER = None
     _SESSION_KEY_PREFIX = 'session:'
     _SESSION_HASH_SUBKEY_SECRET = 'secret'
     _SESSION_HASH_SUBKEY_CREATED = 'created'
@@ -40,6 +42,20 @@ class RedisBackendSessionManager(SessionManager, RedisBacked):
     @classmethod
     def get_key_for_session_by_id(cls, session_id):
         return cls.get_session_key_prefix() + str(session_id)
+
+    @classmethod
+    def get_log_file_name(cls):
+        return 'redis_backend_session_manager.log'
+
+    @classmethod
+    def get_logger(cls):
+        if cls._LOGGER is None:
+            logger = logging.getLogger(cls.__name__)
+            logger.setLevel(logging.DEBUG)
+            logger.addHandler(logging.FileHandler(filename=cls.get_log_file_name()))
+            cls._LOGGER = logger
+        return cls._LOGGER
+
 
     @classmethod
     def get_session_key_prefix(cls):
@@ -137,6 +153,9 @@ class RedisBackendSessionManager(SessionManager, RedisBacked):
                 pipeline.hset(self._all_users_hash_key, session.user, session.session_id)
 
             pipeline.execute()
+        except Exception as e:
+            self.get_logger().error('Encountered {} instance: {}'.format(e.__class__.__name__, str(e)))
+            raise e
         finally:
             if check_next_id:
                 pipeline.unwatch()
