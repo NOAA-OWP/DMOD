@@ -198,6 +198,22 @@ exec_test_files()
     fi
 }
 
+source_it_env_and_funcs()
+{
+    # Source the setup file
+    . "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}"
+
+    # Source any global testing env settings
+    if [ -e "${PROJECT_ROOT}/${TEST_ENV_FILE_BASENAME}" ]; then
+        . "${PROJECT_ROOT}/${TEST_ENV_FILE_BASENAME}"
+    fi
+
+    # Then, source any package-specific testing env settings (which should allow these to override earlier sourced values)
+    if [ -e "${PACKAGE_TEST_DIRECTORY}/${TEST_ENV_FILE_BASENAME}" ]; then
+        . "${PACKAGE_TEST_DIRECTORY}/${TEST_ENV_FILE_BASENAME}"
+    fi
+}
+
 find_and_exec_test_files()
 {
     # Unit testing
@@ -206,19 +222,8 @@ find_and_exec_test_files()
         return ${?}
     # Integration testing, with existing setup file in directory
     elif [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}" ]; then
-        # Source the setup file
-        . "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}"
-
-        # Source any global testing env settings
-        if [ -e "${SCRIPT_PARENT_DIR}/${TEST_ENV_FILE_BASENAME}" ]; then
-            . "${SCRIPT_PARENT_DIR}/${TEST_ENV_FILE_BASENAME}"
-        fi
-
-        # Then, source any package-specific testing env settings (which should allow these to override earlier sourced values)
-        if [ -e "${PACKAGE_TEST_DIRECTORY}/${TEST_ENV_FILE_BASENAME}" ]; then
-            . "${PACKAGE_TEST_DIRECTORY}/${TEST_ENV_FILE_BASENAME}"
-        fi
-
+        # Source the setup file and env
+        source_it_env_and_funcs
         # Then run the setup function
         ${INTEGRATION_TEST_SETUP_FUNC}
         _R=${?}
@@ -244,13 +249,13 @@ find_and_exec_test_files()
 echo "==========================================================================="
 
 if [ "${DO_SETUP_IT}" = "true" ]; then
-    # Source the setup file
-    . "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}"
+    # Source the setup file and env
+    source_it_env_and_funcs
     # Then run the setup function
     ${INTEGRATION_TEST_SETUP_FUNC}
 elif [ "${DO_TEARDOWN_IT}" = "true" ]; then
-    # Source the setup file
-    . "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}"
+    # Source the setup file and env
+    source_it_env_and_funcs
     # Then run the teardown function
     ${INTEGRATION_TEST_TEARDOWN_FUNC}
 elif [ "${TEST_FILE_PATTERN}" == "both" ]; then
