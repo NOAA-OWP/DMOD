@@ -1,7 +1,7 @@
 # problem using the current registry (127.0.0.1:5000), apparently due to the ':'
 # which Docker thinks is an invalid --from value in the multi-stage copy step
 ARG docker_internal_registry
-FROM ${docker_internal_registry}/nwmaas-py-sources as sources
+FROM ${docker_internal_registry}/dmod-py-sources as sources
 
 FROM python:3.7-alpine
 ARG comms_package_name
@@ -15,7 +15,7 @@ COPY ./entrypoint.sh entrypoint.sh
 # Copy custom built packages from external sources image
 COPY --from=sources /DIST /DIST
 #COPY --chown=mpi:mpi conf/redis.conf /usr/local/etc/redis/redis.conf
-#COPY --chown=mpi:mpi nwmaas/scheduler/image_and_domain.yaml /nwm/
+#COPY --chown=mpi:mpi dmod/scheduler/image_and_domain.yaml /nwm/
 COPY ./image_and_domain.yaml /nwm/
 
 RUN apk update \

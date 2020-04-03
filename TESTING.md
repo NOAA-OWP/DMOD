@@ -8,11 +8,11 @@ As such, if you know what you are doing, they aren't necessarily set in stone, b
 
 ### Test Packages
 
-For namespace packages, automated unit and integration test files live in a `test` package/directory under the parent namespace directory (i.e., `nwmaas/`).  This will be a sibling to the main package source directory. Something like:
+For namespace packages, automated unit and integration test files live in a `test` package/directory under the parent namespace directory (i.e., `dmod/`).  This will be a sibling to the main package source directory. Something like:
 
     lib/
         access/
-            nwmaas/
+            dmod/
                 access/
                 test/
 

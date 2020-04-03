@@ -1,7 +1,7 @@
 # problem using the current registry (127.0.0.1:5000), apparently due to the ':'
 # which Docker thinks is an invalid --from value in the multi-stage copy step
 ARG docker_internal_registry
-FROM ${docker_internal_registry}/nwmaas-py-sources as sources
+FROM ${docker_internal_registry}/dmod-py-sources as sources
 
 FROM python:3.7-alpine
 ARG comms_package_name

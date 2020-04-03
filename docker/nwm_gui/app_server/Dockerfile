@@ -2,11 +2,11 @@
 # problem using the current registry (127.0.0.1:5000), apparently due to the ':'
 # which Docker thinks is an invalid --from value in the multi-stage copy step
 ARG docker_internal_registry
-FROM ${docker_internal_registry}/nwmaas-py-sources as sources
+FROM ${docker_internal_registry}/dmod-py-sources as sources
 
 FROM python:3.8-slim
 # Slurp (or set default) wheel package name ...
-ARG comms_package_name=nwmaas-communication
+ARG comms_package_name=dmod-communication
 # Copy custom built packages from external sources image
 COPY --from=sources /DIST /DIST
 RUN pip install --upgrade --find-links=/DIST ${comms_package_name} \

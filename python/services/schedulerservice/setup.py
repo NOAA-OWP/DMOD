@@ -3,10 +3,10 @@ from setuptools import setup, find_namespace_packages
 with open('README.md', 'r') as readme:
     long_description = readme.read()
 
-exec(open('nwmaas/schedulerservice/_version.py').read())
+exec(open('dmod/schedulerservice/_version.py').read())
 
 setup(
-    name='nwmaas-schedulerservice',
+    name='dmod-schedulerservice',
     version=__version__,
     description='',
     long_description=long_description,
@@ -14,6 +14,6 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=['docker', 'redis', 'Faker', 'pyyaml', 'nwmaas-scheduler>=0.1.0'],
+    install_requires=['docker', 'redis', 'Faker', 'pyyaml', 'dmod-scheduler>=0.1.0'],
     packages=find_namespace_packages(exclude=('tests', 'test', 'deprecated', 'conf', 'schemas', 'ssl', 'src'))
 )

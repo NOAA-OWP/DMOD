@@ -2,7 +2,7 @@ version: "3.7"
 
 services:
   py-sources:
-    image: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/nwmaas-py-sources
+    image: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/dmod-py-sources
     build:
       context: ../../
       dockerfile: ./docker/py_sources/py_sources.Dockerfile

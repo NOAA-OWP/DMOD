@@ -1,4 +1,4 @@
 /build/
 /dist/
 /*.egg-info/
-/nwmaas/test/ssl/*.pem
+/dmod/test/ssl/*.pem

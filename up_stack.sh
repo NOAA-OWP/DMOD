@@ -12,7 +12,7 @@ usage()
 {
     local _O="${NAME}
     Wrapper script for a series of calls to ${CONTROL_SCRIPT} to perform steps to
-    start or stop a local NWMaaS environment.
+    start or stop a local DMoD environment.
 
 Usage:
     ${NAME} [opts]
