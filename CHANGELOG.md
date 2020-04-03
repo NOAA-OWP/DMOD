@@ -12,6 +12,7 @@ Public code release.
 ### Added
 
 Services
+Moved to dmod namespace.
 * monitorservice
 * requestservice
 * schedulerservice
@@ -24,6 +25,29 @@ Moved to dmod namespace, reset all library versions for new namespace.
 * monitor 0.1.0
 * redis 0.1.0
 * scheduler 0.1.0
+
+Docker
+* dev_registry_stack
+  - An ad-hoc docker registry which can be used in development
+* main
+  Contains the main docker configurations/files for the core services
+  - base
+  - monitorservice
+  - myredis
+  - nwm
+  - requestservices
+  - schedulerservice
+
+* nwm_gui
+  - A DMoD client web interface
+* py_sources
+  - Intermediate build source for the python sources in DMOD/PYTHON
+
+Scripts
+* secrets
+  - Initial git secrets setup and provider
+* shared
+* Testing and utility scripts
 
 ### Deprecated
 
