@@ -3,10 +3,10 @@ from setuptools import setup, find_namespace_packages
 with open('README.md', 'r') as readme:
     long_description = readme.read()
 
-exec(open('nwmaas/requestservice/_version.py').read())
+exec(open('dmod/requestservice/_version.py').read())
 
 setup(
-    name='nwmaas-requestservice',
+    name='dmod-requestservice',
     version=__version__,
     description='',
     long_description=long_description,
@@ -14,7 +14,7 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=['websockets', 'nwmaas-communication>=0.2.0', 'nwmaas-access>=0.1.0',
-                      'nwmaas-externalrequests>=0.1.0'],
+    install_requires=['websockets', 'dmod-communication>=0.2.0', 'dmod-access>=0.1.0',
+                      'dmod-externalrequests>=0.1.0'],
     packages=find_namespace_packages(exclude=('tests', 'schemas', 'ssl', 'src'))
 )

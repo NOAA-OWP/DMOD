@@ -3,10 +3,10 @@ from setuptools import setup, find_namespace_packages
 with open('README.md', 'r') as readme:
     long_description = readme.read()
 
-exec(open('nwmaas/monitorservice/_version.py').read())
+exec(open('dmod/monitorservice/_version.py').read())
 
 setup(
-    name='nwmaas-monitorservice',
+    name='dmod-monitorservice',
     version=__version__,
     description='',
     long_description=long_description,

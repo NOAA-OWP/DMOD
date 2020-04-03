@@ -12,4 +12,4 @@ six==1.12.0
 sqlparse==0.3.0
 urllib3==1.25.6
 websockets
-nwmaas-communication>=0.2.0
+dmod-communication>=0.2.0

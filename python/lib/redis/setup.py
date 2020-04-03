@@ -6,10 +6,10 @@ try:
 except:
     long_description = ''
 
-exec(open('nwmaas/redis/_version.py').read())
+exec(open('dmod/redis/_version.py').read())
 
 setup(
-    name='nwmaas-redis',
+    name='dmod-redis',
     version=__version__,
     description='Library package with utility classes and functions commonly used Redis operations',
     long_description=long_description,
