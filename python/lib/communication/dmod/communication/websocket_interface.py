@@ -72,7 +72,11 @@ class WebSocketInterface(ABC):
         return asyncio.get_event_loop()
 
     def __del__(self):
-        asyncio.run(self.shutdown())
+        try:
+            asyncio.run(self.shutdown())
+        except Exception as e:
+            pass
+
 
     def __init__(self, listen_host='', port=3012, ssl_dir=None, cert_pem=None, priv_key_pem=None):
         """
