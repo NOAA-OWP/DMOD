@@ -262,6 +262,15 @@ class Resource(AbstractProcessingResource):
                 return val
         return None
 
+    def __eq__(self, other):
+        if not isinstance(other, Resource):
+            return super().__eq__(other)
+        else:
+            return self.resource_id == other.resource_id and self.hostname == other.hostname \
+                   and self.availability == other.availability and self.state == other.state \
+                   and self.cpu_count == other.cpu_count and self.memory == other.memory \
+                   and self.total_cpu_count == other.total_cpu_count and self.total_memory == other.total_memory
+
     def __init__(self, resource_id: str, hostname: str, availability: Union[str, ResourceAvailability],
                  state: Union[str, ResourceState], cpu_count: int, memory: int, total_cpu_count: Optional[int],
                  total_memory: Optional[int]):
