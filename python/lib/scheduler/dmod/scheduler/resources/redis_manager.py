@@ -26,8 +26,9 @@ class RedisManager(ResourceManager, RedisBacked):
 
     def __init__(self, resource_pool: str, redis_host: Optional[str] = None, redis_port: Optional[int] = None,
                  redis_pass: Optional[str] = None, **kwargs):
-        super().__init__(resource_pool=resource_pool, redis_host=redis_host, redis_port=redis_port,
-                         redis_pass=redis_pass, **kwargs)
+        super().__init__(redis_host=redis_host, redis_port=redis_port, redis_pass=redis_pass, **kwargs)
+        self.resource_pool = resource_pool
+        self.resource_pool_key = self.keynamehelper.create_key_name("resource_pool", self.resource_pool)
 
     def add_resource(self, resource: Resource, resource_pool_key: Optional[str] = None):
         """
