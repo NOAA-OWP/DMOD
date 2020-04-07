@@ -74,7 +74,8 @@ class RedisManager(ResourceManager, RedisBacked):
             A list of all managed resource objects.
         """
         for resource_id in self.get_resource_ids():
-            yield Resource.factory_init_from_dict(self.redis.hgetall(resource_id))
+            yield Resource.factory_init_from_dict(
+                self.redis.hgetall(Resource.generate_unique_id(resource_id, self.keynamehelper.separator)))
 
     def get_resource_ids(self) -> List[Union[str, int]]:
         """
