@@ -1,1 +1,1 @@
-from ..test.utils import EmptyResourceManager, MockResourceManager, mock_resources
+from .utils import EmptyResourceManager, MockResourceManager, mock_resources

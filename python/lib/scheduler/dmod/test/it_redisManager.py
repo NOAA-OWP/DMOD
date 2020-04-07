@@ -1,13 +1,106 @@
 import unittest
 import os
+from dotenv import load_dotenv
+from pathlib import Path
+from typing import Optional
 from ..scheduler.resources.redis_manager import RedisManager
+from ..scheduler.resources.resource import Resource
+from ..scheduler.resources.resource_allocation import ResourceAllocation
 from . import mock_resources
+
 
 class IntegrationTestRedisManager(unittest.TestCase):
     """
         Tests of the redis implementation of the abstract ResourceManager Interface
         Tests some additional functions not in the interface but found in the RedisManager
     """
+
+    _TEST_ENV_FILE_BASENAME = ".test_env"
+
+    @classmethod
+    def find_project_root_directory(cls, current_directory: Optional[Path]) -> Optional[Path]:
+        """
+        Given a directory (with ``None`` implying the current directory) assumed to be at or under this project's root,
+        find the project root directory.
+
+        This implementation attempts to find a directory having both a ``.git/`` child directory and a ``.env`` file.
+
+        Parameters
+        ----------
+        current_directory
+
+        Returns
+        -------
+        Optional[Path]
+            The project root directory, or ``None`` if it fails to find it.
+        """
+        abs_root = Path(current_directory.absolute().root)
+        while current_directory.absolute() != abs_root:
+            if not current_directory.is_dir():
+                current_directory = current_directory.parent
+                continue
+            git_sub_dir = current_directory.joinpath('.git')
+            child_env_file = current_directory.joinpath('.env')
+            if git_sub_dir.exists() and git_sub_dir.is_dir() and child_env_file.exists() and child_env_file.is_file():
+                return current_directory
+            current_directory = current_directory.parent
+        return None
+
+    @classmethod
+    def source_env_files(cls, env_file_basename: str):
+        current_dir = Path().absolute()
+
+        # Find the global .test_env file from project root, and source
+        proj_root = cls.find_project_root_directory(current_dir)
+        if proj_root is not None:
+            global_test_env = proj_root.joinpath(env_file_basename)
+            if global_test_env.exists():
+                load_dotenv(dotenv_path=str(global_test_env.absolute()))
+
+        # Find any .test_env files beneath this directory, sourcing them as we go
+        glob_search_list = list()
+        for f in current_dir.glob('**/' + env_file_basename):
+            if f.parent != proj_root:
+                glob_search_list.append(f)
+
+        if len(glob_search_list) == 0:
+            return
+        elif len(glob_search_list) > 1:
+            raise RuntimeError("Multiple {} found in package: {}".format(env_file_basename, str(glob_search_list)))
+
+        test_env = glob_search_list[0]
+
+        # Also, the parent directory must be 'test'/
+        if test_env.absolute().parent.name != 'test':
+            raise RuntimeError("Found {} in unexpected directory".format(str(test_env)))
+        else:
+            load_dotenv(dotenv_path=str(test_env.absolute()))
+
+    @classmethod
+    def source_env_property(cls, env_var_name: str):
+        value = os.getenv(env_var_name, None)
+        if value is None:
+            cls.source_env_files(cls._TEST_ENV_FILE_BASENAME)
+            value = os.getenv(env_var_name, None)
+        return value
+
+    def __init__(self, methodName='runTest'):
+        super().__init__(methodName=methodName)
+        self._redis_test_pass = None
+        self._redis_test_port = None
+
+    @property
+    def redis_test_pass(self):
+        if not self._redis_test_pass:
+            self._redis_test_pass = self.source_env_property('IT_REDIS_CONTAINER_PASS')
+        return self._redis_test_pass
+
+    @property
+    def redis_test_port(self):
+        if not self._redis_test_port:
+            self._redis_test_port = self.source_env_property('IT_REDIS_CONTAINER_HOST_PORT')
+        return self._redis_test_port
+
     def dict_values_to_string(self, dict):
         """
             Helper function that converts all dict values to string
@@ -32,39 +125,86 @@ class IntegrationTestRedisManager(unittest.TestCase):
         return count
 
     def setUp(self) -> None:
-        test_pass = os.environ.get('IT_REDIS_CONTAINER_PASS')
-        test_port = os.environ.get('IT_REDIS_CONTAINER_HOST_PORT')
-
-        self.resource_manager = RedisManager(resource_pool = 'test_pool',
+        self.resource_manager = RedisManager(resource_pool='test_pool',
                                              redis_host='127.0.0.1',
-                                             redis_port=test_port,
-                                             redis_pass=test_pass)
+                                             redis_port=self.redis_test_port,
+                                             redis_pass=self.redis_test_pass)
         #Set up some intial redis state
         self.redis = self.resource_manager.redis
         self.pool_key = self.resource_manager.resource_pool_key
-        self.mock_resources = mock_resources()
         self.clear_redis()
+        self.mock_resources = mock_resources()
 
     def tearDown(self) -> None:
         pass
+
+    def _make_resource_allocation(self, mock_index: int, cpus_remaining: Optional[int], partial: bool = False,
+                                  skip_add_resource: bool = False) -> tuple:
+        """
+        Add the mock resource from the ::attr:`mock_resources` list at the given index to ::attr:`resource_manager` and
+        then create an allocation, requesting an amount of CPUs relative to the total such that the provided number of
+        CPUs remain unused.
+
+        The number of CPUs to request in the allocation is controlled by the ``cpus_remaining`` parameter.  The basic
+        idea is that this is the number of CPUs that should remain available in the ::class:`Resource` after the
+        allocation, assuming there were zero allocated to start with.  This is extended by the use of negative argument
+        values to imply that the requested number of CPUs for the allocation is larger than total available, which
+        may or may not be allowed.  Regardless, the number of requested CPUs for the allocation is determined by
+        subtracting the argument from the total number of CPUs for the resource.
+
+        Additionally, ``cpus_remaining`` can be set to ``None`` to indicate the CPU count for the allocation is ``0``.
+        While not valid, this is useful for testing.
+
+        Note that the returned ::class:`Resource` object is the mock object, not the deserialized object retrieved from
+        the Redis instance, and thus reflecting the current state of the resource after allocation has been performed.
+
+        Parameters
+        ----------
+        mock_index : int
+            The index within ::attr:`mock_resources` of the mock resource to work with.
+
+        cpus_remaining : Optional[int]
+            A relative representation of the amount of CPUs to allocate, where the requested number is the total number
+            of CPUs for the ::class:`Resource` minus this amount (yielding over-allocation for negative numbers), or
+            ``0`` if the value is ``None``.
+
+        partial : bool
+            Whether during the allocation step a partial allocation should be allowed, which by default is ``False``.
+
+        skip_add_resource : bool
+            Whether to skip the step of adding the mock resource to the resource manager (i.e., because it has already
+            been added), which by default is set to `False`.
+
+        Returns
+        -------
+        tuple
+            A tuple of size 3, containing the selected mock resource from ::attr:`mock_resources`, EITHER the
+            ::class:`ResourceAllocation` object for the allocation OR the encountered exception during allocation
+            failure, and the calculated number of requested CPUs for the allocation.
+
+        """
+        resource = self.mock_resources[mock_index]
+        if not skip_add_resource:
+            self.resource_manager.add_resource(resource, self.pool_key)
+        requested_cpu_count = 0 if cpus_remaining is None else resource.total_cpu_count - cpus_remaining
+        try:
+            allocation = self.resource_manager.allocate_resource(resource.resource_id, requested_cpu_count,
+                                                                 partial=partial)
+        except Exception as e:
+            allocation = e
+        return resource, allocation, requested_cpu_count
 
     def test_add_resource_1(self):
         """
             Test that a single well formed resource is correctly added to the redis store
         """
-        key = '{}:meta:{}'.format( self.pool_key, self.mock_resources[0]['node_id'] )
-        #print("TESTING -- KEY: {}".format(key))
+        test_resource = self.mock_resources[0]
         self.resource_manager.add_resource(self.mock_resources[0], self.pool_key)
-        validate = self.redis.hgetall(key)
+        retrieved_hash = self.redis.hgetall(test_resource.unique_id)
+        looked_up_resource = Resource.factory_init_from_dict(retrieved_hash)
 
-        self.assertDictEqual(self.dict_values_to_string( self.mock_resources[0] ), validate)
-        self.assertTrue( self.redis.sismember(self.pool_key, self.mock_resources[0]['node_id']))
-
-    def test_add_resource_1_a(self):
-        """
-            Test adding an empty resource
-        """
-        self.assertRaises(KeyError, self.resource_manager.add_resource, {}, self.pool_key)
+        self.assertEqual(test_resource, looked_up_resource)
+        self.assertTrue(self.redis.sismember(self.pool_key, self.mock_resources[0].unique_id))
 
     def test_add_resource_2(self):
         """
@@ -108,228 +248,198 @@ class IntegrationTestRedisManager(unittest.TestCase):
         """
             Test full allocation of single resource
         """
-        self.resource_manager.add_resource(self.mock_resources[0], self.pool_key)
+        mock_resource_index = 0
+        # How many cpus to leave free, assuming none currently allocated
+        cpus_left_free = 0
+        resource, allocation, requested_cpu_count = self._make_resource_allocation(mock_resource_index, cpus_left_free)
 
-        resource_id = self.mock_resources[0]['node_id']
-        cpus = self.mock_resources[0]['CPUs']
-        allocation = self.resource_manager.allocate_resource(resource_id, cpus)
+        looked_up_resource = Resource.factory_init_from_dict(self.redis.hgetall(resource.unique_id))
 
         #Verify the allocation
         self.assertTrue(allocation) #Test for non-empty
-        self.assertEqual(cpus, allocation['cpus_allocated'])
+        self.assertEqual(requested_cpu_count, allocation.cpu_count)
+
         #Verify the redis state for the resource
-        key = '{}:meta:{}'.format( self.pool_key, resource_id)
-        #print("TEST ALLOCATE RESOURCE -- KEY {}".format(key))
-        validate = self.redis.hget(key, 'CPUs')
-        self.assertEqual(0, int(validate))
+        self.assertEqual(cpus_left_free, looked_up_resource.cpu_count)
 
     def test_allocate_resource_1_a(self):
         """
             Test partial allocation of single resource
         """
-        self.resource_manager.add_resource(self.mock_resources[0], self.pool_key)
-
-        resource_id = self.mock_resources[0]['node_id']
-        cpus = self.mock_resources[0]['CPUs'] - 2
-        allocation = self.resource_manager.allocate_resource(resource_id, cpus)
+        mock_resource_index = 0
+        # How many cpus to leave free, assuming none currently allocated
+        cpus_left_free = 2
+        resource, allocation, requested_cpu_count = self._make_resource_allocation(mock_resource_index, cpus_left_free)
 
         #Verify the allocation
         self.assertTrue(allocation) #Test for non-empty
-        self.assertEqual(cpus, allocation['cpus_allocated'])
+        self.assertEqual(requested_cpu_count, allocation.cpu_count)
+
         #Verify the redis state for the resource
-        key = '{}:meta:{}'.format( self.pool_key, resource_id)
-        #print("TEST ALLOCATE RESOURCE -- KEY {}".format(key))
-        validate = self.redis.hget(key, 'CPUs')
-        self.assertEqual(self.mock_resources[0]['CPUs'] - cpus, int(validate))
+        looked_up_resource = Resource.factory_init_from_dict(self.redis.hgetall(resource.unique_id))
+        self.assertEqual(cpus_left_free, looked_up_resource.cpu_count)
 
     def test_allocate_resource_1_b(self):
         """
             Test over allocation of single resource when partial = False
         """
-        self.resource_manager.add_resource(self.mock_resources[0], self.pool_key)
+        mock_resource_index = 0
+        # How many cpus to leave free, assuming none currently allocated (here, allocating one more than supported)
+        cpus_left_free = -1
+        resource, allocation, requested_cpu_count = self._make_resource_allocation(mock_resource_index, cpus_left_free)
 
-        resource_id = self.mock_resources[0]['node_id']
-        cpus = self.mock_resources[0]['CPUs'] + 1
-        allocation = self.resource_manager.allocate_resource(resource_id, cpus)
-
-        #Verify the allocation
-        self.assertFalse(allocation) #Test for empty allocation
-        #Verify the redis state for the resource
-        key = '{}:meta:{}'.format( self.pool_key, resource_id)
-        #print("TEST ALLOCATE RESOURCE -- KEY {}".format(key))
-        validate = self.redis.hget(key, 'CPUs')
-        self.assertEqual(self.mock_resources[0]['CPUs'], int(validate))
+        #V erify the resource still has the total number of CPUs
+        looked_up_resource = Resource.factory_init_from_dict(self.redis.hgetall(resource.unique_id))
+        self.assertEqual(looked_up_resource.cpu_count, looked_up_resource.total_cpu_count)
 
     def test_allocate_resource_1_c(self):
         """
             Test invalid allocation of single resource
         """
-        self.resource_manager.add_resource(self.mock_resources[0], self.pool_key)
+        mock_resource_index = 0
+        # How many cpus to leave free, assuming none currently allocated (here, None means don't allocate any)
+        cpus_left_free = None
+        resource, allocation, requested_cpu_count = self._make_resource_allocation(mock_resource_index, cpus_left_free)
 
-        resource_id = self.mock_resources[0]['node_id']
-        cpus = 0
-        allocation = self.resource_manager.allocate_resource(resource_id, cpus)
+        # This should fail, so the returned 'allocation' should be an exception object (specifically a ValueError)
+        self.assertFalse(isinstance(allocation, ResourceAllocation))
+        self.assertTrue(isinstance(allocation, ValueError))
 
-        #Verify the allocation
-        self.assertFalse(allocation) #Test for empty allocation
-        #Verify the redis state for the resource
-        key = '{}:meta:{}'.format( self.pool_key, resource_id)
-        #print("TEST ALLOCATE RESOURCE -- KEY {}".format(key))
-        validate = self.redis.hget(key, 'CPUs')
-        self.assertEqual(self.mock_resources[0]['CPUs'], int(validate))
+        # Verify the resource still has the total number of CPUs
+        looked_up_resource = Resource.factory_init_from_dict(self.redis.hgetall(resource.unique_id))
+        self.assertEqual(looked_up_resource.cpu_count, looked_up_resource.total_cpu_count)
 
     def test_allocate_resource_1_d(self):
         """
             Test over allocation of exhausted resource
         """
-        self.mock_resources[0]['CPUs'] = 0
+        mock_resource_index = 0
+        # How many cpus to leave free, assuming none currently allocated (here, None means don't allocate any)
+        cpus_left_free = 0
+        resource, allocation, requested_cpu_count = self._make_resource_allocation(mock_resource_index, cpus_left_free)
 
-        self.resource_manager.add_resource(self.mock_resources[0], self.pool_key)
+        # Verify the allocation
+        self.assertTrue(isinstance(allocation, ResourceAllocation))
 
-        resource_id = self.mock_resources[0]['node_id']
-        cpus = 5
-        allocation = self.resource_manager.allocate_resource(resource_id, cpus)
-
-        #Verify the allocation
-        self.assertFalse(allocation) #Test forempty allocation
-
-        #Verify the redis state for the resource
-        key = '{}:meta:{}'.format( self.pool_key, resource_id)
-        #print("TEST ALLOCATE RESOURCE -- KEY {}".format(key))
-        validate = self.redis.hget(key, 'CPUs')
-        self.assertEqual(0, int(validate))
+        # Verify the redis state for the resource
+        looked_up_resource = Resource.factory_init_from_dict(self.redis.hgetall(resource.unique_id))
+        self.assertEqual(looked_up_resource.cpu_count, cpus_left_free)
 
     def test_allocate_resource_2(self):
         """
             Test full allocation of multiple resource using partial = True
         """
+
+        mock_resource_index_1 = 0
+        mock_resource_index_2 = 1
         self.resource_manager.set_resources(self.mock_resources[0:2])
 
-        resource_id_1 = self.mock_resources[0]['node_id']
-        resource_id_2 = self.mock_resources[1]['node_id']
-        cpus = self.mock_resources[0]['CPUs'] + self.mock_resources[1]['CPUs']
-        allocation1 = self.resource_manager.allocate_resource(resource_id_1, cpus, partial=True)
-        remainin_cpus = cpus - allocation1['cpus_allocated']
-        #Verify the allocation for first resource
-        self.assertTrue(allocation1) #Test for non-empty
-        self.assertEqual(5, allocation1['cpus_allocated'])
+        resource_1 = self.mock_resources[mock_resource_index_1]
+        resource_2 = self.mock_resources[mock_resource_index_2]
 
-        allocation2 = self.resource_manager.allocate_resource(resource_id_2, cpus, partial=True)
-        #Verify the allocation for second resource
-        self.assertTrue(allocation2) #Test for non-empty
-        self.assertEqual(self.mock_resources[1]['CPUs'], allocation2['cpus_allocated'])
+        cpus = resource_1.cpu_count + resource_2.cpu_count
 
-        #Verify the redis state for the resource
-        key = '{}:meta:{}'.format( self.pool_key, resource_id_1)
-        #print("TEST ALLOCATE RESOURCE -- KEY {}".format(key))
-        validate = self.redis.hget(key, 'CPUs')
-        self.assertEqual(0, int(validate))
+        allocation_1 = self.resource_manager.allocate_resource(resource_1.resource_id, cpus, partial=True)
 
-        key = '{}:meta:{}'.format( self.pool_key, resource_id_2)
-        #print("TEST ALLOCATE RESOURCE -- KEY {}".format(key))
-        validate = self.redis.hget(key, 'CPUs')
-        self.assertEqual(0, int(validate))
+        # Verify the allocation for first resource
+        self.assertTrue(isinstance(allocation_1, ResourceAllocation))
+        self.assertEqual(resource_1.total_cpu_count, allocation_1.cpu_count)
+
+        remaining_cpus = cpus - allocation_1.cpu_count
+        allocation_2 = self.resource_manager.allocate_resource(resource_2.resource_id, cpus, partial=True)
+
+        # Verify the allocation for second resource
+        self.assertTrue(isinstance(allocation_2, ResourceAllocation))
+        self.assertEqual(remaining_cpus, allocation_2.cpu_count)
+
+        # Verify the redis state for the resources
+        looked_up_resource_1 = Resource.factory_init_from_dict(self.redis.hgetall(resource_1.unique_id))
+        looked_up_resource_2 = Resource.factory_init_from_dict(self.redis.hgetall(resource_2.unique_id))
+        # Should be 0 left in both if total needed was total between the two
+        self.assertEqual(0, looked_up_resource_1.cpu_count)
+        self.assertEqual(0, looked_up_resource_2.cpu_count)
 
     def test_allocate_resource_2_a(self):
         """
             Test partial allocation of single resource using partial = True
         """
-        self.resource_manager.add_resource(self.mock_resources[0], self.pool_key)
+        mock_resource_index = 0
+        # How many cpus to leave free, assuming none currently allocated
+        cpus_left_free = 2
+        resource, allocation, requested_cpu_count = self._make_resource_allocation(mock_resource_index, cpus_left_free,
+                                                                                   partial=True)
+        # Verify the allocation
+        self.assertTrue(isinstance(allocation, ResourceAllocation))
+        self.assertEqual(requested_cpu_count, allocation.cpu_count)
 
-        resource_id = self.mock_resources[0]['node_id']
-        cpus = self.mock_resources[0]['CPUs'] - 2
-        allocation = self.resource_manager.allocate_resource(resource_id, cpus, partial=True)
-
-        #Verify the allocation
-        self.assertTrue(allocation) #Test for non-empty
-        self.assertEqual(cpus, allocation['cpus_allocated'])
-        #Verify the redis state for the resource
-        key = '{}:meta:{}'.format( self.pool_key, resource_id)
-        #print("TEST ALLOCATE RESOURCE -- KEY {}".format(key))
-        validate = self.redis.hget(key, 'CPUs')
-        self.assertEqual(self.mock_resources[0]['CPUs'] - cpus, int(validate))
+        # Verify the redis state for the resource
+        looked_up_resource = Resource.factory_init_from_dict(self.redis.hgetall(resource.unique_id))
+        self.assertEqual(looked_up_resource.cpu_count, cpus_left_free)
 
     def test_allocate_resource_2_b(self):
         """
             Test over allocation of single resource when partial = True
         """
-        self.resource_manager.add_resource(self.mock_resources[0], self.pool_key)
-
-        resource_id = self.mock_resources[0]['node_id']
-        cpus = self.mock_resources[0]['CPUs'] + 1
-        allocation = self.resource_manager.allocate_resource(resource_id, cpus, partial=True)
-
-        #Verify the allocation
-        self.assertTrue(allocation) #Test for non-empty allocation
-        self.assertEqual(self.mock_resources[0]['CPUs'], allocation['cpus_allocated'])
-
-        #Verify the redis state for the resource
-        key = '{}:meta:{}'.format( self.pool_key, resource_id)
-        #print("TEST ALLOCATE RESOURCE -- KEY {}".format(key))
-        validate = self.redis.hget(key, 'CPUs')
-        self.assertEqual(0, int(validate))
+        mock_resource_index = 0
+        # How many cpus to leave free, assuming none currently allocated
+        cpus_left_free = -1
+        resource, allocation, requested_cpu_count = self._make_resource_allocation(mock_resource_index, cpus_left_free,
+                                                                                   partial=True)
+        # Verify the allocation
+        self.assertTrue(isinstance(allocation, ResourceAllocation))
+        looked_up_resource = Resource.factory_init_from_dict(self.redis.hgetall(resource.unique_id))
+        self.assertEqual(looked_up_resource.total_cpu_count, allocation.cpu_count)
+        self.assertEqual(0, looked_up_resource.cpu_count)
 
     def test_allocate_resource_2_c(self):
         """
             Test invalid allocation of single resource when partial = True
         """
-        self.resource_manager.add_resource(self.mock_resources[0], self.pool_key)
-
-        resource_id = self.mock_resources[0]['node_id']
-        cpus = 0
-        allocation = self.resource_manager.allocate_resource(resource_id, cpus, partial=True)
-
-        #Verify the allocation
-        self.assertFalse(allocation) #Test for empty allocation
-        #Verify the redis state for the resource
-        key = '{}:meta:{}'.format( self.pool_key, resource_id)
-        #print("TEST ALLOCATE RESOURCE -- KEY {}".format(key))
-        validate = self.redis.hget(key, 'CPUs')
-        self.assertEqual(self.mock_resources[0]['CPUs'], int(validate))
+        mock_resource_index = 0
+        # How many cpus to leave free, assuming none currently allocated
+        cpus_left_free = None
+        resource, allocation, requested_cpu_count = self._make_resource_allocation(mock_resource_index, cpus_left_free,
+                                                                                   partial=True)
+        # Verify the exception
+        self.assertFalse(isinstance(allocation, ResourceAllocation))
+        self.assertTrue(isinstance(allocation, ValueError))
+        looked_up_resource = Resource.factory_init_from_dict(self.redis.hgetall(resource.unique_id))
+        self.assertEqual(looked_up_resource.cpu_count, looked_up_resource.total_cpu_count)
 
     def test_allocate_resource_2_d(self):
         """
             Test over allocation of exhausted resource when partial = True
         """
-        self.mock_resources[0]['CPUs'] = 0
-
-        self.resource_manager.add_resource(self.mock_resources[0], self.pool_key)
-
-        resource_id = self.mock_resources[0]['node_id']
+        mock_resource_index = 0
         cpus = 5
-        allocation = self.resource_manager.allocate_resource(resource_id, cpus, partial=True)
+        resource = self.mock_resources[mock_resource_index]
+        resource.cpu_count = 0
+        self.resource_manager.add_resource(resource)
+        allocation = self.resource_manager.allocate_resource(resource.resource_id, cpus, partial=True)
 
-        #Verify the allocation
-        self.assertTrue(allocation) #Test for non-empty allocation
-        self.assertEqual(0, allocation['cpus_allocated'])
-
-        #Verify the redis state for the resource
-        key = '{}:meta:{}'.format( self.pool_key, resource_id)
-        #print("TEST ALLOCATE RESOURCE -- KEY {}".format(key))
-        validate = self.redis.hget(key, 'CPUs')
-        self.assertEqual(0, int(validate))
+        # Verify there was no allocation
+        self.assertIsNone(allocation)
 
     def test_release_resources_1(self):
         """
             Test releasing "allocated" resource
         """
-        resource_id = self.mock_resources[0]['node_id']
-        allocated_cpus = 5
-        allocated_memory = 100
-        allocation = {'node_id': resource_id,
-                      'Hostname': self.mock_resources[0]['Hostname'],
-                      'cpus_allocated': allocated_cpus,
-                      'mem': allocated_memory}
-        self.resource_manager.add_resource(self.mock_resources[0], self.pool_key)
-        self.resource_manager.release_resources([allocation])
+        resource = self.mock_resources[0]
+        self.resource_manager.add_resource(resource)
+        requested_cpu_count = resource.total_cpu_count
+        requested_mem = 100
+        allocation = self.resource_manager.allocate_resource(resource.resource_id, requested_cpu_count, requested_mem)
 
-        #Verify the redis state for the resource
-        key = '{}:meta:{}'.format( self.pool_key, resource_id)
-        #print("TEST ALLOCATE RESOURCE -- KEY {}".format(key))
-        validate = self.redis.hget(key, 'CPUs')
-        self.assertEqual(self.mock_resources[0]['CPUs']+allocated_cpus, int(validate))
-        validate = self.redis.hget(key, 'MemoryBytes')
-        self.assertEqual(self.mock_resources[0]['MemoryBytes']+allocated_memory, int(validate))
+        looked_up_resource_1st = Resource.factory_init_from_dict(self.redis.hgetall(resource.unique_id))
+
+        self.assertTrue(isinstance(allocation, ResourceAllocation))
+        self.assertEqual(looked_up_resource_1st.cpu_count, 0)
+        self.assertEqual(looked_up_resource_1st.memory, resource.total_memory - requested_mem)
+
+        self.resource_manager.release_resources([allocation])
+        looked_up_resource_2nd = Resource.factory_init_from_dict(self.redis.hgetall(resource.unique_id))
+        self.assertEqual(looked_up_resource_2nd.cpu_count, looked_up_resource_2nd.total_cpu_count)
+        self.assertEqual(looked_up_resource_2nd.memory, looked_up_resource_2nd.total_memory)
 
     def test_get_available_cpu_count_1(self):
         """
@@ -337,7 +447,7 @@ class IntegrationTestRedisManager(unittest.TestCase):
         """
         self.resource_manager.add_resource(self.mock_resources[0], self.pool_key)
         total_cpus = self.resource_manager.get_available_cpu_count()
-        self.assertEqual(total_cpus, self.mock_resources[0]['CPUs'])
+        self.assertEqual(total_cpus, self.mock_resources[0].cpu_count)
 
     def test_get_available_cpu_count_1_a(self):
         """
@@ -345,8 +455,9 @@ class IntegrationTestRedisManager(unittest.TestCase):
         """
         self.resource_manager.set_resources(self.mock_resources[0:2])
         total_cpus = self.resource_manager.get_available_cpu_count()
-        self.assertEqual(total_cpus, self.mock_resources[0]['CPUs']+self.mock_resources[1]['CPUs'])
+        self.assertEqual(total_cpus, self.mock_resources[0].cpu_count + self.mock_resources[1].cpu_count)
 
+    @unittest.skip("Functionality moved to JobManager class")
     def test_create_job_entry_1(self):
         """
             Test job entry creation with single allocation
@@ -370,6 +481,7 @@ class IntegrationTestRedisManager(unittest.TestCase):
         validate = self.redis.hgetall(key)
         self.assertDictEqual( self.dict_values_to_string(allocation), validate )
 
+    @unittest.skip("Functionality moved to JobManager class")
     def test_create_job_entry_2(self):
         """
             Test job entry creation with multiple allocations
