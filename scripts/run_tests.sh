@@ -17,13 +17,33 @@ fi
 # Import shared functions used for python-dev-related scripts
 . ${SHARED_FUNCS_DIR}/py_dev_func.sh
 
+_START_DIR="$(pwd)"
+LIB_PACKAGE_ROOT='python/lib'
+SERVICE_PACKAGE_ROOT='python/services'
+
 # Paths relative to project root
 # First, add python lib packages
-LIB_PACKAGE_NAMES=(access communication externalrequests scheduler)
-LIB_PACKAGE_ROOT='python/lib'
-for i in $(seq 0 3); do
-    SUPPORTED_PACKAGES[${i}]="${LIB_PACKAGE_ROOT}/${LIB_PACKAGE_NAMES[${i}]}"
+cd ${LIB_PACKAGE_ROOT}
+LIB_PACKAGE_NAMES=(*)
+cd "${_START_DIR}"
+
+# Then the service packages also
+cd ${SERVICE_PACKAGE_ROOT}
+SERVICE_PACKAGE_NAMES=(*)
+cd "${_START_DIR}"
+
+SUPPORTED_PACKAGES=()
+
+LIB_PACKAGE_DIRS=()
+for i in $(seq 0 $((${#LIB_PACKAGE_NAMES[@]}-1))); do
+    LIB_PACKAGE_DIRS[${i}]="${LIB_PACKAGE_ROOT}/${LIB_PACKAGE_NAMES[${i}]}"
 done
+
+SERVICE_PACKAGE_DIRS=()
+for i in $(seq 0 $((${#SERVICE_PACKAGE_NAMES[@]}-1))); do
+    SERVICE_PACKAGE_DIRS[${i}]="${SERVICE_PACKAGE_ROOT}/${SERVICE_PACKAGE_NAMES[${i}]}"
+done
+
 PACKAGE_TESTING_SCRIPT=${SCRIPT_PARENT_DIR}/test_package.sh
 
 usage()
@@ -48,6 +68,10 @@ Options:
         Quieter output; in particular, don't display count of
         number of tests run for each package (conflicts with -v)
 
+    --service-packages | -srv
+        Include service packages in what is supported and tested,
+        which are ignored by default
+
     --venv <dir>
         Set the directory of the virtual environment to use.
         By default, the following directories will be checked,
@@ -67,8 +91,32 @@ Options:
     echo "${_O}" 2>&1
 }
 
+determine_supported_packages()
+{
+    # Determine which packages are supported by testing by whether they have a test/ subdirectory
+    spi=0
+    for i in ${LIB_PACKAGE_DIRS[@]}; do
+        if [ $(find ${i} -type d -name test | wc -l) -gt 0 ]; then
+            SUPPORTED_PACKAGES[${spi}]="${i}"
+            spi=$((spi+1))
+        fi
+    done
+
+    if [ -n "${DO_SERVICE_PACKAGES:-}" ]; then
+        for i in ${SERVICE_PACKAGE_DIRS[@]}; do
+            if [ $(find ${i} -type d -name test | wc -l) -gt 0 ]; then
+                SUPPORTED_PACKAGES[${spi}]="${i}"
+                spi=$((spi+1))
+            fi
+        done
+    fi
+}
+
 list_packages()
 {
+    if [ ${#SUPPORTED_PACKAGES[@]} -eq 0 ]; then
+        determine_supported_packages
+    fi
     echo "Supported Packages:"
     for p in "${SUPPORTED_PACKAGES[@]}"; do
         echo "    ${p}"
@@ -113,13 +161,17 @@ while [ ${#} -gt 0 ]; do
             IT_ARG="-it"
             ;;
         --list-packages|-l)
-            list_packages
-            exit
+            [ -n "${DO_LIST:-}" ] && usage && exit 1
+            DO_LIST='true'
             ;;
         --quiet|-q)
             [ -n "${DO_QUIET:-}" ] && usage && exit 1
             [ -n "${SET_VERBOSE:-}" ] && usage && exit 1
             DO_QUIET='true'
+            ;;
+        --service-packages|-srv)
+            [ -n "${DO_SERVICE_PACKAGES:-}" ] && usage && exit 1
+            DO_SERVICE_PACKAGES='true'
             ;;
         --venv)
             [ -n "${VENV_DIR:-}" ] && usage && exit 1
@@ -135,7 +187,6 @@ while [ ${#} -gt 0 ]; do
                 VERBOSE_ARG="-v"
             fi
             ;;
-
         *)
             usage
             exit 1
@@ -143,6 +194,15 @@ while [ ${#} -gt 0 ]; do
     esac
     shift
 done
+
+if [ ${#SUPPORTED_PACKAGES[@]} -eq 0 ]; then
+    determine_supported_packages
+fi
+
+if [ -n "${DO_LIST:-}" ]; then
+    list_packages
+    exit
+fi
 
 # Sanity check all support package can be found at paths
 MISSING_COUNT=0
