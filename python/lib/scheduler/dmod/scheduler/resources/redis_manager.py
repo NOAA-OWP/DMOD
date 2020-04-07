@@ -85,6 +85,12 @@ class RedisManager(ResourceManager, RedisBacked):
             list of resource id's
 
         """
+        resource_ids = list()
+        for uid in self.get_resource_unique_ids():
+            resource_ids.append(uid.split(':')[1])
+        return resource_ids
+
+    def get_resource_unique_ids(self):
         return self.redis.smembers(self.resource_pool_key)
 
     def allocate_resource(self, resource_id: str, requested_cpus: int,
