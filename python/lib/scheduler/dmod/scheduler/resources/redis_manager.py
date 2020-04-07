@@ -142,9 +142,8 @@ class RedisManager(ResourceManager, RedisBacked):
             with self.redis.pipeline() as pipeline:
                 try:
                     # Will get WatchError if the value changes between now and pipe.execute()
-                    # TODO: need some kind of other locking mechanism, as this gets tripped up by needing to modify the resource
-                    #pipeline.watch(resource_key)
-                    resource = Resource.factory_init_from_dict(self.redis.hgetall(resource_key))
+                    pipeline.watch(resource_key)
+                    resource = Resource.factory_init_from_dict(pipeline.hgetall(resource_key))
                     cpus_allocated, mem_allocated, is_fully = resource.allocate(requested_cpus, requested_memory)
 
                     if is_fully or (partial and cpus_allocated > 0 and (mem_allocated > 0 or requested_memory == 0)):
@@ -152,12 +151,12 @@ class RedisManager(ResourceManager, RedisBacked):
                         allocation = ResourceAllocation(resource_id, resource.hostname, cpus_allocated, mem_allocated)
                         allocation.unique_id_separator = self.keynamehelper.separator
                         pipeline.hmset(allocation.unique_id, allocation.to_dict())
-                        pipeline.execute()
                     else:
                         resource.release(cpus_allocated, mem_allocated)
                 except WatchError:
                     logging.debug("Write Conflict allocate_resource: {}. Retrying...".format(resource_key))
-                    # Try the transaction again
+                    # Clear and try the transaction again
+                    pipeline.reset()
                     continue
                 break
         return allocation
@@ -190,9 +189,8 @@ class RedisManager(ResourceManager, RedisBacked):
                         "RedisManager::release_resources -- No key {} exists to release resources to".format(
                             allocation.unique_id))
                 else:
-                    # TODO: fix this, as it breaks the point of having the pipeline
-                    lookup = self.redis.hgetall(source_resource_key)
-                    source_resource = Resource.factory_init_from_dict(lookup)
+                    pipeline.watch(source_resource_key)
+                    source_resource = Resource.factory_init_from_dict(pipeline.hgetall(source_resource_key))
                     source_resource.unique_id_separator = separator
                     # Cache locally
                     retrieved_resources[source_resource_key] = source_resource
@@ -208,7 +206,7 @@ class RedisManager(ResourceManager, RedisBacked):
             for resource_key in retrieved_resources:
                 pipeline.hmset(resource_key, retrieved_resources[resource_key].to_dict())
 
-            pipeline.execute()
+            #pipeline.execute()
 
     def get_available_cpu_count(self) -> int:
         """
@@ -231,8 +229,7 @@ class RedisManager(ResourceManager, RedisBacked):
                 try:
                     for key in resource_keys:
                         pipeline.watch(key)
-                        # TODO: fix this, as it defeats the point of using the pipeline
-                        resource = Resource.factory_init_from_dict(self.redis.hgetall(key))
+                        resource = Resource.factory_init_from_dict(pipeline.hgetall(key))
                         total_available += resource.cpu_count
                 except WatchError as e:
                     logging.warning("Resource changed while counting available CPUs; will retry", e)
