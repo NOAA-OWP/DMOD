@@ -142,7 +142,8 @@ class RedisManager(ResourceManager, RedisBacked):
             with self.redis.pipeline() as pipeline:
                 try:
                     # Will get WatchError if the value changes between now and pipe.execute()
-                    pipeline.watch(resource_key)
+                    # TODO: need some kind of other locking mechanism, as this gets tripped up by needing to modify the resource
+                    #pipeline.watch(resource_key)
                     resource = Resource.factory_init_from_dict(self.redis.hgetall(resource_key))
                     cpus_allocated, mem_allocated, is_fully = resource.allocate(requested_cpus, requested_memory)
 
@@ -189,7 +190,9 @@ class RedisManager(ResourceManager, RedisBacked):
                         "RedisManager::release_resources -- No key {} exists to release resources to".format(
                             allocation.unique_id))
                 else:
-                    source_resource = Resource.factory_init_from_dict(pipeline.hmget(source_resource_key))
+                    # TODO: fix this, as it breaks the point of having the pipeline
+                    lookup = self.redis.hgetall(source_resource_key)
+                    source_resource = Resource.factory_init_from_dict(lookup)
                     source_resource.unique_id_separator = separator
                     # Cache locally
                     retrieved_resources[source_resource_key] = source_resource
@@ -228,7 +231,8 @@ class RedisManager(ResourceManager, RedisBacked):
                 try:
                     for key in resource_keys:
                         pipeline.watch(key)
-                        resource = Resource.factory_init_from_dict(pipeline.hgetall(key))
+                        # TODO: fix this, as it defeats the point of using the pipeline
+                        resource = Resource.factory_init_from_dict(self.redis.hgetall(key))
                         total_available += resource.cpu_count
                 except WatchError as e:
                     logging.warning("Resource changed while counting available CPUs; will retry", e)
