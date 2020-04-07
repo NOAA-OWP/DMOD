@@ -137,8 +137,9 @@ class RedisManager(ResourceManager, RedisBacked):
         allocation = None
 
         # By using the context manager, we get connection cleanup for free (e.g., pipeline.reset(), etc.)
-        with self.redis.pipeline() as pipeline:
-            while True:
+
+        while True:
+            with self.redis.pipeline() as pipeline:
                 try:
                     # Will get WatchError if the value changes between now and pipe.execute()
                     pipeline.watch(resource_key)
