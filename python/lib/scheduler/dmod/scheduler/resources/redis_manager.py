@@ -223,14 +223,13 @@ class RedisManager(ResourceManager, RedisBacked):
         for resource_id in self.get_resource_ids():
             resource_keys.append(Resource.generate_unique_id(resource_id, self.keynamehelper.separator))
 
-        with self.redis.pipeline() as pipeline:
-            while True:
+        while True:
+            with self.redis.pipeline() as pipeline:
                 total_available = 0
                 try:
+                    pipeline.watch(*resource_keys)
                     for key in resource_keys:
-                        pipeline.watch(key)
-                        resource = Resource.factory_init_from_dict(pipeline.hgetall(key))
-                        total_available += resource.cpu_count
+                        total_available += int(pipeline.hget(key, Resource.get_cpu_hash_key()))
                 except WatchError as e:
                     logging.warning("Resource changed while counting available CPUs; will retry", e)
                     continue
