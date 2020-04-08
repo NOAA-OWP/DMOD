@@ -144,6 +144,7 @@ class RedisManager(ResourceManager, RedisBacked):
                     # Will get WatchError if the value changes between now and pipe.execute()
                     pipeline.watch(resource_key)
                     resource = Resource.factory_init_from_dict(pipeline.hgetall(resource_key))
+                    pipeline.multi()
                     cpus_allocated, mem_allocated, is_fully = resource.allocate(requested_cpus, requested_memory)
 
                     if is_fully or (partial and cpus_allocated > 0 and (mem_allocated > 0 or requested_memory == 0)):
@@ -158,6 +159,7 @@ class RedisManager(ResourceManager, RedisBacked):
                     # Clear and try the transaction again
                     pipeline.reset()
                     continue
+                pipeline.execute()
                 break
         return allocation
 
