@@ -228,6 +228,18 @@ class Resource(AbstractProcessingResource):
         return cls.__name__ + separator + resource_id
 
     @classmethod
+    def get_cpu_hash_key(cls) -> str:
+        """
+        Get the hash key value for serialized dictionaries/hashes representations of objects.
+
+        Returns
+        -------
+        str
+            The hash key value for serialized dictionaries/hashes representations.
+        """
+        return 'CPUs'
+
+    @classmethod
     def get_resource_enum_value(cls, enum_type: Union[Type[ResourceAvailability], Type[ResourceState]],
                                 text_val: str) -> Optional[Union[ResourceAvailability, ResourceState]]:
         """
@@ -421,7 +433,7 @@ class Resource(AbstractProcessingResource):
             The object as a serialized dictionary.
         """
         return {'node_id': self.resource_id, 'Hostname': self.hostname, 'Availability': self.availability.name.lower(),
-                'State': self.state.name.lower(), 'CPUs': self.cpu_count, 'MemoryBytes': self.memory,
+                'State': self.state.name.lower(), self.get_cpu_hash_key(): self.cpu_count, 'MemoryBytes': self.memory,
                 'Total CPUs': self.total_cpu_count, 'Total Memory': self.total_memory}
 
     @property
