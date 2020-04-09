@@ -17,32 +17,10 @@ fi
 # Import shared functions used for python-dev-related scripts
 . ${SHARED_FUNCS_DIR}/py_dev_func.sh
 
-_START_DIR="$(pwd)"
-LIB_PACKAGE_ROOT='python/lib'
-SERVICE_PACKAGE_ROOT='python/services'
-
-# Paths relative to project root
-# First, add python lib packages
-cd ${LIB_PACKAGE_ROOT}
-LIB_PACKAGE_NAMES=(*)
-cd "${_START_DIR}"
-
-# Then the service packages also
-cd ${SERVICE_PACKAGE_ROOT}
-SERVICE_PACKAGE_NAMES=(*)
-cd "${_START_DIR}"
+# Import bash-only shared functions used for python-dev-related scripts
+. ${SHARED_FUNCS_DIR}/py_dev_bash_func.sh
 
 SUPPORTED_PACKAGES=()
-
-LIB_PACKAGE_DIRS=()
-for i in $(seq 0 $((${#LIB_PACKAGE_NAMES[@]}-1))); do
-    LIB_PACKAGE_DIRS[${i}]="${LIB_PACKAGE_ROOT}/${LIB_PACKAGE_NAMES[${i}]}"
-done
-
-SERVICE_PACKAGE_DIRS=()
-for i in $(seq 0 $((${#SERVICE_PACKAGE_NAMES[@]}-1))); do
-    SERVICE_PACKAGE_DIRS[${i}]="${SERVICE_PACKAGE_ROOT}/${SERVICE_PACKAGE_NAMES[${i}]}"
-done
 
 PACKAGE_TESTING_SCRIPT=${SCRIPT_PARENT_DIR}/test_package.sh
 
@@ -93,6 +71,11 @@ Options:
 
 determine_supported_packages()
 {
+    # Check if unset, and if so, run the shared function to set it
+    if [ -z ${LIB_PACKAGE_DIRS+x} ]; then
+        py_dev_bash_get_package_directories
+    fi
+
     # Determine which packages are supported by testing by whether they have a test/ subdirectory
     spi=0
     for i in ${LIB_PACKAGE_DIRS[@]}; do
