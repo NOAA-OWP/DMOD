@@ -140,29 +140,20 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
 
         # Find the global .test_env file from project root, and source
         proj_root = cls.find_project_root_directory(current_dir)
-        if proj_root is not None:
-            global_test_env = proj_root.joinpath(env_file_basename)
-            if global_test_env.exists():
-                load_dotenv(dotenv_path=str(global_test_env.absolute()))
+        if proj_root is None:
+            raise RuntimeError("Error: unable to find project root directory for integration testing.")
 
-        # Find any .test_env files beneath this directory, sourcing them as we go
-        glob_search_list = list()
-        for f in current_dir.glob('**/' + env_file_basename):
-            if f.parent != proj_root:
-                glob_search_list.append(f)
+        global_test_env = proj_root.joinpath(env_file_basename)
+        if global_test_env.exists():
+            load_dotenv(dotenv_path=str(global_test_env.absolute()))
 
-        if len(glob_search_list) == 0:
-            return
-        elif len(glob_search_list) > 1:
-            raise RuntimeError("Multiple {} found in package: {}".format(env_file_basename, str(glob_search_list)))
-
-        test_env = glob_search_list[0]
-
-        # Also, the parent directory must be 'test'/
-        if test_env.absolute().parent.name != 'test':
-            raise RuntimeError("Found {} in unexpected directory".format(str(test_env)))
-        else:
-            load_dotenv(dotenv_path=str(test_env.absolute()))
+        # Also, search for any other .test_env files, but only source if they are in the same directory as this file
+        this_test_file_parent_directory = Path(__file__).parent.absolute()
+        for test_env_file in proj_root.glob('**/' + env_file_basename):
+            if test_env_file.parent.absolute() == this_test_file_parent_directory:
+                load_dotenv(dotenv_path=str(test_env_file))
+                # Also, since there can be only one, go ahead and return here
+                break
 
     @classmethod
     def source_env_property(cls, env_var_name: str):
