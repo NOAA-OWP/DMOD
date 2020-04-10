@@ -32,6 +32,15 @@ Usage:
     ${NAME:?} [opts] [<directory>]
 
 Options:
+    --dependencies | -d
+        Install Python dependency packages defined in the
+        requirements.txt file in the project root
+
+    --dependencies-only | -D
+        Like the --dependencies option, except only do this
+        step, without performing any other package building or
+        updating
+
     --libraries-only | --no-service-packages | -l
         Include only library packages when default installing
         all local-source packages (ignored if single package
@@ -70,12 +79,25 @@ cleanup_before_exit()
 
 while [ ${#} -gt 0 ]; do
     case "${1}" in
+        --dependencies|-d)
+            [ -n "${DO_DEPS:-}" ] && usage && exit 1
+            DO_DEPS='true'
+            ;;
+        --dependencies-only|-D)
+            [ -n "${DO_DEPS:-}" ] && usage && exit 1
+            # Also, this shouldn't be set, as it assumes we will be building, which conflicts with this option
+            [ -n "${NO_SERVICE_PACKAGES:-}" ] && usage && exit 1
+            DO_DEPS='true'
+            DEPS_ONLY='true'
+            ;;
         -h|--help|-help)
             usage
             exit
             ;;
         --libraries-only|--no-service-packages|-l)
             [ -n "${NO_SERVICE_PACKAGES:-}" ] && usage && exit 1
+            # Also, make sure we aren't marked for dependencies only
+            [ -n "${DEPS_ONLY:-}" ] && usage && exit 1
             NO_SERVICE_PACKAGES='true'
             ;;
         --venv)
@@ -105,6 +127,19 @@ py_dev_activate_venv
 
 # Trap to make sure we "clean up" script activity before exiting
 trap cleanup_before_exit 0 1 2 3 6 15
+
+# After setting VENV, if set to get dependencies, do that, optionally exiting after if that's all we are set to do
+if [ -n "${DO_DEPS:-}" ]; then
+    _REQ_FILE="${PROJECT_ROOT}/requirements.txt"
+    if [ ! -f "${_REQ_FILE}" ]; then
+        >&2 echo "Error: unable to find expected Python requirements file at ${_REQ_FILE}"
+        exit 1
+    fi
+    pip install --upgrade -r "${_REQ_FILE}"
+
+    # Also, if set to only get dependencies, exit here
+    [ -n "${DEPS_ONLY:-}" ] && exit
+fi
 
 # If unset, meaning no single package directory was specified, assume all packages should be installed.
 if [ -z ${PACKAGE_DIRS+x} ]; then
