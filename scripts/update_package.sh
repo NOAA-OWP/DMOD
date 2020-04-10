@@ -94,6 +94,18 @@ while [ ${#} -gt 0 ]; do
     shift
 done
 
+# Look for a default venv to use if needed
+py_dev_detect_default_venv_directory
+
+# Bail here if a valid venv is not set
+[ -z "${VENV_DIR:-}" ] && echo "Error: no valid virtual env directory could be determined or was given" && exit 1
+
+# Take appropriate action to activate the virtual environment if needed
+py_dev_activate_venv
+
+# Trap to make sure we "clean up" script activity before exiting
+trap cleanup_before_exit 0 1 2 3 6 15
+
 # If unset, meaning no single package directory was specified, assume all packages should be installed.
 if [ -z ${PACKAGE_DIRS+x} ]; then
 
@@ -120,18 +132,6 @@ if [ -z ${PACKAGE_DIRS+x} ]; then
         done
     fi
 fi
-
-# Look for a default venv to use if needed
-py_dev_detect_default_venv_directory
-
-# Bail here if a valid venv is not set
-[ -z "${VENV_DIR:-}" ] && echo "Error: no valid virtual env directory could be determined or was given" && exit 1
-
-# Take appropriate action to activate the virtual environment if needed
-py_dev_activate_venv
-
-# Trap to make sure we "clean up" script activity before exiting
-trap cleanup_before_exit 0 1 2 3 6 15
 
 PACKAGE_DIST_NAMES=()
 # The --find-links=.../dist/ arguments needed for the dist/ directories when doing the local pip instal
