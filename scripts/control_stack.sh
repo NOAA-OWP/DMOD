@@ -14,17 +14,13 @@ SHARED_FUNCS_DIR="${SCRIPT_PARENT_DIR}/shared"
 # Import shared functions used for Docker-dev-related scripts
 . ${SHARED_FUNCS_DIR}/docker_dev_func.sh
 
-if [ -e ".env" ]; then
-    . ".env"
-    PROJECT_ROOT_ABS_PATH="$(pwd)"
-elif [ -e "${SCRIPT_PARENT_DIR}/../.env" ]; then
-    . "${SCRIPT_PARENT_DIR}/../.env"
-    PROJECT_ROOT_ABS_PATH="$(cd ${SCRIPT_PARENT_DIR}/..; pwd)"
+if [ -e "${PROJECT_ROOT}/.env" ]; then
+    . "${PROJECT_ROOT}/.env"
 fi
 
 DEFAULT_COMPOSE_FILENAME="docker-compose.yml"
 
-DOCKER_DIR="${PROJECT_ROOT_ABS_PATH:?}/docker"
+DOCKER_DIR="${PROJECT_ROOT:?}/docker"
 
 ACTION_ORDER_STRING="check stop build push deploy"
 ACTION_COUNT=0
@@ -179,7 +175,6 @@ validate_docker_config_setting()
         >&2 echo "Error: Docker Compose config ${1} does not exist"
         return 1
     fi
-    #echo "root: ${PROJECT_ROOT_ABS_PATH:-none}"
     #if docker-compose -f "${1}" config > /dev/null 2>&1; then
     if docker-compose -f "${1}" config > /dev/null; then
         return 0
