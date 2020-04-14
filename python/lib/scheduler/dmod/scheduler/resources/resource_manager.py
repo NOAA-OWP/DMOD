@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+import logging
 from typing import Iterable, Mapping, Union
 from abc import ABC, abstractmethod
-import logging
+from .resource import Resource
 
 # As a pure ABC probably don't need logging
 logging.basicConfig(
@@ -17,7 +18,7 @@ class ResourceManager(ABC):
     """
 
     @abstractmethod
-    def set_resources(self, resources: Iterable[Mapping[str, Union[str, int]]]):
+    def set_resources(self, resources: Iterable[Resource]):
         """
             Set the provided resources into the manager's resource tracker.
 
@@ -43,7 +44,7 @@ class ResourceManager(ABC):
         pass
 
     @abstractmethod
-    def get_resources(self) -> Union[Iterable[str], Iterable[Mapping[str, Union[str, int]]]]:
+    def get_resources(self) -> Union[Iterable[str], Iterable[Resource]]:
         """
             Get metadata of all managed resoures.
 
@@ -102,7 +103,7 @@ class ResourceManager(ABC):
         pass
 
     @abstractmethod
-    def release_resources(self, allocated_resources: Iterable[Mapping[str, Union[str, int]]]):
+    def release_resources(self, allocated_resources: Iterable[Resource]):
         """
             Give back any allocated resources to the manager.
 

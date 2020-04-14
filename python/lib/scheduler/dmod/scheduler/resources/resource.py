@@ -228,6 +228,18 @@ class Resource(AbstractProcessingResource):
         return cls.__name__ + separator + resource_id
 
     @classmethod
+    def get_cpu_hash_key(cls) -> str:
+        """
+        Get the hash key value for serialized dictionaries/hashes representations of objects.
+
+        Returns
+        -------
+        str
+            The hash key value for serialized dictionaries/hashes representations.
+        """
+        return 'CPUs'
+
+    @classmethod
     def get_resource_enum_value(cls, enum_type: Union[Type[ResourceAvailability], Type[ResourceState]],
                                 text_val: str) -> Optional[Union[ResourceAvailability, ResourceState]]:
         """
@@ -261,6 +273,15 @@ class Resource(AbstractProcessingResource):
             if val.name.upper() == converted_text_value:
                 return val
         return None
+
+    def __eq__(self, other):
+        if not isinstance(other, Resource):
+            return super().__eq__(other)
+        else:
+            return self.resource_id == other.resource_id and self.hostname == other.hostname \
+                   and self.availability == other.availability and self.state == other.state \
+                   and self.cpu_count == other.cpu_count and self.memory == other.memory \
+                   and self.total_cpu_count == other.total_cpu_count and self.total_memory == other.total_memory
 
     def __init__(self, resource_id: str, hostname: str, availability: Union[str, ResourceAvailability],
                  state: Union[str, ResourceState], cpu_count: int, memory: int, total_cpu_count: Optional[int],
@@ -412,7 +433,7 @@ class Resource(AbstractProcessingResource):
             The object as a serialized dictionary.
         """
         return {'node_id': self.resource_id, 'Hostname': self.hostname, 'Availability': self.availability.name.lower(),
-                'State': self.state.name.lower(), 'CPUs': self.cpu_count, 'MemoryBytes': self.memory,
+                'State': self.state.name.lower(), self.get_cpu_hash_key(): self.cpu_count, 'MemoryBytes': self.memory,
                 'Total CPUs': self.total_cpu_count, 'Total Memory': self.total_memory}
 
     @property

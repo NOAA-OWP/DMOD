@@ -1,5 +1,5 @@
 from ..scheduler.resources.resource_manager import ResourceManager
-from copy import deepcopy
+from ..scheduler.resources import Resource
 
 _mock_resources = [{'node_id': "Node-0001",
            'Hostname': "hostname1",
@@ -24,7 +24,12 @@ _mock_resources = [{'node_id': "Node-0001",
           }
          ]
 def mock_resources():
-    return deepcopy(_mock_resources)
+    #return deepcopy(_mock_resources)
+    mock_resources_list = list()
+    for res in _mock_resources:
+        mock_resources_list.append(Resource.factory_init_from_dict(res))
+    return mock_resources_list
+
 
 class MockResourceManager(ResourceManager):
     """

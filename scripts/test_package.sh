@@ -41,6 +41,10 @@ Usage:
     ${NAME:?} [opts] <directory>
 
 Options:
+    --generate-config | -g
+        Just generate the global '.test_env' config file, if it
+        does not already exist, without running tests
+
     --test-class <class_pattern>
         Specify (as a matching pattern, not an guaranteed
         exact name) the name of a particular class for which
@@ -109,41 +113,82 @@ cleanup_before_exit()
     fi
 }
 
+generate_test_config()
+{
+    if [ -e "${PROJECT_ROOT:?}/${TEST_ENV_FILE_BASENAME:?}" ]; then
+        # Add a little output if JUST_GEN_CONFIG was set and the config already exists
+        if [ -n "${JUST_GEN_CONFIG:-}" ]; then
+            echo "Project global ${TEST_ENV_FILE_BASENAME} already exists; exiting"
+        fi
+    else
+        # If file doesn't already exist, create a global .test_env file
+
+        # Generate a random value for things below that we don't set explicitly
+        _RAND="$(export LC_CTYPE=C; cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)"
+
+        # Cat the example file and set the value strings, either specifically or with randomized values
+        cat "${PROJECT_ROOT}/example_test_env" \
+            | sed 's/\(IT_REDIS_CONTAINER_NAME=\).*/\1"it_redis_container"/' \
+            | sed 's/\(IT_REDIS_CONTAINER_HOST_PORT=\).*/\119639/' \
+            | sed "s/\(.*=\).*/\1\"${_RAND}\"/" > "${PROJECT_ROOT:?}/${TEST_ENV_FILE_BASENAME:?}"
+    fi
+}
+
+
 while [ ${#} -gt 0 ]; do
     case "${1}" in
+        --generate-config|-g)
+            [ -n "${JUST_GEN_CONFIG:-}" ] && usage && exit 1
+            JUST_GEN_CONFIG='true'
+            shift
+            ;;
         -h|--help|-help)
             usage
             exit
             ;;
         --all|-a)
             [ -n "${TEST_FILE_PATTERN:-}" ] && usage && exit 1
+            # Also, balk at anything else if we've asked to just generate a config
+            [ -n "${JUST_GEN_CONFIG:-}" ] && usage && exit 1
             TEST_FILE_PATTERN='both'
             ;;
         --integration|-it)
             [ -n "${TEST_FILE_PATTERN:-}" ] && usage && exit 1
+            # Also, balk at anything else if we've asked to just generate a config
+            [ -n "${JUST_GEN_CONFIG:-}" ] && usage && exit 1
             TEST_FILE_PATTERN="${DEFAULT_INTEGRATION_TEST_FILE_PATTERN}"
             ;;
         -n|--test-dir-basename)
             [ -n "${TEST_DIR_BASENAME:-}" ] && usage && exit 1
+            # Also, balk at anything else if we've asked to just generate a config
+            [ -n "${JUST_GEN_CONFIG:-}" ] && usage && exit 1
             TEST_DIR_BASENAME="${2}"
             shift
             ;;
         --setup-it)
             [ -n "${DO_TEARDOWN_IT:-}" ] && usage && exit 1
+            # Also, balk at anything else if we've asked to just generate a config
+            [ -n "${JUST_GEN_CONFIG:-}" ] && usage && exit 1
             DO_SETUP_IT='true'
             ;;
         --test-class)
             [ -n "${TEST_CLASS_PATTERN:-}" ] && usage && exit
+            # Also, balk at anything else if we've asked to just generate a config
+            [ -n "${JUST_GEN_CONFIG:-}" ] && usage && exit 1
             TEST_CLASS_PATTERN="${2}"
             shift
             ;;
         --test-method)
             [ -n "${TEST_METHOD_PATTERN:-}" ] && usage && exit
+            # Also, balk at anything else if we've asked to just generate a config
+            [ -n "${JUST_GEN_CONFIG:-}" ] && usage && exit 1
             TEST_METHOD_PATTERN="${2}"
             shift
             ;;
         --teardown-it)
             [ -n "${DO_SETUP_IT:-}" ] && usage && exit 1
+            # Also, balk at anything else if we've asked to just generate a config
+            [ -n "${JUST_GEN_CONFIG:-}" ] && usage && exit 1
             DO_TEARDOWN_IT='true'
             ;;
         --venv)
@@ -158,12 +203,19 @@ while [ ${#} -gt 0 ]; do
             ;;
         *)
             [ -n "${PACKAGE_DIR:-}" ] && usage && exit 1
+            # Also, balk at anything else if we've asked to just generate a config
+            [ -n "${JUST_GEN_CONFIG:-}" ] && usage && exit 1
             [ ! -d "${1}" ] && >&2 echo "Error: package directory arg is not an existing directory" && usage && exit 1
             PACKAGE_DIR="${1}"
             ;;
     esac
     shift
 done
+
+generate_test_config
+
+# If this was set, then exit after generating the config
+[ -n "${JUST_GEN_CONFIG:-}" ] && exit
 
 [ -z "${TEST_FILE_PATTERN}" ] && TEST_FILE_PATTERN="${DEFAULT_UNIT_TEST_FILE_PATTERN}"
 
@@ -198,6 +250,22 @@ exec_test_files()
     fi
 }
 
+source_it_env_and_funcs()
+{
+    # Source the setup file
+    . "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}"
+
+    # Source any global testing env settings
+    if [ -e "${PROJECT_ROOT}/${TEST_ENV_FILE_BASENAME}" ]; then
+        . "${PROJECT_ROOT}/${TEST_ENV_FILE_BASENAME}"
+    fi
+
+    # Then, source any package-specific testing env settings (which should allow these to override earlier sourced values)
+    if [ -e "${PACKAGE_TEST_DIRECTORY}/${TEST_ENV_FILE_BASENAME}" ]; then
+        . "${PACKAGE_TEST_DIRECTORY}/${TEST_ENV_FILE_BASENAME}"
+    fi
+}
+
 find_and_exec_test_files()
 {
     # Unit testing
@@ -206,19 +274,8 @@ find_and_exec_test_files()
         return ${?}
     # Integration testing, with existing setup file in directory
     elif [ -e "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}" ]; then
-        # Source the setup file
-        . "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}"
-
-        # Source any global testing env settings
-        if [ -e "${SCRIPT_PARENT_DIR}/${TEST_ENV_FILE_BASENAME}" ]; then
-            . "${SCRIPT_PARENT_DIR}/${TEST_ENV_FILE_BASENAME}"
-        fi
-
-        # Then, source any package-specific testing env settings (which should allow these to override earlier sourced values)
-        if [ -e "${PACKAGE_TEST_DIRECTORY}/${TEST_ENV_FILE_BASENAME}" ]; then
-            . "${PACKAGE_TEST_DIRECTORY}/${TEST_ENV_FILE_BASENAME}"
-        fi
-
+        # Source the setup file and env
+        source_it_env_and_funcs
         # Then run the setup function
         ${INTEGRATION_TEST_SETUP_FUNC}
         _R=${?}
@@ -244,13 +301,13 @@ find_and_exec_test_files()
 echo "==========================================================================="
 
 if [ "${DO_SETUP_IT}" = "true" ]; then
-    # Source the setup file
-    . "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}"
+    # Source the setup file and env
+    source_it_env_and_funcs
     # Then run the setup function
     ${INTEGRATION_TEST_SETUP_FUNC}
 elif [ "${DO_TEARDOWN_IT}" = "true" ]; then
-    # Source the setup file
-    . "${PACKAGE_TEST_DIRECTORY}/${INTEGRATION_TEST_SETUP_FILE_BASENAME}"
+    # Source the setup file and env
+    source_it_env_and_funcs
     # Then run the teardown function
     ${INTEGRATION_TEST_TEARDOWN_FUNC}
 elif [ "${TEST_FILE_PATTERN}" == "both" ]; then

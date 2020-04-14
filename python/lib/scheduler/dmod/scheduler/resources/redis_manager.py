@@ -26,8 +26,9 @@ class RedisManager(ResourceManager, RedisBacked):
 
     def __init__(self, resource_pool: str, redis_host: Optional[str] = None, redis_port: Optional[int] = None,
                  redis_pass: Optional[str] = None, **kwargs):
-        super().__init__(resource_pool=resource_pool, redis_host=redis_host, redis_port=redis_port,
-                         redis_pass=redis_pass, **kwargs)
+        super().__init__(redis_host=redis_host, redis_port=redis_port, redis_pass=redis_pass, **kwargs)
+        self.resource_pool = resource_pool
+        self.resource_pool_key = self.keynamehelper.create_key_name("resource_pool", self.resource_pool)
 
     def add_resource(self, resource: Resource, resource_pool_key: Optional[str] = None):
         """
@@ -73,7 +74,8 @@ class RedisManager(ResourceManager, RedisBacked):
             A list of all managed resource objects.
         """
         for resource_id in self.get_resource_ids():
-            yield Resource.factory_init_from_dict(self.redis.hgetall(resource_id))
+            yield Resource.factory_init_from_dict(
+                self.redis.hgetall(Resource.generate_unique_id(resource_id, self.keynamehelper.separator)))
 
     def get_resource_ids(self) -> List[Union[str, int]]:
         """
@@ -84,6 +86,12 @@ class RedisManager(ResourceManager, RedisBacked):
             list of resource id's
 
         """
+        resource_ids = list()
+        for uid in self.get_resource_unique_ids():
+            resource_ids.append(uid.split(':')[1])
+        return resource_ids
+
+    def get_resource_unique_ids(self):
         return self.redis.smembers(self.resource_pool_key)
 
     def allocate_resource(self, resource_id: str, requested_cpus: int,
@@ -129,12 +137,14 @@ class RedisManager(ResourceManager, RedisBacked):
         allocation = None
 
         # By using the context manager, we get connection cleanup for free (e.g., pipeline.reset(), etc.)
-        with self.redis.pipeline() as pipeline:
-            while True:
+
+        while True:
+            with self.redis.pipeline() as pipeline:
                 try:
                     # Will get WatchError if the value changes between now and pipe.execute()
                     pipeline.watch(resource_key)
-                    resource = Resource.factory_init_from_dict(self.redis.hgetall(resource_key))
+                    resource = Resource.factory_init_from_dict(pipeline.hgetall(resource_key))
+                    pipeline.multi()
                     cpus_allocated, mem_allocated, is_fully = resource.allocate(requested_cpus, requested_memory)
 
                     if is_fully or (partial and cpus_allocated > 0 and (mem_allocated > 0 or requested_memory == 0)):
@@ -142,15 +152,61 @@ class RedisManager(ResourceManager, RedisBacked):
                         allocation = ResourceAllocation(resource_id, resource.hostname, cpus_allocated, mem_allocated)
                         allocation.unique_id_separator = self.keynamehelper.separator
                         pipeline.hmset(allocation.unique_id, allocation.to_dict())
-                        pipeline.execute()
                     else:
                         resource.release(cpus_allocated, mem_allocated)
                 except WatchError:
                     logging.debug("Write Conflict allocate_resource: {}. Retrying...".format(resource_key))
-                    # Try the transaction again
+                    # Clear and try the transaction again
+                    pipeline.reset()
                     continue
+                pipeline.execute()
                 break
         return allocation
+
+    def release_resource(self, allocation: ResourceAllocation):
+        """
+        Release a resource allocated to the manager.
+
+        Parameters
+        ----------
+        allocation : ResourceAllocation
+            A resource allocation object.
+        """
+        allocation.unique_id_separator = self.keynamehelper.separator
+        while True:
+            with self.redis.pipeline() as pipeline:
+                try:
+                    # Obtain the source Resource object for the allocation
+                    source_resource_key = Resource.generate_unique_id(allocation.resource_id,
+                                                                      self.keynamehelper.separator)
+                    pipeline.watch(source_resource_key)
+                    if not pipeline.exists(source_resource_key):
+                        raise RuntimeError(
+                            "RedisManager::release_resources -- No key {} exists to release resources to".format(
+                                allocation.unique_id))
+
+                    # Should return directly after watch takes us of of buffered mode
+                    serial_source_resource_hash = pipeline.hgetall(source_resource_key)
+                    source_resource = Resource.factory_init_from_dict(serial_source_resource_hash)
+
+                    # Once we have looked up the resource record and deserialized, return to buffered transaction mode
+                    pipeline.multi()
+                    source_resource.unique_id_separator = self.keynamehelper.separator
+
+                    # Release the allocated properties and updated the Resource record
+                    source_resource.release(allocation.cpu_count, allocation.memory)
+                    pipeline.hmset(source_resource_key, source_resource.to_dict())
+
+                    # Delete the allocation redis record
+                    # TODO: need to address implications of this in job manager
+                    pipeline.delete(allocation.unique_id)
+
+                    # Finally, execute the transaction
+                    pipeline.execute()
+                    return
+
+                except WatchError:
+                    logging.debug("Write Conflict allocate_resource: {}. Retrying...".format(source_resource_key))
 
     def release_resources(self, allocated_resources: Iterable[ResourceAllocation]):
         """
@@ -161,42 +217,8 @@ class RedisManager(ResourceManager, RedisBacked):
         allocated_resources : Iterable[ResourceAllocation]
             An iterable of resource allocation objects.
         """
-        # A kind of local cache for retrieve and inflated Resource objects
-        retrieved_resources = dict()
-
-        # Also ...
-        separator = self.keynamehelper.separator
-
-        with self.redis.pipeline() as pipeline:
-            for allocation in allocated_resources:
-                allocation.unique_id_separator = separator
-
-                # Obtain the source Resource object for the allocation
-                source_resource_key = Resource.generate_unique_id(allocation.resource_id, separator)
-                if source_resource_key in retrieved_resources:
-                    source_resource = retrieved_resources[source_resource_key]
-                elif not self.redis.exists(source_resource_key):
-                    raise RuntimeError(
-                        "RedisManager::release_resources -- No key {} exists to release resources to".format(
-                            allocation.unique_id))
-                else:
-                    source_resource = Resource.factory_init_from_dict(pipeline.hmget(source_resource_key))
-                    source_resource.unique_id_separator = separator
-                    # Cache locally
-                    retrieved_resources[source_resource_key] = source_resource
-
-                # Release the allocated properties
-                source_resource.release(allocation.cpu_count, allocation.memory)
-
-                # Finally, delete the allocation redis record
-                # TODO: need to address implications of this in job manager
-                pipeline.delete(allocation.unique_id)
-
-            # Once done with the allocation release loop, persisted any and all updated, locally cached Resources
-            for resource_key in retrieved_resources:
-                pipeline.hmset(resource_key, retrieved_resources[resource_key].to_dict())
-
-            pipeline.execute()
+        for allocation in allocated_resources:
+            self.release_resource(allocation)
 
     def get_available_cpu_count(self) -> int:
         """
@@ -213,14 +235,13 @@ class RedisManager(ResourceManager, RedisBacked):
         for resource_id in self.get_resource_ids():
             resource_keys.append(Resource.generate_unique_id(resource_id, self.keynamehelper.separator))
 
-        with self.redis.pipeline() as pipeline:
-            while True:
+        while True:
+            with self.redis.pipeline() as pipeline:
                 total_available = 0
                 try:
+                    pipeline.watch(*resource_keys)
                     for key in resource_keys:
-                        pipeline.watch(key)
-                        resource = Resource.factory_init_from_dict(pipeline.hgetall(key))
-                        total_available += resource.cpu_count
+                        total_available += int(pipeline.hget(key, Resource.get_cpu_hash_key()))
                 except WatchError as e:
                     logging.warning("Resource changed while counting available CPUs; will retry", e)
                     continue

@@ -3,10 +3,81 @@ import time
 import unittest
 import os
 
+from dotenv import load_dotenv
+from pathlib import Path
+from typing import Optional
+
 from ..access.redis_session_manager import FullAuthSession, RedisBackendSessionManager
 
 
 class IntegrationTestRedisBackendSessionManager(unittest.TestCase):
+
+    # TODO: look at moving this also to environemnt var instead of hard-coding here and in test_package.sh (though this
+    # TODO:     would probably required utility helper class for working in the environment)
+    _TEST_ENV_FILE_BASENAME = ".test_env"
+
+    @classmethod
+    def find_project_root_directory(cls, current_directory: Optional[Path]) -> Optional[Path]:
+        """
+        Given a directory (with ``None`` implying the current directory) assumed to be at or under this project's root,
+        find the project root directory.
+
+        This implementation attempts to find a directory having both a ``.git/`` child directory and a ``.env`` file.
+
+        Parameters
+        ----------
+        current_directory
+
+        Returns
+        -------
+        Optional[Path]
+            The project root directory, or ``None`` if it fails to find it.
+        """
+        abs_root = Path(current_directory.absolute().root)
+        while current_directory.absolute() != abs_root:
+            if not current_directory.is_dir():
+                current_directory = current_directory.parent
+                continue
+            git_sub_dir = current_directory.joinpath('.git')
+            child_env_file = current_directory.joinpath('.env')
+            if git_sub_dir.exists() and git_sub_dir.is_dir() and child_env_file.exists() and child_env_file.is_file():
+                return current_directory
+            current_directory = current_directory.parent
+        return None
+
+    @classmethod
+    def source_env_files(cls, env_file_basename: str):
+        current_dir = Path().absolute()
+
+        # Find the global .test_env file from project root, and source
+        proj_root = cls.find_project_root_directory(current_dir)
+        if proj_root is None:
+            raise RuntimeError("Error: unable to find project root directory for integration testing.")
+
+        global_test_env = proj_root.joinpath(env_file_basename)
+        if global_test_env.exists():
+            load_dotenv(dotenv_path=str(global_test_env.absolute()))
+
+        # Also, search for any other .test_env files, but only source if they are in the same directory as this file
+        this_test_file_parent_directory = Path(__file__).parent.absolute()
+        for test_env_file in proj_root.glob('**/' + env_file_basename):
+            if test_env_file.parent.absolute() == this_test_file_parent_directory:
+                load_dotenv(dotenv_path=str(test_env_file))
+                # Also, since there can be only one, go ahead and return here
+                break
+
+    @classmethod
+    def source_env_property(cls, env_var_name: str):
+        value = os.getenv(env_var_name, None)
+        if value is None:
+            cls.source_env_files(cls._TEST_ENV_FILE_BASENAME)
+            value = os.getenv(env_var_name, None)
+        return value
+
+    def __init__(self, methodName='runTest'):
+        super().__init__(methodName=methodName)
+        self._redis_test_pass = None
+        self._redis_test_port = None
 
     def _get_next_session_id(self):
         sid_str = self._session_manager.redis.get(self._session_manager._next_session_id_key)
@@ -43,12 +114,22 @@ class IntegrationTestRedisBackendSessionManager(unittest.TestCase):
         return FullAuthSession(ip_address=ip_addr, user=user, session_id=next_id, created=created,
                                last_accessed=last_access)
 
+    @property
+    def redis_test_pass(self):
+        if not self._redis_test_pass:
+            self._redis_test_pass = self.source_env_property('IT_REDIS_CONTAINER_PASS')
+        return self._redis_test_pass
+
+    @property
+    def redis_test_port(self):
+        if not self._redis_test_port:
+            self._redis_test_port = self.source_env_property('IT_REDIS_CONTAINER_HOST_PORT')
+        return self._redis_test_port
+
     def setUp(self) -> None:
-        test_pass = os.environ.get('IT_REDIS_CONTAINER_PASS')
-        test_port = os.environ.get('IT_REDIS_CONTAINER_HOST_PORT')
         self._session_manager = RedisBackendSessionManager(redis_host='127.0.0.1',
-                                                           redis_port=test_port,
-                                                           redis_pass=test_pass)
+                                                           redis_port=self.redis_test_port,
+                                                           redis_pass=self.redis_test_pass)
         self._redis_user_1 = 'test_user_1'
         self._redis_user_2 = 'test_user_2'
         self._redis_user_3 = 'test_user_3'

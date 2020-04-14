@@ -21,15 +21,16 @@ class IntegrationTestWebSocketInterface(WebSocketInterfaceTestBase):
             self.package_dir = Path(package_dir_name).resolve()
 
         self._loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._loop)
+
         self._basic_listener_subproc_run_code = None
-        self.sub_proc = None
+        self.sub_proc: asyncio.subprocess.Process = None
 
     def tearDown(self):
         super().tearDown()
         if self.sub_proc is not None:
-            self.sub_proc.send_signal(signal.SIGTERM)
-            self._loop.run_until_complete(self.sub_proc.wait())
-        self._loop.close()
+            self._loop.run_until_complete(self._wait_for_shutdown())
+        self._loop.stop()
 
     async def _simple_send_receive(self, send_data: dict, sleep_time: int = 2):
         await asyncio.sleep(sleep_time)
@@ -37,6 +38,17 @@ class IntegrationTestWebSocketInterface(WebSocketInterfaceTestBase):
             await websocket.send(json.dumps(send_data))
             response = await websocket.recv()
             return response
+
+    async def _wait_for_shutdown(self):
+        self.sub_proc.send_signal(signal.SIGTERM)
+        s = 0
+        code = None
+        while s < 5 and code is None:
+            await asyncio.sleep(1)
+            s += 1
+            code = self.sub_proc.returncode
+        if code is None:
+            self.sub_proc.send_signal(signal.SIGKILL)
 
     @property
     def basic_listener_subproc_run_code(self) -> str:
