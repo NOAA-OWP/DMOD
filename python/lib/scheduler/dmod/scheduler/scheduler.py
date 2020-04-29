@@ -363,7 +363,8 @@ class Scheduler:
         serv_name = serviceParams.serv_name
         mounts = serviceParams.mounts
 
-        Healthcheck = docker.types.Healthcheck(test = ["CMD-SHELL", '/nwm/check_job.sh /nwm/index_file'],
+        args = host_str
+        Healthcheck = docker.types.Healthcheck(test = ["CMD-SHELL", 'echo Hello'],
                                                interval = 1000000 * 10000 * 1,
                                                timeout = 1000000 * 10000 * 2,
                                                retries = 2,
@@ -371,9 +372,11 @@ class Scheduler:
         # delay 5 minutes before restarting
         # restart = docker.types.RestartPolicy(condition='on-failure')
         restart = docker.types.RestartPolicy(condition='none')
-        if (idx < cpusLen):
+        if (idx == 0):
             service = client.services.create(image = image,
-                                         command = ['sh', '-c', 'sudo /usr/sbin/sshd -D'],
+                                         # command = ['sh', '-c', 'sudo /usr/sbin/sshd -D'],
+                                         command = ['/nwm/run_model.sh'],
+                                         args = args,
                                          constraints = constraints,
                                          hostname = hostname,
                                          labels = serv_labels,
@@ -386,8 +389,7 @@ class Scheduler:
         else:
             args = host_str
             service = client.services.create(image = image,
-                                         # command = ['sh', '-c', 'sudo /usr/sbin/sshd -D'],
-                                         command = ['/nwm/run_model.sh'],
+                                         command = ['/nwm/make_temp_dir.sh'],
                                          args = args,
                                          constraints = constraints,
                                          hostname = hostname,
@@ -510,16 +512,18 @@ class Scheduler:
         host_str
             List of string containing number of hosts, hostname and CPUs allocation, and run domain directory
         """
-        idx = 0
+        idx = len(cpusList) - 1
         num_hosts = str(len(cpusList))
         host_str = [num_hosts]
-        for cpu in cpusList:
+        rev_cpusList = cpusList
+        rev_cpusList.reverse()
+        for cpu in rev_cpusList:
             cpus_alloc = str(cpu['cpus_alloc'])
             #FIXME get nameing better orgainized across all functions
             name = basename + str(idx)+"_{}".format(req_id)
             host_tmp = name+':'+cpus_alloc
             host_str.append(str(host_tmp))
-            idx += 1
+            idx -= 1
         host_str.append(str(run_domain_dir))
         print("host_str", host_str)
         return host_str
@@ -535,14 +539,15 @@ class Scheduler:
         cpusList
             List of allocated CPUs on each node
         '''
-
-        idx = 0
+        idx = len(cpusList) - 1
         host_str = ""
-        for cpu in cpusList:
+        rev_cpusList = cpusList
+        rev_cpusList.reverse()
+        for cpu in rev_cpusList:
             cpus_alloc = str(cpu['cpus_alloc'])
             name = basename + str(idx)
             host_str += name+':'+cpus_alloc+'\n'
-            idx += 1
+            idx -= 1
 
         client = self.docker_client
         service_list = client.services.list()
@@ -663,7 +668,7 @@ class Scheduler:
             raise Exception("Failed to set up the run domain on the container")
 
         # Selecting the image that corresponds to user job request
-        # If needed, ddifferent "image_tag" list can be created in image_and_domain_yaml file for different models,
+        # If needed, different "image_tag" list can be created in image_and_domain_yaml file for different models,
         # then the following code can be run for each image_tag names
         # The code also ensure the required image exists on the system
         # selected_image = image_name
@@ -712,7 +717,7 @@ class Scheduler:
         """
         # print("Len of Q at start of job_allocation_and_setup: {}".format(len(self._jobQ)))
 
-        idx = 0
+        # idx = 0
         recvJobReq = 1
         # recvJobReq = self.check_for_incoming_req()
         #while (recvJobReq != 0):
@@ -773,9 +778,11 @@ class Scheduler:
         name = self.name
         networks = self.networks
 
-        # idx = 0
+        idx = len(cpusList) - 1
         cpusLen = len(cpusList)
-        for cpu in cpusList:
+        rev_cpusList = cpusList
+        rev_cpusList.reverse()
+        for cpu in rev_cpusList:
             constraints = "node.hostname == "
             NodeId = cpu['node_id']
             if (NodeId == "Node-0001"):
@@ -792,7 +799,7 @@ class Scheduler:
             constraints += Hostname
             constraints = list(constraints.split("/"))
             serv_name = name + str(idx)+"_{}".format(req_id)
-            idx += 1
+            # idx += 1
             # FIXME: this doesn't work (and Request no longer exists) ... switch to using SchedulerRequestMessage maybe
             # FIXME: somehow an actual MaaSRequest object needs to be created or passed for use in a scheduler request
             model_request = None
@@ -804,6 +811,7 @@ class Scheduler:
             # schedule.check_jobQ()
             serviceParams = DockerServiceParameters(image_tag, constraints, hostname, labels, serv_name, mounts)
             self.startJobs(serviceParams, user_id, cpus, mem, cpus_alloc, idx, cpusLen, host_str)
+            idx -= 1
         logging.info("\n")
         # TODO: make sure this stays consistent with the choice above regarding whether a new object from fromRequest()
         #   should be used, or this Scheduler object directly, for enqueuing the request.

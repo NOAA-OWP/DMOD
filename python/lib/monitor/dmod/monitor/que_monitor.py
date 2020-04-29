@@ -173,14 +173,9 @@ class QueMonitor(RedisBacked):
                 *Mounts, = Mounts
                 print("In check_runningJobs: Mounts = ", *Mounts)
 
-                #FIXME need to be generalized
-                if (int(index) == 0):
-                    Args = pn.find('Args', service_attrs)
-                    *Args, = Args
-                    print("In check_runningJobs: Args = ", *Args)
-                else:
-                    #FIXME could set Args = list() in scheduler.py
-                    Args = list()
+                # Args need match with the scheduler.py code for every service created
+                Args = pn.find('Args', service_attrs)
+                *Args, = Args
 
                 Command = pn.find('Command', service_attrs)
                 *Command, = Command
@@ -274,15 +269,9 @@ class QueMonitor(RedisBacked):
         mounts = [mts_string]
         print("mounts = ", mounts)
 
-        if (int(index) == 0):
-            Args = (service_dict['Args'])[0]
-            args = Args
-            print("service_dict: Args = ", Args)
-            print("Args isinstance of list:", isinstance(Args, list))
-            print("service_dict: args = ", args)
-        else:
-            #FIXME Could set args = list() in scheduler.py
-            args = list()
+        # Args need match with the scheduler.py code for every service created
+        Args = (service_dict['Args'])[0]
+        args = Args
 
         Command = (service_dict['Command'])[0]
         command = Command
@@ -693,61 +682,6 @@ class QueMonitor(RedisBacked):
         logging.info("-" * 50)
         print("\nIn get_node_info:\nnodeList: ", *nodeList, sep = "\n")
         return nodeList
-
-    #TODO remove
-    #FIXME Keep in place for the moment
-    #FIXME Some form of variation of this function may be needed for communication with scheduler
-    def retrieve_job_metadata(self, user_id: str) -> list:
-        """
-        Retrieve queued job info from the database using user_id as a key to the req_id list
-        Using req_id to uniquely retrieve the job request dictionary: cpus_dict
-        Build nested cpusList from cpus_dict
-        The code only retrieve one job that make up cpusList. Complete job list is handled in check_jobQ
-        For comprehensive info on all jobs by a user in the database, a loop can be used to call this method
-
-        Parameter
-        ---------
-        user_id
-            User Identification
-
-        Returns
-        -------
-        cpusList
-            List of allocated CPUs on each node
-        """
-
-        redis = self.redis
-        cpusList = []
-        user_key = self.keynamehelper.create_key_name(user_id)
-
-        # case for index = 0, the first popped index is necessarily 0
-        # lpop and rpush are used to guaranttee that the earlist queued job gets to run first
-        req_id = redis.lpop(user_key)
-        if (req_id != None):
-            print("In retrieve_job_metadata: user_key", user_key, "req_id = ", req_id)
-            req_key = self.keynamehelper.create_key_name("job_request", req_id)
-            cpus_dict = redis.hgetall(req_key)
-            cpusList.append(cpus_dict)
-            index = cpus_dict['index']             # index = 0
-            if (int(index) != 0):
-                raise Exception("Metadata access error, index = ", index, " req_id = ", req_id)
-
-        # cases for the rest of index != 0, job belongs to a different request if index = 0
-        while (req_id != None):                    # previous req_id
-            req_id = redis.lpop(user_key)          # new req_id
-            if (req_id != None):
-                req_key = self.keynamehelper.create_key_name("job_request", req_id)
-                cpus_dict = redis.hgetall(req_key)
-                index = cpus_dict['index']         # new index
-                if (int(index) == 0):
-                    redis.lpush(user_key, req_id)  # return the popped value, the job request belongs to a different request if index = 0
-                    break
-                else:
-                    cpusList.append(cpus_dict)
-                print("In retrieve_job_metadata, user_key: ", user_key, "req_id = ", req_id)
-        print("In retrieve_job_metadata: cpusList:", *cpusList, sep = "\n")
-        print("End of retrieve_job_metadata")
-        return cpusList, user_key
 
     #TODO A better function may be implemented for checking current available rerources
     #TODO REMOVE/LINK TO RESOURCE MANAGER
