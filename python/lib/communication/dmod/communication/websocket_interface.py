@@ -150,12 +150,6 @@ class WebSocketInterface(ABC):
         # Setup websocket server
         self.server = websockets.serve(self.listener, self._listen_host, self._port, ssl=self.ssl_context, loop=self.loop)
 
-    def handle_exception(self, loop, context):
-        message = context.get('exception', context['message'])
-        logging.error(f"Caught exception: {message}")
-        logging.info("Shutting down due to exception")
-        asyncio.create_task(self.shutdown())
-
     async def deserialized_message(self, message_data: dict, event_type: MessageEventType = None, check_for_auth=False):
         """
         Deserialize
@@ -198,6 +192,12 @@ class WebSocketInterface(ABC):
         except RuntimeError as re:
             raise re
 
+    def handle_exception(self, loop, context):
+        message = context.get('exception', context['message'])
+        logging.error(f"Caught exception: {message}")
+        logging.info("Shutting down due to exception")
+        asyncio.create_task(self.shutdown())
+
     async def parse_request_type(self, data: dict, check_for_auth=False) -> Tuple[MessageEventType, dict]:
         """
         Parse for request for validity, optionally for authentication type, determining which type of request this is.
@@ -232,6 +232,26 @@ class WebSocketInterface(ABC):
 
         return MessageEventType.INVALID, errors
 
+    def run(self):
+        """
+            Run the handler indefinitely
+        """
+        try:
+            # For each requested task, create a scheduled tasks
+            for requested_coro in self._requested_tasks:
+                self._scheduled_tasks.append(self.loop.create_task(requested_coro))
+
+            # Then establish the main server function (and append to scheduled tasks list)
+            # Make sure this gets put into the list of requested tasks
+            self._requested_tasks.append(self.server)
+            self._scheduled_tasks.append(self.loop.run_until_complete(self.server))
+
+            # Run server forever
+            self.loop.run_forever()
+        finally:
+            self.loop.close()
+            logging.info("Handler Finished")
+
     async def shutdown(self, shutdown_signal=None):
         """
             Wait for current task to finish, cancel all others
@@ -249,19 +269,6 @@ class WebSocketInterface(ABC):
         #wait for tasks to cancel
         await asyncio.gather(*tasks, return_exceptions=True)
         self.loop.stop()
-
-    def run(self):
-        """
-            Run the handler indefinitely
-        """
-        try:
-            #Establish the server funtion
-            self.loop.run_until_complete(self.server)
-            #Run server forever
-            self.loop.run_forever()
-        finally:
-            self.loop.close()
-            logging.info("Handler Finished")
 
 
 class WebSocketSessionsInterface(WebSocketInterface, ABC):
