@@ -23,6 +23,7 @@ from .validator import NWMRequestJsonValidator, SessionInitMessageJsonValidator
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 from websockets import WebSocketServerProtocol
+from .async_service import AsyncServiceInterface
 
 #logging.basicConfig(
 #    level=logging.ERROR,
@@ -31,14 +32,17 @@ from websockets import WebSocketServerProtocol
 #)
 
 
-class WebSocketInterface(ABC):
+class WebSocketInterface(AsyncServiceInterface, ABC):
     """
-    SSL Enabeled aysncio server interface
+    SSL Enabled asyncio server interface.
+
+    The primary built-in async task is the execution of the ::attribute:`server` property, which is the actual websocket
+    server object.  This gets scheduled in the event loop last, using ::method:`AbstractEventLoop.run_until_complete`,
+    after any other coroutine tasks added via ::method:`add_async_task` are scheduled via
+    ::method:`AbstractEventLoop.create_task`.
 
     Attributes
     ----------
-    loop: aysncio event loop
-
     signals: list-like
         List of signals (from the signal package) this handler will use to shutdown
 
@@ -69,7 +73,6 @@ class WebSocketInterface(ABC):
             asyncio.run(self.shutdown())
         except Exception as e:
             pass
-
 
     def __init__(self, listen_host='', port=3012, ssl_dir=None, cert_pem=None, priv_key_pem=None):
         """
@@ -114,15 +117,16 @@ class WebSocketInterface(ABC):
         # TODO: consider printing/logging warning (or switching to error) in case of bad argument type
         self._port = int(port)
         # Async event loop
-        self.loop = self._get_async_loop()
+        self._loop = self._get_async_loop()
+
         # register signals for tasks to respond to
         self.signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
         for s in self.signals:
             # Create a set of shutdown tasks, one for each signal type
-            self.loop.add_signal_handler(s, lambda s=s: self.loop.create_task(self.shutdown(shutdown_signal=s)))
+            self._loop.add_signal_handler(s, lambda s=s: self._loop.create_task(self.shutdown(shutdown_signal=s)))
 
         # add a default excpetion handler to the event loop
-        self.loop.set_exception_handler(self.handle_exception)
+        self._loop.set_exception_handler(self.handle_exception)
 
         self.ssl_dir = ssl_dir
 
@@ -141,7 +145,37 @@ class WebSocketInterface(ABC):
         self.ssl_context.load_cert_chain(cert_pem, keyfile=priv_key_pem)
         # print(hostname)
         # Setup websocket server
-        self.server = websockets.serve(self.listener, self._listen_host, self._port, ssl=self.ssl_context, loop=self.loop)
+        self.server = websockets.serve(self.listener, self._listen_host, self._port, ssl=self.ssl_context, loop=self._loop)
+        self._requested_tasks = []
+        self._scheduled_tasks = []
+
+    def add_async_task(self, coro) -> int:
+        """
+        Add a coroutine that will be run as a task in the main service event loop.
+
+        Implementations may have a "built-in" task, which could potentially be executed via a call to
+        ``run_until_complete()``.  This method gives the opportunity to schedule additional tasks, ensuring any are
+        scheduled prior to any blocking caused by ``run_until_complete()``.  Tasks can also be added later if there is
+        not blocking or it has finished.
+
+        However, this method does not
+
+        Parameters
+        ----------
+        coro
+            A coroutine
+
+        Returns
+        ----------
+        int
+            The index of the ::class:`Task` object for the provided coro.
+        """
+        next_index = len(self._requested_tasks)
+        self._requested_tasks.append(coro)
+        # If the event loop is already running, the make sure the task gets scheduled
+        if len(self._scheduled_tasks) > 0:
+            self._scheduled_tasks.append(self.loop.create_task(coro))
+        return next_index
 
     async def deserialized_message(self, message_data: dict, event_type: MessageEventType = None, check_for_auth=False):
         """
@@ -185,6 +219,30 @@ class WebSocketInterface(ABC):
         except RuntimeError as re:
             raise re
 
+    def get_task_object(self, index: int) -> Optional[asyncio.Task]:
+        """
+        Get the ::class:`Task` object for the task run by the service, based on the associated index returned when
+        ::method:`add_async_task` was called, returning ``None`` if the service has not starting running a task stored
+        at that index yet.
+
+        Note that, strictly speaking, ``None`` will be returned if an index value outside the bounds of the current
+        backing collection is received, regardless of whether it is positive or negative.  Thus, invalid negative values
+        will also return ``None``.
+
+        Parameters
+        ----------
+        index
+            The associated task index
+
+        Returns
+        -------
+        Optional[Task]
+            The desired async ::class:`Task` object, or ``None`` if the service is not yet running a task object stored
+            at the provided index.
+        """
+        if len(self._scheduled_tasks) > index:
+            return self._scheduled_tasks[index]
+
     def handle_exception(self, loop, context):
         message = context.get('exception', context['message'])
         logging.error(f"Caught exception: {message}")
@@ -198,6 +256,18 @@ class WebSocketInterface(ABC):
         of the server's listener.
         """
         pass
+
+    @property
+    def loop(self) -> asyncio.AbstractEventLoop:
+        """
+        Get the event loop for the service.
+
+        Returns
+        -------
+        AbstractEventLoop
+            The event loop for the service.
+        """
+        return self._loop
 
     async def parse_request_type(self, data: dict, check_for_auth=False) -> Tuple[MessageEventType, dict]:
         """
@@ -235,7 +305,15 @@ class WebSocketInterface(ABC):
 
     def run(self):
         """
-            Run the handler indefinitely
+        Run the event loop indefinitely.
+
+        The primary built-in async task is the execution of the ::attribute:`server` property, which is the actual
+        websocket server object.  This gets scheduled in the event loop last, using
+        ::method:`AbstractEventLoop.run_until_complete`, after any other coroutine tasks added via
+        ::method:`add_async_task` are scheduled via ::method:`AbstractEventLoop.create_task`.
+
+        As each tasks gets created/scheduled, the server ::class:`Task` object are placed in a private collection,
+        making them accessible with ::method:`get_task_object` by index.
         """
         try:
             # For each requested task, create a scheduled tasks
@@ -243,7 +321,7 @@ class WebSocketInterface(ABC):
                 self._scheduled_tasks.append(self.loop.create_task(requested_coro))
 
             # Then establish the main server function (and append to scheduled tasks list)
-            # Make sure this gets put into the list of requested tasks
+            # Make sure this gets put into the list of requested tasks to keep indexes consistent with scheduled list
             self._requested_tasks.append(self.server)
             self._scheduled_tasks.append(self.loop.run_until_complete(self.server))
 
@@ -257,17 +335,18 @@ class WebSocketInterface(ABC):
         """
             Wait for current task to finish, cancel all others
         """
+        # TODO: include logging somehow within interface, then see if this can be safely moved to interface
         if shutdown_signal:
             logging.info(f"Exiting on signal {shutdown_signal.name}")
 
-        #Let the current task finish gracefully
-        #3.7 asyncio.all_tasks()
+        # Let the current task finish gracefully
+        # 3.7 asyncio.all_tasks()
         tasks = [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
         for task in tasks:
             #Cancel pending tasks
             task.cancel()
         logging.info(f"Cancelling {len(tasks)} pending tasks")
-        #wait for tasks to cancel
+        # wait for tasks to cancel
         await asyncio.gather(*tasks, return_exceptions=True)
         self.loop.stop()
 
