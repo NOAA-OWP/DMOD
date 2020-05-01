@@ -48,13 +48,6 @@ class WebSocketInterface(ABC):
     server:
         websocket server
     """
-    @abstractmethod
-    def listener(self, websocket: WebSocketServerProtocol, path):
-        """
-            Abstract method to be overridden by subclasses to define the behaviour
-            of the server's listener.
-        """
-        pass
 
     @classmethod
     def _get_async_loop(cls):
@@ -197,6 +190,14 @@ class WebSocketInterface(ABC):
         logging.error(f"Caught exception: {message}")
         logging.info("Shutting down due to exception")
         asyncio.create_task(self.shutdown())
+
+    @abstractmethod
+    def listener(self, websocket: WebSocketServerProtocol, path):
+        """
+        Abstract method to be overridden by subclasses to define the behaviour
+        of the server's listener.
+        """
+        pass
 
     async def parse_request_type(self, data: dict, check_for_auth=False) -> Tuple[MessageEventType, dict]:
         """
