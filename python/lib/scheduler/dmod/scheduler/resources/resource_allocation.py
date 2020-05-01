@@ -1,12 +1,12 @@
 from datetime import datetime
 from typing import Dict, Optional, Union
-from .resource import AbstractProcessingResource
+from .resource import SingleHostProcessingAssetPool
 
 
-class ResourceAllocation(AbstractProcessingResource):
+class ResourceAllocation(SingleHostProcessingAssetPool):
     """
-    Implementation of ::class:`AbstractProcessingResource` representing a sub-collection of processes on a given
-    resource allocated to a particular job.
+    Implementation of ::class:`SingleHostProcessingAssetPool` representing a sub-collection of processing assets on a
+    resource that have been allocated for a job.
     """
 
     @classmethod
@@ -49,7 +49,7 @@ class ResourceAllocation(AbstractProcessingResource):
 
     def __init__(self, resource_id: str, hostname: str, cpus_allocated: int, requested_memory: int,
                  created: Optional[Union[str, float, datetime]] = None):
-        super().__init__(resource_id=resource_id, hostname=hostname, cpu_count=cpus_allocated, memory=requested_memory)
+        super().__init__(pool_id=resource_id, hostname=hostname, cpu_count=cpus_allocated, memory=requested_memory)
         self._set_created(created)
 
     def _set_created(self, created: Optional[Union[str, float, datetime]] = None):
@@ -76,6 +76,19 @@ class ResourceAllocation(AbstractProcessingResource):
     @property
     def created(self) -> datetime:
         return self._created
+
+    @property
+    def resource_id(self) -> str:
+        """
+        Get the resource id of the ::class:`Resource` of which this is a subset of assets, which is the same as that
+        resource's ``pool_id``.
+
+        Returns
+        -------
+        str
+            The ``resource_id`` or ``pool_id`` of the ::class:`Resource` of which this is a subset of assets.
+        """
+        return self.pool_id
 
     def to_dict(self) -> Dict[str, Union[str, int]]:
         return {'node_id': self.resource_id, 'Hostname': self.hostname, 'cpus_allocated': self.cpu_count,

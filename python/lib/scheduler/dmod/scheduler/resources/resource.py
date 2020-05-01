@@ -15,21 +15,21 @@ class ResourceState(Enum):
     UNKNOWN = -1
 
 
-class AbstractProcessingResource(ABC):
+class AbstractProcessingAssetPool(ABC):
     """
-    Abstract representation of some collection of sub-collection of processing resources.
+    Abstract representation of some collection of assets used for processing jobs/tasks.
 
-    Objects of this type can be converted to and from serialized dictionaries, and they will have resource/node
-    identifiers and hostnames for the host on which the resources exists, which should not be modified after object
-    creation.
+    Objects of this type consist of a certain number of processors and certain amount of memory.  This base type does
+    not impose restrictions on whether these values may change over time.
 
-    They also consist of a certain number of processors and certain amount of memory.  These may change over time.
+    Objects of this type can also be converted to and from serialized dictionaries, with deserialization done using the
+    ::method:`factory_init_from_dict` class method, and serialization using the ::method:`to_dict` method.
     """
 
     @classmethod
     @abstractmethod
     def factory_init_from_dict(cls, init_dict: Dict[str, Any],
-                               ignore_extra_keys: bool = False) -> 'AbstractProcessingResource':
+                               ignore_extra_keys: bool = False) -> 'AbstractProcessingAssetPool':
         """
         Initialize a new object from the given dictionary, raising a ::class:`ValueError` if there are missing expected
         keys or there are extra keys when the method is not set to ignore them.
@@ -58,7 +58,7 @@ class AbstractProcessingResource(ABC):
 
         Returns
         -------
-        AbstractProcessingResource
+        SingleHostProcessingAssetPool
             A newly initialized ::class:`AbstractProcessingResource` object.
 
         Raises
@@ -71,9 +71,8 @@ class AbstractProcessingResource(ABC):
         """
         pass
 
-    def __init__(self, resource_id: str, hostname: str, cpu_count: int, memory: int):
-        self._resource_id = resource_id
-        self._hostname = hostname
+    def __init__(self, pool_id: str, cpu_count: int, memory: int):
+        self._pool_id = pool_id
         self._cpu_count = cpu_count
         self._memory = memory
         self.unique_id_separator = ':'
@@ -87,10 +86,6 @@ class AbstractProcessingResource(ABC):
         self._cpu_count = cpu_count
 
     @property
-    def hostname(self) -> str:
-        return self._hostname
-
-    @property
     def memory(self) -> int:
         return self._memory
 
@@ -99,8 +94,8 @@ class AbstractProcessingResource(ABC):
         self._memory = memory
 
     @property
-    def resource_id(self) -> str:
-        return self._resource_id
+    def pool_id(self) -> str:
+        return self._pool_id
 
     @abstractmethod
     def to_dict(self) -> Dict[str, Union[str, int]]:
@@ -127,9 +122,28 @@ class AbstractProcessingResource(ABC):
         pass
 
 
-class Resource(AbstractProcessingResource):
+class SingleHostProcessingAssetPool(AbstractProcessingAssetPool, ABC):
     """
-    Representation of a resource from which processing capabilities can be allocated.
+    An extension of ::class:`AbstractProcessingAssetPool` where the represented assets all exist on a single logical
+    host.
+
+    , and they will have resource/node
+    identifiers and hostnames for the host on which the resources exists, which should not be modified after object
+    creation.
+    """
+
+    def __init__(self, pool_id: str, hostname: str, cpu_count: int, memory: int):
+        super().__init__(pool_id=pool_id, cpu_count=cpu_count, memory=memory)
+        self._hostname = hostname
+
+    @property
+    def hostname(self) -> str:
+        return self._hostname
+
+
+class Resource(SingleHostProcessingAssetPool):
+    """
+    Representation of a resource from which processing assets can be allocated.
 
     E.g.:
             {
@@ -286,7 +300,7 @@ class Resource(AbstractProcessingResource):
     def __init__(self, resource_id: str, hostname: str, availability: Union[str, ResourceAvailability],
                  state: Union[str, ResourceState], cpu_count: int, memory: int, total_cpu_count: Optional[int],
                  total_memory: Optional[int]):
-        super().__init__(resource_id=resource_id, hostname=hostname, cpu_count=cpu_count, memory=memory)
+        super().__init__(pool_id=resource_id, hostname=hostname, cpu_count=cpu_count, memory=memory)
 
         self._availability = None
         self.availability = availability
@@ -380,6 +394,10 @@ class Resource(AbstractProcessingResource):
         # TODO: do something to make sure we don't somehow get back more than we started with
         self.cpu_count = self.cpu_count + cpu_count
         self.memory = self.memory + memory
+
+    @property
+    def resource_id(self) -> str:
+        return self.pool_id
 
     @property
     def state(self) -> ResourceState:
