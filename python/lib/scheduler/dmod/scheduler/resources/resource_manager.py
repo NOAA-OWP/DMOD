@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 import logging
-from typing import Iterable, Mapping, Union
+from typing import Iterable, Optional, Union
 from abc import ABC, abstractmethod
 from .resource import Resource
+from .resource_allocation import ResourceAllocation
 
 # As a pure ABC probably don't need logging
 logging.basicConfig(
@@ -78,7 +79,7 @@ class ResourceManager(ABC):
 
     @abstractmethod
     def allocate_resource(self, resource_id: str, requested_cpus: int,
-                          requested_memory: int = 0, partial: bool = False) -> Mapping[str, Union[str, int]]:
+                          requested_memory: int = 0, partial: bool = False) -> Optional[ResourceAllocation]:
         """
         Attempt to allocate the requested resources.  Successful allocation will return
         a non empty map.
@@ -98,7 +99,11 @@ class ResourceManager(ABC):
             whether to partially fulfill the requested allocation and return
             an allocation map with less than the requested allocation
 
-
+        Returns
+        -------
+        Optional[ResourceAllocation]
+            A resource allocation object, or ``None`` if there were insufficient allocation properties in the designated
+            ::class:`Resource` and ``partial`` was set to ``False``
         """
         pass
 
