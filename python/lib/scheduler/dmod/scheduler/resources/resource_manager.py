@@ -2,6 +2,7 @@
 import logging
 from typing import Iterable, Optional, Union
 from abc import ABC, abstractmethod
+from ..job import Job
 from .resource import Resource
 from .resource_allocation import ResourceAllocation
 
@@ -115,6 +116,24 @@ class ResourceManager(ABC):
         ----------
         allocated_resources : Iterable[ResourceAllocation]
             An iterable of resource allocation objects.
+        """
+        pass
+
+    @abstractmethod
+    def request_allocations(self, job: Job) -> Iterable[ResourceAllocation]:
+        """
+        Request resource allocations for the given ::class:`Job` object, according to its needs and permitted allocation
+        paradigm(s).
+
+        Parameters
+        ----------
+        job
+
+        Returns
+        -------
+        Iterable[ResourceAllocation]
+            An iterable collection of allocations to satisfy the given job, which will be empty if there are not
+            sufficient assets available to construct such allocations.
         """
         pass
 
