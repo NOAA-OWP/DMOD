@@ -26,6 +26,7 @@ services:
       - SERVICE_PACKAGE_NAME=${PYTHON_PACKAGE_NAME_SCHEDULER_SERVICE:?}
       - SERVICE_SSL_DIR=${DOCKER_SCHEDULER_CONTAINER_SERVICE_SSL_DIR:-/ssl/scheduler}
       - DOCKER_SECRET_REDIS_PASS=myredis_pass
+      - REDIS_HOST=${DOCKER_REDIS_SERVICE_ALIAS:-redis}
   myredis:
     image: redis
     ports:
