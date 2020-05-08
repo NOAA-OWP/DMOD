@@ -1,10 +1,73 @@
 from abc import ABC, abstractmethod
 from dmod.communication.scheduler_request import SchedulerRequestMessage
+from enum import Enum
 from typing import List, Optional, Union
 from uuid import UUID
 
 from dmod.scheduler.rsa_key_pair import RsaKeyPair
 from dmod.scheduler.resources.resource_allocation import ResourceAllocation
+
+
+class JobAllocationParadigm(Enum):
+    """
+    Representation of the ways ::class`ResourceAllocation` may be combined to fulfill a total required asset amount
+    needed for the allocation of a job.
+
+    The values are as follows:
+        FILL_NODES  - obtain allocations of assets by proceeding through resources in some order, getting either the max
+                      possible allocation from the current resource or a allocation that fulfills the outstanding need,
+                      until the sum of assets among all received allocations is sufficient
+        ROUND_ROBIN - obtain allocations of assets from available resource nodes in a round-robin manner
+        SINGLE_NODE - require all allocation of assets to be from a single resource/host
+    """
+
+    FILL_NODES = 0,
+    ROUND_ROBIN = 1,
+    SINGLE_NODE = 2
+
+    @classmethod
+    def get_default_selection(cls):
+        """
+        Get the default fallback value select to use in various situation, which is ``SINGLE_NODE``.
+
+        Returns
+        -------
+        The ``SINGLE_NODE`` value.
+        """
+
+    @classmethod
+    def get_from_name(cls, name: Optional[str]):
+        """
+        Get the appropriate value corresponding to the given string value name (trimming whitespace), falling back to
+        the default from ::method:`get_default_selection` if an unrecognized or ``None`` value is received.
+
+        Parameters
+        ----------
+        name: Optional[str]
+            The expected string name corresponding to the desired value.
+
+        Returns
+        -------
+        The desired enum value.
+        """
+        if name is None or not isinstance(name, str):
+            return cls.get_default_selection()
+        trimmed_name = name.strip()
+        for enum_val in cls:
+            if enum_val.name == trimmed_name:
+                return enum_val
+        return cls.get_default_selection()
+
+
+class JobStatus(Enum):
+    CREATED = 0,
+    QUEUED = 1,
+    ALLOCATED = 2,
+    SCHEDULED = 3,
+    COMPLETED = 4,
+    CLOSED = 5,
+    FAILED = -1,
+    UNKNOWN = -10
 
 
 class Job(ABC):
