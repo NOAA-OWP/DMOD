@@ -5,8 +5,8 @@ from pathlib import Path
 from . import name as package_name
 from dmod.scheduler import Scheduler
 from .service import SchedulerHandler
-from dmod.scheduler import Scheduler
-from dmod.resourcemanager import RedisManager
+from dmod.scheduler import Scheduler, RedisManager
+
 
 def _handle_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -121,8 +121,7 @@ def main():
     redis_host, redis_port, redis_pass = redis_params(args)
 
     # instantiate the resource manager for the scheduler
-    #TODO configure redis here, i.e. host, port, pass?  Or rely on env?
-    resource_manager = RedisManager("maas")
+    resource_manager = RedisManager("maas", redis_host=redis_host, redis_port=redis_port, redis_pass=redis_pass)
     resource_manager.set_resources(resource_list)
     # instantiate the scheduler
     # TODO: look at handling if the value in args.images_and_domains_yaml doesn't correspond to an actual file
