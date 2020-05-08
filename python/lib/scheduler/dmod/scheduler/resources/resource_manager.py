@@ -108,14 +108,14 @@ class ResourceManager(ABC):
         pass
 
     @abstractmethod
-    def release_resources(self, allocated_resources: Iterable[Resource]):
+    def release_resources(self, allocated_resources: Iterable[ResourceAllocation]):
         """
-            Give back any allocated resources to the manager.
+        Release allocated resources to the manager.
 
-            Parameters
-            ----------
-            allocated_resources
-                An iterable of maps containing the metadata returned by allocate_resources
+        Parameters
+        ----------
+        allocated_resources : Iterable[ResourceAllocation]
+            An iterable of resource allocation objects.
         """
         pass
 
