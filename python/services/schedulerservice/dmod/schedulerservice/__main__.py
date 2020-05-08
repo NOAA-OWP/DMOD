@@ -3,9 +3,9 @@ import yaml
 from os import getenv
 from pathlib import Path
 from . import name as package_name
-from dmod.scheduler import Scheduler
 from .service import SchedulerHandler
 from dmod.scheduler import Scheduler, RedisManager
+from dmod.scheduler.job import JobManagerFactory, JobManager
 
 
 def _handle_args():
@@ -123,12 +123,18 @@ def main():
     # instantiate the resource manager for the scheduler
     resource_manager = RedisManager("maas", redis_host=redis_host, redis_port=redis_port, redis_pass=redis_pass)
     resource_manager.set_resources(resource_list)
+
+    # instantiate the job manager
+    job_manager: JobManager = JobManagerFactory.factory_create(host=redis_host, port=redis_port, redis_pass=redis_pass)
+
     # instantiate the scheduler
     # TODO: look at handling if the value in args.images_and_domains_yaml doesn't correspond to an actual file
     scheduler = Scheduler(images_and_domains_yaml=args.images_and_domains_yaml, resource_manager=resource_manager, type="dev")
 
     #Instansite the handle_job_request
     handler = SchedulerHandler(scheduler, ssl_dir=Path(args.ssl_dir), port=args.port)
+    # Create the async task for processing Jobs within queue and scheduling
+    handler.add_async_task(job_manager.manage_job_processing())
     #keynamehelper.set_prefix("stack0")
     handler.run()
 
