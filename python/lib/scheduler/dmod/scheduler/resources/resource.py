@@ -379,6 +379,22 @@ class Resource(SingleHostProcessingAssetPool):
             enum_val = self.get_resource_enum_value(ResourceAvailability, availability)
         self._availability = ResourceAvailability.UNKNOWN if enum_val is None else enum_val
 
+    def is_allocatable(self) -> bool:
+        """
+        Get whether it is possible to allocate something from this resource.
+
+        For this to be ``True``, ::attribute:`availability` must be ``ACTIVE`` of ::class:`ResourceAvailability,
+        ::attribute:`state` must be ``READY`` of ::class:`ResourceState`, and both ::attribute:`cpu_count` and
+        ::attribute:`memory` must be greater than ``0``.
+
+        Returns
+        -------
+        bool
+            Whether it is possible to allocate something from this resource.
+        """
+        return self.availability == ResourceAvailability.ACTIVE and self.state == ResourceState.READY \
+            and self.cpu_count > 0 and self.memory > 0
+
     def release(self, cpu_count: int, memory: int):
         """
         Release previously allocated sub-resources in the given amounts.
