@@ -81,8 +81,7 @@ class ResourceManager(ABC):
     def allocate_resource(self, resource_id: str, requested_cpus: int,
                           requested_memory: int = 0, partial: bool = False) -> Optional[ResourceAllocation]:
         """
-        Attempt to allocate the requested resources.  Successful allocation will return
-        a non empty map.
+        Attempt to allocate the requested resources.
 
         Parameters
         ----------
