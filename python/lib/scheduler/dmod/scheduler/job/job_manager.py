@@ -117,6 +117,13 @@ class JobManager(ABC):
         pass
 
     @abstractmethod
+    async def manage_job_processing(self):
+        """
+        Monitor for created jobs and perform steps for job queueing, allocation of resources, and hand-off to scheduler.
+        """
+        pass
+
+    @abstractmethod
     def retrieve_job(self, job_id) -> Job:
         """
         Get the particular job with the given unique id.
