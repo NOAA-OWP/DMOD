@@ -254,6 +254,7 @@ class RequestedJob(Job):
     @allocations.setter
     def allocations(self, allocations: List[ResourceAllocation]):
         self._allocations = allocations
+        self._reset_last_updated()
 
     @property
     def cpu_count(self) -> int:
@@ -284,6 +285,7 @@ class RequestedJob(Job):
             self.job_uuid = job_id
         else:
             self.job_uuid = UUID(str(job_id))
+        self._reset_last_updated()
 
     @property
     def memory_size(self) -> int:
@@ -316,6 +318,7 @@ class RequestedJob(Job):
     @rsa_key_pair.setter
     def rsa_key_pair(self, key_pair: RsaKeyPair):
         self._rsa_key_pair = key_pair
+        self._reset_last_updated()
 
     @property
     def status(self) -> JobStatus:
