@@ -31,11 +31,11 @@ class JobManagerFactory:
 
         Keyword Args
         ----------
-        host : str
+        redis_host : str
             The Redis service host name.
-        port : int
+        redis_port : int
             The Redis service port.
-        password : str
+        redis_pass : str
             The Redis service auth password.
 
         Returns
@@ -47,11 +47,11 @@ class JobManagerFactory:
         port = None
         pword = None
         for key, value in kwargs.items():
-            if key == 'host':
+            if key == 'redis_host':
                 host = value
-            elif key == 'port':
+            elif key == 'redis_port':
                 port = int(value)
-            elif key == 'password':
+            elif key == 'redis_pass':
                 pword = value
         return RedisBackedJobManager(redis_host=host, redis_port=port, redis_pass=pword)
 
