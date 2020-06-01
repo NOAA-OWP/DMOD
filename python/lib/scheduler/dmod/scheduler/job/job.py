@@ -75,6 +75,12 @@ class Job(ABC):
     An abstract interface for a job performed by the MaaS system.
     """
 
+    def __eq__(self, other):
+        if isinstance(other, Job):
+            return self.job_id == other.job_id
+        else:
+            return other.__eq__(self)
+
     @property
     @abstractmethod
     def allocations(self) -> Optional[List[ResourceAllocation]]:
