@@ -211,6 +211,7 @@ class RequestedJob(Job):
         self._allocations = None
         self.job_uuid = None
         self._rsa_key_pair = None
+        self._status = JobStatus.CREATED
         self._reset_last_updated()
 
     def _reset_last_updated(self):
@@ -316,4 +317,6 @@ class RequestedJob(Job):
     def rsa_key_pair(self, key_pair: RsaKeyPair):
         self._rsa_key_pair = key_pair
 
-
+    @property
+    def status(self) -> JobStatus:
+        return self._status
