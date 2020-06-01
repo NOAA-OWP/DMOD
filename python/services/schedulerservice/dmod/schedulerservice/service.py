@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 from websockets import WebSocketServerProtocol
+from typing import Tuple
 from dmod.communication import WebSocketInterface, SchedulerRequestMessage, SchedulerRequestResponse
-from dmod.scheduler import Scheduler
+from dmod.scheduler import Scheduler, ResourceManager
+from dmod.scheduler.job import RequestedJob, JobManager
 from pathlib import Path
 import json
 import logging
@@ -15,10 +17,14 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()]
 )
 
+# TODO: consider taking out loop init from WebsocketInterface implementations, instead having some "service" class own loop
+# TODO: then, have WebsocketInterface implementations attach to some service
 
+
+# TODO: rename to something like ExecutionHandler, and rename package as well (really goes beyond the Scheduler now)
 class SchedulerHandler(WebSocketInterface):
     """
-    Communication handler for the Scheduler Service, implemented with WebSocketInterface
+    Communication handler for the Scheduler Service, implemented with WebSocketInterface.
 
     Attributes
     ----------
@@ -27,13 +33,14 @@ class SchedulerHandler(WebSocketInterface):
         scheduler instance to schedule requested jobs
     """
 
-    def __init__(self, scheduler: Scheduler, *args, **kwargs):
+    def __init__(self, scheduler: Scheduler, job_mgr: JobManager, *args, **kwargs):
         """
             Initialize the WebSocketInterface with any user defined custom server config
         """
         super().__init__(*args, **kwargs)
         #Hold the defined scheduler instance
         self.scheduler = scheduler
+        self._job_manager = job_mgr
 
     async def listener(self, websocket: WebSocketServerProtocol, path):
         """
@@ -51,23 +58,54 @@ class SchedulerHandler(WebSocketInterface):
             logging.info(f"Gor message: {message}")
             data = json.loads(message)
             logging.info(f"Got payload: {data}")
-            request_message = SchedulerRequestMessage.factory_init_from_deserialized_json(data)
-            #test = self.scheduler.fromRequest(request_message, 0)
-            self.scheduler.enqueue(request_message)
-            #FIX THIS INTERFACE test.startJobs()
-            #FIXME one of the first scheduler interface changes will be a domain
-            #identity which services will have to mount to run
-            #initial cpu/mem will be static, bound to domain ID
 
-            # Initial response ...
-            response = SchedulerRequestResponse(success=True, reason='Job Scheduled',
-                                                data={'job_id': self.scheduler.return42()})
+            # TODO: other message types, including to start getting status info on already-made request
+
+            # TODO: consider separating to another function, especially if info request messages are possible
+            request_message = SchedulerRequestMessage.factory_init_from_deserialized_json(data)
+
+            # Create job object for this request
+            job: RequestedJob = self._job_manager.create_job(request=request_message)
+            # Sanity check type
+            if not isinstance(job, RequestedJob):
+                obj_type = 'None' if job is None else job.__class__.__name__
+                msg = "Unexpected Job object type created by job manager for request ({})".format(obj_type)
+                response = SchedulerRequestResponse(success=True, reason=msg, data={'job_id': 'None'})
+                await websocket.send(str(response))
+                raise TypeError(msg)
+
+            # Send request processed message back through
+            response = SchedulerRequestResponse(success=True, reason='Job Request Processed',
+                                                data={'job_id': job.job_id})
             await websocket.send(str(response))
 
-            # Then some "data" for testing purpose
-            #for i in range(3):
-            #    await websocket.send(str(self.scheduler.return42()))
+            # Loop while checking for job state changes that trigger info (or data) messages back through websocket
+            loop_iterations = 0
+            while True:
+                # Refresh data for job
+                job_refreshed_copy = self._job_manager.retrieve_job(job.job_id)
+                # If the job was updated ...
+                if job_refreshed_copy.last_updated != job.last_updated:
+                    # TODO: check to see what changed
+                    # TODO: if appropriate for the change, send a status message back through the websocket
+                    # Update to use the fresh copy of the job
+                    job = job_refreshed_copy
 
+                # TODO: look for some kind of break condition for leaving the loop, and for starting sending back output
+
+                # Finally, loop maintenance
+                # The first few loop iterations, sleep very briefly to catch initial updates quickly if they happen
+                if loop_iterations < 2:
+                    sleep_time = 0.25
+                elif loop_iterations < 5:
+                    sleep_time = 0.5
+                else:
+                    sleep_time = 60
+                loop_iterations += 1
+                await asyncio.sleep(sleep_time)
+
+        except TypeError as te:
+            logging.error("Problem with object types when processing received message", te)
         except websockets.exceptions.ConnectionClosed:
             logging.info("Connection Closed at Consumer")
         except asyncio.CancelledError:

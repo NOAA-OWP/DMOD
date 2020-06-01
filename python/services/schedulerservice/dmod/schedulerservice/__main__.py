@@ -132,7 +132,7 @@ def main():
     scheduler = Scheduler(images_and_domains_yaml=args.images_and_domains_yaml, resource_manager=resource_manager, type="dev")
 
     #Instansite the handle_job_request
-    handler = SchedulerHandler(scheduler, ssl_dir=Path(args.ssl_dir), port=args.port)
+    handler = SchedulerHandler(scheduler, job_manager, ssl_dir=Path(args.ssl_dir), port=args.port)
     # Create the async task for processing Jobs within queue and scheduling
     handler.add_async_task(job_manager.manage_job_processing())
     #keynamehelper.set_prefix("stack0")
