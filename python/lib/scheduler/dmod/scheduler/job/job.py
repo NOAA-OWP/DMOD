@@ -99,7 +99,7 @@ class Job(ABC):
     @abstractmethod
     def allocations(self) -> Optional[List[ResourceAllocation]]:
         """
-        The scheduler allocation for this job.
+        The resource allocations that have been allocated for this job.
 
         Returns
         -------
@@ -182,6 +182,19 @@ class Job(ABC):
         -------
         Optional[RsaKeyPair]
             The ::class:`RsaKeyPair` for this job's shared SSH RSA keys, or ``None`` if not has been set.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def status(self) -> JobStatus:
+        """
+        The ::class:`JobStatus` of this object.
+
+        Returns
+        -------
+        JobStatus
+            The ::class:`JobStatus` of this object.
         """
         pass
 
