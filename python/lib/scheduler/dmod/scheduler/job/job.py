@@ -207,6 +207,7 @@ class RequestedJob(Job):
 
     def __init__(self, job_request: SchedulerRequestMessage):
         self._originating_request = job_request
+        self._allocation_paradigm = JobAllocationParadigm.get_from_name(name=job_request.allocation_paradigm)
         self._allocations = None
         self.job_uuid = None
         self._rsa_key_pair = None
@@ -228,6 +229,22 @@ class RequestedJob(Job):
         if self._allocations is None:
             self.allocations = list()
         self.allocations.append(allocation)
+
+    @property
+    def allocation_paradigm(self) -> JobAllocationParadigm:
+        """
+        The ::class:`JobAllocationParadigm` type value that was used or should be used to make allocations.
+
+        For this type, the value is set as a private attribute during initialization, based on the value of the
+        ::attribute:`SchedulerRequestMessage.allocation_paradigm` string property present within the provided
+        ::class:`SchedulerRequestMessage` init param.
+
+        Returns
+        -------
+        JobAllocationParadigm
+            The ::class:`JobAllocationParadigm` type value that was used or should be used to make allocations.
+        """
+        return self._allocation_paradigm
 
     @property
     def allocations(self) -> Optional[List[ResourceAllocation]]:
