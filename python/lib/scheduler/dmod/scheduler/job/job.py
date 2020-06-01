@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 from dmod.communication.scheduler_request import SchedulerRequestMessage
 from enum import Enum
 from typing import List, Optional, Union
@@ -116,6 +117,19 @@ class Job(ABC):
         Returns
         -------
         The unique identifier for this particular job.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def last_updated(self) -> datetime:
+        """
+        The last time this objects state was updated.
+
+        Returns
+        -------
+        datetime
+            The last time this objects state was updated.
         """
         pass
 
