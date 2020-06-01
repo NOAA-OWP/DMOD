@@ -323,3 +323,8 @@ class RequestedJob(Job):
     @property
     def status(self) -> JobStatus:
         return self._status
+
+    @status.setter
+    def status(self, new_status: JobStatus):
+        self._status = new_status
+        self._reset_last_updated()
