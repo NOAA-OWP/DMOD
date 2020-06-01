@@ -300,7 +300,8 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         return SchedulerRequestMessage(model_request=model_request,
                                        user_id=scheduler_request_hash['user_id'],
                                        cpus=scheduler_request_hash['cpus'],
-                                       mem=scheduler_request_hash['memory'])
+                                       mem=scheduler_request_hash['memory'],
+                                       allocation_paradigm=scheduler_request_hash['allocation'])
 
     def _dev_setup(self):
         self._clean_keys()
