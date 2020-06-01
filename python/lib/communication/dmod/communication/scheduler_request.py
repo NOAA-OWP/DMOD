@@ -26,13 +26,14 @@ class SchedulerRequestMessage(AbstractInitRequest):
             model_request = MaaSRequest.factory_init_correct_subtype_from_deserialized_json(json_obj['model_request'])
             if model_request is not None:
                 return cls(model_request=model_request, user_id=json_obj['user_id'], cpus=json_obj['cpus'],
-                           mem=json_obj['mem'])
+                           mem=json_obj['mem'], allocation_paradigm=json_obj['allocation'])
             else:
                 return None
         except:
             return None
 
-    def __init__(self, model_request: MaaSRequest, user_id: str, cpus: Optional[int] = None, mem: Optional[int] = None):
+    def __init__(self, model_request: MaaSRequest, user_id: str, cpus: Optional[int] = None, mem: Optional[int] = None,
+                 allocation_paradigm: str = ''):
         self.model_request = model_request
         self.user_id = user_id
         # TODO come up with better way of determining this for the running system; for now, ensure a value is set
@@ -48,17 +49,19 @@ class SchedulerRequestMessage(AbstractInitRequest):
         else:
             self.memory_unset = False
             self.memory = mem
+        self.allocation_paradigm: str = allocation_paradigm
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ \
                and self.model_request == other.model_request \
                and self.cpus == other.cpus \
                and self.memory == other.memory \
-               and self.user_id == other.user_id
+               and self.user_id == other.user_id \
+               and self.allocation_paradigm == other.allocation_paradigm
 
     def to_dict(self) -> dict:
         return {'model_request': self.model_request.to_dict(), 'user_id': self.user_id, 'cpus': self.cpus,
-                'mem': self.memory}
+                'mem': self.memory, 'allocation': self.allocation_paradigm}
 
 
 class SchedulerRequestResponse(Response):
