@@ -3,10 +3,12 @@ from typing import Iterable, List, Union, Optional
 from redis import WatchError
 import logging
 
+from dmod.redis import RedisBacked
 ## local imports
 from .resource_manager import ResourceManager
-from dmod.redis import RedisBacked
-from dmod.scheduler.resources import Resource, ResourceAllocation
+from .resource import Resource, ResourceAvailability, ResourceState
+from .resource_allocation import ResourceAllocation
+from ..job import Job, JobAllocationParadigm
 
 Max_Redis_Init = 5
 
@@ -219,6 +221,75 @@ class RedisManager(ResourceManager, RedisBacked):
         """
         for allocation in allocated_resources:
             self.release_resource(allocation)
+
+    def _allocate_fill_nodes(self, cpus: int, memory: int, resources: List[Resource]) -> List[ResourceAllocation]:
+        # Plan things out first, before actually executing allocations
+        cpu_alloc_by_res_index = {}
+        mem_alloc_by_res_index = {}
+
+
+        for i in range(len(resources)):
+            if resources[i].cpu_count >= cpus and resources[i].memory >= memory:
+                cpu_alloc_by_res_index[i] = cpus
+                mem_alloc_by_res_index[i] = memory
+            else:
+                # TODO:
+                pass
+            # Finally, account for what's been allocated, before moving on to next resource or breaking
+            cpus -= cpu_alloc_by_res_index[i]
+            memory -= mem_alloc_by_res_index[i]
+            if cpus < 1 and memory < 1:
+                break
+
+        #TODO: finish
+
+    def _allocate_round_robin(self, cpus: int, memory: int, resources: List[Resource]) -> List[ResourceAllocation]:
+        # TODO
+        pass
+
+    def _allocate_single_node(self, cpus: int, memory: int, resources: List[Resource]) -> List[ResourceAllocation]:
+        for res in resources:
+            if res.cpu_count >= cpus and res.memory >= memory:
+                allocation = self.allocate_resource(resource_id=res.resource_id, requested_cpus=cpus,
+                                                    requested_memory=memory)
+                return [allocation]
+        return []
+
+    def request_allocations(self, job: Job) -> Iterable[ResourceAllocation]:
+        """
+        Request resource allocations for the given ::class:`Job` object, according to its needs and permitted allocation
+        paradigm(s).
+
+        Parameters
+        ----------
+        job
+
+        Returns
+        -------
+        Iterable[ResourceAllocation]
+            An iterable collection of allocations to satisfy the given job, which will be empty if there are not
+            sufficient assets available to construct such allocations.
+        """
+        # Filter only ready and usable resources
+        usable_resources = []
+        for resource in self.get_resources():
+            # Only allocatable resources are usable
+            if resource.is_allocatable():
+                usable_resources.append(resource)
+
+        # Return immediately if there are no usable resources
+        if len(usable_resources) == 0:
+            return []
+
+        if job.allocation_paradigm == JobAllocationParadigm.SINGLE_NODE:
+            return self._allocate_single_node(cpus=job.cpu_count, memory=job.memory_size, resources=usable_resources)
+        elif job.allocation_paradigm == JobAllocationParadigm.FILL_NODES:
+            return self._allocate_fill_nodes(cpus=job.cpu_count, memory=job.memory_size, resources=usable_resources)
+        elif job.allocation_paradigm == JobAllocationParadigm.ROUND_ROBIN:
+            return self._allocate_round_robin(cpus=job.cpu_count, memory=job.memory_size, resources=usable_resources)
+        else:
+            # TODO: handle this better
+            raise RuntimeError("Unknown allocation paradigm {}".format(str(job.allocation_paradigm)))
 
     def get_available_cpu_count(self) -> int:
         """
