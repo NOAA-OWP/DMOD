@@ -114,6 +114,11 @@ class RequestService(WebSocketSessionsInterface):
                     response = await self._dmod_request_handler.handle_request(request=req_message)
                     logging.debug('************************* Handled request response: {}'.format(str(response)))
                     await websocket.send(str(response))
+
+                    # TODO loop here to handle a series of multiple requests, as job goes from requested to allocated to
+                    #  scheduled to finished (and of course, the messages for output data)
+                    #  try while except connectionClosed; let server tell us when to stop listening
+
                 # FIXME: add another message type (here and in client) for data transmission
                 # FIXME: add another message type for closing a session
                 else:
