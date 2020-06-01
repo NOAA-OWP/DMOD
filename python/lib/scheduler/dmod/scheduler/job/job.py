@@ -210,6 +210,10 @@ class RequestedJob(Job):
         self._allocations = None
         self.job_uuid = None
         self._rsa_key_pair = None
+        self._reset_last_updated()
+
+    def _reset_last_updated(self):
+        self._last_updated = datetime.now()
 
     def add_allocation(self, allocation: ResourceAllocation):
         """
@@ -266,6 +270,10 @@ class RequestedJob(Job):
     @property
     def memory_size(self) -> int:
         return self._originating_request.memory
+
+    @property
+    def last_updated(self) -> datetime:
+        return self._last_updated
 
     @property
     def originating_request(self) -> SchedulerRequestMessage:
