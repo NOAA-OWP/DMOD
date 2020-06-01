@@ -84,6 +84,19 @@ class Job(ABC):
 
     @property
     @abstractmethod
+    def allocation_paradigm(self) -> JobAllocationParadigm:
+        """
+        The ::class:`JobAllocationParadigm` type value that was used or should be used to make allocations.
+
+        Returns
+        -------
+        JobAllocationParadigm
+            The ::class:`JobAllocationParadigm` type value that was used or should be used to make allocations.
+        """
+        pass
+
+    @property
+    @abstractmethod
     def allocations(self) -> Optional[List[ResourceAllocation]]:
         """
         The scheduler allocation for this job.
