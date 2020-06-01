@@ -94,26 +94,21 @@ class NWMRequestHandler(AbstractRequestHandler):
                 session.user, str(session.session_id), request.to_json())
             logging.debug("*************" + msg)
         else:
-            # TODO: push to redis stream, associating with this session somehow, and getting some kind of id back
-            #The context manager manages a SINGLE connection to the scheduler server
-            #Adhoc calls to the scheduler can be made for this connection via the scheduler_client
-            #These adhoc calls will use the SAME connection the context was initialized with
+            # The context manager manages a SINGLE connection to the scheduler server
+            # Adhoc calls to the scheduler can be made for this connection via the scheduler_client
+            # These adhoc calls will use the SAME connection the context was initialized with
             logging.debug("************* Preparing scheduler request message")
             scheduler_message = SchedulerRequestMessage(model_request=request, user_id=session.user)
             logging.debug("************* Scheduler request message ready:\n{}".format(str(scheduler_message)))
-            #async with SchedulerClient(scheduler_url, self.scheduler_client_ssl_dir) as scheduler_client:
             # Should be able to do this to reuse same object/context/connection across tasks, even from other methods
             async with self._scheduler_client as scheduler_client:
                 initial_response = await scheduler_client.async_make_request(scheduler_message)
                 logging.debug("************* Scheduler client received response:\n{}".format(str(initial_response)))
                 if initial_response.success:
                     job_id = initial_response.job_id
-                    # TODO: maybe here, formalize responses to a degree containing data
                     #async for response in scheduler_client.get_results():
                     #    logging.debug("************* Results:\n{}".format(str(response)))
                     #    print(response)
-                # TODO loop here to receive multiple requests, try while execpt connectionClosed,
-                #   let server tell us when to stop listening
             # TODO: consider registering the job and relationship with session, etc.
             success = initial_response.success
             success_str = 'Success' if success else 'Failure'
