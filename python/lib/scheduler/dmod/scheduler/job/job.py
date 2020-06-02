@@ -60,15 +60,108 @@ class JobAllocationParadigm(Enum):
         return cls.get_default_selection()
 
 
+class InnerJobStatus:
+    def __eq__(self, other):
+        return self.uid == other.uid if isinstance(other, InnerJobStatus) else self.uid == other
+
+    def __init__(self, uid: int, is_active: bool = True, is_error: bool = False, is_interrupted: bool = False):
+        self.uid = uid
+        self.is_active = is_active
+        self.is_error = is_error
+        self.is_interrupted = is_interrupted
+
+    def __hash__(self):
+        return self.uid
+
+
 class JobStatus(Enum):
-    CREATED = 0,
-    QUEUED = 1,
-    ALLOCATED = 2,
-    SCHEDULED = 3,
-    COMPLETED = 4,
-    CLOSED = 5,
-    FAILED = -1,
-    UNKNOWN = -10
+    CREATED = InnerJobStatus(0)
+    AWAITING_ALLOCATION = InnerJobStatus(1),
+    ALLOCATED_PENDING = InnerJobStatus(2),
+    SCHEDULED = InnerJobStatus(3),
+    RUNNING = InnerJobStatus(4),
+    STOPPED = InnerJobStatus(5, is_interrupted=True)
+    COMPLETED = InnerJobStatus(6)
+    CLOSED = InnerJobStatus(7, is_active=False),
+    FAILED = InnerJobStatus(-1, is_active=True, is_error=True, is_interrupted=True),
+    CLOSED_FAILURE = InnerJobStatus(-2, is_active=False, is_error=True),
+    UNKNOWN = InnerJobStatus(-10, is_active=False, is_error=True)
+
+    @staticmethod
+    def get_active_statuses() -> List['JobStatus']:
+        """
+        Return a list of the "active" job status values that indicate a job still needs some action taken or completed.
+
+        Returns
+        -------
+        List[JobStatus]
+            A list of the "active" job status values that indicate a job still needs some action taken or completed.
+        """
+        actives = []
+        for value in JobStatus:
+            if value.is_active:
+                actives.append(value)
+        return actives
+
+    @staticmethod
+    def get_for_name(name: str) -> 'JobStatus':
+        """
+        Get the status enum value corresponding to the given name string, or ``UNKNOWN`` if the name string is not
+        recognized.
+
+        Note that any leading and/or trailing whitespace is trimmed before testing against enum values.  Also, testing
+        is performed in a case-insensitive manner.
+
+        Parameters
+        ----------
+        name : str
+            A string expected to correspond to the name of a status value, potentially with capitalization differences.
+
+        Returns
+        -------
+        JobStatus
+            The status enum value corresponding to the given name string, or ``UKNOWN`` when not recognized.
+        """
+        if name is None or not isinstance(name, str) or len(name) == 0:
+            return JobStatus.UNKNOWN
+        formatted_name = name.lower().strip()
+        for value in JobStatus:
+            if formatted_name == value.name.lower().strip():
+                return value
+        return JobStatus.UNKNOWN
+
+    def __eq__(self, other):
+        if isinstance(other, JobStatus):
+            return self._inner_subtype == other._inner_subtype
+        elif isinstance(other, InnerJobStatus):
+            return self._inner_subtype == other
+        elif isinstance(other, int):
+            return self.uid == other
+        elif isinstance(other, float) and other.is_integer():
+            return self.uid == int(other)
+        elif isinstance(other, str):
+            return self == self.get_for_name(other)
+        else:
+            return False
+
+    def __init__(self, inner_subtype: InnerJobStatus):
+        self._inner_subtype = inner_subtype
+
+    @property
+    def is_active(self) -> bool:
+        return self._inner_subtype.is_active
+
+    @property
+    def is_error(self) -> bool:
+        return self._inner_subtype.is_error
+
+    @property
+    def is_interrupted(self) -> bool:
+        return self._inner_subtype.is_interrupted
+
+    @property
+    def uid(self) -> int:
+        return self._inner_subtype.uid
 
 
 class Job(ABC):
