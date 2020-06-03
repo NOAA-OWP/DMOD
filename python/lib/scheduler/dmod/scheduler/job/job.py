@@ -61,6 +61,10 @@ class JobAllocationParadigm(Enum):
 
 
 class InnerJobStatus:
+    """
+    An "inner" class intended to only be used inside of ::class:`JobStatus` objects/values to encapsulate details about
+    the status while making them a bit more explicit.
+    """
     def __eq__(self, other):
         return self.uid == other.uid if isinstance(other, InnerJobStatus) else self.uid == other
 
@@ -75,6 +79,9 @@ class InnerJobStatus:
 
 
 class JobStatus(Enum):
+    """
+    Enumerated values for representing possible ::class:`Job` status states.
+    """
     CREATED = InnerJobStatus(0)
     AWAITING_ALLOCATION = InnerJobStatus(1),
     ALLOCATED_PENDING = InnerJobStatus(2),
