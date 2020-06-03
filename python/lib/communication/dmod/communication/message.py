@@ -9,6 +9,7 @@ class MessageEventType(Enum):
     SESSION_INIT = 1,
     NWM_MAAS_REQUEST = 2,
     SCHEDULER_REQUEST = 3,
+    INFORMATION_UPDATE = 4,
     INVALID = -1
 
 
