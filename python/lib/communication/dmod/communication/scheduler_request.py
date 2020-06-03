@@ -19,8 +19,9 @@ class SchedulerRequestMessage(AbstractInitRequest):
 
         Returns
         -------
-        A new object of this type instantiated from the deserialize JSON object dictionary, or none if the provided
-        parameter could not be used to instantiated a new object.
+        SchedulerRequestMessage
+            A new object of this type instantiated from the deserialize JSON object dictionary, or ``None`` if the
+            provided parameter could not be used to instantiated a new object of this type.
         """
         try:
             model_request = MaaSRequest.factory_init_correct_subtype_from_deserialized_json(json_obj['model_request'])
