@@ -141,6 +141,16 @@ class UpdateMessage(AbstractInitRequest):
 
     @property
     def updated_data(self) -> Dict[str, str]:
+        """
+        Get the updated properties of the updated entity and the new values, as a dictionary of string property name
+        keys mapped to string representations of the values.
+
+        Returns
+        -------
+        Dict[str, str]
+            The updated properties of the updated entity and the new values, as a dictionary of string property name
+            keys mapped to string representations of the values.
+        """
         return self._updated_data
 
 
