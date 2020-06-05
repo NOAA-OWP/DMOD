@@ -233,7 +233,8 @@ trap cleanup_before_exit 0 1 2 3 6 15
 
 # Clean up trailing slash if included on package dir arg, as it seems to mess things up
 PACKAGE_DIR="$(echo "${PACKAGE_DIR}" | sed 's|\(.*\)/$|\1|')"
-
+# Clean up relative ./ if included on package dir arg, as it breaks unittest
+PACKAGE_DIR="$(echo "${PACKAGE_DIR}" | sed 's|\./\(.*\)$|\1|')"
 # Sanity check that the package's test directory exists; otherwise, they'll be no tests to run
 PACKAGE_TEST_DIRECTORY="${PACKAGE_DIR}/${PACKAGE_NAMESPACE_ROOT:?}/${TEST_DIR_BASENAME:-${DEFAULT_TEST_DIR_BASENAME:?}}"
 if [ ! -d "${PACKAGE_TEST_DIRECTORY}" ]; then
