@@ -163,3 +163,21 @@ class ResourceManager(ABC):
             if resource.is_allocatable():
                 yield resource
 
+    def validate_allocation_parameters(self, cpus: int, memory: int):
+        """
+            Validate the allocation parameters
+
+            Parameters
+            ----------
+                cpus: requested number of cpus
+                memory: requested amount of memory (in bytes)
+
+            Raises
+            ------
+                ValueError if cpus is or memory is not an integer > 0
+        """
+        if not (isinstance(cpus, int) and cpus > 0):
+            raise(ValueError("cpus must be an integer > 0"))
+        if not (isinstance(memory, int) and memory > 0):
+            raise(ValueError("memory must be an integer > 0"))
+
