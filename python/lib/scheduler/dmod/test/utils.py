@@ -43,6 +43,9 @@ class MockResourceManager(ResourceManager):
         #self.set_resources(mock_resources())
         self.resource_map = {'Node-0001':0, 'Node-0002':1, 'Node-0003':2}
 
+    def request_allocations(self, job):
+        pass
+
     def release_resources(self, allocated_resources):
         pass
 
