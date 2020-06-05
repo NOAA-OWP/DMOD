@@ -119,47 +119,16 @@ class MockResourceManager(ResourceManager):
     def create_job_entry(self, allocation_map):
         return "42"
 
-class EmptyResourceManager(ResourceManager):
+class EmptyResourceManager(MockResourceManager):
     """
         A mock resource manager implementing the abstract interface for testing
         a set of non-existing resources
     """
     def __init__(self):
-        self.resources={}
-
-    def release_resources(self, allocated_resources):
-        pass
-
-    def set_resources(self):
-        self.resources={}
-
-    def get_resources(self):
-        """
-            Get metadata of all managed resoures.
-        """
-        return [{}]
-
-    def get_resource_ids(self):
-        """
-            Get the identifiers for all managed resources
-
-        """
-        return []
-
-    def allocate_resource(self, resource_id: str, requested_cpus: int,
-                          requested_memory:int =0, partial:bool =False):
-      """
-        Attemt to allocate the requested resources.
-      """
-      return {}
-
-    def get_available_cpu_count(self):
-        """
-            Returns a count of all available CPU's summed across all resources
-            at the time of calling.  Not guaranteed avaialable until allocated.
-
-            Returns
-            -------
-            total available CPUs
-        """
-        return 0
+        self.resources = mock_resources()
+        mock_resources_list = list()
+        for res in _mock_resources:
+            local = deepcopy(res)
+            local['CPUs'] = 0
+            mock_resources_list.append(Resource.factory_init_from_dict(local))
+        self.set_resources(mock_resources_list)
