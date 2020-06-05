@@ -148,3 +148,18 @@ class ResourceManager(ABC):
             total available CPUs
         """
         pass
+
+    def get_useable_resources(self) -> Iterable[Resource]:
+        """
+            Generator yielding allocatable resources
+
+            Returns
+            -------
+            resources marked as 'allocatable'
+        """
+        # Filter only ready and usable resources
+        for resource in self.get_resources():
+            # Only allocatable resources are usable
+            if resource.is_allocatable():
+                yield resource
+
