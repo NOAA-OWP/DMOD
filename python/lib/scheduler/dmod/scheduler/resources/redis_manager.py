@@ -247,13 +247,6 @@ class RedisManager(ResourceManager, RedisBacked):
         # TODO
         pass
 
-    def _allocate_single_node(self, cpus: int, memory: int, resources: List[Resource]) -> List[ResourceAllocation]:
-        for res in resources:
-            if res.cpu_count >= cpus and res.memory >= memory:
-                allocation = self.allocate_resource(resource_id=res.resource_id, requested_cpus=cpus,
-                                                    requested_memory=memory)
-                return [allocation]
-        return []
 
     def request_allocations(self, job: Job) -> Iterable[ResourceAllocation]:
         """

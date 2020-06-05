@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import logging
-from typing import Iterable, Optional, Union
+from typing import Iterable, Optional, Union, List
 from abc import ABC, abstractmethod
 from ..job import Job, JobAllocationParadigm
 from .resource import Resource
@@ -181,3 +181,28 @@ class ResourceManager(ABC):
         if not (isinstance(memory, int) and memory > 0):
             raise(ValueError("memory must be an integer > 0"))
 
+    def allocate_single_node(self, cpus: int, memory: int) -> List[ResourceAllocation]:
+        """
+        Check available resources to allocate job request to a single node to optimize
+        computation efficiency
+
+        Parameters
+        ----------
+            cpus: Total number of CPUs requested
+            memory: Amount of memory required in bytes
+
+        Returns
+        -------
+        [ResourceAlloction]
+            Single element List of ResourceAllocation if allocation successful, otherwise, [None]
+        """
+        #Fit the entire allocation on a single resource
+        self.validate_allocation_parameters(cpus, memory)
+
+        for res in self.get_useable_resources():
+            #if res.cpu_count >= cpus and res.memory >= memory:
+            allocation = self.allocate_resource(resource_id=res.resource_id, requested_cpus=cpus,
+                                                requested_memory=memory)
+            if allocation:
+                return [allocation]
+        return [None]
