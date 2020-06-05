@@ -64,6 +64,32 @@ class TestResourceManagerBase(unittest.TestCase):
         mem = 1000000
         self.assertRaises(ValueError, self.resource_manager.allocate_single_node, cpus, mem)
 
+    def test_allocate_fill_nodes_validation(self):
+        """
+            Test fill node scheduling when invalid cpus are requested
+        """
+        cpus = 0
+        mem = 1000000
+        self.assertRaises(ValueError, self.resource_manager.allocate_fill_nodes, cpus, mem)
+
+    def test_allocate_fill_nodes_validation_a(self):
+        """
+            Test fill node scheduling when invalid cpus are requested
+        """
+        cpus = -1
+        mem = 1000000
+        self.assertRaises(ValueError, self.resource_manager.allocate_fill_nodes, cpus, mem)
+
+
+    def test_fill_nodes_validation_b(self):
+        """
+            Test fill node scheduling when invalid cpus are requested
+        """
+        cpus = 2.5
+        mem = 1000000
+        self.assertRaises(ValueError, self.resource_manager.allocate_fill_nodes, cpus, mem)
+
+
 class TestEmptyResources(TestResourceManagerBase):
 
     def setUp(self) -> None:
@@ -82,6 +108,17 @@ class TestEmptyResources(TestResourceManagerBase):
         allocation = self.resource_manager.allocate_single_node(cpus, mem)
         self.assertEqual(len(allocation), 1)
         self.assertIsNone(allocation[0])
+
+    def test_allocate_fill_nodes_empty(self):
+        """
+            Test fill node scheduling when no resources are available
+        """
+        cpus = 5
+        mem = 1000000
+        allocation = self.resource_manager.allocate_fill_nodes(cpus, mem)
+        self.assertEqual(len(allocation), 1)
+        self.assertIsNone(allocation[0])
+
 
 class TestValidResources(TestResourceManagerBase):
 
@@ -130,8 +167,60 @@ class TestValidResources(TestResourceManagerBase):
             Test single node scheduling with valid resources which cannot satisfy request
         """
         request_cpus=100
-        mem = mem = 1000000
+        mem = 1000000
         self.resource_manager.set_resources(self.mock_resources)
         test = self.resource_manager.allocate_single_node(request_cpus, mem)
         self.assertEqual(len(test), 1)
         self.assertIsNone(test[0])
+
+    def test_allocate_fill_nodes_valid(self):
+        """
+            Test fill nodes scheduling with valid resources for first node
+        """
+        cpus = 5
+        mem = 1000000
+        self.resource_manager.set_resources(self.mock_resources[0:1])
+        allocation = self.resource_manager.allocate_fill_nodes(cpus, mem)
+
+        self.assertEqual(len(allocation), 1)
+        self.assertIsNotNone(allocation[0])
+        self.assertEqual(allocation[0].cpu_count, cpus)
+        self.assertEqual(allocation[0].hostname, 'hostname1')
+        self.assertEqual(allocation[0].pool_id, 'Node-0001')
+
+    def test_allocate_fill_nodes_valid_a(self):
+        """
+            Test fill nodes scheduling with valid resources for two nodes
+        """
+        cpus = 10
+        mem = 1000000
+        self.resource_manager.set_resources(self.mock_resources[0:2])
+        allocation = self.resource_manager.allocate_fill_nodes(cpus, mem)
+
+        self.assertEqual(len(allocation), 2)
+        self.assertIsNotNone(allocation[0])
+        self.assertIsNotNone(allocation[1])
+        #Validate resources on first node
+        self.assertEqual(allocation[0].cpu_count, 5)
+        #TODO this assumes an order of resources, may not be appropriate for all subclasses
+        #However, we can be confident that 2 are returned, since we are only using two resources
+        #and one of them only has 5 cpus.  We can maket this testing more clear
+        #if we derive the mock resource explicitly and then set them on the manager
+        self.assertEqual(allocation[0].hostname, 'hostname1')
+        self.assertEqual(allocation[0].pool_id, 'Node-0001')
+        #Validate resources on second node
+        self.assertEqual(allocation[1].cpu_count, 5)
+        self.assertEqual(allocation[1].hostname, 'hostname2')
+        self.assertEqual(allocation[1].pool_id, 'Node-0002')
+
+    def test_allocate_fill_nodes_unsatisfied(self):
+        """
+            Test fill nodes scheduling with valid resources which cannot satisfy request
+        """
+        cpus=500
+        mem = 1000000
+        self.resource_manager.set_resources(self.mock_resources)
+        allocation = self.resource_manager.allocate_fill_nodes(cpus, mem)
+        self.assertEqual(len(allocation), 1)
+        self.assertIsNone(allocation[0])
+
