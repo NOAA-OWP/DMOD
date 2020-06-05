@@ -130,7 +130,7 @@ generate_test_config()
         cat "${PROJECT_ROOT}/example_test_env" \
             | sed 's/\(IT_REDIS_CONTAINER_NAME=\).*/\1"it_redis_container"/' \
             | sed 's/\(IT_REDIS_CONTAINER_HOST_PORT=\).*/\119639/' \
-            | sed "s/\(.*=\).*/\1\"${_RAND}\"/" > "${PROJECT_ROOT:?}/${TEST_ENV_FILE_BASENAME:?}"
+            | sed "s/\(IT_REDIS_CONTAINER_PASS=\).*/\1\"${_RAND}\"/" > "${PROJECT_ROOT:?}/${TEST_ENV_FILE_BASENAME:?}"
     fi
 }
 
