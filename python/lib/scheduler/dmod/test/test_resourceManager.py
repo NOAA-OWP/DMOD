@@ -40,7 +40,7 @@ class TestResourceManagerBase(unittest.TestCase):
     def tearDown(self) -> None:
         pass
 
-    def test_single_node_validation(self):
+    def test_allocate_single_node_validation(self):
         """
             Test single node scheduling when invalid cpus are requested
         """
@@ -48,7 +48,7 @@ class TestResourceManagerBase(unittest.TestCase):
         mem = 1000000
         self.assertRaises(ValueError, self.resource_manager.allocate_single_node, cpus, mem)
 
-    def test_single_node_validation_a(self):
+    def test_allocate_single_node_validation_a(self):
         """
             Test single node scheduling when invalid cpus are requested
         """
@@ -56,7 +56,7 @@ class TestResourceManagerBase(unittest.TestCase):
         mem = 1000000
         self.assertRaises(ValueError, self.resource_manager.allocate_single_node, cpus, mem)
 
-    def test_single_node_validation_b(self):
+    def test_allocate_single_node_validation_b(self):
         """
             Test single node scheduling when invalid cpus are requested
         """
@@ -72,6 +72,17 @@ class TestEmptyResources(TestResourceManagerBase):
     def tearDown(self) -> None:
         pass
 
+    def test_allocate_single_node_empty(self):
+        """
+            Test single node scheduling when no resources are available
+        """
+        cpus = 5
+        mem = 1000000
+        #job = self.mock_job(cpus=self.requested_cpus, mem=self.requested_memory, strategy='SINGLE_NODE')
+        allocation = self.resource_manager.allocate_single_node(cpus, mem)
+        self.assertEqual(len(allocation), 1)
+        self.assertIsNone(allocation[0])
+
 class TestValidResources(TestResourceManagerBase):
 
     def setUp(self) -> None:
@@ -85,3 +96,42 @@ class TestValidResources(TestResourceManagerBase):
     def tearDown(self) -> None:
         pass
 
+    def test_allocate_single_node_valid(self):
+        """
+            Test single node scheduling with valid resources for first node
+        """
+        request_cpus = 5
+        mem = 1000000
+        self.resource_manager.set_resources(self.mock_resources[0:1])
+        #job = self.mock_job(cpus=request_cpus, strategy='SINGLE_NODE')
+        allocation = self.resource_manager.allocate_single_node(request_cpus, mem)
+        self.assertIsNotNone(allocation)
+        self.assertEqual(len(allocation), 1)
+        self.assertEqual(allocation[0].cpu_count, request_cpus)
+        self.assertEqual(allocation[0].hostname, 'hostname1')
+        self.assertEqual(allocation[0].pool_id, 'Node-0001')
+
+    def test_allocate_single_node_valid_a(self):
+        """
+            Test single node scheduling with valid resources which won't fit on first node
+        """
+        request_cpus=10
+        mem = 1000000
+        self.resource_manager.set_resources(self.mock_resources[0:2])
+        allocation = self.resource_manager.allocate_single_node(request_cpus, mem)
+        self.assertIsNotNone(allocation)
+        self.assertEqual(len(allocation), 1)
+        self.assertEqual(allocation[0].cpu_count, request_cpus)
+        self.assertEqual(allocation[0].hostname, 'hostname2')
+        self.assertEqual(allocation[0].pool_id, 'Node-0002')
+
+    def test_allocate_single_node_unsatisfied(self):
+        """
+            Test single node scheduling with valid resources which cannot satisfy request
+        """
+        request_cpus=100
+        mem = mem = 1000000
+        self.resource_manager.set_resources(self.mock_resources)
+        test = self.resource_manager.allocate_single_node(request_cpus, mem)
+        self.assertEqual(len(test), 1)
+        self.assertIsNone(test[0])
