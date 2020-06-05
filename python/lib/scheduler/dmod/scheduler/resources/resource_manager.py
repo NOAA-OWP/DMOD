@@ -206,3 +206,47 @@ class ResourceManager(ABC):
             if allocation:
                 return [allocation]
         return [None]
+
+    def allocate_fill_nodes(self, cpus: int, memory: int) -> List[ResourceAllocation]:
+        """
+        Check available resources to allocate job request to one or more nodes, claiming all required
+        resources from each node until the request is satisfied.
+
+        Parameters
+        ----------
+            cpus: Total number of CPUs requested
+            memory: Amount of memory required in bytes
+
+        Returns
+        -------
+        [ResourceAlloction]
+            List of one or more ResourceAllocation if allocation successful, otherwise, [None]
+        """
+        self.validate_allocation_parameters(cpus, memory)
+        #TODO fill_nodes really should allocate on a MEM per CPU basis???
+        allocation = []
+
+        for res in self.get_useable_resources(): #i in range(len(resources)):
+            #Greedily allocation a (potentially) partial allocation on this resource
+            alloc = self.allocate_resource(resource_id=res.resource_id, requested_cpus=cpus,
+                                                requested_memory=memory, partial=True)
+            if alloc:
+                #The allocation was (partially) successful
+                allocation.append(alloc)
+                cpus -= alloc.cpu_count
+                #TODO what about memory?  If mem_per_node, don't change it
+            else:
+                #TODO think about mem per process type allocation
+                #For now, this resource cannot provide anything to the allocation
+                #So we skip to the next one
+                continue
+            if cpus < 1:
+                break
+
+        #If enough resources found, return the allocations
+        #otherwise we have to roll back the greedily aquired resources
+        if cpus > 0:
+            self.release_resources(allocation)
+            allocation = [None]
+
+        return allocation
