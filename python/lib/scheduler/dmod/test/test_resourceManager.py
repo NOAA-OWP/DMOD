@@ -63,3 +63,25 @@ class TestResourceManagerBase(unittest.TestCase):
         cpus = 2.5
         mem = 1000000
         self.assertRaises(ValueError, self.resource_manager.allocate_single_node, cpus, mem)
+
+class TestEmptyResources(TestResourceManagerBase):
+
+    def setUp(self) -> None:
+        self.resource_manager = EmptyResourceManager()
+
+    def tearDown(self) -> None:
+        pass
+
+class TestValidResources(TestResourceManagerBase):
+
+    def setUp(self) -> None:
+
+        self.requested_cpus = 10
+        self.requested_memory = 1000000
+
+        self.resource_manager = MockResourceManager()
+        self.mock_resources = mock_resources()
+
+    def tearDown(self) -> None:
+        pass
+
