@@ -47,8 +47,8 @@ class AsyncServiceInterface(ABC):
         """
         pass
 
-    @abstractmethod
     @property
+    @abstractmethod
     def loop(self) -> AbstractEventLoop:
         """
         Get the event loop for the service.
