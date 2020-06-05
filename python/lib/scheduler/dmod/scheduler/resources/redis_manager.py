@@ -222,11 +222,6 @@ class RedisManager(ResourceManager, RedisBacked):
         for allocation in allocated_resources:
             self.release_resource(allocation)
 
-    def _allocate_round_robin(self, cpus: int, memory: int, resources: List[Resource]) -> List[ResourceAllocation]:
-        # TODO
-        pass
-
-
     def request_allocations(self, job: Job) -> Iterable[ResourceAllocation]:
         """
         Request resource allocations for the given ::class:`Job` object, according to its needs and permitted allocation
