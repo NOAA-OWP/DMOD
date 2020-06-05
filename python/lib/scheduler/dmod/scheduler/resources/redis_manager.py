@@ -222,27 +222,6 @@ class RedisManager(ResourceManager, RedisBacked):
         for allocation in allocated_resources:
             self.release_resource(allocation)
 
-    def _allocate_fill_nodes(self, cpus: int, memory: int, resources: List[Resource]) -> List[ResourceAllocation]:
-        # Plan things out first, before actually executing allocations
-        cpu_alloc_by_res_index = {}
-        mem_alloc_by_res_index = {}
-
-
-        for i in range(len(resources)):
-            if resources[i].cpu_count >= cpus and resources[i].memory >= memory:
-                cpu_alloc_by_res_index[i] = cpus
-                mem_alloc_by_res_index[i] = memory
-            else:
-                # TODO:
-                pass
-            # Finally, account for what's been allocated, before moving on to next resource or breaking
-            cpus -= cpu_alloc_by_res_index[i]
-            memory -= mem_alloc_by_res_index[i]
-            if cpus < 1 and memory < 1:
-                break
-
-        #TODO: finish
-
     def _allocate_round_robin(self, cpus: int, memory: int, resources: List[Resource]) -> List[ResourceAllocation]:
         # TODO
         pass
