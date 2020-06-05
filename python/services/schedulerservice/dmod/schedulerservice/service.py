@@ -118,30 +118,29 @@ class SchedulerHandler(WebSocketInterface):
         response = SchedulerRequestResponse(success=True, reason='Job Request Processed', data={'job_id': job.job_id})
         await websocket.send(str(response))
 
-        # Loop while checking for job state changes that trigger info (or data) messages back through websocket
         loop_iterations = 0
-        while True:
+        # Check for job state changes that trigger info (or data) messages back through websocket
+        # Loop for as long as the job is in some active state
+        while job.status.is_active:
+            # Sleep after first time through the loop, though more briefly the first few times to catch initial updates
+            # Have sleep logic at top of loop so loop condition is checked immediately after any chance for it to change
+            if loop_iterations == 1:
+                await asyncio.sleep(0.25)
+            elif 0 < loop_iterations < 5:
+                await asyncio.sleep(0.5)
+            else:
+                await asyncio.sleep(60)
+            loop_iterations += 1
+
             # Refresh data for job
-            job_refreshed_copy = self._job_manager.retrieve_job(job.job_id)
+            job_refreshed_copy: RequestedJob = self._job_manager.retrieve_job(job.job_id)
             # If the job was updated ...
             if job_refreshed_copy.last_updated != job.last_updated:
-                # TODO: check to see what changed
-                # TODO: if appropriate for the change, send a status message back through the websocket
+                # Send an update message as needed
+                await self._update_client_on_requested_job(previous_job_state=job, updated_job_state=job_refreshed_copy,
+                                                           websocket=websocket)
                 # Update to use the fresh copy of the job
                 job = job_refreshed_copy
-
-            # TODO: look for some kind of break condition for leaving the loop, and for starting sending back output
-
-            # Finally, loop maintenance
-            # The first few loop iterations, sleep very briefly to catch initial updates quickly if they happen
-            if loop_iterations < 2:
-                sleep_time = 0.25
-            elif loop_iterations < 5:
-                sleep_time = 0.5
-            else:
-                sleep_time = 60
-            loop_iterations += 1
-            await asyncio.sleep(sleep_time)
 
     async def _handle_update_message(self, message: UpdateMessage, websocket: WebSocketServerProtocol):
         # Only accept updates to Job objects, so verify the type
