@@ -2,7 +2,7 @@
 import logging
 from typing import Iterable, Optional, Union
 from abc import ABC, abstractmethod
-from ..job import Job
+from ..job import Job, JobAllocationParadigm
 from .resource import Resource
 from .resource_allocation import ResourceAllocation
 
@@ -90,7 +90,7 @@ class ResourceManager(ABC):
             Unique ID string of the resource referenceable by the manager
 
         requested_cpus
-            integer numbre of cpus to attempt to allocate
+            integer number of cpus to attempt to allocate
 
         requested_memory
             integer number of bytes to allocate.  currently optional
