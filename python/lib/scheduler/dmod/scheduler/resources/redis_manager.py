@@ -222,42 +222,6 @@ class RedisManager(ResourceManager, RedisBacked):
         for allocation in allocated_resources:
             self.release_resource(allocation)
 
-    def request_allocations(self, job: Job) -> Iterable[ResourceAllocation]:
-        """
-        Request resource allocations for the given ::class:`Job` object, according to its needs and permitted allocation
-        paradigm(s).
-
-        Parameters
-        ----------
-        job
-
-        Returns
-        -------
-        Iterable[ResourceAllocation]
-            An iterable collection of allocations to satisfy the given job, which will be empty if there are not
-            sufficient assets available to construct such allocations.
-        """
-        # Filter only ready and usable resources
-        usable_resources = []
-        for resource in self.get_resources():
-            # Only allocatable resources are usable
-            if resource.is_allocatable():
-                usable_resources.append(resource)
-
-        # Return immediately if there are no usable resources
-        if len(usable_resources) == 0:
-            return []
-
-        if job.allocation_paradigm == JobAllocationParadigm.SINGLE_NODE:
-            return self._allocate_single_node(cpus=job.cpu_count, memory=job.memory_size, resources=usable_resources)
-        elif job.allocation_paradigm == JobAllocationParadigm.FILL_NODES:
-            return self._allocate_fill_nodes(cpus=job.cpu_count, memory=job.memory_size, resources=usable_resources)
-        elif job.allocation_paradigm == JobAllocationParadigm.ROUND_ROBIN:
-            return self._allocate_round_robin(cpus=job.cpu_count, memory=job.memory_size, resources=usable_resources)
-        else:
-            # TODO: handle this better
-            raise RuntimeError("Unknown allocation paradigm {}".format(str(job.allocation_paradigm)))
-
     def get_available_cpu_count(self) -> int:
         """
         Returns a count of all available CPU's summed across all resources at the time of calling.
