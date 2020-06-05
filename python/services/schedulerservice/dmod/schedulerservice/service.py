@@ -34,6 +34,49 @@ class SchedulerHandler(WebSocketInterface):
         scheduler instance to schedule requested jobs
     """
 
+    @staticmethod
+    async def _update_client_on_requested_job(previous_job_state: RequestedJob, updated_job_state: RequestedJob,
+                                              websocket: WebSocketServerProtocol):
+        """
+        Send an update message back to the client that initiated a scheduler request when the associated job updates it
+        state, and await a valid response to the update message.
+
+        Note that if an invalid response comes back, either because it isn't a response at all or the digest is wrong,
+        an error is logged, but processing otherwise continues.
+
+        Parameters
+        ----------
+        previous_job_state : RequestedJob
+            An object representing the updated job in its prior state.
+        updated_job_state : RequestedJob
+            An object representing the updated job in its updated state.
+        websocket : WebSocketServerProtocol
+            The websocket for client communication.
+        """
+        updates = dict()
+        # For now, the only relevant change should be a change in status
+        if updated_job_state.status != previous_job_state.status:
+            updates['status'] = str(updated_job_state.status)
+
+        # Exit without doing anything if no relevant updates were made
+        if len(updates) == 0:
+            return
+
+        # Otherwise, send update message over socket and await response
+        # TODO: should any retries be considered?
+        update_message = UpdateMessage(previous_job_state.job_id, previous_job_state.__class__, updates)
+        await websocket.send(str(update_message))
+        # Then wait for the next message
+        response_raw = await websocket.recv()
+        response = UpdateMessageResponse.factory_init_from_deserialized_json(json.loads(response_raw))
+
+        if response is None or not isinstance(response, UpdateMessageResponse):
+            logging.error('Expected response to update message {}, but got something else: {}'.format(
+                update_message.digest, response_raw))
+        elif response.digest != update_message.digest:
+            logging.error('Expected response to update message {}, but response digest {}'.format(
+                update_message.digest, response.digest))
+
     def __init__(self, scheduler: Scheduler, job_mgr: JobManager, *args, **kwargs):
         """
             Initialize the WebSocketInterface with any user defined custom server config
