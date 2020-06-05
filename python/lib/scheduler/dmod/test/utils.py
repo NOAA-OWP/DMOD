@@ -1,5 +1,6 @@
 from ..scheduler.resources.resource_manager import ResourceManager
-from ..scheduler.resources import Resource
+from ..scheduler.resources import Resource, ResourceAllocation
+from copy import deepcopy
 
 _mock_resources = [{'node_id': "Node-0001",
            'Hostname': "hostname1",
@@ -38,7 +39,8 @@ class MockResourceManager(ResourceManager):
     """
 
     def __init__(self):
-        self.set_resources(mock_resources())
+        #Let each test method explicity add its mock resources
+        #self.set_resources(mock_resources())
         self.resource_map = {'Node-0001':0, 'Node-0002':1, 'Node-0003':2}
 
     def release_resources(self, allocated_resources):
@@ -67,40 +69,18 @@ class MockResourceManager(ResourceManager):
         Attemt to allocate the requested resources.
       """
       resource_key = self.resource_map[resource_id]
-      hostname = self.resources[resource_key]["Hostname"]
-      cpus_allocated = 0
-      error = True
-      cpu_allocation_map={}
-      available_cpus = self.resources[resource_key]["CPUs"]
-      available_memory = self.resources[resource_key]["MemoryBytes"]
-      if (available_cpus >= requested_cpus):
-          #Can satisfy full request
-          #Update the resource table
-          self.resources[resource_key]["CPUs"] -= requested_cpus
-          self.resources[resource_key]["MemoryBytes"] -= requested_memory
-          allocated_cpus = requested_cpus
-          error = False
-      elif(partial and available_cpus > 0):
-          #Can satisfy partial request
-          #Update the resource table
-          self.resources[resource_key]["CPUs"] -= requested_cpus
-          self.resources[resource_key]["MemoryBytes"] -= requested_memory
-          allocated_cpus = available_cpus
-          error = False
-      elif(partial and available_cpus == 0):
-          #No error, just no allocation, no need to hit DB
-          allocated_cpus = 0
-          error = False
-      else:
-          #TODO consider exceptions here?  Let callers catch them and respond???
-          #logging.debug("Requested CPUs greater than CPUs available: requested = {}, available = {}, NodeId = {}".format(requested_cpus, available_cpus, hostname))
-          pass
-      if not error:
-          cpu_allocation_map = {'node_id': resource_id, 'Hostname': hostname, 'cpus_allocated': allocated_cpus,
-                                'mem': requested_memory}
+      allocation = None
 
-      #Return the allocation map, {} if failure
-      return cpu_allocation_map
+      resource = self.resources[resource_key]
+      cpus_allocated, mem_allocated, is_fully = resource.allocate(requested_cpus, requested_memory)
+
+      if is_fully or (partial and cpus_allocated > 0 and (mem_allocated > 0 or requested_memory == 0)):
+          self.resources[resource_key] = resource.to_dict()
+          allocation = ResourceAllocation(resource_id, resource.hostname, cpus_allocated, mem_allocated)
+      else:
+          resource.release(cpus_allocated, mem_allocated)
+
+      return allocation
 
     def get_available_cpu_count(self):
         """
