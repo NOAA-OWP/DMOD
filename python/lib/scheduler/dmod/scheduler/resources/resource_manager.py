@@ -227,7 +227,7 @@ class ResourceManager(ABC):
         allocation = []
 
         for res in self.get_useable_resources(): #i in range(len(resources)):
-            #Greedily allocation a (potentially) partial allocation on this resource
+            #Greedily allocate a (potentially) partial allocation on this resource
             alloc = self.allocate_resource(resource_id=res.resource_id, requested_cpus=cpus,
                                                 requested_memory=memory, partial=True)
             if alloc:
@@ -248,5 +248,60 @@ class ResourceManager(ABC):
         if cpus > 0:
             self.release_resources(allocation)
             allocation = [None]
+
+        return allocation
+
+    def allocate_round_robin(self, cpus: int, memory: int) -> List[ResourceAllocation]:
+        """
+            Check available resources on host nodes and allocate in round robin manner even the request
+            can fit in a single node.
+
+            TODO this is a balanced round robin algorithm, assuming an even distribution is possible across all resources,
+            with up to num_node-1 remainders to fill in.  This is not the most generic "round robin" in which we allocate
+            cpus one after the other across all available resources and don't try to balance.
+            i.e. a request for 10 cpus with an available resource view of [4, 2, 4] would fail to allocate with this
+            algorithm, because it assumes an availablity of [4, 3, 3]
+
+            Parameters
+            ----------
+                cpus: Total number of CPUs requested
+                memory: Amount of memory required in bytes
+
+            Returns
+            -------
+            [ResourceAlloction]
+                List of one or more ResourceAllocation if allocation successful, otherwise, [None]
+        """
+        #TODO consider scaling memory per cpu
+        #Find the number of cpus to allocate to each node
+        self.validate_allocation_parameters(cpus, memory)
+        resources = list(self.get_useable_resources())
+
+        num_node = len(resources)
+        if num_node == 0:
+            return [None]
+
+        int_cpus = int(cpus / num_node)
+        remaining_cpus = cpus % num_node
+        cpu_per_resource = [int_cpus]*num_node #The minimun number of cpus on each resource
+        for i in range(remaining_cpus):
+            cpu_per_resource[i] += 1    #Add remainder if needed
+
+        allocation = []
+
+        for i in range(num_node):
+            #Greedily allocate a full allocation on this resource
+            alloc = self.allocate_resource(resource_id=resources[i].resource_id, requested_cpus=cpu_per_resource[i],
+                                                requested_memory=memory)
+            if alloc:
+                #This resource can satisfy the allocation so far
+                allocation.append(alloc)
+                cpus -= alloc.cpu_count
+            else:
+                #TODO think about mem per process type allocation
+                #For now, this resource cannot provide anything to the allocation
+                #If alloc wasn't successful, don't need to try any more, release any we are holding and return
+                self.release_resources(allocation)
+                return [None]
 
         return allocation
