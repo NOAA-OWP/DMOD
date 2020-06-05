@@ -81,7 +81,7 @@ class TestResourceManagerBase(unittest.TestCase):
         self.assertRaises(ValueError, self.resource_manager.allocate_fill_nodes, cpus, mem)
 
 
-    def test_fill_nodes_validation_b(self):
+    def test_allocate_fill_nodes_validation_b(self):
         """
             Test fill node scheduling when invalid cpus are requested
         """
@@ -89,6 +89,29 @@ class TestResourceManagerBase(unittest.TestCase):
         mem = 1000000
         self.assertRaises(ValueError, self.resource_manager.allocate_fill_nodes, cpus, mem)
 
+    def test_allocate_round_robin_validation(self):
+        """
+            Test round_robin scheduling when invalid cpus are requested
+        """
+        cpus = 0
+        mem = 1000000
+        self.assertRaises(ValueError, self.resource_manager.allocate_round_robin, cpus, mem)
+
+    def test_allocate_round_robin_validation_a(self):
+        """
+            Test round_robin scheduling when invalid cpus are requested
+        """
+        cpus = -1
+        mem = 1000000
+        self.assertRaises(ValueError, self.resource_manager.allocate_round_robin, cpus, mem)
+
+    def test_allocate_round_robin_validation_b(self):
+        """
+            Test round_robin scheduling when invalid cpus are requested
+        """
+        cpus = 2.5
+        mem = 1000000
+        self.assertRaises(ValueError, self.resource_manager.allocate_round_robin, cpus, mem)
 
 class TestEmptyResources(TestResourceManagerBase):
 
@@ -116,6 +139,16 @@ class TestEmptyResources(TestResourceManagerBase):
         cpus = 5
         mem = 1000000
         allocation = self.resource_manager.allocate_fill_nodes(cpus, mem)
+        self.assertEqual(len(allocation), 1)
+        self.assertIsNone(allocation[0])
+
+    def test_allocate_round_robin_empty(self):
+        """
+            Test round_robin scheduling when no resources are available
+        """
+        cpus = 5
+        mem = 1000000
+        allocation = self.resource_manager.allocate_round_robin(cpus, mem)
         self.assertEqual(len(allocation), 1)
         self.assertIsNone(allocation[0])
 
@@ -224,3 +257,75 @@ class TestValidResources(TestResourceManagerBase):
         self.assertEqual(len(allocation), 1)
         self.assertIsNone(allocation[0])
 
+    def test_allocate_round_robin_valid(self):
+        """
+            Test round_robin scheduling with valid resources for first node
+        """
+        cpus = 5
+        mem = 1000000
+        self.resource_manager.set_resources(self.mock_resources[0:1])
+        allocation = self.resource_manager.allocate_round_robin(cpus, mem)
+        self.assertEqual(len(allocation), 1)
+        self.assertIsNotNone(allocation[0])
+        self.assertEqual(allocation[0].cpu_count, cpus)
+        self.assertEqual(allocation[0].hostname, 'hostname1')
+        self.assertEqual(allocation[0].pool_id, 'Node-0001')
+
+    def test_allocate_round_robin_valid_a(self):
+        """
+            Test round_robin scheduling with valid resources for two nodes
+        """
+        cpus = 10
+        mem = 1000000
+        self.resource_manager.set_resources(self.mock_resources[0:2])
+        allocation = self.resource_manager.allocate_round_robin(cpus, mem)
+        self.assertEqual(len(allocation), 2)
+
+        #Validate resources on first node
+        self.assertIsNotNone(allocation[0])
+        self.assertEqual(allocation[0].cpu_count, 5)
+        self.assertEqual(allocation[0].hostname, 'hostname1')
+        self.assertEqual(allocation[0].pool_id, 'Node-0001')
+        #Validate resources on second node
+        self.assertIsNotNone(allocation[1])
+        self.assertEqual(allocation[1].cpu_count, 5)
+        self.assertEqual(allocation[1].hostname, 'hostname2')
+        self.assertEqual(allocation[1].pool_id, 'Node-0002')
+
+    def test_allocate_round_robin_valid_b(self):
+        """
+            Test round_robin scheduling with valid resources for multiple nodes
+        """
+        cpus = 5
+        mem = 1000000
+        self.resource_manager.set_resources(self.mock_resources)
+        allocation = self.resource_manager.allocate_round_robin(cpus, mem)
+        self.assertEqual(len(allocation), 3)
+
+
+        #Validate resources on first node
+        self.assertIsNotNone(allocation[0])
+        self.assertEqual(allocation[0].cpu_count, 2)
+        self.assertEqual(allocation[0].hostname, 'hostname1')
+        self.assertEqual(allocation[0].pool_id, 'Node-0001')
+        #Validate resources on second node
+        self.assertIsNotNone(allocation[1])
+        self.assertEqual(allocation[1].cpu_count, 2)
+        self.assertEqual(allocation[1].hostname, 'hostname2')
+        self.assertEqual(allocation[1].pool_id, 'Node-0002')
+        #Validate resources on third node
+        self.assertIsNotNone(allocation[2])
+        self.assertEqual(allocation[2].cpu_count, 1)
+        self.assertEqual(allocation[2].hostname, 'hostname3')
+        self.assertEqual(allocation[2].pool_id, 'Node-0003')
+
+    def test_allocate_round_robin_unsatisfied(self):
+        """
+            Test round_robin scheduling with valid resources which cannot satisfy request
+        """
+        cpus=500
+        mem = 1000000
+        self.resource_manager.set_resources(self.mock_resources)
+        allocation = self.resource_manager.allocate_round_robin(cpus, mem)
+        self.assertEqual(len(allocation), 1)
+        self.assertIsNone(allocation[0])
