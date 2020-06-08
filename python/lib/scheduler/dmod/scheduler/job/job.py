@@ -338,6 +338,20 @@ class Job(ABC):
 
     @property
     @abstractmethod
+    def allocation_priority(self) -> int:
+        """
+        Get a score for how this job should be prioritized with respect to allocation, with high scores being more
+        likely to received allocation.
+
+        Returns
+        -------
+        int
+            A score for how this job should be prioritized with respect to allocation.
+        """
+        pass
+
+    @property
+    @abstractmethod
     def allocations(self) -> Optional[List[ResourceAllocation]]:
         """
         The resource allocations that have been allocated for this job.
