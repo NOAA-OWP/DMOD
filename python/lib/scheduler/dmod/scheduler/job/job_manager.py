@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 from uuid import uuid4 as random_uuid
 from .job import Job, RequestedJob
 from ..resources.resource_allocation import ResourceAllocation
+from ..resources.resource_manager import ResourceManager
 from ..rsa_key_pair import RsaKeyPair
 
 from dmod.communication import MaaSRequest, NWMRequest, SchedulerRequestMessage
@@ -213,8 +214,8 @@ class JobManager(ABC):
 #   since this type isn't responsible for that.
 class RedisBackedJobManager(JobManager, RedisBacked):
     """
-    An implementation of ::class:`JobManager` that uses Redis as a backend and works with ::class:`RequestedJob` job
-    objects.
+    An implementation of ::class:`JobManager` that uses Redis as a backend, works with ::class:`RequestedJob` job
+    objects, and acquires ::class:`ResourceAllocation` objects for processing jobs from some ::class:`ResourceManager`.
     """
 
     # TODO: look at either deprecating this or applying it appropriately to all managed objects
@@ -222,9 +223,25 @@ class RedisBackedJobManager(JobManager, RedisBacked):
     def get_key_prefix(cls):
         return 'job_mgr'
 
-    def __init__(self, redis_host: Optional[str] = None, redis_port: Optional[int] = None,
-                 redis_pass: Optional[str] = None, **kwargs):
+    def __init__(self, resource_manager : ResourceManager, redis_host: Optional[str] = None,
+                 redis_port: Optional[int] = None, redis_pass: Optional[str] = None, **kwargs):
+        """
+
+        Parameters
+        ----------
+        resource_manager : ResourceManager
+            The resource manager from which ::class:`ResourceAllocations` for managed jobs can be obtained.
+        redis_host : Optional[str]
+            Optional explicit string init param for the Redis connection host value.
+        redis_port : Optional[str]
+            Optional explicit string init param for the Redis connection port value.
+        redis_pass : Optional[str]
+            Optional explicit string init param for the Redis connection password value.
+        kwargs
+            Keyword args, passed through to the ::class:`RedisBacked` superclass init function.
+        """
         super(RedisBacked).__init__(redis_host=redis_host, redis_port=redis_port, redis_pass=redis_pass, **kwargs)
+        self._resource_manager = resource_manager
 
     def _deserialize_allocations(self, allocations_key_list: List[str],
                                  allocation_hashes: Dict[str, dict]) -> List[ResourceAllocation]:
