@@ -950,14 +950,34 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         ValueError
             If no job exists with given job id.
         """
-        job_hash_key = self._get_job_key_for_id(job_id)
+        return self.retrieve_job_by_redis_key(job_redis_key=self._get_job_key_for_id(job_id))
+
+    def retrieve_job_by_redis_key(self, job_redis_key: str) -> RequestedJob:
+        """
+        Get the particular job for the given Redis key, which will be based on the id of the job.
+
+        Parameters
+        ----------
+        job_redis_key : str
+            The Redis key for the job's saved record.
+
+        Returns
+        -------
+        RequestedJob
+            The particular job with the given Redis key.
+
+        Raises
+        -------
+        ValueError
+            If no job record exists with given key.
+        """
         # Retrieve serialized data from Redis for this, which gives us a dictionary of Redis hashes keyed by Redis keys
-        serialized_data_hashes = self._retrieve_serialized_data_for_job(job_hash_key=job_hash_key)
+        serialized_data_hashes = self._retrieve_serialized_data_for_job(job_hash_key=job_redis_key)
         # If this is None, there was no job hash key did not exist, so a ValueError needs to be raised
         if serialized_data_hashes is None:
-            raise ValueError('No job record found for job with id {} and key {}'.format(job_id, job_hash_key))
+            raise ValueError('No job record found for job with key {}'.format(job_redis_key))
 
-        job_hash = serialized_data_hashes[job_hash_key]
+        job_hash = serialized_data_hashes[job_redis_key]
 
         if 'allocations_list_key' in job_hash:
             allocation_list_key = job_hash['allocations_list_key']
