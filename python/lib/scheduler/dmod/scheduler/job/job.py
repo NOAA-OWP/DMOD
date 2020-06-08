@@ -78,6 +78,95 @@ class InnerJobStatus:
         return self.uid
 
 
+class JobExecStep(Enum):
+    """
+    A component of a JobStatus, representing the particular step within a "phase" encoded within the current status.
+    """
+    DEFAULT = (0, False, False),
+    AWAITING_ALLOCATION = (1, False, False),
+    ALLOCATED = (2, False, False),
+    SCHEDULED = (3, False, False),
+    RUNNING = (4, False, False),
+    STOPPED = (5, True, False)
+    COMPLETED = (6, False, False)
+    FAILED = (-1, True, True)
+
+    def __hash__(self):
+        return self.uid
+
+    def __init__(self, uid: int, is_interrupted: bool, is_error: bool):
+        self._uid = uid
+        self._is_interrupted = is_interrupted
+        self._is_error = is_error
+
+    @property
+    def is_error(self) -> bool:
+        return self._is_error
+
+    @property
+    def is_interrupted(self) -> bool:
+        return self._is_interrupted
+
+    @property
+    def uid(self) -> int:
+        return self._uid
+
+
+class JobExecPhase(Enum):
+    """
+    A component of a JobStatus, representing the high level transition stage at which a status exists.
+    """
+    INIT = (1, True, JobExecStep.DEFAULT),
+    MODEL_EXEC = (2, True, JobExecStep.AWAITING_ALLOCATION),
+    OUTPUT_EXEC = (3, True, JobExecStep.AWAITING_ALLOCATION),
+    CLOSED = (4, False, JobExecStep.COMPLETED),
+    UNKNOWN = (-1, False, JobExecStep.DEFAULT)
+
+    def __hash__(self):
+        return self.uid
+
+    def __init__(self, uid: int, is_active: bool, default_start: JobExecStep):
+        self._uid = uid
+        self._is_active = is_active
+        self._default_start_step = default_start
+
+    @property
+    def default_start_step(self) -> JobExecStep:
+        """
+        The default first step for this job phase.
+
+        Returns
+        -------
+        JobExecStep
+            The default first step for this job phase.
+        """
+        return self._default_start_step
+
+    @property
+    def is_active(self) -> bool:
+        """
+        Whether or not this phase and associated JobStatuses are considered "ACTIVE".
+
+        Returns
+        -------
+        bool
+            Whether or not this phase and associated JobStatuses are considered "ACTIVE".
+        """
+        return self._is_active
+
+    @property
+    def uid(self) -> int:
+        """
+        The unique identifier for this enum value.
+
+        Returns
+        -------
+        int
+            The unique identifier for this enum value.
+        """
+        return self._uid
+
+
 class JobStatus(Enum):
     """
     Enumerated values for representing possible ::class:`Job` status states.
