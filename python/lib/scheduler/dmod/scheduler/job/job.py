@@ -171,17 +171,35 @@ class JobStatus(Enum):
     """
     Enumerated values for representing possible ::class:`Job` status states.
     """
-    CREATED = InnerJobStatus(0)
-    AWAITING_ALLOCATION = InnerJobStatus(1),
-    ALLOCATED_PENDING = InnerJobStatus(2),
-    SCHEDULED = InnerJobStatus(3),
-    RUNNING = InnerJobStatus(4),
-    STOPPED = InnerJobStatus(5, is_interrupted=True)
-    COMPLETED = InnerJobStatus(6)
-    CLOSED = InnerJobStatus(7, is_active=False),
-    FAILED = InnerJobStatus(-1, is_active=True, is_error=True, is_interrupted=True),
-    CLOSED_FAILURE = InnerJobStatus(-2, is_active=False, is_error=True),
-    UNKNOWN = InnerJobStatus(-10, is_active=False, is_error=True)
+    CREATED = (0, JobExecPhase.INIT, JobExecStep.DEFAULT),
+
+    MODEL_EXEC_AWAITING_ALLOCATION = (1, JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION),
+    MODEL_EXEC_ALLOCATED = (2, JobExecPhase.MODEL_EXEC, JobExecStep.ALLOCATED),
+    MODEL_EXEC_SCHEDULED = (3, JobExecPhase.MODEL_EXEC, JobExecStep.SCHEDULED),
+    MODEL_EXEC_RUNNING = (4, JobExecPhase.MODEL_EXEC, JobExecStep.RUNNING),
+    # For now, set release_allocations to False for stopped jobs
+    # TODO: confirm that allocations should be maintained for stopped model exec jobs
+    MODEL_EXEC_STOPPED = (5, JobExecPhase.MODEL_EXEC, JobExecStep.STOPPED, False),
+    # For now, set release_allocations to False when model exec is complete (keep allocation for output phase)
+    # TODO: confirm that allocations should be carried over from model exec to output exec phase
+    MODEL_EXEC_COMPLETED = (6, JobExecPhase.MODEL_EXEC, JobExecStep.COMPLETED, False),
+    MODEL_EXEC_FAILED = (-1, JobExecPhase.MODEL_EXEC, JobExecStep.FAILED, True),
+
+    OUTPUT_EXEC_AWAITING_ALLOCATION = (13, JobExecPhase.OUTPUT_EXEC, JobExecStep.AWAITING_ALLOCATION),
+    OUTPUT_EXEC_ALLOCATED = (12, JobExecPhase.OUTPUT_EXEC, JobExecStep.ALLOCATED),
+    OUTPUT_EXEC_SCHEDULED = (11, JobExecPhase.OUTPUT_EXEC, JobExecStep.SCHEDULED),
+    OUTPUT_EXEC_RUNNING = (7, JobExecPhase.OUTPUT_EXEC, JobExecStep.RUNNING),
+    # For now, set release_allocations to False for stopped jobs
+    # TODO: confirm that allocations should be maintained for stopped output exec jobs
+    OUTPUT_EXEC_STOPPED = (8, JobExecPhase.OUTPUT_EXEC, JobExecStep.STOPPED, False),
+    OUTPUT_EXEC_COMPLETED = (9, JobExecPhase.OUTPUT_EXEC, JobExecStep.COMPLETED, True),
+    OUTPUT_EXEC_FAILED = (-2, JobExecPhase.OUTPUT_EXEC, JobExecStep.FAILED, True),
+
+    CLOSED = (10, JobExecPhase.CLOSED, JobExecStep.COMPLETED, True),
+    CLOSED_FAILURE = (-3, JobExecPhase.CLOSED, JobExecStep.FAILED, True),
+
+    # TODO: think through whether it is more appropriate to mark allocations to be release from jobs in unknown status
+    UNKNOWN = (-10, JobExecPhase.UNKNOWN, JobExecStep.DEFAULT)
 
     @staticmethod
     def get_active_statuses() -> List['JobStatus']:
@@ -226,11 +244,19 @@ class JobStatus(Enum):
                 return value
         return JobStatus.UNKNOWN
 
+    @staticmethod
+    def get_for_phase_and_step(phase: JobExecPhase, step: JobExecStep) -> 'JobStatus':
+        try:
+            for value in JobStatus:
+                if value.job_exec_phase == phase and value.job_exec_step == step:
+                    return value
+        except:
+            pass
+        return JobStatus.UNKNOWN
+
     def __eq__(self, other):
         if isinstance(other, JobStatus):
-            return self._inner_subtype == other._inner_subtype
-        elif isinstance(other, InnerJobStatus):
-            return self._inner_subtype == other
+            return self.uid == other.uid
         elif isinstance(other, int):
             return self.uid == other
         elif isinstance(other, float) and other.is_integer():
@@ -240,24 +266,50 @@ class JobStatus(Enum):
         else:
             return False
 
-    def __init__(self, inner_subtype: InnerJobStatus):
-        self._inner_subtype = inner_subtype
+    def __hash__(self):
+        return self.uid
+
+    def __init__(self, uid: int, phase: JobExecPhase, step: JobExecStep, should_release_allocations: bool = False):
+        self._uid = uid
+        self._phase = phase
+        self._step = step
+        self._release_allocations = should_release_allocations
 
     @property
     def is_active(self) -> bool:
-        return self._inner_subtype.is_active
+        return self.job_exec_phase.is_active
 
     @property
     def is_error(self) -> bool:
-        return self._inner_subtype.is_error
+        return self.job_exec_step.is_error
 
     @property
     def is_interrupted(self) -> bool:
-        return self._inner_subtype.is_interrupted
+        return self.job_exec_step.is_interrupted
+
+    @property
+    def job_exec_phase(self) -> JobExecPhase:
+        return self._phase
+
+    @property
+    def job_exec_step(self) -> JobExecStep:
+        return self._step
+
+    @property
+    def should_release_allocations(self) -> bool:
+        """
+        Whether this status is one at which any held resource allocations should be released.
+
+        Returns
+        -------
+        bool
+            Whether this status is one at which any held resource allocations should be released.
+        """
+        return self._release_allocations
 
     @property
     def uid(self) -> int:
-        return self._inner_subtype.uid
+        return self._uid
 
 
 class Job(ABC):
