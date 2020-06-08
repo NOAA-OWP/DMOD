@@ -834,6 +834,20 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         """
         return self._does_redis_key_exist(self._get_job_key_for_id(job_id))
 
+    def get_all_active_jobs(self) -> List[RequestedJob]:
+        """
+        Get a list of every job known to this manager object that is considered active based on each job's status.
+
+        Returns
+        -------
+        List[RequestedJob]
+            A list of every job known to this manager object that is considered active based on each job's status.
+        """
+        active_jobs = []
+        for active_job_redis_key in self.redis.smembers(self._active_jobs_set_key):
+            active_jobs.append(self.retrieve_job_by_redis_key(active_job_redis_key))
+        return active_jobs
+
     async def manage_job_processing(self):
         """
         Monitor for created jobs and perform steps for job queueing, allocation of resources, and hand-off to scheduler.
