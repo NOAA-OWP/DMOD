@@ -853,19 +853,14 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         Monitor for created jobs and perform steps for job queueing, allocation of resources, and hand-off to scheduler.
         """
         while True:
-            # TODO: query for state of "active" jobs
-            active_jobs: List[RequestedJob] = []
-
-            # TODO: build collection of Jobs with "active" status
+            # Get collection of "active" jobs
+            active_jobs: List[RequestedJob] = self.get_all_active_jobs()
 
             # TODO: something must transition MODEL_EXEC_RUNNING Jobs to MODEL_EXEC_COMPLETED (probably Monitor class)
             # TODO: something must transition OUTPUT_EXEC_RUNNING Jobs to OUTPUT_EXEC_COMPLETED (probably Monitor class)
 
-            # TODO: identify jobs that have a status change such that they need something done:
-            #  - needs allocation (CREATED)
-
+            # Process the jobs into various organized collections
             organized_lists = self._organize_active_jobs(active_jobs)
-
             jobs_eligible_for_allocate = organized_lists[0]
             jobs_to_release_resources = organized_lists[1]
             jobs_completed_phase = organized_lists[2]
