@@ -123,6 +123,18 @@ class JobManager(ABC):
         pass
 
     @abstractmethod
+    def get_all_active_jobs(self) -> List[Job]:
+        """
+        Get a list of every job known to this manager object that is considered active based on each job's status.
+
+        Returns
+        -------
+        List[Job]
+            A list of every job known to this manager object that is considered active based on each job's status.
+        """
+        pass
+
+    @abstractmethod
     async def manage_job_processing(self):
         """
         Monitor for created jobs and perform steps for job queueing, allocation of resources, and hand-off to scheduler.
