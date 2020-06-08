@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 from uuid import uuid4 as random_uuid
-from .job import Job, RequestedJob
+from .job import Job, JobAllocationParadigm, JobExecStep, JobStatus, RequestedJob
 from ..resources.resource_allocation import ResourceAllocation
 from ..resources.resource_manager import ResourceManager
 from ..rsa_key_pair import RsaKeyPair
@@ -406,6 +406,67 @@ class RedisBackedJobManager(JobManager, RedisBacked):
             The appropriate Redis key for accessing the manager's record of the job with the given id.
         """
         return self.create_key_name('job', str(job_id))
+
+    def _organize_active_jobs(self, active_jobs: List[RequestedJob]) -> List[List[RequestedJob]]:
+        """
+        Organize the given list of active jobs into collections ready for various next-steps in their processing,
+        potentially with some housekeeping performed (i.e. side effects).
+
+        In some cases, job status may be changed (e.g., ``CREATED`` to ``MODEL_EXEC_AWAITING_ALLOCATION``).  In those
+        cases and a few other situations, the updated job object will have its state re-saved using ::method:`save_job`.
+
+        Parameters
+        ----------
+        active_jobs : List[RequestedJob]
+            A list of ::class:`RequestedJob` objects with active statuses.
+
+        Returns
+        -------
+        List[List[RequestedJob]]
+            A list of lists of jobs indexed as follows:
+                * index ``0``: jobs eligible for allocation
+                * index ``1``: jobs to have their resource allocations released
+                * index ``2``: jobs that have completed their current phase
+        """
+        jobs_eligible_for_allocate = []
+        jobs_to_release_resources = []
+        jobs_completed_phase = []
+
+        for job in active_jobs:
+            # Transition CREATED to awaiting allocation as a first step for them
+            if job.status == JobStatus.CREATED:
+                job.status = JobStatus.MODEL_EXEC_AWAITING_ALLOCATION
+                self.save_job(job)
+            # TODO: figure out for STOPPED and FAILED if there are implications that require maintaining the same allocation
+            # Note that this code should be safe as is as long as the job itself still has the previous allocation saved
+            # in situations when it needs to use the same allocation as before
+            if job.status_step == JobExecStep.STOPPED:
+                job.status_step = JobExecStep.AWAITING_ALLOCATION
+                # TODO: calculate impact on priority
+                self.save_job(job)
+
+            # TODO: figure out for FAILED if restart should be automatic or should require manual request to restart
+            # For now, assume failure requires manual re-transition
+            #if job.status_step == JobExecStep.FAILED
+
+            if job.status_step.AWAITING_ALLOCATION:
+                # Add to collection, though make sure it doesn't already have an allocation
+                if job.allocations is None or len(job.allocations) == 0:
+                    jobs_eligible_for_allocate.append(job)
+                # If it does have an allocation, update its status
+                else:
+                    # TODO: confirm the allocation is still valid (saving it without checking will make it so, which
+                    #  could lead to inconsistencies)
+                    job.status_step = JobExecStep.ALLOCATED
+                    self.save_job(job)
+
+            if job.status.should_release_allocations:
+                jobs_to_release_resources.append(job)
+
+            if job.status_step == JobExecStep.COMPLETED:
+                jobs_completed_phase.append(job)
+
+        return [jobs_eligible_for_allocate, jobs_to_release_resources, jobs_completed_phase]
 
     def _retrieve_serialized_data_for_job(self, job_hash_key) -> Optional[dict]:
         """
