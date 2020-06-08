@@ -483,19 +483,21 @@ class Job(ABC):
         return self.status.job_exec_step
 
 
-class RequestedJob(Job):
+class JobImpl(Job):
     """
-    An implementation of ::class:`Job` for jobs that were created due to the received of a client request via a
-    ::class:`SchedulerRequestMessage` object.
+    Basic implementation of ::class:`Job`.
     """
-
-    def __init__(self, job_request: SchedulerRequestMessage):
-        self._originating_request = job_request
-        self._allocation_paradigm = JobAllocationParadigm.get_from_name(name=job_request.allocation_paradigm)
-        self._allocations = None
+    def __init__(self, cpu_count: int, memory_size: int, parameters: dict, allocation_paradigm_str: str,
+                 alloc_priority: int = 0):
+        self._cpu_count = cpu_count
+        self._memory_size = memory_size
+        self._parameters = parameters
+        self._allocation_paradigm = JobAllocationParadigm.get_from_name(name=allocation_paradigm_str)
+        self._allocation_priority = alloc_priority
         self.job_uuid = None
         self._rsa_key_pair = None
         self._status = JobStatus.CREATED
+        self._allocations = None
         self._reset_last_updated()
 
     def _reset_last_updated(self):
@@ -532,6 +534,24 @@ class RequestedJob(Job):
         return self._allocation_paradigm
 
     @property
+    def allocation_priority(self) -> int:
+        """
+        A score for how this job should be prioritized with respect to allocation, with high scores being more likely to
+        received allocation.
+
+        Returns
+        -------
+        int
+            A score for how this job should be prioritized with respect to allocation.
+        """
+        return self._allocation_priority
+
+    @allocation_priority.setter
+    def allocation_priority(self, priority: int):
+        self._allocation_priority = priority
+        self._reset_last_updated()
+
+    @property
     def allocations(self) -> Optional[List[ResourceAllocation]]:
         return self._allocations
 
@@ -542,7 +562,7 @@ class RequestedJob(Job):
 
     @property
     def cpu_count(self) -> int:
-        return self._originating_request.cpus
+        return self._cpu_count
 
     @property
     def job_id(self) -> Optional[str]:
@@ -573,27 +593,15 @@ class RequestedJob(Job):
 
     @property
     def memory_size(self) -> int:
-        return self._originating_request.memory
+        return self._memory_size
 
     @property
     def last_updated(self) -> datetime:
         return self._last_updated
 
     @property
-    def originating_request(self) -> SchedulerRequestMessage:
-        """
-        The original request that resulted in the creation of this job.
-
-        Returns
-        -------
-        SchedulerRequestMessage
-            The original request that resulted in the creation of this job.
-        """
-        return self._originating_request
-
-    @property
     def parameters(self) -> dict:
-        return self._originating_request.model_request.parameters
+        return self._parameters
 
     @property
     def rsa_key_pair(self) -> Optional[RsaKeyPair]:
@@ -612,3 +620,44 @@ class RequestedJob(Job):
     def status(self, new_status: JobStatus):
         self._status = new_status
         self._reset_last_updated()
+
+    @property
+    def status_phase(self) -> JobExecPhase:
+        return super().status_phase
+
+    @status_phase.setter
+    def status_phase(self, phase: JobExecPhase):
+        self.status = JobStatus.get_for_phase_and_step(phase=phase, step=phase.default_start_step)
+
+    @property
+    def status_step(self) -> JobExecStep:
+        return super().status_step
+
+    @status_step.setter
+    def status_step(self, step: JobExecStep):
+        self.status = JobStatus.get_for_phase_and_step(phase=self.status.job_exec_phase, step=step)
+
+
+class RequestedJob(JobImpl):
+    """
+    An implementation of ::class:`Job` for jobs that were created due to the received of a client request via a
+    ::class:`SchedulerRequestMessage` object.
+    """
+
+    def __init__(self, job_request: SchedulerRequestMessage):
+        self._originating_request = job_request
+        super().__init__(cpu_count=job_request.cpus, memory_size=job_request.memory,
+                         parameters=job_request.model_request.parameters,
+                         allocation_paradigm_str=job_request.allocation_paradigm)
+
+    @property
+    def originating_request(self) -> SchedulerRequestMessage:
+        """
+        The original request that resulted in the creation of this job.
+
+        Returns
+        -------
+        SchedulerRequestMessage
+            The original request that resulted in the creation of this job.
+        """
+        return self._originating_request
