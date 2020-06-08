@@ -124,6 +124,53 @@ class JobManager(ABC):
         pass
 
     @abstractmethod
+    def release_allocations(self, job: Job):
+        """
+        Release any resource allocations held by the given job back to the resource manager.
+
+        Parameters
+        ----------
+        job : Job
+            The job for which any held allocations should be released.
+        """
+        pass
+
+    @abstractmethod
+    def request_allocations(self, job: Job) -> List[ResourceAllocation]:
+        """
+        Request required resource allocations from resource manager.
+
+        Parameters
+        ----------
+        job : Job
+            The job for which any held allocations should be released.
+
+        Returns
+        -------
+        List[ResourceAllocation]
+            Required resource allocations from resource manager, if available, or an empty list if they could not be
+            fulfilled.
+        """
+        pass
+
+    @abstractmethod
+    def request_scheduling(self, job: Job) -> bool:
+        """
+        Request a job be passed sent to the scheduler and scheduled for execution.
+
+        Parameters
+        ----------
+        job : Job
+            The job in question.
+
+        Returns
+        -------
+        bool
+            Whether the job was scheduled.
+        """
+        pass
+
+    @abstractmethod
     def retrieve_job(self, job_id) -> Job:
         """
         Get the particular job with the given unique id.
