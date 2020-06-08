@@ -777,6 +777,18 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         """
         return self._does_redis_key_exist(self._get_job_key_for_id(job_id))
 
+    def release_allocations(self, job: Job):
+        """
+        Release any resource allocations held by the given job back to the resource manager.
+
+        Parameters
+        ----------
+        job : Job
+            The job for which any held allocations should be released.
+        """
+        if job.allocations is not None and len(job.allocations) > 0:
+            self._resource_manager.release_resources(job.allocations)
+
     def request_allocations(self, job: Job) -> List[ResourceAllocation]:
         """
         Request required resource allocations from resource manager.
