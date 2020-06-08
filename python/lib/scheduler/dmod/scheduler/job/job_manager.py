@@ -9,6 +9,9 @@ from ..rsa_key_pair import RsaKeyPair
 from dmod.communication import MaaSRequest, NWMRequest, SchedulerRequestMessage
 from dmod.redis import KeyNameHelper, RedisBacked
 
+import datetime
+import heapq
+
 
 class JobManagerFactory:
     """
@@ -467,6 +470,46 @@ class RedisBackedJobManager(JobManager, RedisBacked):
                 jobs_completed_phase.append(job)
 
         return [jobs_eligible_for_allocate, jobs_to_release_resources, jobs_completed_phase]
+
+    def _request_allocations_for_queue(self, jobs_priority_queue) -> List[RequestedJob]:
+        """
+        Request allocations for all jobs in a provided priority queue, updating and saving in Redis any jobs that did
+        get the requested allocation, and returning a list of those successfully allocated jobs.
+
+        Parameters
+        ----------
+        jobs_priority_queue : List[RequestedJob]
+            A priority queue (implemented as a list) of jobs for which allocation requests should be made.
+
+        Returns
+        -------
+        List[RequestedJob]
+            A list of the job objects that received their requested allocations.
+
+        """
+        allocated_successfully = []
+        not_allocated = []
+        priorities_to_bump = []
+        while len(jobs_priority_queue) > 0:
+            job = heapq.heappop(jobs_priority_queue)
+            allocations = self.request_allocations(job)
+            # If the allocation was successful
+            if allocations is not None and len(allocations) > 0 and isinstance(allocations[0], ResourceAllocation):
+                job.allocations = allocations
+                job.status_step = JobExecStep.ALLOCATED
+                allocated_successfully.append(job)
+                self.save_job(job)
+                # Keep track of jobs that got skipped over by at least one lower priority job like this
+                priorities_to_bump = []
+                for j in not_allocated:
+                    priorities_to_bump.append(j)
+            else:
+                not_allocated.append(job)
+        # Then at the end, bump priorities for skipped
+        for j in priorities_to_bump:
+            j.allocation_priority = j.allocation_priority + 1
+            self.save_job(j)
+        return allocated_successfully
 
     def _retrieve_serialized_data_for_job(self, job_hash_key) -> Optional[dict]:
         """
