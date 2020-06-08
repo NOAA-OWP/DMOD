@@ -777,6 +777,30 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         """
         return self._does_redis_key_exist(self._get_job_key_for_id(job_id))
 
+    def request_allocations(self, job: Job) -> List[ResourceAllocation]:
+        """
+        Request required resource allocations from resource manager.
+
+        Parameters
+        ----------
+        job : Job
+            The job for which any held allocations should be released.
+
+        Returns
+        -------
+        List[ResourceAllocation]
+            Required resource allocations from resource manager, if available, or an empty list if they could not be
+            fulfilled.
+        """
+        if job.allocation_paradigm == JobAllocationParadigm.SINGLE_NODE:
+            return self._resource_manager.allocate_single_node(job.cpu_count, job.memory_size)
+        elif job.allocation_paradigm == JobAllocationParadigm.FILL_NODES:
+            return self._resource_manager.allocate_fill_nodes(job.cpu_count, job.memory_size)
+        elif job.allocation_paradigm == JobAllocationParadigm.ROUND_ROBIN:
+            return self._resource_manager.allocate_round_robin(job.cpu_count, job.memory_size)
+        else:
+            return []
+
     def retrieve_job(self, job_id) -> RequestedJob:
         """
         Get the particular job with the given unique id.
