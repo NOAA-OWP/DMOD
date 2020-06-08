@@ -247,6 +247,7 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         """
         super(RedisBacked).__init__(redis_host=redis_host, redis_port=redis_port, redis_pass=redis_pass, **kwargs)
         self._resource_manager = resource_manager
+        self._active_jobs_set_key = self.keynamehelper.create_key_name(self.get_key_prefix(), 'active_jobs')
 
     def _deserialize_allocations(self, allocations_key_list: List[str],
                                  allocation_hashes: Dict[str, dict]) -> List[ResourceAllocation]:
@@ -986,7 +987,8 @@ class RedisBackedJobManager(JobManager, RedisBacked):
 
     def save_job(self, job: RequestedJob):
         """
-        Add or update the given job object in this manager's backend data store of job record data.
+        Add or update the given job object in this manager's backend data store of job record data, also maintaining a
+        Redis set of the ids of 'active' jobs.
 
         Parameters
         ----------
@@ -1000,6 +1002,12 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         try:
             for key in mappings:
                 pipeline.hmset(key, mappings[key])
+            if job.status.is_active:
+                # Add to active set
+                pipeline.sadd(self._active_jobs_set_key, job_key)
+            else:
+                # Make sure not in active set
+                pipeline.srem(self._active_jobs_set_key, job_key)
             pipeline.execute()
         finally:
             pipeline.reset()
