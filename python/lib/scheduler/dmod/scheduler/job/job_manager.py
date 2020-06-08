@@ -22,7 +22,7 @@ class JobManagerFactory:
     """
 
     @classmethod
-    def factory_create(cls, **kwargs):
+    def factory_create(cls, resource_manager: ResourceManager, **kwargs):
         """
         Create and return a new instance of a ::class:`JobManager` object.
 
@@ -54,7 +54,8 @@ class JobManagerFactory:
                 port = int(value)
             elif key == 'redis_pass':
                 pword = value
-        return RedisBackedJobManager(redis_host=host, redis_port=port, redis_pass=pword)
+        return RedisBackedJobManager(resource_manager=resource_manager, redis_host=host, redis_port=port,
+                                     redis_pass=pword)
 
 
 class JobManager(ABC):
