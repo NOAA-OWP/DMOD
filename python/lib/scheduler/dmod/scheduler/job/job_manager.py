@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from asyncio import sleep
 from typing import Dict, List, Optional
 from uuid import uuid4 as random_uuid
 from .job import Job, JobAllocationParadigm, JobExecStep, JobStatus, RequestedJob
@@ -819,6 +820,75 @@ class RedisBackedJobManager(JobManager, RedisBacked):
             ``True`` if a job exists with the provided job id, or ``False`` otherwise.
         """
         return self._does_redis_key_exist(self._get_job_key_for_id(job_id))
+
+    async def manage_job_processing(self):
+        """
+        Monitor for created jobs and perform steps for job queueing, allocation of resources, and hand-off to scheduler.
+        """
+        while True:
+            # TODO: query for state of "active" jobs
+            active_jobs: List[RequestedJob] = []
+
+            # TODO: build collection of Jobs with "active" status
+
+            # TODO: something must transition MODEL_EXEC_RUNNING Jobs to MODEL_EXEC_COMPLETED (probably Monitor class)
+            # TODO: something must transition OUTPUT_EXEC_RUNNING Jobs to OUTPUT_EXEC_COMPLETED (probably Monitor class)
+
+            # TODO: identify jobs that have a status change such that they need something done:
+            #  - needs allocation (CREATED)
+
+            organized_lists = self._organize_active_jobs(active_jobs)
+
+            jobs_eligible_for_allocate = organized_lists[0]
+            jobs_to_release_resources = organized_lists[1]
+            jobs_completed_phase = organized_lists[2]
+
+            for job_with_allocations_to_release in jobs_to_release_resources:
+                self.release_allocations(job_with_allocations_to_release)
+
+            for job_transitioning_phases in jobs_completed_phase:
+                # TODO: figure out what to do here; e.g., start output service after model_exec is done
+                pass
+
+            # Build prioritized list/queue of allocation eligible Jobs
+            low_priority_queue = []
+            med_priority_queue = []
+            high_priority_queue = []
+            for eligible_job in jobs_eligible_for_allocate:
+                # Bump by 10 if not updated for an hour
+                if datetime.datetime.now() - eligible_job.last_updated >= datetime.timedelta(hours=1):
+                    eligible_job.allocation_priority = eligible_job.allocation_priority + 10
+                # TODO: formalize this scale better
+                # Over 100: high
+                # 50 to 100: med
+                # otherwise: low
+                priority = eligible_job.allocation_priority
+                # Also keep in mind that higher priority is first, which is reversed from priority queue (so negate)
+                inverted_priority = priority * -1
+                if priority > 100:
+                    heapq.heappush(high_priority_queue, (inverted_priority, eligible_job))
+                elif priority > 49:
+                    heapq.heappush(med_priority_queue, (inverted_priority, eligible_job))
+                else:
+                    heapq.heappush(low_priority_queue, (inverted_priority, eligible_job))
+
+            # Request allocations and get collection of jobs that were allocated, starting first with high priorities
+            allocated_successfully = self._request_allocations_for_queue(high_priority_queue)
+            # Only even process others if any and all high priority jobs get allocated
+            if len(allocated_successfully) == len(high_priority_queue):
+                allocated_successfully.extend(self._request_allocations_for_queue(med_priority_queue))
+                allocated_successfully.extend(self._request_allocations_for_queue(low_priority_queue))
+
+            # For each Job that received an allocation, save updated state and pass to scheduler
+            for job in allocated_successfully:
+                if self.request_scheduling(job):
+                    job.status_step = JobExecStep.SCHEDULED
+                else:
+                    job.status_step = JobExecStep.FAILED
+                    # TODO: probably log something about this, or raise exception
+                self.save_job(job)
+
+            await sleep(60)
 
     def release_allocations(self, job: Job):
         """
