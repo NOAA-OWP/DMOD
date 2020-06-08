@@ -439,6 +439,35 @@ class Job(ABC):
         """
         pass
 
+    @property
+    def status_phase(self) -> JobExecPhase:
+        """
+        The ::class:`JobExecPhase` for the ::class:`JobStatus` ::attribute:`status` property of this object.
+
+        Returns
+        -------
+        JobExecPhase
+            The ::class:`JobExecPhase` for the ::class:`JobStatus` ::attribute:`status` property of this object.
+        """
+        return self.status.job_exec_phase
+
+    @status_phase.setter
+    @abstractmethod
+    def status_phase(self, phase: JobExecPhase):
+        pass
+
+    @property
+    def status_step(self) -> JobExecStep:
+        """
+        The ::class:`JobStageStep` for the ::class:`JobStatus` ::attribute:`status` property of this object.
+
+        Returns
+        -------
+        JobExecPhase
+            The ::class:`JobStageStep` for the ::class:`JobStatus` ::attribute:`status` property of this object.
+        """
+        return self.status.job_exec_step
+
 
 class RequestedJob(Job):
     """
