@@ -696,6 +696,506 @@ class QueMonitor(RedisBacked):
         print("-" * 20)
         print("\n")
 
+    def store_running_jobs_attr_in_redis(self):
+        """
+        Store all jobs in running job queue to redis for the purpose restart in case of system down,
+        network outage, or other unexpected system failure
+        The operations involve iterating through the running job queue and push job related attributes to
+        the redis database and/or a plain textfile for increased assurance
+
+        Parameters
+        ----------
+        No input parameters
+
+        Returns
+        -------
+        None
+        """
+        # docker api
+        client = self.docker_client
+        api_client = self.api_client
+        srv_basename = self.name
+
+        # Create a list of all services in the running queue
+        service_list = client.services.list()
+
+        # service_list_key = self.keynamehelper.create_key_name("service_list")
+        service_set_key = self.keynamehelper.create_key_name("service_set")
+
+        # iterate through the service list
+        for service in service_list:
+            # service_id = service.id
+            # serialize the service.attrs and store in redis
+            service_attrs = service.attrs
+            service_name = service.name
+            if srv_basename in service_name:
+                # store service_attrs in redis as string
+                stringified_service_attrs = json.dumps(service_attrs)  # convert dict object to string
+                service_attrs_hash_key = self.keynamehelper.create_key_name("service_attrs", service_name)
+                self.redis.hmset(service_attrs_hash_key, stringified_service_attrs)
+                self.redis.sadd(service_set_key, service_name)
+
+
+    def retrieve_running_jobs_attr_from_redis(self) -> list:
+        """
+        Retrive services.attrs for all jobs in running job queue from redis,
+        then use the services.attrs to build up the runningJobList
+
+        Parameters
+        ----------
+            No input parameters
+
+        Returns
+        -------
+        runningJobList
+            A list of all running jobs last saved into redis
+        """
+        # docker api
+        client = self.docker_client
+        api_client = self.api_client
+        srv_basename = self.name
+
+        # Initialize runningJobList the first time it is called
+        runningJobList = list()
+
+        # retrieve first element of the service set from redis
+        service_set_key = self.keynamehelper.create_key_name("service_set")
+        service_name = self.redis.spop(service_set_key)
+        # iterate through the saved service set
+        while service_name != None:
+            service_attrs_hash_key = self.keynamehelper.create_key_name("service_attrs", service_name)
+            stringified_service_attrs = self.redis.hgetall(service_attrs_hash_key)
+            service_attrs = json.loads(stringified_service_attrs)  # convert string data to object(dict/JSON)
+
+            #FIXME: remove all the print functions after testing
+            # extract individual attribute to be used for creating service
+            Image = pn.find('Image', service_attrs)
+            *Image, = Image
+            print("In retrieve_running_jobs_from_redis: Image = ", *Image)
+            # Name = list(pn.find('Name', service_attrs))[0]
+            # print("In retrieve_running_jobs_from_redis: Name = {}".format(Name))
+            Name = pn.find('Name', service_attrs)
+            *Name, = Name
+            print("In retrieve_running_jobs_from_redis: Name = ", *Name)
+            Constraints = pn.find('Constraints', service_attrs)
+            *Constraints, = Constraints
+            print("In retrieve_running_jobs_from_redis: Constraints = ", *Constraints)
+            ContainerSpec = list(pn.find('ContainerSpec', service_attrs))
+            pp(ContainerSpec)
+            Mounts = pn.find('Mounts', service_attrs)
+            *Mounts, = Mounts
+            print("In retrieve_running_jobs_from_redis: Mounts = ", *Mounts)
+            Args = pn.find('Args', service_attrs)
+            *Args, = Args
+            print("In retrieve_running_jobs_from_redis: Args = ", *Args)
+            Command = pn.find('Command', service_attrs)
+            *Command, = Command
+            print("In retrieve_running_jobs_from_redis: Command = ", *Command)
+            RestartPolicy = pn.find('RestartPolicy', service_attrs)
+            *RestartPolicy, = RestartPolicy
+            print("In retrieve_running_jobs_from_redis: RestartPolicy = ", *RestartPolicy)
+            Healthcheck = pn.find('Healthcheck', service_attrs)
+            *Healthcheck, = Healthcheck
+            print("In retrieve_running_jobs_from_redis: Healthcheck = ", *Healthcheck)
+            Labels = pn.find('Labels', service_attrs)
+            *Labels, = Labels
+            print("In retrieve_running_jobs_from_redis: Labels = ", *Labels)
+            labels = list(pn.find('Labels', service_attrs))[0]
+            HostNode = labels['Hostname']
+            cpus_alloc = labels['cpus_alloc']
+
+            service_dict = {"Image": Image, "Command": Command, "Args": Args, "Constraints": Constraints, "ContainerSpec": ContainerSpec,
+                            "Labels": Labels, "Name": Name, "Mounts": Mounts, "Healthcheck": Healthcheck,
+                            "RestartPolicy": RestartPolicy, "HostNode": HostNode, "cpus_alloc": cpus_alloc}
+            runningJobList.append(service_dict)
+
+            # retrieve service_name for next iteration
+            service_name = self.redis.spop(service_set_key)
+
+        print("\nend of que_monitor.retrieve_running_jobs_from_redis")
+        print("=" * 30)
+        return runningJobList
+
+
+    def store_running_jobs_attr_items_in_redis(self):
+        """
+        Saving all jobs in running job queue for the purpose restart in case of system down, 
+        network outage, or other unexpected system failure
+        The operations involve iterating through the running job queue and push job related attributes to
+        the redis database and/or a plain textfile for increased assurance
+
+        Parameters
+        ----------
+        No input parameters
+
+        Returns
+        -------
+        None
+        """
+        # docker api
+        client = self.docker_client
+        api_client = self.api_client
+        srv_basename = self.name
+
+        # Create a list of all services in the running queue
+        service_list = client.services.list()
+
+        running_services_key = self.keynamehelper.create_key_name("running_service_list")
+        s_set_key = self.keynamehelper.create_key_name("running_service_set")
+
+        # iterate through the service list
+        for service in service_list:
+            # service_id = service.id
+            # potentially, could serialize the service.attrs, store in redis, retrieve and extract individual attr
+            service_attrs = service.attrs
+            service_name = service.name
+            Name = list(pn.find('Name', service_attrs))[0]
+            if srv_basename in Name:
+                # pp(service_attrs)
+                ## Image = list(pn.find('Image', service_attrs))[0]
+                ## print("In check_runningJobs: Image = {}".format(Image))
+                # FIXME: remove all print() after testing
+                Image = pn.find('Image', service_attrs)
+                *Image, = Image
+                print("In check_runningJobs: Image = ", *Image)
+                Name = pn.find('Name', service_attrs)
+                *Name, = Name
+                print("In check_runningJobs: Name = ", *Name)
+                print("In check_runningJobs: service_name = {}".format(service_name))
+                Constraints = pn.find('Constraints', service_attrs)
+                *Constraints, = Constraints
+                print("In check_runningJobs: Constraints = ", *Constraints)
+                ContainerSpec = list(pn.find('ContainerSpec', service_attrs))
+                pp(ContainerSpec)
+                Mounts = pn.find('Mounts', service_attrs)
+                *Mounts, = Mounts
+                print("In check_runningJobs: Mounts = ", *Mounts)
+                Args = pn.find('Args', service_attrs)
+                *Args, = Args
+                print("In check_runningJobs: Args = ", *Args)
+                Command = pn.find('Command', service_attrs)
+                *Command, = Command
+                print("In check_runningJobs: Command = ", *Command)
+                RestartPolicy = pn.find('RestartPolicy', service_attrs)
+                *RestartPolicy, = RestartPolicy
+                print("In check_runningJobs: RestartPolicy = ", *RestartPolicy)
+                # Healthcheck = pn.find('Healthcheck', service_attrs)
+                # *Healthcheck, = Healthcheck
+                Healthcheck = list(pn.find('Healthcheck', service_attrs))[0]
+
+                print("In check_runningJobs: Healthcheck = ", *Healthcheck)
+                Labels = pn.find('Labels', service_attrs)
+                *Labels, = Labels
+                print("In check_runningJobs: Labels = ", *Labels)
+
+                labels = list(pn.find('Labels', service_attrs))[0]
+
+                # Healthcheck is a nested dict containing key-value pairs and list
+                # store Healcheck in redis as string
+                healthcheck = Healthcheck
+                stringified_healthcheck_obj = json.dumps(healthcheck)  # convert dict object to string
+                healthcheck_hash_key = self.keynamehelper.create_key_name("healthcheck", service_name)
+                self.redis.set(healthcheck_hash_key, stringified_healthcheck_obj)
+                # self.redis.hmset(healthcheck_hash_key, stringified_healthcheck_obj)
+
+                # in redis, list of strings can be pushed onto a named list_key
+                # Args =  ['nwm_mpi-worker_serv2_NBFTGI-SPQRUZ:3', 'nwm_mpi-worker_serv1_NBFTGI-SPQRUZ:3', 'nwm_mpi-worker_serv0_NBFTGI-SPQRUZ:4']
+                print("Args is an instance of list:", isinstance(Args,list))
+                print("Args is an instance of str:", isinstance(Args,str))
+                service_key = self.keynamehelper.create_key_name(service_name)
+                print("In retrieve_running_jobs_attr_items_from_redis: service_key = {}".format(service_key))
+                p = self.redis.pipeline()
+                try:
+                    self.redis.watch(service_key)
+                    for string in Args:
+                        p.rpush(service_key, string)
+                except WatchError:
+                    logging.debug("Write conflict in store_running_jobs_attr_items_in_redis: {}".format(service_key))
+                finally:
+                    p.reset()
+                    logging.info("In store_running_jobs_attr_items_in_redis: complete writing Args!")
+
+                # In redis, dict can be stored as hash
+                # e.g.: Labels =  {'cpus_alloc': '3', 'com.docker.stack.image': '127.0.0.1:5000/nwm-2.0', \
+                #                  'com.docker.stack.namespace': 'nwm', 'Hostname': 'nwcal-ucs2.nwc.nws.noaa.gov'}
+                labels_key = self.keynamehelper.create_key_name("labels", service_name)
+                # self.redis.hmset(labels_key, Labels)
+                self.redis.hmset(labels_key, labels)
+
+                # the services.create() defines Mounts as a list of strings, but docker service inspect outputs it as a list containing a single dict
+                print("In store_running_jobs_attr_items_in_redis, Mounts =", Mounts)
+                print("In store_running_jobs_attr_items_in_redis, Mounts is insatnce of list:", isinstance(Mounts,list))
+                mounts_dict = Mounts[0][0]
+                print("In store_running_jobs_attr_items_in_redis, Mounts is insatnce of list:", isinstance(mounts_dict,dict))
+                source = mounts_dict['Source']
+                target = mounts_dict['Target']
+                options = 'rw'
+                mounts_string = source + ':' + target + ':' + options
+                #  mounts = [mts_string]
+                print("In store_running_jobs_attr_items_in_redis: mounts = ", mounts_string)
+                mounts_key = self.keynamehelper.create_key_name("mounts", service_name)
+                self.redis.set(mounts_key, mounts_string)
+                # self.redis.set(mounts_key, mounts_dict)
+
+                # RestartPolicy = {'Condition': 'none', 'Delay': 0, 'MaxAttempts': 0, 'Window': 0} is a class object similar to Healthcheck
+                # self.redis.hmset(restart_policy_key, RestartPolicy)
+                stringified_restart_policy = json.dumps(RestartPolicy)  # convert dict object to string
+                restart_policy_key = self.keynamehelper.create_key_name("restart_policy", service_name)
+                self.redis.set(restart_policy_key, stringified_restart_policy)
+
+                # create a dict of strings
+                Image_redis = Image[0]    # str
+                Name_redis = Name[0]      # str
+                Command_redis = Command[0][0]    # list of str or str
+                Hostname =  "{{.Service.Name}}"    # str constant
+                Constraints_redis = Constraints[0][0]    # list of str
+                service_dict_str = {"Image": Image_redis, "Name": Name_redis, "Command": Command_redis, "Hostname": Hostname,
+                                    "Constraints": Constraints_redis}
+                # store the dict in redis
+                service_dict_key = self.keynamehelper.create_key_name("service_dict_str", service_name)
+                self.redis.hmset(service_dict_key, service_dict_str)
+
+                # taking a snapshot of current running jobs and push it on to redis
+                # need to save service_name to redis so that service attributes can be retrieved from redis based on servcie_name
+                # can use either the redis list or set data type
+                # FIXME: choose one of the following
+                # using list method
+                # self.redis.rpush(running_services_key, service_name)
+                # using set data type
+                self.redis.sadd(s_set_key, service_name)
+                print("-" * 10)
+        print("\nend of que_monitor.check_runningJobs")
+        print("=" * 30)
+        return
+
+    def retrieve_running_jobs_attr_items_from_redis(self) -> list:
+        """
+        Retrive services.attrs for all jobs in running job queue stored in redis, 
+        then use the services.attrs to build up the runningJobList
+
+        Parameters
+        ----------
+            No input parameters
+
+        Returns
+        -------
+        runningJobList
+            A list of all running jobs last saved into redis
+        """
+        # docker api
+        client = self.docker_client
+        api_client = self.api_client
+        srv_basename = self.name
+
+        # test out some service functions
+        service_list = client.services.list()
+
+        # Initialize runningJobList the first time it is called
+        runningJobList = list()
+
+        # FIXME: choose one of the following
+        # iterate through the saved service list
+        ## running_services_key = self.keynamehelper.create_key_name("running_service_list")
+        ## service_name = self.redis.lpop(running_services_key)
+        ## while service_name != None:
+
+        # iterate through the saved service set
+        s_set_key = self.keynamehelper.create_key_name("running_service_set")
+        service_name = self.redis.spop(s_set_key)
+        while service_name != None:
+            # retrieve Healthcheck from redis
+            healthcheck_hash_key = self.keynamehelper.create_key_name("healthcheck", service_name)
+            # stringified_healthcheck_obj = self.redis.hgetall(healthcheck_hash_key)
+            stringified_healthcheck_obj = self.redis.get(healthcheck_hash_key)
+            Healthcheck = json.loads(stringified_healthcheck_obj)  # convert string data to object(dict/JSON)
+
+            # in redis, list of strings can be pushed onto a named list_key
+            # Args =  ['nwm_mpi-worker_serv2_NBFTGI-SPQRUZ:3', 'nwm_mpi-worker_serv1_NBFTGI-SPQRUZ:3', 'nwm_mpi-worker_serv0_NBFTGI-SPQRUZ:4']
+
+            # code for retrieving Args list of strings
+            # this code block operates only on a single specific service with given service_name
+            # the top outside loop iterates through all the running services
+            service_key = self.keynamehelper.create_key_name(service_name)
+            print("In retrieve_running_jobs_attr_items_from_redis: service_key = {}".format(service_key))
+            p = self.redis.pipeline()
+            args_list = list()
+            try:
+                self.redis.watch(service_key)
+                # for str in Args:
+                args = p.lpop(service_key)
+                print("In retrieve_running_jobs_attr_items_from_redis: args = {}".format(args))
+                while args != None:
+                    args_list.append(args)
+                    args = p.lpop(service_key)
+                    print("In retrieve_running_jobs_attr_items_from_redis: args = {}".format(args))
+            except WatchError:
+                logging.debug("Read error in store_running_jobs_attr_items_in_redis: {}".format(service_key))
+            finally:
+                p.reset()
+                logging.info("In store_running_jobs_attr_items_in_redis: complete writing Args!")
+
+            # In redis, dict can be stored as hash
+            # e.g.: Labels =  {'cpus_alloc': '3', 'com.docker.stack.image': '127.0.0.1:5000/nwm-2.0', \
+            #                  'com.docker.stack.namespace': 'nwm', 'Hostname': 'nwcal-ucs2.nwc.nws.noaa.gov'}
+
+            # code for retrieving the labels dict from redis
+            # in principle, could combine the next three dicts for data efficiency, but more difficult to separate them
+            labels_key = self.keynamehelper.create_key_name("labels", service_name)
+            labels_dict = self.redis.hgetall(labels_key)
+
+            # the services.create() defines Mounts as a list of strings, but docker service inspect outputs it as a list containing a single dict
+            # code for retrieving mounts dict from redis
+            mounts_key = self.keynamehelper.create_key_name("mounts", service_name)
+            mounts_dict = self.redis.get(mounts_key)
+
+            # RestartPolicy = {'Condition': 'none', 'Delay': 0, 'MaxAttempts': 0, 'Window': 0} is a class object similar to Healthcheck
+            restart_policy_key = self.keynamehelper.create_key_name("restart_policy", service_name)
+            # restart_policy = self.redis.hgetall(restart_policy_key)
+            # retrieve restart_policy from redis
+            stringified_restart_policy = self.redis.get(restart_policy_key)
+            restart_policy = json.loads(stringified_restart_policy)  # convert string data to object(dict/JSON)
+
+            # initlize a dictionary object
+            service_dict_for_redis = dict()
+
+            # retrieve from redis
+            service_dict_key = self.keynamehelper.create_key_name("service_dict_str", service_name)
+            service_dict_str = self.redis.hgetall(service_dict_key)
+
+            service_dict_for_redis.update(service_dict_str)
+            service_dict_for_redis.update(Healthcheck)
+            service_dict_for_redis.update(args_list)
+            service_dict_for_redis.update(labels_dict)
+            service_dict_for_redis.update(mounts_dict)
+            service_dict_for_redis.update(restart_policy)
+
+            runningJobList.append(service_dict_for_redis)
+            service_name = self.redis.spop(s_set_key)
+
+        print("\nend of retrieve_running_jobs_attr_items_from_redis")
+        print("=" * 30)
+        return runningJobList
+
+
+    def store_job_state_in_redis(self):
+        """
+        Store the job state of current service tasks
+
+        Parameters
+        No input parameters
+
+        Returns
+        -------
+        None
+
+        """
+        print("In function store_job_state_in_redis():")
+        # docker api
+        client = self.docker_client
+        api_client = self.api_client
+        srv_basename = self.name
+
+        # test out some service functions
+        service_list = client.services.list()
+
+        # initialize the service_state_list
+        service_state_list = list()
+
+        # create the redis key for service task id set
+        task_set_key = self.keynamehelper.create_key_name("service_tasks")
+
+        # iterate through entire service list
+        for service in service_list:
+            service_attrs = service.attrs
+            service_name = service.name
+            # print("service_name = ", service.name)
+            if srv_basename in service_name:
+                for task in service.tasks():
+                    try:
+                        task_state = service_name + ':' + task['Status']['State']
+                        task_timestamp = service_name + ':' + task['Status']['Timestamp']
+                        task_container_id = service_name + ':' + task['Status']['ContainerStatus']['ContainerID']
+                        task_disired_state = service_name + ':' + task['DesiredState']
+                        task_service_id = service_name + ':' + task['ServiceID']
+                        task_error = service_name + ':' + str(task['Status']['ContainerStatus']['ExitCode'])
+                        task_error_num = task['Status']['ContainerStatus']['ExitCode']
+                        task_host = task['Spec']['Placement']['Constraints']
+                        task_host = task_host[0]
+                        (_, task_host) = task_host.split(' == ')
+                        (serviceName, taskState) = task_state.split(':')
+
+                        service_state_dict = {"service_name": service_name, "taskState": taskState, "task_host": task_host,
+                                              "task_container_id": task_container_id, "task_disired_state": task_disired_state}
+                        task_key = self.keynamehelper.create_key_name("running_services", task_service_id)
+                        self.redis.hmset(task_key, service_state_dict)
+
+                        # save task_service_id to redis set as key for retrieving service_stat_dict later on
+                        self.redis.sadd(task_set_key, task_service_id)
+                    except:
+                        raise RedisError("Error occurred in storing task states to redis")
+
+
+    def retrieve_job_state_from_redis(self):
+        """
+        Retrieve the last saved task state of the running job queue from redis
+
+        Parameters
+        No input parameters
+
+        Returns
+        -------
+        service_state_list
+            A list of dicts containing task state and other relevant variables of the most recent running job queue
+        """
+        # docker api
+        client = self.docker_client
+        api_client = self.api_client
+
+        # initialize service_state_list
+        service_state_list = list()
+
+        # create t_set_key needed to find task_service_id, which has a one-to-one correpondence
+        # with service_state_dict
+        task_set_key = self.keynamehelper.create_key_name("service_tasks")
+        task_service_id = self.redis.spop(task_set_key)
+        while task_service_id != None:
+            task_key = self.keynamehelper.create_key_name("running_services", task_service_id)
+            service_state_dict = self.redis.hgetall(task_key)
+
+            # form service_state_list needed for job resubmission
+            service_state_list.append(service_state_dict)
+
+            # extract individual item of the dictionary if necessary such as validation
+            # otherwise comment out the next 4 lines of code
+            service_name = service_state_dict['service_name']
+            print("service_name = {}".format(service_name))
+            taskState = service_state_dict['taskState']
+            print("taskState = {}".format(taskState))
+            # task_host = service_state_dict['task_host']
+            # task_container_id = service_state_dict['task_container_id']
+            # task_desired_state = service_state_dict['task_desired_state']
+
+            # get next task_service_id from redis
+            task_service_id = self.redis.spop(task_set_key)
+
+        print("end of retrieve_job_state_from_redis()")
+        return service_state_list
+
+    def restart_running_jobQ(self):
+        """
+        In case of node failure, system shutdown, or any other types of system failure, restore the running job queue using saved job info.
+        This cab done in two ways:
+            (a) from saved plain text file
+            (b) from Redis database
+        Restart jobs from saved checkpoint will be more involved
+        """
+        # retrieve runningJobList and service_state_list from redis
+        runningJobList = self.retrieve_running_jobs_attr_items_from_redis()
+        service_state_list = self.retrieve_job_state_from_redis()
+        for state_dict in service_state_list:
+            self.service_actions(runningJobList, state_dict)
+
+
 def main():
     #keynamehelper.set_prefix("nwm-monitor")
     #FIXME remove main at some point
@@ -708,6 +1208,16 @@ def main():
 
     client = q.docker_client
     api_client = q.api_client
+
+    # store running jobs attrs in redis database
+    if store_running_jobs == True:
+        q.store_running_jobs_attr_in_redis
+        q.store_running_jobs_attr_items_in_redis()
+        q.store_job_state_in_redis()
+
+    # restart the entire previously saved running job queue
+    if restart_running_job_queue == True:
+        q.restart_running_jobQ()
 
     #FIXME check_job_state() should not be called before check_runningJobs() in operational run to save service info
     # before beibg removed from service list
