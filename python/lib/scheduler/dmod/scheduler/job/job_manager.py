@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from asyncio import sleep
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, Union
 from uuid import uuid4 as random_uuid
 from .job import Job, JobAllocationParadigm, JobExecStep, JobStatus, RequestedJob
 from ..resources.resource_allocation import ResourceAllocation
@@ -63,6 +63,41 @@ class JobManagerFactory:
 
 
 class JobManager(ABC):
+
+    @classmethod
+    @abstractmethod
+    def build_prioritized_pending_allocation_queues(cls, jobs_eligible_for_allocate: List[RequestedJob]) -> Union[
+            List[Tuple[int, RequestedJob]], Dict[str, List[Tuple[int, RequestedJob]]]]:
+        """
+        Construct one or more priority queues for the given jobs eligible to receive allocations, based on the jobs'
+        ::attribute:`Job.allocation_priority` values, returning either the single priority queue or a keyed dictionary
+        of queues.
+
+        Implementations can decided whether a single or multiple queues should be produced, but they should clearly
+        document which is the case.  Also, if multiple queues are returned, the distinction between the queues and how
+        they are keyed should be clearly documented.
+
+        Implementations must return Python Lib/heapq.py type priority queues. Note that because this implementation is a
+        "min heap" (i.e. return smallest item first), jobs must first be wrapped inside a tuple before being added to
+        a queue.  The first value in one of these tuples should be the additive inverse of the job's
+        ::attribute:`Job.allocation_priority` value, with the job object itself being the second value.
+
+        In cases multiple queues within a dictionary are returned, implemenations must ensure that each job within the
+        parameter list is included in exactly one queue.  I.e., the sum of the length of all returned queues must be
+        equal to the length of the provided argument list.
+
+        Parameters
+        ----------
+        jobs_eligible_for_allocate : List[RequestedJob]
+            A list of ::class:`RequestedJob` object, where each is eligible for allocation.
+
+        Returns
+        -------
+        Dict[str, List[Tuple[int, RequestedJob]]]
+            A mapping of high, medium, and low priority queues filled with tuples having the additive inverse of a job's
+            priority and the respective job object.
+        """
+        pass
 
     @abstractmethod
     def create_job(self, **kwargs) -> Job:
@@ -234,6 +269,61 @@ class RedisBackedJobManager(JobManager, RedisBacked):
     An implementation of ::class:`JobManager` that uses Redis as a backend, works with ::class:`RequestedJob` job
     objects, and acquires ::class:`ResourceAllocation` objects for processing jobs from some ::class:`ResourceManager`.
     """
+
+    @classmethod
+    def build_prioritized_pending_allocation_queues(cls, jobs_eligible_for_allocate: List[RequestedJob]) -> Dict[
+            str, List[Tuple[int, RequestedJob]]]:
+        """
+        Construct priority queues for the given jobs eligible to receive allocations, based on the jobs'
+        ::attribute:`Job.allocation_priority` values, and return a keyed dictionary of the resulting queues.
+
+        In this implementation, three priority queues are returned within a dictionary, keyed as ``high``, ``medium``,
+        and ``low``.
+
+        The ``high`` queue consists of jobs with priority values over 100.
+
+        The ``medium`` queue consists of jobs with priority values between 50 and 100 inclusive.
+
+        The ``low`` queue consists of jobs with priorities under 50.
+
+        Note that because the priority queue implementation is a "min heap" (i.e. return smallest item first), jobs are
+        first wrapped inside a tuple before being added to the appropriate priority queue, with the first value being
+        the additive inverse of the job's ::attribute:`Job.allocation_priority` value, and the second being the job
+        object itself.
+
+        Parameters
+        ----------
+        jobs_eligible_for_allocate : List[RequestedJob]
+            A list of ::class:`RequestedJob` object, where each is eligible for allocation.
+
+        Returns
+        -------
+        Dict[str, List[Tuple[int, RequestedJob]]]
+            A mapping of high, medium, and low priority queues filled with tuples having the additive inverse of a job's
+            priority and the respective job object.
+        """
+        # Build prioritized list/queue of allocation eligible Jobs
+        low_priority_queue = []
+        med_priority_queue = []
+        high_priority_queue = []
+        for eligible_job in jobs_eligible_for_allocate:
+            # Bump by 10 if not updated for an hour
+            if datetime.datetime.now() - eligible_job.last_updated >= datetime.timedelta(hours=1):
+                eligible_job.allocation_priority = eligible_job.allocation_priority + 10
+            # TODO: formalize this scale better
+            # Over 100: high
+            # 50 to 100: med
+            # otherwise: low
+            priority = eligible_job.allocation_priority
+            # Also keep in mind that higher priority is first, which is reversed from priority queue (so negate)
+            inverted_priority = priority * -1
+            if priority > 100:
+                heapq.heappush(high_priority_queue, (inverted_priority, eligible_job))
+            elif priority > 49:
+                heapq.heappush(med_priority_queue, (inverted_priority, eligible_job))
+            else:
+                heapq.heappush(low_priority_queue, (inverted_priority, eligible_job))
+        return {'high': high_priority_queue, 'medium': med_priority_queue, 'low': low_priority_queue}
 
     # TODO: look at either deprecating this or applying it appropriately to all managed objects
     @classmethod
@@ -873,26 +963,10 @@ class RedisBackedJobManager(JobManager, RedisBacked):
                 pass
 
             # Build prioritized list/queue of allocation eligible Jobs
-            low_priority_queue = []
-            med_priority_queue = []
-            high_priority_queue = []
-            for eligible_job in jobs_eligible_for_allocate:
-                # Bump by 10 if not updated for an hour
-                if datetime.datetime.now() - eligible_job.last_updated >= datetime.timedelta(hours=1):
-                    eligible_job.allocation_priority = eligible_job.allocation_priority + 10
-                # TODO: formalize this scale better
-                # Over 100: high
-                # 50 to 100: med
-                # otherwise: low
-                priority = eligible_job.allocation_priority
-                # Also keep in mind that higher priority is first, which is reversed from priority queue (so negate)
-                inverted_priority = priority * -1
-                if priority > 100:
-                    heapq.heappush(high_priority_queue, (inverted_priority, eligible_job))
-                elif priority > 49:
-                    heapq.heappush(med_priority_queue, (inverted_priority, eligible_job))
-                else:
-                    heapq.heappush(low_priority_queue, (inverted_priority, eligible_job))
+            priority_queues = self.build_prioritized_pending_allocation_queues(jobs_eligible_for_allocate)
+            high_priority_queue = priority_queues['high']
+            low_priority_queue = priority_queues['low']
+            med_priority_queue = priority_queues['medium']
 
             # Request allocations and get collection of jobs that were allocated, starting first with high priorities
             allocated_successfully = self._request_allocations_for_queue(high_priority_queue)
