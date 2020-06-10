@@ -575,15 +575,16 @@ class RedisBackedJobManager(JobManager, RedisBacked):
 
         return [jobs_eligible_for_allocate, jobs_to_release_resources, jobs_completed_phase]
 
-    def _request_allocations_for_queue(self, jobs_priority_queue) -> List[RequestedJob]:
+    def _request_allocations_for_queue(self, jobs_priority_queue: List[Tuple[int, RequestedJob]]) -> List[RequestedJob]:
         """
         Request allocations for all jobs in a provided priority queue, updating and saving in Redis any jobs that did
         get the requested allocation, and returning a list of those successfully allocated jobs.
 
         Parameters
         ----------
-        jobs_priority_queue : List[RequestedJob]
-            A priority queue (implemented as a list) of jobs for which allocation requests should be made.
+        jobs_priority_queue : List[Tuple[int, RequestedJob]]
+            A priority queue (implemented as a list) of jobs for which allocation requests should be made, with items
+            being tuples of priority value additive inverses and requested jobs.
 
         Returns
         -------
@@ -595,7 +596,8 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         not_allocated = []
         priorities_to_bump = []
         while len(jobs_priority_queue) > 0:
-            job = heapq.heappop(jobs_priority_queue)
+            # Remember, the job object itself is the second item in the popped tuple, since this is a min heap
+            job = heapq.heappop(jobs_priority_queue)[1]
             allocations = self.request_allocations(job)
             # If the allocation was successful
             if allocations is not None and len(allocations) > 0 and isinstance(allocations[0], ResourceAllocation):
