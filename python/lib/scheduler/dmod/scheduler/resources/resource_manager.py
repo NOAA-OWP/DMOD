@@ -2,7 +2,6 @@
 import logging
 from typing import Iterable, Optional, Union, List
 from abc import ABC, abstractmethod
-from ..job import Job, JobAllocationParadigm
 from .resource import Resource
 from .resource_allocation import ResourceAllocation
 
@@ -111,24 +110,6 @@ class ResourceManager(ABC):
         pass
 
     @abstractmethod
-    def request_allocations(self, job: Job) -> Iterable[ResourceAllocation]:
-        """
-        Request resource allocations for the given ::class:`Job` object, according to its needs and permitted allocation
-        paradigm(s).
-
-        Parameters
-        ----------
-        job
-
-        Returns
-        -------
-        Iterable[ResourceAllocation]
-            An iterable collection of allocations to satisfy the given job, which will be empty if there are not
-            sufficient assets available to construct such allocations.
-        """
-        pass
-
-    @abstractmethod
     def get_available_cpu_count(self) -> int:
         """
             Returns a count of all available CPU's summed across all resources
@@ -171,32 +152,6 @@ class ResourceManager(ABC):
             raise(ValueError("cpus must be an integer > 0"))
         if not (isinstance(memory, int) and memory > 0):
             raise(ValueError("memory must be an integer > 0"))
-
-    def request_allocations(self, job: Job) -> Iterable[ResourceAllocation]:
-        """
-        Request resource allocations for the given ::class:`Job` object, according to its needs and permitted allocation
-        paradigm(s).
-
-        Parameters
-        ----------
-        job
-
-        Returns
-        -------
-        Iterable[ResourceAllocation]
-            An iterable collection of allocations to satisfy the given job, which will be empty if there are not
-            sufficient assets available to construct such allocations.
-        """
-
-        if job.allocation_paradigm == JobAllocationParadigm.SINGLE_NODE:
-            return self.allocate_single_node(cpus=job.cpu_count, memory=job.memory_size)
-        elif job.allocation_paradigm == JobAllocationParadigm.FILL_NODES:
-            return self.allocate_fill_nodes(cpus=job.cpu_count, memory=job.memory_size)
-        elif job.allocation_paradigm == JobAllocationParadigm.ROUND_ROBIN:
-            return self.allocate_round_robin(cpus=job.cpu_count, memory=job.memory_size)
-        else:
-            # TODO: handle this better
-            raise RuntimeError("Unknown allocation paradigm {}".format(str(job.allocation_paradigm)))
 
     def allocate_single_node(self, cpus: int, memory: int) -> List[ResourceAllocation]:
         """
