@@ -60,24 +60,6 @@ class JobAllocationParadigm(Enum):
         return cls.get_default_selection()
 
 
-class InnerJobStatus:
-    """
-    An "inner" class intended to only be used inside of ::class:`JobStatus` objects/values to encapsulate details about
-    the status while making them a bit more explicit.
-    """
-    def __eq__(self, other):
-        return self.uid == other.uid if isinstance(other, InnerJobStatus) else self.uid == other
-
-    def __init__(self, uid: int, is_active: bool = True, is_error: bool = False, is_interrupted: bool = False):
-        self.uid = uid
-        self.is_active = is_active
-        self.is_error = is_error
-        self.is_interrupted = is_interrupted
-
-    def __hash__(self):
-        return self.uid
-
-
 class JobExecStep(Enum):
     """
     A component of a JobStatus, representing the particular step within a "phase" encoded within the current status.
