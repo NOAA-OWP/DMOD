@@ -8,7 +8,6 @@ from dmod.redis import RedisBacked
 from .resource_manager import ResourceManager
 from .resource import Resource, ResourceAvailability, ResourceState
 from .resource_allocation import ResourceAllocation
-from ..job import Job, JobAllocationParadigm
 
 Max_Redis_Init = 5
 
