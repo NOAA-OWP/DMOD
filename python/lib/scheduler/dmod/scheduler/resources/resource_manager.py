@@ -46,23 +46,14 @@ class ResourceManager(ABC):
         pass
 
     @abstractmethod
-    def get_resources(self) -> Union[Iterable[str], Iterable[Resource]]:
+    def get_resources(self) -> Iterable[Resource]:
         """
-            Get metadata of all managed resoures.
+        Get an iterable collection of the ::class:`Resource` objects for known resources.
 
-            Returns
-            -------
-            resources
-                An iterable of maps defining each managed resource.
-                One map per resource with the following metadata.
-                 { 'node_id': "Node-0001",
-                   'Hostname': "my-host",
-                   'Availability': "active",
-                   'State': "ready",
-                   'CPUs': 18,
-                   'MemoryBytes': 33548128256
-                  }
-
+        Returns
+        -------
+        Iterable[Resource]
+            An iterable collection of the ::class:`Resource` objects for known resources.
         """
         pass
 
