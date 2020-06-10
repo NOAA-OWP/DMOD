@@ -64,11 +64,11 @@ class JobExecStep(Enum):
     """
     A component of a JobStatus, representing the particular step within a "phase" encoded within the current status.
     """
-    DEFAULT = (0, False, False),
-    AWAITING_ALLOCATION = (1, False, False),
-    ALLOCATED = (2, False, False),
-    SCHEDULED = (3, False, False),
-    RUNNING = (4, False, False),
+    DEFAULT = (0, False, False)
+    AWAITING_ALLOCATION = (1, False, False)
+    ALLOCATED = (2, False, False)
+    SCHEDULED = (3, False, False)
+    RUNNING = (4, False, False)
     STOPPED = (5, True, False)
     COMPLETED = (6, False, False)
     FAILED = (-1, True, True)
@@ -98,10 +98,10 @@ class JobExecPhase(Enum):
     """
     A component of a JobStatus, representing the high level transition stage at which a status exists.
     """
-    INIT = (1, True, JobExecStep.DEFAULT),
-    MODEL_EXEC = (2, True, JobExecStep.AWAITING_ALLOCATION),
-    OUTPUT_EXEC = (3, True, JobExecStep.AWAITING_ALLOCATION),
-    CLOSED = (4, False, JobExecStep.COMPLETED),
+    INIT = (1, True, JobExecStep.DEFAULT)
+    MODEL_EXEC = (2, True, JobExecStep.AWAITING_ALLOCATION)
+    OUTPUT_EXEC = (3, True, JobExecStep.AWAITING_ALLOCATION)
+    CLOSED = (4, False, JobExecStep.COMPLETED)
     UNKNOWN = (-1, False, JobExecStep.DEFAULT)
 
     def __hash__(self):
@@ -153,32 +153,32 @@ class JobStatus(Enum):
     """
     Enumerated values for representing possible ::class:`Job` status states.
     """
-    CREATED = (0, JobExecPhase.INIT, JobExecStep.DEFAULT),
+    CREATED = (0, JobExecPhase.INIT, JobExecStep.DEFAULT)
 
-    MODEL_EXEC_AWAITING_ALLOCATION = (1, JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION),
-    MODEL_EXEC_ALLOCATED = (2, JobExecPhase.MODEL_EXEC, JobExecStep.ALLOCATED),
-    MODEL_EXEC_SCHEDULED = (3, JobExecPhase.MODEL_EXEC, JobExecStep.SCHEDULED),
-    MODEL_EXEC_RUNNING = (4, JobExecPhase.MODEL_EXEC, JobExecStep.RUNNING),
+    MODEL_EXEC_AWAITING_ALLOCATION = (1, JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
+    MODEL_EXEC_ALLOCATED = (2, JobExecPhase.MODEL_EXEC, JobExecStep.ALLOCATED)
+    MODEL_EXEC_SCHEDULED = (3, JobExecPhase.MODEL_EXEC, JobExecStep.SCHEDULED)
+    MODEL_EXEC_RUNNING = (4, JobExecPhase.MODEL_EXEC, JobExecStep.RUNNING)
     # For now, set release_allocations to False for stopped jobs
     # TODO: confirm that allocations should be maintained for stopped model exec jobs
-    MODEL_EXEC_STOPPED = (5, JobExecPhase.MODEL_EXEC, JobExecStep.STOPPED, False),
+    MODEL_EXEC_STOPPED = (5, JobExecPhase.MODEL_EXEC, JobExecStep.STOPPED, False)
     # For now, set release_allocations to False when model exec is complete (keep allocation for output phase)
     # TODO: confirm that allocations should be carried over from model exec to output exec phase
-    MODEL_EXEC_COMPLETED = (6, JobExecPhase.MODEL_EXEC, JobExecStep.COMPLETED, False),
-    MODEL_EXEC_FAILED = (-1, JobExecPhase.MODEL_EXEC, JobExecStep.FAILED, True),
+    MODEL_EXEC_COMPLETED = (6, JobExecPhase.MODEL_EXEC, JobExecStep.COMPLETED, False)
+    MODEL_EXEC_FAILED = (-1, JobExecPhase.MODEL_EXEC, JobExecStep.FAILED, True)
 
-    OUTPUT_EXEC_AWAITING_ALLOCATION = (13, JobExecPhase.OUTPUT_EXEC, JobExecStep.AWAITING_ALLOCATION),
-    OUTPUT_EXEC_ALLOCATED = (12, JobExecPhase.OUTPUT_EXEC, JobExecStep.ALLOCATED),
-    OUTPUT_EXEC_SCHEDULED = (11, JobExecPhase.OUTPUT_EXEC, JobExecStep.SCHEDULED),
-    OUTPUT_EXEC_RUNNING = (7, JobExecPhase.OUTPUT_EXEC, JobExecStep.RUNNING),
+    OUTPUT_EXEC_AWAITING_ALLOCATION = (13, JobExecPhase.OUTPUT_EXEC, JobExecStep.AWAITING_ALLOCATION)
+    OUTPUT_EXEC_ALLOCATED = (12, JobExecPhase.OUTPUT_EXEC, JobExecStep.ALLOCATED)
+    OUTPUT_EXEC_SCHEDULED = (11, JobExecPhase.OUTPUT_EXEC, JobExecStep.SCHEDULED)
+    OUTPUT_EXEC_RUNNING = (7, JobExecPhase.OUTPUT_EXEC, JobExecStep.RUNNING)
     # For now, set release_allocations to False for stopped jobs
     # TODO: confirm that allocations should be maintained for stopped output exec jobs
-    OUTPUT_EXEC_STOPPED = (8, JobExecPhase.OUTPUT_EXEC, JobExecStep.STOPPED, False),
-    OUTPUT_EXEC_COMPLETED = (9, JobExecPhase.OUTPUT_EXEC, JobExecStep.COMPLETED, True),
-    OUTPUT_EXEC_FAILED = (-2, JobExecPhase.OUTPUT_EXEC, JobExecStep.FAILED, True),
+    OUTPUT_EXEC_STOPPED = (8, JobExecPhase.OUTPUT_EXEC, JobExecStep.STOPPED, False)
+    OUTPUT_EXEC_COMPLETED = (9, JobExecPhase.OUTPUT_EXEC, JobExecStep.COMPLETED, True)
+    OUTPUT_EXEC_FAILED = (-2, JobExecPhase.OUTPUT_EXEC, JobExecStep.FAILED, True)
 
-    CLOSED = (10, JobExecPhase.CLOSED, JobExecStep.COMPLETED, True),
-    CLOSED_FAILURE = (-3, JobExecPhase.CLOSED, JobExecStep.FAILED, True),
+    CLOSED = (10, JobExecPhase.CLOSED, JobExecStep.COMPLETED, True)
+    CLOSED_FAILURE = (-3, JobExecPhase.CLOSED, JobExecStep.FAILED, True)
 
     # TODO: think through whether it is more appropriate to mark allocations to be release from jobs in unknown status
     UNKNOWN = (-10, JobExecPhase.UNKNOWN, JobExecStep.DEFAULT)
