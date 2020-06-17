@@ -1,32 +1,23 @@
 import unittest
-from ..scheduler.scheduler import Scheduler
-from . import EmptyResourceManager, MockResourceManager
+from pathlib import Path
+from ..scheduler.scheduler import Launcher
+from . import mock_job
 
-class TestScheduler(unittest.TestCase):
+class TestLauncher(unittest.TestCase):
 
     def setUp(self) -> None:
-        yaml_file = "image_and_domain.yaml"
+        yaml_file = Path(__file__).parent/"image_and_domain.yaml"
         self.user_name = 'test'
-        self.requested_cpus = 10
-        self.requested_memory = 1000000
-        #Various resource manager states
-        self.empty_resources = EmptyResourceManager()
-        self.mock_resources = MockResourceManager()
-        #Create a scheduler with no resources
-        self.scheduler = Scheduler(images_and_domains_yaml=yaml_file, resource_manager=self.empty_resources)
+
+        #Create a launcher
+        self.launcher = Launcher(images_and_domains_yaml=yaml_file)
 
     def tearDown(self) -> None:
-        self.scheduler.docker_client.close()
+        self.launcher.docker_client.close()
 
-    def test_return42(self):
-        """
-
-        """
-        ret = self.scheduler.return42()
-        self.assertEqual(ret, 42)
-
-
-
+    def test_start_job(self) -> None:
+        job = mock_job(allocations=1)
+        self.launcher.start_job(job)
     #TODO test
     @unittest.skip("Not implemented")
     def test_create_service(self):

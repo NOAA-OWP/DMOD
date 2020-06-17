@@ -1,0 +1,24 @@
+# TODO make this more general
+# i.e. model:
+#         nwm:
+#           images:
+#             - latest
+#             - master
+#          domains:
+#             - croton
+#             - sixmile
+#         other:
+#          images:
+#             - versionX
+#           domains:
+#             - a
+nwm_image_tag:
+  - '127.0.0.1:5000/nwm-2.0:latest'
+  - '127.0.0.1:5000/nwm-master:latest'
+  - '127.0.0.1:5000/nwm-conus-reservoir'
+nwm_domain_list:
+  - 'domain_croton_NY': './domains'
+  - 'domain_SixMileCreek': './domains'
+run_domain_list:
+  - 'domain_croton_NY': './example_case/NWM'
+  - 'domain_SixMileCreek': './SixMileCreek'

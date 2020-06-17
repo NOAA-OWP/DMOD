@@ -77,13 +77,11 @@ class SchedulerHandler(WebSocketInterface):
             logging.error('Expected response to update message {}, but response digest {}'.format(
                 update_message.digest, response.digest))
 
-    def __init__(self, scheduler: Scheduler, job_mgr: JobManager, *args, **kwargs):
+    def __init__(self, job_mgr: JobManager, *args, **kwargs):
         """
             Initialize the WebSocketInterface with any user defined custom server config
         """
         super().__init__(*args, **kwargs)
-        #Hold the defined scheduler instance
-        self.scheduler = scheduler
         self._job_manager = job_mgr
 
     async def _handle_scheduler_request(self, message: SchedulerRequestMessage, websocket: WebSocketServerProtocol):
