@@ -7,7 +7,6 @@ import docker
 import yaml
 
 from dmod.communication import SchedulerRequestMessage
-from .resources import RedisManager
 ## local imports
 from .utils import parsing_nested as pn
 
@@ -54,8 +53,8 @@ class Scheduler:
     _jobQ = queue.deque()
     _jobQList = "redisQList"
 
-    def __init__(self, images_and_domains_yaml, docker_client=None, api_client=None, resource_manager=None, **kwargs):
-        """
+    def __init__(self, images_and_domains_yaml, docker_client=None, api_client=None, **kwargs):
+        """ FIXME
         Parameters
         ----------
         docker_client
@@ -97,12 +96,6 @@ class Scheduler:
         # _MAX_JOBS is set to currently available total number of CPUs
         self._MAX_JOBS = MAX_JOBS
 
-        #Init resource manager TODO clean up
-        if resource_manager:
-            self.resource_manager = resource_manager
-        else:
-            self.resource_manager = RedisManager("maas", **kwargs)
-
     def return42(self):
         """
         Testing WEB communication layer interface
@@ -113,220 +106,6 @@ class Scheduler:
             Return the magic number 42
         """
         return 42
-
-    def single_node(self, user_id: str, requested_cpus: int, requested_mem: int) -> tuple:
-        """
-        Check available resources to allocate job request to a single node to optimize
-        computation efficiency
-
-        Parameters
-        ----------
-        user_id
-            User ID string
-        requested_cpus
-            Total number of CPUs requested
-        requested_mem
-            Amount of memory required in bytes
-
-        Returns
-        -------
-        request_id
-            Request ID string
-        [cpu_allocation_map]
-            List of allocated computational resources on host nodes if allocation successful, otherwise, return None
-        """
-        if (not isinstance(requested_cpus, int)):
-            logging.debug("Invalid CPUs request: requested_cpus = {}, CPUs must be a positive integer".format(requested_cpus))
-            return
-        if (requested_cpus <= 0):
-            logging.debug("Invalid CPUs request: requested_cpus = {}, CPUs should be an integer > 0".format(requested_cpus))
-            return
-
-        index = 0
-        cpu_allocation_map = {}
-
-        for resource in self.resource_manager.get_resource_ids():
-            #Try to fit all requested cpus on a single resource
-            cpu_allocation_map = self.resource_manager.allocate_resource(resource, requested_cpus)
-            if cpu_allocation_map: #Resource allocation successful, have a map
-                break
-            index += 1
-
-        if not cpu_allocation_map:
-            #Could not allocate single node
-            #TODO implement queueing
-            return
-        cpu_allocation_map['index'] = index
-        request_id = self.resource_manager.create_job_entry(cpu_allocation_map)
-
-        return request_id, [cpu_allocation_map]
-
-    def fill_nodes(self, user_id: str, requested_cpus: int, requested_mem: int) -> tuple:
-        """
-        Check available resources on host node and allocate based on user request
-
-        Parameters
-        ----------
-        user_id
-            User ID string
-        requested_cpus
-            Total number of CPUs requested
-        requested_mem
-            Amount of memory required in bytes
-
-        Returns
-        -------
-        request_id
-            Request ID string
-        [cpu_allocation_map]
-            List of allocated computational resources on host nodes if allocation successful, otherwise, return None
-        """
-        if (not isinstance(requested_cpus, int)):
-            logging.debug("Invalid CPUs request: requested_cpus = {}, CPUs must be a positive integer".format(requested_cpus))
-            return
-        if (requested_cpus <= 0):
-            logging.debug("Invalid CPUs request: requested_cpus = {}, CPUs should be an integer > 0".format(requested_cpus))
-            return
-
-        available_cpus = self.resource_manager.get_available_cpu_count()
-        if (requested_cpus > available_cpus):
-            print("\nRequested CPUs greater than CPUs available: requested = {}, available = {}".format(requested_cpus, available_cpus))
-            #FIXME do what when we return???
-            return
-
-        index = 0
-        cpusList = []
-        cpus_dict = {}
-        allocated_cpus = 0
-        for resource in self.resource_manager.get_resource_ids():
-            #Get whatever allocation we can from this resource
-            remaining_cpus = requested_cpus - allocated_cpus
-            if remaining_cpus > 0:
-                #Haven't got enough allocation from previous resource, try to get from this one
-                #A paretial allocation is fine, we will try to get the rest later
-                cpu_allocation_map = self.resource_manager.allocate_resource(resource, remaining_cpus, partial=True)
-                if cpu_allocation_map and cpu_allocation_map['cpus_allocated'] > 0: #Resource allocation successful, have a map
-                    #Important to check that CPUS were actaully allocated > 0, 0
-                    #indicates that the resource has nothing to allocate, so we
-                    #don't need to actually record this resource
-                    allocated_cpus += cpu_allocation_map['cpus_allocated']
-                    cpu_allocation_map['index'] = index
-                    cpusList.append(cpu_allocation_map)
-                index += 1
-            else:
-                break
-        #TODO invert this logic to keep a pattern of errors first??
-        if allocated_cpus == requested_cpus:
-            #Got a cpusList we can work with
-            logging.info("In fill_nodes: Allocation complete!")
-            request_id = self.resource_manager.create_job_entry(cpu_allocation_map)
-            return request_id, cpusList
-        else:
-            #Something went wrong
-            #Return any allocated resources we mave have partially aquired
-            self.resource_manager.release_resources(cpusList)
-            #consider if this is a good idea...not
-            #sure if a full atomic grab of all required resource is better
-            #then attempting several partial, and rolling back.  This is cleaner
-            #code, with single DB calls isolated in two functions, but may cause
-            #some unforseen consequences and odd race conditions in production
-            #MUST PREVENT STARVATION WHILE KEEPING REASONABLE UTILIZATION!!!
-            #TODO implement queueing
-            logging.debug("Allocation not performed: have {} CPUs, requested {} CPUs".format( allocated_cpus, requested_cpus))
-            return
-
-    def round_robin(self, user_id: str, requested_cpus: int, requested_mem: int) -> tuple:
-        """
-        Check available resources on host nodes and allocate in round robin manner even the request
-        can fit in a single node. This can be useful in test cases where large number of CPUs is
-        inefficient for small domains and in filling the nodes when they are almost full.
-
-        Parameters
-        ----------
-        user_id
-            User ID string
-        requested_cpus
-            Total number of CPUs requested
-        requested_mem
-            Amount of memory required in bytes
-
-        Returns
-        -------
-        request_id
-            Request ID string
-        [cpu_allocation_map]
-            List of allocated computational resources on host nodes if allocation successful, otherwise, return None
-        """
-        if (not isinstance(requested_cpus, int)):
-            logging.debug("Invalid CPUs request: requested_cpus = {}, CPUs must be a positive integer".format(requested_cpus))
-            return
-        if (requested_cpus <= 0):
-            logging.debug("Invalid CPUs request: requested_cpus = {}, CPUs should be an integer > 0".format(requested_cpus))
-            return
-
-        resources = list( self.resource_manager.get_resource_ids() )
-        if len(resources) < 1:
-            return
-
-        num_node = len(resources)
-        int_cpus = int(requested_cpus / num_node)
-        remaining_cpus = requested_cpus % num_node
-
-        allocList = []
-        iter = 0
-        while iter < num_node:
-            if (iter < remaining_cpus):
-                allocList.append(int_cpus+1)
-            else:
-                allocList.append(int_cpus)
-            iter += 1
-
-        index = 0
-        cpusList = []
-        error = True
-        for resource in resources:
-            #Get the desired allocation from this resource
-            required_resource_cpus = allocList[index]
-            if required_resource_cpus > 0:
-                #Need exact allocation on this resource
-                cpu_allocation_map = self.resource_manager.allocate_resource(resource, required_resource_cpus)
-                if cpu_allocation_map:
-                    #Resource allocation successful, have a map
-                    cpu_allocation_map['index'] = index
-                    cpusList.append(cpu_allocation_map)
-                    index += 1
-                    error = False
-                else:
-                    #Something went wrong, in particular didn't get an exact Allocation
-                    #on this resource to match required_resource_cpus, so no alloation was
-                    #granted on this resource
-                    error = True
-                    break
-            else:
-                #Note may want to devise a gauranteed loop stop criteria when First
-                #occurance of allocList is 0.  Otherwise this else case is not needed
-                continue
-        if not error:
-            logging.info("In round_robin: Allocation complete!")
-            request_id = self.resource_manager.create_job_entry(cpu_allocation_map)
-            return request_id, cpusList
-        else:
-            #Return any allocated resources we mave have partially aquired
-            self.resource_manager.release_resources(cpusList)
-            #FIXME implement this! Also consider if this is a good idea...not
-            #sure if a full atomic grab of all required resource is better
-            #then attempting several partial, and rolling back.  This is cleaner
-            #code, with single DB calls isolated in two functions, but may cause
-            #some unforseen consequences and odd race conditions in production
-            return
-
-    def print_resource_details(self):
-        """Print the details of remaining resources after allocating the request """
-        logging.info("Resources remaining:")
-        for resource in self.resource_manager.get_resources():
-            logging.info("Resource: {}".format(resource))
-        logging.info("-" * 20)
-        logging.info("\n")
 
     def create_service(self, serviceParams: DockerServiceParameters, user_id: str, idx: int, cpusLen: int, host_str: str) \
         -> docker.from_env().services.create:
