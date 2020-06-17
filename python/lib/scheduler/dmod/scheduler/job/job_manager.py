@@ -6,6 +6,7 @@ from .job import Job, JobAllocationParadigm, JobExecStep, JobStatus, RequestedJo
 from ..resources.resource_allocation import ResourceAllocation
 from ..resources.resource_manager import ResourceManager
 from ..rsa_key_pair import RsaKeyPair
+from ..scheduler import Launcher
 
 from dmod.communication import MaaSRequest, NWMRequest, SchedulerRequestMessage
 from dmod.redis import KeyNameHelper, RedisBacked
@@ -26,7 +27,7 @@ class JobManagerFactory:
     """
 
     @classmethod
-    def factory_create(cls, resource_manager: ResourceManager, **kwargs):
+    def factory_create(cls, resource_manager: ResourceManager, launcher: Launcher, **kwargs):
         """
         Create and return a new instance of a ::class:`JobManager` object.
 
@@ -58,7 +59,7 @@ class JobManagerFactory:
                 port = int(value)
             elif key == 'redis_pass':
                 pword = value
-        return RedisBackedJobManager(resource_manager=resource_manager, redis_host=host, redis_port=port,
+        return RedisBackedJobManager(resource_manager=resource_manager, launcher=launcher, redis_host=host, redis_port=port,
                                      redis_pass=pword)
 
 
@@ -330,7 +331,7 @@ class RedisBackedJobManager(JobManager, RedisBacked):
     def get_key_prefix(cls):
         return 'job_mgr'
 
-    def __init__(self, resource_manager : ResourceManager, redis_host: Optional[str] = None,
+    def __init__(self, resource_manager : ResourceManager, launcher: Launcher, redis_host: Optional[str] = None,
                  redis_port: Optional[int] = None, redis_pass: Optional[str] = None, **kwargs):
         """
 
@@ -350,6 +351,7 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         super(RedisBacked).__init__(redis_host=redis_host, redis_port=redis_port, redis_pass=redis_pass, **kwargs)
         self._resource_manager = resource_manager
         self._active_jobs_set_key = self.keynamehelper.create_key_name(self.get_key_prefix(), 'active_jobs')
+        self._launcher = launcher
 
     def _deserialize_allocations(self, allocations_key_list: List[str],
                                  allocation_hashes: Dict[str, dict]) -> List[ResourceAllocation]:
@@ -939,6 +941,12 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         for active_job_redis_key in self.redis.smembers(self._active_jobs_set_key):
             active_jobs.append(self.retrieve_job_by_redis_key(active_job_redis_key))
         return active_jobs
+
+    def request_scheduling(self, job: RequestedJob):
+        """
+            TODO rename this function, by the time we get here, we are already scheduled, just need to run
+        """
+        return self._launcher.start_job(job)
 
     async def manage_job_processing(self):
         """
