@@ -22,8 +22,8 @@ class JobAllocationParadigm(Enum):
         SINGLE_NODE - require all allocation of assets to be from a single resource/host
     """
 
-    FILL_NODES = 0,
-    ROUND_ROBIN = 1,
+    FILL_NODES = 0
+    ROUND_ROBIN = 1
     SINGLE_NODE = 2
 
     @classmethod
