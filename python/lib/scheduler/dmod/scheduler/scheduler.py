@@ -85,18 +85,6 @@ class Launcher:
         #FIXME parameterize network
         self.networks = ["mpi-net"]
 
-
-    def return42(self):
-        """
-        Testing WEB communication layer interface
-
-        Returns
-        -------
-        42
-            Return the magic number 42
-        """
-        return 42
-
     def create_service(self, serviceParams: DockerServiceParameters, idx: int, cpusLen: int, host_str: str) \
         -> docker.from_env().services.create:
         """
