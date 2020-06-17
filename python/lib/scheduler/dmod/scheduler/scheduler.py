@@ -4,6 +4,12 @@ import logging
 import docker
 import yaml
 ## local imports
+#FIXME this import breaks things in testing
+from .job.job import Job
+"""
+class Job:
+    pass
+"""
 from .utils import parsing_nested as pn
 
 logging.basicConfig(
@@ -196,7 +202,7 @@ class Launcher:
         except:
             raise ConnectionError("Please check that the Docker Daemon is installed and running.")
 
-    def build_host_list(self, basename: str, cpusList: list, req_id: str, run_domain_dir: str) -> list:
+    def build_host_list(self, basename: str, job: Job, run_domain_dir: str) -> list:
         """
         build a list of strings that contain the container names and the allocated CPUs on the associated hosts
 
@@ -204,10 +210,8 @@ class Launcher:
         ----------
         basename
             Base name of a MPI worker service in an indexed collection of services
-        cpusList
-            List of allocated CPUs on each node
-        req_id
-            User job request id
+        job
+            The related job object, which contains a list of the relevant allocations.
         run_domain_dir
             Domain directory in the Docker service container where the job is to be run, this info is needed
             for automatic service expansion
@@ -217,22 +221,33 @@ class Launcher:
         host_str
             List of string containing number of hosts, hostname and CPUs allocation, and run domain directory
         """
-        idx = len(cpusList) - 1
-        num_hosts = str(len(cpusList))
+        # Start list, and add the string for number of hosts
+        num_hosts = str(len(job.allocations))
         host_str = [num_hosts]
-        rev_cpusList = cpusList
-        rev_cpusList.reverse()
-        for cpu in rev_cpusList:
-            cpus_alloc = str(cpu['cpus_alloc'])
+
+        # Next, build an temporary allocations list
+        allocation_str_list = []
+        idx = 0
+        for allocation in job.allocations:
+            cpus_alloc = str(allocation.cpu_count)
             #FIXME get nameing better orgainized across all functions
-            name = basename + str(idx)+"_{}".format(req_id)
-            host_tmp = name+':'+cpus_alloc
-            host_str.append(str(host_tmp))
-            idx -= 1
+            name = basename + str(idx) + "_{}".format(job.job_id)
+            host_tmp = name + ':' + cpus_alloc
+            allocation_str_list.append(str(host_tmp))
+            idx += 1
+
+        # Then reverse and add the allocations list to our returned list
+        allocation_str_list.reverse()
+        for e in allocation_str_list:
+            host_str.append(e)
+
+        # Finally, append the domain dir
         host_str.append(str(run_domain_dir))
+
         print("host_str", host_str)
         return host_str
 
+    #FIXME is this a dev function???
     def write_hostfile(self, basename: str, cpusList: list):
         '''
         Write allocated hosts and CPUs to hostfile on the scheduler container
@@ -344,6 +359,58 @@ class Launcher:
 
         return selected_image, selected_domain_dir, run_domain_dir
 
+    def start_job(self, job: Job):
+        """
+
+        """
+        #TODO read these from request metadata
+        #domain = job.originating_request.model_request.domain
+        #image = map_image(job.origination_request.model_request.name, version)
+        # In operation, domain_name will be taken from user request
+        domain_name = "domain_croton_NY"
+        image_name = "127.0.0.1:5000/nwm-master:latest"
+        # Image is related to the domain type. For hydrologicla model, such as domain_croton_NY, we use nwm
+        # image_name  = "127.0.0.1:5000/nwm-2.0:latest"
+        # userRequest = Request(user_id, cpus, mem)
+        #FIXME read all image/domain at init and select from internal cache (i.e. dict) or even push to redis for long term cache
+        (image_tag, domain_dir, run_domain_dir) = self.load_image_and_domain(image_name, domain_name)
+        #TODO better align labels/defaults with serviceparam class
+        labels =  {"com.docker.stack.image": image_tag,
+                   "com.docker.stack.namespace": "nwm"
+                   }
+        basename = self.name
+        host_str = self.build_host_list(basename, job, run_domain_dir)
+        #This seems to be more of a dev check than anything required
+        #self.write_hostfile(basename, cpusList)
+        cpusLen = len(job.allocations)
+        idx = 0
+        for alloc in job.allocations:
+            constraints = "node.hostname == "
+            NodeId = alloc.pool_id
+            #FIXME this is a local environment hard coded, needs removed
+            if (NodeId == "Node-0001"):
+                #mounts = ['/opt/nwm_c/domains:/nwm/domains:rw']
+                mts_string = domain_dir + ':' + run_domain_dir + ':' + 'rw'
+                mounts = [mts_string]
+            else:
+                mounts = ['/local:/nwm/domains:rw']
+            cpus_alloc = alloc.cpu_count
+            hostname = alloc.hostname
+            logging.info("Hostname: {}".format(hostname))
+            #FIXME important that all label values are strings, otherwise docker service create hangs
+            labels_tmp = {"Hostname": hostname, "cpus_alloc": str(cpus_alloc)}
+            labels.update(labels_tmp)
+            constraints += hostname
+            constraints = list(constraints.split("/"))
+            #TODO review all self attributes
+            serv_name = self.name + str(idx)+"_{}".format(job.job_id)
+            idx += 1
+            #Create the docker service
+            serviceParams = DockerServiceParameters(image_tag, constraints, hostname, labels, serv_name, mounts)
+            #TODO check for proper service creation, return False if doesn't work
+            self.create_service(serviceParams, idx, cpusLen, host_str)
+        logging.info("\n")
+        return True
 
     def job_allocation_and_setup(self, user_id: str, cpus: int, mem: int):
         """
