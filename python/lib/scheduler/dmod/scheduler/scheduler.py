@@ -40,7 +40,7 @@ class DockerServiceParameters():
         self.mounts = mounts
 
 
-class Scheduler:
+class Launcher:
 
     def __init__(self, images_and_domains_yaml, docker_client=None, api_client=None, **kwargs):
         """ FIXME

@@ -1,4 +1,4 @@
-from .scheduler import Scheduler
+from .scheduler import Launcher
 from .ssh_key_util import SshKeyUtil, SshKeyUtilImpl
 from .resources.resource_manager import ResourceManager
 from .resources.redis_manager import RedisManager
