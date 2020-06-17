@@ -1,19 +1,10 @@
 #!/usr/bin/env python3
 
 import logging
-import queue
-
 import docker
 import yaml
-
-from dmod.communication import SchedulerRequestMessage
 ## local imports
 from .utils import parsing_nested as pn
-
-# from itertools import chain
-# from scheduler.src.request import Request
-
-MAX_JOBS = 210
 
 logging.basicConfig(
     filename='scheduler.log',
@@ -50,8 +41,6 @@ class DockerServiceParameters():
 
 
 class Scheduler:
-    _jobQ = queue.deque()
-    _jobQList = "redisQList"
 
     def __init__(self, images_and_domains_yaml, docker_client=None, api_client=None, **kwargs):
         """ FIXME
@@ -92,9 +81,6 @@ class Scheduler:
         #FIXME parameterize network
         self.networks = ["mpi-net"]
 
-        # self._jobQ = queue.deque()
-        # _MAX_JOBS is set to currently available total number of CPUs
-        self._MAX_JOBS = MAX_JOBS
 
     def return42(self):
         """
@@ -210,66 +196,6 @@ class Scheduler:
         except:
             raise ConnectionError("Please check that the Docker Daemon is installed and running.")
 
-    @classmethod
-    def fromRequest(cls, request: SchedulerRequestMessage, images_and_domains_yaml='image_and_domain.yaml') -> 'Scheduler':
-        """
-        Create a new scheduler object, enqueue the given request on the scheduler, and finally return the new object.
-        #FIXME this doesn't seem right.  Also, image_and_domain.yaml as a default isn't good since it doesn't exist locally
-        Parameters
-        ----------
-        request
-
-        Returns
-        -------
-        Scheduler
-            Return a new :class:`Scheduler` object with the given request enqueued.
-        """
-        scheduler = cls(images_and_domains_yaml=images_and_domains_yaml)
-        scheduler.enqueue(request)
-        return scheduler
-
-    def runJob(self, request: SchedulerRequestMessage, serviceParams: DockerServiceParameters, idx: int, \
-               cpusLen: int, host_str: str) -> docker.from_env().services.create:
-        """
-        Call create_service to run a job based on request
-
-        Parameters
-        ----------
-        request
-            Scheduler request message
-        serviceParams
-            A DockerServiceParameters class object
-        idx
-            Index number for labeling a Docker service
-        cpusLen
-            Length of the cpusList
-        host_str
-            Strings of hostnames and cpus_alloc for running MPI job
-
-        Returns
-        -------
-        service
-            Docker service in Docker API
-        """
-        user_id = request.user_id
-        # image = self.image
-        networks = self.networks
-        service = self.create_service(serviceParams, user_id, idx, cpusLen, host_str)
-        return service
-
-    def enqueue(self, request: SchedulerRequestMessage):
-        """
-        Add job request to queue
-
-        Parameters
-        ----------
-        request
-            A user request as defined in the SchedulerRequestMessage class
-        """
-        #FIXME somehow need to kick off allocations!  enqueue could try if que is empty
-        self.__class__._jobQ.append(request)
-        # self._jobQ.append(request)
-
     def build_host_list(self, basename: str, cpusList: list, req_id: str, run_domain_dir: str) -> list:
         """
         build a list of strings that contain the container names and the allocated CPUs on the associated hosts
@@ -338,54 +264,6 @@ class Scheduler:
             if 'nwm-_scheduler' in Name:
                 with open('hostfile', 'w') as hostfile:
                     hostfile.write(host_str)
-
-    def startJobs(self, serviceParams: DockerServiceParameters, user_id: str, cpus: int, mem: int, \
-                  cpus_alloc: int, idx: int, cpusLen: int, host_str: str):
-        """
-        Using the set max jobs and max cpus spawn docker containers
-        until the queue has been exhausted.
-
-        Parameters
-        ----------
-        serviceParams
-            A DockerServiceParameters class object
-        user_id
-            Job request user id
-        cpus
-            Total number of CPUs requested for a job
-        mem
-            The amount of memory required for a job
-        cpus_alloc
-            CPUs allocated on a node to create a Docker service for a job request
-        idx
-            Index number for labeling a Docker service
-        cpusLen
-            Length of the cpusList
-        host_str
-            Strings of hostnames and cpus_alloc for running MPI job
-        """
-        client = self.docker_client
-        # Check if number of running jobs is greater than allowed
-        if len(client.services.list()) > self._MAX_JOBS:
-            raise Exception('System already has too many running containers. '
-                            'Either kill containers or adjust the max_jobs '
-                            'attribute.')
-        # que = self._jobQ
-        # for q in que:
-            # print("In startJobs, _jobQ: user_id, cpus, mem: {} {} {}".format(q.user_id, q.cpus, q.mem))
-        # print("Starting Job Outside Q Loop")
-        while len(self._jobQ) != 0:
-            req = self._jobQ.popleft()
-            # print("startJobs inside Q loopo, calling runJob")
-            service = self.runJob(req, serviceParams, cpus_alloc, idx, cpusLen, host_str)
-
-    def check_jobQ(self):
-        """ Check jobs in the waiting queue """
-        print("In check_jobQ, length of jobQ:", len(self._jobQ))
-        que = self._jobQ
-        # print("In check_jobQ, que = ", que)
-        for job in que:
-            print("In check_jobQ: user_id, cpus, mem: {} {} {}".format(job.user_id, job.cpus, job.mem))
 
     def load_image_and_domain(self, image_name: str, domain_name: str) -> tuple:
         """
