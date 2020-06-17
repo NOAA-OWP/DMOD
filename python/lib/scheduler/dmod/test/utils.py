@@ -1,5 +1,10 @@
 from ..scheduler.resources.resource_manager import ResourceManager
-from ..scheduler.resources import Resource, ResourceAllocation
+from ..scheduler.resources.resource import Resource
+from ..scheduler.resources.resource_allocation import ResourceAllocation
+from dmod.communication.scheduler_request import SchedulerRequestMessage
+from dmod.communication.maas_request import NWMRequest
+from ..scheduler.job.job import RequestedJob
+
 from copy import deepcopy
 
 _mock_resources = [{'node_id': "Node-0001",
@@ -24,6 +29,36 @@ _mock_resources = [{'node_id': "Node-0001",
            'MemoryBytes': 200000000000
           }
          ]
+
+_request_string = '{{"model_request": {{"model": {{"NWM": {{"version": 2.0, "output": "streamflow", "parameters": {{}}}}}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}}, "user_id": "someone", "cpus": {cpus}, "mem": {mem}'
+_request_json = {
+    "model": {"NWM": {"version": 2.0, "output": "streamflow", "parameters": {}}},
+    "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c", "user_id": "someone",
+                           "cpus": 4, "mem": 500000, "allocation":"SINGLE_NODE"}
+
+def mock_job(cpus: int = 4, mem: int = 500000, strategy: str = "single_node", allocations: int = 0) -> RequestedJob:
+    """
+        Generate a mock job with given cpu request
+    """
+    # Example 0
+    request_string = _request_string.format(cpus=cpus, mem=mem)
+    request_json = _request_json
+    request_json['cpus'] = cpus
+    request_json['mem'] = mem
+    model_request = NWMRequest.factory_init_from_deserialized_json(request_json)
+    schedule_request = SchedulerRequestMessage(model_request=model_request,
+                                user_id=request_json['user_id'],
+                                cpus=cpus,
+                                mem=mem,
+                                allocation_paradigm=strategy)
+    mock_job = RequestedJob(schedule_request)
+    allocs = []
+    for i in range(1, allocations+1):
+        allocs.append( ResourceAllocation(i, 'hostname{}'.format(i), cpus, mem) )
+    mock_job.allocations = allocs
+
+    return mock_job
+
 def mock_resources():
     #return deepcopy(_mock_resources)
     mock_resources_list = list()
