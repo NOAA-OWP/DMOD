@@ -32,22 +32,7 @@ class TestScheduler(unittest.TestCase):
     def test_create_service(self):
         pass
     @unittest.skip("Not implemented")
-    def test_from_request(self):
-        pass
-    @unittest.skip("Not implemented")
-    def test_run_job(self):
-        pass
-    @unittest.skip("Not implemented")
-    def test_enqueue(self):
-        pass
-    @unittest.skip("Not implemented")
     def test_build_host_list(self):
-        pass
-    @unittest.skip("Not implemented")
-    def test_start_jobs(self):
-        pass
-    @unittest.skip("Not implemented")
-    def test_check_jobQ(self):
         pass
     @unittest.skip("Not implemented")
     def test_job_allocation_and_setup(self):
