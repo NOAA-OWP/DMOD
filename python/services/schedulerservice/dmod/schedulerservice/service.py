@@ -4,7 +4,7 @@ from typing import List, Type
 from dmod.communication import InvalidMessageResponse, Message, SchedulerRequestMessage, SchedulerRequestResponse, \
     UpdateMessage, UpdateMessageResponse, WebSocketInterface
 from dmod.scheduler import Scheduler, ResourceManager
-from dmod.scheduler.job import RequestedJob, Job, JobManager, JobStatus
+from dmod.scheduler.job import Job, JobManager, JobStatus
 from pathlib import Path
 import json
 import logging
@@ -35,7 +35,7 @@ class SchedulerHandler(WebSocketInterface):
     """
 
     @staticmethod
-    async def _update_client_on_requested_job(previous_job_state: RequestedJob, updated_job_state: RequestedJob,
+    async def _update_client_on_requested_job(previous_job_state: Job, updated_job_state: Job,
                                               websocket: WebSocketServerProtocol):
         """
         Send an update message back to the client that initiated a scheduler request when the associated job updates it
@@ -46,9 +46,9 @@ class SchedulerHandler(WebSocketInterface):
 
         Parameters
         ----------
-        previous_job_state : RequestedJob
+        previous_job_state : Job
             An object representing the updated job in its prior state.
-        updated_job_state : RequestedJob
+        updated_job_state : Job
             An object representing the updated job in its updated state.
         websocket : WebSocketServerProtocol
             The websocket for client communication.
@@ -73,7 +73,7 @@ class SchedulerHandler(WebSocketInterface):
         if response is None or not isinstance(response, UpdateMessageResponse):
             logging.error('Expected response to update message {}, but got something else: {}'.format(
                 update_message.digest, response_raw))
-        elif response.digest != update_message.digest:
+        elif isinstance(response, UpdateMessageResponse) and response.digest != update_message.digest:
             logging.error('Expected response to update message {}, but response digest {}'.format(
                 update_message.digest, response.digest))
 
@@ -95,22 +95,10 @@ class SchedulerHandler(WebSocketInterface):
             The initial message over the websocket, requesting a job be scheduled.
         websocket : WebSocketServerProtocol
             The websocket connection.
-
-        Raises
-        ----------
-        TypeError
-            Raised if the ::class:`Job` object deserialized from the message is not a ::class:`RequestedJob`.
         """
 
         # Create job object for this request
-        job: RequestedJob = self._job_manager.create_job(request=message)
-        # Sanity check type
-        if not isinstance(job, RequestedJob):
-            obj_type = 'None' if job is None else job.__class__.__name__
-            msg = "Unexpected Job object type created by job manager for request ({})".format(obj_type)
-            response = SchedulerRequestResponse(success=True, reason=msg, data={'job_id': 'None'})
-            await websocket.send(str(response))
-            raise TypeError(msg)
+        job = self._job_manager.create_job(request=message)
 
         # Send request processed message back through
         response = SchedulerRequestResponse(success=True, reason='Job Request Processed', data={'job_id': job.job_id})
@@ -131,7 +119,7 @@ class SchedulerHandler(WebSocketInterface):
             loop_iterations += 1
 
             # Refresh data for job
-            job_refreshed_copy: RequestedJob = self._job_manager.retrieve_job(job.job_id)
+            job_refreshed_copy = self._job_manager.retrieve_job(job.job_id)
             # If the job was updated ...
             if job_refreshed_copy.last_updated != job.last_updated:
                 # Send an update message as needed
@@ -151,7 +139,7 @@ class SchedulerHandler(WebSocketInterface):
             raise TypeError(msg)
 
         # Get current persisted copy of Job object
-        job: RequestedJob = self._job_manager.retrieve_job(message.object_id)
+        job = self._job_manager.retrieve_job(message.object_id)
 
         # Only accept updates to active Jobs, so verify the Job is active
         if not job.status.is_active:
@@ -162,6 +150,7 @@ class SchedulerHandler(WebSocketInterface):
             await websocket.send(str(response))
             return
 
+        # TODO: Refactor this in a way that is more extensible and also lends itself better to unit testing
         # Names of actual properties, but properties that can't be updated like this via an update message.
         real_but_unsupported_properties = {'allocation_paradigm', 'allocations', 'job_id', 'originating_request', 'parameters'}
         # TODO: Second set for things that are not updateable now, but perhaps we should consider allowing
