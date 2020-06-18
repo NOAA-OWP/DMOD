@@ -297,6 +297,11 @@ class JobStatus(Enum):
 class Job(ABC):
     """
     An abstract interface for a job performed by the MaaS system.
+
+    Instances of job objects are equal as long as they both have the same ::attribute:`job_id`.  Implementations that
+    need different a separate domain of ids must create this by controlling job id values in some structural way.
+
+    The hash value of a job is calculated as the hash of it's ::attribute:`job_id`.
     """
 
     def __eq__(self, other):
@@ -304,6 +309,9 @@ class Job(ABC):
             return self.job_id == other.job_id
         else:
             return other.__eq__(self)
+
+    def __hash__(self):
+        return hash(self.job_id)
 
     @property
     @abstractmethod
@@ -472,7 +480,9 @@ class Job(ABC):
 
 class JobImpl(Job):
     """
-    Basic implementation of ::class:`Job`.
+    Basic implementation of ::class:`Job`
+
+    Job ids are simply the string cast of generated UUID values, stored within the ::attribute:`job_uuid` property.
     """
     def __init__(self, cpu_count: int, memory_size: int, parameters: dict, allocation_paradigm_str: str,
                  alloc_priority: int = 0):
