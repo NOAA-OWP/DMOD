@@ -435,6 +435,11 @@ class Job(ABC):
         """
         pass
 
+    @status.setter
+    @abstractmethod
+    def status(self, status: JobStatus):
+        pass
+
     @property
     def status_phase(self) -> JobExecPhase:
         """
