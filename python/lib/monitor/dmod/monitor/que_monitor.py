@@ -31,7 +31,6 @@ import logging
 MAX_JOBS = 210
 Max_Redis_Init = 5
 T_INTERVAL = 20
-Ncall_Max = 5
 
 logging.basicConfig(
     filename='que_monitor.log',
@@ -107,20 +106,21 @@ class QueMonitor(RedisBacked):
         for job in que:
             print("In check_jobQ: user_id, cpus, mem: {} {} {}".format(job.user_id, job.cpus, job.mem))
 
-    def check_runningJobs(self, ncall: int) -> tuple:
+    def check_and_store_runningJobs(self) -> tuple:
         """
         Check the running job queue
         Running job snapshot is needed for restart
 
         Parameters
         ----------
-        ncall
-            Number of times check_runningJobs() function is called
+        No input parameters
 
         Returns
         -------
         runningJobList
             A list of all current running jobs with key attributes packed into dict format, and a dict
+        service_dict
+            Service attributes packed into a dictionary
         """
         # docker api
         client = self.docker_client
@@ -130,19 +130,25 @@ class QueMonitor(RedisBacked):
         # test out some service functions
         service_list = client.services.list()
 
+        # create a set key to store hash key names
+        service_set_key = keynamehelper.create_key_name("service_set")
+
         # Initialize runningJobList the first time it is called
-        #FIXME Remove an element from the set after appropriate action is performed on the job
-        if (ncall == 0):
-            runningJobList = []
-        service_dict = {} #NJF  bugfix when no services runtime error
+        runningJobList = []
+
+        # iterate through entire service list
         for service in service_list:
-            # iterate through entire service list
-            service_id = service.id
             service_attrs = service.attrs
-            flat_dict = pn.flatten(service_attrs)
             Name = list(pn.find('Name', service_attrs))[0]
             service_name = service.name
             if srv_basename in Name:
+                # store service_attrs in redis as string
+                stringified_service_attrs = json.dumps(service_attrs)  # convert dict object to string
+                service_attrs_hash_key = keynamehelper.create_key_name("service_attrs", service_name)
+                self.redis.set(service_attrs_hash_key, stringified_service_attrs)
+                # store the service_name to a set
+                self.redis.sadd(service_set_key, service_name)
+
                 print("\nIn check_runningJobs(): service_name = {}".format(service_name))
                 (_, _, serv_name, req_id) = service_name.split('_')
                 lens = len(serv_name)
@@ -156,10 +162,6 @@ class QueMonitor(RedisBacked):
                 Image = pn.find('Image', service_attrs)
                 *Image, = Image
                 print("In check_runningJobs: Image = ", *Image)
-                # Image = pn.find('Image', service_attrs)
-                # print("In check_runningJobs: Image = ", *Image)
-                # Name = list(pn.find('Name', service_attrs))[0]
-                # print("In check_runningJobs: Name = {}".format(Name))
                 Name = pn.find('Name', service_attrs)
                 *Name, = Name
                 print("In check_runningJobs: Name = ", *Name)
@@ -173,9 +175,9 @@ class QueMonitor(RedisBacked):
                 *Mounts, = Mounts
                 print("In check_runningJobs: Mounts = ", *Mounts)
 
-                # Args need match with the scheduler.py code for every service created
                 Args = pn.find('Args', service_attrs)
                 *Args, = Args
+                print("In check_runningJobs: Args = ", *Args)
 
                 Command = pn.find('Command', service_attrs)
                 *Command, = Command
@@ -196,20 +198,10 @@ class QueMonitor(RedisBacked):
                 HostNode = labels['Hostname']
                 cpus_alloc = labels['cpus_alloc']
 
-                service = client.services.get(service_id, insert_defaults=True)
                 service_dict = {"Image": Image, "Command": Command, "Args": Args, "Constraints": Constraints, "ContainerSpec": ContainerSpec,
                                 "Labels": Labels, "Name": Name, "Mounts": Mounts, "Healthcheck": Healthcheck,
                                 "RestartPolicy": RestartPolicy, "HostNode": HostNode, "cpus_alloc": cpus_alloc}
-                # need to be string type to store in Redis hash
-                Image_redis = Image[0]
-                Name_redis = Name[0]
-                service_dict_redis = {"Image": Image_redis, "Name": Name_redis, "HostNode": HostNode, "cpus_alloc": cpus_alloc}
                 runningJobList.append(service_dict)
-                # Taking a snapshot of current running jobs and push it on to Redis
-                s_key = self.keynamehelper.create_key_name("service", service_name)
-                # TODO Convert the compound objects in service_dict_redis to byte, string or number before pushing to Redis
-                self.redis.hmset(s_key, service_dict_redis)
-                print("-" * 10)
         print("\nend of que_monitor.check_runningJobs")
         print("=" * 30)
         return runningJobList, service_dict
@@ -223,13 +215,15 @@ class QueMonitor(RedisBacked):
         service_dict
             Dictionary containing service attributes of the initial service
         service_name
-            Name of the initial service
+            Name of the initial service       
 
         Returns
         -------
         service
             Service object created
         """
+        client = self.docker_client
+
         print("\n----In resubmit()-----")
         print("\nIn resubmit(): service_name = {}".format(service_name))
         (_, _, serv_name, req_id) = service_name.split('_')
@@ -254,11 +248,6 @@ class QueMonitor(RedisBacked):
         print("service_dict: Hostname = ", Hostname)
         print("Hostname isinstance of str:", isinstance(Hostname, str))
 
-        HostNode = service_dict['HostNode']
-        print("service_dict: HostNode = ", HostNode)
-        print("HostNode isinstance of str:", isinstance(HostNode, str))
-
-        # TODO change type: bind to options: rw
         Mounts = ((service_dict['Mounts'])[0])[0]
         print("service_dict: Mounts = ", Mounts)
         print("Mounts isinstance of dict:", isinstance(Mounts, dict))
@@ -269,32 +258,35 @@ class QueMonitor(RedisBacked):
         mounts = [mts_string]
         print("mounts = ", mounts)
 
-        # Args need match with the scheduler.py code for every service created
         Args = (service_dict['Args'])[0]
         args = Args
+        print("service_dict: Args = ", Args)
+        print("Args isinstance of list:", isinstance(Args, list))
+        print("service_dict: args = ", args)
 
         Command = (service_dict['Command'])[0]
         command = Command
         print("service_dict: Command = ", Command)
         print("Command isinstance of list:", isinstance(Command, list))
+        print("Command isinstance of str:", isinstance(Command, str))
         print("service_dict: command = ", command)
 
         Labels = (service_dict['Labels'])[0]
         print("Labels: ")
         pp(Labels)
         print("Labels isinstance of dict:", isinstance(Labels, dict))
+        print("Labels isinstance of list:", isinstance(Labels, list))
         print("Labels: Hostname = ", Labels['Hostname'])
 
         RestartPolicy = (service_dict['RestartPolicy'])[0]
-        # print("service_dict: RestartPolicy = ", RestartPolicy)
         print("RestartPolicy: ")
         pp(RestartPolicy)
         print("RestartPolicy isinstance of dict:", isinstance(RestartPolicy, dict))
-        condition = RestartPolicy['Condition']
-        print("RestartPolicy: condition = ", condition)
+        # condition = RestartPolicy['Condition']
+        # print("RestartPolicy: condition = ", condition)
         # restart = docker.types.RestartPolicy(condition = condition)
-        # restart = docker.types.RestartPolicy(condition='none')
         restart = RestartPolicy
+        restart = docker.types.RestartPolicy(condition='none')
 
         Healthcheck = (service_dict['Healthcheck'])[0]
         print("Healthcheck: ")
@@ -302,9 +294,6 @@ class QueMonitor(RedisBacked):
 
         networks = ["mpi-net"]
 
-        # time.sleep(90)
-        # service_state_list = self.check_job_state()
-        # if (jobState == 'complete'):
         service = client.services.create(image = Image,
                                          command = command,
                                          args = args,
@@ -317,6 +306,79 @@ class QueMonitor(RedisBacked):
                                          healthcheck = Healthcheck,
                                          restart_policy = restart)
         return service
+
+    def check_system_state(self):
+        """
+        The function returns logs of a service execution
+
+        check_system_state can be called whenever a service stopped running or experiences a state change
+        or called as a streaming process. This will provide a process for job debugging on par with a
+        full fledged scheduler on a supercomputer
+
+        Might use logging module to save the output
+
+        Parameters
+        ----------
+        No input parameter
+
+        Returns
+        -------
+            No return value from the function
+        """
+        client = self.docker_client
+        srv_basename = self.name
+        mpirun = "mpirun"
+        failed = "failed"
+
+        # logging some common linux exit status code and signal code
+        service_list = client.services.list()
+        for service in service_list:
+            if srv_basename in service.name:
+                # for service_log in service.logs(follow=follow, tail=tail, details=True, stdout=True, stderr=True, timestamps=True):
+                for service_log in service.logs(details=True, stdout=True, stderr=True, timestamps=True):
+                    # print(service_log)   # output in byte string format
+                    service_log_str = str(service_log, 'utf-8')
+                    # output regular strings
+                    ## print(service_log_str)    # uncomment this line to output all logs in regular string format.
+                    if failed in service_log_str:
+                        print("failed info:", service_log_str)
+                    if mpirun in service_log_str:
+                        string = service_log_str
+                        word = string.split()
+                        print("word is instance of list:", isinstance(word, list))
+                        print("exitcode = ", word[-1])
+                        exitcode = int(word[-1])
+                        print("int exitcode = ", exitcode)
+                        if exitcode > 128 and exitcode < 256:
+                            fatal_signal_code = exitcode - 128
+                            print("service name: {}, fatal signal code: {}".format(service.name, fatal_signal_code))
+                            if fatal_signal_code == 4:
+                                print("service name: {}, Illegal Instruction, signal code: {}".format(service.name, fatal_signal_code))
+                            if fatal_signal_code == 6:
+                                print("service name: {}, Abort Signal, signal code: {}".format(service.name, fatal_signal_code))
+                            if fatal_signal_code == 8:
+                                print("service name: {}, Floating Point Exception, signal code: {}".format(service.name, fatal_signal_code))
+                            if fatal_signal_code == 9:
+                                print("service name: {}, Kill Signal, signal code: {}".format(service.name, fatal_signal_code))
+                            if fatal_signal_code == 11:
+                                print("service name: {}, Invalid Memory Reference, signal code: {}".format(service.name, fatal_signal_code))
+                            if fatal_signal_code == 13:
+                                print("service name: {}, Broken Pipe, signal code: {}".format(service.name, fatal_signal_code))
+                        if exitcode == 0:
+                            print("service name: {}, exit code: {}, Successful Completion".format(service.name, exitcode))
+                        if exitcode == 1:
+                            print("service name: {}, exit code: {}, Execution failed".format(service.name, exitcode))
+                        if exitcode == 2:
+                            print("service name: {}, exit code: {}, Misuse of shell builtins".format(service.name, exitcode))
+                        if exitcode == 126:
+                            print("service name: {}, exit code: {}, Command invoked cannot execute".format(service.name, exitcode))
+                        if exitcode == 127:
+                            print("service name: {}, exit code: {}, Command not found".format(service.name, exitcode))
+                        if exitcode == 130:
+                            print("service name: {}, exit code: {}, Script terminated by Control-C".format(service.name, exitcode))
+                        if exitcode == 139:
+                            print("service name: {}, exit code: {}, Segmentation Fault".format(service.name, exitcode))
+        
 
     def check_job_state(self) -> list:
         """
@@ -333,20 +395,19 @@ class QueMonitor(RedisBacked):
         api_client = self.api_client
         srv_basename = self.name
 
-        # test out some service functions
+        # create the redis key for service task id set
+        task_set_key = keynamehelper.create_key_name("service_tasks")
+
+        # iterate through entire service list
         service_list = client.services.list()
         service_state_list = []
         for service in service_list:
-            # iterate through entire service list
             service_id = service.id
             service_attrs = service.attrs
-            # Name = list(pn.find('Name', service_attrs))[0]
             service_name = service.name
-            # print("service_name = ", service.name)
-            # if srv_basename in Name:
             if srv_basename in service_name:
                 for task in service.tasks():
-                    # TODO logging monitor output
+                    # logging task state
                     print('\n\tState: '+task['Status']['State'])
                     print('\tTimestamp: '+task['Status']['Timestamp'])
                     print('\tContainerID: '+task['Status']['ContainerStatus']['ContainerID'])
@@ -362,7 +423,6 @@ class QueMonitor(RedisBacked):
                     task_host = task['Spec']['Placement']['Constraints']
                     task_host = task_host[0]
                     (_, task_host) = task_host.split(' == ')
-                    # task_host = service_name + ':' + task_host
                     print('\n\tserviceName:taskState: ', task_state)
                     (serviceName, taskState) = task_state.split(':')
                     print('\tserviceName: ', serviceName)
@@ -372,6 +432,18 @@ class QueMonitor(RedisBacked):
                     print('\ttask_host: ', task_host)
                     print("flush the buffer", flush=True)
                     # pp(task)
+
+                    try:
+                        service_state_dict = {"service_name": service_name, "taskState": taskState, "task_host": task_host,
+                                              "task_container_id": task_container_id, "task_disired_state": task_disired_state}
+                        task_key = keynamehelper.create_key_name("running_services", task_service_id)
+                        self.redis.hmset(task_key, service_state_dict)
+
+                        # save task_service_id to redis set as key for retrieving service_stat_dict later on
+                        self.redis.sadd(task_set_key, task_service_id)
+                    except:
+                        raise RedisError("Error occurred in storing task states to redis")
+
                     if (taskState == 'starting'):
                         pass
                     elif (taskState == 'running'):
@@ -381,29 +453,24 @@ class QueMonitor(RedisBacked):
                     elif (taskState == 'complete'):
                         logging.info("Job {} successfully finished".format(serviceName))
                         service.remove()
-                        # time.sleep(10)
                     elif (taskState == 'failed'):
                         logging.info("Job {} failed to complete".format(serviceName))
                         logging.info("Please examine the task logs for cause before removing the service")
                         # Check reasons and consider resubmit
                         service.remove()
-                        # time.sleep(10)
                     elif (taskState == 'shutdown'):
                         # TODO consider resubmit
                         logging.info("Docker requested {} to shutdown".format(serviceName))
                         service.remove()
                     elif (taskState == 'rejected'):
-                        # TODO consider resubmit
                         # TODO check node state and resubmit
                         logging.info("The worker node rejected {}".format(serviceName))
                         service.remove()
                     elif (taskState == 'ophaned'):
-                        # TODO consider resubmit
                         # TODO check node state and possibly resubmit to a different node
                         logging.info("The node for {} down for too long".format(serviceName))
                         service.remove()
                     elif (taskState == 'remove'):
-                        # TODO consider resubmit
                         # TODO check node state and resubmit
                         logging.info("The node for {} down for too long".format(serviceName))
                         service.remove()
@@ -415,7 +482,7 @@ class QueMonitor(RedisBacked):
                     print("In check_job_state: service_state_list =")
                     pp(service_state_list)
                     print("-" * 15)
-        print("=" * 30)
+        print("=" * 30)           
         return service_state_list
 
     def build_state_list_reqid_set(self, service_state_list: list) -> dict:
@@ -538,6 +605,7 @@ class QueMonitor(RedisBacked):
                         service_name = servname
                         print("In service_actions: service_name = ", service_name)
                         for job in runningJobList:
+                            #FIXME: Name in the original runningJobList is itself a list
                             Name = job['Name'][0]
                             print("In service_actions: Name = {}, servname = {}".format(Name, servname))
                             if Name == service_name:
@@ -646,9 +714,6 @@ class QueMonitor(RedisBacked):
                                 service_dict = job
                                 service = self.resubmit(service_dict, service_name)
 
-    #Since we are using a partitioning scheme with "resource_pool", should limit
-    #this function to only care about the pool a given instance of monitor is
-    #monitoring.
     def get_node_info(self) -> docker.from_env().nodes.list:
         """
         Obtain service node info using Docker API
@@ -676,65 +741,12 @@ class QueMonitor(RedisBacked):
             Addr = list(pn.find('Addr', node_attrs))[0]
             node_dict = {"ID": ID, "HostName": Hostname, "CPUs": CPUs, "MemoryMB": MemoryMB, "State": State, "Addr": Addr}
             nodeList.append(node_dict)
-            n_key = self.keynamehelper.create_key_name("Node", Hostname)
+            n_key = keynamehelper.create_key_name("Node", Hostname)
             self.redis.hmset(n_key, node_dict)
             logging.info("In get_node_info: node_dict = {}".format(node_dict))
         logging.info("-" * 50)
         print("\nIn get_node_info:\nnodeList: ", *nodeList, sep = "\n")
         return nodeList
-
-    #TODO A better function may be implemented for checking current available rerources
-    #TODO REMOVE/LINK TO RESOURCE MANAGER
-    def print_resource_details(self):
-        """Print the details of remaining resources after allocating the request """
-        print("Resources remaining:")
-        #FIXME this is BROKEN. If resource definitions are needed, they must be externally linked.
-        #I.e. read a resource file or read from redis or use resource manager
-        for resource in resources:
-            e_key = self.keynamehelper.create_key_name("resource", resource['node_id'])
-            print("hgetall(e_key): {}".format(self.redis.hgetall(e_key)))
-        print("-" * 20)
-        print("\n")
-
-    def store_running_jobs_attr_in_redis(self):
-        """
-        Store all jobs in running job queue to redis for the purpose restart in case of system down,
-        network outage, or other unexpected system failure
-        The operations involve iterating through the running job queue and push job related attributes to
-        the redis database and/or a plain textfile for increased assurance
-
-        Parameters
-        ----------
-        No input parameters
-
-        Returns
-        -------
-        None
-        """
-        # docker api
-        client = self.docker_client
-        api_client = self.api_client
-        srv_basename = self.name
-
-        # Create a list of all services in the running queue
-        service_list = client.services.list()
-
-        # service_list_key = self.keynamehelper.create_key_name("service_list")
-        service_set_key = self.keynamehelper.create_key_name("service_set")
-
-        # iterate through the service list
-        for service in service_list:
-            # service_id = service.id
-            # serialize the service.attrs and store in redis
-            service_attrs = service.attrs
-            service_name = service.name
-            if srv_basename in service_name:
-                # store service_attrs in redis as string
-                stringified_service_attrs = json.dumps(service_attrs)  # convert dict object to string
-                service_attrs_hash_key = self.keynamehelper.create_key_name("service_attrs", service_name)
-                self.redis.hmset(service_attrs_hash_key, stringified_service_attrs)
-                self.redis.sadd(service_set_key, service_name)
-
 
     def retrieve_running_jobs_attr_from_redis(self) -> list:
         """
@@ -752,28 +764,24 @@ class QueMonitor(RedisBacked):
         """
         # docker api
         client = self.docker_client
-        api_client = self.api_client
         srv_basename = self.name
 
         # Initialize runningJobList the first time it is called
         runningJobList = list()
 
         # retrieve first element of the service set from redis
-        service_set_key = self.keynamehelper.create_key_name("service_set")
+        service_set_key = keynamehelper.create_key_name("service_set")
         service_name = self.redis.spop(service_set_key)
         # iterate through the saved service set
         while service_name != None:
-            service_attrs_hash_key = self.keynamehelper.create_key_name("service_attrs", service_name)
-            stringified_service_attrs = self.redis.hgetall(service_attrs_hash_key)
+            service_attrs_hash_key = keynamehelper.create_key_name("service_attrs", service_name)
+            stringified_service_attrs = self.redis.get(service_attrs_hash_key)
             service_attrs = json.loads(stringified_service_attrs)  # convert string data to object(dict/JSON)
 
-            #FIXME: remove all the print functions after testing
             # extract individual attribute to be used for creating service
             Image = pn.find('Image', service_attrs)
             *Image, = Image
             print("In retrieve_running_jobs_from_redis: Image = ", *Image)
-            # Name = list(pn.find('Name', service_attrs))[0]
-            # print("In retrieve_running_jobs_from_redis: Name = {}".format(Name))
             Name = pn.find('Name', service_attrs)
             *Name, = Name
             print("In retrieve_running_jobs_from_redis: Name = ", *Name)
@@ -816,325 +824,6 @@ class QueMonitor(RedisBacked):
         print("=" * 30)
         return runningJobList
 
-
-    def store_running_jobs_attr_items_in_redis(self):
-        """
-        Saving all jobs in running job queue for the purpose restart in case of system down, 
-        network outage, or other unexpected system failure
-        The operations involve iterating through the running job queue and push job related attributes to
-        the redis database and/or a plain textfile for increased assurance
-
-        Parameters
-        ----------
-        No input parameters
-
-        Returns
-        -------
-        None
-        """
-        # docker api
-        client = self.docker_client
-        api_client = self.api_client
-        srv_basename = self.name
-
-        # Create a list of all services in the running queue
-        service_list = client.services.list()
-
-        running_services_key = self.keynamehelper.create_key_name("running_service_list")
-        s_set_key = self.keynamehelper.create_key_name("running_service_set")
-
-        # iterate through the service list
-        for service in service_list:
-            # service_id = service.id
-            # potentially, could serialize the service.attrs, store in redis, retrieve and extract individual attr
-            service_attrs = service.attrs
-            service_name = service.name
-            Name = list(pn.find('Name', service_attrs))[0]
-            if srv_basename in Name:
-                # pp(service_attrs)
-                ## Image = list(pn.find('Image', service_attrs))[0]
-                ## print("In check_runningJobs: Image = {}".format(Image))
-                # FIXME: remove all print() after testing
-                Image = pn.find('Image', service_attrs)
-                *Image, = Image
-                print("In check_runningJobs: Image = ", *Image)
-                Name = pn.find('Name', service_attrs)
-                *Name, = Name
-                print("In check_runningJobs: Name = ", *Name)
-                print("In check_runningJobs: service_name = {}".format(service_name))
-                Constraints = pn.find('Constraints', service_attrs)
-                *Constraints, = Constraints
-                print("In check_runningJobs: Constraints = ", *Constraints)
-                ContainerSpec = list(pn.find('ContainerSpec', service_attrs))
-                pp(ContainerSpec)
-                Mounts = pn.find('Mounts', service_attrs)
-                *Mounts, = Mounts
-                print("In check_runningJobs: Mounts = ", *Mounts)
-                Args = pn.find('Args', service_attrs)
-                *Args, = Args
-                print("In check_runningJobs: Args = ", *Args)
-                Command = pn.find('Command', service_attrs)
-                *Command, = Command
-                print("In check_runningJobs: Command = ", *Command)
-                RestartPolicy = pn.find('RestartPolicy', service_attrs)
-                *RestartPolicy, = RestartPolicy
-                print("In check_runningJobs: RestartPolicy = ", *RestartPolicy)
-                # Healthcheck = pn.find('Healthcheck', service_attrs)
-                # *Healthcheck, = Healthcheck
-                Healthcheck = list(pn.find('Healthcheck', service_attrs))[0]
-
-                print("In check_runningJobs: Healthcheck = ", *Healthcheck)
-                Labels = pn.find('Labels', service_attrs)
-                *Labels, = Labels
-                print("In check_runningJobs: Labels = ", *Labels)
-
-                labels = list(pn.find('Labels', service_attrs))[0]
-
-                # Healthcheck is a nested dict containing key-value pairs and list
-                # store Healcheck in redis as string
-                healthcheck = Healthcheck
-                stringified_healthcheck_obj = json.dumps(healthcheck)  # convert dict object to string
-                healthcheck_hash_key = self.keynamehelper.create_key_name("healthcheck", service_name)
-                self.redis.set(healthcheck_hash_key, stringified_healthcheck_obj)
-                # self.redis.hmset(healthcheck_hash_key, stringified_healthcheck_obj)
-
-                # in redis, list of strings can be pushed onto a named list_key
-                # Args =  ['nwm_mpi-worker_serv2_NBFTGI-SPQRUZ:3', 'nwm_mpi-worker_serv1_NBFTGI-SPQRUZ:3', 'nwm_mpi-worker_serv0_NBFTGI-SPQRUZ:4']
-                print("Args is an instance of list:", isinstance(Args,list))
-                print("Args is an instance of str:", isinstance(Args,str))
-                service_key = self.keynamehelper.create_key_name(service_name)
-                print("In retrieve_running_jobs_attr_items_from_redis: service_key = {}".format(service_key))
-                p = self.redis.pipeline()
-                try:
-                    self.redis.watch(service_key)
-                    for string in Args:
-                        p.rpush(service_key, string)
-                except WatchError:
-                    logging.debug("Write conflict in store_running_jobs_attr_items_in_redis: {}".format(service_key))
-                finally:
-                    p.reset()
-                    logging.info("In store_running_jobs_attr_items_in_redis: complete writing Args!")
-
-                # In redis, dict can be stored as hash
-                # e.g.: Labels =  {'cpus_alloc': '3', 'com.docker.stack.image': '127.0.0.1:5000/nwm-2.0', \
-                #                  'com.docker.stack.namespace': 'nwm', 'Hostname': 'nwcal-ucs2.nwc.nws.noaa.gov'}
-                labels_key = self.keynamehelper.create_key_name("labels", service_name)
-                # self.redis.hmset(labels_key, Labels)
-                self.redis.hmset(labels_key, labels)
-
-                # the services.create() defines Mounts as a list of strings, but docker service inspect outputs it as a list containing a single dict
-                print("In store_running_jobs_attr_items_in_redis, Mounts =", Mounts)
-                print("In store_running_jobs_attr_items_in_redis, Mounts is insatnce of list:", isinstance(Mounts,list))
-                mounts_dict = Mounts[0][0]
-                print("In store_running_jobs_attr_items_in_redis, Mounts is insatnce of list:", isinstance(mounts_dict,dict))
-                source = mounts_dict['Source']
-                target = mounts_dict['Target']
-                options = 'rw'
-                mounts_string = source + ':' + target + ':' + options
-                #  mounts = [mts_string]
-                print("In store_running_jobs_attr_items_in_redis: mounts = ", mounts_string)
-                mounts_key = self.keynamehelper.create_key_name("mounts", service_name)
-                self.redis.set(mounts_key, mounts_string)
-                # self.redis.set(mounts_key, mounts_dict)
-
-                # RestartPolicy = {'Condition': 'none', 'Delay': 0, 'MaxAttempts': 0, 'Window': 0} is a class object similar to Healthcheck
-                # self.redis.hmset(restart_policy_key, RestartPolicy)
-                stringified_restart_policy = json.dumps(RestartPolicy)  # convert dict object to string
-                restart_policy_key = self.keynamehelper.create_key_name("restart_policy", service_name)
-                self.redis.set(restart_policy_key, stringified_restart_policy)
-
-                # create a dict of strings
-                Image_redis = Image[0]    # str
-                Name_redis = Name[0]      # str
-                Command_redis = Command[0][0]    # list of str or str
-                Hostname =  "{{.Service.Name}}"    # str constant
-                Constraints_redis = Constraints[0][0]    # list of str
-                service_dict_str = {"Image": Image_redis, "Name": Name_redis, "Command": Command_redis, "Hostname": Hostname,
-                                    "Constraints": Constraints_redis}
-                # store the dict in redis
-                service_dict_key = self.keynamehelper.create_key_name("service_dict_str", service_name)
-                self.redis.hmset(service_dict_key, service_dict_str)
-
-                # taking a snapshot of current running jobs and push it on to redis
-                # need to save service_name to redis so that service attributes can be retrieved from redis based on servcie_name
-                # can use either the redis list or set data type
-                # FIXME: choose one of the following
-                # using list method
-                # self.redis.rpush(running_services_key, service_name)
-                # using set data type
-                self.redis.sadd(s_set_key, service_name)
-                print("-" * 10)
-        print("\nend of que_monitor.check_runningJobs")
-        print("=" * 30)
-        return
-
-    def retrieve_running_jobs_attr_items_from_redis(self) -> list:
-        """
-        Retrive services.attrs for all jobs in running job queue stored in redis, 
-        then use the services.attrs to build up the runningJobList
-
-        Parameters
-        ----------
-            No input parameters
-
-        Returns
-        -------
-        runningJobList
-            A list of all running jobs last saved into redis
-        """
-        # docker api
-        client = self.docker_client
-        api_client = self.api_client
-        srv_basename = self.name
-
-        # test out some service functions
-        service_list = client.services.list()
-
-        # Initialize runningJobList the first time it is called
-        runningJobList = list()
-
-        # FIXME: choose one of the following
-        # iterate through the saved service list
-        ## running_services_key = self.keynamehelper.create_key_name("running_service_list")
-        ## service_name = self.redis.lpop(running_services_key)
-        ## while service_name != None:
-
-        # iterate through the saved service set
-        s_set_key = self.keynamehelper.create_key_name("running_service_set")
-        service_name = self.redis.spop(s_set_key)
-        while service_name != None:
-            # retrieve Healthcheck from redis
-            healthcheck_hash_key = self.keynamehelper.create_key_name("healthcheck", service_name)
-            # stringified_healthcheck_obj = self.redis.hgetall(healthcheck_hash_key)
-            stringified_healthcheck_obj = self.redis.get(healthcheck_hash_key)
-            Healthcheck = json.loads(stringified_healthcheck_obj)  # convert string data to object(dict/JSON)
-
-            # in redis, list of strings can be pushed onto a named list_key
-            # Args =  ['nwm_mpi-worker_serv2_NBFTGI-SPQRUZ:3', 'nwm_mpi-worker_serv1_NBFTGI-SPQRUZ:3', 'nwm_mpi-worker_serv0_NBFTGI-SPQRUZ:4']
-
-            # code for retrieving Args list of strings
-            # this code block operates only on a single specific service with given service_name
-            # the top outside loop iterates through all the running services
-            service_key = self.keynamehelper.create_key_name(service_name)
-            print("In retrieve_running_jobs_attr_items_from_redis: service_key = {}".format(service_key))
-            p = self.redis.pipeline()
-            args_list = list()
-            try:
-                self.redis.watch(service_key)
-                # for str in Args:
-                args = p.lpop(service_key)
-                print("In retrieve_running_jobs_attr_items_from_redis: args = {}".format(args))
-                while args != None:
-                    args_list.append(args)
-                    args = p.lpop(service_key)
-                    print("In retrieve_running_jobs_attr_items_from_redis: args = {}".format(args))
-            except WatchError:
-                logging.debug("Read error in store_running_jobs_attr_items_in_redis: {}".format(service_key))
-            finally:
-                p.reset()
-                logging.info("In store_running_jobs_attr_items_in_redis: complete writing Args!")
-
-            # In redis, dict can be stored as hash
-            # e.g.: Labels =  {'cpus_alloc': '3', 'com.docker.stack.image': '127.0.0.1:5000/nwm-2.0', \
-            #                  'com.docker.stack.namespace': 'nwm', 'Hostname': 'nwcal-ucs2.nwc.nws.noaa.gov'}
-
-            # code for retrieving the labels dict from redis
-            # in principle, could combine the next three dicts for data efficiency, but more difficult to separate them
-            labels_key = self.keynamehelper.create_key_name("labels", service_name)
-            labels_dict = self.redis.hgetall(labels_key)
-
-            # the services.create() defines Mounts as a list of strings, but docker service inspect outputs it as a list containing a single dict
-            # code for retrieving mounts dict from redis
-            mounts_key = self.keynamehelper.create_key_name("mounts", service_name)
-            mounts_dict = self.redis.get(mounts_key)
-
-            # RestartPolicy = {'Condition': 'none', 'Delay': 0, 'MaxAttempts': 0, 'Window': 0} is a class object similar to Healthcheck
-            restart_policy_key = self.keynamehelper.create_key_name("restart_policy", service_name)
-            # restart_policy = self.redis.hgetall(restart_policy_key)
-            # retrieve restart_policy from redis
-            stringified_restart_policy = self.redis.get(restart_policy_key)
-            restart_policy = json.loads(stringified_restart_policy)  # convert string data to object(dict/JSON)
-
-            # initlize a dictionary object
-            service_dict_for_redis = dict()
-
-            # retrieve from redis
-            service_dict_key = self.keynamehelper.create_key_name("service_dict_str", service_name)
-            service_dict_str = self.redis.hgetall(service_dict_key)
-
-            service_dict_for_redis.update(service_dict_str)
-            service_dict_for_redis.update(Healthcheck)
-            service_dict_for_redis.update(args_list)
-            service_dict_for_redis.update(labels_dict)
-            service_dict_for_redis.update(mounts_dict)
-            service_dict_for_redis.update(restart_policy)
-
-            runningJobList.append(service_dict_for_redis)
-            service_name = self.redis.spop(s_set_key)
-
-        print("\nend of retrieve_running_jobs_attr_items_from_redis")
-        print("=" * 30)
-        return runningJobList
-
-
-    def store_job_state_in_redis(self):
-        """
-        Store the job state of current service tasks
-
-        Parameters
-        No input parameters
-
-        Returns
-        -------
-        None
-
-        """
-        print("In function store_job_state_in_redis():")
-        # docker api
-        client = self.docker_client
-        api_client = self.api_client
-        srv_basename = self.name
-
-        # test out some service functions
-        service_list = client.services.list()
-
-        # initialize the service_state_list
-        service_state_list = list()
-
-        # create the redis key for service task id set
-        task_set_key = self.keynamehelper.create_key_name("service_tasks")
-
-        # iterate through entire service list
-        for service in service_list:
-            service_attrs = service.attrs
-            service_name = service.name
-            # print("service_name = ", service.name)
-            if srv_basename in service_name:
-                for task in service.tasks():
-                    try:
-                        task_state = service_name + ':' + task['Status']['State']
-                        task_timestamp = service_name + ':' + task['Status']['Timestamp']
-                        task_container_id = service_name + ':' + task['Status']['ContainerStatus']['ContainerID']
-                        task_disired_state = service_name + ':' + task['DesiredState']
-                        task_service_id = service_name + ':' + task['ServiceID']
-                        task_error = service_name + ':' + str(task['Status']['ContainerStatus']['ExitCode'])
-                        task_error_num = task['Status']['ContainerStatus']['ExitCode']
-                        task_host = task['Spec']['Placement']['Constraints']
-                        task_host = task_host[0]
-                        (_, task_host) = task_host.split(' == ')
-                        (serviceName, taskState) = task_state.split(':')
-
-                        service_state_dict = {"service_name": service_name, "taskState": taskState, "task_host": task_host,
-                                              "task_container_id": task_container_id, "task_disired_state": task_disired_state}
-                        task_key = self.keynamehelper.create_key_name("running_services", task_service_id)
-                        self.redis.hmset(task_key, service_state_dict)
-
-                        # save task_service_id to redis set as key for retrieving service_stat_dict later on
-                        self.redis.sadd(task_set_key, task_service_id)
-                    except:
-                        raise RedisError("Error occurred in storing task states to redis")
-
-
     def retrieve_job_state_from_redis(self):
         """
         Retrieve the last saved task state of the running job queue from redis
@@ -1149,17 +838,16 @@ class QueMonitor(RedisBacked):
         """
         # docker api
         client = self.docker_client
-        api_client = self.api_client
 
         # initialize service_state_list
         service_state_list = list()
 
         # create t_set_key needed to find task_service_id, which has a one-to-one correpondence
         # with service_state_dict
-        task_set_key = self.keynamehelper.create_key_name("service_tasks")
+        task_set_key = keynamehelper.create_key_name("service_tasks")
         task_service_id = self.redis.spop(task_set_key)
         while task_service_id != None:
-            task_key = self.keynamehelper.create_key_name("running_services", task_service_id)
+            task_key = keynamehelper.create_key_name("running_services", task_service_id)
             service_state_dict = self.redis.hgetall(task_key)
 
             # form service_state_list needed for job resubmission
@@ -1187,14 +875,34 @@ class QueMonitor(RedisBacked):
         This cab done in two ways:
             (a) from saved plain text file
             (b) from Redis database
+        Do we need to keep the original order? We may to fit all the jobs into the nodes. Otherwise, it may not be able to.
         Restart jobs from saved checkpoint will be more involved
         """
-        # retrieve runningJobList and service_state_list from redis
-        runningJobList = self.retrieve_running_jobs_attr_items_from_redis()
-        service_state_list = self.retrieve_job_state_from_redis()
-        for state_dict in service_state_list:
-            self.service_actions(runningJobList, state_dict)
+        print("start of restart_running_jobQ")
+        #FIXME: check the ser_prefix() function in RedisBacked
 
+        service_state_list = self.check_job_state()
+        ## self.check_job_state()
+        #FIXME: use the next line for alternative approach storing/retriving redis data
+        runningJobList = self.retrieve_running_jobs_attr_from_redis()
+        # runningJobList = self.retrieve_running_jobs_attr_items_from_redis()
+        service_state_list = self.retrieve_job_state_from_redis()
+        state_dict = self.build_state_list_reqid_set(service_state_list)
+        self.service_actions(runningJobList, state_dict)
+        print("end of restart_running_jobQ")
+
+
+    #TODO A better function may be implemented for checking current available rerources
+    def print_resource_details(self):
+        """Print the details of remaining resources after allocating the request """
+        print("Resources remaining:")
+        print("set_key = {}".format(keynamehelper.create_key_name("resource")))
+        for resource in resources:
+            e_key = keynamehelper.create_key_name("resource", resource['node_id'])
+            print("e_key = ", e_key)
+            print("hgetall(e_key): {}".format(self.redis.hgetall(e_key)))
+        print("-" * 20)
+        print("\n")
 
 def main():
     #keynamehelper.set_prefix("nwm-monitor")
@@ -1206,57 +914,37 @@ def main():
     redis_port=test_port,
     redis_pass=test_pass)
 
-    client = q.docker_client
-    api_client = q.api_client
-
-    # store running jobs attrs in redis database
-    if store_running_jobs == True:
-        q.store_running_jobs_attr_in_redis
-        q.store_running_jobs_attr_items_in_redis()
-        q.store_job_state_in_redis()
-
-    # restart the entire previously saved running job queue
-    if restart_running_job_queue == True:
-        q.restart_running_jobQ()
-
-    #FIXME check_job_state() should not be called before check_runningJobs() in operational run to save service info
-    # before beibg removed from service list
-    # service_state_list = q.check_job_state()
+    (runningJobList, service_dict) = q.check_and_store_runningJobs()
+    # q.store_job_state_in_redis()
+    service_state_list = q.check_job_state()
+    q.check_system_state()
+    q.print_resource_details()
+    q.check_jobQ()
     print("flush the buffer", flush=True)
     print("-" * 16, flush=True)
 
-    q.check_jobQ()
+    # let the jobs run to finish
+    time.sleep(30)
 
-    #FIXME check_runningJobs() should be callled before each check_job_state() to save service info
-    ncall = 0
-    # while (ncall <= Ncall_Max):
-    (runningJobList, service_dict) = q.check_runningJobs(ncall)
-        # ncall += 1
-        # time.sleep(30)
+    # runningQ_restart = False
+    runningQ_restart = True
 
-    # print("runningJobList: ", *runningJobList)
-    print("\nIn main: runningJobList = ")
-    ## pp(runningJobList)
-    for job in runningJobList:
-        print("Job name =", job['Name'])
-    print("-" * 30, "\n")
+    if runningQ_restart == True:
+        q.restart_running_jobQ()
+        print("flush the buffer", flush=True)
+        print("-" * 16, flush=True)
 
-    #time.sleep(60)
-    service_state_list = q.check_job_state()
-
-    state_dict = q.build_state_list_reqid_set(service_state_list)
-    q.service_actions(runningJobList, state_dict)
-
-    # if (jobState == 'complete') or (jobState == 'failed'):
-    #     for service_name in service_list:
-    #         service = q.resubmit(runningJobList, service_dict, service_name)
+    else:
+        # TODO double check the interaction between this function call and q.check_job_state()
+        state_dict = q.build_state_list_reqid_set(service_state_list)
+        q.service_actions(runningJobList, state_dict)
 
     nodeList = q.get_node_info()
 
-    # (cpusList, user_key) = q.retrieve_job_metadata("shengting.cui")
-
-    #TODO create a function that returns the current availble resources using Redis
-    #q.print_resource_details()
+    while True:
+        time.sleep(30)
+        q.check_system_state()
+        print("flush the buffer", flush=True)
 
     print("end of que_monitor")
 
