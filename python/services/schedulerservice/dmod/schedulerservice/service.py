@@ -3,9 +3,7 @@ from websockets import WebSocketServerProtocol
 from typing import List, Type
 from dmod.communication import InvalidMessageResponse, Message, SchedulerRequestMessage, SchedulerRequestResponse, \
     UpdateMessage, UpdateMessageResponse, WebSocketInterface
-from dmod.scheduler import Scheduler, ResourceManager
 from dmod.scheduler.job import Job, JobManager, JobStatus
-from pathlib import Path
 import json
 import logging
 import asyncio
