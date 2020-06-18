@@ -13,6 +13,7 @@ from .maas_request import MaaSRequest, MaaSRequestResponse, NWMRequest, NWMReque
 from .message import Message, Response, InitRequestResponseReason
 from .scheduler_request import SchedulerRequestMessage, SchedulerRequestResponse
 from .validator import NWMRequestJsonValidator
+from .update_message import UpdateMessage, UpdateMessageResponse
 
 import logging
 
@@ -156,9 +157,43 @@ class WebSocketClient(ABC):
 
 
 class SchedulerClient(WebSocketClient):
-    #TODO decide if this is really nessicary, it could be if structured calls
-    #to and from the scheduler are required.  As it is now, it is a VERY thin
-    #and probablly unnesscecary wrapper
+
+    async def async_send_update(self, message: UpdateMessage) -> UpdateMessageResponse:
+        """
+        Send a serialized update message to the Scheduler service.
+
+        Note that this function will return an ::class:`UpdateMessageResponse` in all situations, even if the response
+        back from the scheduler service could not be deserialized back to an ::class:`UpdateMessageResponse` object.  In
+        such cases, a response object is initialized with attributes set appropriately to indicated failure.  The raw
+        response text is included if applicable, and the name of the exception raised is included in the ``reason``
+        attribute.
+
+        Parameters
+        ----------
+        message : UpdateMessage
+            The update message to send.
+
+        Returns
+        -------
+        UpdateMessageResponse
+            A response message object in response to the update sent to the Scheduler service.
+        """
+        response_json = {}
+        serialized_response = None
+        try:
+            serialized_response = await self.async_send(data=str(message), await_response=True)
+            if serialized_response is None:
+                raise ValueError('Response from {} async update message was `None`'.format(self.__class__.__name__))
+            response_object = UpdateMessageResponse.factory_init_from_deserialized_json(json.loads(serialized_response))
+            if response_object is None:
+                raise ValueError('Could not deserialize update response to {}'.format(UpdateMessageResponse.__name__))
+            else:
+                return response_object
+        except Exception as e:
+            reason = 'Update Scheduler Failure: {} ({})'.format(str(e), e.__class__.__name__)
+            logger.error('Encountered {} sending update to scheduler service: {}'.format(e.__class__.__name__, str(e)))
+            return UpdateMessageResponse(digest=message.digest, object_found=False, success=False, reason=reason,
+                                         response_text='None' if serialized_response is None else serialized_response)
 
     async def async_make_request(self, message: SchedulerRequestMessage) -> SchedulerRequestResponse:
         """
