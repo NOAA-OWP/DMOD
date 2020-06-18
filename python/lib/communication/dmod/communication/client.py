@@ -24,6 +24,18 @@ class WebSocketClient(ABC):
     """
 
     """
+
+    @classmethod
+    def build_endpoint_uri(cls, host: str, port: Union[int, str], path: Optional[str] = None, is_secure: bool = True):
+        proto = 'wss' if is_secure else 'ws'
+        if path is None:
+            path = ''
+        else:
+            path = path.strip()
+            if path[0] != '/':
+                path = '/' + path
+        return proto + '://' + host.strip() + ':' + str(port).strip() + path
+
     def __init__(self, endpoint_uri: str, ssl_directory: Path):
         super().__init__()
 
