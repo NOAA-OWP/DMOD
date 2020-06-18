@@ -99,7 +99,7 @@ class Launcher:
         """
         return 42
 
-    def create_service(self, serviceParams: DockerServiceParameters, user_id: str, idx: int, cpusLen: int, host_str: str) \
+    def create_service(self, serviceParams: DockerServiceParameters, idx: int, cpusLen: int, host_str: str) \
         -> docker.from_env().services.create:
         """
         Create new service with Healthcheck, host, and other info
@@ -108,8 +108,6 @@ class Launcher:
         ----------
         serviceParams
             A DockerServiceParameters class object
-        user_id
-            User identification string
         idx
             Index number for labeling a Docker service name
         cpusLen
