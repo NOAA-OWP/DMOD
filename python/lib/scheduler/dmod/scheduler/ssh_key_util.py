@@ -10,7 +10,7 @@ from typing import Optional, Set, Tuple, Union
 
 from .docker_utils import DockerSecretsUtil
 
-from dmod.scheduler.rsa_key_pair import RsaKeyPair
+from . import RsaKeyPair
 
 
 class SshKeyUtil(ABC):
