@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from dmod.communication.scheduler_request import SchedulerRequestMessage
+from dmod.communication import SchedulerRequestMessage
 from enum import Enum
 from typing import List, Optional, Union
 from uuid import UUID
 
-from dmod.scheduler.rsa_key_pair import RsaKeyPair
-from dmod.scheduler.resources.resource_allocation import ResourceAllocation
+from .. import RsaKeyPair
+from ..resources import ResourceAllocation
 
 
 class JobAllocationParadigm(Enum):
