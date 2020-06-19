@@ -1,9 +1,6 @@
-from ..scheduler.resources.resource_manager import ResourceManager
-from ..scheduler.resources.resource import Resource
-from ..scheduler.resources.resource_allocation import ResourceAllocation
-from dmod.communication.scheduler_request import SchedulerRequestMessage
-from dmod.communication.maas_request import NWMRequest
-from ..scheduler.job.job import RequestedJob
+from ..scheduler.job import RequestedJob
+from ..scheduler.resources import Resource, ResourceAllocation, ResourceManager
+from dmod.communication import NWMRequest, SchedulerRequestMessage
 
 from copy import deepcopy
 
