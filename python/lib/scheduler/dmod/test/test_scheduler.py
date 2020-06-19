@@ -1,6 +1,6 @@
 import unittest
 from pathlib import Path
-from ..scheduler.scheduler import Launcher
+from ..scheduler import Launcher
 from . import mock_job
 
 class TestLauncher(unittest.TestCase):
