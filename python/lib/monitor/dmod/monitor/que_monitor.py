@@ -131,10 +131,11 @@ class QueMonitor(RedisBacked):
         service_list = client.services.list()
 
         # create a set key to store hash key names
-        service_set_key = keynamehelper.create_key_name("service_set")
+        service_set_key = self.keynamehelper.create_key_name("service_set")
 
         # Initialize runningJobList the first time it is called
         runningJobList = []
+        service_dict = {} #NJF  bugfix when no services runtime error
 
         # iterate through entire service list
         for service in service_list:
@@ -144,7 +145,7 @@ class QueMonitor(RedisBacked):
             if srv_basename in Name:
                 # store service_attrs in redis as string
                 stringified_service_attrs = json.dumps(service_attrs)  # convert dict object to string
-                service_attrs_hash_key = keynamehelper.create_key_name("service_attrs", service_name)
+                service_attrs_hash_key = self.keynamehelper.create_key_name("service_attrs", service_name)
                 self.redis.set(service_attrs_hash_key, stringified_service_attrs)
                 # store the service_name to a set
                 self.redis.sadd(service_set_key, service_name)
@@ -258,6 +259,7 @@ class QueMonitor(RedisBacked):
         mounts = [mts_string]
         print("mounts = ", mounts)
 
+        # Args need match with the scheduler.py code for every service created
         Args = (service_dict['Args'])[0]
         args = Args
         print("service_dict: Args = ", Args)
@@ -396,7 +398,7 @@ class QueMonitor(RedisBacked):
         srv_basename = self.name
 
         # create the redis key for service task id set
-        task_set_key = keynamehelper.create_key_name("service_tasks")
+        task_set_key = self.keynamehelper.create_key_name("service_tasks")
 
         # iterate through entire service list
         service_list = client.services.list()
@@ -436,7 +438,7 @@ class QueMonitor(RedisBacked):
                     try:
                         service_state_dict = {"service_name": service_name, "taskState": taskState, "task_host": task_host,
                                               "task_container_id": task_container_id, "task_disired_state": task_disired_state}
-                        task_key = keynamehelper.create_key_name("running_services", task_service_id)
+                        task_key = self.keynamehelper.create_key_name("running_services", task_service_id)
                         self.redis.hmset(task_key, service_state_dict)
 
                         # save task_service_id to redis set as key for retrieving service_stat_dict later on
@@ -444,6 +446,7 @@ class QueMonitor(RedisBacked):
                     except:
                         raise RedisError("Error occurred in storing task states to redis")
 
+                    # enumerate all task states
                     if (taskState == 'starting'):
                         pass
                     elif (taskState == 'running'):
@@ -714,6 +717,9 @@ class QueMonitor(RedisBacked):
                                 service_dict = job
                                 service = self.resubmit(service_dict, service_name)
 
+    #Since we are using a partitioning scheme with "resource_pool", should limit
+    #this function to only care about the pool a given instance of monitor is
+    #monitoring.
     def get_node_info(self) -> docker.from_env().nodes.list:
         """
         Obtain service node info using Docker API
@@ -741,12 +747,25 @@ class QueMonitor(RedisBacked):
             Addr = list(pn.find('Addr', node_attrs))[0]
             node_dict = {"ID": ID, "HostName": Hostname, "CPUs": CPUs, "MemoryMB": MemoryMB, "State": State, "Addr": Addr}
             nodeList.append(node_dict)
-            n_key = keynamehelper.create_key_name("Node", Hostname)
+            n_key = self.keynamehelper.create_key_name("Node", Hostname)
             self.redis.hmset(n_key, node_dict)
             logging.info("In get_node_info: node_dict = {}".format(node_dict))
         logging.info("-" * 50)
         print("\nIn get_node_info:\nnodeList: ", *nodeList, sep = "\n")
         return nodeList
+
+    #TODO A better function may be implemented for checking current available rerources
+    #TODO REMOVE/LINK TO RESOURCE MANAGER
+    def print_resource_details(self):
+        """Print the details of remaining resources after allocating the request """
+        print("Resources remaining:")
+        #FIXME this is BROKEN. If resource definitions are needed, they must be externally linked.
+        #I.e. read a resource file or read from redis or use resource manager
+        for resource in resources:
+            e_key = self.keynamehelper.create_key_name("resource", resource['node_id'])
+            print("hgetall(e_key): {}".format(self.redis.hgetall(e_key)))
+        print("-" * 20)
+        print("\n")
 
     def retrieve_running_jobs_attr_from_redis(self) -> list:
         """
@@ -770,11 +789,11 @@ class QueMonitor(RedisBacked):
         runningJobList = list()
 
         # retrieve first element of the service set from redis
-        service_set_key = keynamehelper.create_key_name("service_set")
+        service_set_key = self.keynamehelper.create_key_name("service_set")
         service_name = self.redis.spop(service_set_key)
         # iterate through the saved service set
         while service_name != None:
-            service_attrs_hash_key = keynamehelper.create_key_name("service_attrs", service_name)
+            service_attrs_hash_key = self.keynamehelper.create_key_name("service_attrs", service_name)
             stringified_service_attrs = self.redis.get(service_attrs_hash_key)
             service_attrs = json.loads(stringified_service_attrs)  # convert string data to object(dict/JSON)
 
@@ -844,10 +863,10 @@ class QueMonitor(RedisBacked):
 
         # create t_set_key needed to find task_service_id, which has a one-to-one correpondence
         # with service_state_dict
-        task_set_key = keynamehelper.create_key_name("service_tasks")
+        task_set_key = self.keynamehelper.create_key_name("service_tasks")
         task_service_id = self.redis.spop(task_set_key)
         while task_service_id != None:
-            task_key = keynamehelper.create_key_name("running_services", task_service_id)
+            task_key = self.keynamehelper.create_key_name("running_services", task_service_id)
             service_state_dict = self.redis.hgetall(task_key)
 
             # form service_state_list needed for job resubmission
@@ -891,21 +910,8 @@ class QueMonitor(RedisBacked):
         self.service_actions(runningJobList, state_dict)
         print("end of restart_running_jobQ")
 
-
-    #TODO A better function may be implemented for checking current available rerources
-    def print_resource_details(self):
-        """Print the details of remaining resources after allocating the request """
-        print("Resources remaining:")
-        print("set_key = {}".format(keynamehelper.create_key_name("resource")))
-        for resource in resources:
-            e_key = keynamehelper.create_key_name("resource", resource['node_id'])
-            print("e_key = ", e_key)
-            print("hgetall(e_key): {}".format(self.redis.hgetall(e_key)))
-        print("-" * 20)
-        print("\n")
-
 def main():
-    #keynamehelper.set_prefix("nwm-monitor")
+    #self.keynamehelper.set_prefix("nwm-monitor")
     #FIXME remove main at some point
     test_pass = os.environ.get('IT_REDIS_CONTAINER_PASS')
     test_port = os.environ.get('IT_REDIS_CONTAINER_HOST_PORT')
