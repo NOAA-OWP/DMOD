@@ -2,11 +2,13 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from dmod.communication import SchedulerRequestMessage
 from enum import Enum
-from typing import List, Optional, Union
+from typing import List, Optional, TYPE_CHECKING, Union
 from uuid import UUID
 
-from .. import RsaKeyPair
 from ..resources import ResourceAllocation
+
+if TYPE_CHECKING:
+    from .. import RsaKeyPair
 
 
 class JobAllocationParadigm(Enum):
@@ -419,14 +421,14 @@ class Job(ABC):
 
     @property
     @abstractmethod
-    def rsa_key_pair(self) -> Optional[RsaKeyPair]:
+    def rsa_key_pair(self) -> Optional['RsaKeyPair']:
         """
-        The ::class:`RsaKeyPair` for this job's shared SSH RSA keys.
+        The ::class:`'RsaKeyPair'` for this job's shared SSH RSA keys.
 
         Returns
         -------
-        Optional[RsaKeyPair]
-            The ::class:`RsaKeyPair` for this job's shared SSH RSA keys, or ``None`` if not has been set.
+        Optional['RsaKeyPair']
+            The ::class:`'RsaKeyPair'` for this job's shared SSH RSA keys, or ``None`` if not has been set.
         """
         pass
 
@@ -601,11 +603,11 @@ class JobImpl(Job):
         return self._parameters
 
     @property
-    def rsa_key_pair(self) -> Optional[RsaKeyPair]:
+    def rsa_key_pair(self) -> Optional['RsaKeyPair']:
         return self._rsa_key_pair
 
     @rsa_key_pair.setter
-    def rsa_key_pair(self, key_pair: RsaKeyPair):
+    def rsa_key_pair(self, key_pair: 'RsaKeyPair'):
         self._rsa_key_pair = key_pair
         self._reset_last_updated()
 
