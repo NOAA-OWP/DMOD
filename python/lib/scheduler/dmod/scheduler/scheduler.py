@@ -3,14 +3,12 @@
 import logging
 import docker
 import yaml
-## local imports
-#FIXME this import breaks things in testing
-from .job.job import Job
-"""
-class Job:
-    pass
-"""
+from typing import TYPE_CHECKING
 from .utils import parsing_nested as pn
+
+# Imports strictly for type hinting
+if TYPE_CHECKING:
+    from .job import Job
 
 logging.basicConfig(
     filename='scheduler.log',
@@ -200,7 +198,7 @@ class Launcher:
         except:
             raise ConnectionError("Please check that the Docker Daemon is installed and running.")
 
-    def build_host_list(self, basename: str, job: Job, run_domain_dir: str) -> list:
+    def build_host_list(self, basename: str, job: 'Job', run_domain_dir: str) -> list:
         """
         build a list of strings that contain the container names and the allocated CPUs on the associated hosts
 
@@ -357,7 +355,7 @@ class Launcher:
 
         return selected_image, selected_domain_dir, run_domain_dir
 
-    def start_job(self, job: Job):
+    def start_job(self, job: 'Job'):
         """
 
         """
