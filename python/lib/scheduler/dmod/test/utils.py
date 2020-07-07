@@ -3,6 +3,24 @@ from ..scheduler.resources import Resource, ResourceAllocation, ResourceManager
 from dmod.communication import NWMRequest, SchedulerRequestMessage
 
 from copy import deepcopy
+import logging
+import sys
+
+#TODO move this somewhere all test code can borrow it
+class logTest():
+    """
+        Decorator for enabling stream logging of a test function
+    """
+    def __init__(self, log_level=logging.INFO):
+        self.logger = logging.getLogger()
+        self.logger.level = log_level
+
+    def __call__(self, func):
+        def wrapped(*args):
+            stream_handler = logging.StreamHandler(sys.stdout)
+            self.logger.addHandler(stream_handler)
+            return func(*args)
+        return wrapped
 
 _mock_resources = [{'node_id': "Node-0001",
            'Hostname': "hostname1",
