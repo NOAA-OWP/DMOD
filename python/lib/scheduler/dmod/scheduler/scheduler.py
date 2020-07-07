@@ -231,39 +231,6 @@ class Launcher:
         print("host_str", host_str)
         return host_str
 
-    #FIXME is this a dev function???
-    def write_hostfile(self, basename: str, cpusList: list):
-        '''
-        Write allocated hosts and CPUs to hostfile on the scheduler container
-
-        Parameters
-        ----------
-        basename
-            Base name of a MPI worker service in an indexed collection of services
-        cpusList
-            List of allocated CPUs on each node
-        '''
-        idx = len(cpusList) - 1
-        host_str = ""
-        rev_cpusList = cpusList
-        rev_cpusList.reverse()
-        for cpu in rev_cpusList:
-            cpus_alloc = str(cpu['cpus_alloc'])
-            name = basename + str(idx)
-            host_str += name+':'+cpus_alloc+'\n'
-            idx -= 1
-
-        client = self.docker_client
-        service_list = client.services.list()
-        for service in service_list:
-            service_id = service.id
-            serv_list = client.services.list(filters={'id': service_id})[0]
-            service_attrs = serv_list.attrs
-            Name = list(pn.find('Name', service_attrs))[0]
-            if 'nwm-_scheduler' in Name:
-                with open('hostfile', 'w') as hostfile:
-                    hostfile.write(host_str)
-
     def load_image_and_domain(self, image_name: str, domain_name: str) -> tuple:
         """
         Read a list of image_name and domain_name from the yaml file: image_and_domain.yaml
