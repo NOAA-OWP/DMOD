@@ -307,7 +307,7 @@ class Launcher:
 
         # If requested domain does not exist on local machine
         if (selected_domain_dir == None):
-            raise Exception("The requested domain is not a valid domain")
+            raise ValueError("domain-name: The requested domain is not a valid domain")
 
         # Set up the domain to run jobs on the container
         run_domain_dir = None
@@ -339,7 +339,7 @@ class Launcher:
 
         # If requested domain does not exist on local machine
         if (selected_image == None):
-            raise Exception("The requested image is not a valid image")
+            raise ValueError("image_name: The requested image is not a valid image")
 
         return selected_image, selected_domain_dir, run_domain_dir
 
