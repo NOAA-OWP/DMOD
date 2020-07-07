@@ -386,6 +386,6 @@ class Launcher:
             #Create the docker service
             serviceParams = DockerServiceParameters(image_tag, constraints, hostname, labels, serv_name, mounts)
             #TODO check for proper service creation, return False if doesn't work
-            self.create_service(serviceParams, idx, cpusLen, host_str)
+            service = self.create_service(serviceParams, idx, cpusLen, host_str)
         logging.info("\n")
-        return True
+        return (True, service)
