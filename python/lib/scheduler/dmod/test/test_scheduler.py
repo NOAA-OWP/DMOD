@@ -9,17 +9,12 @@ class TestLauncher(unittest.TestCase):
         yaml_file = Path(__file__).parent/"image_and_domain.yaml"
         self.user_name = 'test'
 
-        #Create a launcher
+        #Create a launcher TODO only test static methods here, no instance so no docker neeeded
         self.launcher = Launcher(images_and_domains_yaml=yaml_file)
 
     def tearDown(self) -> None:
+        #This class should only test static methods and work without docker FIXME
         self.launcher.docker_client.close()
-
-    #TODO move this to an integration test since it relies on Docker
-    @unittest.skip("Moving to integration test")
-    def test_start_job(self) -> None:
-        job = mock_job(allocations=1)
-        self.launcher.start_job(job)
 
     def test_build_host_list(self):
         """
@@ -95,11 +90,3 @@ class TestLauncher(unittest.TestCase):
         self.assertEqual(image_tag, image)
         self.assertEqual( static_dir, './domains')
         self.assertEqual(run_dir, './example_case/NWM')
-        
-    #TODO test
-    @unittest.skip("Not implemented")
-    def test_create_service(self):
-        pass
-    @unittest.skip("Not implemented")
-    def test_job_allocation_and_setup(self):
-        pass

@@ -5,6 +5,8 @@ from requests.exceptions import ReadTimeout
 import docker
 import yaml
 from typing import TYPE_CHECKING
+
+## local imports
 from .utils import parsing_nested as pn
 
 # Imports strictly for type hinting
@@ -55,8 +57,6 @@ class Launcher:
             Docker API client
         api_client
             Docker Low-level API client
-        redis
-            Redis API
         """
         self._images_and_domains_yaml = images_and_domains_yaml
         if docker_client:
@@ -212,7 +212,8 @@ class Launcher:
         except:
             raise ConnectionError("Please check that the Docker Daemon is installed and running.")
 
-    def build_host_list(self, basename: str, job: 'Job', run_domain_dir: str) -> list:
+    @staticmethod
+    def build_host_list(basename: str, job: 'Job', run_domain_dir: str) -> list:
         """
         build a list of strings that contain the container names and the allocated CPUs on the associated hosts
 
@@ -258,7 +259,7 @@ class Launcher:
         return host_str
 
     def load_image_and_domain(self, image_name: str, domain_name: str) -> tuple:
-        """
+        """ TODO make this a static method, pass in image_and_domain_list file path
         Read a list of image_name and domain_name from the yaml file: image_and_domain.yaml
         Derive domain directory to be used for computing
         The image_name needed and user requested domain_name must be in the list for a valid job request,
