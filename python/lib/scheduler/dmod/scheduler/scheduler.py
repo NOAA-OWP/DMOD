@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import logging
+from requests.exceptions import ReadTimeout
 import docker
 import yaml
 from typing import TYPE_CHECKING
@@ -143,22 +144,46 @@ class Launcher:
                                          restart_policy=restart)
         else:
             args = host_str
-            service = client.services.create(image = image,
-                                         command = ['/nwm/make_temp_dir.sh'],
-                                         args = args,
-                                         constraints = constraints,
-                                         hostname = hostname,
-                                         labels = serv_labels,
-                                         name = serv_name,
-                                         mounts = mounts,
-                                         networks = networks,
-                                         # user = user_id,
-                                         healthcheck = Healthcheck,
-                                         restart_policy=restart)
-
+            try:
+                service = client.services.create(image = image,
+                                             # command = ['sh', '-c', 'sudo /usr/sbin/sshd -D'],
+                                             command = ['/nwm/run_model.sh'],
+                                             args = args,
+                                             constraints = constraints,
+                                             hostname = hostname,
+                                             labels = serv_labels,
+                                             name = serv_name,
+                                             mounts = mounts,
+                                             networks = networks,
+                                             # user = user_id,
+                                             healthcheck = Healthcheck,
+                                             restart_policy=restart)
+            except ReadTimeout:
+                print("Connection to docker API timed out")
+                raise
         srv_basename = self.name
-        inspect = api_client.inspect_service(service.id, insert_defaults=True)
-        logging.info("Output from inspect_service in create_service():")
+        self.log_service(self.name, service.id)
+
+        return service
+
+    @staticmethod
+    def log_service(base_name: str, id: str):
+        """
+        Log information about service identified by base_name and id
+
+        Parameters
+        ----------
+        base_name
+            str containing the basename of the service, i.e. 'nwm-2.0'
+        id
+            identifier for the specific service, contatenated to base_name
+        """
+        #TODO how important is it to inspect/log from the same api/client as launcher is using?
+        api_client = docker.APIClient()
+        client = docker.from_env()
+        from inspect import stack
+        inspect = api_client.inspect_service(id, insert_defaults=True)
+        logging.info("Output from log_service in {}:".format(stack()[1].function))
         # pp(inspect)
         logging.info("CreatedAt = {}".format(list(pn.find('CreatedAt', inspect))[0]))
         Labels = list(pn.find('Labels', inspect))[0]
@@ -168,7 +193,7 @@ class Launcher:
         logging.info("HostNode = {}".format(HostNode))
         logging.info("\n")
         # test out some service functions
-        serv_list = client.services.list(filters={'name':srv_basename})[0]
+        serv_list = client.services.list(filters={'name':base_name})[0]
         service_id = serv_list.id
         logging.info("service_id: {}".format(service_id))
         service_name = serv_list.name
@@ -176,7 +201,8 @@ class Launcher:
         service_attrs = serv_list.attrs
         # pp(service_attrs)
         logging.info("\n")
-        return service
+        api_client.close()
+        client.close()
 
     def checkDocker(self):
         """Test that docker is up running"""
