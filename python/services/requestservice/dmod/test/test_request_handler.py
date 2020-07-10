@@ -10,6 +10,7 @@ import ssl
 import unittest
 
 
+# TODO: consider removing
 class TestRequestHandler(unittest.TestCase):
     _current_dir = Path(__file__).resolve().parent
     _json_schemas_dir = _current_dir.parent.joinpath('schemas')
@@ -20,8 +21,9 @@ class TestRequestHandler(unittest.TestCase):
     _ssl_dir = _current_dir.parent.parent.joinpath('communication', 'ssl')
     _localhost_pem = _ssl_dir.joinpath('certificate.pem')
     _host_name = gethostname()
-    
-    _client_ssl_context.load_verify_locations(_localhost_pem)
+
+    # TODO: may need to uncomment this if any tests are actually added to this class
+    #_client_ssl_context.load_verify_locations(_localhost_pem)
 
     @staticmethod
     def run_coroutine(coroutine):
