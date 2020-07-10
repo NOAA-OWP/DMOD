@@ -220,6 +220,8 @@ if [ -z "${SET_VERBOSE:-}" ]; then
     echo ""
 fi
 
+TOTAL_RESULT=0
+
 # Perform testing on the supported packages
 len=${#SUPPORTED_PACKAGES[@]}
 for (( i=0; i<${len}; i++)); do
@@ -231,6 +233,7 @@ for (( i=0; i<${len}; i++)); do
         _TEMP_FILE="./.run_tests_temp_package_test_output_${i}"
         test_package ${i} > "${_TEMP_FILE}" 2>&1
         _P_RES=${PACKAGE_RESULT[${i}]}
+        [ ${_P_RES} -eq 0 ] || TOTAL_RESULT=$((TOTAL_RESULT+1))
         _TEST_COUNTS=`cat "${_TEMP_FILE}" | grep Ran`
         _RESULTS=`cat "${_TEMP_FILE}" | tail -n 5 | grep -i 'fail\|ok'`
         echo "${SUPPORTED_PACKAGES[${i}]}: ${_RESULTS} (${_TEST_COUNTS})"
@@ -245,8 +248,6 @@ for (( i=0; i<${len}; i++)); do
         echo ""
     fi
 done
-
-TOTAL_RESULT=0
 
 # If we got verbose output, print summary at the end, along with something extra to have stand out
 if [ -n "${SET_VERBOSE:-}" ]; then
