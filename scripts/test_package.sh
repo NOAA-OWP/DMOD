@@ -5,6 +5,7 @@ SCRIPT_PARENT_DIR="$(cd "$(dirname "${0}")"; pwd)"
 
 # Set SHARED_FUNCS_DIR (as needed by default_script_setup.sh) to the correct path before using it to source its contents
 SHARED_FUNCS_DIR="${SCRIPT_PARENT_DIR}/shared"
+
 if [ ! -d "${SHARED_FUNCS_DIR}" ]; then
     >&2 echo "Error: could not find shared script functions script at expected location:"
     >&2 echo "    ${SHARED_FUNCS_DIR}"
@@ -149,7 +150,6 @@ generate_test_config()
     fi
 }
 
-
 while [ ${#} -gt 0 ]; do
     case "${1}" in
         --generate-config|-g)
@@ -227,24 +227,32 @@ while [ ${#} -gt 0 ]; do
     shift
 done
 
+verbose_output_both -n "Generating test config"
 generate_test_config
+verbose_output_both "Finished test config generation"
 
 # If this was set, then exit after generating the config
 [ -n "${JUST_GEN_CONFIG:-}" ] && exit
 
 [ -z "${TEST_FILE_PATTERN}" ] && TEST_FILE_PATTERN="${DEFAULT_UNIT_TEST_FILE_PATTERN}"
 
+verbose_output_both -n "Starting detecting default venv"\
 # Look for a default venv to use if needed
 py_dev_detect_default_venv_directory
+verbose_output_both -n "Finished detecting default venv"
 
 # Bail here if a valid venv is not set
 [ -z "${VENV_DIR:-}" ] && echo "Error: no valid virtual env directory could be determined or was given" && exit 1
 
 # Take appropriate action to activate the virtual environment if needed
+verbose_output_both -n "Activating venv if appropriate"
 py_dev_activate_venv
+verbose_output_both -n "Logic for venv activation completed"
 
 # Trap to make sure we "clean up" script activity before exiting
 trap cleanup_before_exit 0 1 2 3 6 15
+
+verbose_output_both -n "Cleaning up trailing slash for directory if present"
 
 # Clean up trailing slash if included on package dir arg, as it seems to mess things up
 PACKAGE_DIR="$(echo "${PACKAGE_DIR}" | sed 's|\(.*\)/$|\1|')"
@@ -318,13 +326,17 @@ echo "==========================================================================
 
 if [ "${DO_SETUP_IT}" = "true" ]; then
     # Source the setup file and env
+    [ -n "${SET_VERBOSE:-}" ] && echo "Sourcing integration testing functions" 2>&1 && echo "" 2>&1
     source_it_env_and_funcs
+    [ -n "${SET_VERBOSE:-}" ] && echo "Setting up integration tests environment" 2>&1 && echo "" 2>&1
     # Then run the setup function
     ${INTEGRATION_TEST_SETUP_FUNC}
 elif [ "${DO_TEARDOWN_IT}" = "true" ]; then
     # Source the setup file and env
+    [ -n "${SET_VERBOSE:-}" ] && echo "Sourcing integration testing functions" 2>&1 && echo "" 2>&1
     source_it_env_and_funcs
     # Then run the teardown function
+    [ -n "${SET_VERBOSE:-}" ] && echo "Tearing down integration tests environment" 2>&1 && echo "" 2>&1
     ${INTEGRATION_TEST_TEARDOWN_FUNC}
 elif [ "${TEST_FILE_PATTERN}" == "both" ]; then
     echo "Running unit tests:"
@@ -339,6 +351,7 @@ elif [ "${TEST_FILE_PATTERN}" == "both" ]; then
     _R_FINAL=$((_R1+_R2))
 
 else
+    [ -n "${SET_VERBOSE:-}" ] && echo "Executing unit test files" 2>&1 && echo "" 2>&1
     find_and_exec_test_files "${TEST_FILE_PATTERN}"
     _R_FINAL=${?}
 fi
