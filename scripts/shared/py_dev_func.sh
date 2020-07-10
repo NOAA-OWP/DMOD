@@ -44,17 +44,15 @@ py_dev_validate_venv_dir()
 py_dev_detect_default_venv_directory()
 {
     # Bail right away if VENV_DIR was already set
-    if [ -n "${VENV_DIR:-}" ]; then
-        return 0
+    if [ -z "${VENV_DIR:-}" ]; then
+        for d in "${STARTING_DIR:?}/venv" "${STARTING_DIR:?}/.venv" "${SCRIPT_PARENT_DIR:?}/venv" "${SCRIPT_PARENT_DIR:?}/.venv"; do
+            if py_dev_validate_venv_dir "${d}" > /dev/null; then
+                VENV_DIR="${d}"
+                echo "Detected default virtual env directory: ${VENV_DIR}"
+                break
+            fi
+        done
     fi
-
-    for d in "${STARTING_DIR:?}/venv" "${STARTING_DIR:?}/.venv" "${SCRIPT_PARENT_DIR:?}/venv" "${SCRIPT_PARENT_DIR:?}/.venv"; do
-        if py_dev_validate_venv_dir "${d}" > /dev/null; then
-            VENV_DIR="${d}"
-            echo "Detected default virtual env directory: ${VENV_DIR}"
-            break
-        fi
-    done
 }
 
 #
