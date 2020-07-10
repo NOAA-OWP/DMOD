@@ -1,0 +1,66 @@
+# Test changes that have been pushed to the master and dev branches
+
+name: Testing and Validation
+
+# Controls when the action will run.
+on:
+  push:
+    branches: [ master, dev, notreal ]
+  pull_request:
+    branches: [ master, dev, notreal ]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # Run unit tests on Python
+  test_unit_ubuntu_latest:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+
+      - name: Install python3-venv
+        run: sudo apt-get install -y python3-venv
+        timeout-minutes: 5
+
+      - name: Cache Python Venv
+        id: cache-python-venv
+        uses: actions/cache@v1
+        with:
+          path: dmod_venv
+          key: dmod-venv-dir
+
+      - name: Init Python Venv
+        if: steps.cache-python-venv.outputs.cache-hit != 'true'
+        run: |
+          python3 -m venv dmod_venv
+          . dmod_venv/bin/activate
+          pip install --upgrade pip
+          deactivate 
+          ./scripts/update_package.sh --venv dmod_venv -d
+
+      - name: Cache SSL Setup
+        id: cache-ssl-setup
+        uses: actions/cache@v1
+        with:
+          path: ssl
+          key: dmod-ssl-setup
+
+      # Set up the SSL directory
+      # TODO: use more project-generic choice for email address for generated certs
+      - name: Setup SSL
+        if: steps.cache-ssl-setup.outputs.cache-hit != 'true'
+        run: |
+          mkdir ssl
+          mkdir ssl/local
+          mkdir ssl/requestservice
+          mkdir ssl/scheduler
+          ./scripts/gen_cert.sh -d ssl/local -email robert.bartel@noaa.gov
+          cp -a ssl/local/*.pem ssl/requestservice/.
+          cp -a ssl/local/*.pem ssl/scheduler/.
+
+      - name: Run Tests
+        run: ./scripts/run_tests.sh --venv dmod_venv -v -srv
+        timeout-minutes: 1
