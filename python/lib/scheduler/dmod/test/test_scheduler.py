@@ -3,6 +3,26 @@ from pathlib import Path
 from ..scheduler.scheduler import Launcher
 from . import mock_job
 
+
+class NoCheckDockerLauncher(Launcher):
+    """
+    Extension of Docker launcher class, strictly for unit testing, which overrides the implementation of the
+    ::method:`Launcher.checkDocker` method to not perform check of the OS-level Docker application/service.
+    """
+
+    def __init__(self, images_and_domains_yaml, docker_client=None, api_client=None, **kwargs):
+        super().__init__(images_and_domains_yaml=images_and_domains_yaml,
+                         docker_client=docker_client,
+                         api_client=api_client,
+                         **kwargs)
+
+    def checkDocker(self):
+        """
+        Override of superclass method to not actually perform check (i.e., when unit testing).
+        """
+        pass
+
+
 class TestLauncher(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -10,7 +30,7 @@ class TestLauncher(unittest.TestCase):
         self.user_name = 'test'
 
         #Create a launcher TODO only test static methods here, no instance so no docker neeeded
-        self.launcher = Launcher(images_and_domains_yaml=yaml_file)
+        self.launcher = NoCheckDockerLauncher(images_and_domains_yaml=yaml_file)
 
     def tearDown(self) -> None:
         #This class should only test static methods and work without docker FIXME
