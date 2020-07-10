@@ -80,16 +80,26 @@ determine_supported_packages()
     spi=0
     for i in ${LIB_PACKAGE_DIRS[@]}; do
         if [ $(find ${i} -type d -name test | wc -l) -gt 0 ]; then
-            SUPPORTED_PACKAGES[${spi}]="${i}"
-            spi=$((spi+1))
+            for j in $(find ${i} -type d -name test); do
+                if [ $(find ${j} -type f -name "*.py" | wc -l) -gt 0 ]; then
+                    SUPPORTED_PACKAGES[${spi}]="${i}"
+                    spi=$((spi+1))
+                    break
+                fi
+            done
         fi
     done
 
     if [ -n "${DO_SERVICE_PACKAGES:-}" ]; then
         for i in ${SERVICE_PACKAGE_DIRS[@]}; do
             if [ $(find ${i} -type d -name test | wc -l) -gt 0 ]; then
-                SUPPORTED_PACKAGES[${spi}]="${i}"
-                spi=$((spi+1))
+                for j in $(find ${i} -type d -name test); do
+                    if [ $(find ${j} -type f -name "*.py" | wc -l) -gt 0 ]; then
+                        SUPPORTED_PACKAGES[${spi}]="${i}"
+                        spi=$((spi+1))
+                        break
+                    fi
+                done
             fi
         done
     fi
