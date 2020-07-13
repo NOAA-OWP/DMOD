@@ -131,7 +131,7 @@ cleanup_before_exit()
 
 generate_test_config()
 {
-    if [ -e "${PROJECT_ROOT:?}/${TEST_ENV_FILE_BASENAME:?}" ]; then
+    if [ -e "${PROJECT_ROOT:?No project root set}/${TEST_ENV_FILE_BASENAME:?No test env basename set}" ]; then
         # Add a little output if JUST_GEN_CONFIG was set and the config already exists
         if [ -n "${JUST_GEN_CONFIG:-}" ]; then
             echo "Project global ${TEST_ENV_FILE_BASENAME} already exists; exiting"
@@ -140,7 +140,8 @@ generate_test_config()
         # If file doesn't already exist, create a global .test_env file
 
         # Generate a random value for things below that we don't set explicitly
-        _RAND="$(export LC_CTYPE=C; cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1)"
+        _PY_CODE="import random; import string; print(''.join(random.choice(string.ascii_letters) for i in range(32)))"
+        _RAND="$(python -c "${_PY_CODE}")"
 
         # Cat the example file and set the value strings, either specifically or with randomized values
         cat "${PROJECT_ROOT}/example_test_env" \
@@ -229,7 +230,7 @@ done
 
 verbose_output_both -n "Generating test config"
 generate_test_config
-verbose_output_both "Finished test config generation"
+verbose_output_both -n "Finished test config generation"
 
 # If this was set, then exit after generating the config
 [ -n "${JUST_GEN_CONFIG:-}" ] && exit
