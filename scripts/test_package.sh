@@ -94,6 +94,21 @@ Options:
     echo "${_O}" 2>&1
 }
 
+verbose_output_both()
+{
+    local _NL=""
+
+    if [ "${1}" = "-n" ]; then
+        _NL="${1}"
+        shift
+    fi
+
+    if [ -n "${SET_VERBOSE:-}" ]; then
+        echo "${@}" 2>&1
+        [ -n "${_NL}" ] && echo "" 2>&1
+    fi
+}
+
 # Make sure we end up in the same starting directory, and deactivate venv if it was activated
 cleanup_before_exit()
 {
