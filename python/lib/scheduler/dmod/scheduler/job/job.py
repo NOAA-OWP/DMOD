@@ -584,7 +584,7 @@ class JobImpl(Job):
         Optional[str]
             The unique job id for this job in the manager, if one has been set for it, or ``None``.
         """
-        return self.job_uuid.bytes if isinstance(self.job_uuid, UUID) else None
+        return str(self.job_uuid) if isinstance(self.job_uuid, UUID) else None
 
     @job_id.setter
     def job_id(self, job_id: Union[str, UUID]):
