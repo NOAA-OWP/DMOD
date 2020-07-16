@@ -553,7 +553,7 @@ class JobImpl(Job):
 
     @property
     def allocations(self) -> Optional[Tuple[ResourceAllocation]]:
-        return tuple(self._allocations)
+        return None if self._allocations is None else tuple(self._allocations)
 
     @allocations.setter
     def allocations(self, allocations: Union[List[ResourceAllocation], Tuple[ResourceAllocation]]):
