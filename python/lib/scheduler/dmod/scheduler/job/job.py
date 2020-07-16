@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from dmod.communication import SchedulerRequestMessage
 from enum import Enum
-from typing import List, Optional, TYPE_CHECKING, Union
+from typing import List, Optional, Tuple, TYPE_CHECKING, Union
 from uuid import UUID
 
 from ..resources import ResourceAllocation
@@ -344,7 +344,7 @@ class Job(ABC):
 
     @property
     @abstractmethod
-    def allocations(self) -> Optional[List[ResourceAllocation]]:
+    def allocations(self) -> Optional[Tuple[ResourceAllocation]]:
         """
         The resource allocations that have been allocated for this job.
 
@@ -513,8 +513,9 @@ class JobImpl(Job):
             A resource allocation object to add.
         """
         if self._allocations is None:
-            self.allocations = list()
-        self.allocations.append(allocation)
+            self._allocations = list()
+        self._allocations.append(allocation)
+        self._reset_last_updated()
 
     @property
     def allocation_paradigm(self) -> JobAllocationParadigm:
@@ -551,12 +552,15 @@ class JobImpl(Job):
         self._reset_last_updated()
 
     @property
-    def allocations(self) -> Optional[List[ResourceAllocation]]:
-        return self._allocations
+    def allocations(self) -> Optional[Tuple[ResourceAllocation]]:
+        return tuple(self._allocations)
 
     @allocations.setter
-    def allocations(self, allocations: List[ResourceAllocation]):
-        self._allocations = allocations
+    def allocations(self, allocations: Union[List[ResourceAllocation], Tuple[ResourceAllocation]]):
+        if isinstance(allocations, tuple):
+            self._allocations = list(allocations)
+        else:
+            self._allocations = allocations
         self._reset_last_updated()
 
     @property
