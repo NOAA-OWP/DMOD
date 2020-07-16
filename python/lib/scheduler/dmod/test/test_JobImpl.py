@@ -1,5 +1,6 @@
 import unittest
 from ..scheduler.job.job import JobImpl
+from ..scheduler.resources.resource_allocation import ResourceAllocation
 from uuid import UUID
 
 
@@ -8,8 +9,12 @@ class TestJobImpl(unittest.TestCase):
     def setUp(self) -> None:
         self._example_jobs = []
         self._example_jobs.append(JobImpl(4, 1000, parameters={}, allocation_paradigm_str='single-node'))
+
         self._uuid_str_vals = []
         self._uuid_str_vals.append('12345678-1234-5678-1234-567812345678')
+
+        self._resource_allocations = []
+        self._resource_allocations.append(ResourceAllocation('node001', 'node001', 4, 1000))
 
     def tearDown(self) -> None:
         pass
@@ -65,3 +70,119 @@ class TestJobImpl(unittest.TestCase):
         job.job_id = uuid_as_str
 
         self.assertLess(initial_last_updated, job.last_updated)
+
+    # Test that add_allocation works
+    def test_add_allocation_1_a(self):
+        example_index_job = 0
+        example_index_allocation = 0
+
+        allocation = self._resource_allocations[example_index_allocation]
+        job = self._example_jobs[example_index_job]
+        self.assertIsNone(job.allocations)
+
+        job.add_allocation(allocation)
+        self.assertEqual(len(job.allocations), 1)
+
+    # Test that add_allocation adds the expected allocation
+    def test_add_allocation_1_b(self):
+        example_index_job = 0
+        example_index_allocation = 0
+
+        allocation = self._resource_allocations[example_index_allocation]
+        job = self._example_jobs[example_index_job]
+
+        job.add_allocation(allocation)
+        self.assertEqual(allocation, job.allocations[0])
+
+    # Test that add_allocation updates last_updated
+    def test_add_allocation_1_c(self):
+        example_index_job = 0
+        example_index_allocation = 0
+
+        allocation = self._resource_allocations[example_index_allocation]
+        job = self._example_jobs[example_index_job]
+        initial_last_update = job.last_updated
+        job.add_allocation(allocation)
+
+        self.assertLess(initial_last_update, job.last_updated)
+
+    # Test that allocation setter works with list
+    def test_allocations_1_a(self):
+        example_index_job = 0
+        example_index_allocation = 0
+
+        allocation = self._resource_allocations[example_index_allocation]
+        allocations = [allocation]
+        job = self._example_jobs[example_index_job]
+
+        self.assertIsNone(job.allocations)
+        job.allocations = allocations
+        self.assertIsNotNone(job.allocations)
+
+    # Test that allocation setter works with tuple
+    def test_allocations_1_b(self):
+        example_index_job = 0
+        example_index_allocation = 0
+
+        allocation = self._resource_allocations[example_index_allocation]
+        allocations = (allocation,)
+        job = self._example_jobs[example_index_job]
+
+        self.assertIsNone(job.allocations)
+        job.allocations = allocations
+        self.assertIsNotNone(job.allocations)
+
+    # Test that allocation setter works correctly with list
+    def test_allocations_1_c(self):
+        example_index_job = 0
+        example_index_allocation = 0
+
+        allocation = self._resource_allocations[example_index_allocation]
+        allocations = [allocation]
+        job = self._example_jobs[example_index_job]
+        job.allocations = allocations
+        self.assertEqual(len(allocations), len(job.allocations))
+        for i in range(len(allocations)):
+            self.assertEqual(allocations[i], job.allocations[i])
+
+    # Test that allocation setter works correctly with tuple
+    def test_allocations_1_d(self):
+        example_index_job = 0
+        example_index_allocation = 0
+
+        allocation = self._resource_allocations[example_index_allocation]
+        allocations = (allocation,)
+        job = self._example_jobs[example_index_job]
+        job.allocations = allocations
+        self.assertEqual(len(allocations), len(job.allocations))
+        for i in range(len(allocations)):
+            self.assertEqual(allocations[i], job.allocations[i])
+
+    # Test that allocation setter updates last_updated correctly with list
+    def test_allocations_1_e(self):
+        example_index_job = 0
+        example_index_allocation = 0
+
+        allocation = self._resource_allocations[example_index_allocation]
+        allocations = [allocation]
+        job = self._example_jobs[example_index_job]
+        initial_last_updated = job.last_updated
+        job.allocations = allocations
+        self.assertLess(initial_last_updated, job.last_updated)
+
+    # Test that allocation setter updates last_updated correctly with tuple
+    def test_allocations_1_f(self):
+        example_index_job = 0
+        example_index_allocation = 0
+
+        allocation = self._resource_allocations[example_index_allocation]
+        allocations = (allocation,)
+        job = self._example_jobs[example_index_job]
+        initial_last_updated = job.last_updated
+
+        job.allocations = allocations
+        self.assertLess(initial_last_updated, job.last_updated)
+
+    # TODO: add tests for rest of setters that should update last_updated property
+
+    # TODO: add tests for status_phase and status_step
