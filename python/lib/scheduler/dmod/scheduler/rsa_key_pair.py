@@ -1,15 +1,16 @@
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
+from dmod.communication.serializeable import Serializable
 from pathlib import Path
-from typing import Union
+from typing import Dict, Union
 import datetime
 import os
 
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKeyWithSerialization
 
 
-class RsaKeyPair:
+class RsaKeyPair(Serializable):
     """
     Representation of an RSA key pair and certain meta properties, in particular a name for the key and a pair of
     :class:`Path` objects for its private and public key files. Keys may be either dynamically generated or deserialized
@@ -37,6 +38,117 @@ class RsaKeyPair:
         self.generation_time == datetime.datetime.fromtimestamp(os.path.getctime(str(self.private_key_file)))
 
     """
+
+    _SERIAL_KEY_DIRECTORY = 'directory'
+    _SERIAL_KEY_NAME = 'name'
+    _SERIAL_KEY_PRIVATE_KEY = 'private_key'
+    _SERIAL_KEY_GENERATION_TIME = 'generation_time'
+    _SERIAL_KEYS_REQUIRED = [_SERIAL_KEY_DIRECTORY, _SERIAL_KEY_PRIVATE_KEY, _SERIAL_KEY_GENERATION_TIME]
+
+    @classmethod
+    def _deserialize_instance_keys_from_text(cls, key_pair_obj: 'RsaKeyPair', priv_key_str: str):
+        """
+        Deserialize the member private and public keys appropriately for the given instance and write backing files,
+        using/leaving any existing files if the private key file corresponds to the given private key text.
+
+        Parameters
+        ----------
+        key_pair_obj : RsaKeyPair
+            An RSA key object needing it's keys deserialized and its key files written.
+        priv_key_str : str
+            The string form of the appropriate private key text for the RSA key, which takes priority over a value
+            derived from any current private key file for the RSA key.
+        """
+        # Track whether we need to write the private key file so the logic only has to be in one place
+        needs_write_priv_key_file = True
+
+        # Check if there is already the private key file and it has the correct key
+        if key_pair_obj.private_key_file.exists():
+            # Initially set this false in this case
+            needs_write_priv_key_file = False
+            try:
+                # If the private key from existing file didn't load or doesn't match, reset and write new
+                if key_pair_obj.private_key_pem is None or priv_key_str != key_pair_obj.private_key_pem.decode('utf-8'):
+                    raise RuntimeError('clearing initial key and re-initializing')
+            except:
+                # Reset the new object if the above check of the private key file doesn't match deserialized value
+                key_pair_obj._priv_key = None
+                key_pair_obj._priv_key_pem = None
+                key_pair_obj._pub_key = None
+                key_pair_obj._private_key_text = None
+                key_pair_obj._public_key_text = None
+                key_pair_obj._is_deserialized = None
+                key_pair_obj._files_written = False
+                # Since we reset, change this back also
+                needs_write_priv_key_file = True
+
+        if needs_write_priv_key_file:
+            # Write text for private key to appropriate file so object can deserialize private key from that
+            key_pair_obj.private_key_file.write_text(priv_key_str)
+            # Also, if the private key file needed to be written, remove any existing public key file
+            key_pair_obj.public_key_file.unlink(missing_ok=True)
+
+        # Make sure public key file is written when not existing
+        # Use instance method to trigger deserialization of private key object from its file also
+        key_pair_obj.write_key_files(write_private=False, write_public=True)
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: Dict[str, str]):
+        """
+        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
+
+        The format should be as follows:
+
+            {
+                'name': 'name_value',
+                'directory': 'directory_path_as_string',
+                'private_key': 'private_key_text',
+                'generation_time': 'generation_time_str'
+            }
+
+        Parameters
+        ----------
+        json_obj : dict
+            A serialized representation of an instance, in the form of a JSON dictionary object.
+
+        Returns
+        -------
+        Optional[RsaKeyPair]
+            A new key pair object instantiated from the deserialize JSON object dictionary, or ``None`` if the provided
+            JSON object is not valid for creating a new instance.
+        """
+        err_msg_start = 'Cannot deserialize {} object'.format(cls.__name__)
+
+        name_val = json_obj[cls._SERIAL_KEY_NAME] if json_obj[cls._SERIAL_KEY_NAME] else None
+        try:
+            for key in cls._SERIAL_KEYS_REQUIRED:
+                if key not in json_obj:
+                    raise RuntimeError('{}: missing required serial {} key'.format(err_msg_start, key))
+
+            gen_time_str = json_obj[cls._SERIAL_KEY_GENERATION_TIME]
+            gen_time_val = None
+            try:
+                gen_time_val = datetime.datetime.strptime(gen_time_str, cls.get_datetime_str_format())
+            except:
+                raise RuntimeError('{}: invalid format for generation time ({})'.format(err_msg_start, gen_time_str))
+
+            dir = json_obj[cls._SERIAL_KEY_DIRECTORY]
+            try:
+                new_obj = RsaKeyPair(directory=dir) if name_val is None else RsaKeyPair(directory=dir, name=name_val)
+            except ValueError as ve:
+                raise RuntimeError('{}: problem with directory - {}'.format(err_msg_start, str(ve)))
+
+            new_obj._generation_time = gen_time_val
+
+            # Make sure members are deserialized and files are written properly
+            cls._deserialize_instance_keys_from_text(key_pair_obj=new_obj,
+                                                     priv_key_str=json_obj[cls._SERIAL_KEY_PRIVATE_KEY])
+            # Finally, return the instance
+            return new_obj
+
+        except RuntimeError as e:
+            # TODO: log error
+            return None
 
     def __eq__(self, other: 'RsaKeyPair') -> bool:
         return self.generation_time == other.generation_time \
@@ -199,8 +311,8 @@ class RsaKeyPair:
     @property
     def is_deserialized(self) -> bool:
         """
-        Whether this object was deserialized from an already-existing file, as opposed to being created and dynamically
-        generating its keys.
+        Whether this object was deserialized from an already-existing file or serialized object, as opposed to being
+        created and dynamically generating its keys.
 
         pre: self._is_deserialized is not None or self._priv_key is None
 
@@ -290,6 +402,31 @@ class RsaKeyPair:
         if self._public_key_file is None:
             self._public_key_file = None if self.directory is None else self.directory.joinpath(self._name + '.pub')
         return self._public_key_file
+
+    def to_dict(self) -> Dict[str, str]:
+        """
+        Serialize to a dictionary representation of string keys and values.
+
+        The format is as follows:
+
+            {
+                'name': 'name_value',
+                'directory': 'directory_path_as_string',
+                'private_key': 'private_key_text',
+                'generation_time': 'generation_time_str'
+            }
+
+        Returns
+        -------
+        Dict[str, str]
+            The serialized form of this instance as a dictionary object with string keys and string values.
+        """
+        return {
+            self._SERIAL_KEY_NAME: self.name,
+            self._SERIAL_KEY_DIRECTORY: str(self.directory),
+            self._SERIAL_KEY_PRIVATE_KEY: self._get_private_key_text(),
+            self._SERIAL_KEY_GENERATION_TIME: self.generation_time
+        }
 
     def write_key_files(self, write_private=True, write_public=True):
         """
