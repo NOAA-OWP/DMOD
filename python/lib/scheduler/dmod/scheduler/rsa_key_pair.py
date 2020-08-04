@@ -86,6 +86,9 @@ class RsaKeyPair:
         self._is_deserialized = None
         self._generation_time = None
         self._files_written = False
+        # Track whether actually in the process of writing something already, to not double-write during lazy load
+        self._is_writing_private_file = False
+        self._is_writing_public_file = False
 
     def __hash__(self) -> int:
         hash_str = '{}:{}:{}'.format(self._get_private_key_text(),
@@ -301,9 +304,32 @@ class RsaKeyPair:
         write_public : bool
             An option, ``True`` by default, for whether the public key should be written to :attr:`public_key_file`
         """
-        self._load_key_text()
-        if write_private and not self.private_key_file.exists():
-            self.private_key_file.write_text(self._get_private_key_text())
-            self._is_deserialized = False
-        if write_public and not self.public_key_file.exists():
-            self.public_key_file.write_text(self._public_key_text)
+        # Keep track of whether we are in the process of writing public/private files.
+        # Also, adjust parameter values based on whether this is nested inside another call due to lazy loading.
+        # I.e., both the param and the corresponding instance variable will only be True for the highest applicable
+        # call/scope in the stack.
+        if self._is_writing_private_file:
+            write_private = False
+        else:
+            self._is_writing_private_file = write_private
+
+        if self._is_writing_public_file:
+            write_public = False
+        else:
+            self._is_writing_public_file = write_public
+
+        # Next, actually perform the writes, loading things as necessary via property getters
+        try:
+            self._load_key_text()
+            if write_private and not self.private_key_file.exists():
+                self.private_key_file.write_text(self._get_private_key_text())
+                self._is_deserialized = False
+            if write_public and not self.public_key_file.exists():
+                self.public_key_file.write_text(self._public_key_text)
+        finally:
+            # Finally, put back instance values to False appropriately if True and the param is True (indicating this is
+            # the highest call in the stack and should not be skipped for the public/private key file)
+            if self._is_writing_private_file and write_private:
+                self._is_writing_private_file = False
+            if self._is_writing_public_file and write_public:
+                self._is_writing_public_file = False
