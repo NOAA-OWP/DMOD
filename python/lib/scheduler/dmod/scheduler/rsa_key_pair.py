@@ -168,7 +168,7 @@ class RsaKeyPair(Serializable):
     def __hash__(self) -> int:
         hash_str = '{}:{}:{}'.format(self._get_private_key_text(),
                                      str(self.private_key_file.absolute()),
-                                     self.generation_time.strftime('%Y-%m-%d,%H:%M:%S.%f'))
+                                     self.generation_time.strftime(self.get_datetime_str_format()))
         return hash_str.__hash__()
 
     def __le__(self, other: 'RsaKeyPair') -> bool:
@@ -388,7 +388,7 @@ class RsaKeyPair(Serializable):
             self._SERIAL_KEY_NAME: self.name,
             self._SERIAL_KEY_DIRECTORY: str(self.directory),
             self._SERIAL_KEY_PRIVATE_KEY: self._get_private_key_text(),
-            self._SERIAL_KEY_GENERATION_TIME: self.generation_time
+            self._SERIAL_KEY_GENERATION_TIME: self.generation_time.strftime(self.get_datetime_str_format())
         }
 
     def write_key_files(self, write_private=True, write_public=True):
