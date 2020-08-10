@@ -10,6 +10,8 @@ class Serializable(ABC):
     Objects of this type will also used the JSON string format as their default string representation.
     """
 
+    _SERIAL_DATETIME_STR_FORMAT = '%Y-%m-%d %H:%M:%S'
+
     @classmethod
     @abstractmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
@@ -25,6 +27,21 @@ class Serializable(ABC):
         A new object of this type instantiated from the deserialize JSON object dictionary
         """
         pass
+
+    @classmethod
+    def get_datetime_str_format(cls):
+        """
+        Get the string representation of the datetime format pattern for serializing date and time objects used by this
+        class.
+
+        Returns
+        -------
+        str
+            The string representation of the datetime format pattern for serializing date and time objects used by this
+            class.
+        """
+
+        return cls._SERIAL_DATETIME_STR_FORMAT
 
     @abstractmethod
     def to_dict(self) -> dict:
