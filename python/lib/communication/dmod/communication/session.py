@@ -5,7 +5,8 @@ from .message import AbstractInitRequest, MessageEventType, Response
 from .serializeable import Serializable
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional, Union
+from numbers import Number
+from typing import Dict, Optional, Union
 
 
 class SessionInitFailureReason(Enum):
@@ -63,13 +64,18 @@ class Session(Serializable):
         -------
         A new object of this type instantiated from the deserialize JSON object dictionary
         """
-        return cls(session_id=json_obj['session_id'],
-                   session_secret=json_obj['session_secret'],
-                   created=json_obj['created'],
-                   last_accessed=json_obj['last_accessed'])
+        int_converter = lambda x: int(x)
+        str_converter = lambda s: str(s)
+        date_converter = lambda date_str: datetime.datetime.strptime(date_str, cls.get_datetime_str_format())
+
+        return cls(session_id=cls.parse_simple_serialized(json_obj, 'session_id', int, True, int_converter),
+                   session_secret=cls.parse_simple_serialized(json_obj, 'session_secret', str, False, str_converter),
+                   created=cls.parse_simple_serialized(json_obj, 'created', datetime.datetime, False, date_converter),
+                   last_accessed=cls.parse_simple_serialized(json_obj, 'last_accessed', datetime.datetime, False,
+                                                             date_converter))
 
     @classmethod
-    def get_datetime_format(cls):
+    def get_datetime_str_format(cls):
         return cls._DATETIME_FORMAT
 
     @classmethod
@@ -190,9 +196,12 @@ class Session(Serializable):
         for attr in self._serialized_attributes:
             attr_val = getattr(self, attr)
             if isinstance(attr_val, datetime.datetime):
-                attributes[attr] = attr_val.strftime(Session._DATETIME_FORMAT)
+                attributes[attr] = attr_val.strftime(self.get_datetime_str_format())
+            elif isinstance(attr_val, Number) or isinstance(attr_val, str):
+                attributes[attr] = attr_val
             else:
-                attributes[attr] = getattr(self, attr)
+                attributes[attr] = str(attr_val)
+
         return attributes
 
     def get_as_json(self) -> str:
@@ -268,13 +277,18 @@ class FullAuthSession(Session):
         -------
         A new object of this type instantiated from the deserialize JSON object dictionary
         """
+        # TODO: these are duplicated ... try to improve on that
+        int_converter = lambda x: int(x)
+        str_converter = lambda s: str(s)
+        date_converter = lambda date_str: datetime.datetime.strptime(date_str, cls.get_datetime_str_format())
+
         try:
-            return cls(session_id=json_obj['session_id'],
-                       session_secret=json_obj['session_secret'],
-                       created=json_obj['created'],
-                       ip_address=json_obj['ip_address'],
-                       user=json_obj['user'],
-                       last_accessed=json_obj['last_accessed'])
+            return cls(session_id=cls.parse_simple_serialized(json_obj, 'session_id', int, True, int_converter),
+                       session_secret=cls.parse_simple_serialized(json_obj, 'session_secret', str, False, str_converter),
+                       created=cls.parse_simple_serialized(json_obj, 'created', datetime.datetime, False, date_converter),
+                       ip_address=cls.parse_simple_serialized(json_obj, 'ip_address', str, True, str_converter),
+                       user=cls.parse_simple_serialized(json_obj, 'user', str, True, str_converter),
+                       last_accessed=cls.parse_simple_serialized(json_obj, 'last_accessed', datetime.datetime, False, date_converter))
         except:
             return Session.factory_init_from_deserialized_json(json_obj)
 
@@ -355,34 +369,23 @@ class FailedSessionInitInfo(Serializable):
     """
 
     @classmethod
-    def get_datetime_format(cls):
-        return Session.get_datetime_format()
+    def get_datetime_str_format(cls):
+        return Session.get_datetime_str_format()
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
+        date_converter = lambda date_str: datetime.datetime.strptime(date_str, cls.get_datetime_str_format())
+        reason_converter = lambda r: SessionInitFailureReason[r]
         try:
-            # Allow for fail_time to be not present or set to None ...
-            if 'fail_time' not in json_obj or json_obj['fail_time'] is None:
-                fail_time = None
-            # ... or to be already a datetime object ...
-            elif isinstance(json_obj['fail_time'], datetime.datetime):
-                fail_time = json_obj['fail_time']
-            # ... or to be a string that can be parsed to a datetime object (or else throw exception and return None)
-            else:
-                fail_time = datetime.datetime.strptime(json_obj['fail_time'], cls.get_datetime_format())
+            user = cls.parse_simple_serialized(json_obj, 'user', str, True)
+            fail_time = cls.parse_simple_serialized(json_obj, 'fail_time', datetime.datetime, False, date_converter)
+            reason = cls.parse_simple_serialized(json_obj, 'reason', SessionInitFailureReason, False, reason_converter)
+            details = cls.parse_simple_serialized(json_obj, 'details', str, False)
 
-            # Similarly, allow reason to be unspecified or None (i.e., UNKNOWN) ...
-            if 'reason' not in json_obj or json_obj['reason'] is None:
-                reason = SessionInitFailureReason.UNKNOWN
-            # ... or to be already a SessionInitFailureReason object ...
-            elif isinstance(json_obj['reason'], SessionInitFailureReason):
-                reason = json_obj['reason']
-            # ... or to be a valid SessionInitFailureReason name
+            if reason is None:
+                FailedSessionInitInfo(user=user, fail_time=fail_time, details=details)
             else:
-                reason = SessionInitFailureReason[json_obj['reason']]
-
-            return FailedSessionInitInfo(user=json_obj['user'], reason=reason, fail_time=fail_time,
-                                         details=json_obj['details'])
+                return FailedSessionInitInfo(user=user, reason=reason, fail_time=fail_time, details=details)
         except:
             return None
 
@@ -400,9 +403,32 @@ class FailedSessionInitInfo(Serializable):
         self.fail_time = fail_time if fail_time is not None else datetime.datetime.now()
         self.details = details
 
-    def to_dict(self) -> dict:
-        fail_time_str = self.fail_time.strftime(self.get_datetime_format()) if self.fail_time is not None else None
-        return {'user': self.user, 'reason': self.reason, 'fail_time': fail_time_str, 'details': self.details}
+    def to_dict(self) -> Dict[str, str]:
+        """
+        Get the representation of this instance as a serialized dictionary or dictionary-like object (e.g., a JSON
+        object).
+
+        Since the returned value must be serializable and JSON-like, key and value types are restricted.  For this
+        implementation, all keys and values in the returned dictionary must be strings.  Thus, for the
+        ::attribute:`fail_time` and ::attribute:`details` attributes, there should be no key or value if the attribute
+        has a current value of ``None``.
+
+        Returns
+        -------
+        Dict[str, str]
+            The representation of this instance as a serialized dictionary or dictionary-like object, with valid types
+            of keys and values.
+
+        See Also
+        -------
+        ::method:`Serializable.to_dict`
+        """
+        result = {'user': self.user, 'reason': self.reason.value}
+        if self.fail_time is not None:
+            result['fail_time'] = self.fail_time.strftime(self.get_datetime_str_format())
+        if self.details is not None:
+            result['details'] = self.details
+        return result
 
 
 # Define this custom type here for hinting
