@@ -114,7 +114,8 @@ class RsaKeyPair(Serializable):
             return None
 
     def __eq__(self, other: 'RsaKeyPair') -> bool:
-        return self.generation_time == other.generation_time \
+        return other is not None \
+               and self.generation_time == other.generation_time \
                and self._get_private_key_text() == other._get_private_key_text() \
                and self.private_key_file.absolute() == other.private_key_file.absolute()
 
