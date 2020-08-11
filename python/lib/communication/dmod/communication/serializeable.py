@@ -44,14 +44,26 @@ class Serializable(ABC):
         return cls._SERIAL_DATETIME_STR_FORMAT
 
     @abstractmethod
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
         """
-        Get the representation of this instance as a dictionary or dictionary-like object (e.g., a JSON object).
+        Get the representation of this instance as a serialized dictionary or dictionary-like object (e.g., a JSON
+        object).
+
+        Since the returned value must be serializable and JSON-like, key and value types are restricted.  In particular,
+        the returned value type, which this docstring will call ``D``, must adhere to the criteria defined below:
+
+        * ``D`` : a ``dict`` with ``str`` keys and with all values being of some type within the defined set ``T``
+        * ``T`` : a set of types containing the following:
+            * ``str``
+            * ::class:``Number`
+            * ``D``
+            * ``list`` with all elements being some type within the defined set ``T``
 
         Returns
         -------
-        dict
-            the representation of this instance as a dictionary or dictionary-like object (e.g., a JSON object)
+        Dict[str, Union[str, Number, dict, list]]
+            The representation of this instance as a serialized dictionary or dictionary-like object, with valid types
+            of keys and values.
         """
         pass
 
