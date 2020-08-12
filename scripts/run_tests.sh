@@ -131,15 +131,25 @@ print_test_result()
 
 test_package_quietly()
 {
-    ${PACKAGE_TESTING_SCRIPT} ${IT_ARG:-} ${VERBOSE_ARG:-} ${SUPPORTED_PACKAGES[${1}]} > /dev/null 2>&1
-    return $?
+    if [ -n "${VENV_DIR:-}" ]; then
+        ${PACKAGE_TESTING_SCRIPT} --venv "${VENV_DIR}" ${IT_ARG:-} ${VERBOSE_ARG:-} ${SUPPORTED_PACKAGES[${1}]} > /dev/null 2>&1
+        return $?
+    else
+        ${PACKAGE_TESTING_SCRIPT} ${IT_ARG:-} ${VERBOSE_ARG:-} ${SUPPORTED_PACKAGES[${1}]} > /dev/null 2>&1
+        return $?
+    fi
 }
 
 test_package()
 {
     echo "${SUPPORTED_PACKAGES[${1}]}"
-    ${PACKAGE_TESTING_SCRIPT} ${IT_ARG:-} ${VERBOSE_ARG:-} ${SUPPORTED_PACKAGES[${1}]}
-    PACKAGE_RESULT[${1}]=$?
+    if [ -n "${VENV_DIR:-}" ]; then
+        ${PACKAGE_TESTING_SCRIPT} --venv "${VENV_DIR}" ${IT_ARG:-} ${VERBOSE_ARG:-} ${SUPPORTED_PACKAGES[${1}]}
+        PACKAGE_RESULT[${1}]=$?
+    else
+        ${PACKAGE_TESTING_SCRIPT} ${IT_ARG:-} ${VERBOSE_ARG:-} ${SUPPORTED_PACKAGES[${1}]}
+        PACKAGE_RESULT[${1}]=$?
+    fi
     return ${PACKAGE_RESULT[${1}]}
 }
 
