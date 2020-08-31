@@ -6,7 +6,7 @@ FROM ${DOCKER_INTERNAL_REGISTRY}/nwm-base
 USER root
 ARG REPOS="http://dl-cdn.alpinelinux.org/alpine/edge/testing"
 # Building hdf5 from source for parallel support, otherwise add hdf5 hdf5-dev to the list below
-ARG REQUIRE="sudo build-base gfortran openssl curl curl-dev tar git m4 zlib-dev"
+ARG REQUIRE="sudo build-base gfortran openssl curl curl-dev tar git m4 zlib-dev libexecinfo-dev"
 
 # ARG NETCDF_C_VERSION="latest"
 #ARG NETCDF_C_VERSION="v4.6.0"
