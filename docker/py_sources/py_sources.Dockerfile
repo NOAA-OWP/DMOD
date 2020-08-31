@@ -2,6 +2,8 @@
 ################################################################################################################
 ##### Create base level intermediate build stage
 FROM python:3.7-alpine as basis
+ARG REQUIRE="gcc musl-dev libffi-dev"
+RUN apk update && apk upgrade && apk add --no-cache ${REQUIRE}
 # Copy project requirements file, which should have everything needed to build any package within project
 COPY ./requirements.txt /nwm_service/requirements.txt
 # Along with setup and wheel to build, install all project pip dependencies for package building later
