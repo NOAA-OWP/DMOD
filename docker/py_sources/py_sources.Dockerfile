@@ -29,7 +29,7 @@ ARG externalrequests_package_name
 ARG scheduler_package_name
 # Set this so script below will not run logic that only applies to when in a full Git repo directory tree
 ENV OUT_OF_GIT_REPO=true
-RUN for p in communication access externalrequests scheduler; do \
+RUN for p in communication access externalrequests scheduler redis; do \
         ./scripts/dist_package.sh --sys python/lib/${p} && mv python/lib/${p}/dist/*.whl /DIST/.; \
     done
 ################################################################################################################
