@@ -3,7 +3,25 @@ ARG DOCKER_INTERNAL_REGISTRY
 FROM ${DOCKER_INTERNAL_REGISTRY}/nwm-base
 # In case the main package repositories are down, use the alternative base image:
 # FROM gliderlabs/alpine:3.4
+
 USER root
+
+########################################
+# Model specific ENV
+########################################
+ARG WORKDIR=/nwm
+ENV WORKDIR=${WORKDIR}
+#### CREATE WORKING DIRECTORY FOR MODEL #### \
+RUN mkdir ${WORKDIR} \
+    && chown -R ${USER}:${USER} ${WORKDIR} \
+    # Auto go to default working directory when user ssh login \
+    && echo "cd $WORKDIR" >> ${USER_HOME}/.profile \
+WORKDIR ${WORKDIR}
+
+########################################
+# Model specific dependencies/builds
+########################################
+
 ARG REPOS="http://dl-cdn.alpinelinux.org/alpine/edge/testing"
 # Building hdf5 from source for parallel support, otherwise add hdf5 hdf5-dev to the list below
 ARG REQUIRE="sudo build-base gfortran openssl curl curl-dev tar git m4 zlib-dev libexecinfo-dev"
@@ -84,10 +102,10 @@ RUN apk update && apk upgrade && apk add --repository ${REPOS} --no-cache ${REQU
     && echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && touch ${HYDRA_HOST_FILE} \
     && chown ${USER}:${USER} ${HYDRA_HOST_FILE} \
-    && mkdir -p /nwm/domains
+    && mkdir -p ${WORKDIR}/domains
 
 USER ${USER}
 ####
 #   Pull latest NWM and build
 ####
-WORKDIR /nwm
+WORKDIR ${WORKDIR}
