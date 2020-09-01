@@ -7,7 +7,7 @@ FROM ${DOCKER_INTERNAL_REGISTRY}/nwm-deps:netcdf_${NETCDF_C_VERSION:-latest}
 ARG REPO_URL=https://github.com/NCAR/wrf_hydro_nwm_public.git
 ARG BRANCH=master
 ARG COMMIT
-ENV PATH "/nwm/wrf_hydro_nwm_public/trunk/NDHMS/Run:${PATH}"
+ENV PATH "/${WORKDIR}/wrf_hydro_nwm_public/trunk/NDHMS/Run:${PATH}"
 
 #RUN if [ "x$REPO_URL" = "x" ]; then REPO_URL="https://github.com/NCAR/wrf_hydro_nwm_public.git"; fi && \
 #    if [ "x$NWM_BRANCH" = "x" ]; then NWM_BRANCH=master; fi && \
@@ -24,5 +24,5 @@ RUN echo "export PATH=${PATH}" >> /etc/profile
 #RUN apk add elfutils-libelf --repository http://dl-cdn.alpinelinux.org/alpine/edge/main
 #RUN apk add --update perf --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing
 USER ${USER}
-COPY run_model.sh /nwm/
-WORKDIR /nwm/domains
+COPY run_model.sh /${WORKDIR}/
+WORKDIR ${WORKDIR}/domains
