@@ -1,6 +1,6 @@
-FROM alpine:3.10
+FROM alpine:3.12
 # In case the main package repositories are down, use the alternative base image:
-# FROM gliderlabs/alpine:3.10
+# FROM gliderlabs/alpine:3.12
 
 ARG REPOS=""
 ARG REQUIRE="sudo openssh bash"
