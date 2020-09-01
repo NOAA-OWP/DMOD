@@ -34,6 +34,27 @@ services:
         COMMIT: ${NWM_COMMIT}
         DOCKER_INTERNAL_REGISTRY: ${DOCKER_INTERNAL_REGISTRY:?}
         NETCDF_C_VERSION: ${NETCDF_C_VERSION:-latest}
+
+  ngen-deps:
+    image: ${DOCKER_INTERNAL_REGISTRY:?}/ngen-deps:latest
+    build:
+      context: ./ngen/deps
+      args:
+        DOCKER_INTERNAL_REGISTRY: ${DOCKER_INTERNAL_REGISTRY:?}
+    depends_on:
+      - base
+
+  ngen:
+    image: ${DOCKER_INTERNAL_REGISTRY:?}/ngen-${NGEN_NAME:-master}
+    build:
+      context: ./ngen
+      args:
+        REPO_URL: ${NGEN_REPO_URL?}
+        BRANCH: ${NGEN_BRANCH?}
+        COMMIT: ${NGEN_COMMIT}
+        DOCKER_INTERNAL_REGISTRY: ${DOCKER_INTERNAL_REGISTRY:?}
+    depends_on:
+      - ngen-deps
     #depends_on:
     #    - deps
     #For building, this only gives shared memory to each build step!!! shm_size: 2GB
