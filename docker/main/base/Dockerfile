@@ -4,10 +4,10 @@ FROM alpine:3.12
 
 ARG REPOS=""
 ARG REQUIRE="sudo openssh bash"
-ARG WORKDIR=/nwm
+
 ARG USER=mpi
 
-ENV USER=${USER} USER_HOME=/home/${USER}  WORKDIR=${WORKDIR}
+ENV USER=${USER} USER_HOME=/home/${USER}
 ENV SSHDIR=${USER_HOME}/.ssh
 RUN apk update && apk upgrade \
     && apk add --repository ${REPOS} --no-cache ${REQUIRE} \
@@ -15,11 +15,6 @@ RUN apk update && apk upgrade \
     && adduser -D ${USER} \
     && echo "${USER}   ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
     && chown -R ${USER}:${USER} ${USER_HOME} \
-    #### CREATE WORKING DIRECTORY FOR USER #### \
-    && mkdir ${WORKDIR} \
-    && chown -R ${USER}:${USER} ${WORKDIR} \
-    # Auto go to default working directory when user ssh login \
-    && echo "cd $WORKDIR" >> ${USER_HOME}/.profile \
     # # ------------------------------------------------------------ \
     # # Set up SSH Server \
     # # ------------------------------------------------------------ \
@@ -50,4 +45,3 @@ RUN cat ${SSHDIR}/*.pub >> ${SSHDIR}/authorized_keys \
 
 # Switch back to default user when continue the build process
 USER ${USER}
-WORKDIR ${WORKDIR}
