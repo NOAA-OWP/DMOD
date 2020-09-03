@@ -742,7 +742,10 @@ class JobImpl(Job):
         self._cpu_count = cpu_count
         self._memory_size = memory_size
         self._parameters = parameters
-        self._allocation_paradigm = JobAllocationParadigm.get_from_name(name=allocation_paradigm_str)
+        if isinstance(allocation_paradigm, JobAllocationParadigm):
+            self._allocation_paradigm = allocation_paradigm
+        else:
+            self._allocation_paradigm = JobAllocationParadigm.get_from_name(name=allocation_paradigm)
         self._allocation_priority = alloc_priority
         self._job_uuid = None
         self._rsa_key_pair = None
@@ -944,7 +947,7 @@ class RequestedJob(JobImpl):
         self._originating_request = job_request
         super().__init__(cpu_count=job_request.cpus, memory_size=job_request.memory,
                          parameters=job_request.model_request.parameters,
-                         allocation_paradigm_str=job_request.allocation_paradigm)
+                         allocation_paradigm=job_request.allocation_paradigm)
 
     @property
     def originating_request(self) -> SchedulerRequestMessage:
