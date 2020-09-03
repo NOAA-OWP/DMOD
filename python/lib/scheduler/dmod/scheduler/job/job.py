@@ -737,7 +737,7 @@ class JobImpl(Job):
         self._parameters = parameters
         self._allocation_paradigm = JobAllocationParadigm.get_from_name(name=allocation_paradigm_str)
         self._allocation_priority = alloc_priority
-        self.job_uuid = None
+        self._job_uuid = None
         self._rsa_key_pair = None
         self._status = JobStatus.CREATED
         self._allocations = None
@@ -828,15 +828,14 @@ class JobImpl(Job):
         Optional[str]
             The unique job id for this job in the manager, if one has been set for it, or ``None``.
         """
-        return str(self.job_uuid) if isinstance(self.job_uuid, UUID) else None
+        return str(self._job_uuid) if isinstance(self._job_uuid, UUID) else None
 
     @job_id.setter
     def job_id(self, job_id: Union[str, UUID]):
-        if isinstance(job_id, UUID):
-            self.job_uuid = job_id
-        else:
-            self.job_uuid = UUID(str(job_id))
-        self._reset_last_updated()
+        job_uuid = job_id if isinstance(job_id, UUID) else UUID(str(job_id))
+        if job_uuid != self._job_uuid:
+            self._job_uuid = job_uuid
+            self._reset_last_updated()
 
     @property
     def memory_size(self) -> int:
