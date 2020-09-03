@@ -379,22 +379,29 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
     # Note that retrieve_job_by_redis_key() function is always exercised by retrieve_job(), and thus implicitly tested
 
     # TODO: tests for request_allocations
-    # Test request_allocations for a job with a single-node allocation paradigm succeeds
+    # Test request_allocations for a job with a single-node allocation paradigm fails with default status after creation
     def test_request_allocations_1_a(self):
+        example_index = 0
+        expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
+        self.assertNotEqual(created_job.status, JobStatus.MODEL_EXEC_AWAITING_ALLOCATION)
+        self.assertFalse(self._job_manager.request_allocations(created_job))
+
+    # Test request_allocations for a job with a single-node allocation paradigm succeeds
+    def test_request_allocations_1_b(self):
         example_index = 0
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         self.assertTrue(self._job_manager.request_allocations(created_job))
 
-    # Test request_allocations for a job with a single-node allocation paradigm gets back a list
-    def test_request_allocations_1_b(self):
+    # Test request_allocations for a job with a single-node allocation paradigm gets back a tuple
+    def test_request_allocations_1_c(self):
         example_index = 0
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         self._job_manager.request_allocations(created_job)
         # Should be one allocation for single-node
         self.assertTrue(isinstance(created_job.allocations, list))
 
-    # Test request_allocations for a job with a single-node allocation paradigm gets back a list with one node
-    def test_request_allocations_1_c(self):
+    # Test request_allocations for a job with a single-node allocation paradigm gets back a tuple with one node
+    def test_request_allocations_1_d(self):
         example_index = 0
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         self._job_manager.request_allocations(created_job)
@@ -403,7 +410,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         self.assertEqual(len(allocations), 1)
 
     # Test request_allocations for a job with a single-node allocation paradigm gets back a proper allocation of cpus
-    def test_request_allocations_1_d(self):
+    def test_request_allocations_1_e(self):
         example_index = 0
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         self._job_manager.request_allocations(created_job)
@@ -412,7 +419,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         self.assertEqual(allocations[0].cpu_count, created_job.cpu_count)
 
     # Test request_allocations for a job with a single-node allocation paradigm gets back a proper allocation of memory
-    def test_request_allocations_1_e(self):
+    def test_request_allocations_1_f(self):
         example_index = 0
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         self._job_manager.request_allocations(created_job)
