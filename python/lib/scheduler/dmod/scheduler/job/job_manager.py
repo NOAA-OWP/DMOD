@@ -1031,6 +1031,8 @@ class RedisBackedJobManager(JobManager, RedisBacked):
             Required resource allocations from resource manager, if available, or an empty list if they could not be
             fulfilled.
         """
+        if require_awaiting_status and job.status_step != JobExecStep.AWAITING_ALLOCATION:
+            return False
         if job.allocation_paradigm == JobAllocationParadigm.SINGLE_NODE:
             return self._resource_manager.allocate_single_node(job.cpu_count, job.memory_size)
         elif job.allocation_paradigm == JobAllocationParadigm.FILL_NODES:
