@@ -855,6 +855,8 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         ------------
         request : SchedulerRequestMessage
             The originating request for the job.
+        job_id : str, UUID, None
+            Optional value to try use for the job's id, falling back to random if not present, invalid, or already used.
 
         Returns
         -------
@@ -862,11 +864,15 @@ class RedisBackedJobManager(JobManager, RedisBacked):
             The newly created job object.
         """
         job_obj = RequestedJob(job_request=kwargs['request'])
-        #if allocation is not None:
-        #    job_obj.allocation = allocation
-        #if key_pair is not None:
-        #    job_obj.rsa_key_pair = key_pair
-        job_obj.job_id = random_uuid()
+        try:
+            job_uuid = kwargs['job_id'] if isinstance(kwargs['job_id'], UUID) else UUID(str(kwargs['job_id']))
+            if not self._does_redis_key_exist(self._get_job_key_for_id(job_uuid)):
+                job_obj.job_id = job_uuid
+            else:
+                job_obj.job_id = random_uuid()
+        except:
+            job_obj.job_id = random_uuid()
+
         self.save_job(job_obj)
         return job_obj
 
