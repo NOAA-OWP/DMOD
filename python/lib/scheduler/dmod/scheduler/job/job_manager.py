@@ -1014,7 +1014,8 @@ class RedisBackedJobManager(JobManager, RedisBacked):
 
     def release_allocations(self, job: Job):
         """
-        Release any resource allocations held by the given job back to the resource manager.
+        Release any resource allocations held by the given job back to the resource manager and unset the allocation
+        assignment for the object.
 
         Parameters
         ----------
@@ -1023,6 +1024,7 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         """
         if job.allocations is not None and len(job.allocations) > 0:
             self._resource_manager.release_resources(job.allocations)
+        job.allocations = None
 
     def request_allocations(self, job: Job) -> List[ResourceAllocation]:
         """
