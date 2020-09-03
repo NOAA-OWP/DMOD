@@ -57,7 +57,7 @@ class ResourceAllocation(SingleHostProcessingAssetPool):
         A "private" method for setting the ::attribute:`created` property, potentially converting to value to set.
 
         A ``None`` argument is interpreted as ``now``.  Other non-datetime args are interpreted as string or numeric
-        epoch timestamp representations.
+        epoch timestamp representations (i.e., values like those from ::method:`datetime.timestamp`).
 
         Parameters
         ----------
@@ -69,9 +69,9 @@ class ResourceAllocation(SingleHostProcessingAssetPool):
         elif isinstance(created, datetime):
             self._created = created
         elif isinstance(created, float):
-            self._created = datetime.fromtimestamp(created/1000)
+            self._created = datetime.fromtimestamp(created)
         else:
-            self._created = datetime.fromtimestamp(float(created)/1000)
+            self._created = datetime.fromtimestamp(float(created))
 
     @property
     def created(self) -> datetime:
