@@ -865,8 +865,9 @@ class JobImpl(Job):
 
     @rsa_key_pair.setter
     def rsa_key_pair(self, key_pair: 'RsaKeyPair'):
-        self._rsa_key_pair = key_pair
-        self._reset_last_updated()
+        if key_pair != self._rsa_key_pair:
+            self._rsa_key_pair = key_pair
+            self._reset_last_updated()
 
     @property
     def status(self) -> JobStatus:
@@ -874,8 +875,9 @@ class JobImpl(Job):
 
     @status.setter
     def status(self, new_status: JobStatus):
-        self._status = new_status
-        self._reset_last_updated()
+        if new_status != self._status:
+            self._status = new_status
+            self._reset_last_updated()
 
     @property
     def status_phase(self) -> JobExecPhase:
