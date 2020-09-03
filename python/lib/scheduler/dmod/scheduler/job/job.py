@@ -39,7 +39,7 @@ class JobAllocationParadigm(Enum):
         """
 
     @classmethod
-    def get_from_name(cls, name: Optional[str]):
+    def get_from_name(cls, name: Optional[str], strict: bool = False):
         """
         Get the appropriate value corresponding to the given string value name (trimming whitespace), falling back to
         the default from ::method:`get_default_selection` if an unrecognized or ``None`` value is received.
@@ -49,17 +49,27 @@ class JobAllocationParadigm(Enum):
         name: Optional[str]
             The expected string name corresponding to the desired value.
 
+        strict: bool
+            Whether strict parsing should be done, in which case unrecognized or invalid ``name`` parameter values will
+            return ``None`` instead of the default type.
+
         Returns
         -------
-        The desired enum value.
+        The desired enum value, or ``None`` if in strict mode and the ``name`` param does not correspond to an expected
+        value.
         """
         if name is None or not isinstance(name, str):
-            return cls.get_default_selection()
-        trimmed_name = name.strip()
+            return None if strict else cls.get_default_selection()
+
+        # Adjust literal name string param value to generalize a little better
+        adjusted_name = name.strip().replace('-', '_').upper()
+
         for enum_val in cls:
-            if enum_val.name == trimmed_name:
+            # Do similar generalizing for enum name values
+            if enum_val.name.replace('-', '_').upper() == adjusted_name:
                 return enum_val
-        return cls.get_default_selection()
+
+        return None if strict else cls.get_default_selection()
 
 
 class JobExecStep(Enum):
