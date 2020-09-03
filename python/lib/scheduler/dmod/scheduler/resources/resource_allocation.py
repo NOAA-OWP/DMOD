@@ -55,6 +55,16 @@ class ResourceAllocation(SingleHostProcessingAssetPool):
 
         return deserialized
 
+    def __eq__(self, other):
+        if not isinstance(other, ResourceAllocation):
+            return False
+        else:
+            return self.resource_id == other.resource_id \
+                   and self.hostname == other.hostname \
+                   and self.cpu_count == other.cpu_count \
+                   and self.memory == other.memory \
+                   and self.created == other.created
+
     def __init__(self, resource_id: str, hostname: str, cpus_allocated: int, requested_memory: int,
                  created: Optional[Union[str, float, datetime]] = None):
         super().__init__(pool_id=resource_id, hostname=hostname, cpu_count=cpus_allocated, memory=requested_memory)
