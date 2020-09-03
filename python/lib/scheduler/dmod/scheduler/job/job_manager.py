@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from asyncio import sleep
-from typing import Dict, List, Optional, Tuple, Union
-from uuid import uuid4 as random_uuid
+from typing import Dict, Iterable, List, Optional, Tuple, Union
+from uuid import UUID, uuid4 as random_uuid
 from .job import Job, JobAllocationParadigm, JobExecStep, JobStatus, RequestedJob
 from ..resources.resource_allocation import ResourceAllocation
 from ..resources.resource_manager import ResourceManager
@@ -13,6 +13,7 @@ from dmod.redis import KeyNameHelper, RedisBacked
 
 import datetime
 import heapq
+import json
 
 
 class JobManagerFactory:
@@ -885,48 +886,38 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         Returns
         -------
         bool
-            ``True`` if a record was successfully deleted, otherwise ``False``.
+            ``True`` if a record was successfully deleted, or ``False`` if the backing record could not be deleted after
+            multiple attempts.
+
+        Raises
+        -------
+        ValueError
+            If no job exists with given job id.
         """
-        job_hash_key = self._get_job_key_for_id(job_id)
-        # Retrieve serialized data from Redis for this, which gives us a dictionary of Redis hashes keyed by Redis keys,
-        # most of which (but not all) we will want to delete.
-        serialized_data_hashes = self._retrieve_serialized_data_for_job(job_hash_key=job_hash_key)
-        # If this is None, there was no job hash key did not exist, so there is nothing to delete
-        if serialized_data_hashes is None:
-            return False
+        # Retrieve the job and ensure any allocations are release
+        job_key = self._get_job_key_for_id(job_id)
+        job_obj = self.retrieve_job_by_redis_key(job_key)
 
-        # We will need this in a couple places, so go ahead and grab ...
-        job_hash = serialized_data_hashes[job_hash_key]
+        # Ensure allocations are released
+        self.release_allocations(job_obj)
 
-        # TODO: this probably still needs improvement (in particular, making sure changes are managed separately too).
-        # The returned 'serialized_data_hashes' includes the keys for the resource allocations.
-        # We want to avoid deleting the allocations here (they are managed elsewhere), so separate the other things out.
-        managed_data_hash_keys = list()
-        allocation_list_key = job_hash['allocations_list_key']
-        allocation_list = serialized_data_hashes[allocation_list_key]
-        for key in serialized_data_hashes:
-            if key not in allocation_list:
-                managed_data_hash_keys.append(key)
-
-        # We do need to do something a little extra to get the RsaKeyPair in preparation for cleaning it up
-        # Though wait until the other deletions are done
-        key_pair = RsaKeyPair(directory=job_hash['rsa_key_directory'], name=job_hash['rsa_key_name'])
-
-        # At this point, we don't really care about the rest of the specific data.
-        # We now have a dictionary whose keys are all the Redis keys we need to delete.
         i = 0
         while i < 5:
             i += 1
             with self.redis.pipeline() as pipeline:
-                pipeline.watch(*serialized_data_hashes.keys())
+                if job_obj.status.is_active:
+                    # Make sure not in active set
+                    pipeline.srem(self._active_jobs_set_key, job_key)
+                pipeline.delete(job_key)
+                pipeline.execute()
+                # Try to do this, but don't fully fail just for this part
                 try:
-                    pipeline.delete(*managed_data_hash_keys)
-                    # If successful, clean up the key pair files and return
-                    key_pair.delete_key_files()
-                    return True
+                    job_obj.rsa_key_pair.delete_key_files()
                 except:
+                    # TODO: look at at least logging something if this happens; for now ...
                     pass
-        # If we get here, it means we failed 5 times, so bail
+                return True
+        # If we get here, it means we failed the max allowed times, so bail
         return False
 
     def does_job_exist(self, job_id) -> bool:
