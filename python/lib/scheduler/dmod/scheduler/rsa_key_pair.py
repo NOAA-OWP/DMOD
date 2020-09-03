@@ -38,7 +38,7 @@ class RsaKeyPair(Serializable):
         self.generation_time == datetime.datetime.fromtimestamp(os.path.getctime(str(self.private_key_file)))
 
     """
-
+    _SERIAL_DATETIME_STR_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
     _SERIAL_KEY_DIRECTORY = 'directory'
     _SERIAL_KEY_NAME = 'name'
     _SERIAL_KEY_PRIVATE_KEY = 'private_key'
