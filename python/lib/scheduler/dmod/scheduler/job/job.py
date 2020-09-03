@@ -355,6 +355,11 @@ class Job(ABC):
         """
         pass
 
+    @allocations.setter
+    @abstractmethod
+    def allocations(self, allocations: List[ResourceAllocation]):
+        pass
+
     @property
     @abstractmethod
     def cpu_count(self) -> int:
@@ -478,6 +483,11 @@ class Job(ABC):
             The ::class:`JobStageStep` for the ::class:`JobStatus` ::attribute:`status` property of this object.
         """
         return self.status.job_exec_step
+
+    @status_step.setter
+    @abstractmethod
+    def status_step(self, step: JobExecStep):
+        pass
 
 
 class JobImpl(Job):
