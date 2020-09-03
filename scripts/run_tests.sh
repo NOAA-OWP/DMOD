@@ -110,7 +110,9 @@ list_packages()
     if [ ${#SUPPORTED_PACKAGES[@]} -eq 0 ]; then
         determine_supported_packages
     fi
-    echo "Supported Packages:"
+    if [ -z "${DO_QUIET:-}" ]; then
+        echo "Supported Packages:"
+    fi
     for p in "${SUPPORTED_PACKAGES[@]}"; do
         echo "    ${p}"
     done
