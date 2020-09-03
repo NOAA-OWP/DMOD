@@ -618,14 +618,13 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         while len(jobs_priority_queue) > 0:
             # Remember, the job object itself is the second item in the popped tuple, since this is a min heap
             job = heapq.heappop(jobs_priority_queue)[1]
-            allocations = self.request_allocations(job)
+            was_allocated = self.request_allocations(job)
             # If the allocation was successful
-            if allocations is not None and len(allocations) > 0 and isinstance(allocations[0], ResourceAllocation):
-                job.allocations = allocations
-                job.status_step = JobExecStep.ALLOCATED
+            if was_allocated:
                 allocated_successfully.append(job)
                 self.save_job(job)
                 # Keep track of jobs that got skipped over by at least one lower priority job like this
+                # Simplest thing is to clear an rebuild list with anything "not allocated" that came before this
                 priorities_to_bump = []
                 for j in not_allocated:
                     priorities_to_bump.append(j)
