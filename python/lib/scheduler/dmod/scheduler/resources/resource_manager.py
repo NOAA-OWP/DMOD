@@ -153,7 +153,7 @@ class ResourceManager(ABC):
         if not (isinstance(memory, int) and memory > 0):
             raise(ValueError("memory must be an integer > 0"))
 
-    def allocate_single_node(self, cpus: int, memory: int) -> List[ResourceAllocation]:
+    def allocate_single_node(self, cpus: int, memory: int) -> List[Optional[ResourceAllocation]]:
         """
         Check available resources to allocate job request to a single node to optimize
         computation efficiency
@@ -179,7 +179,7 @@ class ResourceManager(ABC):
                 return [allocation]
         return [None]
 
-    def allocate_fill_nodes(self, cpus: int, memory: int) -> List[ResourceAllocation]:
+    def allocate_fill_nodes(self, cpus: int, memory: int) -> List[Optional[ResourceAllocation]]:
         """
         Check available resources to allocate job request to one or more nodes, claiming all required
         resources from each node until the request is satisfied.
@@ -223,7 +223,7 @@ class ResourceManager(ABC):
 
         return allocation
 
-    def allocate_round_robin(self, cpus: int, memory: int) -> List[ResourceAllocation]:
+    def allocate_round_robin(self, cpus: int, memory: int) -> List[Optional[ResourceAllocation]]:
         """
             Check available resources on host nodes and allocate in round robin manner even the request
             can fit in a single node.
