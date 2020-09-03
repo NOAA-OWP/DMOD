@@ -445,7 +445,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         created_job.status = JobStatus.MODEL_EXEC_AWAITING_ALLOCATION
         self.assertTrue(self._job_manager.request_allocations(created_job))
 
-    # Test request_allocations for a job with a fill-nodes allocation paradigm gets back a list
+    # Test request_allocations for a job with a fill-nodes allocation paradigm gets back a tuple
     def test_request_allocations_2_b(self):
         example_index = 2
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
@@ -454,9 +454,9 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
         # Should be one allocation for fill-nodes
-        self.assertTrue(isinstance(allocations, list))
+        self.assertTrue(isinstance(allocations, tuple))
 
-    # Test request_allocations for a job with a fill-nodes allocation paradigm gets back a list with one node
+    # Test request_allocations for a job with a fill-nodes allocation paradigm gets back a tuple with one node
     def test_request_allocations_2_c(self):
         example_index = 2
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
@@ -497,7 +497,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         created_job.status = JobStatus.MODEL_EXEC_AWAITING_ALLOCATION
         self.assertTrue(self._job_manager.request_allocations(created_job))
 
-    # Test request_allocations for a job with a round-robin allocation paradigm gets back a list
+    # Test request_allocations for a job with a round-robin allocation paradigm gets back a tuple
     def test_request_allocations_3_b(self):
         example_index = 3
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
@@ -505,9 +505,9 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         created_job.status = JobStatus.MODEL_EXEC_AWAITING_ALLOCATION
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
-        self.assertTrue(isinstance(allocations, list))
+        self.assertTrue(isinstance(allocations, tuple))
 
-    # Test request_allocations for a job with a round-robin allocation paradigm gets back a list with multiple nodes
+    # Test request_allocations for a job with a round-robin allocation paradigm gets back a tuple with multiple nodes
     def test_request_allocations_3_c(self):
         example_index = 3
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
