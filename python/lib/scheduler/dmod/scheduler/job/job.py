@@ -229,7 +229,7 @@ class JobStatus(Enum):
         Returns
         -------
         JobStatus
-            The status enum value corresponding to the given name string, or ``UKNOWN`` when not recognized.
+            The status enum value corresponding to the given name string, or ``UNKNOWN`` when not recognized.
         """
         if name is None or not isinstance(name, str) or len(name) == 0:
             return JobStatus.UNKNOWN
@@ -318,10 +318,17 @@ class Job(Serializable, ABC):
     """
 
     def __eq__(self, other):
-        if isinstance(other, Job):
+        if other is None:
+            return False
+        elif isinstance(other, Job):
             return self.job_id == other.job_id
         else:
-            return other.__eq__(self)
+            # TODO: wanted to do this below, but it isn't safe (if same thing is done in other type, infinite loop)
+            #return other.__eq__(self)
+
+            # TODO: for now, treat as false, but look for a way to safely pass to a check on the other without risking
+            #  infinite loop (perhaps via some shared interface where that's appropriate)
+            return False
 
     def __hash__(self):
         return hash(self.job_id)
