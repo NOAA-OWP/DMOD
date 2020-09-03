@@ -328,8 +328,12 @@ class RedisBackedJobManager(JobManager, RedisBacked):
 
     # TODO: look at either deprecating this or applying it appropriately to all managed objects
     @classmethod
-    def get_key_prefix(cls):
-        return 'job_mgr'
+    def get_key_prefix(cls, environment_type: str = 'prod'):
+        parsed_type = environment_type.strip().lower()
+        if parsed_type == 'test' or parsed_type == 'dev' or parsed_type == 'local':
+            return parsed_type + '_job_mgr'
+        else:
+            return 'job_mgr'
 
     def __init__(self, resource_manager : ResourceManager, launcher: Launcher, redis_host: Optional[str] = None,
                  redis_port: Optional[int] = None, redis_pass: Optional[str] = None, **kwargs):
@@ -350,7 +354,11 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         """
         super().__init__(redis_host=redis_host, redis_port=redis_port, redis_pass=redis_pass, **kwargs)
         self._resource_manager = resource_manager
-        self._active_jobs_set_key = self.keynamehelper.create_key_name(self.get_key_prefix(), 'active_jobs')
+        if 'type' in kwargs:
+            key_prefix = self.get_key_prefix(environment_type=kwargs['type'])
+        else:
+            key_prefix = self.get_key_prefix()
+        self._active_jobs_set_key = self.keynamehelper.create_key_name(key_prefix, 'active_jobs')
         self._launcher = launcher
 
     def _deserialize_allocations(self, allocations_key_list: List[str],
