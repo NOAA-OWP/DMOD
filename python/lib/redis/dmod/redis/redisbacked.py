@@ -262,7 +262,10 @@ class RedisBacked(ABC):
             raise RuntimeError("Unable to connect to redis database")
 
         # Now just get a default KeyNameHelper
-        self.keynamehelper = KeyNameHelper.get_default_instance()
+        if dev_opt == 'prod':
+            self.keynamehelper = KeyNameHelper.get_default_instance()
+        else:
+            self.keynamehelper = KeyNameHelper(prefix=dev_opt, separator=KeyNameHelper.get_default_separator())
 
         if self._reset_keys:
             self._clean_keys()
