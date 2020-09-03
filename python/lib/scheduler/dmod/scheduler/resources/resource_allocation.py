@@ -19,6 +19,7 @@ class ResourceAllocation(SingleHostProcessingAssetPool):
         cpus_allocated = None
         mem = None
         created = None
+        separator = None
 
         for param_key in alloc_dict:
             # We don't care about non-string keys directly, but they are implicitly extra ...
@@ -38,6 +39,8 @@ class ResourceAllocation(SingleHostProcessingAssetPool):
                 mem = int(alloc_dict[param_key])
             elif lower_case_key == 'created' and created is None:
                 created = alloc_dict[param_key]
+            elif lower_case_key == 'separator' and separator is None:
+                separator = alloc_dict[param_key]
             elif not ignore_extra_keys:
                 raise ValueError("Unexpected allocation key (or case-insensitive duplicate) {}".format(param_key))
 
@@ -45,7 +48,12 @@ class ResourceAllocation(SingleHostProcessingAssetPool):
         if node_id is None or hostname is None or cpus_allocated is None or mem is None:
             raise ValueError("Insufficient valid values keyed within allocation dictionary")
 
-        return cls(resource_id=node_id, hostname=hostname, cpus_allocated=cpus_allocated, requested_memory=mem)
+        deserialized = cls(resource_id=node_id, hostname=hostname, cpus_allocated=cpus_allocated, requested_memory=mem,
+                           created=created)
+        if isinstance(separator, str):
+            deserialized.unique_id_separator = separator
+
+        return deserialized
 
     def __init__(self, resource_id: str, hostname: str, cpus_allocated: int, requested_memory: int,
                  created: Optional[Union[str, float, datetime]] = None):
@@ -77,6 +85,9 @@ class ResourceAllocation(SingleHostProcessingAssetPool):
     def created(self) -> datetime:
         return self._created
 
+    def get_unique_id(self, separator: str) -> str:
+        return self.__class__.__name__ + separator + self.resource_id + separator + str(self.created.timestamp())
+
     @property
     def resource_id(self) -> str:
         """
@@ -92,9 +103,8 @@ class ResourceAllocation(SingleHostProcessingAssetPool):
 
     def to_dict(self) -> Dict[str, Union[str, int]]:
         return {'node_id': self.resource_id, 'Hostname': self.hostname, 'cpus_allocated': self.cpu_count,
-                'mem': self.memory, 'Created': self.created.timestamp()}
+                'mem': self.memory, 'Created': self.created.timestamp(), 'separator': self.unique_id_separator}
 
     @property
     def unique_id(self) -> str:
-        return self.__class__.__name__ + self.unique_id_separator + self.resource_id + self.unique_id_separator \
-               + str(self.created.timestamp())
+        return self.get_unique_id(self.unique_id_separator)
