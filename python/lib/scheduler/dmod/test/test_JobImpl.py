@@ -8,7 +8,7 @@ class TestJobImpl(unittest.TestCase):
 
     def setUp(self) -> None:
         self._example_jobs = []
-        self._example_jobs.append(JobImpl(4, 1000, parameters={}, allocation_paradigm_str='single-node'))
+        self._example_jobs.append(JobImpl(4, 1000, parameters={}, allocation_paradigm='single-node'))
 
         self._uuid_str_vals = []
         self._uuid_str_vals.append('12345678-1234-5678-1234-567812345678')
