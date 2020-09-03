@@ -945,6 +945,59 @@ class RequestedJob(JobImpl):
     ::class:`SchedulerRequestMessage` object.
     """
 
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        """
+        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+        A new object of this type instantiated from the deserialize JSON object dictionary
+        """
+
+        originating_request_key = 'originating_request'
+
+        try:
+            cpus, memory, parameters, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated = \
+                cls.deserialize_core_attributes(json_obj)
+
+            if originating_request_key not in json_obj:
+                msg = 'Key for originating request ({}) not present when deserialize {} object'
+                raise RuntimeError(msg.format(originating_request_key, cls.__name__))
+            request = SchedulerRequestMessage.factory_init_from_deserialized_json(json_obj[originating_request_key])
+            if request is None:
+                msg = 'Invalid serialized scheduler request when deserialize {} object'
+                raise RuntimeError(msg.format(cls.__name__))
+        except Exception as e:
+            # TODO: log
+            return None
+
+        # Create the object initially from the request
+        new_obj = cls(job_request=request)
+
+        # Then update its properties based on the deserialized values, as those are considered most correct
+
+        # Use property setter for job id to handle string or UUID
+        new_obj.job_id = job_id
+
+        new_obj._cpu_count = cpus
+        new_obj._memory_size = memory
+        new_obj._parameters = parameters
+        new_obj._allocation_paradigm = paradigm
+        new_obj._allocation_priority = priority
+        new_obj._rsa_key_pair = rsa_key_pair
+        new_obj._status = status
+        new_obj._allocations = allocations
+
+        # Do last_updated last, as any usage of setters above might cause the value to be maladjusted
+        new_obj._last_updated = updated
+
+        return new_obj
+
     def __init__(self, job_request: SchedulerRequestMessage):
         self._originating_request = job_request
         super().__init__(cpu_count=job_request.cpus, memory_size=job_request.memory,
@@ -962,3 +1015,30 @@ class RequestedJob(JobImpl):
             The original request that resulted in the creation of this job.
         """
         return self._originating_request
+
+    def to_dict(self) -> dict:
+        """
+        Get the representation of this instance as a dictionary or dictionary-like object (e.g., a JSON object).
+
+        {
+            "cpu_count" : 4,
+            "memory_size" : 1000,
+            "parameters" : {...},
+            "allocation_paradigm" : "SINGLE_NODE",
+            "allocation_priority" : 0,
+            "job_id" : "12345678-1234-5678-1234-567812345678",
+            "rsa_key_pair" : {<serialized_representation_of_RsaKeyPair_obj>},
+            "status" : CREATED,
+            "last_updated" : "2020-07-10 12:05:45",
+            "allocations" : [...],
+            "originating_request" : {<serialized_representation_of_originating_message>}
+        }
+
+        Returns
+        -------
+        dict
+            the representation of this instance as a dictionary or dictionary-like object (e.g., a JSON object)
+        """
+        dictionary = super().to_dict()
+        dictionary['originating_request'] = self.originating_request.to_dict()
+        return dictionary
