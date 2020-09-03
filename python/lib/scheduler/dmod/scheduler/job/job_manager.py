@@ -1142,12 +1142,11 @@ class RedisBackedJobManager(JobManager, RedisBacked):
             The job to be updated or added.
         """
         job_key = self._get_job_key_for_id(job.job_id)
-        mappings = self._serialize_job(job=job, job_key=job_key)
+        serialized_job_str = job.to_json()
 
         pipeline = self.redis.pipeline()
         try:
-            for key in mappings:
-                pipeline.hmset(key, mappings[key])
+            pipeline.set(job_key, serialized_job_str)
             if job.status.is_active:
                 # Add to active set
                 pipeline.sadd(self._active_jobs_set_key, job_key)
