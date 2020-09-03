@@ -1026,31 +1026,46 @@ class RedisBackedJobManager(JobManager, RedisBacked):
             self._resource_manager.release_resources(job.allocations)
         job.allocations = None
 
-    def request_allocations(self, job: Job) -> List[ResourceAllocation]:
+    def request_allocations(self, job: Job, require_awaiting_status: bool = True) -> bool:
         """
-        Request required resource allocations from resource manager.
+        Request required resource allocation(s) from resource manager, if sufficient resources are currently available,
+        assigning successfully obtained allocations to the given job.
+
+        By default, the job must be in the appropriate status indicating it is awaiting allocation in order to have
+        an attempt made to get resources, although this can be overridden.  The method will return ``False`` otherwise
+        if the job does not have an appropriate status.
+
+        However, this function does not alter the status property of the job.
 
         Parameters
         ----------
         job : Job
-            The job for which any held allocations should be released.
+            The job requiring resource allocation(s).
+        require_awaiting_status : bool
+            Whether a job must have a valid job status (i.e., with execution step ``AWAITING_ALLOCATION``) to have
+            allocations requested, which is ``True`` by default.
 
         Returns
         -------
-        List[ResourceAllocation]
-            Required resource allocations from resource manager, if available, or an empty list if they could not be
-            fulfilled.
+        bool
+            Whether an allocation was successfully requested, received, and assigned to the job object.
         """
         if require_awaiting_status and job.status_step != JobExecStep.AWAITING_ALLOCATION:
             return False
         if job.allocation_paradigm == JobAllocationParadigm.SINGLE_NODE:
-            return self._resource_manager.allocate_single_node(job.cpu_count, job.memory_size)
+            alloc = self._resource_manager.allocate_single_node(job.cpu_count, job.memory_size)
         elif job.allocation_paradigm == JobAllocationParadigm.FILL_NODES:
-            return self._resource_manager.allocate_fill_nodes(job.cpu_count, job.memory_size)
+            alloc = self._resource_manager.allocate_fill_nodes(job.cpu_count, job.memory_size)
         elif job.allocation_paradigm == JobAllocationParadigm.ROUND_ROBIN:
-            return self._resource_manager.allocate_round_robin(job.cpu_count, job.memory_size)
+            alloc = self._resource_manager.allocate_round_robin(job.cpu_count, job.memory_size)
         else:
-            return []
+            alloc = [None]
+        if isinstance(alloc, list) and len(alloc) > 0 and isinstance(alloc[0], ResourceAllocation):
+            job.allocations = alloc
+            job.status_step = JobExecStep.ALLOCATED
+            return True
+        else:
+            return False
 
     def retrieve_job(self, job_id) -> RequestedJob:
         """
