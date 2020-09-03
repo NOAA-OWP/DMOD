@@ -963,7 +963,9 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         """
             TODO rename this function, by the time we get here, we are already scheduled, just need to run
         """
-        return self._launcher.start_job(job)
+        # TODO: make sure there aren't other cases
+        if job.status_step == JobExecStep.ALLOCATED:
+            return self._launcher.start_job(job)
 
     async def manage_job_processing(self):
         """
