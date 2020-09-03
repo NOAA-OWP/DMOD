@@ -371,130 +371,6 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         self._active_jobs_set_key = self.keynamehelper.create_key_name(key_prefix, 'active_jobs')
         self._launcher = launcher
 
-    def _deserialize_allocations(self, allocations_key_list: List[str],
-                                 allocation_hashes: Dict[str, dict]) -> List[ResourceAllocation]:
-        allocation_hashes_list = list()
-        for key in allocations_key_list:
-            allocation_hashes_list.append(allocation_hashes[key])
-        allocations = list()
-        for alloc_hash in allocation_hashes_list:
-            allocations.append(ResourceAllocation.factory_init_from_dict(alloc_hash))
-        return allocations
-
-    def _deserialize_job(self, job_hash: dict, allocations_key_list: Optional[List[str]],
-                         allocations_hashes: Optional[dict], originating_request_hash: dict, model_request_hash: dict,
-                         parameters_hash: dict) -> RequestedJob:
-        """
-        Deserialized the serialized data for a requested job, in the form of Redis hashes/mappings, into a
-        ::class:`RequestedJob` object.
-
-        Essentially, this performs the reverse of ::method:`serialize_job`.
-
-        Parameters
-        ----------
-        job_hash : dict
-            The top-level hash value for the job to deserialize, containing simple members and reference keys to
-            serialized records of the job's nested objects.
-
-        allocations_key_list : Optional[List[str]]
-            An optional list of the string keys for the resource allocation objects for this job.
-
-        allocations_hashes : Optional[dict]
-            An optional dictionary of serialized allocation hash value for the job's resource allocations.
-
-        originating_request_hash : dict
-            The Redis hash value for the scheduler request to deserialize, containing simple members and the
-            reference keys to serialized records of the request's nested objects.
-
-        model_request_hash : dict
-            The Redis hash value for the inner ::class:`MaaSRequest` object of the scheduler request.
-
-        parameters_hash : dict
-            The ``parameters`` of the inner ::class:`MaaSRequest` object of the request.
-
-        Returns
-        -------
-        RequestedJob
-            The deserialize requested job object.
-        """
-        scheduler_request = self._deserialize_scheduler_request(scheduler_request_hash=originating_request_hash,
-                                                                model_request_hash=model_request_hash,
-                                                                parameters_hash=parameters_hash)
-        job = RequestedJob(scheduler_request)
-        if 'allocations_list_key' in job_hash and allocations_hashes is not None:
-            job.allocation = self._deserialize_allocations(allocations_key_list, allocations_hashes)
-        if 'rsa_key_directory' in job_hash:
-            job.rsa_key_pair = RsaKeyPair(directory=job_hash['rsa_key_directory'], name=job_hash['rsa_key_name'])
-        return job
-
-    def _deserialize_model_request(self, model_request_hash: dict, parameters_hash: dict, **kwargs) -> MaaSRequest:
-        """
-        Deserialized the serialized data for a model request, in the form of Redis hashes/mappings, into a
-        ::class:`MaaSRequest` object.
-
-        Essentially, this performs the reverse of ::method:`serialize_model_request`.
-
-        The method supports optional keyword arguments.  In particular, these are intended to provide future support for
-        controlling the specific subtype of ::class:`MaaSRequest` that is created.  For now, only ::class:`NWMRequest`
-        objects are supported.
-
-        Parameters
-        ----------
-        model_request_hash : dict
-            The Redis hash value for the inner ::class:`MaaSRequest` object of the scheduler request.
-
-        parameters_hash : dict
-            The ``parameters`` of the inner ::class:`MaaSRequest` object of the request.
-
-        kwargs
-            Optional keyword arguments.
-
-        Returns
-        -------
-        MaaSRequest
-            The deserialize model request object.
-        """
-        # TODO: consider whether there needs to be any conversion done to values (e.g., integer string to actual int)
-        parameters = parameters_hash
-
-        return NWMRequest(session_secret=model_request_hash['session_secret'],
-                          version=float(model_request_hash['version']),
-                          output=model_request_hash['output'],
-                          parameters=parameters)
-
-    def _deserialize_scheduler_request(self, scheduler_request_hash: dict, model_request_hash: dict, parameters_hash: dict) -> SchedulerRequestMessage:
-        """
-        Deserialized the serialized data for a job request, in the form of Redis hashes/mappings, into a
-        ::class:`SchedulerRequestMessage` object.
-
-        Essentially, this performs the reverse of ::method:`serialize_scheduler_request`.
-
-        Parameters
-        ----------
-        scheduler_request_hash : dict
-            The top-level Redis hash value for the scheduler request to deserialize, containing simple members and the
-            reference keys to serialized records of nested objects
-
-        model_request_hash : dict
-            The Redis hash value for the inner ::class:`MaaSRequest` object of the scheduler request.
-
-        parameters_hash : dict
-            The ``parameters`` of the inner ::class:`MaaSRequest` object of the request.
-
-        Returns
-        -------
-        SchedulerRequestMessage
-            The deserialize scheduler request object.
-        """
-        model_request = self._deserialize_model_request(model_request_hash = model_request_hash,
-                                                        parameters_hash=parameters_hash,
-                                                        model_request_type=scheduler_request_hash['model_request_type'])
-        return SchedulerRequestMessage(model_request=model_request,
-                                       user_id=scheduler_request_hash['user_id'],
-                                       cpus=scheduler_request_hash['cpus'],
-                                       mem=scheduler_request_hash['memory'],
-                                       allocation_paradigm=scheduler_request_hash['allocation'])
-
     def _dev_setup(self):
         self._clean_keys()
         self.keynamehelper = 'dev' + KeyNameHelper.get_default_separator() + self.get_key_prefix()
@@ -635,208 +511,6 @@ class RedisBackedJobManager(JobManager, RedisBacked):
             j.allocation_priority = j.allocation_priority + 1
             self.save_job(j)
         return allocated_successfully
-
-    def _retrieve_serialized_data_for_job(self, job_hash_key) -> Optional[dict]:
-        """
-        Query for the serialized data structures in Redis that contain the data necessary to re-inflate a job object.
-
-        The returned dictionary will contain the serialized ``job_hash``, ``allocation_hash``,
-        ``originating_request_hash``, ``model_request_hash``, and ``parameters_hash`` hashes, all keyed by their
-        associated Redis keys.
-
-        This method is convenient in that it returns everything needed to deserialize or clean up a job record in an
-        easy-to-use format.
-
-        Parameters
-        ----------
-        job_hash_key : str
-            The key value for the top-level ``job_hash`` serialized record for the job's data.
-
-        Returns
-        -------
-        dict
-            A dictionary of keyed Redis hashes with the serialized data for the related job, or ``None`` if there is no
-            top-level job hash record with the provided key (implying the job's data has not been serialized and saved).
-        """
-        if not self._does_redis_key_exist(job_hash_key):
-            return None
-
-        retrieved_mappings = dict()
-
-        job_hash = self.redis.hgetall(job_hash_key)
-        retrieved_mappings[job_hash_key] = job_hash
-
-        if 'allocations_list_key' in job_hash:
-            allocation_list_key = job_hash['allocations_list_key']
-            allocation_list = list(self.redis.lrange(allocation_list_key, 0, -1))
-            retrieved_mappings[allocation_list_key] = allocation_list
-            for alloc_key in allocation_list:
-                retrieved_mappings[alloc_key] = self.redis.hgetall(alloc_key)
-
-        originating_request_key = job_hash['originating_request_key']
-        originating_request_hash = self.redis.hgetall(originating_request_key)
-        retrieved_mappings[originating_request_key] = originating_request_hash
-
-        model_request_key = originating_request_hash['model_request_key']
-        model_request_hash = self.redis.hgetall(model_request_key)
-        retrieved_mappings[model_request_key] = model_request_hash
-
-        parameters_key = model_request_hash['parameters_key']
-        parameters_hash = self.redis.hgetall(parameters_key)
-        retrieved_mappings[parameters_key] = parameters_hash
-
-        return retrieved_mappings
-
-    def _serialize_allocations(self, allocations: List[ResourceAllocation], allocations_list_key: str) -> dict:
-        # TODO: should we assume that ResourceAllocations are managed by the ResourceManager (i.e., the Redis-backed one)
-        #   and do not need to be saved by this manager.
-        # Thus, when serializing
-        redis_keyed_hashes = dict()
-        allocations_list = list()
-        redis_keyed_hashes[allocations_list_key] = allocations_list
-        for allocation in allocations:
-            allocation.unique_id_separator = self.keynamehelper.separator
-            allocations_list.append(allocation.unique_id)
-            redis_keyed_hashes[allocation.unique_id] = allocation.to_dict()
-        return redis_keyed_hashes
-
-    def _serialize_job(self, job: RequestedJob, job_key: str) -> dict:
-        """
-        Serialize the given ::class:`RequestedJob` into a collection of Redis-persistable data structures (mostly
-        hashes), and return a dictionary of all those structures that should be persisted to save the serialized object
-        state in Redis, keyed by the Redis key that should be used for each.
-
-        In particular, for allocations there is a list object that will correspond to a list of allocation hashes in
-        Redis for a job record.  Other values of the returned dictionary are themselves dictionaries.
-
-        Note that the method explicitly requires a ``job_key`` parameter, even though this could be derived directly
-        from the id of the job object in the current implementation.  This is because it is left to other methods to
-        account for the job object having everything it needs to create a unique key identifier, so the key must be
-        explicitly provided before calling this method.
-
-        Parameters
-        ----------
-        job : RequestedJob
-            The job to be serialized.
-
-        job_key : str
-            The Redis key for the job's serialized record.
-
-        Returns
-        -------
-        dict
-            A mapping of values that correspond to Redis data structures (most, but not all, being hashes), which
-            represent serialized state of the requested job, with each value keyed by its Redis key.
-        """
-        redis_keyed_structures = dict()
-        allocations_list_key = self.create_derived_key(job_key, 'allocations_list')
-        originating_request_key = self.create_derived_key(job_key, 'originating_request')
-
-        job_hash = dict()
-        if job.allocations is not None:
-            job_hash['allocations_list_key'] = allocations_list_key
-        if job.rsa_key_pair is not None:
-            job_hash['rsa_key_directory'] = str(job.rsa_key_pair.directory)
-            job_hash['rsa_key_name'] = job.rsa_key_pair.name
-        job_hash['originating_request_key'] = originating_request_key
-
-        redis_keyed_structures[job_key] = job_hash
-
-        if job.allocations is not None:
-            allocation_mappings = self._serialize_allocations(allocations=job.allocations,
-                                                              allocations_list_key=allocations_list_key)
-            for key in allocation_mappings:
-                redis_keyed_structures[key] = allocation_mappings[key]
-
-        request_mappings = self._serialize_scheduler_request(request=job.originating_request,
-                                                             scheduler_request_key=originating_request_key)
-        for key in request_mappings:
-            redis_keyed_structures[key] = request_mappings[key]
-
-        return redis_keyed_structures
-
-    def _serialize_model_request(self, model_request: MaaSRequest, model_request_key: str):
-        """
-        Serialize the given ::class:`MaaSRequest` into a collection of Redis-persistable hashes, and return a dictionary
-        of all hashes that need to be persisted to save the serialized object state in Redis, keyed by the Redis key
-        that should be used for each.
-
-        Parameters
-        ----------
-        model_request : MaaSRequest
-            A model request to be serialized to a number of hashes/dictionaries.
-
-        model_request_key : str
-            The key to use for the top-level hash for the model request, and from which keys for related hashes of
-            nested objects are derived.
-
-        Returns
-        -------
-        dict
-            A mapping of dictionary values representing hashes that need to be persisted in Redis to save the state of
-            the model request, each keyed by its Redis key.
-        """
-        redis_keyed_hashes = dict()
-        model_request_hash = dict()
-
-        model_request_hash['version'] = model_request.version
-        model_request_hash['output'] = model_request.output
-        model_request_hash['session_secret'] = model_request.session_secret
-        # Then a separate params hash, but this can be handled here since the value is already a mapped dict
-        params_hash_key = self.create_derived_key(model_request_key, 'parameters')
-        model_request_hash['parameters_key'] = params_hash_key
-
-        redis_keyed_hashes[model_request_key] = model_request_hash
-        redis_keyed_hashes[params_hash_key] = model_request.parameters
-
-        return redis_keyed_hashes
-
-    def _serialize_scheduler_request(self, request: SchedulerRequestMessage, scheduler_request_key: str) -> dict:
-        """
-        Serialize the given ::class:`SchedulerRequestMessage` into a collection of Redis-persistable hashes, and return
-        a dictionary of all hashes that need to be persisted to save the serialized object state in Redis, keyed by the
-        Redis key that should be used for each.
-
-        Parameters
-        ----------
-        request : SchedulerRequestMessage
-            The request message to convert to a serialized format.
-
-        scheduler_request_key : str
-            The key that should be used for the top-level Redis Hash for the serialized request, and from which keys for
-            related hashes are derived.
-
-        Returns
-        -------
-        dict
-            A mapping of dictionary values representing hashes that need to be persisted in Redis to save the state of
-            the scheduler request, each keyed by its Redis key.
-        """
-        redis_keyed_hashes = dict()
-
-        # Construct the hash for the scheduler request object
-        scheduler_request_hash = dict()
-        scheduler_request_hash['user_id'] = request.user_id
-        scheduler_request_hash['cpus'] = request.cpus
-        scheduler_request_hash['memory'] = request.memory
-        # Create a derived key for the to-be-created model_request hash, and for reference in the scheduler request hash
-        model_request_key = self.create_derived_key(scheduler_request_key, 'model_request')
-        scheduler_request_hash['model_request_key'] = model_request_key
-        # TODO: might have to consider doing something with types of different names
-        scheduler_request_hash['model_request_type'] = request.model_request.__class__.__name__
-
-        # Add the scheduler request hash to the returned container dictionary
-        redis_keyed_hashes[scheduler_request_key] = scheduler_request_hash
-
-        # Call method to get hashes for persisting the inner model_request
-        # Remember, this is a dictionary of the hashes/mappings to save, not the mapping itself
-        model_request_hashes_container = self._serialize_model_request(request.model_request, model_request_key)
-
-        # Transfer the contained keys and hashes to the container dictionary that this method will return
-        for key in model_request_hashes_container:
-            redis_keyed_hashes[key] = model_request_hashes_container[key]
-
-        return redis_keyed_hashes
 
     def create_job(self, **kwargs) -> RequestedJob:
         """
@@ -982,6 +656,7 @@ class RedisBackedJobManager(JobManager, RedisBacked):
 
             for job_with_allocations_to_release in jobs_to_release_resources:
                 self.release_allocations(job_with_allocations_to_release)
+                self.save_job(job_with_allocations_to_release)
 
             for job_transitioning_phases in jobs_completed_phase:
                 # TODO: figure out what to do here; e.g., start output service after model_exec is done
@@ -990,13 +665,15 @@ class RedisBackedJobManager(JobManager, RedisBacked):
             # Build prioritized list/queue of allocation eligible Jobs
             priority_queues = self.build_prioritized_pending_allocation_queues(jobs_eligible_for_allocate)
             high_priority_queue = priority_queues['high']
+            # Do this here to get size in case queue is altered below
+            initial_high_priority_queue_size = len(high_priority_queue)
             low_priority_queue = priority_queues['low']
             med_priority_queue = priority_queues['medium']
 
             # Request allocations and get collection of jobs that were allocated, starting first with high priorities
             allocated_successfully = self._request_allocations_for_queue(high_priority_queue)
             # Only even process others if any and all high priority jobs get allocated
-            if len(allocated_successfully) == len(high_priority_queue):
+            if len(allocated_successfully) == initial_high_priority_queue_size:
                 allocated_successfully.extend(self._request_allocations_for_queue(med_priority_queue))
                 allocated_successfully.extend(self._request_allocations_for_queue(low_priority_queue))
 
