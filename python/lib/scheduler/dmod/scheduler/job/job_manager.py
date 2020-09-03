@@ -348,7 +348,7 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         kwargs
             Keyword args, passed through to the ::class:`RedisBacked` superclass init function.
         """
-        super(RedisBacked).__init__(redis_host=redis_host, redis_port=redis_port, redis_pass=redis_pass, **kwargs)
+        super().__init__(redis_host=redis_host, redis_port=redis_port, redis_pass=redis_pass, **kwargs)
         self._resource_manager = resource_manager
         self._active_jobs_set_key = self.keynamehelper.create_key_name(self.get_key_prefix(), 'active_jobs')
         self._launcher = launcher
