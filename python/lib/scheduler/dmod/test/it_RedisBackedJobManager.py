@@ -116,6 +116,8 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
 
     def _generate_rsa_keys(self):
         self._rsa_key_pairs.append(RsaKeyPair(directory='.', name='test_rsa_key_1'))
+        self._rsa_key_pairs.append(RsaKeyPair(directory='.', name='test_rsa_key_2'))
+        self._rsa_key_pairs.append(RsaKeyPair(directory='.', name='test_rsa_key_3'))
 
     @property
     def redis_test_pass(self):
