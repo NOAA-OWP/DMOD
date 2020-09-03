@@ -1097,39 +1097,11 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         ValueError
             If no job record exists with given key.
         """
-        # Retrieve serialized data from Redis for this, which gives us a dictionary of Redis hashes keyed by Redis keys
-        serialized_data_hashes = self._retrieve_serialized_data_for_job(job_hash_key=job_redis_key)
-        # If this is None, there was no job hash key did not exist, so a ValueError needs to be raised
-        if serialized_data_hashes is None:
-            raise ValueError('No job record found for job with key {}'.format(job_redis_key))
-
-        job_hash = serialized_data_hashes[job_redis_key]
-
-        if 'allocations_list_key' in job_hash:
-            allocation_list_key = job_hash['allocations_list_key']
-            allocation_list = serialized_data_hashes[allocation_list_key]
-            allocation_hashes = dict()
-            for alloc_hash_key in allocation_list:
-                allocation_hashes[alloc_hash_key] = serialized_data_hashes[alloc_hash_key]
+        if self._does_redis_key_exist(job_redis_key):
+            serialized_job = json.loads(self.redis.get(job_redis_key))
+            return RequestedJob.factory_init_from_deserialized_json(json_obj=serialized_job)
         else:
-            allocation_list = None
-            allocation_hashes = None
-
-        originating_request_key = job_hash['originating_request_key']
-        originating_request_hash = serialized_data_hashes[originating_request_key]
-
-        model_request_key = originating_request_hash['model_request_key']
-        model_request_hash = serialized_data_hashes[model_request_key]
-
-        parameters_key = model_request_hash['parameters_key']
-        parameters_hash = serialized_data_hashes[parameters_key]
-
-        return self._deserialize_job(job_hash=job_hash,
-                                     allocations_key_list=allocation_list,
-                                     allocations_hashes=allocation_hashes,
-                                     originating_request_hash=originating_request_hash,
-                                     model_request_hash=model_request_hash,
-                                     parameters_hash=parameters_hash)
+            raise ValueError('No job record found for job with key {}'.format(job_redis_key))
 
     def save_job(self, job: RequestedJob):
         """
