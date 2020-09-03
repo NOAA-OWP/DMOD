@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from dmod.communication import SchedulerRequestMessage
+from dmod.communication.serializeable import Serializable
 from enum import Enum
 from typing import List, Optional, Tuple, TYPE_CHECKING, Union
 from uuid import UUID
@@ -306,7 +307,7 @@ class JobStatus(Enum):
         return self._uid
 
 
-class Job(ABC):
+class Job(Serializable, ABC):
     """
     An abstract interface for a job performed by the MaaS system.
 
@@ -506,8 +507,231 @@ class JobImpl(Job):
 
     Job ids are simply the string cast of generated UUID values, stored within the ::attribute:`job_uuid` property.
     """
-    def __init__(self, cpu_count: int, memory_size: int, parameters: dict, allocation_paradigm_str: str,
-                 alloc_priority: int = 0):
+
+    @classmethod
+    def _parse_serialized_allocation_paradigm(cls, json_obj: dict, key: str):
+        paradigm = JobAllocationParadigm.get_from_name(name=json_obj[key], strict=True) if key in json_obj else None
+        if not isinstance(paradigm, JobAllocationParadigm):
+            if paradigm is None:
+                type_name = 'None'
+            else:
+                type_name = paradigm.__class__.__name__
+            raise RuntimeError(cls._get_invalid_type_message().format(key, str.__name__, type_name))
+        return paradigm
+
+    @classmethod
+    def _parse_serialized_allocations(cls, json_obj: dict, key: Optional[str] = None):
+        if key is None:
+            key = 'allocations'
+
+        if key not in json_obj:
+            return None
+
+        serial_alloc_list = json_obj[key]
+        if not isinstance(serial_alloc_list, list):
+            raise RuntimeError("Invalid format for allocations list value '{}'".format(str(serial_alloc_list)))
+        allocations = []
+        for serial_alloc in serial_alloc_list:
+            if not isinstance(serial_alloc, dict):
+                raise RuntimeError("Invalid format for allocation value '{}'".format(str(serial_alloc_list)))
+            allocation = ResourceAllocation.factory_init_from_dict(serial_alloc)
+            if not isinstance(allocation, ResourceAllocation):
+                raise RuntimeError(
+                    "Unable to deserialize `{}` to resource allocation while deserializing {}".format(
+                        str(allocation), cls.__name__))
+            allocations.append(allocation)
+        return allocations
+
+    @classmethod
+    def _parse_serialized_job_status(cls, json_obj: dict, key: Optional[str] = None):
+        # Set this to the default value if it is initially None
+        if key is None:
+            key = 'status'
+        status_str = cls.parse_simple_serialized(json_obj=json_obj, key=key, expected_type=str, required_present=False)
+        if status_str is None:
+            return None
+        return JobStatus.get_for_name(name=status_str)
+
+    @classmethod
+    def _parse_serialized_last_updated(cls, json_obj: dict, key: Optional[str] = None):
+        date_str_converter = lambda date_str: datetime.strptime(date_str, cls.get_datetime_str_format())
+        if key is None:
+            key = 'last_updated'
+        if key in json_obj:
+            return cls.parse_simple_serialized(json_obj=json_obj, key=key, expected_type=datetime,
+                                               converter=date_str_converter, required_present=False)
+        else:
+            return None
+
+    @classmethod
+    def _parse_serialized_rsa_key_pair(cls, json_obj: dict, key: Optional[str] = None, warn_if_missing: bool = False):
+        # Doing this here for now to avoid import errors
+        # TODO: find a better way for this
+        from .. import RsaKeyPair
+
+        # Set this to the default value if it is initially None
+        if key is None:
+            # TODO: set somewhere globally
+            key = 'rsa_key_pair'
+        if key not in json_obj:
+            if warn_if_missing:
+                # TODO: log this better
+                msg = 'Warning: expected serialized RSA key at {} when deserializing {} object'
+                print(msg.format(key, cls.__name__))
+            return None
+        if key not in json_obj or json_obj[key] is None:
+            return None
+        rsa_key_pair = RsaKeyPair.factory_init_from_deserialized_json(json_obj=json_obj[key])
+        if rsa_key_pair is None:
+            raise RuntimeError('Could not deserialized child RsaKeyPair when deserializing ' + cls.__name__)
+        else:
+            return rsa_key_pair
+
+    # TODO: unit test
+    # TODO: consider moving this up to Job or even Serializable
+
+    @classmethod
+    def deserialize_core_attributes(cls, json_obj: dict):
+        """
+        Deserialize the core attributes of the basic ::class:`JobImpl` implementation from the provided dictionary and
+        return as a tuple.
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+        The tuple with parse values of (cpus, memory, parameters, paradigm, priority, job_id, rsa_key_pair, status,
+        allocations, updated) from the provided dictionary.
+        """
+        int_converter = lambda x: int(x)
+        cpus = cls.parse_simple_serialized(json_obj=json_obj, key='cpu_count', expected_type=int,
+                                           converter=int_converter)
+        memory = cls.parse_simple_serialized(json_obj=json_obj, key='memory_size', expected_type=int,
+                                             converter=int_converter)
+        parameters = cls.parse_simple_serialized(json_obj=json_obj, key='parameters', expected_type=dict)
+        paradigm = cls._parse_serialized_allocation_paradigm(json_obj=json_obj, key='allocation_paradigm')
+        priority = cls.parse_simple_serialized(json_obj=json_obj, key='allocation_priority', expected_type=int,
+                                               converter=int_converter)
+        job_id = cls.parse_serialized_job_id(serialized_value=None, json_obj=json_obj, key='job_id')
+        rsa_key_pair = cls._parse_serialized_rsa_key_pair(json_obj=json_obj)
+        status = cls._parse_serialized_job_status(json_obj=json_obj)
+        allocations = cls._parse_serialized_allocations(json_obj=json_obj)
+        updated = cls._parse_serialized_last_updated(json_obj=json_obj)
+        return cpus, memory, parameters, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        """
+        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+        A new object of this type instantiated from the deserialize JSON object dictionary
+        """
+
+        try:
+            cpus, memory, parameters, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated = \
+                cls.deserialize_core_attributes(json_obj)
+
+            obj = cls(cpu_count=cpus, memory_size=memory, parameters=parameters, allocation_paradigm=paradigm,
+                      alloc_priority=priority)
+
+            if job_id is not None:
+                obj.job_id = job_id
+            if rsa_key_pair is not None:
+                obj.rsa_key_pair = rsa_key_pair
+            if status is not None:
+                obj.status = status
+            if updated is not None:
+                obj._last_updated = updated
+            if allocations is not None:
+                obj.allocations = allocations
+                
+            return obj
+
+        except RuntimeError as e:
+            # TODO: log the error for e
+            return None
+
+    @classmethod
+    def parse_serialized_job_id(cls, serialized_value: Optional[str], **kwargs):
+        """
+        Parse a serialized value for a ``job_id`` property according to the particulars of this types implementation as
+        it relates to ``job_id``, either after receiving the value as a parameter or by parsing it from a provided
+        dictionary.
+
+        The intent is to provided a means for different implementations to easily inject custom logic for parsing the
+        ``job_id`` appropriately when deserializing via ::method:`factory_init_from_deserialized_json`, but supporting
+        overriding logic for deserializing the ``job_id``, without having to also override logic for deserializing an
+        entire object.
+
+        Implementations should all ensure that if ``None`` is received for the serialized value (and any logic using the
+        keyword args cannot obtain a serialize value), that the method returns ``None``.
+
+        In the default implementation, keyword args are examined if the serialized value passed is `None`.  The
+        expectation is an optional JSON object/dictionary may be pass, along with the necessary key, from which a serial
+        value for the job id can be retrieved.  If the keyword args also cannot be used to obtain a serialized value
+        other than ``None``, then the method returns ``None``.
+
+        The default implementation also ensures the serialized value can be used to create a ::class:`UUID` object.  If
+        so, that object is returned.  If not, and a non-``None`` serialized value was obtained, a ::class:`RuntimeError`
+        is raised.  Note that it also will attempt to cast the serialized value to a string before attempting to use it
+        to create a ::class:`UUID` object.
+
+        Parameters
+        ----------
+        serialized_value : Optional[str]
+            Either a job id in serialized string format, or ``None``.
+        kwargs
+            Optional other keyword args.
+
+        Other Parameters
+        ----------
+        json_obj : Optional[dict]
+            Either a dictionary containing the serialized job id, or ``None``.
+        key : Optional[str]
+            Either a key value for use with ``json_obj`` to parse the serialized job id value, or ``None``.
+
+        Returns
+        -------
+        The object for backing job id for the implementation (which in the default is a ::class:`UUID`), or ``None`` if
+        the provided parameter was ``None``.
+
+        Raises
+        -------
+        RuntimeError
+            Raised if the parameter does not parse to a UUID.
+        """
+        key_key = 'key'
+        json_obj_key = 'json_obj'
+
+        # First, try to obtain a serialized value, if one was not already set
+        if serialized_value is None and kwargs is not None and json_obj_key in kwargs and key_key in kwargs:
+            if isinstance(kwargs[json_obj_key], dict) and kwargs[key_key] in kwargs[json_obj_key]:
+                try:
+                    serialized_value = cls.parse_simple_serialized(json_obj=kwargs[json_obj_key], key=kwargs[key_key],
+                                                                   expected_type=str, converter=lambda x: str(x),
+                                                                   required_present=False)
+                except:
+                    # TODO: consider logging this
+                    return None
+        # Bail here if we don't have a serialized_value to work with
+        if serialized_value is None:
+            return None
+        try:
+            return UUID(str(serialized_value))
+        except ValueError as e:
+            msg = "Failed parsing parameter value `{}` to UUID object: {}".format(str(serialized_value), str(e))
+            raise RuntimeError(msg)
+
+    def __init__(self, cpu_count: int, memory_size: int, parameters: dict,
+                 allocation_paradigm: Union[str, JobAllocationParadigm], alloc_priority: int = 0):
         self._cpu_count = cpu_count
         self._memory_size = memory_size
         self._parameters = parameters
@@ -659,6 +883,49 @@ class JobImpl(Job):
     @status_step.setter
     def status_step(self, step: JobExecStep):
         self.status = JobStatus.get_for_phase_and_step(phase=self.status.job_exec_phase, step=step)
+
+    def to_dict(self) -> dict:
+        """
+        Get the representation of this instance as a dictionary or dictionary-like object (e.g., a JSON object).
+
+        {
+            "cpu_count" : 4,
+            "memory_size" : 1000,
+            "parameters" : {...},
+            "allocation_paradigm" : "SINGLE_NODE",
+            "allocation_priority" : 0,
+            "job_id" : "12345678-1234-5678-1234-567812345678",
+            "rsa_key_pair" : {<serialized_representation_of_RsaKeyPair_obj>},
+            "status" : CREATED,
+            "last_updated" : "2020-07-10 12:05:45",
+            "allocations" : [...]
+        }
+
+        Returns
+        -------
+        dict
+            the representation of this instance as a dictionary or dictionary-like object (e.g., a JSON object)
+        """
+        serial = dict()
+
+        serial['cpu_count'] = self.cpu_count
+        serial['memory_size'] = self.memory_size
+        serial['parameters'] = self.parameters
+        if self.allocation_paradigm:
+            serial['allocation_paradigm'] = self.allocation_paradigm.name
+        serial['allocation_priority'] = self.allocation_priority
+        if self.job_id is not None:
+            serial['job_id'] = str(self.job_id)
+        if self.rsa_key_pair is not None:
+            serial['rsa_key_pair'] = self.rsa_key_pair.to_dict()
+        serial['status'] = self.status.name
+        serial['last_updated'] = self._last_updated.strftime(self.get_datetime_str_format())
+        if self.allocations is not None and len(self.allocations) > 0:
+            serial['allocations'] = []
+            for allocation in self.allocations:
+                serial['allocations'].append(ResourceAllocation.to_dict(allocation))
+
+        return serial
 
 
 class RequestedJob(JobImpl):
