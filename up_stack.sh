@@ -82,7 +82,8 @@ exec_start()
     if [ "${DOCKER_INTERNAL_REGISTRY_IS_MANAGED:-}" == "true" ]; then
         # If so, make sure it is running, starting if necessary
         # Note that in this case, we want to keep any previously started service
-        "${CONTROL_SCRIPT}" "${DOCKER_INTERNAL_REGISTRY_STACK_NAME:?}" check > /dev/null
+        # Also, add option to init networks when they don't already exist
+        "${CONTROL_SCRIPT}" --init-networks "${DOCKER_INTERNAL_REGISTRY_STACK_NAME:?}" check > /dev/null
         if [ ${?} -ne 0 ]; then
             "${CONTROL_SCRIPT}" -c "${DOCKER_INTERNAL_REGISTRY_STACK_CONFIG:?}" "${DOCKER_INTERNAL_REGISTRY_STACK_NAME:?}" deploy
             exit_if_failed ${?}
