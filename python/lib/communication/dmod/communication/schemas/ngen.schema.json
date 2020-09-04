@@ -1,0 +1,38 @@
+{
+  "definitions": {},
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ngen.schema.json",
+  "type": "object",
+  "title": "NGEN",
+  "required": [
+    "version",
+    "output",
+  ],
+  "properties": {
+    "version": {
+      "$id": "#/properties/NGEN/properties/version",
+      "type": "number",
+      "title": "The Version Schema",
+      "default": 0.0,
+      "examples": [
+        1.0
+      ],
+      "enum": [
+        1.0,
+        1.1
+      ]
+    },
+    "output": {
+      "$id": "#/properties/NGEN/properties/output",
+      "type": "string",
+      "title": "The Output Schema",
+      "default": "",
+      "examples": [
+        ""
+      ],
+      "enum": [
+        ""
+      ]
+    },
+  }
+}
