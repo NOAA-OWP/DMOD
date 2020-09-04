@@ -5,7 +5,7 @@ SCRIPT_PARENT_DIR="$(cd "$(dirname "${0}")"; pwd)"
 
 CONTROL_SCRIPT="./scripts/control_stack.sh"
 MAIN_STACK_REF_NAME="main"
-PY_SOURCES_STACK_REF_NAME="py_sources"
+PY_SOURCES_STACK_REF_NAME="py-sources"
 GUI_STACK_REF_NAME="nwm_gui"
 
 usage()

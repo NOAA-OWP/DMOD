@@ -40,7 +40,7 @@ Docker
 
 * nwm_gui
   - A DMoD client web interface
-* py_sources
+* py-sources
   - Intermediate build source for the python sources in DMOD/PYTHON
 
 Scripts
