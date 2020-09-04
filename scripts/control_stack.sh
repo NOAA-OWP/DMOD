@@ -117,6 +117,13 @@ Options:
         command when building, passed as a single string arg to
         this script.
 
+    --init-networks, --no-init-networks
+        Check for required/expected Docker networks and create
+        any that don't exist, prior to executing the specified
+        action. This is done by default for the 'build' and
+        'deploy' actions, but can be prevented using the 'no'
+        variant.
+
     --stack-name <name>
         Specify explicitly the name of the stack to work with.
         This will override the typical logic for determining
@@ -142,6 +149,7 @@ Actions:
 Options:
     --[build-|deploy-]config <path> | -[b|d]|c <path>
     --build-args <args_string>
+    --[no-]init-networks
     --stack-name <name>
 
 Use '-hh' for more descriptive help, or '-hhh' for further details.
@@ -198,6 +206,9 @@ process_action_args()
             ;;
         build)
             [ -n "${DO_BUILD_ACTION:-}" ] && short_usage && exit 1
+            if [ -z "${DOCKER_NETWORK_IMPLICIT_FLAG:-}" ]; then
+                DOCKER_NETWORK_IMPLICIT_FLAG='true'
+            fi
             DO_BUILD_ACTION='true'
             ;;
         push)
@@ -206,6 +217,9 @@ process_action_args()
             ;;
         deploy)
             [ -n "${DO_DEPLOY_ACTION:-}" ] && short_usage && exit 1
+            if [ -z "${DOCKER_NETWORK_IMPLICIT_FLAG:-}" ]; then
+                DOCKER_NETWORK_IMPLICIT_FLAG='true'
+            fi
             DO_DEPLOY_ACTION='true'
             ;;
         *)
@@ -231,6 +245,19 @@ bail_if_action_failed()
 
 exec_requested_actions()
 {
+    # First, handle network init if set to
+    if [ "${DO_DOCKER_NETWORK:-false}" == "true" ]; then
+        # First the mpi-net
+        docker_dev_init_swarm_network ${DOCKER_MPI_NET_NAME:=mpi-net} \
+                ${DOCKER_MPI_NET_SUBNET:?} \
+                ${DOCKER_MPI_NET_GATEWAY:?} \
+                ${DOCKER_MPI_NET_VXLAN_ID:=4097}
+        # Then the requests-net
+        docker_dev_init_swarm_network ${DOCKER_REQUESTS_NET_NAME:=requests-net} \
+                ${DOCKER_REQUESTS_NET_SUBNET:?} \
+                ${DOCKER_REQUESTS_NET_GATEWAY:?}
+    fi
+
     if [ -n "${DO_CHECK_ACTION:-}" ]; then
         docker_dev_check_stack_running "${STACK_NAME:?}"
         bail_if_action_failed $? check -q
@@ -297,6 +324,14 @@ while [ ${#} -gt 0 ]; do
             DOCKER_IMAGE_BUILD_EXTRA_ARGS="${2}"
             shift
             ;;
+        --init-networks)
+            [ -n "${DOCKER_NETWORK_EXPLICIT_FLAG:-}" ] && short_usage && exit 1
+            DOCKER_NETWORK_EXPLICIT_FLAG=${1}
+            ;;
+        --no-init-networks)
+            [ -n "${DOCKER_NETWORK_EXPLICIT_FLAG:-}" ] && short_usage && exit 1
+            DOCKER_NETWORK_EXPLICIT_FLAG=${1}
+            ;;
         --stack-name)
             [ -n "${STACK_NAME:-}" ] && short_usage && exit 1
             STACK_NAME="${2}"
@@ -313,6 +348,22 @@ while [ ${#} -gt 0 ]; do
     esac
     shift
 done
+
+# Set the appropriate value for whether networks should be checked
+# When explicit arg is given, respect that
+if [ -n "${DOCKER_NETWORK_EXPLICIT_FLAG:-}" ]; then
+    if [ "${DOCKER_NETWORK_EXPLICIT_FLAG}" == "--init-networks" ]; then
+        DO_DOCKER_NETWORK='true'
+    else
+        DO_DOCKER_NETWORK='false'
+    fi
+# Otherwise, if one of the build actions was processed, the implied flag will be set
+elif [ -n "${DOCKER_NETWORK_IMPLICIT_FLAG:-}" ]; then
+    DO_DOCKER_NETWORK='true'
+# Otherwise, explicitly set false
+else
+    DO_DOCKER_NETWORK='false'
+fi
 
 # Validate stack directory
 if [ -z "${STACK_DIR_NAME:-}" ]; then
