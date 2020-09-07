@@ -1,0 +1,10 @@
+{
+  "model": {
+    "NGEN": {
+      "version": 1.0,
+      "output": "",
+    }
+  },
+  "session-secret": "3fc9b689459d738f8c88a3a48aa9e33542016b7a4052e001aaa536fca74813cb",
+  "domain": "test-domain"
+}
