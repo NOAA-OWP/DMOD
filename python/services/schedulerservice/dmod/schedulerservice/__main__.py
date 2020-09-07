@@ -49,7 +49,8 @@ def _handle_args():
 def read_resource_list(resource_file : Path):
     with open(resource_file) as file:
         resource_list = yaml.load(file, Loader=yaml.FullLoader)
-        return resource_list['resources']
+        resource_list = [ Resource.factory_init_from_dict(resource) for resource in resource_list['resources'] ]
+        return resource_list
 
 
 def _get_parsed_or_env_val(parsed_val, env_var_suffix, fallback):
