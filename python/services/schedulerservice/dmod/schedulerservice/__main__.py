@@ -4,7 +4,7 @@ from os import getenv
 from pathlib import Path
 from . import name as package_name
 from .service import SchedulerHandler
-from dmod.scheduler import Launcher, RedisManager
+from dmod.scheduler import Launcher, RedisManager, Resource
 from dmod.scheduler.job import JobManagerFactory, JobManager
 
 
