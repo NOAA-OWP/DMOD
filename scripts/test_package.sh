@@ -18,6 +18,9 @@ fi
 # Import shared functions used for python-dev-related scripts
 . ${SHARED_FUNCS_DIR}/py_dev_func.sh
 
+# Import shared functions used for Docker-dev-related scripts
+. ${SHARED_FUNCS_DIR}/docker_dev_func.sh
+
 DEFAULT_TEST_DIR_BASENAME='test'
 DEFAULT_UNIT_TEST_FILE_PATTERN="test_*.py"
 DEFAULT_INTEGRATION_TEST_FILE_PATTERN="it_*.py"
