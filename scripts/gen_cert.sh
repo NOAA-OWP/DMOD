@@ -105,8 +105,8 @@ generate_cert()
     check_cert_files_exist
 
     # Finally, generate and write the certificate files
-    _SUBJ="/C=US/ST=Alabama/L=Tuscaloosa/O=OWP/OU=APD/CN=${HOST}/emailAddress=${EMAIL}"
-    openssl req -newkey rsa:2048 -nodes -keyout "${KEY_FILE}" -x509 -days 36500 -out "${CERT_FILE}" -subj "${SUBJ}"
+    local _SUBJ="/C=US/ST=Alabama/L=Tuscaloosa/O=OWP/OU=APD/CN=${HOST}/emailAddress=${EMAIL}"
+    openssl req -newkey rsa:2048 -nodes -keyout "${KEY_FILE}" -x509 -days 36500 -out "${CERT_FILE}" -subj "${_SUBJ}"
 }
 
 while [[ ${#} -gt 0 ]]; do
