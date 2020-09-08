@@ -5,6 +5,7 @@ from . import mock_job
 from .utils import logTest
 import logging
 
+
 class IntegrationTestLauncher(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -20,7 +21,7 @@ class IntegrationTestLauncher(unittest.TestCase):
         self.launcher.docker_client.close()
 
     @logTest(logging.DEBUG)
-    def test_start_job(self) -> None:
+    def test_start_job_1_a(self) -> None:
         job = mock_job(allocations=1)
         success, service = self.launcher.start_job(job)
         self.assertTrue(success)
@@ -30,5 +31,5 @@ class IntegrationTestLauncher(unittest.TestCase):
 
     #TODO test
     @unittest.skip("Not implemented")
-    def test_create_service(self):
+    def test_create_service_1_a(self):
         pass
