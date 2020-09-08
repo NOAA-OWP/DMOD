@@ -14,6 +14,15 @@ it_redis_startup()
 
 do_setup()
 {
+    # Make sure the necessary Docker networks have been set up, as the tests will fail otherwise
+    docker_dev_init_swarm_network ${DOCKER_MPI_NET_NAME:=mpi-net} \
+            ${DOCKER_MPI_NET_SUBNET:?Need to set MPI net subnet value for testing within .test_env} \
+            ${DOCKER_MPI_NET_GATEWAY:?Need to set MPI net gateway value for testing within .test_env} \
+            ${DOCKER_MPI_NET_VXLAN_ID:=4097}
+    # Then the requests-net
+    docker_dev_init_swarm_network ${DOCKER_REQUESTS_NET_NAME:=requests-net} \
+            ${DOCKER_REQUESTS_NET_SUBNET:?Need to set requests net subnet value for testing within .test_env} \
+            ${DOCKER_REQUESTS_NET_GATEWAY:?Need to set requests net gateway value for testing within .test_env}
     # Need Docker container with Redis instance
     it_redis_startup
 }
