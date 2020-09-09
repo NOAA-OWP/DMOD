@@ -150,7 +150,7 @@ class RedisBacked(ABC):
         password_filename = parent_directory + '/' + basename
         try:
             with open(password_filename, 'r') as redis_pass_secret_file:
-                content = redis_pass_secret_file.read()
+                content = redis_pass_secret_file.read().rstrip()
                 if len(content) < 1:
                     raise ValueError
                 else:
