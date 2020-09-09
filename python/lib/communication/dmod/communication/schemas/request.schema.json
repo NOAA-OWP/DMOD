@@ -12,7 +12,7 @@
     "model": {
       "propertyNames": {
         "enum": [
-          "NWM"
+          "NWM",
           "NGEN",
           "XYZ"
         ]
@@ -23,7 +23,7 @@
         },
         "NGEN": {
           "$ref": "file:ngen.schema.json"
-        }
+        },
         "NWM": {
           "$ref": "file:nwm.schema.json"
         }
