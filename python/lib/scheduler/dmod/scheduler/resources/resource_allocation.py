@@ -99,6 +99,23 @@ class ResourceAllocation(SingleHostProcessingAssetPool):
         return self.__class__.__name__ + separator + self.resource_id + separator + str(self.created.timestamp())
 
     @property
+    def node_id(self) -> str:
+        """
+        Convenience property for getting the resource id for the parent resource of this allocation, since it is
+        referred to as 'node id' in some situations.
+
+        Returns
+        -------
+        str
+            The ::attribute:`resource_id` for this allocation.
+
+        See Also
+        -------
+        ::attribute:`resource_id`
+        """
+        return self.resource_id
+
+    @property
     def resource_id(self) -> str:
         """
         Get the resource id of the ::class:`Resource` of which this is a subset of assets, which is the same as that
@@ -112,7 +129,7 @@ class ResourceAllocation(SingleHostProcessingAssetPool):
         return self.pool_id
 
     def to_dict(self) -> Dict[str, Union[str, int]]:
-        return {'node_id': self.resource_id, 'Hostname': self.hostname, 'cpus_allocated': self.cpu_count,
+        return {'node_id': self.node_id, 'Hostname': self.hostname, 'cpus_allocated': self.cpu_count,
                 'mem': self.memory, 'Created': self.created.timestamp(), 'separator': self.unique_id_separator}
 
     @property
