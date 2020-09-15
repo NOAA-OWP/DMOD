@@ -7,15 +7,12 @@ Describe how this software can improve the lives of its audience.
 
 Other things to include:
 
-  - **Technology stack**: Indicate the technological nature of the software, including primary programming language(s) and whether the software is intended as standalone or as a module in a framework or other ecosystem.
-  - **Status**:  Alpha, Beta, 1.1, etc. It's OK to write a sentence, too. The goal is to let interested people know where this project is at. This is also a good place to link to the [CHANGELOG](CHANGELOG.md).
-  - **Links to production or demo instances**
-  - Describe what sets this apart from related-projects. Linking to another doc or page is OK if this can't be expressed in a sentence or two.
+  - **Technology stack**: [Docker](https://www.docker.com) | [Python](https://www.python.org) | [Redis](https://redis.io) 
+  - **Status**: Working towards generalized runs at the container level using static inputs, check the [CHANGELOG](CHANGELOG.md) for more info.
 
 
-**Screenshot**: If the software has visual components, place a screenshot after the description; e.g.,
-
-![](https://raw.githubusercontent.com/NOAA-OWP/DMOD/doc/Screenshot.png)
+**System Overview**
+![](https://raw.githubusercontent.com/NOAA-OWP/DMOD/doc/DMOD System Overview.png)
 
 
 ## Dependencies
