@@ -12,7 +12,7 @@ Other things to include:
 
 
 **System Overview**
-![](https://raw.githubusercontent.com/ZacharyWills/DMOD/doc/DMOD_system_overview.png)
+![](https://raw.githubusercontent.com/ZacharyWills/DMOD/master/doc/DMOD_system_overview.png)
 
 
 ## Dependencies
