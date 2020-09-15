@@ -12,7 +12,7 @@ Other things to include:
 
 
 **System Overview**
-![](https://raw.githubusercontent.com/NOAA-OWP/DMOD/doc/DMOD System Overview.png)
+![](https://raw.githubusercontent.com/ZacharyWills/DMOD/doc/DMOD_system_overview.png)
 
 
 ## Dependencies
