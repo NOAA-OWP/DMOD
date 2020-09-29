@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
+import logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
+    datefmt="%H:%M:%S"
+)
+
 from websockets import WebSocketServerProtocol
 from typing import List, Type
 from dmod.communication import InvalidMessageResponse, Message, SchedulerRequestMessage, SchedulerRequestResponse, \
     UpdateMessage, UpdateMessageResponse, WebSocketInterface
 from dmod.scheduler.job import Job, JobManager, JobStatus
 import json
-import logging
+
 import asyncio
 import websockets
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
-    datefmt="%H:%M:%S",
-    handlers=[logging.StreamHandler()]
-)
-
 # TODO: consider taking out loop init from WebsocketInterface implementations, instead having some "service" class own loop
 # TODO: then, have WebsocketInterface implementations attach to some service
-
 
 # TODO: rename to something like ExecutionHandler, and rename package as well (really goes beyond the Scheduler now)
 class SchedulerHandler(WebSocketInterface):
