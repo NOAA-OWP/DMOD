@@ -173,6 +173,8 @@ class PostFormJobRequestClient(MaasRequestClient):
     def __init__(self, endpoint_uri: str, http_request: HttpRequest, ssl_dir: Path = None):
         if ssl_dir is None:
             ssl_dir = Path(__file__).resolve().parent.parent.parent.joinpath('ssl')
+            ssl_dir = Path('/usr/maas_portal/ssl') #Fixme
+        logger.debug("endpoing_uri: {}".format(endpoint_uri))
         super().__init__(endpoint_uri=endpoint_uri, ssl_directory=ssl_dir)
         self.http_request = http_request
         self.form_proc = None
