@@ -13,7 +13,7 @@ if [ -n "${VENV_DIR:-}" ]; then
 fi
 
 #set +e
-
+#export PYTHONASYNCIODEBUG=1
 python -m ${SERVICE_PACKAGE_NAME:?} \
     --port ${LISTEN_PORT:?} \
     --ssl-dir ${SERVICE_SSL_DIR:?} \

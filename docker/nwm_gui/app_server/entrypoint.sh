@@ -1,6 +1,7 @@
 #!/bin/bash
 
 export PYTHONUNBUFFERED=1
+#export PYTHONASYNCIODEBUG=1
 # Execute the migration scripts on the designated database
 python manage.py migrate
 
