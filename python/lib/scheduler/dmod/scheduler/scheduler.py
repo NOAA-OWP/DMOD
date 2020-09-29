@@ -13,12 +13,6 @@ from .utils import parsing_nested as pn
 if TYPE_CHECKING:
     from .job import Job
 
-logging.basicConfig(
-    filename='scheduler.log',
-    level=logging.DEBUG,
-    format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
-    datefmt="%H:%M:%S")
-
 
 class DockerServiceParameters():
     def __init__(self, image_tag: str = None, constraints: list = [], hostname: str = None, \
