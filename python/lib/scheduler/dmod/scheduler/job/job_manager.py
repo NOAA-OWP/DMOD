@@ -15,6 +15,7 @@ import datetime
 import heapq
 import json
 
+import logging
 
 class JobManagerFactory:
     """
@@ -573,6 +574,7 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         ValueError
             If no job exists with given job id.
         """
+        logging.debug("Deleting job {}".format(job_id))
         # Retrieve the job and ensure any allocations are release
         job_key = self._get_job_key_for_id(job_id)
         job_obj = self.retrieve_job_by_redis_key(job_key)
@@ -635,7 +637,13 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         """
         # TODO: make sure there aren't other cases
         if job.status_step == JobExecStep.ALLOCATED:
-            return self._launcher.start_job(job)
+            try: #If we don't catch excpetions from the launcher, they get handled "somewhere" that causes the
+                 #connection to close, but no useful information is provided, so handle them here.
+                return self._launcher.start_job(job)
+            except Exception as e:
+                logging.error("launcher failed to start job")
+                logging.exception(e)
+        logging.debug("Failed to start job")
 
     async def manage_job_processing(self):
         """
