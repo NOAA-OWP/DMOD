@@ -12,6 +12,7 @@ from ..resources import ResourceAllocation
 if TYPE_CHECKING:
     from .. import RsaKeyPair
 
+import logging
 
 class JobAllocationParadigm(Enum):
     """
@@ -583,9 +584,9 @@ class JobImpl(Job):
             key = 'rsa_key_pair'
         if key not in json_obj:
             if warn_if_missing:
-                # TODO: log this better
+                # TODO: log this better.  NJF changed print to logging.warning, anything else needed?
                 msg = 'Warning: expected serialized RSA key at {} when deserializing {} object'
-                print(msg.format(key, cls.__name__))
+                logging.warning(msg.format(key, cls.__name__))
             return None
         if key not in json_obj or json_obj[key] is None:
             return None
@@ -664,7 +665,7 @@ class JobImpl(Job):
             return obj
 
         except RuntimeError as e:
-            # TODO: log the error for e
+            logging.error(e)
             return None
 
     @classmethod
@@ -974,7 +975,7 @@ class RequestedJob(JobImpl):
                 msg = 'Invalid serialized scheduler request when deserialize {} object'
                 raise RuntimeError(msg.format(cls.__name__))
         except Exception as e:
-            # TODO: log
+            logging.error(e)
             return None
 
         # Create the object initially from the request
