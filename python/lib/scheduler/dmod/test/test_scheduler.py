@@ -73,40 +73,54 @@ class TestLauncher(unittest.TestCase):
         """
             Test load_image_and_domain with empty string args
         """
-        image = ''
+        name = ''
+        version = ''
         domain = ''
-        with self.assertRaises(ValueError):
-            self.launcher.load_image_and_domain(image, domain)
+        with self.assertRaises(KeyError):
+            self.launcher.load_image_and_domain(name, version, domain)
 
     def test_load_image_and_domain_a(self):
         """
-            Test load_image_and_domain with valid image, empty domain
+            Test load_image_and_domain with valid name, empty version and domain
         """
-        image = '127.0.0.1:5000/nwm-2.0:latest'
+        name = 'nwm'
+        version = ''
         domain = ''
-        with self.assertRaises(ValueError):
-            self.launcher.load_image_and_domain(image, domain)
+        with self.assertRaises(KeyError):
+            self.launcher.load_image_and_domain(name, version, domain)
 
     def test_load_image_and_domain_b(self):
         """
-            Test load_image_and_domain with empty image, valid domain
+            Test load_image_and_domain with empty name, valid version and domain
         """
-        image = ''
-        domain = 'domain_croton_NY'
-        with self.assertRaises(ValueError):
-            self.launcher.load_image_and_domain(image, domain)
+        name = ''
+        version = 2
+        domain = 'test-domain'
+        with self.assertRaises(KeyError):
+            self.launcher.load_image_and_domain(name, version, domain)
+
+    def test_load_image_and_domain_c(self):
+        """
+            Test load_image_and_domain with valid name, valid version and empty domain
+        """
+        name = 'nwm'
+        version = 2
+        domain = ''
+        with self.assertRaises(KeyError):
+            self.launcher.load_image_and_domain(name, version, domain)
 
     def test_load_image_and_domain_1(self):
         """
-            Test load_image_and_domain with valid image, valid domain
+            Test load_image_and_domain with valid name, valid version, valid domain
         """
-        image = '127.0.0.1:5000/nwm-2.0:latest'
-        domain = 'domain_croton_NY'
-        image_tag, static_dir, run_dir = self.launcher.load_image_and_domain(image, domain)
+        name = 'nwm'
+        version = 2
+        domain = 'croton_NY'
+        image_tag, static_dir, run_dir = self.launcher.load_image_and_domain(name, version, domain)
 
-        self.assertIsNotNone(image, image_tag)
+        self.assertIsNotNone(image_tag)
         self.assertIsNotNone(static_dir)
         self.assertIsNotNone(run_dir)
-        self.assertEqual(image_tag, image)
+        self.assertEqual(image_tag, '127.0.0.1:5000/nwm-2.0:latest')
         self.assertEqual( static_dir, './domains')
         self.assertEqual(run_dir, './example_case/NWM')

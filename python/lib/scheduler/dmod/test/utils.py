@@ -54,7 +54,7 @@ _request_json = {
 _nwm_model = {"nwm": {"version": 2.0, "output": "streamflow", "parameters": {}, "domain":"test-domain"}}
 _ngen_model = {"ngen": {"version":1.0, "output": "streamflow", "parameters":{}, "domain":"test-domain"}}
 
-def mock_job(model: str = 'NWM', cpus: int = 4, mem: int = 500000, strategy: str = "single_node", allocations: int = 0) -> RequestedJob:
+def mock_job(model: str = 'nwm', cpus: int = 4, mem: int = 500000, strategy: str = "single_node", allocations: int = 0) -> RequestedJob:
     """
         Generate a mock job with given cpu request
     """
