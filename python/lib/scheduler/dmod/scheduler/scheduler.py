@@ -62,19 +62,9 @@ class Launcher:
             self.api_client = docker.APIClient()
 
         #FIXME make networks, stack name __init__ params
-        #FIXME shouldn't have default nwm image if scheudler is generic
-
-        ## initialize variables for create_service()
-        ## default image
-        self._default_image = "127.0.0.1:5000/nwm-2.0:latest"
-        ## self.image =  "127.0.0.1:5000/nwm-master:latest"
 
         self.constraints = []
         self.hostname = "{{.Service.Name}}"
-        #FIXME set label based on image_and_domain.yaml
-        self.labels =  {"com.docker.stack.image": "127.0.0.1:5000/nwm-2.0",
-                        "com.docker.stack.namespace": "nwm"
-                       }
         #FIXME set name from model conf (images and domains)
         self.name = "nwm_mpi-worker_serv"
         #FIXME parameterize network
@@ -252,7 +242,7 @@ class Launcher:
         print("host_str", host_str)
         return host_str
 
-    def load_image_and_domain(self, image_name: str, domain_name: str) -> tuple:
+    def load_image_and_domain(self, name: str, version: str, domain: str) -> tuple:
         """ TODO make this a static method, pass in image_and_domain_list file path
         Read a list of image_name and domain_name from the yaml file: image_and_domain.yaml
         Derive domain directory to be used for computing
@@ -261,10 +251,12 @@ class Launcher:
 
         Parameters
         ----------
-        image_name
-            The image name needed to run a user job
-        domain_name
-            The domain name as requested by a user
+        name: str
+            The name of the model needed to run a user job, must match a top level key in image_and_domain_list
+        version:
+            The version of the model to use, must match a key under name: version: in image_and_domain_list
+        domain:
+            The model domain to operate on, must match a key under name: domain: in image_and_domain_list
 
         Returns
         -------
@@ -280,75 +272,45 @@ class Launcher:
         with open(self._images_and_domains_yaml) as fn:
             yml_obj = yaml.safe_load(fn)
 
-        # key_list = {'domain_croton_NY':'domain_croton_NY',
-        #             'domain_SixMileCreek': 'domain_SixMileCreek'
-        #            }
+        try:
+            model = yml_obj[name]
+        except KeyError:
+            raise(KeyError("image_and_domain.yml has no model key {}".format(name)))
+        try:
+            domain = model['domains'][domain]
+        except KeyError:
+            raise(KeyError("image_and_domain.yml has no domain key {} for model {}".format(domain, name)))
+        try:
+            run_dir = domain['run']
+        except KeyError:
+            raise(KeyError("image_and_domain.yml has no 'run' key for domain {}, model {}".format(domain, name)))
+        try:
+            local_dir = domain['local']
+        except KeyError:
+            raise(KeyError("image_and_domain.yml has no 'local' key for domain {}, model {}".format(domain, name)))
+        try:
+            image = model['version'][version]
+        except KeyError:
+            raise(KeyError("image_and_domain.yml has no version key {}".format(version)))
 
-        selected_domain_dir = None
-        domain_name_list = yml_obj['nwm_domain_list']
-        for item in domain_name_list:
-            for key in item:
-                # print(item[key])
-                if (key == domain_name):
-                    selected_domain_dir = item[key]
-                    print("selected domain_name, domain dir: ", key, selected_domain_dir)
-
-        # If requested domain does not exist on local machine
-        if (selected_domain_dir == None):
-            raise ValueError("domain-name: The requested domain is not a valid domain")
-
-        # Set up the domain to run jobs on the container
-        run_domain_dir = None
-        domain_name_list = yml_obj['run_domain_list']
-        for item in domain_name_list:
-            for key in item:
-                # print(item[key])
-                if (key == domain_name):
-                    run_domain_dir = item[key]
-                    print("run_domain_name, run_domain dir: ", key, run_domain_dir)
-
-        # If requested domain does not exist on local machine
-        if (run_domain_dir == None):
-            raise Exception("Failed to set up the run domain on the container")
-
-        # Selecting the image that corresponds to user job request
-        # If needed, different "image_tag" list can be created in image_and_domain_yaml file for different models,
-        # then the following code can be run for each image_tag names
-        # The code also ensure the required image exists on the system
-        # selected_image = image_name
-        image_tag_list = yml_obj['nwm_image_tag']
-        selected_image = None
-        for i, image_tag in enumerate(image_tag_list):
-            # print("image_tag: ", image_tag)
-            if (image_tag == image_name):
-                selected_image = image_tag
-                print("selected image = ", image_tag)
-                break
-
-        # If requested domain does not exist on local machine
-        if (selected_image == None):
-            raise ValueError("image_name: The requested image is not a valid image")
-
-        return selected_image, selected_domain_dir, run_domain_dir
+        return image, local_dir, run_dir
 
     def start_job(self, job: 'Job'):
         """
 
         """
         #TODO read these from request metadata
-        #domain = job.originating_request.model_request.domain
-        #image = map_image(job.origination_request.model_request.name, version)
-        # In operation, domain_name will be taken from user request
-        domain_name = "domain_croton_NY"
-        image_name = "127.0.0.1:5000/nwm-master:latest"
-        # Image is related to the domain type. For hydrologicla model, such as domain_croton_NY, we use nwm
-        # image_name  = "127.0.0.1:5000/nwm-2.0:latest"
-        # userRequest = Request(user_id, cpus, mem)
+        model = job.originating_request.model_request.get_model_name()
+        name = "{}-worker".format(model)
         #FIXME read all image/domain at init and select from internal cache (i.e. dict) or even push to redis for long term cache
-        (image_tag, domain_dir, run_domain_dir) = self.load_image_and_domain(image_name, domain_name)
+        (image_tag, domain_dir, run_domain_dir) = self.load_image_and_domain(model,
+                                                                             job.originating_request.model_request.version,
+                                                                             job.originating_request.model_request.domain)
+
         #TODO better align labels/defaults with serviceparam class
+        #FIXME if the stack.namespace needs to align with the stack name, this isn't correct
         labels =  {"com.docker.stack.image": image_tag,
-                   "com.docker.stack.namespace": "nwm"
+                   "com.docker.stack.namespace": model
                    }
         basename = self.name
         host_str = self.build_host_list(basename, job, run_domain_dir)
