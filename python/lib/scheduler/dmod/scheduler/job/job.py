@@ -5,6 +5,7 @@ from dmod.communication.serializeable import Serializable
 from enum import Enum
 from typing import List, Optional, Tuple, TYPE_CHECKING, Union
 from uuid import UUID
+from uuid import uuid4 as uuid_func
 
 from ..resources import ResourceAllocation
 
@@ -747,7 +748,7 @@ class JobImpl(Job):
         else:
             self._allocation_paradigm = JobAllocationParadigm.get_from_name(name=allocation_paradigm)
         self._allocation_priority = alloc_priority
-        self._job_uuid = None
+        self._job_uuid = uuid_func()
         self._rsa_key_pair = None
         self._status = JobStatus.CREATED
         self._allocations = None
