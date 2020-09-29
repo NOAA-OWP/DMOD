@@ -65,8 +65,7 @@ class Launcher:
 
         self.constraints = []
         self.hostname = "{{.Service.Name}}"
-        #FIXME set name from model conf (images and domains)
-        self.name = "nwm_mpi-worker_serv"
+
         #FIXME parameterize network
         self.networks = ["mpi-net"]
 
@@ -145,8 +144,8 @@ class Launcher:
             except ReadTimeout:
                 print("Connection to docker API timed out")
                 raise
-        srv_basename = self.name
-        self.log_service(self.name, service.id)
+
+        self.log_service(serv_name.split("_")[0], service.id)
 
         return service
 
@@ -312,8 +311,7 @@ class Launcher:
         labels =  {"com.docker.stack.image": image_tag,
                    "com.docker.stack.namespace": model
                    }
-        basename = self.name
-        host_str = self.build_host_list(basename, job, run_domain_dir)
+        host_str = self.build_host_list(name, job, run_domain_dir)
         #This seems to be more of a dev check than anything required
         #self.write_hostfile(basename, cpusList)
         cpusLen = len(job.allocations)
@@ -337,7 +335,7 @@ class Launcher:
             constraints += hostname
             constraints = list(constraints.split("/"))
             #TODO review all self attributes
-            serv_name = self.name + str(idx)+"_{}".format(job.job_id)
+            serv_name = "{}{}_{}".format(name, idx, job.job_id)
             idx += 1
             #Create the docker service
             serviceParams = DockerServiceParameters(image_tag, constraints, hostname, labels, serv_name, mounts)
