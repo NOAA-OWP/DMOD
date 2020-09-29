@@ -1,6 +1,6 @@
 import unittest
 from pathlib import Path
-from ..scheduler.scheduler import Launcher
+from scheduler.scheduler import Launcher
 from . import mock_job
 from .utils import logTest
 import logging
@@ -22,11 +22,15 @@ class IntegrationTestLauncher(unittest.TestCase):
 
     @logTest(logging.DEBUG)
     def test_start_job_1_a(self) -> None:
-        job = mock_job(allocations=1)
+        job = mock_job(model='ngen', allocations=1)
         success, service = self.launcher.start_job(job)
         self.assertTrue(success)
         self.assertIsNotNone(service)
 
+        job = mock_job(model='nwm', allocations=1)
+        success, service = self.launcher.start_job(job)
+        self.assertTrue(success)
+        self.assertIsNotNone(service)
         self.clean_up.append(service)
 
     #TODO test

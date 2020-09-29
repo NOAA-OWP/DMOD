@@ -1,6 +1,8 @@
-from ..scheduler.job import RequestedJob
-from ..scheduler.resources import Resource, ResourceAllocation, ResourceManager
-from dmod.communication import NWMRequest, SchedulerRequestMessage
+from dmod.scheduler.job import RequestedJob
+from dmod.scheduler.resources import Resource, ResourceAllocation, ResourceManager
+from dmod.communication import NWMRequest, NGENRequest, SchedulerRequestMessage
+
+from uuid import uuid4
 
 from copy import deepcopy
 import logging
@@ -45,28 +47,39 @@ _mock_resources = [{'node_id': "Node-0001",
           }
          ]
 
-_request_string = '{{"model_request": {{"model": {{"NWM": {{"version": 2.0, "output": "streamflow", "parameters": {{}}}}}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}}, "user_id": "someone", "cpus": {cpus}, "mem": {mem}'
 _request_json = {
-    "model": {"NWM": {"version": 2.0, "output": "streamflow", "parameters": {}}},
+    "model": None,
     "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c", "user_id": "someone",
                            "cpus": 4, "mem": 500000, "allocation":"SINGLE_NODE"}
+_nwm_model = {"nwm": {"version": 2.0, "output": "streamflow", "parameters": {}, "domain":"test-domain"}}
+_ngen_model = {"ngen": {"version":1.0, "output": "streamflow", "parameters":{}, "domain":"test-domain"}}
 
-def mock_job(cpus: int = 4, mem: int = 500000, strategy: str = "single_node", allocations: int = 0) -> RequestedJob:
+def mock_job(model: str = 'NWM', cpus: int = 4, mem: int = 500000, strategy: str = "single_node", allocations: int = 0) -> RequestedJob:
     """
         Generate a mock job with given cpu request
     """
-    # Example 0
-    request_string = _request_string.format(cpus=cpus, mem=mem)
+
     request_json = _request_json
     request_json['cpus'] = cpus
     request_json['mem'] = mem
-    model_request = NWMRequest.factory_init_from_deserialized_json(request_json)
+
+    if model == 'nwm':
+        request_json['model'] = _nwm_model
+        model_request = NWMRequest.factory_init_from_deserialized_json(request_json)
+    elif model == 'ngen':
+        request_json['model'] = _ngen_model
+        model_request = NGENRequest.factory_init_from_deserialized_json(request_json)
+    else:
+        raise(ValueError("Unsupported mock model {}".format(model)))
+
+    print(model_request.parameters)
     schedule_request = SchedulerRequestMessage(model_request=model_request,
                                 user_id=request_json['user_id'],
                                 cpus=cpus,
                                 mem=mem,
                                 allocation_paradigm=strategy)
     mock_job = RequestedJob(schedule_request)
+    #mock_job.job_id = uuid4()
     allocs = []
     for i in range(1, allocations+1):
         allocs.append( ResourceAllocation(i, 'hostname{}'.format(i), cpus, mem) )
