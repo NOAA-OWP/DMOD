@@ -9,7 +9,7 @@ from typing import Optional, Union
 
 import websockets
 
-from .maas_request import MaaSRequest, MaaSRequestResponse, NWMRequest, NWMRequestResponse
+from .maas_request import MaaSRequest, MaaSRequestResponse, NWMRequest, NWMRequestResponse, NGENRequest, NGENRequestResponse
 from .message import Message, Response, InitRequestResponseReason
 from .scheduler_request import SchedulerRequestMessage, SchedulerRequestResponse
 from .validator import NWMRequestJsonValidator
@@ -299,8 +299,13 @@ class MaasRequestClient(WebSocketClient, ABC):
         elif isinstance(message, NWMRequest):
             is_valid, error = NWMRequestJsonValidator().validate(message.to_dict())
             return is_valid, error
+        elif isinstance(message, NGENRequest):
+            is_valid, error = NWMRequestJsonValidator().validate(message.to_dict())
+            return is_valid, error
         elif isinstance(message, NWMRequestResponse):
             # TODO: implement (in particular, a suitable validator type)
+            return True, None
+        elif isinstance(message, NGENRequestResponse):
             return True, None
         else:
             raise RuntimeError('Unsupported MaaSRequest subtype: ' + str(message.__class__))
