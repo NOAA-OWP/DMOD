@@ -7,7 +7,6 @@ from .service import SchedulerHandler
 from dmod.scheduler import Launcher, RedisManager, Resource
 from dmod.scheduler.job import JobManagerFactory, JobManager
 
-
 def _handle_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--images-and-domains-yaml',
@@ -81,7 +80,7 @@ def _get_parsed_or_env_val(parsed_val, env_var_suffix, fallback):
     """
     if parsed_val is not None:
         return parsed_val
-    env_prefixes = ['DOCKER_SECRET_REDIS_', 'REDIS_', 'DOCKER_REDIS_']
+    env_prefixes = ['REDIS_', 'DOCKER_SECRET_REDIS_', 'DOCKER_REDIS_']
     for prefix in env_prefixes:
         env_var = prefix + env_var_suffix
         if getenv(env_var, None) is not None:
