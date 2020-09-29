@@ -38,5 +38,5 @@ USER root
 RUN rm -rf ${BOOST_ROOT}
 RUN echo "export PATH=${PATH}" >> /etc/profile
 USER ${USER}
-#COPY run_model.sh ${WORKDIR}
+COPY entrypoint.sh ${WORKDIR}
 WORKDIR ${WORKDIR}
