@@ -27,6 +27,8 @@ services:
       - SERVICE_SSL_DIR=${DOCKER_SCHEDULER_CONTAINER_SERVICE_SSL_DIR:-/ssl/scheduler}
       - DOCKER_SECRET_REDIS_PASS=myredis_pass
       - REDIS_HOST=${DOCKER_REDIS_SERVICE_ALIAS:-redis}
+    depends_on:
+      - myredis
   myredis:
     image: redis
     ports:
@@ -82,7 +84,8 @@ services:
     volumes:
       - ../../ssl:/ssl
     #  - ./request_handler:/code
-
+    depends_on:
+      - myredis
 networks:
     mpi-net:
         external: true
