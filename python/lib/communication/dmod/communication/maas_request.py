@@ -642,6 +642,153 @@ class NWMRequestResponse(MaaSRequestResponse):
         else:
             return self.data[self.get_data_dict_key_for_job_id()]
 
+class NGENRequest(MaaSRequest):
+
+    event_type = MessageEventType.NGEN_MAAS_REQUEST
+    """(:class:`MessageEventType`) The type of event for this message"""
+
+    model_name = 'ngen' #FIXME case sentitivity
+    """(:class:`str`) The name of the model to be used"""
+
+    parameters = []
+    """(:class:`list`) The collection of parameters to use"""
+
+    output_variables = []
+    """(:class:`list`) The collection of output variables that the model may generate"""
+
+    @classmethod
+    def factory_init_correct_response_subtype(cls, json_obj: dict) -> MaaSRequestResponse:
+        """
+        Init a :obj:`Response` instance of the appropriate subtype for this class from the provided JSON object.
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+
+        """
+        return NGENRequestResponse.factory_init_from_deserialized_json(json_obj=json_obj)
+
+    def __init__(self, session_secret: str, version: float = 0.0, output: str = 'streamflow', domain: str = None, parameters: dict = None):
+        super(NGENRequest, self).__init__(version=version, output=output, domain=domain, parameters=parameters,
+                                         session_secret=session_secret)
+
+
+class NGENRequestResponse(MaaSRequestResponse):
+    """
+    A response to a :class:`NGENRequest`.
+
+    Note that, when not ``None``, the :attr:`data` value will be a dictionary with the following format:
+        - key 'job_id' : the appropriate job id value in response to the request
+        - key 'scheduler_response' : the related :class:`SchedulerRequestResponse`, in serialized dictionary form
+
+    For example:
+    {
+        'job_id': 1,
+        'scheduler_response': {
+            'success': True,
+            'reason': 'Testing Stub',
+            'message': 'Testing stub',
+            'data': {
+                'job_id': 1
+            }
+        }
+    }
+
+    Or:
+    {
+        'job_id': 0,
+        'scheduler_response': {
+            'success': False,
+            'reason': 'Testing Stub',
+            'message': 'Testing stub',
+            'data': {}
+        }
+    }
+    """
+
+    _data_dict_key_job_id = 'job_id'
+    _data_dict_key_scheduler_response = 'scheduler_response'
+    response_to_type = NGENRequest
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        """
+        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+        response_obj : Response
+            A new object of this type instantiated from the deserialize JSON object dictionary, or none if the provided
+            parameter could not be used to instantiated a new object.
+
+        See Also
+        -------
+        _factory_init_data_attribute
+        """
+        try:
+            return cls(success=json_obj['success'], reason=json_obj['reason'], message=json_obj['message'],
+                       scheduler_response=json_obj['data'])
+        except Exception as e:
+            return None
+
+    #Should this go up level to the abstract request class?
+    @classmethod
+    def _convert_scheduler_response_to_data_attribute(cls, scheduler_response=None):
+        job_id_key = cls.get_data_dict_key_for_job_id()
+        sched_resp_key = cls.get_data_dict_key_for_scheduler_response()
+        if scheduler_response is None:
+            return None
+        elif isinstance(scheduler_response, dict) and len(scheduler_response) == 0:
+            return {}
+        elif isinstance(scheduler_response, dict):
+            return scheduler_response
+        else:
+            return {job_id_key: scheduler_response.job_id, sched_resp_key: scheduler_response.to_dict()}
+
+    @classmethod
+    def get_data_dict_key_for_job_id(cls):
+        """
+        Get the standard key name used in the :attr:`data` attribute dictionary for storing the ``job_id`` value.
+        Returns
+        -------
+        str
+            the standard key name used in the :attr:`data` attribute dictionary for storing the ``job_id`` value
+        """
+        return cls._data_dict_key_job_id
+
+    @classmethod
+    def get_data_dict_key_for_scheduler_response(cls):
+        """
+        Get the standard key name used in the :attr:`data` attribute dictionary for storing the serialized scheduler
+        response value.
+
+        Returns
+        -------
+        str
+            the standard key name used in the :attr:`data` attribute dictionary for storing the serialized scheduler
+            response value
+        """
+        return cls._data_dict_key_scheduler_response
+
+    def __init__(self, success: bool, reason: str, message: str = '', scheduler_response=None):
+        super().__init__(success=success,
+                         reason=reason,
+                         message=message,
+                         data=self._convert_scheduler_response_to_data_attribute(scheduler_response))
+
+    @property
+    def job_id(self):
+        if not isinstance(self.data, dict):
+            return -1
+        else:
+            return self.data[self.get_data_dict_key_for_job_id()]
 
 def get_parameters() -> dict:
     """
