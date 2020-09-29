@@ -1,23 +1,22 @@
-# TODO make this more general
-# i.e. model:
-#         nwm:
-#           images:
-#             - latest
-#             - master
-#          domains:
-#             - croton
-#             - sixmile
-#         other:
-#          images:
-#             - versionX
-#           domains:
-#             - a
-nwm_image_tag:
-  - '127.0.0.1:5000/nwm-2.0:latest'
-  - '127.0.0.1:5000/nwm-master'
-  - '127.0.0.1:5000/nwm-conus-reservoir'
-nwm_domain_list:
-  - 'domain_croton_NY': '/opt/nwm_c/domains'
-  - 'domain_SixMileCreek': '/opt/nwm_c/domains'
-domain_croton_NY: '/opt/nwm_c/domains/example_case/NWM'
-domain_SixMileCreek: '/opt/nwm_c/domains/SixMileCreek'
+nwm:
+  version:
+    2: '127.0.0.1:5000/nwm-2.0:latest'
+    master: '127.0.0.1:5000/nwm-master'
+    reservoir: '127.0.0.1:5000/nwm-conus-reservoir'
+  domains:
+    croton_NY:
+      local: './domains/example_case/NWM'
+      run: './example_case/NWM'
+    SixMileXCreek:
+      local: './domains/SixMileCreek'
+      run: './domains/SixMileCreek'
+    test-domain:
+      local: './domains'
+      run: './domains'
+ngen:
+  version:
+    1: '127.0.0.1:5000/ngen:latest'
+  domains:
+    test-domain:
+      local: './domains/ngen/data/'
+      run: './ngen/data'
