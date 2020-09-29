@@ -29,6 +29,7 @@ class RequestFormProcessor:
         self.model = post_request.POST['model']
         self.version = float(post_request.POST['version'])
         self.output = post_request.POST['output']
+        self.domain = post_request.POST['domain']
         self.maas_secret = maas_secret
 
         # This will give us the parameters that were configured for the model we want to use
@@ -140,7 +141,7 @@ class RequestFormProcessor:
         """
         if self._maas_request is None:
             if len(self.errors) == 0:
-                self._maas_request = get_request(self.model, self.version, self.output, self.parameters,
+                self._maas_request = get_request(self.model, self.version, self.output, self.domain, self.parameters,
                                                  self.maas_secret)
         return self._maas_request
 
@@ -215,7 +216,7 @@ class PostFormJobRequestClient(MaasRequestClient):
             tmp = self._acquire_new_session()
             logger.info("Session Info Return: {}".format(tmp))
             return tmp
-        
+
     def _init_maas_job_request(self):
         """
         Set or reset the :attr:`form_proc` field and return its :attr:`RequestFormProcessor`.`maas_request` property.
@@ -297,6 +298,7 @@ class EditView(View):
             return " ".join(split).title()
 
         models = list(get_available_models().keys())
+        domains = ['example-domain-A', 'example-domain-B'] #FIXME map this from supported domains
         outputs = list()
         distribution_types = list()
 
@@ -317,6 +319,7 @@ class EditView(View):
         # Package everything up to be rendered for the client
         payload = {
             'models': models,
+            'domains': domains,
             'outputs': outputs,
             'parameters': MaaSRequest.get_parameters(),
             'distribution_types': distribution_types,
@@ -327,7 +330,7 @@ class EditView(View):
 
         # Return the rendered page
         return render(request, 'maas/edit.html', payload)
-            
+
     def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         """
         The handler for 'post' requests. This will attempt to submit the request and rerender the page
