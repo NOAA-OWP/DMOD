@@ -6,7 +6,7 @@
   "title": "NGEN",
   "required": [
     "version",
-    "output",
+    "output"
   ],
   "properties": {
     "version": {
@@ -31,8 +31,8 @@
         ""
       ],
       "enum": [
-        ""
+        "streamflow"
       ]
-    },
+    }
   }
 }
