@@ -459,6 +459,7 @@ class MaaSRequest(AbstractInitRequest):
                             }
                         }
                     ]
+                    'domain': 'test-domain'
                 }
             }
             'session-secret': 'secret-string-val'
@@ -491,6 +492,25 @@ class MaaSRequestResponse(Response, ABC):
         except:
             return InitRequestResponseReason.UNKNOWN
 
+class Parameter(object):
+    """
+        Base clase for model parameter descriptions that a given model may expose to DMOD for dynamic parameter selection.
+    """
+    def __init__(self, name):
+        """
+            Set the base meta data of the parameter
+        """
+        self.name = name
+
+class ScalarParameter(Parameter):
+    """
+        A Scalar parameter is a simple interger parameter who's valid range are integer increments between
+        min and max, inclusive.
+    """
+
+    def __init__(self, min, max):
+        self.min = min
+        self.max=max
 
 class NWMRequest(MaaSRequest):
 

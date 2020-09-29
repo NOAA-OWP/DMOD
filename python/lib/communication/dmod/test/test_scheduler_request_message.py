@@ -14,14 +14,14 @@ class TestSchedulerRequestMessage(unittest.TestCase):
 
         # Example 0
         self.request_strings.append(
-            '{"model_request": {"model": {"NWM": {"version": 2.0, "output": "streamflow", "parameters": {}}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}, "user_id": "someone", "cpus": 4, "mem": 500000, "allocation": "single-node"}')
+            '{"model_request": {"model": {"nwm": {"version": 2.0, "output": "streamflow", "domain": "", "parameters": {}}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}, "user_id": "someone", "cpus": 4, "mem": 500000, "allocation": "single-node"}')
         self.request_jsons.append({"model_request": {
-            "model": {"NWM": {"version": 2.0, "output": "streamflow", "parameters": {}}},
+            "model": {"nwm": {"version": 2.0, "output": "streamflow", "domain":'', "parameters": {}}},
             "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}, "user_id": "someone",
                                    "cpus": 4, "mem": 500000, "allocation": "single-node"})
         self.request_objs.append(
             SchedulerRequestMessage(model_request=NWMRequest.factory_init_from_deserialized_json(
-                {"model": {"NWM": {"version": 2.0, "output": "streamflow", "parameters": {}}},
+                {"model": {"nwm": {"version": 2.0, "output": "streamflow", "domain":'', "parameters": {}}},
                  "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}),
                                     user_id='someone',
                                     cpus=4,
