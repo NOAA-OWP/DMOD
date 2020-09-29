@@ -34,7 +34,7 @@ class SchedulerRequestMessage(AbstractInitRequest):
             return None
 
     def __init__(self, model_request: MaaSRequest, user_id: str, cpus: Optional[int] = None, mem: Optional[int] = None,
-                 allocation_paradigm: str = ''):
+                 allocation_paradigm: str = 'SINGLE_NODE'):
         self.model_request = model_request
         self.user_id = user_id
         # TODO come up with better way of determining this for the running system; for now, ensure a value is set
@@ -77,4 +77,3 @@ class SchedulerRequestResponse(Response):
             return self.data['job_id']
         else:
             return -1
-
