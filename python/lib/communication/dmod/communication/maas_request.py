@@ -203,15 +203,17 @@ class MaaSRequest(AbstractInitRequest):
             model_name = cls.model_name
             return cls(version=json_obj['model'][model_name]['version'],
                        output=json_obj['model'][model_name]['output'],
+                       domain=json_obj['model'][model_name]['domain'],
                        parameters=json_obj['model'][model_name]['parameters'],
                        session_secret=json_obj['session-secret'])
         except:
             return None
 
-    def __init__(self, version: float, output: str, parameters: dict, session_secret: str):
+    def __init__(self, version: float, output: str, domain: str, parameters: dict, session_secret: str):
         """
         :param float version: The version of the model to use
         :param str output: The name of the variable to generate numbers for
+        :param str domain: The domain to execute over
         :param dict parameters: A mapping between parameters to configure and their scalar or distribution configurations
         :param str session_secret: The session secret for the right session when communicating with the MaaS request handler
         """
@@ -250,6 +252,7 @@ class MaaSRequest(AbstractInitRequest):
 
         self._version = version
         self.output = output
+        self._domain = domain
         self.parameters = parameters
         self.session_secret = session_secret
 
@@ -467,6 +470,7 @@ class MaaSRequest(AbstractInitRequest):
         model[self.get_model_name()] = dict()
         model[self.get_model_name()]['version'] = self._version
         model[self.get_model_name()]['output'] = self.output
+        model[self.get_model_name()]['domain'] = self._domain
         model[self.get_model_name()]['parameters'] = dict()
 
         for parameter in self.parameters:
@@ -541,8 +545,8 @@ class NWMRequest(MaaSRequest):
         """
         return NWMRequestResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
-    def __init__(self, session_secret: str, version: float = 0.0, output: str = 'streamflow', parameters: dict = None):
-        super().__init__(version=version, output=output, parameters=parameters,
+    def __init__(self, session_secret: str, version: float = 0.0, output: str = 'streamflow', domain: str = None, parameters: dict = None):
+        super(NWMRequest, self).__init__(version=version, output=output, domain=domain, parameters=parameters,
                                          session_secret=session_secret)
 
 
@@ -847,7 +851,7 @@ def get_parameters() -> dict:
     return parameters
 
 
-def get_request(model: str, version: float = 0.0, output: str = 'streamflow', parameters: dict = None,
+def get_request(model: str, version: float = 0.0, output: str = 'streamflow', domain: str = None, parameters: dict = None,
                 session_secret: str = '') -> MaaSRequest:
     """
     Converts a basic definition of a request into a proper request object
@@ -855,6 +859,7 @@ def get_request(model: str, version: float = 0.0, output: str = 'streamflow', pa
     :param str model: The type of model we want to run
     :param float version: The version of the model to run
     :param str output: What we want the model to generate
+    :param str domain: What input domain to execute on
     :param dict parameters: A mapping of all the parameters for the model that we want to set and their values
     :param str session_secret: The session secret for the right session when communicating with the MaaS request handler
     :return: A request object that may be converted into context data for a web request
@@ -868,4 +873,4 @@ def get_request(model: str, version: float = 0.0, output: str = 'streamflow', pa
     if parameters is None:
         parameters = dict()
 
-    return get_available_models()[model](version=version, output=output, parameters=parameters, session_secret=session_secret)
+    return get_available_models()[model](version=version, output=output, domain=domain, parameters=parameters, session_secret=session_secret)
