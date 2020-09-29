@@ -5,7 +5,7 @@ nwm:
     reservoir: '127.0.0.1:5000/nwm-conus-reservoir'
   domains:
     croton_NY:
-      local: './domains/example_case/NWM'
+      local: './domains'
       run: './example_case/NWM'
     SixMileXCreek:
       local: './domains/SixMileCreek'
