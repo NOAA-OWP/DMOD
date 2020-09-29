@@ -1,5 +1,6 @@
 #!/bin/sh
-
+SECRET_FILE="/run/secrets/${DOCKER_SECRET_REDIS_PASS:?}"
+REDIS_PASS="$(cat ${SECRET_FILE})"
 #set -e
 
 # A virtual environment path may be supplied using this environmental shell variable
@@ -16,4 +17,5 @@ fi
 
 python -u -m ${SERVICE_PACKAGE_NAME:?} \
     --port ${LISTEN_PORT:?} \
-    --ssl-dir ${SERVICE_SSL_DIR:?}
+    --ssl-dir ${SERVICE_SSL_DIR:?} \
+    --redis-pass ${REDIS_PASS}
