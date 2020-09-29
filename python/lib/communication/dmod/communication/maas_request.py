@@ -248,7 +248,7 @@ class MaaSRequest(AbstractInitRequest):
                     "{} is not a scalar or distribution.".format(parameter)
                 )
 
-        self.version = version
+        self._version = version
         self.output = output
         self.parameters = parameters
         self.session_secret = session_secret
@@ -288,10 +288,26 @@ class MaaSRequest(AbstractInitRequest):
 
     def __eq__(self, other):
         return self._check_class_compatible_for_equality(other) \
-               and self.version == other.version \
+               and self._version == other._version \
                and self.output == other.output \
                and self.parameters == other.parameters \
-               and self.session_secret == other.session_secret
+               and self.session_secret == other.session_secret \
+               and self._domain == other._domain
+
+    #TODO is classmethod appropriate here?  Seems more like an instance
+    @property
+    def version(self) -> float:
+        """
+        :return: the version of the model to run
+        """
+        return self._version
+
+    @property
+    def domain(self) -> str:
+        """
+        :return: domain name the model is executing on
+        """
+        return self._domain
 
     @classmethod
     def get_distribution_types(cls) -> list:
@@ -449,7 +465,7 @@ class MaaSRequest(AbstractInitRequest):
         """
         model = dict()
         model[self.get_model_name()] = dict()
-        model[self.get_model_name()]['version'] = self.version
+        model[self.get_model_name()]['version'] = self._version
         model[self.get_model_name()]['output'] = self.output
         model[self.get_model_name()]['parameters'] = dict()
 
