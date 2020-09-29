@@ -207,7 +207,7 @@ class SchedulerHandler(WebSocketInterface):
             # TODO: perhaps add this functionality below to the actual abstract interface
             # Define the types of initial messages we can receive, and the specific function that handles the rest of
             # processing when such a message comes in
-            supported_init_message_types: List[Type[Message]] = [SchedulerHandler, UpdateMessage]
+            supported_init_message_types: List[Type[Message]] = [SchedulerRequestMessage, UpdateMessage]
 
             # Deserialize the message to the appropriate type if possible
             for init_message_class_type in supported_init_message_types:
