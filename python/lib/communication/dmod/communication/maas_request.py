@@ -525,7 +525,7 @@ class NWMRequest(MaaSRequest):
         return NWMRequestResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
     def __init__(self, session_secret: str, version: float = 0.0, output: str = 'streamflow', parameters: dict = None):
-        super(NWMRequest, self).__init__(version=version, output=output, parameters=parameters,
+        super().__init__(version=version, output=output, parameters=parameters,
                                          session_secret=session_secret)
 
 
@@ -672,7 +672,7 @@ class NGENRequest(MaaSRequest):
         return NGENRequestResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
     def __init__(self, session_secret: str, version: float = 0.0, output: str = 'streamflow', domain: str = None, parameters: dict = None):
-        super(NGENRequest, self).__init__(version=version, output=output, domain=domain, parameters=parameters,
+        super().__init__(version=version, output=output, domain=domain, parameters=parameters,
                                          session_secret=session_secret)
 
 
