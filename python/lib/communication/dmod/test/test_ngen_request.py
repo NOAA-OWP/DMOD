@@ -16,20 +16,22 @@ class TestNGENRequest(unittest.TestCase):
         # TODO: improve coverage through more examples
 
         # Example 0
-        self.request_strings.append('{"model": {"NGEN": {"version": 2.0, "output": "streamflow", "parameters": {}}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
-        self.request_jsons.append({'model': {'NGEN': {'version': 2.0, 'output': 'streamflow', 'parameters': {}}}, 'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'})
+        self.request_strings.append('{"model": {"ngen": {"version": 2.0, "output": "streamflow", "domain": "", "parameters": {}}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
+        self.request_jsons.append({'model': {'ngen': {'version': 2.0, 'output': 'streamflow', 'domain': '', 'parameters': {}}}, 'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'})
         self.request_objs.append(
             NGENRequest(session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
                        version=2.0,
+                       domain='',
                        output='streamflow',
                        parameters={}))
 
         # Example 1 - like example 0, but with the object initialized with the default 'parameters' value
-        self.request_strings.append('{"model": {"NGEN": {"version": 2.0, "output": "streamflow", "parameters": {}}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
-        self.request_jsons.append({'model': {'NGEN': {'version': 2.0, 'output': 'streamflow', 'parameters': {}}}, 'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'})
+        self.request_strings.append('{"model": {"ngen": {"version": 2.0, "output": "streamflow", "domain": "", "parameters": {}}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
+        self.request_jsons.append({'model': {'ngen': {'version': 2.0, 'output': 'streamflow', 'domain': '', 'parameters': {}}}, 'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'})
         self.request_objs.append(
             NGENRequest(session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
                        version=2.0,
+                       domain='',
                        output='streamflow'))
 
     def test_factory_init_from_deserialized_json_0_a(self):
