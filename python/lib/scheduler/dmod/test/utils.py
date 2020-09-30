@@ -72,7 +72,6 @@ def mock_job(model: str = 'nwm', cpus: int = 4, mem: int = 500000, strategy: str
     else:
         raise(ValueError("Unsupported mock model {}".format(model)))
 
-    print(model_request.parameters)
     schedule_request = SchedulerRequestMessage(model_request=model_request,
                                 user_id=request_json['user_id'],
                                 cpus=cpus,
