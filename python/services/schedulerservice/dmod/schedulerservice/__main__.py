@@ -39,7 +39,7 @@ def _handle_args():
     parser.add_argument('--resource-list',
                         help='yaml file with a list of resources to use',
                         dest='resource_list_file',
-                        default='./resources.yml')
+                        default='./resources.yaml')
 
     parser.prog = package_name
     return parser.parse_args()

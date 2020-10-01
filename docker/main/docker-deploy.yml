@@ -12,8 +12,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ../../${DOCKER_VOL_DOMAINS?}:/nwm/domains
       - ../../ssl:/ssl
-      #- ${DOCKER_VOL_ANALYSIS_ASSIM}:/nwm/conus
-      #- /apd_common/anthro/:/apd_common/anthro
+      - ./schedulerservice/resources.yaml:/code/resources.yaml
+      - ./schedulerservice/image_and_domain.yaml:/code/image_and_domain.yaml
     deploy:
       placement:
         constraints:
