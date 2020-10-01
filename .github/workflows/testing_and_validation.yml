@@ -25,12 +25,15 @@ jobs:
         run: sudo apt-get install -y python3-venv
         timeout-minutes: 5
 
+      - name: Prepare Contextual Dependency Hash Key
+        run: find python -name setup.py -print0 | sort -z | xargs -0 -I {} md5sum {} > context_hashes_setup_py.txt
+
       - name: Cache Python Venv
         id: cache-python-venv
         uses: actions/cache@v1
         with:
           path: dmod_venv
-          key: dmod-venv-dir
+          key: dmod-venv-dir-${{ hashFiles('context_hashes_setup_py.txt') }}
 
       - name: Init Python Venv
         if: steps.cache-python-venv.outputs.cache-hit != 'true'
