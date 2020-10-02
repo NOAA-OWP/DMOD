@@ -41,6 +41,44 @@ jobs:
           deactivate 
           ./scripts/update_package.sh --venv dmod_venv -d
 
+      - name: Cache Package Checksums
+        id: cache-packages-md5
+        uses: actions/cache@v1
+        with:
+          path: package_md5s
+          key: package_md5s-${{ hashFiles('python/**/*') }}
+
+      - name: Update Individual Packages
+        id: update-individual-packages
+        run: |
+          [ ! -d package_md5s ] && mkdir package_md5s
+          set -e
+          for p in `./scripts/run_tests.sh --list-packages --service-packages --quiet`; do
+            _P_SIMPLE_NAME="`basename ${p}`"
+            _P_MD5_FILE="package_md5s/${_P_SIMPLE_NAME}.md5"
+            _P_EXPECTED_MD5="`find ${p} -type f -exec md5sum {} \; | sort -k 2 | md5sum`"
+            if [ -e ${p}/setup.py ]; then
+              if [ '${{ steps.cache-python-venv.outputs.cache-hit }}' = 'true' ]; then
+                if [ -e ${_P_MD5_FILE} ]; then
+                  if [ "`cat ${_P_MD5_FILE}`" = "${_P_EXPECTED_MD5}" ]; then
+                    echo "Package checksum file '${_P_MD5_FILE}' matches expected"
+                  else
+                    echo "Package checksum file '${_P_MD5_FILE}' contents do not match; updating"
+                    ./scripts/update_package.sh --venv dmod_venv ${p}
+                    echo "${_P_EXPECTED_MD5}" > ${_P_MD5_FILE}
+                  fi
+                else
+                  echo "Creating package checksum file '${_P_MD5_FILE}'"
+                  echo "${_P_EXPECTED_MD5}" > ${_P_MD5_FILE}
+                fi
+              else
+                echo "Creating package checksum file '${_P_MD5_FILE}'"
+                echo "${_P_EXPECTED_MD5}" > ${_P_MD5_FILE}
+              fi
+            fi
+          done
+          set +e
+
       - name: Cache SSL Setup
         id: cache-ssl-setup
         uses: actions/cache@v1
