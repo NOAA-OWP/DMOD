@@ -65,7 +65,6 @@ jobs:
                   else
                     echo "Package checksum file '${_P_MD5_FILE}' contents do not match; updating"
                     ./scripts/update_package.sh --venv dmod_venv ${p}
-                    echo "${_P_EXPECTED_MD5}" > ${_P_MD5_FILE}
                   fi
                 else
                   echo "Creating package checksum file '${_P_MD5_FILE}'"
