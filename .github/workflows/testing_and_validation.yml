@@ -56,9 +56,11 @@ jobs:
           mkdir ssl
           mkdir ssl/local
           mkdir ssl/requestservice
+          mkdir ssl/requests
           mkdir ssl/scheduler
           ./scripts/gen_cert.sh -d ssl/local -email robert.bartel@noaa.gov
           cp -a ssl/local/*.pem ssl/requestservice/.
+          cp -a ssl/local/*.pem ssl/requests/.
           cp -a ssl/local/*.pem ssl/scheduler/.
 
       - name: Run Tests
