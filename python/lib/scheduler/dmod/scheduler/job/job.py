@@ -374,6 +374,21 @@ class Job(Serializable, ABC):
 
     @property
     @abstractmethod
+    def allocation_service_names(self) -> Optional[Tuple[str]]:
+        """
+        Return the service names for runtime services created to execute this job, corresponding to the allocations in
+        the tuple returned by ::attribute:`allocations`, lazily generating when necessary.
+
+        Returns
+        -------
+        Optional[Tuple[str]]
+            Corresponding service names for runtime services created to execute this job, if this job has received
+            allocations.
+        """
+        pass
+
+    @property
+    @abstractmethod
     def allocations(self) -> Optional[Tuple[ResourceAllocation]]:
         """
         The resource allocations that have been allocated for this job.
@@ -764,6 +779,7 @@ class JobImpl(Job):
         self._rsa_key_pair = None
         self._status = JobStatus.CREATED
         self._allocations = None
+        self._allocation_service_names = None
         self._reset_last_updated()
 
     def _reset_last_updated(self):
@@ -782,6 +798,7 @@ class JobImpl(Job):
         if self._allocations is None:
             self._allocations = list()
         self._allocations.append(allocation)
+        self._allocation_service_names = None
         self._reset_last_updated()
 
     @property
@@ -819,6 +836,28 @@ class JobImpl(Job):
         self._reset_last_updated()
 
     @property
+    def allocation_service_names(self) -> Optional[Tuple[str]]:
+        """
+        Return the service names for runtime services created to execute this job, corresponding to the allocations in
+        the tuple returned by ::attribute:`allocations`, lazily generating when necessary.
+
+        Returns
+        -------
+        Optional[Tuple[str]]
+            Corresponding service names for runtime services created to execute this job, if this job has received
+            allocations.
+        """
+        if self._allocation_service_names is None and self.allocations is not None and len(self.allocations) > 0:
+            service_names = []
+            # TODO: read this from request metadata
+            base_name = "{}-worker".format(self.model_request.get_model_name())
+            num_allocations = len(self.allocations)
+            for alloc_index in range(num_allocations):
+                service_names.append("{}{}_{}".format(base_name, str(alloc_index), str(self.job_id)))
+            self._allocation_service_names = tuple(service_names)
+        return self._allocation_service_names
+
+    @property
     def allocations(self) -> Optional[Tuple[ResourceAllocation]]:
         return None if self._allocations is None else tuple(self._allocations)
 
@@ -828,6 +867,7 @@ class JobImpl(Job):
             self._allocations = list(allocations)
         else:
             self._allocations = allocations
+        self._allocation_service_names = None
         self._reset_last_updated()
 
     @property
