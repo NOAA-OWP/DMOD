@@ -379,6 +379,9 @@ class Job(Serializable, ABC):
         Return the service names for runtime services created to execute this job, corresponding to the allocations in
         the tuple returned by ::attribute:`allocations`, lazily generating when necessary.
 
+        Implementations must ensure that the generated name values allow for the service name to be deterministically
+        mapped back to the related job.
+
         Returns
         -------
         Optional[Tuple[str]]
@@ -840,6 +843,13 @@ class JobImpl(Job):
         """
         Return the service names for runtime services created to execute this job, corresponding to the allocations in
         the tuple returned by ::attribute:`allocations`, lazily generating when necessary.
+
+        For this type, the format of the name values is:
+
+            ``<model_name>-worker<allocation_index>_<job_id>``
+
+        Implementations must ensure that the generated name values allow for the service name to be deterministically
+        mapped back to the related job.  For this type, this is done by including the job id within the name.
 
         Returns
         -------
