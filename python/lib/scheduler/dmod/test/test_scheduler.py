@@ -41,7 +41,7 @@ class TestLauncher(unittest.TestCase):
         Test build_host_list for a job with no allocation
         """
         job = mock_job(allocations=0)
-        hosts = self.launcher.build_host_list('fake-service', job)
+        hosts = self.launcher.build_host_list(job)
         self.assertEqual(hosts, '')
 
     def test_build_host_list_1(self):
@@ -49,16 +49,16 @@ class TestLauncher(unittest.TestCase):
         Test build_host_list for a job with a single node allocated
         """
         job = mock_job(allocations=1)
-        hosts = self.launcher.build_host_list('fake-service', job)
-        self.assertEqual(hosts, 'fake-service0_{}:4'.format(job.job_id))
+        hosts = self.launcher.build_host_list(job)
+        self.assertEqual(hosts, 'nwm-worker0_{}:4'.format(job.job_id))
 
     def test_build_host_list_2(self):
         """
         Test build_host_list for a job with multiple nodes allocated
         """
         job = mock_job(allocations=2)
-        hosts = self.launcher.build_host_list('fake-service', job)
-        self.assertEqual(hosts, 'fake-service0_{}:4\nfake-service1_{}:4'.format(job.job_id,job.job_id) )
+        hosts = self.launcher.build_host_list(job)
+        self.assertEqual(hosts, 'nwm-worker0_{}:4\nnwm-worker1_{}:4'.format(job.job_id,job.job_id) )
 
     def test_load_image_and_mounts(self):
         """
