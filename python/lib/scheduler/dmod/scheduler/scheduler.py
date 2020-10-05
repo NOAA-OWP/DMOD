@@ -69,7 +69,7 @@ class Launcher:
         #FIXME parameterize network
         self.networks = ["mpi-net"]
 
-    def create_service(self, serviceParams: DockerServiceParameters, idx: int, args: list) \
+    def create_service(self, serviceParams: DockerServiceParameters, idx: int, docker_cmd_args: list) \
         -> docker.from_env().services.create:
         """
         Create new service with Healthcheck, host, and other info
@@ -80,7 +80,7 @@ class Launcher:
             A DockerServiceParameters class object
         idx
             Index number for labeling a Docker service name
-        args
+        docker_cmd_args
             list of args to pass to the service, including a string of hostnames and cpus_alloc for running MPI job
 
         Returns
@@ -110,11 +110,11 @@ class Launcher:
         restart = docker.types.RestartPolicy(condition='none')
 
         if (idx == 0): #FIXME just always pass idx???
-            args.append(str(idx))
+            docker_cmd_args.append(str(idx))
 
         try:
             service = client.services.create(image = image,
-                                         args = args,
+                                         args = docker_cmd_args,
                                          constraints = constraints,
                                          hostname = hostname,
                                          labels = serv_labels,
