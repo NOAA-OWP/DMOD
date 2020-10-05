@@ -912,6 +912,7 @@ class JobImpl(Job):
         Get the representation of this instance as a dictionary or dictionary-like object (e.g., a JSON object).
 
         {
+            "job_class" : "<class_name>",
             "cpu_count" : 4,
             "memory_size" : 1000,
             "model_request" : {<serialized_maas_request>},
@@ -931,6 +932,7 @@ class JobImpl(Job):
         """
         serial = dict()
 
+        serial['job_class'] = self.__class__.__name__
         serial['cpu_count'] = self.cpu_count
         serial['memory_size'] = self.memory_size
         serial['model_request'] = self.model_request.to_dict()
@@ -1044,6 +1046,7 @@ class RequestedJob(JobImpl):
         Get the representation of this instance as a dictionary or dictionary-like object (e.g., a JSON object).
 
         {
+            "job_class" : "<class_name>",
             "cpu_count" : 4,
             "memory_size" : 1000,
             "allocation_paradigm" : "SINGLE_NODE",
