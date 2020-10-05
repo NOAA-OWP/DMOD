@@ -69,7 +69,7 @@ class Launcher:
         #FIXME parameterize network
         self.networks = ["mpi-net"]
 
-    def create_service(self, serviceParams: DockerServiceParameters, idx: int, docker_cmd_args: list) \
+    def create_service(self, serviceParams: DockerServiceParameters, idx: int, docker_cmd_args: List[str]) \
         -> docker.from_env().services.create:
         """
         Create new service with Healthcheck, host, and other info
@@ -81,7 +81,7 @@ class Launcher:
         idx
             Index number for labeling a Docker service name
         docker_cmd_args
-            list of args to pass to the service, including a string of hostnames and cpus_alloc for running MPI job
+            Lists of string args to pass to the service, including a string of hostnames and cpus_alloc for running MPI job
 
         Returns
         -------
@@ -179,33 +179,35 @@ class Launcher:
             raise ConnectionError("Please check that the Docker Daemon is installed and running.")
 
     @staticmethod
-    def build_host_list(basename: str, job: 'Job') -> str:
+    def build_host_list(job: 'Job') -> str:
         """
-        build a list of strings that contain the container names and the allocated CPUs on the associated hosts
+        Build a list of string arguments for passing to a started Docker service.
+
+        Build a list of strings for Docker service arguments, consisting of the the container names and the allocated
+        CPUs on the associated hosts. Each container's name will correspond to the per-allocation service names,
+        accessible via the job's ::attribute:`Job.allocation_service_names` property.
 
         Parameters
         ----------
-        basename
-            Base name of a MPI worker service in an indexed collection of services
         job
-            The related job object, which contains a list of the relevant allocations.
+            The related job object, which contains an iterable collection of the relevant allocations and analogous
+            collection of corresponding service names for the invocations of such allocations.
 
         Returns
         -------
-        host_str: str
-            string of newline seperated <host_name>:<num_cores> entries
+        str
+            Container hosts argument string consisting of newline-separated substrings strings of the format
+            ``<host_name>:<num_cores>``.
         """
+        num_allocations = len(job.allocations) if job.allocations is not None else 0
         host_str = ''
 
-        idx = 0
-        for allocation in job.allocations:
-            cpus_alloc = str(allocation.cpu_count)
-            #FIXME get nameing better orgainized across all functions
-            name = basename + str(idx) + "_{}".format(job.job_id)
-            host_tmp = name + ':' + cpus_alloc+'\n'
-            host_str = host_str+host_tmp
-            idx += 1
-        #Strip any trailing newline
+        if num_allocations > 0:
+            for alloc_index in range(num_allocations):
+                cpu_count = job.allocations[alloc_index].cpu_count
+                host_str += job.allocation_service_names[alloc_index] + ':' + str(cpu_count) + "\n"
+
+        # Finally, strip any trailing newline
         host_str = host_str.rstrip()
 
         return host_str
