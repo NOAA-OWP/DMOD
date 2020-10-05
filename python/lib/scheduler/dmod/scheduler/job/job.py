@@ -612,15 +612,14 @@ class JobImpl(Job):
 
         Returns
         -------
-        The tuple with parse values of (cpus, memory, parameters, paradigm, priority, job_id, rsa_key_pair, status,
-        allocations, updated) from the provided dictionary.
+        The tuple with parse values of (cpus, memory, paradigm, priority, job_id, rsa_key_pair, status, allocations,
+        updated) from the provided dictionary.
         """
         int_converter = lambda x: int(x)
         cpus = cls.parse_simple_serialized(json_obj=json_obj, key='cpu_count', expected_type=int,
                                            converter=int_converter)
         memory = cls.parse_simple_serialized(json_obj=json_obj, key='memory_size', expected_type=int,
                                              converter=int_converter)
-        parameters = cls.parse_simple_serialized(json_obj=json_obj, key='parameters', expected_type=dict)
         paradigm = cls._parse_serialized_allocation_paradigm(json_obj=json_obj, key='allocation_paradigm')
         priority = cls.parse_simple_serialized(json_obj=json_obj, key='allocation_priority', expected_type=int,
                                                converter=int_converter)
@@ -629,7 +628,7 @@ class JobImpl(Job):
         status = cls._parse_serialized_job_status(json_obj=json_obj)
         allocations = cls._parse_serialized_allocations(json_obj=json_obj)
         updated = cls._parse_serialized_last_updated(json_obj=json_obj)
-        return cpus, memory, parameters, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated
+        return cpus, memory, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
@@ -646,10 +645,12 @@ class JobImpl(Job):
         """
 
         try:
-            cpus, memory, parameters, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated = \
+            cpus, memory, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated = \
                 cls.deserialize_core_attributes(json_obj)
 
-            obj = cls(cpu_count=cpus, memory_size=memory, parameters=parameters, allocation_paradigm=paradigm,
+            model_request = MaaSRequest.factory_init_correct_subtype_from_deserialized_json(json_obj['model_request'])
+
+            obj = cls(cpu_count=cpus, memory_size=memory, model_request=model_request, allocation_paradigm=paradigm,
                       alloc_priority=priority)
 
             if job_id is not None:
@@ -913,7 +914,7 @@ class JobImpl(Job):
         {
             "cpu_count" : 4,
             "memory_size" : 1000,
-            "parameters" : {...},
+            "model_request" : {<serialized_maas_request>},
             "allocation_paradigm" : "SINGLE_NODE",
             "allocation_priority" : 0,
             "job_id" : "12345678-1234-5678-1234-567812345678",
@@ -932,7 +933,7 @@ class JobImpl(Job):
 
         serial['cpu_count'] = self.cpu_count
         serial['memory_size'] = self.memory_size
-        serial['parameters'] = self.parameters
+        serial['model_request'] = self.model_request.to_dict()
         if self.allocation_paradigm:
             serial['allocation_paradigm'] = self.allocation_paradigm.name
         serial['allocation_priority'] = self.allocation_priority
@@ -952,8 +953,8 @@ class JobImpl(Job):
 
 class RequestedJob(JobImpl):
     """
-    An implementation of ::class:`Job` for jobs that were created due to the received of a client request via a
-    ::class:`SchedulerRequestMessage` object.
+    An implementation of ::class:`Job` for jobs that were created due to the receipt of a client-side scheduling request
+    in the form of a ::class:`SchedulerRequestMessage` object.
     """
 
     @classmethod
@@ -973,7 +974,7 @@ class RequestedJob(JobImpl):
         originating_request_key = 'originating_request'
 
         try:
-            cpus, memory, parameters, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated = \
+            cpus, memory, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated = \
                 cls.deserialize_core_attributes(json_obj)
 
             if originating_request_key not in json_obj:
@@ -997,7 +998,6 @@ class RequestedJob(JobImpl):
 
         new_obj._cpu_count = cpus
         new_obj._memory_size = memory
-        new_obj._parameters = parameters
         new_obj._allocation_paradigm = paradigm
         new_obj._allocation_priority = priority
         new_obj._rsa_key_pair = rsa_key_pair
@@ -1046,7 +1046,6 @@ class RequestedJob(JobImpl):
         {
             "cpu_count" : 4,
             "memory_size" : 1000,
-            "parameters" : {...},
             "allocation_paradigm" : "SINGLE_NODE",
             "allocation_priority" : 0,
             "job_id" : "12345678-1234-5678-1234-567812345678",
@@ -1063,5 +1062,8 @@ class RequestedJob(JobImpl):
             the representation of this instance as a dictionary or dictionary-like object (e.g., a JSON object)
         """
         dictionary = super().to_dict()
+        # To avoid this being messy, rely on the superclass's implementation and the returned dict, but remove the
+        # 'model_request' key/value, since this is contained within the originating serialized scheduler request
+        dictionary.pop('model_request')
         dictionary['originating_request'] = self.originating_request.to_dict()
         return dictionary
