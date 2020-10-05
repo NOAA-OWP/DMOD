@@ -4,7 +4,7 @@ import logging
 from requests.exceptions import ReadTimeout
 import docker
 import yaml
-from typing import TYPE_CHECKING
+from typing import List, TYPE_CHECKING, Tuple
 
 ## local imports
 from .utils import parsing_nested as pn
@@ -283,49 +283,75 @@ class Launcher:
 
         return image, [input_mount, output_mount]
 
-    def start_job(self, job: 'Job'):
+    def start_job(self, job: 'Job') -> Tuple[bool, tuple]:
         """
+        Launch the necessary services to execute the given job, according to its obtained allocations.
 
+        Services/containers will have names corresponding to the values from ::attribute:`Job.allocation_service_names`.
+        As a result, they can later be mapped back to the associated job.
+
+        Services themselves are created via a call to ::method:`create_service`.
+
+        Parameters
+        ----------
+        job: Job
+            The job needing to be executed within the runtime environment.
+
+        Returns
+        -------
+        Tuple[bool, tuple]
+            A tuple with the first item being an indication of whether all necessary services were started successfully,
+            and the second item being a nested tuple of the service objects returned by ::method:`create_service` as
+            they were created.
+
+        See Also
+        -------
+        ::method:`create_service`
+        ::attribute:`Job.allocation_service_names`
         """
-        #TODO read these from request metadata
-        model = job.originating_request.model_request.get_model_name()
-        name = "{}-worker".format(model)
+        model = job.model_request.get_model_name()
         #FIXME read all image/domain at init and select from internal cache (i.e. dict) or even push to redis for long term cache
-        (image_tag, mounts) = self.load_image_and_mounts(model,
-                                                         job.originating_request.model_request.version,
-                                                         job.originating_request.model_request.domain)
+        (image_tag, mounts, run_domain_dir) = self.load_image_and_mounts(model,
+                                                                         str(job.model_request.version),
+                                                                         job.model_request.domain)
 
         #TODO better align labels/defaults with serviceparam class
         #FIXME if the stack.namespace needs to align with the stack name, this isn't correct
-        labels =  {"com.docker.stack.image": image_tag,
-                   "com.docker.stack.namespace": model
-                   }
+        labels = {"com.docker.stack.image": image_tag, "com.docker.stack.namespace": model}
+
         #First arg, number of "nodes"
         args = [str( len(job.allocations) )]
         #Second arg, host string
-        args.append( self.build_host_list(name, job) )
+        args.append(self.build_host_list(job))
         #third arg, job id
         args.append(job.job_id)
 
-        idx = 0
+        #This seems to be more of a dev check than anything required
+        #self.write_hostfile(basename, cpusList)
+        num_allocations = len(job.allocations) if job.allocations is not None else 0
+        if num_allocations == 0:
+            logging.error("Attempting to start job {} that has no allocations".format(str(job.job_id)))
+            return False, tuple()
 
-        for alloc in job.allocations:
-            constraints = "node.hostname == "
-            NodeId = alloc.pool_id
-            cpus_alloc = alloc.cpu_count
-            hostname = alloc.hostname
-            logging.info("Hostname: {}".format(hostname))
+        service_per_allocation = []
+
+        for alloc_index in range(num_allocations):
+            alloc = job.allocations[alloc_index]
+            constraints_str = "node.hostname == {}".format(alloc.hostname)
+            constraints = list(constraints_str.split("/"))
+
+            logging.info("Hostname: {}".format(alloc.hostname))
             #FIXME important that all label values are strings, otherwise docker service create hangs
-            labels_tmp = {"Hostname": hostname, "cpus_alloc": str(cpus_alloc)}
+            labels_tmp = {"Hostname": alloc.hostname, "cpus_alloc": str(alloc.cpu_count)}
             labels.update(labels_tmp)
-            constraints += hostname
-            constraints = list(constraints.split("/"))
-            #TODO review all self attributes
-            serv_name = "{}{}_{}".format(name, idx, job.job_id)
-            #Create the docker service
-            serviceParams = DockerServiceParameters(image_tag, constraints, hostname, labels, serv_name, mounts)
+
+            serv_name = job.allocation_service_names[alloc_index]
+
+            # Create the docker service
+            service_params = DockerServiceParameters(image_tag, constraints, alloc.hostname, labels, serv_name, mounts)
             #TODO check for proper service creation, return False if doesn't work
-            service = self.create_service(serviceParams, idx, args)
-            idx += 1
+            service = self.create_service(serviceParams=service_params, idx=alloc_index, docker_cmd_args=host_str)
+            service_per_allocation.append(service)
+
         logging.info("\n")
-        return (True, service)
+        return True, tuple(service_per_allocation)
