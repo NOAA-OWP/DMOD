@@ -209,6 +209,8 @@ class MaaSRequest(AbstractInitRequest):
         except:
             return None
 
+    # TODO: version probably needs to be changed from float to str, but leaving for now since the schema has it as a
+    #  number
     def __init__(self, version: float, output: str, domain: str, parameters: dict, session_secret: str):
         """
         :param float version: The version of the model to use
