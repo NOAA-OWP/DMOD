@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from dmod.communication import SchedulerRequestMessage
+from dmod.communication import MaaSRequest, SchedulerRequestMessage
 from dmod.communication.serializeable import Serializable
 from enum import Enum
 from typing import List, Optional, Tuple, TYPE_CHECKING, Union
@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from .. import RsaKeyPair
 
 import logging
+
 
 class JobAllocationParadigm(Enum):
     """
@@ -433,14 +434,14 @@ class Job(Serializable, ABC):
 
     @property
     @abstractmethod
-    def parameters(self) -> dict:
+    def model_request(self) -> MaaSRequest:
         """
-        The configured parameters for this job.
+        Get the underlying configuration for the model execution that is being requested.
 
         Returns
         -------
-        dict
-            The configured parameters for this job.
+        MaaSRequest
+            The underlying configuration for the model execution that is being requested.
         """
         pass
 
@@ -739,11 +740,11 @@ class JobImpl(Job):
             msg = "Failed parsing parameter value `{}` to UUID object: {}".format(str(serialized_value), str(e))
             raise RuntimeError(msg)
 
-    def __init__(self, cpu_count: int, memory_size: int, parameters: dict,
+    def __init__(self, cpu_count: int, memory_size: int, model_request: MaaSRequest,
                  allocation_paradigm: Union[str, JobAllocationParadigm], alloc_priority: int = 0):
         self._cpu_count = cpu_count
         self._memory_size = memory_size
-        self._parameters = parameters
+        self._model_request = model_request
         if isinstance(allocation_paradigm, JobAllocationParadigm):
             self._allocation_paradigm = allocation_paradigm
         else:
@@ -858,8 +859,16 @@ class JobImpl(Job):
         return self._last_updated
 
     @property
-    def parameters(self) -> dict:
-        return self._parameters
+    def model_request(self) -> MaaSRequest:
+        """
+        Get the underlying configuration for the model execution that is being requested.
+
+        Returns
+        -------
+        MaaSRequest
+            The underlying configuration for the model execution that is being requested.
+        """
+        return self._model_request
 
     @property
     def rsa_key_pair(self) -> Optional['RsaKeyPair']:
@@ -1003,8 +1012,20 @@ class RequestedJob(JobImpl):
     def __init__(self, job_request: SchedulerRequestMessage):
         self._originating_request = job_request
         super().__init__(cpu_count=job_request.cpus, memory_size=job_request.memory,
-                         parameters=job_request.model_request.parameters,
+                         model_request=job_request.model_request,
                          allocation_paradigm=job_request.allocation_paradigm)
+
+    @property
+    def model_request(self) -> MaaSRequest:
+        """
+        Get the underlying configuration for the model execution that is being requested.
+
+        Returns
+        -------
+        MaaSRequest
+            The underlying configuration for the model execution that is being requested.
+        """
+        return self.originating_request.model_request
 
     @property
     def originating_request(self) -> SchedulerRequestMessage:
