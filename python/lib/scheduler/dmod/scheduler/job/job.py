@@ -37,10 +37,19 @@ class JobAllocationParadigm(Enum):
         """
         Get the default fallback value select to use in various situation, which is ``SINGLE_NODE``.
 
+        Note that it is highly recommended that this return a value that has a ::attribute:`name` consistent with the
+        value returned by ::method:`SchedulerRequestMessage.default_allocation_paradigm_str`.  However, because
+        ::method:``get_from_name`` relies on this to provide a default when it is unable to interpret the provided arg,
+        this must return a value directly without any nested calls.  Additionally, ::class:`SchedulerRequestMessage`
+        cannot not import this type, as this would produce circular import issues.  As such, this consistency cannot
+        easily be enforced directly, but it should be easy to do so via unit testing.
+
         Returns
         -------
         The ``SINGLE_NODE`` value.
         """
+        # Must hard code something, since get_from_name potentially has a nested call back to this
+        return cls.SINGLE_NODE
 
     @classmethod
     def get_from_name(cls, name: Optional[str], strict: bool = False):
