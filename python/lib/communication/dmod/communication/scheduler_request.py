@@ -5,8 +5,22 @@ from typing import Optional
 
 class SchedulerRequestMessage(AbstractInitRequest):
 
+    _DEFAULT_ALLOCATION_PARADIGM = 'SINGLE_NODE'
+
     event_type: MessageEventType = MessageEventType.SCHEDULER_REQUEST
     """ :class:`MessageEventType`: the event type for this message implementation """
+
+    @classmethod
+    def default_allocation_paradigm_str(cls) -> str:
+        """
+        Get the default value for the allocation paradigm string.
+
+        Returns
+        -------
+        str
+            The default value for the allocation paradigm string.
+        """
+        return cls._DEFAULT_ALLOCATION_PARADIGM
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
@@ -34,7 +48,7 @@ class SchedulerRequestMessage(AbstractInitRequest):
             return None
 
     def __init__(self, model_request: MaaSRequest, user_id: str, cpus: Optional[int] = None, mem: Optional[int] = None,
-                 allocation_paradigm: str = 'SINGLE_NODE'):
+                 allocation_paradigm: Optional[str] = None):
         self.model_request = model_request
         self.user_id = user_id
         # TODO come up with better way of determining this for the running system; for now, ensure a value is set
@@ -50,7 +64,10 @@ class SchedulerRequestMessage(AbstractInitRequest):
         else:
             self.memory_unset = False
             self.memory = mem
-        self.allocation_paradigm: str = allocation_paradigm
+        if isinstance(allocation_paradigm, str) and len(allocation_paradigm.strip()) > 0:
+            self.allocation_paradigm: str = allocation_paradigm
+        else:
+            self.allocation_paradigm: str = self.default_allocation_paradigm_str()
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ \
