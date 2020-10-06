@@ -1,6 +1,6 @@
 {
   "model": {
-    "NWM": {
+    "nwm": {
       "version": 2.0,
       "output": "streamflow",
       "parameters": {
