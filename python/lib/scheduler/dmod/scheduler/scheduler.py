@@ -319,10 +319,10 @@ class Launcher:
             constraints = list(constraints.split("/"))
             #TODO review all self attributes
             serv_name = "{}{}_{}".format(name, idx, job.job_id)
-            idx += 1
             #Create the docker service
             serviceParams = DockerServiceParameters(image_tag, constraints, hostname, labels, serv_name, mounts)
             #TODO check for proper service creation, return False if doesn't work
             service = self.create_service(serviceParams, idx, args)
+            idx += 1
         logging.info("\n")
         return (True, service)
