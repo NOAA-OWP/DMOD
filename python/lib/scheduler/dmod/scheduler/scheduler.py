@@ -192,31 +192,22 @@ class Launcher:
 
         Returns
         -------
-        host_str
-            List of string containing number of hosts, hostname and CPUs allocation, and run domain directory
+        host_str: str
+            string of newline seperated <host_name>:<num_cores> entries
         """
-        # Start list, and add the string for number of hosts
-        num_hosts = str(len(job.allocations))
-        host_str = [num_hosts]
+        host_str = ''
 
-        # Next, build an temporary allocations list
-        allocation_str_list = []
         idx = 0
         for allocation in job.allocations:
             cpus_alloc = str(allocation.cpu_count)
             #FIXME get nameing better orgainized across all functions
             name = basename + str(idx) + "_{}".format(job.job_id)
-            host_tmp = name + ':' + cpus_alloc
-            allocation_str_list.append(str(host_tmp))
+            host_tmp = name + ':' + cpus_alloc+'\n'
+            host_str = host_str+host_tmp
             idx += 1
+        #Strip any trailing newline
+        host_str = host_str.rstrip()
 
-        # Then reverse and add the allocations list to our returned list
-        allocation_str_list.reverse()
-        for e in allocation_str_list:
-            host_str.append(e)
-
-
-        print("host_str", host_str)
         return host_str
 
     def load_image_and_domain(self, name: str, version: str, domain: str) -> tuple:
