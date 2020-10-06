@@ -41,86 +41,78 @@ class TestLauncher(unittest.TestCase):
         Test build_host_list for a job with no allocation
         """
         job = mock_job(allocations=0)
-        hosts = self.launcher.build_host_list('fake-service', job, '/dev/null')
-        self.assertEqual(2, len(hosts))
-        self.assertEqual(hosts[0], '0')
-        self.assertEqual(hosts[1], '/dev/null')
+        hosts = self.launcher.build_host_list('fake-service', job)
+        self.assertEqual(hosts, '')
 
     def test_build_host_list_1(self):
         """
         Test build_host_list for a job with a single node allocated
         """
         job = mock_job(allocations=1)
-        hosts = self.launcher.build_host_list('fake-service', job, '/dev/null')
-        self.assertEqual(3, len(hosts))
-        self.assertEqual(hosts[0], '1')
-        self.assertEqual(hosts[1], 'fake-service0_{}:4'.format(job.job_id))
-        self.assertEqual(hosts[2], '/dev/null')
+        hosts = self.launcher.build_host_list('fake-service', job)
+        self.assertEqual(hosts, 'fake-service0_{}:4'.format(job.job_id))
 
     def test_build_host_list_2(self):
         """
         Test build_host_list for a job with multiple nodes allocated
         """
         job = mock_job(allocations=2)
-        hosts = self.launcher.build_host_list('fake-service', job, '/dev/null')
-        self.assertEqual(4, len(hosts))
-        self.assertEqual(hosts[0], '2')
-        self.assertEqual(hosts[1], 'fake-service1_{}:4'.format(job.job_id))
-        self.assertEqual(hosts[2], 'fake-service0_{}:4'.format(job.job_id))
-        self.assertEqual(hosts[3], '/dev/null')
+        hosts = self.launcher.build_host_list('fake-service', job)
+        self.assertEqual(hosts, 'fake-service0_{}:4\nfake-service1_{}:4'.format(job.job_id,job.job_id) )
 
-    def test_load_image_and_domain(self):
+    def test_load_image_and_mounts(self):
         """
-            Test load_image_and_domain with empty string args
+            Test load_image_and_mounts with empty string args
         """
         name = ''
         version = ''
         domain = ''
         with self.assertRaises(KeyError):
-            self.launcher.load_image_and_domain(name, version, domain)
+            self.launcher.load_image_and_mounts(name, version, domain)
 
-    def test_load_image_and_domain_a(self):
+    def test_load_image_and_mounts_a(self):
         """
-            Test load_image_and_domain with valid name, empty version and domain
+            Test load_image_and_mounts with valid name, empty version and domain
         """
         name = 'nwm'
         version = ''
         domain = ''
         with self.assertRaises(KeyError):
-            self.launcher.load_image_and_domain(name, version, domain)
+            self.launcher.load_image_and_mounts(name, version, domain)
 
-    def test_load_image_and_domain_b(self):
+    def test_load_image_and_mounts_b(self):
         """
-            Test load_image_and_domain with empty name, valid version and domain
+            Test load_image_and_mounts with empty name, valid version and domain
         """
         name = ''
         version = 2
         domain = 'test-domain'
         with self.assertRaises(KeyError):
-            self.launcher.load_image_and_domain(name, version, domain)
+            self.launcher.load_image_and_mounts(name, version, domain)
 
-    def test_load_image_and_domain_c(self):
+    def test_load_image_and_mounts_c(self):
         """
-            Test load_image_and_domain with valid name, valid version and empty domain
+            Test load_image_and_mounts with valid name, valid version and empty domain
         """
         name = 'nwm'
         version = 2
         domain = ''
         with self.assertRaises(KeyError):
-            self.launcher.load_image_and_domain(name, version, domain)
+            self.launcher.load_image_and_mounts(name, version, domain)
 
-    def test_load_image_and_domain_1(self):
+    def test_load_image_and_mounts_1(self):
         """
-            Test load_image_and_domain with valid name, valid version, valid domain
+            Test load_image_and_mounts with valid name, valid version, valid domain
         """
         name = 'nwm'
         version = 2
         domain = 'croton_NY'
-        image_tag, static_dir, run_dir = self.launcher.load_image_and_domain(name, version, domain)
+        image_tag, mounts = self.launcher.load_image_and_mounts(name, version, domain)
 
         self.assertIsNotNone(image_tag)
-        self.assertIsNotNone(static_dir)
-        self.assertIsNotNone(run_dir)
+        self.assertIsNotNone(mounts)
+        self.assertIsNotNone(mounts[0])
+        self.assertIsNotNone(mounts[1])
         self.assertEqual(image_tag, '127.0.0.1:5000/nwm-2.0:latest')
-        self.assertEqual( static_dir, './domains')
-        self.assertEqual(run_dir, './example_case/NWM')
+        self.assertEqual( mounts[0], './domains:./example_case/NWM:rw')
+        self.assertEqual( mounts[1], './local_out:/run_out:rw')
