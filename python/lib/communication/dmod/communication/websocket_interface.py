@@ -197,7 +197,7 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
 
             if event_type is None:
                 raise RuntimeError('Cannot deserialize message: could not parse request to any enumerated event type')
-            elif event_type == MessageEventType.NWM_MAAS_REQUEST:
+            elif event_type == MessageEventType.MAAS_REQUEST:
                 # By default, but don't stick with this ...
                 model_name = MaaSRequest.model_name
                 # ... get based on key in the message
@@ -297,9 +297,9 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
                 return MessageEventType.SESSION_INIT, errors
 
         is_job_req, error = NWMRequestJsonValidator().validate(data)
-        errors[MessageEventType.NWM_MAAS_REQUEST] = error
+        errors[MessageEventType.MAAS_REQUEST] = error
         if is_job_req:
-            return MessageEventType.NWM_MAAS_REQUEST, errors
+            return MessageEventType.MAAS_REQUEST, errors
 
         return MessageEventType.INVALID, errors
 
