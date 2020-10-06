@@ -1,7 +1,7 @@
 nwm:
   version:
-    2: '127.0.0.1:5000/nwm-2.0:latest'
-    master: '127.0.0.1:5000/nwm-master'
+    2: '127.0.0.1:5000/nwm:2.0'
+    latest: '127.0.0.1:5000/nwm:latest'
     reservoir: '127.0.0.1:5000/nwm-conus-reservoir'
   domains:
     croton_NY:
