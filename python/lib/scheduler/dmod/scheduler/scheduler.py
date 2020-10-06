@@ -298,21 +298,18 @@ class Launcher:
         labels =  {"com.docker.stack.image": image_tag,
                    "com.docker.stack.namespace": model
                    }
-        host_str = self.build_host_list(name, job, run_domain_dir)
-        #This seems to be more of a dev check than anything required
-        #self.write_hostfile(basename, cpusList)
-        cpusLen = len(job.allocations)
+        #First arg, number of "nodes"
+        args = [len(job.allocations)]
+        #Second arg, host string
+        args.append( self.build_host_list(name, job) )
+        #third arg, job id
+        args.append(job.job_id)
+
         idx = 0
+
         for alloc in job.allocations:
             constraints = "node.hostname == "
             NodeId = alloc.pool_id
-            #FIXME this is a local environment hard coded, needs removed
-            if (NodeId == "Node-0001"):
-                #mounts = ['/opt/nwm_c/domains:/nwm/domains:rw']
-                mts_string = domain_dir + ':' + run_domain_dir + ':' + 'rw'
-                mounts = [mts_string]
-            else:
-                mounts = ['/local:/nwm/domains:rw']
             cpus_alloc = alloc.cpu_count
             hostname = alloc.hostname
             logging.info("Hostname: {}".format(hostname))
