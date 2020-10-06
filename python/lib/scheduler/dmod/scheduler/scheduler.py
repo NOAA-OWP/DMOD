@@ -69,7 +69,7 @@ class Launcher:
         #FIXME parameterize network
         self.networks = ["mpi-net"]
 
-    def create_service(self, serviceParams: DockerServiceParameters, idx: int, cpusLen: int, host_str: str) \
+    def create_service(self, serviceParams: DockerServiceParameters, idx: int, cpusLen: int, args: list) \
         -> docker.from_env().services.create:
         """
         Create new service with Healthcheck, host, and other info
@@ -82,8 +82,8 @@ class Launcher:
             Index number for labeling a Docker service name
         cpusLen
             Length of the cpusList
-        host_str
-            Strings of hostnames and cpus_alloc for running MPI job
+        args
+            list of args to pass to the service, including a string of hostnames and cpus_alloc for running MPI job
 
         Returns
         -------
@@ -102,7 +102,6 @@ class Launcher:
         serv_name = serviceParams.serv_name
         mounts = serviceParams.mounts
 
-        args = host_str
         Healthcheck = docker.types.Healthcheck(test = ["CMD-SHELL", 'echo Hello'],
                                                interval = 1000000 * 10000 * 1,
                                                timeout = 1000000 * 10000 * 2,
@@ -111,10 +110,12 @@ class Launcher:
         # delay 5 minutes before restarting
         # restart = docker.types.RestartPolicy(condition='on-failure')
         restart = docker.types.RestartPolicy(condition='none')
-        if (idx == 0):
+
+        if (idx == 0): #FIXME just always pass idx???
+            args.append(str(idx))
+
+        try:
             service = client.services.create(image = image,
-                                         # command = ['sh', '-c', 'sudo /usr/sbin/sshd -D'],
-                                         command = ['/nwm/run_model.sh'],
                                          args = args,
                                          constraints = constraints,
                                          hostname = hostname,
@@ -125,25 +126,9 @@ class Launcher:
                                          # user = user_id,
                                          healthcheck = Healthcheck,
                                          restart_policy=restart)
-        else:
-            args = host_str
-            try:
-                service = client.services.create(image = image,
-                                             # command = ['sh', '-c', 'sudo /usr/sbin/sshd -D'],
-                                             command = ['/nwm/run_model.sh'],
-                                             args = args,
-                                             constraints = constraints,
-                                             hostname = hostname,
-                                             labels = serv_labels,
-                                             name = serv_name,
-                                             mounts = mounts,
-                                             networks = networks,
-                                             # user = user_id,
-                                             healthcheck = Healthcheck,
-                                             restart_policy=restart)
-            except ReadTimeout:
-                print("Connection to docker API timed out")
-                raise
+        except ReadTimeout:
+            print("Connection to docker API timed out")
+            raise
 
         self.log_service(serv_name.split("_")[0], service.id)
 
