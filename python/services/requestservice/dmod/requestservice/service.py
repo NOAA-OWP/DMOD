@@ -110,7 +110,7 @@ class RequestService(WebSocketSessionsInterface):
                         logging.debug('************************* Attempt to register session-websocket: {}'.format(
                             str(result)))
                     await websocket.send(str(response))
-                elif event_type == MessageEventType.NWM_MAAS_REQUEST:
+                elif event_type == MessageEventType.MAAS_REQUEST:
                     response = await self._dmod_request_handler.handle_request(request=req_message)
                     logging.debug('************************* Handled request response: {}'.format(str(response)))
                     await websocket.send(str(response))

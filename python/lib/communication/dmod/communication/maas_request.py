@@ -514,7 +514,7 @@ class ScalarParameter(Parameter):
 
 class NWMRequest(MaaSRequest):
 
-    event_type = MessageEventType.NWM_MAAS_REQUEST
+    event_type = MessageEventType.MAAS_REQUEST
     """(:class:`MessageEventType`) The type of event for this message"""
     #Once more the case senstivity of this model name is called into question
     #note: this is essentially keyed to image_and_domain.yml and the cases must match!
@@ -685,7 +685,7 @@ class NWMRequestResponse(MaaSRequestResponse):
 
 class NGENRequest(MaaSRequest):
 
-    event_type = MessageEventType.NGEN_MAAS_REQUEST
+    event_type = MessageEventType.MAAS_REQUEST
     """(:class:`MessageEventType`) The type of event for this message"""
 
     model_name = 'ngen' #FIXME case sentitivity
