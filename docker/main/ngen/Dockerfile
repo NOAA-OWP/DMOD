@@ -38,5 +38,9 @@ USER root
 RUN rm -rf ${BOOST_ROOT}
 RUN echo "export PATH=${PATH}" >> /etc/profile
 USER ${USER}
-COPY entrypoint.sh ${WORKDIR}
+COPY --chown=${USER} entrypoint.sh ${WORKDIR}
+RUN chmod +x ${WORKDIR}/entrypoint.sh
 WORKDIR ${WORKDIR}
+ENV PATH=${WORKDIR}:$PATH
+ENTRYPOINT ["entrypoint.sh"]
+CMD [""]
