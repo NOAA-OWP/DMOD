@@ -17,7 +17,11 @@ RUN git clone --single-branch --branch $BRANCH $REPO_URL && \
     if [ "x$COMMIT" != "x" ]; then git checkout $COMMIT; fi && \
     #git checkout 6fe9fa3 && \
     ./configure 2 && \
-    ./compile_offline_NoahMP.sh ./template/setEnvar.sh
+    ./compile_offline_NoahMP.sh ./template/setEnvar.sh && \
+    mv Run/* ${WORKDIR} && \
+    cd ${WORKDIR} && \
+    rm -rf wrf_hydro_nwm_public
+
 USER root
 RUN echo "export PATH=${PATH}" >> /etc/profile
 #Tried getting some low lever profiling tools into the containers, but the sys calls are black listed.
