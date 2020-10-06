@@ -210,7 +210,7 @@ class Launcher:
 
         return host_str
 
-    def load_image_and_domain(self, name: str, version: str, domain: str) -> tuple:
+    def load_image_and_mounts(self, name: str, version: str, domain: str) -> tuple:
         """ TODO make this a static method, pass in image_and_domain_list file path
         Read a list of image_name and domain_name from the yaml file: image_and_domain.yaml
         Derive domain directory to be used for computing
@@ -230,7 +230,8 @@ class Launcher:
         -------
         selected_image
             The selected image out of the valid image list in the yaml file, there is a match
-        selected_domain_dir
+        mounts: list[str]
+            A list of docker style mount strings in the form `selected_domain`:`run_domain`:rw
             The selected domain directory out of the valid domain name : domain directory dicts in the yaml file
         run_domain_dir
             The run domain directory in the docker container, based on the domain name to directory mapping in the yaml file
@@ -273,8 +274,12 @@ class Launcher:
         except KeyError:
             raise(KeyError("image_and_domain.yaml has no `run` key for output, model {}".format(name)))
 
+        #Configure local volume mounts based on domain and model lookup
 
-        return image, local_dir, run_dir
+        input_mount = "{}:{}:rw".format(local_dir, run_dir)
+        output_mount = "{}:{}:rw".format(output_local, output_run)
+
+        return image, [input_mount, output_mount]
 
     def start_job(self, job: 'Job'):
         """
@@ -284,9 +289,9 @@ class Launcher:
         model = job.originating_request.model_request.get_model_name()
         name = "{}-worker".format(model)
         #FIXME read all image/domain at init and select from internal cache (i.e. dict) or even push to redis for long term cache
-        (image_tag, domain_dir, run_domain_dir) = self.load_image_and_domain(model,
-                                                                             job.originating_request.model_request.version,
-                                                                             job.originating_request.model_request.domain)
+        (image_tag, mounts) = self.load_image_and_mounts(model,
+                                                         job.originating_request.model_request.version,
+                                                         job.originating_request.model_request.domain)
 
         #TODO better align labels/defaults with serviceparam class
         #FIXME if the stack.namespace needs to align with the stack name, this isn't correct
