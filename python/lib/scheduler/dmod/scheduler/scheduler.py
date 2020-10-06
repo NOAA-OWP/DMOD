@@ -260,6 +260,19 @@ class Launcher:
             image = model['version'][version]
         except KeyError:
             raise(KeyError("image_and_domain.yml has no version key {}".format(version)))
+        try:
+            output = model['output']
+        except KeyError:
+            raise(KeyError("image_and_domain.yaml has no 'output' key for model {}".format(name)))
+        try:
+            output_local = output['local']
+        except KeyError:
+            raise(KeyError("image_and_domain.yaml has no `local` key for output, model {}".format(name)))
+        try:
+            output_run = output['run']
+        except KeyError:
+            raise(KeyError("image_and_domain.yaml has no `run` key for output, model {}".format(name)))
+
 
         return image, local_dir, run_dir
 
