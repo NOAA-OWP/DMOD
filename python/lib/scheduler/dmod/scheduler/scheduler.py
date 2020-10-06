@@ -69,7 +69,7 @@ class Launcher:
         #FIXME parameterize network
         self.networks = ["mpi-net"]
 
-    def create_service(self, serviceParams: DockerServiceParameters, idx: int, cpusLen: int, args: list) \
+    def create_service(self, serviceParams: DockerServiceParameters, idx: int, args: list) \
         -> docker.from_env().services.create:
         """
         Create new service with Healthcheck, host, and other info
@@ -80,8 +80,6 @@ class Launcher:
             A DockerServiceParameters class object
         idx
             Index number for labeling a Docker service name
-        cpusLen
-            Length of the cpusList
         args
             list of args to pass to the service, including a string of hostnames and cpus_alloc for running MPI job
 
@@ -325,6 +323,6 @@ class Launcher:
             #Create the docker service
             serviceParams = DockerServiceParameters(image_tag, constraints, hostname, labels, serv_name, mounts)
             #TODO check for proper service creation, return False if doesn't work
-            service = self.create_service(serviceParams, idx, cpusLen, host_str)
+            service = self.create_service(serviceParams, idx, args)
         logging.info("\n")
         return (True, service)
