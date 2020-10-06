@@ -244,23 +244,23 @@ class Launcher:
         try:
             model = yml_obj[name]
         except KeyError:
-            raise(KeyError("image_and_domain.yml has no model key {}".format(name)))
+            raise(KeyError("image_and_domain.yaml has no model key {}".format(name)))
         try:
             domain = model['domains'][domain]
         except KeyError:
-            raise(KeyError("image_and_domain.yml has no domain key {} for model {}".format(domain, name)))
+            raise(KeyError("image_and_domain.yaml has no domain key {} for model {}".format(domain, name)))
         try:
             run_dir = domain['run']
         except KeyError:
-            raise(KeyError("image_and_domain.yml has no 'run' key for domain {}, model {}".format(domain, name)))
+            raise(KeyError("image_and_domain.yaml has no 'run' key for domain {}, model {}".format(domain, name)))
         try:
             local_dir = domain['local']
         except KeyError:
-            raise(KeyError("image_and_domain.yml has no 'local' key for domain {}, model {}".format(domain, name)))
+            raise(KeyError("image_and_domain.yaml has no 'local' key for domain {}, model {}".format(domain, name)))
         try:
             image = model['version'][version]
         except KeyError:
-            raise(KeyError("image_and_domain.yml has no version key {}".format(version)))
+            raise(KeyError("image_and_domain.yaml has no version key {}".format(version)))
         try:
             output = model['output']
         except KeyError:
