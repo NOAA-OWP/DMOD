@@ -209,6 +209,7 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
                                    session_secret=message_data['session-secret'],
                                    version=message_data['model'][model_name]['version'],
                                    output=message_data['model'][model_name]['output'],
+                                   domain=message_data['model'][model_name]['domain'],
                                    parameters=message_data['model'][model_name]['parameters'])
             elif event_type == MessageEventType.SESSION_INIT:
                 return SessionInitMessage(username=message_data['username'], user_secret=message_data['user_secret'])
