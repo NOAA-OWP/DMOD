@@ -25,7 +25,7 @@ services:
     #depends_on:
     #  - base
   nwm:
-    image: ${DOCKER_INTERNAL_REGISTRY:?}/nwm-${NWM_NAME:-master}
+    image: ${DOCKER_INTERNAL_REGISTRY:?}/nwm:${NWM_VERSION:-latest}
     build:
       context: ./nwm
       args:
@@ -45,7 +45,7 @@ services:
       - base
 
   ngen:
-    image: ${DOCKER_INTERNAL_REGISTRY:?}/ngen-${NGEN_NAME:-master}
+    image: ${DOCKER_INTERNAL_REGISTRY:?}/ngen:${NGEN_VERSION:-latest}
     build:
       context: ./ngen
       args:
