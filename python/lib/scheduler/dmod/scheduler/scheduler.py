@@ -179,7 +179,7 @@ class Launcher:
             raise ConnectionError("Please check that the Docker Daemon is installed and running.")
 
     @staticmethod
-    def build_host_list(basename: str, job: 'Job', run_domain_dir: str) -> list:
+    def build_host_list(basename: str, job: 'Job') -> str:
         """
         build a list of strings that contain the container names and the allocated CPUs on the associated hosts
 
@@ -189,9 +189,6 @@ class Launcher:
             Base name of a MPI worker service in an indexed collection of services
         job
             The related job object, which contains a list of the relevant allocations.
-        run_domain_dir
-            Domain directory in the Docker service container where the job is to be run, this info is needed
-            for automatic service expansion
 
         Returns
         -------
@@ -218,8 +215,6 @@ class Launcher:
         for e in allocation_str_list:
             host_str.append(e)
 
-        # Finally, append the domain dir
-        host_str.append(str(run_domain_dir))
 
         print("host_str", host_str)
         return host_str
