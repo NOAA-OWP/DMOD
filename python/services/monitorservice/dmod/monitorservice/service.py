@@ -1,14 +1,25 @@
 #!/usr/bin/env python3
+from websockets import WebSocketServerProtocol
+from dmod.communication import WebSocketInterface
+from dmod.monitor import Monitor
 
-#TODO implement monitor service
-class MonitorService():
-    __init__(self):
+
+class MonitorService(WebSocketInterface):
+    """
+    Core class of the monitor service, handling communication and main logic.
+    """
+    def __init__(self, monitor: Monitor, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._monitor = monitor
+
+    async def exec_monitoring(self):
+        """
+        Async task performing repeating, regular monitoring tasks within service.
+        """
+        # TODO:
         pass
 
-    def run():
-        while True:
-            print("Not Implemented")
-            break
+    async def listener(self, websocket: WebSocketServerProtocol, path):
+        # TODO: figure out what this might listen for and need to communicate
+        pass
 
-if __name__ == '__main__':
-    raise RuntimeError('Module {} called directly; use main package entrypoint instead')
