@@ -329,6 +329,50 @@ class Job(Serializable, ABC):
     The hash value of a job is calculated as the hash of it's ::attribute:`job_id`.
     """
 
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        """
+        Factory create a new instance of the correct subtype based on a JSON object dictionary deserialized from
+        received JSON, where this includes a ``job_class`` property containing the name of the appropriate subtype.
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+        A new object of the correct subtype instantiated from the deserialize JSON object dictionary, or ``None`` if
+        this cannot be done successfully.
+        """
+        job_type_key = 'job_class'
+        recursive_loop_key = 'base_type_invoked_twice'
+
+        if job_type_key not in json_obj:
+            return None
+
+        # Avoid accidental recursive infinite loop by adding an indicator key and bailing if we already see it
+        if recursive_loop_key in json_obj:
+            return None
+        else:
+            json_obj[recursive_loop_key] = True
+
+        # Traverse class type tree and get all subtypes of Job
+        subclasses = []
+        subclasses.extend(cls.__subclasses__())
+        traversed_subclasses = set()
+        while len(subclasses) > len(traversed_subclasses):
+            for s in subclasses:
+                if s not in traversed_subclasses:
+                    subclasses.extend(s.__subclasses__())
+                    traversed_subclasses.add(s)
+
+        for subclass in subclasses:
+            subclass_name = subclass.__name__
+            if subclass_name == json_obj[job_type_key]:
+                json_obj.pop(job_type_key)
+                return subclass.factory_init_from_deserialized_json(json_obj)
+        return None
+
     def __eq__(self, other):
         if other is None:
             return False
