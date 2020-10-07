@@ -1,1 +1,1 @@
-from .que_monitor import QueMonitor
+from .que_monitor import Monitor, DockerSwarmMonitor, RedisDockerSwarmMonitor
