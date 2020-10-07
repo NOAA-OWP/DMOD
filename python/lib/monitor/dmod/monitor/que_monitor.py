@@ -3,32 +3,12 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 import logging
 from typing import Dict, List, Optional, Set, Tuple
-import sys
-import os
-from os.path import join, dirname, realpath
-import time
-import subprocess
-import queue
-import json, ast
+import json
 import docker
 from docker.models.services import Service
-from pprint import pprint as pp
-#FIXME URGENT refactor all resource management usning redisManager
-from redis import Redis, WatchError
-from pathlib import Path
-
-## local imports
-#from ..utils.clean import clean_keys
-
-# from other dmod libs
-from dmod.redis import RedisBacked, KeyNameHelper
-from dmod.scheduler.job import Job, JobStatus, JobExecStep, RedisBackedJobManager, JobManagerFactory, JobManager
-from dmod.scheduler.job import RequestedJob
-from dmod.scheduler.resources import ResourceManager, RedisManager, Resource
-from dmod.scheduler import RsaKeyPair
-from dmod.scheduler.scheduler import Launcher
-import dmod.scheduler.utils.parsing_nested as pn
-import name_parser as name_parser
+from dmod.redis import RedisBacked
+from dmod.scheduler.job import Job, JobStatus, JobExecStep
+from dmod.scheduler.job.job_manager import RedisBackedJobManager
 
 MAX_JOBS = 210
 Max_Redis_Init = 5
