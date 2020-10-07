@@ -299,7 +299,7 @@ class Launcher:
                    "com.docker.stack.namespace": model
                    }
         #First arg, number of "nodes"
-        args = [len(job.allocations)]
+        args = [str( len(job.allocations) )]
         #Second arg, host string
         args.append( self.build_host_list(name, job) )
         #third arg, job id
