@@ -5,6 +5,7 @@ from .maas_request import get_available_models, get_available_outputs, get_distr
     NGENRequestResponse
 from .message import AbstractInitRequest, MessageEventType, Message, Response, InvalidMessage, InvalidMessageResponse, \
     InitRequestResponseReason
+from .metadata_message import MetadataPurpose, MetadataMessage, MetadataResponse
 from .request_handler import AbstractRequestHandler
 from .scheduler_request import SchedulerRequestMessage, SchedulerRequestResponse
 from .session import Session, FullAuthSession, SessionInitMessage, SessionInitResponse, FailedSessionInitInfo, \
