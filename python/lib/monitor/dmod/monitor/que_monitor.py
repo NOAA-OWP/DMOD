@@ -298,11 +298,14 @@ class DockerSwarmMonitor(Monitor, ABC):
         Monitor jobs, returning a tuple of dictionaries, all keyed by job id, for the jobs, original job statuses, and
         new jobs statuses for any jobs to be monitored that are observed to have a change in their status.
 
+        Note that this implementation does update the job object to the "new" status it found was actually represented
+        by the runtime processes executing the job.
+
         Returns
         -------
         Tuple[Dict[str, Job], Dict[str, JobStatus], Dict[str, JobStatus]]
-            A tuple of three dictionaries for jobs with status changes, having values of job object, original status,
-            and updated status respectively, and all keyed by job id.
+            A tuple of three dictionaries for updated jobs with status changes, having values of job object, original
+            status, and updated status respectively, and all keyed by job id.
         """
         # job_id to job object
         jobs_with_changed_state = dict()
