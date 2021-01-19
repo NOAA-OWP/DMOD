@@ -78,7 +78,7 @@ class MetadataMessage(AbstractInitRequest):
             raise RuntimeError('Invalid {} set to CHANGE_CONFIG but without any config changes.')
 
     @property
-    def config_changes(self) -> Optional[Dict[str, Union[None, str, bool, Number, dict]]]:
+    def config_changes(self) -> Optional[Dict[str, Union[None, str, bool, Number, dict, list]]]:
         """
         A dictionary, keyed by strings, representing some configurable setting(s) that need their value(s) changed.
 
