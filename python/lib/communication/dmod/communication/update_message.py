@@ -1,6 +1,6 @@
 from .message import AbstractInitRequest, MessageEventType, Response
 from pydoc import locate
-from typing import Dict, Optional, Type
+from typing import Dict, Optional, Type, Union
 import uuid
 
 
@@ -194,14 +194,18 @@ class UpdateMessageResponse(Response):
         """
         return cls._OBJECT_FOUND_SUBKEY
 
-    def __init__(self, digest: str, object_found: bool, success: bool, reason: str, response_text: str = ''):
+    def __init__(self, success: bool, reason: str, response_text: str = '',
+                 data: Optional[Dict[str, Union[str, bool]]] = None, digest: Optional[str] = None,
+                 object_found: Optional[bool] = None):
+        # Work with digest/found either as params or contained within data param
+        # However, move explicit params into the data dict param, allowing non-None params to overwrite
+        data = dict() if data is None else data
+        digest = data[self.get_digest_subkey()] if digest is None and self.get_digest_subkey() in data else digest
+        if object_found is None and self.get_object_found_subkey():
+            object_found = data[self.get_object_found_subkey()]
+
         super().__init__(success=success, reason=reason, message=response_text,
                          data={self.get_digest_subkey(): digest, self.get_object_found_subkey(): object_found})
-
-        self._digest = digest
-        self._object_found = object_found
-        self._successful = success
-        self._response_text = response_text
 
     @property
     def digest(self) -> str:
