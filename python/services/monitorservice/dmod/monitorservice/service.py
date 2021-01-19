@@ -2,6 +2,14 @@
 from websockets import WebSocketServerProtocol
 from dmod.communication import WebSocketInterface
 from dmod.monitor import Monitor
+import logging
+
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
+    datefmt="%H:%M:%S"
+)
 
 
 class MonitorService(WebSocketInterface):
