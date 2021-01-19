@@ -4,6 +4,12 @@ from dmod.communication import WebSocketInterface
 from dmod.monitor import Monitor
 import logging
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
+    datefmt="%H:%M:%S"
+)
+
 
 class MonitoredChange:
     """
@@ -17,12 +23,6 @@ class MonitoredChange:
         self.job: Job = job
         self.original_status: JobStatus = original_status
         self.connection_id: str = connection_id
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
-    datefmt="%H:%M:%S"
-)
 
 
 class MonitorService(WebSocketInterface):
