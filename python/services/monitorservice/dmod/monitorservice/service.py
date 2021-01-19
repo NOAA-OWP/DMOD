@@ -5,6 +5,19 @@ from dmod.monitor import Monitor
 import logging
 
 
+class MonitoredChange:
+    """
+    Simple private type to help keep track of a monitored change that will need an update sent out to one or more
+    registered parties.
+    """
+
+    __slots__ = ["job", "original_status", "connection_id"]
+
+    def __init__(self, job: Job, original_status: JobStatus, connection_id: str):
+        self.job: Job = job
+        self.original_status: JobStatus = original_status
+        self.connection_id: str = connection_id
+
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
