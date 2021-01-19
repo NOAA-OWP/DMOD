@@ -99,10 +99,12 @@ class UpdateMessage(AbstractInitRequest):
 
         Parameters
         ----------
-        object_type : str
-            The type of object being updated, as a
-        object_id
-        updated_data
+        object_id : str
+            The identifier for the object being updated, as a string.
+        object_type : Type
+            The type of object being updated.
+        updated_data : Dict[str, str]
+            A serialized dictionary of properties to new values.
         """
         self._digest = None
         self._object_type = object_type
