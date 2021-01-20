@@ -6,7 +6,7 @@ from dmod.scheduler.job import Job, JobStatus
 from dmod.communication import MetadataPurpose, MetadataMessage, MetadataResponse, UpdateMessage, UpdateMessageResponse,\
     WebSocketInterface
 from dmod.monitor import Monitor
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Union
 import json
 import logging
 import uuid
@@ -54,6 +54,42 @@ class MonitorService(WebSocketInterface):
         return UpdateMessage(object_id=str(monitored_change.job.job_id),
                              object_type=monitored_change.job.__class__,
                              updated_data={'status': str(monitored_change.job.status)})
+
+    @staticmethod
+    def _proc_connect_json(json_msg: str, conn_id: str) -> Tuple[Optional[MetadataMessage], bool, str]:
+        """
+        Process incoming message at start of a listener connection.
+
+        Function processes the raw connection JSON string into a metadata object.  It then saves a determination of
+        whether the metadata conforms as required for creating a connection.  Finally, an informational message is
+        constructed, either indicating the metadata can successfully open a connection or explaining why the metadata is
+        invalid for doing so. These three items are then returned.
+
+        Parameters
+        ----------
+        json_msg: str
+            The raw JSON message (as a string) sent over the websocket.
+        conn_id: str
+            The connection id of the associated connection, used in return information message.
+
+        Returns
+        -------
+        Tuple[Optional[MetadataMessage], bool, str]
+            Tuple of the deserialized ::class:`MetadataMessage` (or `None` if the JSON was not valid), whether the
+            metadata was valid for creating a connection, and an informational message relating to the (non)validity of
+            the metadata.
+        """
+        metadata = MetadataMessage.factory_init_from_deserialized_json(json.loads(json_msg))
+        if not metadata:
+            return None, False, 'Invalid format of message JSON creating connection {} [{}]'.format(conn_id, json_msg)
+
+        if metadata.purpose != MetadataPurpose.CONNECT:
+            return metadata, False, 'Incorrect metadata PURPOSE creating connection {} [{}]'.format(conn_id, json_msg)
+
+        if metadata.metadata_follows:
+            return metadata, False, 'Further metadata indicated creating connection {} [{}]'.format(conn_id, json_msg)
+
+        return metadata, True, 'Successfully opening connection with id: {}'.format(conn_id)
 
     @classmethod
     async def _apply_metadata_config_change(cls, connection_id: str, metadata: MetadataMessage) -> Tuple[bool, str]:
@@ -292,48 +328,24 @@ class MonitorService(WebSocketInterface):
             some response text for the metadata response; and the optional, extracted collection of jobs of interest.
         """
         message = await websocket.recv()
+        # Process the incoming connection message
+        metadata_obj, connect_success, response_txt = self._proc_connect_json(message, connection_id)
         # TODO: any other steps to initialize connection (e.g., need auth or session key)?
-        metadata_obj = MetadataMessage.factory_init_from_deserialized_json(json.loads(message))
-        if not metadata_obj:
-            connect_success = False
-            response_txt = 'Invalid format of message JSON creating connection {} [{}]'.format(connection_id, message)
-        elif metadata_obj.purpose != MetadataPurpose.CONNECT:
-            connect_success = False
-            response_txt = 'Invalid metadata with incorrect `purpose` when creating connection {} [{}]'.format(
-                connection_id, message)
-            # This should not be the case when originating the connection
-        elif metadata_obj.metadata_follows:
-            connect_success = False
-            response_txt = 'Invalid metadata having following metadata creating connection {} [{}]'.format(
-                connection_id, message)
-        else:
-            connect_success = True
-            response_txt = 'Successfully opening connection with id: {}'.format(connection_id)
-
-        # Also check that any list of jobs of interest is provided correctly
-        jobs_of_interest_subset = None
-        if metadata_obj.config_changes and self._JOBS_OF_INTEREST_CONFIG_KEY in metadata_obj.config_changes:
-            jobs_of_interest_subset = metadata_obj.config_changes[self._JOBS_OF_INTEREST_CONFIG_KEY]
-            if not (isinstance(jobs_of_interest_subset, list) or isinstance(jobs_of_interest_subset, set)):
+        # If things are valid, extract the (potentially implied) jobs of interest
+        if connect_success:
+            try:
+                self.jobs_of_interest_by_connection[connection_id] = self._proc_metadata_jobs_of_interest(metadata_obj)
+            # Consider an exception during this to override connection success
+            except RuntimeError as re:
                 connect_success = False
-                response_txt = 'Invalid metadata with non-list \'jobs-of-interest\' collection creating ' \
-                               'connection {} [{}]'.format(connection_id, message)
-            else:
-                for i in jobs_of_interest_subset:
-                    if not isinstance(i, str):
-                        connect_success = False
-                        response_txt = 'Invalid metadata with non-string id value in \'jobs-of-interest\' ' \
-                                       'list when creating connection {} [{}]'.format(connection_id, message)
-                        break
+                response_txt = str(re) + ' while creating connection {} [{}]'.format(connection_id, message)
 
-        # Send the response, along with success indicator and message
+        # Send a response, along with success indicator and message
         response = MetadataResponse.factory_create(connect_success, response_txt, metadata_obj.purpose, False)
         await websocket.send(str(response))
 
         if not connect_success:
             raise RuntimeError("Closing listener connection after failure in connection protocol: " + response_txt)
-
-        self.jobs_of_interest_by_connection[connection_id] = jobs_of_interest_subset
 
     def _is_connection_interested(self, connection_id: str, job_id: str) -> bool:
         """
@@ -356,6 +368,41 @@ class MonitorService(WebSocketInterface):
             return False
         job_ids_of_interest = self.jobs_of_interest_by_connection[connection_id]
         return job_ids_of_interest is None or job_id in job_ids_of_interest
+
+    def _proc_metadata_jobs_of_interest(self, metadata_obj: MetadataMessage) -> Optional[List[str]]:
+        """
+        Process a ::class:`MetadataMessage` object to extract jobs of interest.
+
+        Process a ::class:`MetadataMessage` object to extract contained collection of jobs of interest, returning `None`
+        if no explicit collection is provided (thus implying `ALL`).  Raise ::class:`RuntimeError` if the collection is
+        present but not formatted validly as either a list or set of job id strings.
+
+        If a valid collection is presented as a set, also convert to a list before returning.
+
+        Parameters
+        ----------
+        metadata_obj
+
+        Returns
+        -------
+
+        Raises
+        -------
+        RuntimeError
+            If a collection of jobs of interest is found but not formatted as either a list or set of strings.
+
+        """
+        if not (metadata_obj.config_changes and self._JOBS_OF_INTEREST_CONFIG_KEY in metadata_obj.config_changes):
+            return None
+        jobs_of_interest_subset = metadata_obj.config_changes[self._JOBS_OF_INTEREST_CONFIG_KEY]
+        if not (isinstance(jobs_of_interest_subset, list) or isinstance(jobs_of_interest_subset, set)):
+            raise RuntimeError('Invalid metadata with non-list \'jobs-of-interest\' collection')
+
+        for i in jobs_of_interest_subset:
+            if not isinstance(i, str):
+                raise RuntimeError('Invalid metadata with non-string id value in \'jobs-of-interest\' list')
+
+        return list(jobs_of_interest_subset)
 
     async def exec_monitoring(self):
         """
@@ -407,13 +454,13 @@ class MonitorService(WebSocketInterface):
         Handle a connection to a party that wants to receive updates about jobs as changes are monitored, sending update
         messages back over the maintained websocket as appropriate.
 
-        Each invocation of the method creates a corresponding ``connection_id`` to uniquely identify this particular
+        Each invocation of the method creates a corresponding ``conn_id`` to uniquely identify this particular
         websocket connection and method instance.  This is used in multiple instance attributes to separate things
         applicable to this particular connection.  It is implemented as a string representation of a version 4 UUID.
 
         The instance also maintains a dictionary of per-connection queues that store data for monitored changes deemed
         to be of interest to the connection.  Again, as these queues are per connection, the containing dictionary is
-        keyed by ``connection_id``.
+        keyed by ``conn_id``.
 
         Parameters
         ----------
