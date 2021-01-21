@@ -314,6 +314,8 @@ class DockerSwarmMonitor(Monitor, ABC):
         updated_job_statuses = dict()
 
         for job in self.get_jobs_to_monitor():
+            # TODO: verify that it is not necessary to examine status directory (i.e., check job phase) due to some
+            #  guarantee on never jumping to the same step of a different phase between monitoring calls
             new_exec_step = self.check_implied_job_exec_step(job)
             if job.status_step != new_exec_step:
                 original_job_statuses[job.job_id] = job.status
