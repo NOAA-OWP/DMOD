@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from abc import ABC, abstractmethod
 from asyncio import CancelledError, sleep
 from websockets import WebSocketServerProtocol
 from websockets.exceptions import ConnectionClosed
@@ -32,18 +33,28 @@ class MonitoredChange:
         self.connection_id: str = connection_id
 
 
-class MonitorService(WebSocketInterface):
+class MonitorService(ABC):
     """
-    Core class of the monitor service, handling communication and main logic.
+    Core abstract class for monitor service, handling main service logic but abstracting connection details.
 
-    To use, ensure the ::method:`exec_monitoring` method is started within its own separate async task, then call the
-    standard ::method:`run` method from ::class:`WebSocketInterface` to start the listener.
+    The ::method:`exec_monitoring` method can be used to construct an async looping task to continuously monitor (in a
+    poll/sleep manner) for changes.  Alternatively, ::method:`run_monitor_check` can run the logic for monitoring and
+    queueing changes a single time.
 
-    Entities connecting to the service should send a ::class:`MetadataMessage` with the `CONNECT` purpose over the
-    websocket to open the connection.  If desired, the a config change entry keyed by the string returned by
-    ::method:`get_jobs_of_interest_config_key` can be added to explicitly set jobs of interest.  It must be a list of
-    strings.  If the key is not present, all active jobs will be assumed.
+    Connection details are abstracted, but certain things must be done by implementation when handling connections.
+    First, details of opening connection and controlling what is monitored should be done over serialized
+    ::class:`MetadataMessage` objects.  Actual changes should be communicated via serialized ::class:`UpdateMessage`
+    object.
 
+    When being established, a new connection needs to be associated with a unique identifier and set up for the
+    ::method:`get_connection_object` method and ::attribute:`jobs_of_interest_by_connection` property.  The logic for
+    much of this is provided in the ::method:`handle_connection_begin` function.  However, details for the actual
+    connection and connection object are abstracted here, so that must be done by something else in subclasses (e.g.,
+    a `listener` function).
+
+    The initial `CONNECT` ::class:`MetadataMessage` may include an explicit group of jobs of interest.  This is done by
+    including a config change entry keyed by the string returned by ::method:`get_jobs_of_interest_config_key`.  It must
+    be a list of strings.  If the key is not present, all active jobs will be assumed to be of interest.
     """
 
     _JOBS_OF_INTEREST_CONFIG_KEY = 'jobs_of_interest'
@@ -58,12 +69,17 @@ class MonitorService(WebSocketInterface):
     @staticmethod
     def _proc_connect_json(json_msg: str, conn_id: str) -> Tuple[Optional[MetadataMessage], bool, str]:
         """
-        Process incoming message at start of a listener connection.
+        Process incoming message contents at start of a listener connection.
 
-        Function processes the raw connection JSON string into a metadata object.  It then saves a determination of
-        whether the metadata conforms as required for creating a connection.  Finally, an informational message is
-        constructed, either indicating the metadata can successfully open a connection or explaining why the metadata is
-        invalid for doing so. These three items are then returned.
+        Function first takes the raw JSON string from the initial message establishing a connection and deserializes
+        it into a metadata object (if possible).  It then saves a determination of whether the metadata conforms as
+        required for creating a connection.  Finally, an informational message is constructed, either indicating the
+        metadata can successfully open a connection or explaining why the metadata is invalid for doing so. These three
+        items are then returned.
+
+        If the raw message text doesn't deserialize to a metadata object, the function will have (and eventually return)
+        a reference to `None` instead.  This also is a condition considered to not conform validly for creating the
+        connection.
 
         Parameters
         ----------
@@ -92,7 +108,29 @@ class MonitorService(WebSocketInterface):
         return metadata, True, 'Successfully opening connection with id: {}'.format(conn_id)
 
     @classmethod
-    async def _apply_metadata_config_change(cls, connection_id: str, metadata: MetadataMessage) -> Tuple[bool, str]:
+    def get_jobs_of_interest_config_key(cls):
+        """
+        Get the config key value for use in metadata messages to indicate the list of jobs of interest.
+
+        This is the key that should be present in initial `CONNECT` or later `CHANGE_CONFIG` metadata message, within
+        the ::attribute:`MetadataMessage.config_changes` property, to indicate a specific list of jobs of interest for
+        that particular client.
+
+        Returns
+        -------
+        str
+            The config key value for use in metadata messages to indicate the list of jobs of interest.
+        """
+        return cls._JOBS_OF_INTEREST_CONFIG_KEY
+
+    def __init__(self, monitor: Monitor):
+        self._monitor = monitor
+        self._jobs_of_interest_by_connection = {}
+        """ Collections of jobs of interest for registered connections, keyed by the connection id. """
+        self._mapped_change_queues_by_connection: Dict[str, List[MonitoredChange]] = {}
+        """ Lists of monitored job changes that should have updates sent out, keyed by connection id to send over."""
+
+    def _apply_metadata_config_change(self, connection_id: str, metadata: MetadataMessage) -> Tuple[bool, str]:
         """
         Apply changes as described in a ::class:`MetadataMessage`, applicable to the given connection.
 
@@ -109,133 +147,6 @@ class MonitorService(WebSocketInterface):
         # TODO: actually come back and implement this later
         # For now, don't apply any changes, and since we don't, return False
         return False, 'Not Currently Supported By Service'
-
-    @classmethod
-    def get_jobs_of_interest_config_key(cls):
-        """
-        Get the config key value for use in metadata messages to indicate the list of jobs of interest.
-
-        This is the key that should be present in initial `CONNECT` or later `CHANGE_CONFIG` metadata message, within
-        the ::attribute:`MetadataMessage.config_changes` property, to indicate a specific list of jobs of interest for
-        that particular client.
-
-        Returns
-        -------
-        str
-            The config key value for use in metadata messages to indicate the list of jobs of interest.
-        """
-        return cls._JOBS_OF_INTEREST_CONFIG_KEY
-
-    @classmethod
-    async def process_connection_after_updates(cls, connection_id: str, websocket: WebSocketServerProtocol) -> bool:
-        """
-        Handle metadata communication protocol that occurs after updates are sent through a connection, returning
-        whether the connection should remain open.
-
-        Parameters
-        ----------
-        connection_id : str
-            The connection identifier, as a string.
-        websocket : WebSocketServerProtocol
-            The websocket object for the connection.
-
-        Returns
-        -------
-        bool
-            `True` when this websocket connection should remain open for further update communication, or `False` when
-            the connection should be closed.
-
-        Raises
-        -------
-        RuntimeError
-            Raised if the message protocol is not followed as expected.
-
-        See Also
-        -------
-        ::method:`_apply_metadata_config_change`
-        """
-        # Default to keeping the connection open
-        keep_connection_open = True
-
-        try:
-            # Prompt metadata start if other party has metadata it needs to send
-            prompt_msg = MetadataMessage(purpose=MetadataPurpose.PROMPT,
-                                         description='Prompt for changes to jobs or disconnect')
-            await websocket.send(str(prompt_msg))
-            prompt_resp = await websocket.recv()
-            prompt_resp_obj = MetadataResponse.factory_init_from_deserialized_json(json.loads(prompt_resp))
-            # If this happens, it tried to send something else and is outside of protocol, so close connection
-            if not prompt_resp_obj:
-                prompt_resp_err_txt = 'Unexpected response to metadata prompt in connection {} [{}]'
-                raise RuntimeError(prompt_resp_err_txt.format(connection_id, prompt_resp))
-            expecting_metadata = True
-            while expecting_metadata:
-                metadata_msg = await websocket.recv()
-                metadata_obj = MetadataMessage.factory_init_from_deserialized_json(json.loads(metadata_msg))
-                if not metadata_obj:
-                    metadata_msg_err_txt = 'Invalid metadata message JSON in connection {} [{}]'
-                    raise RuntimeError(metadata_msg_err_txt.format(connection_id, metadata_msg))
-                # Start by adjusting expecting_metadata if this indicated nothing follows it
-                expecting_metadata = metadata_obj.metadata_follows
-                # Process metadata message, depending on purpose
-                if metadata_obj.purpose == MetadataPurpose.DISCONNECT:
-                    success, reason, keep_connection_open = True, 'Disconnect Receive', False
-                elif metadata_obj.purpose == MetadataPurpose.UNCHANGED:
-                    success, reason = True, 'No Changes'
-                elif metadata_obj.purpose == MetadataPurpose.CHANGE_CONFIG:
-                    success, reason = cls._apply_metadata_config_change(connection_id, metadata_obj)
-                elif metadata_obj.purpose in {MetadataPurpose.PROMPT, MetadataPurpose.CONNECT}:
-                    msg_txt = 'Unexpected purpose {} to prompted metadata message on connection {}'
-                    raise RuntimeError(msg_txt.format(metadata_obj.purpose.name, connection_id))
-                else:
-                    success, reason = False, 'Unexpected Purpose'
-                # Then build and send the response
-                response = MetadataResponse.factory_create(success, reason, metadata_obj.purpose, expecting_metadata)
-                await websocket.send(str(response))
-        except RuntimeError as re:
-            logging.error("Exception in post-update monitor connection protocol:" + str(re))
-            keep_connection_open = False
-        return keep_connection_open
-
-    def __init__(self, monitor: Monitor, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._monitor = monitor
-        self._jobs_of_interest_by_connection = {}
-        self._mapped_change_queues_by_connection: Dict[str, List[MonitoredChange]] = {}
-        """ Lists of monitored job changes that should have updates sent out, keyed by connection id to send over."""
-
-    async def _communicate_change(self, change: MonitoredChange, websocket: WebSocketServerProtocol):
-        """
-        Inform the client for this connection of a monitored change.
-
-        Inform the client connected over the given websocket of the change encapsulated by the ::class:`MonitoredChange`
-        object, via serialized ::class:`UpdateMessage`.
-
-        Checks whether a proper ::class:`UpdateMessageResponse` is sent back, including whether the digest matches and
-        whether the object was found on the client side.  However, only logs warnings if for encountered unexpected
-        conditions.
-
-        Method will get stuck in an `await` until at least something comes back over the websocket.
-
-        Parameters
-        ----------
-        change: MonitoredChange
-            The change found in monitoring to communicate.
-        websocket: WebSocketServerProtocol
-            The websocket object for the connection to use for communication
-        """
-        update_msg = self._generate_update_msg(change)
-        await websocket.send(str(update_msg))
-        update_resp_txt = await websocket.recv()
-        update_resp = UpdateMessageResponse.factory_init_from_deserialized_json(json.loads(update_resp_txt))
-        if update_resp is None:
-            logging.warning("Failed deserializing update response for job {}".format(change.job.job_id))
-        elif update_resp.digest != update_msg.digest:
-            logging.warning(
-                "Digest mismatch in update response for job {} (expected {}; received: {})".format(
-                    change.job.job_id, update_msg.digest, update_resp.digest))
-        elif not update_resp.object_found:
-            logging.warning("Client couldn't find job {} for update".format(change.job.job_id))
 
     def _dequeue_monitored_change(self, connection_id: str) -> Optional[MonitoredChange]:
         """
@@ -270,7 +181,7 @@ class MonitorService(WebSocketInterface):
         # See https://docs.python.org/3/library/stdtypes.html#truth-value-testing
         return changes_queue.pop(0) if changes_queue else None
 
-    def _enqueue_monitored_change_update_for_connection(self, change_obj: MonitoredChange):
+    def _enqueue_monitored_change(self, change_obj: MonitoredChange):
         """
         Append a monitored change (that will require an update be sent over the associated connection) to the queue of
         such changes for the relevant websocket connection.
@@ -298,54 +209,6 @@ class MonitorService(WebSocketInterface):
             if self._is_connection_interested(connection_id, job_id):
                 connection_ids.add(connection_id)
         return connection_ids
-
-    async def _handle_connect(self, websocket: WebSocketServerProtocol, connection_id: str):
-        """
-        Handle processing the initial connection message for the listener.
-
-        Handle processing the initial connection message for a newly-connected websocket, including initial receipt and
-        parsing of the message contents, which should be a metadata `CONNECT` type.  Then send the appropriate response
-        acknowledging.  If the incoming message was invalid, raise an exception (after sending the response).
-
-        Note that the received message should indicate that the sender does not have any further metadata to send after
-        this message. Method ensures the message is formatted correctly.
-
-        Method will set the appropriate value in the ::attribute:`jobs_of_interest_by_connection` property for
-        `connection_id`, in cases when the `CONNECT` message was valid.  This will be the default of `None` (inferred to
-        mean `ALL`) if nothing is explicitly supplied.
-
-        Parameters
-        ----------
-        websocket: WebSocketServerProtocol
-            The incoming websocket object for the connection.
-        connection_id: str
-            The identifier for this particular connection.
-
-        Returns
-        -------
-        tuple
-            The deserialized metadata message object; whether the message was valid for a successful connection opening;
-            some response text for the metadata response; and the optional, extracted collection of jobs of interest.
-        """
-        message = await websocket.recv()
-        # Process the incoming connection message
-        metadata_obj, connect_success, response_txt = self._proc_connect_json(message, connection_id)
-        # TODO: any other steps to initialize connection (e.g., need auth or session key)?
-        # If things are valid, extract the (potentially implied) jobs of interest
-        if connect_success:
-            try:
-                self.jobs_of_interest_by_connection[connection_id] = self._proc_metadata_jobs_of_interest(metadata_obj)
-            # Consider an exception during this to override connection success
-            except RuntimeError as re:
-                connect_success = False
-                response_txt = str(re) + ' while creating connection {} [{}]'.format(connection_id, message)
-
-        # Send a response, along with success indicator and message
-        response = MetadataResponse.factory_create(connect_success, response_txt, metadata_obj.purpose, False)
-        await websocket.send(str(response))
-
-        if not connect_success:
-            raise RuntimeError("Closing listener connection after failure in connection protocol: " + response_txt)
 
     def _is_connection_interested(self, connection_id: str, job_id: str) -> bool:
         """
@@ -404,26 +267,81 @@ class MonitorService(WebSocketInterface):
 
         return list(jobs_of_interest_subset)
 
+    @abstractmethod
+    async def communicate_change(self, change: MonitoredChange):
+        """
+        Inform the associated client of this monitored change.
+
+        Inform some client, associated by the connection id contained in the change object, of the encapsulated change.
+
+        Parameters
+        ----------
+        change: MonitoredChange
+            Object containing a change found in monitoring and the id of a client needing to know about the change.
+        """
+        pass
+
     async def exec_monitoring(self):
         """
         Async task performing repeating, regular monitoring tasks within service, and queuing monitored changes that
-        are of interest to parties with current websocket connections to the service.
+        are of interest to parties with current connections to the service.
+
+        See Also
+        ----------
+        ::method:`run_monitor_check`
         """
         while True:
-            # The are all dicts keyed by the job id value
-            jobs_with_changed_status, original_job_statuses, updated_job_statuses = self._monitor.monitor_jobs()
-
-            for job_id in jobs_with_changed_status:
-                interested_connections = self._get_interested_connections(job_id)
-                # If there are any interested connection, then for each ...
-                for connection_id in interested_connections:
-                    # Create a change object to cleanly encapsulate the monitored change
-                    change_obj = MonitoredChange(job=jobs_with_changed_status[job_id],
-                                                 original_status=original_job_statuses[job_id],
-                                                 connection_id=connection_id)
-                    self._enqueue_monitored_change_update_for_connection(change_obj)
-
+            self.run_monitor_check()
             await sleep(60)
+
+    @abstractmethod
+    def get_connection_object(self, connection_id: str):
+        """
+        Get the object encapsulating some identified connection.
+
+        Parameters
+        ----------
+        connection_id: str
+            The identifier for the connection.
+
+        Returns
+        -------
+        The desired connection object.
+        """
+        pass
+
+    def handle_connection_begin(self, message: str):
+        """
+        Helper method for tasks to do at the beginning of a connection.
+
+        Parameters
+        ----------
+        message: str
+            The raw JSON string included in the first message, expected to be a serialized ::class:`MetadataMessage`.
+
+        Returns
+        -------
+        Tuple[str, Optional[MetadataMessage], MetadataResponse]
+            The generated id for this connection, a metadata message object deserialized from the message (if possible),
+            and a metadata response object with deals on whether connect is successful.
+        """
+        connection_id = str(uuid.uuid4())
+        # Process the incoming connection message
+        metadata_obj, connect_success, response_txt = self._proc_connect_json(message, connection_id)
+        # TODO: any other steps to initialize connection (e.g., need auth or session key)?
+        # If things are valid, extract the (potentially implied) jobs of interest
+        if connect_success:
+            try:
+                self.jobs_of_interest_by_connection[connection_id] = self._proc_metadata_jobs_of_interest(metadata_obj)
+            # Consider an exception during this to override connection success
+            except RuntimeError as re:
+                connect_success = False
+                response_txt = str(re) + ' while creating connection {} [{}]'.format(connection_id, message)
+
+        # Send a response, along with success indicator and message
+        response = MetadataResponse.factory_create(connect_success, response_txt, metadata_obj.purpose, False)
+        response.data['connection_id'] = connection_id
+        return connection_id, metadata_obj, response
 
     @property
     def jobs_of_interest_by_connection(self) -> Dict[str, Optional[Set[str]]]:
@@ -449,6 +367,91 @@ class MonitorService(WebSocketInterface):
         """
         return self._jobs_of_interest_by_connection
 
+    def run_monitor_check(self):
+        """
+        Run a single check to monitor for jobs that have changed.
+
+        Run a single check monitoring for jobs that have changed, and enqueue such changes for any interested
+        connections.
+
+        This is called from within each loop iteration of the async looping ::method:`exec_monitoring` function. It is
+        separated from the async routine for easier testing.
+
+        See Also
+        ----------
+        ::method:`exec_monitoring`
+        """
+        # The are all dicts keyed by the job id value
+        jobs_with_changed_status, original_job_statuses, updated_job_statuses = self._monitor.monitor_jobs()
+
+        for job_id in jobs_with_changed_status:
+            interested_connections = self._get_interested_connections(job_id)
+            # If there are any interested connection, then for each ...
+            for connection_id in interested_connections:
+                # Create a change object to cleanly encapsulate the monitored change
+                change_obj = MonitoredChange(job=jobs_with_changed_status[job_id],
+                                             original_status=original_job_statuses[job_id],
+                                             connection_id=connection_id)
+                self._enqueue_monitored_change(change_obj)
+
+
+class WebSocketMonitorService(MonitorService, WebSocketInterface):
+    """
+    Implementation of ::class:`MonitorService` listening for connections over websocket.
+    """
+
+    def __init__(self, monitor: Monitor, *args, **kwargs):
+        super().__init__(monitor=monitor)
+        super().__init__(*args, **kwargs)
+        self._websockets_by_connection = {}
+
+    async def communicate_change(self, change: MonitoredChange):
+        """
+        Inform the client for this connection of a monitored change.
+
+        Inform the client connected over the associated websocket of the change encapsulated by the
+        ::class:`MonitoredChange` object, via serialized ::class:`UpdateMessage`.
+
+        Checks whether a proper ::class:`UpdateMessageResponse` is sent back, including whether the digest matches and
+        whether the object was found on the client side.  However, only logs warnings if for encountered unexpected
+        conditions.
+
+        Method will get stuck in an `await` until at least something comes back over the websocket.
+
+        Parameters
+        ----------
+        change: MonitoredChange
+            The change found in monitoring to communicate.
+        """
+        websocket = self.get_connection_object(connection_id=change.connection_id)
+        update_msg = self._generate_update_msg(change)
+        await websocket.send(str(update_msg))
+        update_resp_txt = await websocket.recv()
+        update_resp = UpdateMessageResponse.factory_init_from_deserialized_json(json.loads(update_resp_txt))
+        if update_resp is None:
+            logging.warning("Failed deserializing update response for job {}".format(change.job.job_id))
+        elif update_resp.digest != update_msg.digest:
+            logging.warning(
+                "Digest mismatch in update response for job {} (expected {}; received: {})".format(
+                    change.job.job_id, update_msg.digest, update_resp.digest))
+        elif not update_resp.object_found:
+            logging.warning("Client couldn't find job {} for update".format(change.job.job_id))
+
+    def get_connection_object(self, connection_id: str) -> WebSocketServerProtocol:
+        """
+        Get the object encapsulating some identified connection.
+
+        Parameters
+        ----------
+        connection_id
+            The identifier for the connection.
+
+        Returns
+        -------
+        The desired connection object.
+        """
+        return self._websockets_by_connection[connection_id]
+
     async def listener(self, websocket: WebSocketServerProtocol, path):
         """
         Handle a connection to a party that wants to receive updates about jobs as changes are monitored, sending update
@@ -467,16 +470,20 @@ class MonitorService(WebSocketInterface):
         websocket
         path
         """
-        connection_id = str(uuid.uuid4())
+        connection_id = None
         try:
             # Handle the initial incoming message, which should be a metadata CONNECT
-            await self._handle_connect(websocket, connection_id)
+            connection_id, metadata, response = self.handle_connection_begin(await websocket.recv())
+            await websocket.send(str(response))
+            if not response.success:
+                raise RuntimeError("Closing listener connection after failure in protocol: " + response.reason)
+            self._websockets_by_connection[connection_id] = websocket
             while True:
                 # This will be None if there are no more queued changes for this connection to hear about
                 change = self._dequeue_monitored_change(connection_id)
                 if isinstance(change, MonitoredChange):
-                    await self._communicate_change(change, websocket)
-                elif self.process_connection_after_updates(connection_id, websocket):
+                    await self.communicate_change(change)
+                elif self.process_connection_after_updates(connection_id):
                     await sleep(60)
                 else:
                     break
@@ -487,11 +494,84 @@ class MonitorService(WebSocketInterface):
         except RuntimeError as re:
             logging.info(str(re))
         finally:
-            # Clean up values from jobs_of_interest for this connection
-            if connection_id in self.jobs_of_interest_by_connection:
-                self.jobs_of_interest_by_connection.pop(connection_id)
-            # Clean up values from _mapped_change_queues_by_connection for this connection
-            change_queue = self._mapped_change_queues_by_connection.pop(connection_id)
-            if isinstance(change_queue, list) and len(change_queue) > 0:
-                msg = "There were {} monitored updates of interest but not communicated to connection {}."
-                logging.warning(msg.format(str(len(change_queue)), connection_id))
+            if connection_id:
+                # Clean up registered websocket connection
+                if connection_id in self._websockets_by_connection:
+                    self._websockets_by_connection.pop(connection_id)
+                # Clean up values from jobs_of_interest for this connection
+                if connection_id in self.jobs_of_interest_by_connection:
+                    self.jobs_of_interest_by_connection.pop(connection_id)
+                # Clean up values from _mapped_change_queues_by_connection for this connection
+                change_queue = self._mapped_change_queues_by_connection.pop(connection_id)
+                if isinstance(change_queue, list) and len(change_queue) > 0:
+                    msg = "There were {} monitored updates of interest but not communicated to connection {}."
+                    logging.warning(msg.format(str(len(change_queue)), connection_id))
+
+    async def process_connection_after_updates(self, connection_id: str) -> bool:
+        """
+        Handle metadata communication protocol that occurs after updates are sent through a connection, returning
+        whether the connection should remain open.
+
+        Parameters
+        ----------
+        connection_id : str
+            The connection identifier, as a string.
+
+        Returns
+        -------
+        bool
+            `True` when this websocket connection should remain open for further update communication, or `False` when
+            the connection should be closed.
+
+        Raises
+        -------
+        RuntimeError
+            Raised if the message protocol is not followed as expected.
+
+        See Also
+        -------
+        ::method:`_apply_metadata_config_change`
+        """
+        websocket = self.get_connection_object(connection_id=connection_id)
+        # Default to keeping the connection open
+        keep_connection_open = True
+
+        try:
+            # Prompt metadata start if other party has metadata it needs to send
+            prompt_msg = MetadataMessage(purpose=MetadataPurpose.PROMPT,
+                                         description='Prompt for changes to jobs or disconnect')
+            await websocket.send(str(prompt_msg))
+            prompt_resp = await websocket.recv()
+            prompt_resp_obj = MetadataResponse.factory_init_from_deserialized_json(json.loads(prompt_resp))
+            # If this happens, it tried to send something else and is outside of protocol, so close connection
+            if not prompt_resp_obj:
+                prompt_resp_err_txt = 'Unexpected response to metadata prompt in connection {} [{}]'
+                raise RuntimeError(prompt_resp_err_txt.format(connection_id, prompt_resp))
+            expecting_metadata = True
+            while expecting_metadata:
+                metadata_msg = await websocket.recv()
+                metadata_obj = MetadataMessage.factory_init_from_deserialized_json(json.loads(metadata_msg))
+                if not metadata_obj:
+                    metadata_msg_err_txt = 'Invalid metadata message JSON in connection {} [{}]'
+                    raise RuntimeError(metadata_msg_err_txt.format(connection_id, metadata_msg))
+                # Start by adjusting expecting_metadata if this indicated nothing follows it
+                expecting_metadata = metadata_obj.metadata_follows
+                # Process metadata message, depending on purpose
+                if metadata_obj.purpose == MetadataPurpose.DISCONNECT:
+                    success, reason, keep_connection_open = True, 'Disconnect Receive', False
+                elif metadata_obj.purpose == MetadataPurpose.UNCHANGED:
+                    success, reason = True, 'No Changes'
+                elif metadata_obj.purpose == MetadataPurpose.CHANGE_CONFIG:
+                    success, reason = self._apply_metadata_config_change(connection_id, metadata_obj)
+                elif metadata_obj.purpose in {MetadataPurpose.PROMPT, MetadataPurpose.CONNECT}:
+                    msg_txt = 'Unexpected purpose {} to prompted metadata message on connection {}'
+                    raise RuntimeError(msg_txt.format(metadata_obj.purpose.name, connection_id))
+                else:
+                    success, reason = False, 'Unexpected Purpose'
+                # Then build and send the response
+                response = MetadataResponse.factory_create(success, reason, metadata_obj.purpose, expecting_metadata)
+                await websocket.send(str(response))
+        except RuntimeError as re:
+            logging.error("Exception in post-update monitor connection protocol:" + str(re))
+            keep_connection_open = False
+        return keep_connection_open
