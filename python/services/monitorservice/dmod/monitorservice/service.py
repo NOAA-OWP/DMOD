@@ -310,7 +310,7 @@ class MonitorService(ABC):
         """
         pass
 
-    def handle_connection_begin(self, message: str):
+    def handle_connection_begin(self, message: str) -> Tuple[str, Optional[MetadataMessage], MetadataResponse]:
         """
         Helper method for tasks to do at the beginning of a connection.
 
