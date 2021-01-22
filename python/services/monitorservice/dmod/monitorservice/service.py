@@ -27,6 +27,13 @@ class MonitoredChange:
 
     __slots__ = ["job", "original_status", "connection_id"]
 
+    def __eq__(self, other):
+        return isinstance(other, MonitoredChange) \
+               and self.connection_id == other.connection_id \
+               and self.original_status == other.original_status \
+               and self.job.job_id == other.job.job_id \
+               and self.job.status == other.job.status
+
     def __init__(self, job: Job, original_status: JobStatus, connection_id: str):
         self.job: Job = job
         self.original_status: JobStatus = original_status
