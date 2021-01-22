@@ -69,7 +69,7 @@ class MetadataMessage(AbstractInitRequest):
         return cls._config_change_dict_type_key
 
     def __init__(self, purpose: MetadataPurpose, description: Optional[str] = None, metadata_follows: bool = False,
-                 config_changes: Optional[Dict[str, Union[None, str, bool, Number, dict]]] = None):
+                 config_changes: Optional[Dict[str, Union[None, str, bool, Number, dict, list]]] = None):
         self._purpose = purpose
         self._description = description
         self._metadata_follows = metadata_follows
