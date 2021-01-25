@@ -346,7 +346,7 @@ class MonitorService(ABC):
                 response_txt = str(re) + ' while creating connection {} [{}]'.format(connection_id, message)
 
         # Send a response, along with success indicator and message
-        response = MetadataResponse.factory_create(connect_success, response_txt, metadata_obj.purpose, False)
+        response = MetadataResponse.factory_create(connect_success, response_txt, MetadataPurpose.CONNECT, False)
         response.data['connection_id'] = connection_id
         return connection_id, metadata_obj, response
 
