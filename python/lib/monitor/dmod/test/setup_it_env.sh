@@ -22,3 +22,4 @@ do_teardown()
 {
     # Shutdown (and cleanup) Docker container with Redis instance
     docker stop ${IT_REDIS_CONTAINER_NAME:?}
+}
