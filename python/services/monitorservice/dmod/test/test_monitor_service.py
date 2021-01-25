@@ -3,17 +3,57 @@ import uuid
 from typing import List, Optional, Tuple, Dict
 
 from ..monitorservice.service import Monitor, MonitorService, Job, JobStatus, MetadataMessage, MetadataPurpose,\
-    MonitoredChange
+    MonitoredChange, MetadataResponse
 from dmod.scheduler.job import JobAllocationParadigm, JobImpl, JobExecStep
 
 
-class MockEmptyMonitor(Monitor):
+class MockMonitor(Monitor):
+
+    def __init__(self, monitored_jobs: List[Job] = None):
+        self.jobs = monitored_jobs if monitored_jobs else []
+
+    @property
+    def jobs(self) -> List[Job]:
+        return self._jobs
+
+    @jobs.setter
+    def jobs(self, jobs: List[Job]):
+        self._jobs = jobs
+        self.previous_statuses: Dict[str, JobStatus] = dict()
+        for j in self.jobs:
+            self.previous_statuses[j.job_id] = j.status
 
     def get_jobs_to_monitor(self) -> List[Job]:
-        return []
+        return self.jobs
 
     def monitor_jobs(self) -> Tuple[Dict[str, Job], Dict[str, JobStatus], Dict[str, JobStatus]]:
-        return {}, {}, {}
+        """
+        Check if tracked job objects have changed status.
+
+        Essentially, for the j
+
+        See base method docstring below.
+
+        Monitor jobs, returning a tuple of dictionaries, all keyed by job id, for the jobs, original job statuses, and
+        new jobs statuses for any jobs to be monitored that are observed to have a change in their status.
+
+        Returns
+        -------
+        Tuple[Dict[str, Job], Dict[str, JobStatus], Dict[str, JobStatus]]
+            A tuple of three dictionaries for jobs with status changes, having values of job object, original status,
+            and updated status respectively, and all keyed by job id.
+        """
+        changed = dict()
+        previous_val = dict()
+        new_val = dict()
+        for j in self.jobs:
+            if j.status != self.previous_statuses[j.job_id]:
+                changed[j.job_id] = j
+                previous_val[j.job_id] = self.previous_statuses[j.job_id]
+                new_val[j.job_id] = j.status
+        for jid in new_val:
+            self.previous_statuses[jid] = new_val[jid]
+        return changed, previous_val, new_val
 
 
 class MockMonitorService(MonitorService):
@@ -35,75 +75,88 @@ class MockMonitorService(MonitorService):
         return connection_id
 
 
-class TestJobImpl(unittest.TestCase):
+class TestMonitorService(unittest.TestCase):
 
     def setUp(self) -> None:
+        self._conn_id = '00000000-0000-0000-0000-000000000000'
+        self._other_conn_id_1 = '00000000-0000-0000-0000-000000000001'
         self._services = []
         # First one has no actual monitor
-        self._services.append(MockMonitorService(MockEmptyMonitor()))
+        self._services.append(MockMonitorService(MockMonitor()))
 
         self._jobs = []
-        self._jobs.append(JobImpl(cpu_count=4, memory_size=1000, model_request=None,
-                                  allocation_paradigm=JobAllocationParadigm.SINGLE_NODE))
+        for i in range(3):
+            self._jobs.append(JobImpl(cpu_count=4, memory_size=1000, model_request=None,
+                                      allocation_paradigm=JobAllocationParadigm.SINGLE_NODE))
+
+        self._second_meta_ex_job_id = '52204a2f-8924-48b4-abab-d289ac5aedf7'
 
         self._connect_metadata_examples = []
         # Good, no interest list
         self._connect_metadata_examples.append('{"purpose": "CONNECT", "additional_metadata": false}')
-        meta_example_2 = '{"purpose": "CONNECT", '
-        meta_example_2 += '"config_changes": {"' + MonitorService.get_jobs_of_interest_config_key() + '": '
-        meta_example_2 += '["52204a2f-8924-48b4-abab-d289ac5aedf7"]}, '
-        meta_example_2 += '"additional_metadata": false}'
-        self._connect_metadata_examples.append(meta_example_2)
+        self._with_interest_ex = '{{"purpose": "CONNECT", '
+        self._with_interest_ex += '"config_changes": {{"' + MonitorService.get_jobs_of_interest_config_key() + '": '
+        self._with_interest_ex += '{job_id_list}}}, '
+        self._with_interest_ex += '"additional_metadata": false}}'
+        meta_ex_2 = self._with_interest_ex.format(job_id_list='["' + self._second_meta_ex_job_id + '"]')
+        self._connect_metadata_examples.append(meta_ex_2)
         self._connect_metadata_examples.append('{"additional_metadata": false}')
         self._connect_metadata_examples.append('{"purpose": "PROMPT", "additional_metadata": false}')
         self._connect_metadata_examples.append('{"purpose": "CONNECT", "additional_metadata": true}')
 
+        self._jobs[0].status = JobStatus.MODEL_EXEC_AWAITING_ALLOCATION
+        self._jobs[1].status = JobStatus.MODEL_EXEC_ALLOCATED
+        self._jobs[2].status = JobStatus.MODEL_EXEC_SCHEDULED
+
+        self._services.append(MockMonitorService(MockMonitor(monitored_jobs=self._jobs)))
+
+        self._original_statuses = []
         for j in self._jobs:
-            j.status = JobStatus.MODEL_EXEC_AWAITING_ALLOCATION
+            self._original_statuses.append(j.status)
+
+        self._jobs[0].status = JobStatus.MODEL_EXEC_ALLOCATED
+        self._jobs[1].status = JobStatus.MODEL_EXEC_SCHEDULED
+        self._jobs[2].status = JobStatus.MODEL_EXEC_RUNNING
+
+        self._job_ids = list()
+        self._jobs_by_id = dict()
+        for j in self._jobs:
+            self._job_ids.append(j.job_id)
+            self._jobs_by_id[j.job_id] = j
+
+        self._change_examples = []
+        for i in range(len(self._jobs)):
+            self._change_examples.append(MonitoredChange(job=self._jobs[i],
+                                                         original_status=self._original_statuses[i],
+                                                         connection_id=self._conn_id))
 
     def tearDown(self) -> None:
         pass
 
     # Test object type for simple example change example for job
     def test__generate_update_msg_1_a(self):
-        connection_id = str(uuid.uuid4())
-        job = self._jobs[0]
-        original_status = job.status
-        job.status_step = JobExecStep.ALLOCATED
-        change = MonitoredChange(job=job, original_status=original_status, connection_id=connection_id)
+        change = self._change_examples[0]
 
         update = MonitorService._generate_update_msg(change)
         self.assertEquals(change.job.__class__, update.object_type)
 
     # Test object id for simple example change example for job
     def test__generate_update_msg_1_b(self):
-        connection_id = str(uuid.uuid4())
-        job = self._jobs[0]
-        original_status = job.status
-        job.status_step = JobExecStep.ALLOCATED
-        change = MonitoredChange(job=job, original_status=original_status, connection_id=connection_id)
+        change = self._change_examples[0]
 
         update = MonitorService._generate_update_msg(change)
         self.assertEquals(change.job.job_id, update.object_id)
 
     # Test correct key in update data for simple example change example for job
     def test__generate_update_msg_1_c(self):
-        connection_id = str(uuid.uuid4())
-        job = self._jobs[0]
-        original_status = job.status
-        job.status_step = JobExecStep.ALLOCATED
-        change = MonitoredChange(job=job, original_status=original_status, connection_id=connection_id)
+        change = self._change_examples[0]
 
         update = MonitorService._generate_update_msg(change)
         self.assertTrue('status' in update.updated_data)
 
     # Test correct value in update data for simple example change example for job
     def test__generate_update_msg_1_d(self):
-        connection_id = str(uuid.uuid4())
-        job = self._jobs[0]
-        original_status = job.status
-        job.status_step = JobExecStep.ALLOCATED
-        change = MonitoredChange(job=job, original_status=original_status, connection_id=connection_id)
+        change = self._change_examples[0]
 
         update = MonitorService._generate_update_msg(change)
         self.assertEquals(update.updated_data['status'], str(change.job.status))
@@ -139,7 +192,7 @@ class TestJobImpl(unittest.TestCase):
         ex_index = 0
         service = self._services[ex_index]
 
-        random_job_id = '52204a2f-8924-48b4-abab-d289ac5aedf7'
+        random_job_id = self._second_meta_ex_job_id
         interest_list = []
         interest_list.append(random_job_id)
 
@@ -154,7 +207,7 @@ class TestJobImpl(unittest.TestCase):
         ex_index = 0
         service = self._services[ex_index]
 
-        random_job_id = '52204a2f-8924-48b4-abab-d289ac5aedf7'
+        random_job_id = self._second_meta_ex_job_id
         interest_list = []
         for i in range(0, 4):
             interest_list.append(str(uuid.uuid4()))
@@ -171,7 +224,7 @@ class TestJobImpl(unittest.TestCase):
         ex_index = 0
         service = self._services[ex_index]
 
-        random_job_id = '52204a2f-8924-48b4-abab-d289ac5aedf7'
+        random_job_id = self._second_meta_ex_job_id
         interest_list = []
         interest_list.append(random_job_id)
 
@@ -362,16 +415,567 @@ class TestJobImpl(unittest.TestCase):
         metadata, success, r_txt = service._proc_connect_json(json_msg=metadata_json, conn_id=conn_id)
         self.assertTrue(metadata.metadata_follows)
 
-    # TODO: tests for _dequeue_monitored_change(self, connection_id: str)
+    # Test that when there are no monitored changes None is returned
+    def test__dequeue_monitored_change_1_a(self):
+        ind = 0
+        service = self._services[ind]
 
-    # TODO: tests for _enqueue_monitored_change(self, change_obj: MonitoredChange)
+        self.assertIsNone(service._dequeue_monitored_change(self._conn_id))
 
-    # TODO: tests for _get_interested_connections(self, job_id: str)
+    # Test that when there are no monitored changes for this connection (but are for others) None is still returned
+    def test__dequeue_monitored_change_1_b(self):
+        ind = 0
+        service = self._services[ind]
 
-    # TODO: tests for _is_connection_interested(self, connection_id: str, job_id: str)
+        if self._other_conn_id_1 not in service._mapped_change_queues_by_connection:
+            service._mapped_change_queues_by_connection[self._other_conn_id_1] = list(self._change_examples)
+        else:
+            service._mapped_change_queues_by_connection[self._other_conn_id_1].extend(self._change_examples)
 
-    # TODO: tests for _proc_metadata_jobs_of_interest(self, metadata_obj: MetadataMessage)
+        self.assertIsNone(service._dequeue_monitored_change(self._conn_id))
 
-    # TODO: tests for handle_connection_begin(self, message: str) -> Tuple[str, Optional[MetadataMessage], MetadataResponse]
+    # Test that when there are monitored changes for this connection the expected is returned
+    def test__dequeue_monitored_change_1_c(self):
+        ind = 0
+        service = self._services[ind]
 
-    # TODO: tests for run_monitor_check(self)
+        if self._conn_id not in service._mapped_change_queues_by_connection:
+            service._mapped_change_queues_by_connection[self._conn_id] = list(self._change_examples)
+        else:
+            self.assertTrue(False)
+
+        self.assertEqual(service._dequeue_monitored_change(self._conn_id), self._change_examples[0])
+
+    # Test that when there are monitored changes for this connection the expected is returned
+    def test__dequeue_monitored_change_1_d(self):
+        ind = 0
+        service = self._services[ind]
+
+        if self._conn_id not in service._mapped_change_queues_by_connection:
+            service._mapped_change_queues_by_connection[self._conn_id] = list(self._change_examples)
+        else:
+            self.assertTrue(False)
+
+        service._dequeue_monitored_change(self._conn_id)
+
+        self.assertEqual(service._dequeue_monitored_change(self._conn_id), self._change_examples[1])
+
+    # Test that when there are monitored changes for this connection the expected is returned
+    def test__dequeue_monitored_change_1_e(self):
+        ind = 0
+        service = self._services[ind]
+
+        if self._conn_id not in service._mapped_change_queues_by_connection:
+            service._mapped_change_queues_by_connection[self._conn_id] = list(self._change_examples)
+        else:
+            self.assertTrue(False)
+
+        service._dequeue_monitored_change(self._conn_id)
+        service._dequeue_monitored_change(self._conn_id)
+
+        self.assertEqual(service._dequeue_monitored_change(self._conn_id), self._change_examples[2])
+
+    # Test that when there are monitored changes, but after all have been removed, None is returned again
+    def test__dequeue_monitored_change_1_f(self):
+        ind = 0
+        service = self._services[ind]
+
+        if self._conn_id not in service._mapped_change_queues_by_connection:
+            service._mapped_change_queues_by_connection[self._conn_id] = list(self._change_examples)
+        else:
+            self.assertTrue(False)
+
+        service._dequeue_monitored_change(self._conn_id)
+        service._dequeue_monitored_change(self._conn_id)
+        service._dequeue_monitored_change(self._conn_id)
+
+        self.assertIsNone(service._dequeue_monitored_change(self._conn_id))
+
+    # Test that enqueue works with one example
+    def test__enqueue_monitored_change_1_a(self):
+        ind = 0
+        service = self._services[0]
+        change = self._change_examples[ind]
+
+        service._enqueue_monitored_change(change)
+        self.assertEquals(service._dequeue_monitored_change(connection_id=change.connection_id), change)
+
+    # Test that enqueue works with one example
+    def test__enqueue_monitored_change_2_a(self):
+        ind = 1
+        service = self._services[0]
+        change = self._change_examples[ind]
+
+        service._enqueue_monitored_change(change)
+        self.assertEquals(service._dequeue_monitored_change(connection_id=change.connection_id), change)
+
+    # Test that enqueue works with one example
+    def test__enqueue_monitored_change_3_a(self):
+        ind = 2
+        service = self._services[0]
+        change = self._change_examples[ind]
+
+        service._enqueue_monitored_change(change)
+        self.assertEquals(service._dequeue_monitored_change(connection_id=change.connection_id), change)
+
+    # Test that enqueue works with multiple changes, and order is correct
+    def test__enqueue_monitored_change_4_a(self):
+        service = self._services[0]
+
+        for i in range(len(self._change_examples)):
+            service._enqueue_monitored_change(self._change_examples[i])
+
+        for k in range(len(self._change_examples)):
+            self.assertEquals(service._dequeue_monitored_change(self._conn_id), self._change_examples[k])
+
+    # Test that nothing is initially interested in a random job id
+    def test__get_interested_connections_1_a(self):
+        service = self._services[0]
+        random_job_id = self._second_meta_ex_job_id
+
+        self.assertEquals(len(service._get_interested_connections(random_job_id)), 0)
+
+    # Test that nothing is initially interested in randomly generated job ids
+    def test__get_interested_connections_1_b(self):
+        service = self._services[0]
+
+        for i in range(0, 25):
+            self.assertEquals(len(service._get_interested_connections(str(uuid.uuid4()))), 0)
+
+    # Test that job is not of interest by default
+    def test__get_interested_connections_2_a(self):
+        service = self._services[0]
+        job = self._jobs[0]
+        job_id = job.job_id
+
+        self.assertNotIn(self._conn_id, service._get_interested_connections(job_id))
+
+    # Test that job is of interest by after connection registration that notes just that job is of interest
+    def test__get_interested_connections_2_b(self):
+        service = self._services[0]
+        job = self._jobs[0]
+        job_id = job.job_id
+
+        conn_id = service.register_connection(self, [job_id])
+
+        self.assertIn(conn_id, service._get_interested_connections(job_id))
+
+    # Test that job is of interest by after connection registration that notes that job and others is of interest
+    def test__get_interested_connections_2_c(self):
+        service = self._services[0]
+        job = self._jobs[0]
+        job_id = job.job_id
+
+        of_interest = [job_id]
+        of_interest.append(self._jobs[1].job_id)
+        of_interest.append(self._jobs[2].job_id)
+
+        conn_id = service.register_connection(self, of_interest)
+
+        self.assertIn(conn_id, service._get_interested_connections(job_id))
+
+    # Test that job is of interest by after connection registration that notes that job and others of interest,
+    # regardless of where in the list job in question is
+    def test__get_interested_connections_2_d(self):
+        service = self._services[0]
+        job = self._jobs[1]
+        job_id = job.job_id
+
+        of_interest = []
+        of_interest.append(self._jobs[0].job_id)
+        of_interest.append(job_id)
+        of_interest.append(self._jobs[2].job_id)
+
+        conn_id = service.register_connection(self, of_interest)
+
+        self.assertIn(conn_id, service._get_interested_connections(job_id))
+
+    # Test that job is of interest by after connection registration that notes that job and others of interest to
+    # multiple services
+    def test__get_interested_connections_2_e(self):
+        service = self._services[0]
+        job = self._jobs[1]
+        job_id = job.job_id
+
+        of_interest = []
+        of_interest.append(self._jobs[0].job_id)
+        of_interest.append(job_id)
+        of_interest.append(self._jobs[2].job_id)
+
+        conn_id = service.register_connection(self, of_interest)
+        conn_id_2 = service.register_connection(self, of_interest)
+
+        self.assertIn(conn_id_2, service._get_interested_connections(job_id))
+        self.assertIn(conn_id, service._get_interested_connections(job_id))
+
+    # Test that None is returned if metadata doesn't have this field
+    def test__proc_metadata_jobs_of_interest_1_a(self):
+        service = self._services[0]
+        metadata = MetadataMessage(purpose=MetadataPurpose.CONNECT)
+        self.assertIsNone(service._proc_metadata_jobs_of_interest(metadata))
+
+    # Test that when there are some of interest, that a list is returned
+    def test__proc_metadata_jobs_of_interest_2_a(self):
+        service = self._services[0]
+        job_id_list = []
+        for j in self._jobs:
+            job_id_list.append(j.job_id)
+        changes_map = dict()
+        changes_map[MonitorService.get_jobs_of_interest_config_key()] = job_id_list
+
+        metadata = MetadataMessage(purpose=MetadataPurpose.CONNECT, config_changes=changes_map)
+        of_interest_ids = service._proc_metadata_jobs_of_interest(metadata)
+        self.assertIsInstance(of_interest_ids, list)
+
+    # Test that when there are some of interest, that the contents are correct (the right ids, and no extras)
+    def test__proc_metadata_jobs_of_interest_2_b(self):
+        service = self._services[0]
+        job_id_list = []
+        for j in self._jobs:
+            job_id_list.append(j.job_id)
+        changes_map = dict()
+        changes_map[MonitorService.get_jobs_of_interest_config_key()] = job_id_list
+
+        metadata = MetadataMessage(purpose=MetadataPurpose.CONNECT, config_changes=changes_map)
+        of_interest_ids = service._proc_metadata_jobs_of_interest(metadata)
+        for j in self._jobs:
+            self.assertTrue(j.job_id in of_interest_ids)
+        self.assertEquals(len(of_interest_ids), len(self._jobs))
+
+    # Test with valid case with no interest list metadata is a metadata object
+    def test_handle_connection_begin_1_a(self):
+        ex_index = 0
+        service = self._services[0]
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertIsInstance(metadata, MetadataMessage)
+
+    # Test with valid case with no interest list metadata has right purpose
+    def test_handle_connection_begin_1_b(self):
+        ex_index = 0
+        service = self._services[0]
+
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertEquals(metadata.purpose, MetadataPurpose.CONNECT)
+
+    # Test with valid case with no interest list metadata has right follows
+    def test_handle_connection_begin_1_c(self):
+        ex_index = 0
+        service = self._services[0]
+
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertFalse(metadata.metadata_follows)
+
+    # Test with valid case with no interest list response is correct type
+    def test_handle_connection_begin_1_d(self):
+        ex_index = 0
+        service = self._services[0]
+
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertIsInstance(response, MetadataResponse)
+
+    # Test with valid case with no interest list response is successful
+    def test_handle_connection_begin_1_e(self):
+        ex_index = 0
+        service = self._services[0]
+
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertTrue(response.success)
+
+    # Test with valid case with no interest list response shows right purpose
+    def test_handle_connection_begin_1_f(self):
+        ex_index = 0
+        service = self._services[0]
+
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertEquals(response.purpose, MetadataPurpose.CONNECT)
+
+    # Test with valid case with interest list metadata is a metadata object
+    def test_handle_connection_begin_2_a(self):
+        ex_index = 1
+        service = self._services[0]
+
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertIsInstance(metadata, MetadataMessage)
+
+    # Test with valid case with interest list metadata has right purpose
+    def test_handle_connection_begin_2_b(self):
+        ex_index = 1
+        service = self._services[0]
+
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertEquals(metadata.purpose, MetadataPurpose.CONNECT)
+
+    # Test with valid case with interest list metadata has right follows
+    def test_handle_connection_begin_2_c(self):
+        ex_index = 1
+        service = self._services[0]
+
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertFalse(metadata.metadata_follows)
+
+    # Test with valid case with interest list response is correct type
+    def test_handle_connection_begin_2_d(self):
+        ex_index = 1
+        service = self._services[0]
+
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertIsInstance(response, MetadataResponse)
+
+    # Test with valid case with interest list response is successful
+    def test_handle_connection_begin_2_e(self):
+        ex_index = 1
+        service = self._services[0]
+
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertTrue(response.success)
+
+    # Test with valid case with interest list response shows right purpose
+    def test_handle_connection_begin_2_f(self):
+        ex_index = 1
+        service = self._services[0]
+
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertEquals(response.purpose, MetadataPurpose.CONNECT)
+
+    # Test with valid case with interest list response sets jobs of interest properly
+    def test_handle_connection_begin_2_g(self):
+        ex_index = 1
+        service = self._services[0]
+
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertTrue(service._is_connection_interested(connection_id=conn_id, job_id=self._second_meta_ex_job_id))
+
+    # Test with invalid metadata JSON returns None for metadata object
+    def test_handle_connection_begin_3_a(self):
+        ex_index = 2
+        service = self._services[0]
+
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertIsNone(metadata)
+
+    # Test with invalid metadata JSON returns unsuccessful response
+    def test_handle_connection_begin_3_b(self):
+        ex_index = 2
+        service = self._services[0]
+
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertFalse(response.success)
+
+    # Test with wrong purpose in metadata JSON return metadata object
+    def test_handle_connection_begin_4_a(self):
+        ex_index = 3
+        service = self._services[0]
+
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertIsInstance(metadata, MetadataMessage)
+
+    # Test with wrong purpose in metadata JSON returns unsuccessful response
+    def test_handle_connection_begin_4_b(self):
+        ex_index = 3
+        service = self._services[0]
+
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertFalse(response.success)
+
+    # Test with wrong follows in metadata JSON return metadata object
+    def test_handle_connection_begin_5_a(self):
+        ex_index = 4
+        service = self._services[0]
+
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertIsInstance(metadata, MetadataMessage)
+
+    # Test with wrong follows in metadata JSON returns unsuccessful response
+    def test_handle_connection_begin_5_b(self):
+        ex_index = 4
+        service = self._services[0]
+
+        metadata_json = self._connect_metadata_examples[ex_index]
+        conn_id, metadata, response = service.handle_connection_begin(metadata_json)
+        self.assertFalse(response.success)
+
+    # Test this finds the number of expected changes
+    def test_run_monitor_check_1_a(self):
+        service = self._services[1]
+        conn_id = service.register_connection(connection=self, jobs_of_interest=self._job_ids)
+        service.run_monitor_check()
+        changes_queue = service._mapped_change_queues_by_connection[conn_id]
+
+        self.assertEquals(len(changes_queue), len(self._jobs))
+
+    # Test this finds changes for the expected jobs
+    def test_run_monitor_check_1_b(self):
+        service = self._services[1]
+        conn_id = service.register_connection(connection=self, jobs_of_interest=self._job_ids)
+        service.run_monitor_check()
+        changes_queue = service._mapped_change_queues_by_connection[conn_id]
+        # Changes by job id
+        changes: Dict[str, MonitoredChange] = dict()
+        while changes_queue:
+            c = changes_queue.pop(0)
+            changes[c.job.job_id] = c
+
+        self.assertEquals(self._jobs_by_id.keys(), changes.keys())
+
+    # Test correct original status values
+    def test_run_monitor_check_1_c(self):
+        service = self._services[1]
+        conn_id = service.register_connection(connection=self, jobs_of_interest=self._job_ids)
+        service.run_monitor_check()
+        changes_queue = service._mapped_change_queues_by_connection[conn_id]
+        # Changes by job id
+        changes: Dict[str, MonitoredChange] = dict()
+        while changes_queue:
+            c = changes_queue.pop(0)
+            changes[c.job.job_id] = c
+        for i in range(len(self._jobs)):
+            self.assertEquals(changes[self._jobs[i].job_id].original_status, self._original_statuses[i])
+
+    # Test correct updated status values
+    def test_run_monitor_check_1_d(self):
+        service = self._services[1]
+        conn_id = service.register_connection(connection=self, jobs_of_interest=self._job_ids)
+        service.run_monitor_check()
+        changes_queue = service._mapped_change_queues_by_connection[conn_id]
+        # Changes by job id
+        changes: Dict[str, MonitoredChange] = dict()
+        while changes_queue:
+            c = changes_queue.pop(0)
+            changes[c.job.job_id] = c
+        for i in range(len(self._jobs)):
+            self.assertEquals(changes[self._jobs[i].job_id].job.status, self._jobs[i].status)
+
+    # Test original status is different than updated status
+    def test_run_monitor_check_1_e(self):
+        service = self._services[1]
+        conn_id = service.register_connection(connection=self, jobs_of_interest=self._job_ids)
+        service.run_monitor_check()
+        changes_queue = service._mapped_change_queues_by_connection[conn_id]
+        while changes_queue:
+            c = changes_queue.pop(0)
+            self.assertNotEquals(c.original_status, c.job.status)
+
+    # Test that after first changes conveyed, if nothing done to jobs, second monitor shows no changed jobs
+    def test_run_monitor_check_2_a(self):
+        service = self._services[1]
+        conn_id = service.register_connection(connection=self, jobs_of_interest=self._job_ids)
+        service.run_monitor_check()
+        changes_queue = service._mapped_change_queues_by_connection[conn_id]
+        while changes_queue:
+            service._dequeue_monitored_change(conn_id)
+        # Now run again
+        service.run_monitor_check()
+        self.assertFalse(changes_queue)
+
+    # Test that after first changes conveyed, if nothing done to jobs, second monitor will immediately dequeue change of
+    # None
+    def test_run_monitor_check_2_b(self):
+        service = self._services[1]
+        conn_id = service.register_connection(connection=self, jobs_of_interest=self._job_ids)
+        service.run_monitor_check()
+        change = service._dequeue_monitored_change(conn_id)
+        while change is not None:
+            change = service._dequeue_monitored_change(conn_id)
+        # Now run again
+        service.run_monitor_check()
+        self.assertIsNone(service._dequeue_monitored_change(conn_id))
+
+    # Test that after first changes conveyed, then something done, a single changed job is listed
+    def test_run_monitor_check_3_a(self):
+        service = self._services[1]
+        conn_id = service.register_connection(connection=self, jobs_of_interest=self._job_ids)
+        service.run_monitor_check()
+        change = service._dequeue_monitored_change(conn_id)
+        while change is not None:
+            change = service._dequeue_monitored_change(conn_id)
+
+        # Now have there be another change to "monitor"
+        job = self._jobs[1]
+        original_status = job.status
+        get_next_one = False
+        for status in JobStatus:
+            if get_next_one:
+                job.status = status
+                break
+            elif status == original_status:
+                get_next_one = True
+
+        # Then monitor again
+        service.run_monitor_check()
+        new_changes = list()
+        change = service._dequeue_monitored_change(conn_id)
+        while change is not None:
+            new_changes.append(change)
+            change = service._dequeue_monitored_change(conn_id)
+
+        self.assertEquals(len(new_changes), 1)
+
+    # Test that after first changes conveyed, then something done, the right changed job is listed
+    def test_run_monitor_check_3_b(self):
+        service = self._services[1]
+        conn_id = service.register_connection(connection=self, jobs_of_interest=self._job_ids)
+        service.run_monitor_check()
+        change = service._dequeue_monitored_change(conn_id)
+        while change is not None:
+            change = service._dequeue_monitored_change(conn_id)
+
+        # Now have there be another change to "monitor"
+        job = self._jobs[1]
+        original_status = job.status
+        get_next_one = False
+        for status in JobStatus:
+            if get_next_one:
+                job.status = status
+                break
+            elif status == original_status:
+                get_next_one = True
+
+        # Then monitor again
+        service.run_monitor_check()
+        change = service._dequeue_monitored_change(conn_id)
+
+        self.assertEquals(change.job.job_id, job.job_id)
+
+    # Test that after first changes conveyed, then something done, the right original status is listed
+    def test_run_monitor_check_3_c(self):
+        service = self._services[1]
+        conn_id = service.register_connection(connection=self, jobs_of_interest=self._job_ids)
+        service.run_monitor_check()
+        change = service._dequeue_monitored_change(conn_id)
+        while change is not None:
+            change = service._dequeue_monitored_change(conn_id)
+
+        # Now have there be another change to "monitor"
+        job = self._jobs[1]
+        original_status = job.status
+        get_next_one = False
+        for status in JobStatus:
+            if get_next_one:
+                job.status = status
+                break
+            elif status == original_status:
+                get_next_one = True
+
+        # Then monitor again
+        service.run_monitor_check()
+        change = service._dequeue_monitored_change(conn_id)
+
+        self.assertEquals(change.original_status, original_status)
