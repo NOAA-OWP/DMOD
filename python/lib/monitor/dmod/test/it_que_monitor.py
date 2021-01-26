@@ -2,6 +2,7 @@ import unittest
 from ..monitor import que_monitor as qm
 
 
+# TODO: rework testing here with two mock subtypes (separate for Docker and Redis testing)
 
 class IntegrationTestRedisManager(unittest.TestCase):
     """
@@ -32,10 +33,8 @@ class IntegrationTestRedisManager(unittest.TestCase):
         return count
 
     def setUp(self) -> None:
+
         pass
 
     def tearDown(self) -> None:
         pass
-
-    def test_main(self):
-        qm.main()
