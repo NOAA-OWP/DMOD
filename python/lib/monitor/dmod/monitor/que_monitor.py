@@ -383,19 +383,13 @@ class DockerSwarmMonitor(Monitor, ABC):
         return previous_status, updated_job_status
 
 
-class RedisDockerSwarmMonitor(DockerSwarmMonitor, RedisBacked):
+class RedisBackedMonitor(Monitor, RedisBacked, ABC):
     """
-    Subtype of ::class:`DockerSwarmMonitor` determining jobs to monitor from Redis.
-
-    Concrete implementation of ::class:`DockerSwarmMonitor` that defines ::method:`get_jobs_to_monitor` by reading from
-    a Redis store.  To be capable of this, it also extends ::class:`RedisBacked`.
+    Subtype of ::class:`Monitor` and ::class:`RedisBacked` that determines jobs to monitor from Redis.
     """
-
     def __init__(self, resource_pool: str,
-                 docker_client: docker.from_env() = None, api_client: docker.APIClient() = None,
                  redis_host: Optional[str] = None, redis_port: Optional[int] = None,
                  redis_pass: Optional[str] = None, **kwargs):
-        DockerSwarmMonitor.__init__(self, docker_client, api_client)
         RedisBacked.__init__(self=self, resource_pool=resource_pool, redis_host=redis_host,
                              redis_port=redis_port, redis_pass=redis_pass, **kwargs)
         if 'type' in kwargs:
@@ -425,4 +419,21 @@ class RedisDockerSwarmMonitor(DockerSwarmMonitor, RedisBacked):
                 if isinstance(job, Job):
                     active_jobs.append(job)
         return active_jobs
+
+
+class RedisDockerSwarmMonitor(DockerSwarmMonitor, RedisBackedMonitor):
+    """
+    Concrete subtype of both ::class:`DockerSwarmMonitor` and ::class:`RedisBackedMonitor`.
+
+    Concrete ::class:`Monitor` implementation inheriting from ::class:`DockerSwarmMonitor` (for runtime interaction and
+    monitoring logic) and ::class:`RedisBackedMonitor` (for job monitoring eligibility/filtering logic).
+    """
+
+    def __init__(self, resource_pool: str,
+                 docker_client: docker.from_env() = None, api_client: docker.APIClient() = None,
+                 redis_host: Optional[str] = None, redis_port: Optional[int] = None,
+                 redis_pass: Optional[str] = None, **kwargs):
+        DockerSwarmMonitor.__init__(self, docker_client, api_client)
+        RedisBackedMonitor.__init__(self, resource_pool=resource_pool, redis_host=redis_host, redis_port=redis_port,
+                                    redis_pass=redis_pass, **kwargs)
 
