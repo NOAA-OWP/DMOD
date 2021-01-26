@@ -39,10 +39,36 @@ class Monitor(ABC):
         pass
 
     @abstractmethod
+    def monitor_job(self, job: Job) -> Optional[Tuple[JobStatus, JobStatus]]:
+        """
+        Monitor a given job for changed status.
+
+        Check whether the job modeled by the given object has changed in status, relative to an expected previous
+        status.  When there is a change, return the previous and updated status values respectively.
+
+        Implementations should document the means by which the previous status is determined.  They should also document
+        what the state of the job object will be at the end of this function's execution (i.e., will the object have the
+        original or updated ::attribute:`Job.status` value).
+
+        Parameters
+        ----------
+        job: Job
+            The job to check.
+
+        Returns
+        -------
+        Optional[Tuple[JobStatus, JobStatus]]
+            ``None`` when the job has not changed status, or a tuple of its previous and updated status when different.
+        """
+        pass
+
     def monitor_jobs(self) -> Tuple[Dict[str, Job], Dict[str, JobStatus], Dict[str, JobStatus]]:
         """
-        Monitor jobs, returning a tuple of dictionaries, all keyed by job id, for the jobs, original job statuses, and
-        new jobs statuses for any jobs to be monitored that are observed to have a change in their status.
+        Monitor jobs and return data on those that have changed.
+
+        Monitor jobs according to ::method:`get_jobs_to_monitor` and ::method:`monitor_job`, returning details of
+        observed changes as a tuple of three dictionaries.  These are all keyed by job id and contain the mapped job
+        objects, original statuses, and new statuses respectively.
 
         Returns
         -------
@@ -50,7 +76,20 @@ class Monitor(ABC):
             A tuple of three dictionaries for jobs with status changes, having values of job object, original status,
             and updated status respectively, and all keyed by job id.
         """
-        pass
+        # job_id to job object
+        jobs_with_changed_state = dict()
+        # job_id to status (for jobs that are different/updated)
+        original_job_statuses = dict()
+        updated_job_statuses = dict()
+
+        for job in self.get_jobs_to_monitor():
+            monitor_result = self.monitor_job(job)
+            if monitor_result:
+                jobs_with_changed_state[job.job_id] = job
+                original_job_statuses[job.job_id] = monitor_result[0]
+                updated_job_statuses[job.job_id] = monitor_result[1]
+
+        return jobs_with_changed_state, original_job_statuses, updated_job_statuses
 
 
 class DockerSwarmMonitor(Monitor, ABC):
@@ -293,37 +332,36 @@ class DockerSwarmMonitor(Monitor, ABC):
     def docker_client(self) -> docker.DockerClient:
         return self._docker_client
 
-    def monitor_jobs(self) -> Tuple[Dict[str, Job], Dict[str, JobStatus], Dict[str, JobStatus]]:
+    def monitor_job(self, job: Job) -> Optional[Tuple[JobStatus, JobStatus]]:
         """
-        Monitor jobs, returning a tuple of dictionaries, all keyed by job id, for the jobs, original job statuses, and
-        new jobs statuses for any jobs to be monitored that are observed to have a change in their status.
+        Monitor whether a given job has changed status.
 
-        Note that this implementation does update the job object to the "new" status it found was actually represented
-        by the runtime processes executing the job.
+        Examine whether the status of an actual job in the backing Docker Swarm corresponds to the previously observed
+        and persisted status for it.  Previous status is read directly from the parameter job object, and current is
+        inferred from getting the exec step via ::method:`check_implied_job_exec_step`.
+
+        For a job that does have an updated status, the method will adjust the state of the param object to set its
+        ::attribute:`status` equal to the updated value.
+
+        Parameters
+        ----------
+        job: Job
+            The job to check.
 
         Returns
         -------
-        Tuple[Dict[str, Job], Dict[str, JobStatus], Dict[str, JobStatus]]
-            A tuple of three dictionaries for updated jobs with status changes, having values of job object, original
-            status, and updated status respectively, and all keyed by job id.
+        Optional[Tuple[JobStatus, JobStatus]]
+            ``None`` when the job has not changed status, or a tuple of its previous and updated status when different.
         """
-        # job_id to job object
-        jobs_with_changed_state = dict()
-        # job_id to status (for jobs that are different/updated)
-        original_job_statuses = dict()
-        updated_job_statuses = dict()
-
-        for job in self.get_jobs_to_monitor():
-            # TODO: verify that it is not necessary to examine status directory (i.e., check job phase) due to some
-            #  guarantee on never jumping to the same step of a different phase between monitoring calls
-            new_exec_step = self.check_implied_job_exec_step(job)
-            if job.status_step != new_exec_step:
-                original_job_statuses[job.job_id] = job.status
-                job.status_step = new_exec_step
-                updated_job_statuses[job.job_id] = job.status
-                jobs_with_changed_state[job.job_id] = job
-
-        return jobs_with_changed_state, original_job_statuses, updated_job_statuses
+        # TODO: verify that it is not necessary to examine status directory (i.e., check job phase) due to some
+        #  guarantee on never jumping to the same step of a different phase between monitoring calls
+        new_exec_step = self.check_implied_job_exec_step(job)
+        if job.status_step == new_exec_step:
+            return None
+        previous_status = job.status
+        job.status_step = new_exec_step
+        updated_job_status = job.status
+        return previous_status, updated_job_status
 
 
 class RedisDockerSwarmMonitor(DockerSwarmMonitor, RedisBacked):
