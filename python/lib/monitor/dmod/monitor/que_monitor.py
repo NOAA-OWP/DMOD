@@ -22,6 +22,16 @@ logging.basicConfig(
 
 
 class Monitor(ABC):
+    """
+    Abstract interface class for ::class:`Job` monitor type.
+
+    Abstraction type for monitoring jobs for status changes.  Type declares abstract methods for obtaining the
+    collection of jobs to be monitored (i.e., ::method:`get_jobs_to_monitor`) and for monitoring whether a specific job
+    has undergone a status change (i.e., ::method:`monitor_job`).
+
+    Type also provides a ::method:`monitor_jobs` method containing the routine for monitoring all applicable jobs and
+    returning data on changes.
+    """
 
     @abstractmethod
     def get_jobs_to_monitor(self) -> List[Job]:
@@ -93,6 +103,15 @@ class Monitor(ABC):
 
 
 class DockerSwarmMonitor(Monitor, ABC):
+    """
+    Abstract subtype of ::class:`Monitor` for monitoring Docker-Swarm-based jobs.
+
+    Abstract subtype of ::class:`Monitor` for monitoring jobs running in containers in Docker Swarm.  Type implements
+    ::method:`monitor_job` from superclass and provides methods for checking the Docker runtime and determining a job's
+    true status.
+
+    Type does not provide implementation of ::method:`get_jobs_to_monitor`.
+    """
     _EXEC_STEP_DOCKER_STATUS_MAP: Dict[JobExecStep, Set[str]] = {
         JobExecStep.SCHEDULED: {'new', 'pending', 'assigned', 'accepted', 'preparing', 'starting'},
         JobExecStep.RUNNING: {'running'},
@@ -365,6 +384,12 @@ class DockerSwarmMonitor(Monitor, ABC):
 
 
 class RedisDockerSwarmMonitor(DockerSwarmMonitor, RedisBacked):
+    """
+    Subtype of ::class:`DockerSwarmMonitor` determining jobs to monitor from Redis.
+
+    Concrete implementation of ::class:`DockerSwarmMonitor` that defines ::method:`get_jobs_to_monitor` by reading from
+    a Redis store.  To be capable of this, it also extends ::class:`RedisBacked`.
+    """
 
     def __init__(self, resource_pool: str,
                  docker_client: docker.from_env() = None, api_client: docker.APIClient() = None,
