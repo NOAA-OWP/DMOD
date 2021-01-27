@@ -26,34 +26,34 @@ class MockMonitor(Monitor):
     def get_jobs_to_monitor(self) -> List[Job]:
         return self.jobs
 
-    def monitor_jobs(self) -> Tuple[Dict[str, Job], Dict[str, JobStatus], Dict[str, JobStatus]]:
+    def monitor_job(self, job: Job) -> Optional[Tuple[JobStatus, JobStatus]]:
         """
-        Check if tracked job objects have changed status.
+        Monitor a given job for changed status.
 
-        Essentially, for the j
+        Check whether the job modeled by the given object has changed in status, relative to an expected previous
+        status.  When there is a change, return the previous and updated status values respectively.
 
-        See base method docstring below.
+        Updated status is read from the job object. Previous statuses are stored in a dedicated
+        ::attribute:`previous_statuses` dictionary in this mock testing class.
 
-        Monitor jobs, returning a tuple of dictionaries, all keyed by job id, for the jobs, original job statuses, and
-        new jobs statuses for any jobs to be monitored that are observed to have a change in their status.
+        When the status differ, the previous status value is saved in a local variable, and the object's attribute is
+        updated to the "new" previous value, and then this method returns.
+
+        Parameters
+        ----------
+        job: Job
+            The job to check.
 
         Returns
         -------
-        Tuple[Dict[str, Job], Dict[str, JobStatus], Dict[str, JobStatus]]
-            A tuple of three dictionaries for jobs with status changes, having values of job object, original status,
-            and updated status respectively, and all keyed by job id.
+        Optional[Tuple[JobStatus, JobStatus]]
+            ``None`` when the job has not changed status, or a tuple of its previous and updated status when different.
         """
-        changed = dict()
-        previous_val = dict()
-        new_val = dict()
-        for j in self.jobs:
-            if j.status != self.previous_statuses[j.job_id]:
-                changed[j.job_id] = j
-                previous_val[j.job_id] = self.previous_statuses[j.job_id]
-                new_val[j.job_id] = j.status
-        for jid in new_val:
-            self.previous_statuses[jid] = new_val[jid]
-        return changed, previous_val, new_val
+        if job.status == self.previous_statuses[job.job_id]:
+            return None
+        previous = self.previous_statuses[job.job_id]
+        self.previous_statuses[job.job_id] = job.status
+        return previous, job.status
 
 
 class MockMonitorService(MonitorService):
