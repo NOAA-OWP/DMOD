@@ -22,6 +22,9 @@ fi
 # Import bash-only shared functions used for python-dev-related scripts
 . ${SHARED_FUNCS_DIR}/py_dev_bash_func.sh
 
+# Statically set this for now
+_REQ_FILE="${PROJECT_ROOT:?}/requirements.txt"
+
 usage()
 {
     local _O="${NAME:?}:
@@ -45,6 +48,17 @@ Options:
         Include only library packages when default installing
         all local-source packages (ignored if single package
         directory is specified)
+
+    --print-directories | -pd
+        Do not install, but rather just print the directories
+        of the local packages that will be installed (cannot be
+        run with --dependencies, --dependencies-only, or
+        --print-packages).
+
+    --print-packages | -pp
+        Print just the names of the packages to be installed,
+        without actually installing (cannot be run with
+        --print-directories).
 
     --venv <dir>
         Set the directory of the virtual environment to use.
@@ -77,6 +91,58 @@ cleanup_before_exit()
     fi
 }
 
+init_package_dirs_array_when_empty()
+{
+    # Only initialize if nothing was provided (i.e., via command line args)
+    if [ -z ${PACKAGE_DIRS+x} ]; then
+
+        # First, get all them, in the separate arrays for lib and service packages.
+        py_dev_bash_get_package_directories
+
+        spi=0
+        for i in ${LIB_PACKAGE_DIRS[@]}; do
+            # Include package directory, as long as there is a setup.py for the package
+            if [ -e "${i}/setup.py" ]; then
+                PACKAGE_DIRS[${spi}]="${i}"
+                spi=$((spi+1))
+            fi
+        done
+
+        # Though check for option indicating only library packages should be installed.
+        if [ -z "${NO_SERVICE_PACKAGES:-}" ]; then
+            for i in ${SERVICE_PACKAGE_DIRS[@]}; do
+                # Include package directory, as long as there is a setup.py for the package
+                if [ -e "${i}/setup.py" ]; then
+                    PACKAGE_DIRS[${spi}]="${i}"
+                    spi=$((spi+1))
+                fi
+            done
+        fi
+    fi
+    [ ${#PACKAGE_DIRS[@]} -le 0 ] && >&2 echo "Error: Invalid package empty directory list." && exit 1
+}
+
+print_package_names()
+{
+    init_package_dirs_array_when_empty
+    for pd in ${PACKAGE_DIRS[@]}; do
+        cd "${pd}"
+        py_dev_extract_package_dist_name_from_setup
+        cd "${STARTING_DIR:?}"
+    done
+    if [ -n "${DO_DEPS:-}" ]; then
+        cat "${_REQ_FILE:?}"
+    fi
+}
+
+print_package_directories()
+{
+    init_package_dirs_array_when_empty
+    for pd in ${PACKAGE_DIRS[@]}; do
+        echo "${pd}"
+    done
+}
+
 while [ ${#} -gt 0 ]; do
     case "${1}" in
         --dependencies|-d)
@@ -100,6 +166,17 @@ while [ ${#} -gt 0 ]; do
             [ -n "${DEPS_ONLY:-}" ] && usage && exit 1
             NO_SERVICE_PACKAGES='true'
             ;;
+        --print-directories|-pd)
+            [ -n "${DO_PRINT_DIRS:-}" ] && usage && exit 1
+            [ -n "${DO_PRINT_PACKAGES:-}" ] && usage && exit 1
+            [ -n "${DO_DEPS:-}" ] && usage && exit 1
+            DO_PRINT_DIRS='true'
+            ;;
+        --print-packages|-pp)
+            [ -n "${DO_PRINT_PACKAGES:-}" ] && usage && exit 1
+            [ -n "${DO_PRINT_DIRS:-}" ] && usage && exit 1
+            DO_PRINT_PACKAGES='true'
+            ;;
         --venv)
             [ -n "${VENV_DIR:-}" ] && usage && exit 1
             VENV_DIR="$(py_dev_validate_venv_dir "${2}")"
@@ -122,6 +199,27 @@ py_dev_detect_default_venv_directory
 # Bail here if a valid venv is not set
 [ -z "${VENV_DIR:-}" ] && echo "Error: no valid virtual env directory could be determined or was given" && exit 1
 
+# Sanity check the requirements file exists and can be read if it is needed
+if [ -n "${DO_DEPS:-}" ]; then
+    if [ ! -f "${_REQ_FILE:?}" ]; then
+        >&2 echo "Error: unable to find valid Python requirements file at ${_REQ_FILE}"
+        exit 1
+    elif [ ! -r "${_REQ_FILE:?}" ]; then
+        >&2 echo "Error: Python requirements file '${_REQ_FILE}' is not readable"
+        exit 1
+    fi
+fi
+
+# If args given to just print, then do just those things
+if [ -n "${DO_PRINT_PACKAGES:-}" ]; then
+    print_package_names
+    exit ${?}
+elif [ -n "${DO_PRINT_DIRS:-}" ]; then
+    print_package_directories
+    #exit 0
+    exit ${?}
+fi
+
 # Take appropriate action to activate the virtual environment if needed
 py_dev_activate_venv
 
@@ -130,11 +228,6 @@ trap cleanup_before_exit 0 1 2 3 6 15
 
 # After setting VENV, if set to get dependencies, do that, optionally exiting after if that's all we are set to do
 if [ -n "${DO_DEPS:-}" ]; then
-    _REQ_FILE="${PROJECT_ROOT}/requirements.txt"
-    if [ ! -f "${_REQ_FILE}" ]; then
-        >&2 echo "Error: unable to find expected Python requirements file at ${_REQ_FILE}"
-        exit 1
-    fi
     pip install --upgrade -r "${_REQ_FILE}"
 
     # Also, if set to only get dependencies, exit here
@@ -142,31 +235,7 @@ if [ -n "${DO_DEPS:-}" ]; then
 fi
 
 # If unset, meaning no single package directory was specified, assume all packages should be installed.
-if [ -z ${PACKAGE_DIRS+x} ]; then
-
-    # First, get all them, in the separate arrays for lib and service packages.
-    py_dev_bash_get_package_directories
-
-    spi=0
-    for i in ${LIB_PACKAGE_DIRS[@]}; do
-        # Include package directory, as long as there is a setup.py for the package
-        if [ -e "${i}/setup.py" ]; then
-            PACKAGE_DIRS[${spi}]="${i}"
-            spi=$((spi+1))
-        fi
-    done
-
-    # Though check for option indicating only library packages should be installed.
-    if [ -z "${NO_SERVICE_PACKAGES:-}" ]; then
-        for i in ${SERVICE_PACKAGE_DIRS[@]}; do
-            # Include package directory, as long as there is a setup.py for the package
-            if [ -e "${i}/setup.py" ]; then
-                PACKAGE_DIRS[${spi}]="${i}"
-                spi=$((spi+1))
-            fi
-        done
-    fi
-fi
+init_package_dirs_array_when_empty
 
 PACKAGE_DIST_NAMES=()
 # The --find-links=.../dist/ arguments needed for the dist/ directories when doing the local pip instal
@@ -206,6 +275,8 @@ build_package_and_collect_dist_details()
     # Return to starting directory if one was given
     cd "${2}"
 }
+
+cd "${STARTING_DIR:?}"
 
 # Build the packages, and build lists/arrays of dist names and '--find-links=' pip arg values as we go
 for pd in ${PACKAGE_DIRS[@]}; do
