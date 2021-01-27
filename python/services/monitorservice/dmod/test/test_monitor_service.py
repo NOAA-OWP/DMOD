@@ -138,14 +138,14 @@ class TestMonitorService(unittest.TestCase):
         change = self._change_examples[0]
 
         update = MonitorService._generate_update_msg(change)
-        self.assertEquals(change.job.__class__, update.object_type)
+        self.assertEqual(change.job.__class__, update.object_type)
 
     # Test object id for simple example change example for job
     def test__generate_update_msg_1_b(self):
         change = self._change_examples[0]
 
         update = MonitorService._generate_update_msg(change)
-        self.assertEquals(change.job.job_id, update.object_id)
+        self.assertEqual(change.job.job_id, update.object_id)
 
     # Test correct key in update data for simple example change example for job
     def test__generate_update_msg_1_c(self):
@@ -159,7 +159,7 @@ class TestMonitorService(unittest.TestCase):
         change = self._change_examples[0]
 
         update = MonitorService._generate_update_msg(change)
-        self.assertEquals(update.updated_data['status'], str(change.job.status))
+        self.assertEqual(update.updated_data['status'], str(change.job.status))
 
     # Test that initially, by default, no jobs are of interest
     def test__is_connection_interested_1_a(self):
@@ -383,7 +383,7 @@ class TestMonitorService(unittest.TestCase):
 
         metadata_json = self._connect_metadata_examples[ex_index]
         metadata, success, r_txt = service._proc_connect_json(json_msg=metadata_json, conn_id=conn_id)
-        self.assertNotEquals(metadata.purpose, MetadataPurpose.CONNECT)
+        self.assertNotEqual(metadata.purpose, MetadataPurpose.CONNECT)
 
     # Test with wrong metadata_follows in JSON metadata object is still deserialized
     def test__proc_connect_json_5_a(self):
@@ -498,7 +498,7 @@ class TestMonitorService(unittest.TestCase):
         change = self._change_examples[ind]
 
         service._enqueue_monitored_change(change)
-        self.assertEquals(service._dequeue_monitored_change(connection_id=change.connection_id), change)
+        self.assertEqual(service._dequeue_monitored_change(connection_id=change.connection_id), change)
 
     # Test that enqueue works with one example
     def test__enqueue_monitored_change_2_a(self):
@@ -507,7 +507,7 @@ class TestMonitorService(unittest.TestCase):
         change = self._change_examples[ind]
 
         service._enqueue_monitored_change(change)
-        self.assertEquals(service._dequeue_monitored_change(connection_id=change.connection_id), change)
+        self.assertEqual(service._dequeue_monitored_change(connection_id=change.connection_id), change)
 
     # Test that enqueue works with one example
     def test__enqueue_monitored_change_3_a(self):
@@ -516,7 +516,7 @@ class TestMonitorService(unittest.TestCase):
         change = self._change_examples[ind]
 
         service._enqueue_monitored_change(change)
-        self.assertEquals(service._dequeue_monitored_change(connection_id=change.connection_id), change)
+        self.assertEqual(service._dequeue_monitored_change(connection_id=change.connection_id), change)
 
     # Test that enqueue works with multiple changes, and order is correct
     def test__enqueue_monitored_change_4_a(self):
@@ -526,21 +526,21 @@ class TestMonitorService(unittest.TestCase):
             service._enqueue_monitored_change(self._change_examples[i])
 
         for k in range(len(self._change_examples)):
-            self.assertEquals(service._dequeue_monitored_change(self._conn_id), self._change_examples[k])
+            self.assertEqual(service._dequeue_monitored_change(self._conn_id), self._change_examples[k])
 
     # Test that nothing is initially interested in a random job id
     def test__get_interested_connections_1_a(self):
         service = self._services[0]
         random_job_id = self._second_meta_ex_job_id
 
-        self.assertEquals(len(service._get_interested_connections(random_job_id)), 0)
+        self.assertEqual(len(service._get_interested_connections(random_job_id)), 0)
 
     # Test that nothing is initially interested in randomly generated job ids
     def test__get_interested_connections_1_b(self):
         service = self._services[0]
 
         for i in range(0, 25):
-            self.assertEquals(len(service._get_interested_connections(str(uuid.uuid4()))), 0)
+            self.assertEqual(len(service._get_interested_connections(str(uuid.uuid4()))), 0)
 
     # Test that job is not of interest by default
     def test__get_interested_connections_2_a(self):
@@ -640,7 +640,7 @@ class TestMonitorService(unittest.TestCase):
         of_interest_ids = service._proc_metadata_jobs_of_interest(metadata)
         for j in self._jobs:
             self.assertTrue(j.job_id in of_interest_ids)
-        self.assertEquals(len(of_interest_ids), len(self._jobs))
+        self.assertEqual(len(of_interest_ids), len(self._jobs))
 
     # Test with valid case with no interest list metadata is a metadata object
     def test_handle_connection_begin_1_a(self):
@@ -657,7 +657,7 @@ class TestMonitorService(unittest.TestCase):
 
         metadata_json = self._connect_metadata_examples[ex_index]
         conn_id, metadata, response = service.handle_connection_begin(metadata_json)
-        self.assertEquals(metadata.purpose, MetadataPurpose.CONNECT)
+        self.assertEqual(metadata.purpose, MetadataPurpose.CONNECT)
 
     # Test with valid case with no interest list metadata has right follows
     def test_handle_connection_begin_1_c(self):
@@ -693,7 +693,7 @@ class TestMonitorService(unittest.TestCase):
 
         metadata_json = self._connect_metadata_examples[ex_index]
         conn_id, metadata, response = service.handle_connection_begin(metadata_json)
-        self.assertEquals(response.purpose, MetadataPurpose.CONNECT)
+        self.assertEqual(response.purpose, MetadataPurpose.CONNECT)
 
     # Test with valid case with interest list metadata is a metadata object
     def test_handle_connection_begin_2_a(self):
@@ -711,7 +711,7 @@ class TestMonitorService(unittest.TestCase):
 
         metadata_json = self._connect_metadata_examples[ex_index]
         conn_id, metadata, response = service.handle_connection_begin(metadata_json)
-        self.assertEquals(metadata.purpose, MetadataPurpose.CONNECT)
+        self.assertEqual(metadata.purpose, MetadataPurpose.CONNECT)
 
     # Test with valid case with interest list metadata has right follows
     def test_handle_connection_begin_2_c(self):
@@ -747,7 +747,7 @@ class TestMonitorService(unittest.TestCase):
 
         metadata_json = self._connect_metadata_examples[ex_index]
         conn_id, metadata, response = service.handle_connection_begin(metadata_json)
-        self.assertEquals(response.purpose, MetadataPurpose.CONNECT)
+        self.assertEqual(response.purpose, MetadataPurpose.CONNECT)
 
     # Test with valid case with interest list response sets jobs of interest properly
     def test_handle_connection_begin_2_g(self):
@@ -819,7 +819,7 @@ class TestMonitorService(unittest.TestCase):
         service.run_monitor_check()
         changes_queue = service._mapped_change_queues_by_connection[conn_id]
 
-        self.assertEquals(len(changes_queue), len(self._jobs))
+        self.assertEqual(len(changes_queue), len(self._jobs))
 
     # Test this finds changes for the expected jobs
     def test_run_monitor_check_1_b(self):
@@ -833,7 +833,7 @@ class TestMonitorService(unittest.TestCase):
             c = changes_queue.pop(0)
             changes[c.job.job_id] = c
 
-        self.assertEquals(self._jobs_by_id.keys(), changes.keys())
+        self.assertEqual(self._jobs_by_id.keys(), changes.keys())
 
     # Test correct original status values
     def test_run_monitor_check_1_c(self):
@@ -847,7 +847,7 @@ class TestMonitorService(unittest.TestCase):
             c = changes_queue.pop(0)
             changes[c.job.job_id] = c
         for i in range(len(self._jobs)):
-            self.assertEquals(changes[self._jobs[i].job_id].original_status, self._original_statuses[i])
+            self.assertEqual(changes[self._jobs[i].job_id].original_status, self._original_statuses[i])
 
     # Test correct updated status values
     def test_run_monitor_check_1_d(self):
@@ -861,7 +861,7 @@ class TestMonitorService(unittest.TestCase):
             c = changes_queue.pop(0)
             changes[c.job.job_id] = c
         for i in range(len(self._jobs)):
-            self.assertEquals(changes[self._jobs[i].job_id].job.status, self._jobs[i].status)
+            self.assertEqual(changes[self._jobs[i].job_id].job.status, self._jobs[i].status)
 
     # Test original status is different than updated status
     def test_run_monitor_check_1_e(self):
@@ -871,7 +871,7 @@ class TestMonitorService(unittest.TestCase):
         changes_queue = service._mapped_change_queues_by_connection[conn_id]
         while changes_queue:
             c = changes_queue.pop(0)
-            self.assertNotEquals(c.original_status, c.job.status)
+            self.assertNotEqual(c.original_status, c.job.status)
 
     # Test that after first changes conveyed, if nothing done to jobs, second monitor shows no changed jobs
     def test_run_monitor_check_2_a(self):
@@ -926,7 +926,7 @@ class TestMonitorService(unittest.TestCase):
             new_changes.append(change)
             change = service._dequeue_monitored_change(conn_id)
 
-        self.assertEquals(len(new_changes), 1)
+        self.assertEqual(len(new_changes), 1)
 
     # Test that after first changes conveyed, then something done, the right changed job is listed
     def test_run_monitor_check_3_b(self):
@@ -952,7 +952,7 @@ class TestMonitorService(unittest.TestCase):
         service.run_monitor_check()
         change = service._dequeue_monitored_change(conn_id)
 
-        self.assertEquals(change.job.job_id, job.job_id)
+        self.assertEqual(change.job.job_id, job.job_id)
 
     # Test that after first changes conveyed, then something done, the right original status is listed
     def test_run_monitor_check_3_c(self):
@@ -978,4 +978,4 @@ class TestMonitorService(unittest.TestCase):
         service.run_monitor_check()
         change = service._dequeue_monitored_change(conn_id)
 
-        self.assertEquals(change.original_status, original_status)
+        self.assertEqual(change.original_status, original_status)
