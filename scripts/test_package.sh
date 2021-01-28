@@ -271,11 +271,15 @@ fi
 
 exec_test_files()
 {
+    _TOP_DIR="`pwd`"
+    _ADJUSTED_TEST_DIR="`echo "${1}" | sed \"s|${PACKAGE_DIR}/||\"`"
+    cd "${PACKAGE_DIR}"
     if [ -n "${TEST_CLASS_PATTERN:-}" ] || [ -n "${TEST_METHOD_PATTERN:-}" ]; then
-        python -m unittest -k ${TEST_CLASS_PATTERN:-}.${TEST_METHOD_PATTERN:-} ${1} ${SET_VERBOSE:-}
+        python -m unittest -k ${TEST_CLASS_PATTERN:-}.${TEST_METHOD_PATTERN:-} ${_ADJUSTED_TEST_DIR} ${SET_VERBOSE:-}
     else
-        python -m unittest ${1} ${SET_VERBOSE:-}
+        python -m unittest ${_ADJUSTED_TEST_DIR} ${SET_VERBOSE:-}
     fi
+    cd "${_TOP_DIR}"
 }
 
 source_it_env_and_funcs()
