@@ -183,7 +183,7 @@ function enable_{{ model }}_{{ parameter.value }}_distribution() {
                     <div id="standard-vars">
                         <label for="model">Model:</label>
                         <select name="model" id="model" style="float: right; text-align: right" onchange="activate_model(this.value)">
-                            <option value="" selected="selected"></option>
+                            <option value="ngen" selected="selected"></option>
                             {% for model in models %}
                                 <option value="{{ model }}">{{ model }}</option>
                             {% endfor %}
@@ -191,14 +191,14 @@ function enable_{{ model }}_{{ parameter.value }}_distribution() {
                         <br>
                         <label for='domains'>Domain:</label>
                         <select name='domain' id="model" style="float: right; text-align: right">
-                          <option value="" selected="selected"></option>
+                          <option value="example-domain-A" selected="selected"></option>
                           {% for domain in domains %}
                               <option value="{{ domain }}">{{ domain }}</option>
                           {% endfor %}
                         </select>
                         <br>
                         <label for="version">Version:</label>
-                        <input name="version" id="version" type="number" value="0.0" min="0.0" step="0.1" style="float: right; text-align: right;" >
+                        <input name="version" id="version" type="number" value="1.0" min="0.0" step="0.1" style="float: right; text-align: right;" >
                         <br>
                         <label for="output">Output Variable:</label>
                         <select style="float: right; text-align: right" name="output" id="output">
