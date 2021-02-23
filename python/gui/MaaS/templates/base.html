@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>{{ title|default:"DMOD" }}</title>
+        {% load static %}
+        <link rel="shortcut icon" type="image/png" href="{% static 'common/img/favicon.png' %}"/>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+        <link rel="stylesheet" href="{% static 'common/css/base.css' %}"/>
+        {% block styles %}{% endblock styles %}
+        <script>
+            var startup_scripts = [];
+            $(function() {
+                startup_scripts.forEach(script => script());
+            });
+        </script>
+        {% block scripts %}{% endblock scripts %}
+    </head>
+    <body>
+        <header id="base-header">
+            <div id="base-banner">
+                {% block bannercontent %}
+                    <h1>{{ banner_title|default:"DMOD" }}</h1>
+                {% endblock bannercontent %}
+            </div>
+            {% block navbar %}{% endblock navbar %}
+        </header>
+        <div id="base-content-wrapper">
+            {% block content %}
+            {% endblock content %}
+        </div>
+        <footer class="base-footer">
+            {% block footer %}{% endblock footer %}
+        </footer>
+    </body>
+</html>
