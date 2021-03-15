@@ -107,7 +107,18 @@ class NgenConfigView(View):
         """
             Process ngen-config form
         """
-        payload = {}
+        catchment = request.POST.get('cat-id')
+
+        formulations = list()
+
+        #Add formulations to list
+        formulations.append("CFE")
+        formulations.append("Simple_Lumped")
+
+        payload = {
+           'formulations': formulations,
+           'catchment': catchment	          
+        }
 
         return render(request, 'maas/ngen_edit.html', payload)
 
