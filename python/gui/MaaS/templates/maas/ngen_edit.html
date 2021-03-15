@@ -2,39 +2,400 @@
 
 {% block content %}
 
+<head>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js">
+</script>
+
+<script src="https://cdn.jsdelivr.net/momentjs/2.14.1/moment.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datetimepicker/4.17.37/js/bootstrap-datetimepicker.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datetimepicker/4.17.37/css/bootstrap-datetimepicker.min.css">
+
+
+
+
+
+   <style>
+            #header {
+                width: auto;
+                height: 40px;
+                background: #417690;
+                padding: 10px 40px;
+                line-height: 40px;
+                color: #ffc;
+                overflow: hidden;
+            }
+
+            #branding {
+                float: left;
+            }
+
+            #branding h1 {
+                color: #f5dd5d;
+                padding: 0px;
+                margin: 0 20px 0 0;
+                font-weight: 300;
+                font-size: 24px;
+            }
+
+            #container {
+                position: relative;
+                width: 100%;
+                min-width: 880px;
+                padding: 0;
+            }
+
+            body {
+                margin: 0;
+                padding: 0;
+                font-size: 14px;
+                font-family: Tahoma, Geneva, sans-serif;
+                color: #333;
+                background: #FFF;
+                overflow: scroll;
+            }
+
+            #content {
+                padding: 20px 40px;
+            }
+
+            .message-list {
+                list-style-type: none;
+            }
+
+            #error-messages {
+                border: 1px solid black;
+                background-color: lightpink;
+            }
+
+            #warning-messages {
+                border: 1px solid black;
+                background-color: #FFC;
+            }
+
+            #info-messages {
+                border: 1px solid black;
+                background-color: palegreen;
+            }
+
+            #standard-vars {
+                line-height: 25px;
+                max-width: 450px;
+            }
+
+ 
+
+
+            .column {
+                float: left;
+            }
+
+
+            .left {
+                width: 50%;
+            }
+
+            .right {
+                width: 50%;
+            }
+
+            .disabled {
+                color: gray;
+            }
+
+   </style>
+
+
+</head>
+
 {# Cache jQuery scripts for UI scripting and styling #}
 <div id="content">
     <h2>Welcome to the Office of Water Prediction's Model as a Service</h2>
     <h3>Configure your request:</h3>
+    <h3>{{ catchment }} </h3>
+
+  <div class="row">
+  <div class="column left">   
+
     <form action="." method="post" id="request-form">
         {# Add the token to provide cross site request forgery protection #}
         {% csrf_token %}
         <div id="standard-vars">
-            <label for="model">Model:</label>
-            <select name="model" id="model" style="float: right; text-align: right" onchange="activate_model(this.value)">
-                <option value="ngen" selected="selected"></option>
-                {% for model in models %}
-                    <option value="{{ model }}">{{ model }}</option>
-                {% endfor %}
+            <label for="formulations">Formulation:</label>
+            <select style="float: right; text-align: right" name="formulation" id="formulation">
+                <option disabled selected value> -- select an option -- </option>
+                {% for formulation in formulations %}
+                    <option value="{{ formulation }}">{{ formulation }}</option>
+                {% endfor %}
             </select>
-            <br>
-            <label for='domains'>Domain:</label>
-            <select name='domain' id="model" style="float: right; text-align: right">
-              <option value="example-domain-A" selected="selected"></option>
-              {% for domain in domains %}
-                  <option value="{{ domain }}">{{ domain }}</option>
-              {% endfor %}
-            </select>
-            <br>
-            <label for="version">Version:</label>
-            <input name="version" id="version" type="number" value="1.0" min="0.0" step="0.1" style="float: right; text-align: right;" >
-            <br>
-            <label for="output">Output Variable:</label>
-            <select style="float: right; text-align: right" name="output" id="output">
-                {% for output in outputs %}
-                    <option value="{{ output.value }}">{{ output.name }}</option>
-                {% endfor %}
-            </select>
+
+
+
+
+
+
+
+<script>
+
+$(document).ready(function () {
+    $("#formulation").change(function () {
+        var val = $(this).val();
+        if (val == "CFE") {
+            $('#sl-vars').remove()
+            $("br").remove()
+
+            $('#sr1_l').remove()  
+            $('#sr1').remove()   
+
+            $('#sr2_l').remove()  
+            $('#sr2').remove()   
+
+            $('#sr3_l').remove()  
+            $('#sr3').remove()   
+
+            $('#storage_l').remove()  
+            $('#storage').remove()   
+
+            $('#max_storage_l').remove()  
+            $('#max_storage').remove()   
+
+            $('#a_l').remove()  
+            $('#a').remove()   
+
+            $('#b_l').remove()  
+            $('#b').remove()   
+
+            $('#Ks_l').remove()  
+            $('#Ks').remove()   
+
+            $('#Kq_l').remove()  
+            $('#Kq').remove()   
+
+            $('#n_l').remove()  
+            $('#n').remove()   
+
+            $('#t_l').remove()  
+            $('#t').remove()   
+
+            $('#forcing_path_l').remove()  
+            $('#forcing_path').remove()  
+
+            $('#standard-vars').append('<div id="cfe-vars"> <h4>CFE Parameters:</h4> </div>')
+            $('#standard-vars').append('<label id="maxsmc_l" for="maxsmc">maxsmc:</label>')
+            $('#standard-vars').append('<input name="maxsmc" id="maxsmc" type="number" value="0.439" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="wltsmc_l" for="wltsmc">wltsmc:</label>')
+            $('#standard-vars').append('<input name="wltsmc" id="wltsmc" type="number" value="0.066" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="satdk_l" for="satdk">satdk:</label>')
+            $('#standard-vars').append('<input name="satdk" id="satdk" type="number" value="0.00000338" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="satpsi_l" for="satpsi">satpsi:</label>')
+            $('#standard-vars').append('<input name="satpsi" id="satpsi" type="number" value="0.355" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="slope_l" for="slope">slope:</label>')
+            $('#standard-vars').append('<input name="slope" id="slope" type="number" value="1.0" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="scaled_distribution_fn_shape_parameter_l" for="scaled_distribution_fn_shape_parameter">scaled_distribution_fn_shape_parameter:</label>')
+            $('#standard-vars').append('<input name="scaled_distribution_fn_shape_parameter" id="scaled_distribution_fn_shape_parameter" type="number" value="4.05" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="multiplier_l" for="multiplier">multiplier:</label>')
+            $('#standard-vars').append('<input name="multiplier" id="multiplier" type="number" value="0.0" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="alpha_fc_l" for="alpha_fc">alpha_fc:</label>')
+            $('#standard-vars').append('<input name="alpha_fc" id="alpha_fc" type="number" value="0.33" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="Klf_l" for="Klf">Klf:</label>')
+            $('#standard-vars').append('<input name="Klf" id="Klf" type="number" value="0.01" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="Kn_l" for="Kn">Kn:</label>')
+            $('#standard-vars').append('<input name="Kn" id="Kn" type="number" value="0.03" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="nash_n_l" for="nash_n">nash_n:</label>')
+            $('#standard-vars').append('<input name="nash_n" id="nash_n" type="number" value="2" min="0" step="1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="Cgw_l" for="Cgw">Cgw:</label>')
+            $('#standard-vars').append('<input name="Cgw" id="Cgw" type="number" value="0.01" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="expon_l" for="expon">expon:</label>')
+            $('#standard-vars').append('<input name="expon" id="expon" type="number" value="0.066" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="max_groundwater_storage_meters_l" for="max_groundwater_storage_meters">max_groundwater_storage_meters:</label>')
+            $('#standard-vars').append('<input name="max_groundwater_storage_meters" id="max_groundwater_storage_meters" type="number" value="1.0" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="nash_storage1_l" for="nash_storage1">nash_storage1:</label>')
+            $('#standard-vars').append('<input name="nash_storage1" id="nash_storage1" type="number" value="0.0" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="nash_storage2_l" for="nash_storage2">nash_storage2:</label>')
+            $('#standard-vars').append('<input name="nash_storage2" id="nash_storage2" type="number" value="0.0" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="soil_storage_percentage_l" for="soil_storage_percentage">soil_storage_percentage:</label>')
+            $('#standard-vars').append('<input name="soil_storage_percentage" id="soil_storage_percentage" type="number" value="0.667" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="groundwater_storage_percentage_l" for="groundwater_storage_percentage">groundwater_storage_percentage:</label>')
+            $('#standard-vars').append('<input name="groundwater_storage_percentage" id="groundwater_storage_percentage" type="number" value="0.5" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="timestep_l" for="timestep">timestep:</label>')
+            $('#standard-vars').append('<input name="timestep" id="timestep" type="number" value="3600" min="0.0" step="1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="giuh_path_l" for="giuh_path">giuh_path:</label>')
+            $('#standard-vars').append('<input name="giuh_path" id="giuh_path" type="text" value="./test/data/giuh/GIUH.json" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="crosswalk_path_l" for="crosswalk_path">crosswalk_path:</label>')
+            $('#standard-vars').append('<input name="crosswalk_path" id="crosswalk_path" type="text" value="./data/crosswalk.json" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="forcing_path_l" for="forcing_path">forcing_path:</label>')
+            $('#standard-vars').append('<input name="forcing_path" id="forcing_path" type="text" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('</div>')
+
+        } else if (val == "Simple_Lumped") {
+            $('#cfe-vars').remove()
+            $('#maxsmc_l').remove()  
+            $('#maxsmc').remove()   
+         
+            $('#wltsmc_l').remove()  
+            $('#wltsmc').remove()   
+            $("br").remove()
+
+            $('#satdk_l').remove()  
+            $('#satdk').remove()  
+
+            $('#satpsi_l').remove()  
+            $('#satpsi').remove()  
+
+            $('#slope_l').remove()  
+            $('#slope').remove()  
+
+            $('#scaled_distribution_fn_shape_parameter_l').remove()  
+            $('#scaled_distribution_fn_shape_parameter').remove()  
+
+            $('#multiplier_l').remove()  
+            $('#multiplier').remove()  
+
+            $('#alpha_fc_l').remove()  
+            $('#alpha_fc').remove()  
+
+            $('#Klf_l').remove()  
+            $('#Klf').remove()  
+
+            $('#Kn_l').remove()  
+            $('#Kn').remove()  
+
+            $('#nash_n_l').remove()  
+            $('#nash_n').remove()  
+
+            $('#Cgw_l').remove()  
+            $('#Cgw').remove()  
+
+            $('#expon_l').remove()  
+            $('#expon').remove()  
+
+            $('#max_groundwater_storage_meters_l').remove()  
+            $('#max_groundwater_storage_meters').remove()  
+
+            $('#nash_storage1_l').remove()  
+            $('#nash_storage1').remove()  
+
+            $('#nash_storage2_l').remove()  
+            $('#nash_storage2').remove()  
+
+            $('#soil_storage_percentage_l').remove()  
+            $('#soil_storage_percentage').remove()  
+
+            $('#groundwater_storage_percentage_l').remove()  
+            $('#groundwater_storage_percentage').remove()  
+
+            $('#timestep_l').remove()  
+            $('#timestep').remove()  
+
+            $('#giuh_path_l').remove()  
+            $('#giuh_path').remove()  
+
+            $('#crosswalk_path_l').remove()  
+            $('#crosswalk_path').remove()  
+
+            $('#forcing_path_l').remove()  
+            $('#forcing_path').remove()  
+
+            $('#standard-vars').append('<div id="sl-vars"> <h4>Simple Lumped Parameters:</h4> </div>')
+
+            $('#standard-vars').append('<label id="sr1_l" for="sr1">sr1:</label>')
+            $('#standard-vars').append('<input name="sr1" id="sr1" type="number" value="1.0" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="sr2_l" for="sr2">sr2:</label>')
+            $('#standard-vars').append('<input name="sr2" id="sr2" type="number" value="1.0" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="sr3_l" for="sr3">sr3:</label>')
+            $('#standard-vars').append('<input name="sr3" id="sr3" type="number" value="1.0" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="storage_l" for="storage">storage:</label>')
+            $('#standard-vars').append('<input name="storage" id="storage" type="number" value="1.0" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="max_storage_l" for="max_storage">max_storage:</label>')
+            $('#standard-vars').append('<input name="max_storage" id="max_storage" type="number" value="1000.0" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="a_l" for="wltsmc">a:</label>')
+            $('#standard-vars').append('<input name="a" id="a" type="number" value="1.0" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="b_l" for="b">b:</label>')
+            $('#standard-vars').append('<input name="b" id="b" type="number" value="10.0" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="Ks_l" for="Ks">Ks:</label>')
+            $('#standard-vars').append('<input name="Ks" id="Ks" type="number" value="0.1" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="Kq_l" for="Kq">Kq:</label>')
+            $('#standard-vars').append('<input name="Kq" id="Kq" type="number" value="0.01" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="n_l" for="n">n:</label>')
+            $('#standard-vars').append('<input name="n" id="n" type="number" value="3" min="0.0" step="1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="t_l" for="t">t:</label>')
+            $('#standard-vars').append('<input name="t" id="t" type="number" value="0" min="0.0" step="0.1" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+            $('#standard-vars').append('<label id="forcing_path_l" for="forcing_path">forcing_path:</label>')
+            $('#standard-vars').append('<input name="forcing_path" id="forcing_path" type="text" style="float: right; text-align: right;" >')
+            $('#standard-vars').append('<br>')
+
+        }        
+    });
+});
+</script>
+
+
         </div>
         <br>
         {% for model, model_parameters in parameters.items %}
@@ -141,5 +502,31 @@
     </form>
 </div>
 </div>
+
+  </div>
+
+<div class="column right">
+<div class="time-container">
+
+ <label for="simulationstarttime">Simulation start date and time GMT:</label>
+ <input type="datetime-local" id="simulationstarttime" name="simulationstarttime">
+ <br>
+ <br>
+ <label for="simulationendtime">Simulation end date and time GMT:</label>
+ <input type="datetime-local" id="simulationendtime" name="simulationendtime">
+
+   </div>
+</div>
+
+</div>
+
+</div>
+
+<script>
+  $(function () {
+    $('#datetimepicker1').datetimepicker();
+ });
+</script>
+
 
 {% endblock content %}
