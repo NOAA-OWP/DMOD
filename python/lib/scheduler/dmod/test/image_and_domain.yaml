@@ -1,6 +1,6 @@
 nwm:
   version:
-    2: '127.0.0.1:5000/nwm-2.0:latest'
+    2.0: '127.0.0.1:5000/nwm-2.0:latest'
     master: '127.0.0.1:5000/nwm-master'
     reservoir: '127.0.0.1:5000/nwm-conus-reservoir'
   domains:
@@ -18,8 +18,11 @@ nwm:
     run: '/run_out'
 ngen:
   version:
-    1: '127.0.0.1:5000/ngen:latest'
+    1.0: '127.0.0.1:5000/ngen:latest'
   domains:
     test-domain:
       local: './domains/ngen/data/'
       run: './ngen/data'
+  output:
+    local: './local_out_ngen'
+    run: '/run_out_ngen'
