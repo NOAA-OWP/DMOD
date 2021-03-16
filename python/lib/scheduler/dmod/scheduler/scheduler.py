@@ -235,8 +235,6 @@ class Launcher:
         mounts: list[str]
             A list of docker style mount strings in the form `selected_domain`:`run_domain`:rw
             The selected domain directory out of the valid domain name : domain directory dicts in the yaml file
-        run_domain_dir
-            The run domain directory in the docker container, based on the domain name to directory mapping in the yaml file
         """
 
         # Load the yaml file into dictionary
@@ -317,9 +315,9 @@ class Launcher:
         """
         model = job.model_request.get_model_name()
         #FIXME read all image/domain at init and select from internal cache (i.e. dict) or even push to redis for long term cache
-        (image_tag, mounts, run_domain_dir) = self.load_image_and_mounts(model,
-                                                                         str(job.model_request.version),
-                                                                         job.model_request.domain)
+        (image_tag, mounts) = self.load_image_and_mounts(model,
+                                                         str(job.model_request.version),
+                                                         job.model_request.domain)
 
         #TODO better align labels/defaults with serviceparam class
         #FIXME if the stack.namespace needs to align with the stack name, this isn't correct
@@ -356,7 +354,7 @@ class Launcher:
             # Create the docker service
             service_params = DockerServiceParameters(image_tag, constraints, alloc.hostname, labels, serv_name, mounts)
             #TODO check for proper service creation, return False if doesn't work
-            service = self.create_service(serviceParams=service_params, idx=alloc_index, docker_cmd_args=host_str)
+            service = self.create_service(serviceParams=service_params, idx=alloc_index, docker_cmd_args=args)
             service_per_allocation.append(service)
 
         logging.info("\n")
