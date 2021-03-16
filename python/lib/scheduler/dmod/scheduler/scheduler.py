@@ -260,7 +260,13 @@ class Launcher:
         except KeyError:
             raise(KeyError("image_and_domain.yaml has no 'local' key for domain {}, model {}".format(domain, name)))
         try:
-            image = model['version'][version]
+            # Keys in model['version'] may not be strings, but the version parameter will be, so convert
+            version_key = None
+            for v_key_literal in model['version']:
+                if str(v_key_literal) == version:
+                    version_key = v_key_literal
+                    break
+            image = model['version'][version_key]
         except KeyError:
             raise(KeyError("image_and_domain.yaml has no version key {}".format(version)))
         try:
