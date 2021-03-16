@@ -49,8 +49,8 @@ services:
     build:
       context: ./ngen
       args:
-        REPO_URL: ${NGEN_REPO_URL?}
-        BRANCH: ${NGEN_BRANCH?}
+        REPO_URL: ${NGEN_REPO_URL?No NGen repo url configured}
+        BRANCH: ${NGEN_BRANCH?No NGen branch configured}
         COMMIT: ${NGEN_COMMIT}
         DOCKER_INTERNAL_REGISTRY: ${DOCKER_INTERNAL_REGISTRY:?}
     depends_on:
