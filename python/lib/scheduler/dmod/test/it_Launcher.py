@@ -23,15 +23,22 @@ class IntegrationTestLauncher(unittest.TestCase):
     @logTest(logging.DEBUG)
     def test_start_job_1_a(self) -> None:
         job = mock_job(model='ngen', allocations=1)
-        success, service = self.launcher.start_job(job)
+        success, services_tuple = self.launcher.start_job(job)
         self.assertTrue(success)
-        self.assertIsNotNone(service)
+        self.assertIsNotNone(services_tuple)
+        for service in services_tuple:
+            self.clean_up.append(service)
+        for service in services_tuple:
+            self.assertIsNotNone(service)
 
         job = mock_job(model='nwm', allocations=1)
-        success, service = self.launcher.start_job(job)
+        success, services_tuple = self.launcher.start_job(job)
         self.assertTrue(success)
-        self.assertIsNotNone(service)
-        self.clean_up.append(service)
+        self.assertIsNotNone(services_tuple)
+        for service in services_tuple:
+            self.clean_up.append(service)
+        for service in services_tuple:
+            self.assertIsNotNone(service)
 
     #TODO test
     @unittest.skip("Not implemented")

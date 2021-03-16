@@ -85,7 +85,7 @@ class TestLauncher(unittest.TestCase):
             Test load_image_and_mounts with empty name, valid version and domain
         """
         name = ''
-        version = 2
+        version = '2.0'
         domain = 'test-domain'
         with self.assertRaises(KeyError):
             self.launcher.load_image_and_mounts(name, version, domain)
@@ -95,7 +95,7 @@ class TestLauncher(unittest.TestCase):
             Test load_image_and_mounts with valid name, valid version and empty domain
         """
         name = 'nwm'
-        version = 2
+        version = '2.0'
         domain = ''
         with self.assertRaises(KeyError):
             self.launcher.load_image_and_mounts(name, version, domain)
@@ -105,7 +105,7 @@ class TestLauncher(unittest.TestCase):
             Test load_image_and_mounts with valid name, valid version, valid domain
         """
         name = 'nwm'
-        version = 2
+        version = '2.0'
         domain = 'croton_NY'
         image_tag, mounts = self.launcher.load_image_and_mounts(name, version, domain)
 
