@@ -100,8 +100,10 @@ class TestSchedulerClient(unittest.TestCase):
 
     def test_async_make_request_1_a(self):
         """
-        Test ``async_make_request()`` when response from sending over websocket is ``None``, ensuring response object's
-        value for ``success`` is ``False``.
+        Test when function gets ``None`` returned over websocket that response object ``success`` is ``False``.
+
+        Test ``async_make_request()`` in the case where it receives ``None`` back over the websocket connection, to
+        confirm that the function then returns a response with a ``success`` value of ``False``.
         """
         self.client.set_scheduler_response_none()
         request = self.test_scheduler_request_1
@@ -113,6 +115,8 @@ class TestSchedulerClient(unittest.TestCase):
 
     def test_async_make_request_1_b(self):
         """
+        Test when function gets ``None`` returned over websocket that response object ``data`` is empty dict.
+
         Test ``async_make_request()`` when response from sending over websocket is ``None``, ensuring response object's
         value for ``data`` is an empty dictionary.
         """
@@ -126,6 +130,8 @@ class TestSchedulerClient(unittest.TestCase):
 
     def test_async_make_request_1_c(self):
         """
+        Test when function gets ``None`` returned over websocket that response object has expected ``reason``.
+
         Test ``async_make_request()`` when response from sending over websocket is ``None``, ensuring response object's
         value for ``reason`` is the expected string.
         """
@@ -140,6 +146,8 @@ class TestSchedulerClient(unittest.TestCase):
 
     def test_async_make_request_2_a(self):
         """
+        Test when function gets back invalid JSON over websocket that response object ``success`` is ``False``.
+
         Test ``async_make_request()`` when response from sending over websocket is not a valid JSON string, ensuring
         response object's value for ``success`` is ``False``.
         """
@@ -151,6 +159,8 @@ class TestSchedulerClient(unittest.TestCase):
 
     def test_async_make_request_2_b(self):
         """
+        Test when function gets back invalid JSON over websocket that response object ``data`` is empty dict.
+
         Test ``async_make_request()`` when response from sending over websocket is not a valid JSON string, ensuring
         response object's value for ``data`` is an empty dictionary.
         """
@@ -162,6 +172,8 @@ class TestSchedulerClient(unittest.TestCase):
 
     def test_async_make_request_2_c(self):
         """
+        Test when function gets back invalid JSON over websocket that response object has expected  ``reason``.
+
         Test ``async_make_request()`` when response from sending over websocket is not a valid JSON string, ensuring
         response object's value for ``reason`` is the expected string.
         """
@@ -173,6 +185,8 @@ class TestSchedulerClient(unittest.TestCase):
 
     def test_async_make_request_3_a(self):
         """
+        Test when function gets wrongly formatted JSON over websocket that response object ``success`` is ``False``.
+
         Test ``async_make_request()`` when response from sending over websocket is a valid JSON string, but not one that
         can be deserialized to a :class:`SchedulerRequestResponse`, ensuring response object's value for ``success`` is
         ``False``.
@@ -187,6 +201,8 @@ class TestSchedulerClient(unittest.TestCase):
 
     def test_async_make_request_3_b(self):
         """
+        Test when function gets wrongly formatted JSON over websocket that response object ``data`` is empty dict.
+
         Test ``async_make_request()`` when response from sending over websocket is a valid JSON string, but not one that
         can be deserialized to a :class:`SchedulerRequestResponse`, ensuring response object's value for ``data`` is the
         parsed response JSON object.
@@ -204,6 +220,8 @@ class TestSchedulerClient(unittest.TestCase):
 
     def test_async_make_request_3_c(self):
         """
+        Test when function gets wrongly formatted JSON over websocket that response object has expected ``reason``.
+
         Test ``async_make_request()`` when response from sending over websocket is a valid JSON string, but not one that
         can be deserialized to a :class:`SchedulerRequestResponse`, ensuring response object's value for ``reason`` is
         the expected string.
@@ -218,6 +236,8 @@ class TestSchedulerClient(unittest.TestCase):
 
     def test_async_make_request_4_a(self):
         """
+        Test when function gets JSON over websocket indicating failure that response object ``success`` is ``False``.
+
         Test ``async_make_request()`` when response from sending over websocket is a valid, deserializeable JSON string,
         where the deserialized to a :class:`SchedulerRequestResponse` indicates a failure, ensuring response object's
         value for ``success`` is ``False``.
@@ -230,6 +250,8 @@ class TestSchedulerClient(unittest.TestCase):
 
     def test_async_make_request_5_a(self):
         """
+        Test when function gets JSON over websocket indicating success that response object ``success`` is ``True``.
+
         Test ``async_make_request()`` when response from sending over websocket is a valid, deserializeable JSON string,
         where the deserialized to a :class:`SchedulerRequestResponse` indicates a success, ensuring response object's
         value for ``success`` is ``True``.
