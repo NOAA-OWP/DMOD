@@ -1,8 +1,9 @@
 import asyncio
 import json
+import logging
 import unittest
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 from ..communication import NWMRequest, SchedulerClient, SchedulerRequestMessage, SchedulerRequestResponse
 
 
@@ -69,6 +70,23 @@ class MockSendTestingSchedulerClient(SchedulerClient):
 
 class TestSchedulerClient(unittest.TestCase):
 
+    @classmethod
+    def disable_logging(cls, level: Optional[int] = logging.ERROR):
+        """
+        Disable logging on the provided level, enabling all if level is ``None``.
+
+        If ``level`` is ``None``, it is replaced with ``logging.NOTSET``.  This will then have the effect of enabling
+        logging on all levels.
+
+        Parameters
+        ----------
+        level : Optional[int]
+            Logging level to disable (``logging.ERROR`` by default), where ``None`` implies all should be enabled.
+        """
+        if level is None:
+            level = logging.NOTSET
+        logging.disable(level)
+
     def setUp(self) -> None:
         self.loop = asyncio.get_event_loop()
         self.client = MockSendTestingSchedulerClient()
@@ -88,7 +106,9 @@ class TestSchedulerClient(unittest.TestCase):
         self.client.set_scheduler_response_none()
         request = self.test_scheduler_request_1
 
+        self.disable_logging()
         response = self.loop.run_until_complete(self.client.async_make_request(request))
+        self.disable_logging(None)
         self.assertFalse(response.success)
 
     def test_async_make_request_1_b(self):
@@ -99,7 +119,9 @@ class TestSchedulerClient(unittest.TestCase):
         self.client.set_scheduler_response_none()
         request = self.test_scheduler_request_1
 
+        self.disable_logging()
         response = self.loop.run_until_complete(self.client.async_make_request(request))
+        self.disable_logging(None)
         self.assertEqual(response.data, {})
 
     def test_async_make_request_1_c(self):
@@ -111,8 +133,9 @@ class TestSchedulerClient(unittest.TestCase):
         request = self.test_scheduler_request_1
 
         expected_reason = 'Request Send Failure (ValueError)'
-
+        self.disable_logging()
         response = self.loop.run_until_complete(self.client.async_make_request(request))
+        self.disable_logging(None)
         self.assertEqual(response.reason, expected_reason)
 
     def test_async_make_request_2_a(self):
@@ -157,7 +180,9 @@ class TestSchedulerClient(unittest.TestCase):
         self.client.set_scheduler_response_unrecognized_json()
         request = self.test_scheduler_request_1
 
+        self.disable_logging()
         response = self.loop.run_until_complete(self.client.async_make_request(request))
+        self.disable_logging(None)
         self.assertFalse(response.success)
 
     def test_async_make_request_3_b(self):
@@ -172,7 +197,9 @@ class TestSchedulerClient(unittest.TestCase):
         expected_raw_response = self.client.test_responses[self.client.test_response_selection]
         expected_json_obj = json.loads(expected_raw_response)
 
+        self.disable_logging()
         response = self.loop.run_until_complete(self.client.async_make_request(request))
+        self.disable_logging(None)
         self.assertEqual(response.data, expected_json_obj)
 
     def test_async_make_request_3_c(self):
@@ -184,7 +211,9 @@ class TestSchedulerClient(unittest.TestCase):
         self.client.set_scheduler_response_unrecognized_json()
         request = self.test_scheduler_request_1
 
+        self.disable_logging()
         response = self.loop.run_until_complete(self.client.async_make_request(request))
+        self.disable_logging(None)
         self.assertEqual(response.reason, 'Could Not Deserialize Response Object')
 
     def test_async_make_request_4_a(self):
