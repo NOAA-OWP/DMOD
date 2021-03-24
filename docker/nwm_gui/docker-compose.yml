@@ -16,8 +16,9 @@ services:
       - static_volume:/usr/maas_portal/static
       - ../../${DOCKER_GUI_WEB_SERVER_CONFIG_FILE:-/docker/nwm_gui/web_server/nginx/default.conf}:/etc/nginx/conf.d/default.conf
     # Make this container depend on the container holding the application server
-    depends_on:
-      - app_server
+    # TODO: this appears to break things now for some reason, despite documentation suggesting it is still supported
+    #depends_on:
+    #  - app_server
     deploy:
        placement:
          constraints:
