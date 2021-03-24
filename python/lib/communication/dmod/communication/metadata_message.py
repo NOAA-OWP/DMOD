@@ -102,7 +102,8 @@ class MetadataMessage(AbstractInitRequest):
         """
         # This should get handled in __init__ but put here anyway
         if self._purpose == MetadataPurpose.CHANGE_CONFIG and not self._config_changes:
-            raise RuntimeError('Invalid {} set to CHANGE_CONFIG but without any config changes.')
+            raise RuntimeError('Invalid {} initialization, setting {} to {} but without any config changes.'.format(
+                self.__class__, self._purpose.__class__, self._purpose.name))
         return self._config_changes
 
     @property
