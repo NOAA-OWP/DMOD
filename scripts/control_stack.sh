@@ -117,6 +117,11 @@ Options:
         command when building, passed as a single string arg to
         this script.
 
+    --env-file <path>
+        Set path to the environment file to use for sourcing
+        config variables to use as part of Docker commands
+        (defaults to ./.env if it exists).
+
     --init-networks, --no-init-networks
         Check for required/expected Docker networks and create
         any that don't exist, prior to executing the specified
@@ -149,6 +154,7 @@ Actions:
 Options:
     --[build-|deploy-]config <path> | -[b|d]|c <path>
     --build-args <args_string>
+    --env-file <path>
     --[no-]init-networks
     --stack-name <name>
 
@@ -304,6 +310,15 @@ while [ ${#} -gt 0 ]; do
             DOCKER_DEPLOY_CONFIG_ARG="${2}"
             shift
             ;;
+        --env-file)
+            [ -n "${DOCKER_ENV_FILE_PATH:-}" ] && short_usage && exit 1
+            DOCKER_ENV_FILE_PATH="${2}"
+            if [ ! -f "${DOCKER_ENV_FILE_PATH}" ]; then
+                echo "Error: provided env file '${DOCKER_ENV_FILE_PATH}' not found"
+                exit 1
+            fi
+            shift
+            ;;
         --build-args)
             [ -n "${DOCKER_IMAGE_BUILD_EXTRA_ARGS:-}" ] && short_usage && exit 1
             DOCKER_IMAGE_BUILD_EXTRA_ARGS="${2}"
@@ -333,6 +348,20 @@ while [ ${#} -gt 0 ]; do
     esac
     shift
 done
+
+# Default to using .env if that file exists
+if [ -z "${DOCKER_ENV_FILE_PATH:-}" ]; then
+    if [ -f ./.env ]; then
+        DOCKER_ENV_FILE_PATH="./.env"
+    fi
+fi
+# Then, if we have a env file, export its contents (filtering out comment lines)
+if [ -n "${DOCKER_ENV_FILE_PATH:-}" ]; then
+    for line in `cat "${DOCKER_ENV_FILE_PATH:-}" | sed '/\s*\#.*/d' | sed '/^[[:space:]]*$/d'`; do
+        #echo "exporting: ${line}"
+        export "${line}"
+    done
+fi
 
 # Set the appropriate value for whether networks should be checked
 # When explicit arg is given, respect that
