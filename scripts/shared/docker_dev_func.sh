@@ -44,6 +44,21 @@ docker_dev_init_swarm_network()
     fi
 }
 
+docker_dev_validate_compose_config()
+{
+    if [ ! -e "${1:?}" ]; then
+        >&2 echo "Error: Docker Compose config ${1} does not exist"
+        return 1
+    fi
+    #if docker-compose -f "${1}" config > /dev/null 2>&1; then
+    if docker-compose -f "${1}" config > /dev/null; then
+        return 0
+    else
+        >&2 echo "Error: file '${1}' is not a valid Docker Compose config"
+        return 1
+    fi
+}
+
 docker_dev_build_stack_images()
 {
     # 1 - compose file

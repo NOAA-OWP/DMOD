@@ -177,21 +177,6 @@ determine_stack_name()
     fi
 }
 
-docker_dev_validate_compose_config()
-{
-    if [ ! -e "${1:?}" ]; then
-        >&2 echo "Error: Docker Compose config ${1} does not exist"
-        return 1
-    fi
-    #if docker-compose -f "${1}" config > /dev/null 2>&1; then
-    if docker-compose -f "${1}" config > /dev/null; then
-        return 0
-    else
-        >&2 echo "Error: file '${1}' is not a valid Docker Compose config"
-        return 1
-    fi
-}
-
 # Process the last group of command line args for actions (after setting the stack dir name)
 process_action_args()
 {
