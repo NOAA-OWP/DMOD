@@ -177,7 +177,7 @@ determine_stack_name()
     fi
 }
 
-validate_docker_config_setting()
+docker_dev_validate_compose_config()
 {
     if [ ! -e "${1:?}" ]; then
         >&2 echo "Error: Docker Compose config ${1} does not exist"
@@ -415,13 +415,13 @@ fi
 
 # Validate Docker Configs exist and are valid
 if [ -n "${DOCKER_BUILD_CONFIG:-}" ]; then
-    validate_docker_config_setting "${DOCKER_BUILD_CONFIG}"
+    docker_dev_validate_compose_config "${DOCKER_BUILD_CONFIG}"
     if [ $? -ne 0 ]; then
         exit 1
     fi
 fi
 if [ -n "${DOCKER_DEPLOY_CONFIG:-}" ]; then
-    validate_docker_config_setting "${DOCKER_DEPLOY_CONFIG}"
+    docker_dev_validate_compose_config "${DOCKER_DEPLOY_CONFIG}"
     if [ $? -ne 0 ]; then
         exit 1
     fi
