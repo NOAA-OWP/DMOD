@@ -75,7 +75,8 @@ class MetadataMessage(AbstractInitRequest):
         self._metadata_follows = metadata_follows
         self._config_changes = config_changes
         if self._purpose == MetadataPurpose.CHANGE_CONFIG and not self._config_changes:
-            raise RuntimeError('Invalid {} set to CHANGE_CONFIG but without any config changes.')
+            raise RuntimeError('Invalid {} initialization, setting {} to {} but without any config changes.'.format(
+                self.__class__, self._purpose.__class__, self._purpose.name))
 
     @property
     def config_changes(self) -> Optional[Dict[str, Union[None, str, bool, Number, dict, list]]]:
