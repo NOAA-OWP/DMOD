@@ -87,12 +87,13 @@ class MetadataMessage(AbstractInitRequest):
         left to/expected to be ``None``.  However, it should not be ``None`` when the purpose is ``CHANGE_CONFIG``.
 
         Note that the main dictionary can contain nested dictionaries also.  These should essentially be the serialized
-        representations of ::class:Serializable` object.  It is recommended that an additional value be added under the
-
-
-        While the type hinting does not explicitly note this due to
+        representations of ::class:`Serializable` object.  While the type hinting does not explicitly note this due to
         the recursive nature of the definition, nested dictionaries at any depth should have string keys and values of
         one of the types allowed for values in the top-level dictionary.
+
+        It is recommended that an additional value be added to such nested dictionaries, under the key returned by
+        ::method:`get_config_change_dict_type_key`.  This should be the string representation of the class type of the
+        nested, serialized object.
 
         Returns
         -------
