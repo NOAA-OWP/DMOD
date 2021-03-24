@@ -64,7 +64,7 @@ class SchedulerRequestMessage(AbstractInitRequest):
         else:
             self.memory_unset = False
             self.memory = mem
-        if isinstance(allocation_paradigm, str) and len(allocation_paradigm.strip()) > 0:
+        if isinstance(allocation_paradigm, str) and allocation_paradigm.strip():
             self.allocation_paradigm: str = allocation_paradigm
         else:
             self.allocation_paradigm: str = self.default_allocation_paradigm_str()
