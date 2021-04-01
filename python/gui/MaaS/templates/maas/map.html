@@ -13,6 +13,7 @@
        crossorigin=""></script>
     <script src="{% static 'common/js/map.js' %}"></script>
     <script>
+        var catchments = {{ catchments|safe }};
 
         {% if center %}
             var centerLine = [{{ center.0 }}, {{ center.1 }}];
@@ -51,51 +52,23 @@
     <div id="mapid" style="width: {{ map_width|default:'95vw' }}; height: {{ map_height|default:'70vh' }}; margin: auto"></div>
 </div>
 
-<form action="config/ngen" method="post" id="ngen-config", name="ngen-config">
-  {# Add the token to provide cross site request forgery protection #}
-  {% csrf_token %}
-  <input id="cat-id" name="cat-id" type="hidden" value="">
+{% include "data_pane.html" %}
+
+<form id="location-selection-form" method="post" style="display: none" action="{% url 'MaaS:ngen_config' %}">
+    <input type="hidden" name="feature-ids" />
+    {# Add the token to provide cross site request forgery protection #}
+    {% csrf_token %}
 </form>
 
-<div id="map"></div>
 <script>
-  $(function() {
-  //var mymap = L.map('map')
-  // L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  //         maxZoom: 5,
-  //         attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  //         tileSize: 512,
-  //         zoomOffset: -1
-  //     }).addTo(mymap);
-  var catchments = {{ catchments|safe }};
+    var dataPane = null;
 
-  var catchment_layer = L.geoJSON(catchments,
-      {
-        style: {color: "#999", weight: 2, fillColor: "#00ad79", fillOpacity: .6},
-
-        onEachFeature: function (feature, layer) {
-          //var popupContent = "Name:  " + feature.id + "<br>" +
-          //                   "Area:  " + feature.properties.area_sqkm + "<br>" +
-          //                   "Nexus: " + feature.properties.toid
-          var popupContent = propertiesToHTML(feature)
-          //hover popup
-          layer.bindTooltip(popupContent, {closeButton: false, offset: L.point(0, -20)});
-          //click popup
-          //layer.bindPopup( popupContent )
-          layer.on('click', function (e) {
-            console.log('clicked feature: '+feature.id);
-            document.forms['ngen-config']['cat-id'].value = feature.id;
-            //submit form to server
-            $('#ngen-config').submit()
-
-          });
+    startup_scripts.push(
+        function() {
+            dataPane = createDataPane("#{{ datapane_id|default:"data-pane-wrapper" }}");
+            dataPane.setOnSubmit(submitFeatures);
         }
-      }
-  )
-  catchment_layer.addTo(mymap);
-  mymap.fitBounds(catchment_layer.getBounds());
-
-    });
+    );
 </script>
 
 {% endblock content %}

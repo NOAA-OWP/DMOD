@@ -16,6 +16,9 @@ const colorCycle = [
     "#000"
 ];
 
+var selectedFeatures = {};
+var selectedLayers = {};
+
 startup_scripts.push(
     function(){
         mymap = L.map('mapid').setView(centerLine, zoom);
@@ -133,7 +136,10 @@ function propertiesToHTML(geojson) {
     var propertyKeys = [];
 
     for (const property in properties) {
-        if (property.toLowerCase() != "name" && properties[property] != null && properties[property] != "" && typeof properties[property] != 'object') {
+        var propertyIsNotName = property.toLowerCase() != "name";
+        var propertyIsNotBlank = properties[property] != null && properties[property] != "";
+        var propertyIsNotAnObject = typeof properties[property] != 'object';
+        if (propertyIsNotName && propertyIsNotBlank && propertyIsNotAnObject) {
             propertyKeys.push(property);
         }
     }
@@ -166,3 +172,95 @@ function propertiesToHTML(geojson) {
     markup += "</table>";
     return markup;
 }
+
+function getSelectedShapeStyle() {
+    return {
+        fillColor: "#fce803",
+    };
+}
+
+function getShapeStyle() {
+    return {
+        color: "#555",
+        weight: 5,
+        fillColor: "#00ad79",
+        fillOpacity: 0.6
+    };
+}
+
+function formSelectionPane() {
+    dataPane.update(selectedFeatures);
+}
+
+function layerClicked(event) {
+    var layer = event.target;
+    var feature = layer.feature;
+    console.log('clicked feature: '+ feature.id);
+
+    if (feature.id in selectedFeatures) {
+        removeFeature(feature.id);
+    }
+    else {
+        // Add the selected feature to the list
+        selectedLayers[feature.id] = layer;
+        addFeature(feature.id, feature.id);
+    }
+}
+
+function addFeature(descriptor, id) {
+    selectedFeatures[id] = descriptor;
+    selectedLayers[id].setStyle(getSelectedShapeStyle());
+    formSelectionPane();
+}
+
+function removeFeature(id) {
+    selectedLayers[id].setStyle(getShapeStyle());
+
+    delete selectedLayers[id];
+    delete selectedFeatures[id];
+
+    formSelectionPane();
+}
+
+function submitFeatures(event) {
+    var featuresToConfigure = [];
+
+    $("#value-list span.selected-value-label").each(function(index) {
+        featuresToConfigure.push($(this).attr("value"));
+    });
+
+    if (featuresToConfigure.length == 0) {
+        event.preventDefault();
+        alert("Select a location to configure before continuing.");
+        return;
+    }
+
+    var ids = featuresToConfigure.join("|");
+
+    document.forms['location-selection-form']['feature-ids'].value = ids;
+    document.forms['location-selection-form'].submit();
+}
+
+$(function() {
+
+    function onLayerCreation(feature, layer) {
+        var popupContent = propertiesToHTML(feature)
+
+        //hover popup
+        layer.bindTooltip(popupContent, {closeButton: false, offset: L.point(0, -20)});
+
+        //click popup
+        layer.on('click', layerClicked);
+    }
+
+    var catchment_layer = L.geoJSON(
+        catchments,
+        {
+            style: getShapeStyle(),
+            onEachFeature: onLayerCreation
+        }
+    );
+
+    catchment_layer.addTo(mymap);
+    mymap.fitBounds(catchment_layer.getBounds());
+});

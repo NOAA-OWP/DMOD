@@ -1,0 +1,76 @@
+{% load static %}
+<style>
+    #{{ datapane_id|default:"data-pane-wrapper" }} {
+        position: fixed;
+        width: 250px;
+        z-index: 1000;
+        display: flex;
+        width: fit-content;
+        padding: 0;
+        right: 0;
+    }
+
+    #{{ datapane_id|default:"data-pane-wrapper" }} #data-pane {
+        grid-column: 2;
+        grid-row: 1;
+        height: 100%;
+        padding-right: 20px;
+        white-space: nowrap;
+        display: none;
+    }
+
+    #{{ datapane_id|default:"data-pane-wrapper" }} #pane-expander {
+        grid-column: 1;
+        grid-row: 1;
+        background-color: #D2D2D2;
+        width: 20px;
+        cursor: pointer;
+        height: 100%;
+    }
+
+    #{{ datapane_id|default:"data-pane-wrapper" }} #pane-expander:hover {
+        background-color: #B2B2B2;
+    }
+
+    #{{ datapane_id|default:"data-pane-wrapper" }} #data-pane {
+        padding: 10px;
+    }
+
+    #{{ datapane_id|default:"data-pane-wrapper" }} #data-table-wrapper {
+        overflow-y: auto;
+    }
+
+    .remove-location-button {
+        cursor: pointer;
+    }
+
+    .value-name-cell {
+        padding-left: 10px;
+    }
+
+    .active-pane {
+        box-shadow: -20px 5px 34px 3px rgba(0, 0, 0, 0.50);
+    }
+
+    .value-row {
+        height: 30px;
+        line-height: 30px;
+    }
+
+    #{{ datapane_id|default:"data-pane-wrapper" }} #value-list .even-row {
+        background-color: #F0F0F0
+    }
+</style>
+<script src="{% static 'common/js/data_pane.js' %}"></script>
+<link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+<div id="{{ datapane_id|default:"data-pane-wrapper" }}" class="pane">
+    <div id="pane-expander" title="View Data"></div>
+    <div id="data-pane">
+        <fieldset id="value-fields" style="height: 90%">
+            <legend>Selected {{ datapane_label|default:"Values" }}</legend>
+            <div id="value-list" style="display: grid; overflow-y: auto;"></div>
+        </fieldset>
+        <button type="submit" id="submit-values-button" style="margin: 10px;">{{ datapane_submission_label|default:"Continue" }}</button>
+    </div>
+</div>

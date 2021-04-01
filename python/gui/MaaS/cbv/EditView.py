@@ -10,8 +10,7 @@ from django.shortcuts import render
 import logging
 logger = logging.getLogger("gui_log")
 
-from dmod.communication import Distribution, get_available_models, get_available_outputs, get_request, \
-    NWMRequestJsonValidator, NWMRequest, MaaSRequest, MaasRequestClient, Scalar
+import dmod.communication as communication
 from pathlib import Path
 
 
@@ -80,7 +79,7 @@ class RequestFormProcessor:
                     continue
 
                 # Create the distribution and add it to the list
-                distribution = Distribution(
+                distribution = communication.Distribution(
                     int(distribution_min_value),
                     int(distribution_max_value),
                     distribution_type_value
@@ -97,7 +96,7 @@ class RequestFormProcessor:
                     continue
 
                 # Create the Scalar and add it to the list
-                scalar = Scalar(int(scalar_value))
+                scalar = communication.Scalar(int(scalar_value))
                 self._parameters[parameter.replace(self.model + "_", "")] = scalar
 
     @property
@@ -121,15 +120,15 @@ class RequestFormProcessor:
             whether the MaaS job request represented by :attr:post_request is valid
         """
         if self._is_valid is None:
-            if not isinstance(self.maas_request, NWMRequest):
+            if not isinstance(self.maas_request, communication.NWMRequest):
                 self._is_valid = False
                 self._validation_error = TypeError('Unsupport MaaS message type created by ' + str(self.__class__))
             else:
-                self._is_valid, self._validation_error = NWMRequestJsonValidator().validate(self.maas_request.to_dict())
+                self._is_valid, self._validation_error = communication.NWMRequestJsonValidator().validate(self.maas_request.to_dict())
         return self._is_valid
 
     @property
-    def maas_request(self) -> MaaSRequest:
+    def maas_request(self) -> communication.MaaSRequest:
         """
         Get the :obj:MaaSRequest instance (which could be a subclass of this type) represented by :attr:post_request,
         lazily instantiating the former if necessary.
@@ -141,7 +140,7 @@ class RequestFormProcessor:
         """
         if self._maas_request is None:
             if len(self.errors) == 0:
-                self._maas_request = get_request(self.model, self.version, self.output, self.domain, self.parameters,
+                self._maas_request = communication.get_request(self.model, self.version, self.output, self.domain, self.parameters,
                                                  self.maas_secret)
         return self._maas_request
 
@@ -165,7 +164,7 @@ class RequestFormProcessor:
         return self._validation_error
 
 
-class PostFormJobRequestClient(MaasRequestClient):
+class PostFormJobRequestClient(communication.MaasRequestClient):
     """
     A client for websocket interaction with the MaaS request handler, specifically for performing a job request based on
     details provided in a particular HTTP POST request (i.e., with form info on the parameters of the job execution).
@@ -297,20 +296,20 @@ class EditView(View):
             split = words.split("_")
             return " ".join(split).title()
 
-        models = list(get_available_models().keys())
+        models = list(communication.get_available_models().keys())
         domains = ['example-domain-A', 'example-domain-B'] #FIXME map this from supported domains
         outputs = list()
         distribution_types = list()
 
         # Create a mapping between each output type and a friendly representation of it
-        for output in get_available_outputs():
+        for output in communication.get_available_outputs():
             output_definition = dict()
             output_definition['name'] = humanize(output)
             output_definition['value'] = output
             outputs.append(output_definition)
 
         # Create a mapping between each distribution type and a friendly representation of it
-        for distribution_type in MaaSRequest.get_distribution_types():
+        for distribution_type in communication.MaaSRequest.get_distribution_types():
             type_definition = dict()
             type_definition['name'] = humanize(distribution_type)
             type_definition['value'] = distribution_type
@@ -321,7 +320,7 @@ class EditView(View):
             'models': models,
             'domains': domains,
             'outputs': outputs,
-            'parameters': MaaSRequest.get_parameters(),
+            'parameters': communication.MaaSRequest.get_parameters(),
             'distribution_types': distribution_types,
             'errors': errors,
             'info': info,
