@@ -121,7 +121,7 @@
         {# Add the token to provide cross site request forgery protection #}
         {% csrf_token %}
         <div id="standard-vars">
-            <label for="formulations">Formulation:</label>
+            <label for="formulation">Formulation:</label>
             <select style="float: right; text-align: right" name="formulation" id="formulation">
                 <option disabled selected value> -- select an option -- </option>
                 {% for formulation in formulations %}

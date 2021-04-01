@@ -12,9 +12,11 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 
 import os
 import logging
-import datetime
+from datetime import datetime
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
+from pytz import reference
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -97,6 +99,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
     'MaaS.apps.MaasConfig',
 ]
 
@@ -224,6 +227,7 @@ UNKNOWN_LEVEL = logging.NOTSET
 
 DEFAULT_MESSAGE_LEVEL = INFO_LEVEL
 """The logging level used when none is given"""
+
 
 def log(message: str, level: int = DEFAULT_MESSAGE_LEVEL, logger_name: str = "GUI"):
     """

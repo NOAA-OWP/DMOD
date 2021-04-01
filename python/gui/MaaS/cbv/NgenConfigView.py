@@ -7,6 +7,8 @@ from django.http import HttpRequest, HttpResponse
 from django.views.generic.base import View
 from django.shortcuts import render
 
+import dmod.communication as communication
+
 import logging
 logger = logging.getLogger("gui_log")
 
@@ -40,7 +42,7 @@ class NgenConfigView(View):
         :return: A rendered page
         """
 
-        if request.GET.get('cat-id', ''):
+        if request.GET.get('feature_ids', ''):
             return self.ngen_config(request)
         # If a list of error messages wasn't passed, create one
         if 'errors' not in kwargs:
@@ -69,20 +71,20 @@ class NgenConfigView(View):
             split = words.split("_")
             return " ".join(split).title()
 
-        models = list(get_available_models().keys())
+        models = list(communication.get_available_models().keys())
         domains = ['example-domain-A', 'example-domain-B', 'croton_NY'] #FIXME map this from supported domains
         outputs = list()
         distribution_types = list()
 
         # Create a mapping between each output type and a friendly representation of it
-        for output in get_available_outputs():
+        for output in communication.get_available_outputs():
             output_definition = dict()
             output_definition['name'] = humanize(output)
             output_definition['value'] = output
             outputs.append(output_definition)
 
         # Create a mapping between each distribution type and a friendly representation of it
-        for distribution_type in MaaSRequest.get_distribution_types():
+        for distribution_type in communication.MaaSRequest.get_distribution_types():
             type_definition = dict()
             type_definition['name'] = humanize(distribution_type)
             type_definition['value'] = distribution_type
@@ -93,7 +95,7 @@ class NgenConfigView(View):
             'models': models,
             'domains': domains,
             'outputs': outputs,
-            'parameters': get_parameters(),
+            'parameters': communication.get_parameters(),
             'distribution_types': distribution_types,
             'errors': errors,
             'info': info,
@@ -107,7 +109,10 @@ class NgenConfigView(View):
         """
             Process ngen-config form
         """
-        catchment = request.POST.get('cat-id')
+        catchments = request.POST.get('feature-ids', None)
+
+        if catchments is not None:
+            catchments = catchments.split("|")
 
         formulations = list()
 
@@ -117,7 +122,7 @@ class NgenConfigView(View):
 
         payload = {
            'formulations': formulations,
-           'catchment': catchment	          
+           'catchments': catchments
         }
 
         return render(request, 'maas/ngen_edit.html', payload)
@@ -133,11 +138,11 @@ class NgenConfigView(View):
         :return: A rendered page
         """
 
-        if request.POST.get('cat-id', ''):
+        if request.POST.get('feature-ids', ''):
             #render the configure view
             return self.ngen_config(request)
         else:
-            return request
+            """
             request_client = PostFormJobRequestClient(endpoint_uri=self.maas_endpoint_uri, http_request=request)
             logger.info("EditView.post: making job request")
             response = request_client.make_job_request(maas_job_request=request_client._init_maas_job_request(),
@@ -158,3 +163,5 @@ class NgenConfigView(View):
             if response is not None and 'job_id' in response.data:
                 http_response.set_cookie('new_job_id', response.data['job_id'])
             return http_response
+            """
+            return HttpResponse("Making a job request")
