@@ -1,3 +1,4 @@
+pytz
 pyyaml
 docker
 django-generate
@@ -12,3 +13,4 @@ wheel
 Deprecated
 cryptography
 python-dotenv
+djangorestframework
