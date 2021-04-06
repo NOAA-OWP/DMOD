@@ -95,7 +95,7 @@ class SimpleHFSubsetDefImpl(HFSubsetDefinition):
 
         Parameters
         ----------
-        subset_def : SubsetService
+        subset_def : SubsetHandler
             Simple subset definition object, encapsulating the required catchment and nexus ids.
 
         hydrofabric : Union[Sequence[Catchment, Nexus], Catchment, Nexus]
