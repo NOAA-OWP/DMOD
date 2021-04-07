@@ -5,7 +5,7 @@ from geopandas import GeoDataFrame
 from pandas import DataFrame
 from pathlib import Path
 from typing import Dict, Optional, Union
-from ..forcingservice.subset import SubsetHandlerImpl
+from ..modeldata.subset import SubsetHandlerImpl
 
 
 class TestSubsetServiceImpl(unittest.TestCase):
