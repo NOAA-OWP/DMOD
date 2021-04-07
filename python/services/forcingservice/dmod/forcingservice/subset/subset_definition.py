@@ -4,20 +4,47 @@ from typing import Collection, Tuple
 class SubsetDefinition:
     """
     Simple type to encapsulate the essential metadata parameters for defining a subset of catchments.
+
+    Both equality and hash rely upon catchment ids and nexus ids, assuming the same elements in the same order.
+    Conceptually, this also implies no duplicates can be allowed.  As such, initialization values first have any
+    duplicates removed and then use sorted results to create the internal representations.  These are stored in tuples
+    to be immutable.
     """
 
-    __slots__ = ["_catchment_ids", "_catchment_ids_tuple", "_nexus_ids", "_nexus_ids_tuple"]
+    __slots__ = ["_catchment_ids", "_nexus_ids"]
 
     def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str]):
-        self._catchment_ids = set(catchment_ids)
-        self._nexus_ids = set(nexus_ids)
-        self._catchment_ids_tuple = tuple(self._catchment_ids)
-        self._nexus_ids_tuple = tuple(self._nexus_ids)
+        self._catchment_ids = tuple(sorted(set(catchment_ids)))
+        self._nexus_ids = tuple(sorted(set(nexus_ids)))
+
+    def __eq__(self, other):
+        return isinstance(other, SubsetDefinition) \
+               and self.catchment_ids == other.catchment_ids \
+               and self.nexus_ids == other.nexus_ids
+
+    def __hash__(self):
+        joined_cats = ','.join(self.catchment_ids)
+        joined_nexs = ','.join(self.nexus_ids)
+        joined_all = ','.join((joined_cats, joined_nexs))
+        return hash(joined_all)
 
     @property
     def catchment_ids(self) -> Tuple[str]:
-        return self._catchment_ids_tuple
+        return self._catchment_ids
+
+    @property
+    def id(self):
+        """
+        The unique id of this instance.
+
+        The unique identifier for this instance, which in the base implementation is just the unique hash value.
+
+        Returns
+        -------
+        The unique id of this instance.
+        """
+        return self.__hash__()
 
     @property
     def nexus_ids(self) -> Tuple[str]:
-        return self._nexus_ids_tuple
+        return self._nexus_ids
