@@ -3,7 +3,7 @@
 ARG docker_internal_registry
 FROM ${docker_internal_registry}/dmod-py-sources as sources
 
-FROM python:3.7-alpine
+FROM python:3.8-alpine
 ARG comms_package_name
 ARG access_package_name
 ARG externalrequests_package_name
