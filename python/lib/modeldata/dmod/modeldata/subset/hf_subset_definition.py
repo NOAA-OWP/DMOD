@@ -5,7 +5,7 @@ from typing import Collection, Sequence, Set, Tuple, Union
 from .subset_definition import SubsetDefinition
 
 
-class HFSubsetDefinition(ABC, SubsetDefinition):
+class HydrofabricSubset(ABC, SubsetDefinition):
     """
     Abstract extension of ::class:`SubsetDefinition` that also contains a hydrofabric for at least its defined parts.
 
@@ -28,7 +28,7 @@ class HFSubsetDefinition(ABC, SubsetDefinition):
     __slots__ = ["_hydrofabric"]
 
     def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str], hydrofabric):
-        super(HFSubsetDefinition, self).__init__(catchment_ids, nexus_ids)
+        super(HydrofabricSubset, self).__init__(catchment_ids, nexus_ids)
         if not self.validate_hydrofabric(hydrofabric):
             raise RuntimeError("Insufficient or wrongly formatted hydrofabric when trying to create {} object".format(
                 self.__class__.__name__
@@ -81,15 +81,15 @@ class HFSubsetDefinition(ABC, SubsetDefinition):
         pass
 
 
-class SimpleHFSubsetDefImpl(HFSubsetDefinition):
+class SimpleHydrofabricSubset(HydrofabricSubset):
     """
-    Simple ::class:`HFSubsetDefinition` type hydrofabric being one or more catchment or nexus objects.
+    Simple ::class:`HydrofabricSubset` type hydrofabric being one or more catchment or nexus objects.
     """
 
     @classmethod
     def factory_create_from_base_and_hydrofabric(cls, subset_def: SubsetDefinition,
                                                  hydrofabric: Union[Sequence[Union[Catchment, Nexus]], Catchment, Nexus]) \
-            -> 'SimpleHFSubsetDefImpl':
+            -> 'SimpleHydrofabricSubset':
         """
         Convenience method for creating from a simpler subset def object and a hydrofabric.
 
@@ -103,7 +103,7 @@ class SimpleHFSubsetDefImpl(HFSubsetDefinition):
 
         Returns
         -------
-        SimpleHFSubsetDefImpl
+        SimpleHydrofabricSubset
             A ::class:`SimpleHFSubsetDefinition` object for the same subset defined by ``subset_def``.
         """
         return cls(catchment_ids=subset_def.catchment_ids, nexus_ids=subset_def.nexus_ids, hydrofabric=hydrofabric)
@@ -114,7 +114,7 @@ class SimpleHFSubsetDefImpl(HFSubsetDefinition):
                  hydrofabric: Union[Sequence[Union[Catchment, Nexus]], Catchment, Nexus]):
         self._catchments: Set[Catchment] = set()
         self._nexuses: Set[Nexus] = set()
-        super(SimpleHFSubsetDefImpl, self).__init__(catchment_ids, nexus_ids, hydrofabric)
+        super(SimpleHydrofabricSubset, self).__init__(catchment_ids, nexus_ids, hydrofabric)
 
     @property
     def catchments(self) -> Tuple[Catchment]:

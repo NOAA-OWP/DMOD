@@ -2,12 +2,12 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
 from typing import Collection, Optional, Sequence, Tuple
-from ..subset import SimpleHFSubsetDefImpl
+from ..subset import SimpleHydrofabricSubset
 
 
-class AbstractDataSubset(ABC, SimpleHFSubsetDefImpl):
+class AbstractDataSubset(ABC, SimpleHydrofabricSubset):
     """
-    Extension of ::class:`HFSubsetDefinition` that also encapsulates the applicable data.
+    Extension of ::class:`HydrofabricSubset` that also encapsulates the applicable data.
     """
 
     __slots__ = ["_data_directory", "_range_start", "_range_end"]
