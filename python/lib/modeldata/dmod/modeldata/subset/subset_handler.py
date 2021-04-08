@@ -118,25 +118,17 @@ class SubsetHandlerImpl(SubsetHandler):
     def read_hydrofabric_files(cls, catchment_data, nexus_data, cross_walk):
         id_error_msg = 'Unexpected format of {} file {}, without \'id\' or \'ID\' column'
 
-        def get_present_id_col(column_names):
-            if 'id' in column_names:
-                return 'id'
-            elif 'ID' in column_names:
-                return 'ID'
-            else:
-                return None
-
         catchment_hydro_fabric = gpd.read_file(catchment_data)
-        cat_id_col = get_present_id_col(catchment_hydro_fabric.columns)
-        if cat_id_col is None:
+        catchment_hydro_fabric.columns = catchment_hydro_fabric.columns.astype(str).str.lower()
+        if 'id' not in catchment_hydro_fabric.columns:
             raise RuntimeError(id_error_msg.format('catchment hydrofabric', catchment_data))
-        catchment_hydro_fabric.set_index(cat_id_col, inplace=True)
+        catchment_hydro_fabric.set_index('id', inplace=True)
 
         nexus_hydro_fabric = gpd.read_file(nexus_data)
-        nex_id_col = get_present_id_col(nexus_hydro_fabric)
-        if nex_id_col is None:
+        nexus_hydro_fabric.columns = nexus_hydro_fabric.columns.astype(str).str.lower()
+        if 'id' not in nexus_hydro_fabric.columns:
             raise RuntimeError(id_error_msg.format('nexus hydrofabric', catchment_data))
-        nexus_hydro_fabric.set_index(nex_id_col, inplace=True)
+        nexus_hydro_fabric.set_index('id', inplace=True)
 
         x_walk = pd.read_json(cross_walk, dtype=str)
         return catchment_hydro_fabric, nexus_hydro_fabric, x_walk
