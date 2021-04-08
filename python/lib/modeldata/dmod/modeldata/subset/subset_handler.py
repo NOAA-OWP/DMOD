@@ -62,9 +62,8 @@ class SubsetHandler(ABC):
         Get the subset starting from a particular catchment and going upstream.
 
         Function traverses the graph of Catchments and Nexuses, building a subset of the encountered entities as it
-        goes. As one might expect, the traverses the connections represented by ::attribute:`Catchment.inflow` and
-        ::attribute:`Nexus.contributing_catchments`.  Additionally, a containing catchment is also considered to be
-        upstream, so ::attribute:`Catchement.containing_catchment` is traversed also if set.
+        goes. It uses the connections represented by ::attribute:`Catchment.inflow` and
+        ::attribute:`Nexus.contributing_catchments`.
 
         It is possible to restrict how many links away from the original catchment to proceed.  Each attribute
         traversal, whether ending up in a catchment or nexus, is considered an incremental link.  If ``None`` or a
