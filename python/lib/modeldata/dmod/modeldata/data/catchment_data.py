@@ -7,11 +7,11 @@ from typing import List, Optional
 
 class CatchmentData:
     """
-    Encapsulation of forcing data for a particular catchment over some period.
+    Encapsulation of forcing, parameter, and/or other data for a particular catchment over some period.
 
     Data should be provided as a 2-D numpy array, with an additional init param for specifying column names.  The data
-    array should have each row be some datapoint of forcing attribute values for some time step, with the rows ordered
-    according to their time step (data from earlier in time should have lower row indexes).
+    array should have each row be some datapoint of attribute values for some time step, with the rows ordered according
+    to their time step (data from earlier in time should have lower row indexes).
 
     Optionally, data can contain a column for timestamps of each row/datapoint.  Such timestamps should be standard
     POSIX timestamp values.  They should be consistent with the params for the time range of the instance.
