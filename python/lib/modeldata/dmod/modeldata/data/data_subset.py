@@ -16,7 +16,7 @@ class AbstractDataSubset(ABC, SimpleHydrofabricSubset):
                  range_end: datetime, data_directory: Path):
 
         super(AbstractDataSubset, self).__init__(catchment_ids, nexus_ids, hydrofabric)
-        self.data_directory = None
+        self._data_directory = None
         self.data_directory = data_directory
         self._storage_size: int = 0
         self._range_start = range_start
@@ -33,6 +33,7 @@ class AbstractDataSubset(ABC, SimpleHydrofabricSubset):
         elif not data_directory.is_dir():
             raise ValueError("Received existing, non-directory file '{}' as {} data directory.".format(
                 self.__class__.__name__))
+        self._data_directory = data_directory
 
     @property
     def range_end(self) -> datetime:
