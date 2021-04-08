@@ -2,7 +2,7 @@ import geopandas as gpd
 import pandas as pd
 
 from abc import ABC, abstractmethod
-from hypy import Catchment, Nexus
+from hypy import Catchment, HydroLocation, Nexus
 from queue import Queue
 from typing import Collection, Dict, Optional, Set, Union
 from .subset_definition import SubsetDefinition
@@ -205,9 +205,8 @@ class SubsetHandlerImpl(SubsetHandler):
             receiving = set()
             for cid in nexus_receiving_cats[nex_id]:
                 receiving.add(hf[cid])
-            # TODO: fix as hydro_location should probably not be None
-            hf[nex_id] = Nexus(nexus_id=nex_id, hydro_location=None, receiving_catchments=list(receiving),
-                               contributing_catchments=list(contributing))
+            hf[nex_id] = Nexus(nexus_id=nex_id, hydro_location=HydroLocation(realized_nexus=nex_id),
+                               receiving_catchments=list(receiving), contributing_catchments=list(contributing))
         # Now go back and apply the right to/from relationships for catchments
         for cat_id, nex_id in cat_to.items():
             hf[cat_id]._outflow = hf[nex_id]
