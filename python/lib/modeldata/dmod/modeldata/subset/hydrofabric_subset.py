@@ -5,7 +5,7 @@ from typing import Collection, Sequence, Set, Tuple, Union
 from .subset_definition import SubsetDefinition
 
 
-class HydrofabricSubset(ABC, SubsetDefinition):
+class HydrofabricSubset(SubsetDefinition, ABC):
     """
     Abstract extension of ::class:`SubsetDefinition` that also contains a hydrofabric for at least its defined parts.
 
