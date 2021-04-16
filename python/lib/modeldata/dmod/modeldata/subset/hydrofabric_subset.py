@@ -28,7 +28,7 @@ class HydrofabricSubset(SubsetDefinition, ABC):
     __slots__ = ["_hydrofabric"]
 
     def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str], hydrofabric):
-        super(HydrofabricSubset, self).__init__(catchment_ids, nexus_ids)
+        SubsetDefinition.__init__(catchment_ids=catchment_ids, nexus_ids=nexus_ids)
         if not self.validate_hydrofabric(hydrofabric):
             raise RuntimeError("Insufficient or wrongly formatted hydrofabric when trying to create {} object".format(
                 self.__class__.__name__
