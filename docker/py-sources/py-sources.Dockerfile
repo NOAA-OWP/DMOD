@@ -2,12 +2,13 @@
 ################################################################################################################
 ##### Create base level intermediate build stage
 FROM python:3.8-alpine as basis
-ARG REQUIRE="gcc musl-dev libffi-dev openssl-dev rust cargo"
+ARG REQUIRE="gcc g++ musl-dev gdal-dev libffi-dev openssl-dev rust cargo git"
 RUN apk update && apk upgrade && apk add --no-cache ${REQUIRE}
 # Copy project requirements file, which should have everything needed to build any package within project
 COPY ./requirements.txt /nwm_service/requirements.txt
 # Along with setup and wheel to build, install all project pip dependencies for package building later
-RUN mkdir /DIST && pip install --upgrade pip && pip wheel --no-cache-dir -w /DIST -r /nwm_service/requirements.txt
+RUN mkdir /DIST && pip install --upgrade pip
+RUN pip wheel --no-cache-dir --wheel-dir /DIST --prefer-binary -r /nwm_service/requirements.txt
 # Needed for sourced functions used by build scripts in later stages
 RUN mkdir -p /nwm_service/scripts/shared
 COPY ./scripts/dist_package.sh /nwm_service/scripts
