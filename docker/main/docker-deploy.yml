@@ -85,6 +85,27 @@ services:
     #  - ./request_handler:/code
     #depends_on:
     #  - myredis
+  subset-service:
+    image: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/subset-service
+    networks:
+      - requests-net
+    ports:
+      - ${DOCKER_SUBSET_API_PORT:-5001}:${DOCKER_SUBSET_CONTAINER_PORT:-5000}
+    volumes:
+      - ${HYDROFABRIC_DATA_DIR:?Please set HYDROFABRIC_DATA_DIR for Docker environment in .env config file}:/hydrofabric_data
+    deploy:
+      placement:
+        constraints:
+          - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_1:-node.role==manager}
+          - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
+    secrets:
+      - myredis_pass
+    environment:
+      - LISTEN_PORT=${DOCKER_SUBSET_CONTAINER_PORT:-5000}
+      - SERVICE_PACKAGE_NAME=${PYTHON_PACKAGE_NAME_SUBSET_SERVICE:?}
+      - FILES_DIRECTORY=/hydrofabric_data
+    entrypoint: ["python3", "-m", "${PYTHON_PACKAGE_NAME_SUBSET_SERVICE:?}"]
+    command: ["--files-directory", "/hydrofabric_data", "--port", "${DOCKER_SUBSET_CONTAINER_PORT:-5000}"]
 networks:
     mpi-net:
         external: true
