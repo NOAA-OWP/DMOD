@@ -12,6 +12,7 @@ setuptools
 wheel
 Deprecated
 cryptography
+flask
 pandas
 geopandas
 gitpython
