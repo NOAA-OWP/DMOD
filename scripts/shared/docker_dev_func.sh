@@ -70,7 +70,7 @@ docker_dev_build_stack_images()
     # This checks that the config is valid
     elif docker-compose -f "${1}" config > /dev/null 2>&1; then
         echo "Building container images for stack ${2} from config ${1}"
-        docker-compose -f "${1}" ${@:3} build
+        docker-compose -f "${1}" build ${@:3}
         return $?
     else
         >&2 echo "Error: invalid stack config ${1}"
