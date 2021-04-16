@@ -30,6 +30,8 @@ ARG REQUIRE="sudo build-base gfortran openssl curl curl-dev tar git m4 zlib-dev 
 #ARG NETCDF_C_VERSION="v4.6.0"
 ARG NETCDF_C_VERSION
 ENV NETCDF_C_VERSION ${NETCDF_C_VERSION:-latest}
+ARG NETCDF_FORTRAN_VERSION
+ENV NETCDF_FORTRAN_VERSION ${NETCDF_FORTRAN_VERSION:-latest}
 ENV HYDRA_HOST_FILE /etc/opt/hosts
 # MPICH Build Options:
 # See installation guide of target MPICH version
@@ -84,12 +86,20 @@ RUN apk update && apk upgrade && apk add --repository ${REPOS} --no-cache ${REQU
     && LIBS=curl && ./configure CPPFLAGS=-I/usr/local/include --prefix=/usr \
     && make -j 8 && make install \
     && cd /tmp \
-    && curl -s https://api.github.com/repos/Unidata/netcdf-fortran/releases/latest \
-           | grep "tarball_url" \
-           | cut -d '"' -f 4 \
-           | sudo xargs wget -O netcdf-fortran-latest.tar.gz \
+    && if [[ "${NETCDF_FORTRAN_VERSION}" == "latest" ]]; then \
+                curl -s https://api.github.com/repos/Unidata/netcdf-fortran/releases/latest \
+                    | grep "tarball_url" \
+                    | cut -d '"' -f 4 \
+                    | sudo xargs wget -O netcdf-fortran-latest.tar.gz ; \
+            else \
+                curl -s https://api.github.com/repos/Unidata/netcdf-fortran/releases \
+                    | grep "tarball_url" \
+                    | grep "${NETCDF_FORTRAN_VERSION}" \
+                    | cut -d '"' -f 4 \
+                    | sudo xargs wget -O netcdf-fortran-${NETCDF_FORTRAN_VERSION}.tar.gz ; \
+            fi \
     && mkdir netcdf-fortran \
-    && tar -xzf netcdf-fortran-latest.tar.gz -C netcdf-fortran --strip 1 \
+    && tar -xzf netcdf-fortran-${NETCDF_FORTRAN_VERSION}.tar.gz -C netcdf-fortran --strip 1 \
     && cd netcdf-fortran \
     && FC=mpif90 ./configure --prefix=/usr \
     && make -j 8 && make install \
