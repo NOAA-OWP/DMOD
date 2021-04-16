@@ -1,0 +1,297 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block scripts %}
+<script>
+    var configurableFeatures = [];
+    var configurableFormulations = {};
+
+    {% for feature in catchments %}
+        configurableFeatures.push("{{ feature }}");
+    {% endfor %}
+
+    {% for formulation in formulations %}
+        configurableFormulations[{{ formulation.id }}] = "{{ formulation.clean_name }}";
+    {% endfor %}
+</script>
+{% endblock scripts %}
+
+{% block styles %}
+    <link rel="stylesheet" href="{% static 'maas/css/configuration/ngen.css' %}"/>
+{% endblock styles %}
+
+{% block content %}
+<div id="content" style="padding: 5px;">
+    <form id="configuration-wrapper" method="post" action="{% url 'MaaS:compile' %}">
+        {% csrf_token %}
+        <input type="hidden" name="framework" id="framework" value="ngen"/>
+        <input type="hidden" name="features" id="configurable-features" />
+        <input type="hidden" name="formulations" id="configurable-formulations" />
+        <fieldset class="time-container" style="display: grid; position: relative; width: 50%">
+            <legend>Timing</legend>
+            <label for="start-time" class="key-column" style="grid-row: 1">Start Date and Time (GMT):</label>
+            <input type="datetime-local" pattern="mm-dd-yyyy HH:mm" class="value-column" style="grid-row: 1;" id="start-time" name="start-time" required>
+            <label for="end-time" class="key-column" style="grid-row: 2;">End Date and Time (GMT):</label>
+            <input type="datetime-local" class="value-column" pattern="mm-dd-yyyy HH:mm" style="grid-row: 2" id="end-time" name="end-time" required>
+        </fieldset>
+        <div id="configuration-navigation-alignment" style="display:grid; grid-template-columns: 200px auto">
+            <fieldset id="navigation" style="grid-column: 1; overflow-y: auto; height: 60vh; padding: 10px;">
+                <legend>Locations</legend>
+                <ul id="formulation-navigation-list" style="padding-left: 10px;">
+                    <li class="formulation-navigation-item" id="global-navigation-tag" to="global-configuration">
+                        <span class="formulation-navigation-item-label">All by Default</span>
+                    </li>
+                    {% for feature in catchments %}
+                        <li class="formulation-navigation-item" id="{{ feature }}-navigation-tag" to="{{ feature }}-edit-fields">
+                            <span class="formulation-navigation-item-label">{{ feature }}</span>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </fieldset>
+            <fieldset id="feature-configurations" style="grid-column: 2; overflow-y: auto; height: 60vh; padding: 10px;">
+                <legend>Configuration</legend>
+                <details id="global-configuration" style="padding: 10px;">
+                    <summary>Default Formulation</summary>
+                    <div class="detail-contents">
+                        <div style="margin: 5px">
+                            <label for="global-formulation-type"><b>Formulation</b></label>
+                            <select id="global-formulation-type" name="global-formulation-type" required style="margin-left: 10px;">
+                                <option title=""></option>
+
+                                {% for formulation in formulations %}
+                                    <option value="{{ formulation.id }}" title="{{ formulation.description }}">{{ formulation.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <fieldset style="margin: 5px;" class="description-container">
+                            <legend><b>Description</b></legend>
+                            <p id="global-formulation-description" selector="global-formulation-type" class="description"></p>
+                        </fieldset>
+                        {% for formulation in formulations %}
+                            <div formulation="{{ formulation.id }}" class="global-formulation" id="global-{{ formulation.clean_name }}-configuration" style="display: none;">
+                                <fieldset>
+                                    <legend><b>Default {{ formulation.name }} Parameters:</b></legend>
+                                        <div class="parameters" style="display: grid">
+                                    {% for parameter in formulation.formulationparameter_set.all %}
+                                        <label for="global-{{ formulation.clean_name }}-{{ parameter.name }}" class="key-column">{{ parameter.name }}</label>
+                                        <input type="{{ parameter.value_type }}" id="global-{{ formulation.clean_name }}-{{ parameter.name }}"
+                                               name="global-{{ formulation.clean_name }}-{{ parameter.name }}"
+                                               title="{{ parameter.description }}" min='{{ parameter.minimum|default:"" }}'
+                                               max='{{ parameter.maximum|default:"" }}' value='{{ parameter.default_value|default:"" }}'
+                                               class="value-column">
+                                    {% endfor %}
+                                            </div>
+                                </fieldset>
+                            </div>
+                        {% endfor %}
+                        <fieldset>
+                            <legend><b>Forcing</b></legend>
+                            <div style="display: grid">
+                                <label for="global-forcing-pattern" class="key-column">File Pattern:</label>
+                                <input type="text" value="*" class="value-column" id="global-forcing-pattern" name="global-forcing-pattern">
+                                <label for="global-forcing-path" class="key-column">Path:</label>
+                                <input type="text" id="global-forcing-path" name="global-forcing-path" class="value-column">
+                            </div>
+                        </fieldset>
+                        <script>
+                            startup_scripts.push(
+                                function() {
+                                    $("#global-formulation-type").on("change", function(event){
+                                        $(".global-formulation").hide();
+                                        var selector = ".global-formulation[formulation=" + this.value + "]";
+                                        $(selector).show();
+
+                                        var title = this.options[this.value].title;
+                                        $("#global-formulation-description").text(title);
+
+                                        if (title != null && title != "") {
+                                            $("#global-formulation-description").parent().show();
+                                        }
+                                        else {
+                                            $("#global-formulation-description").parent().hide();
+                                        }
+                                    });
+                                }
+                            );
+                        </script>
+                    </div>
+                </details>
+                {% for feature in catchments %}
+                    <details id="{{ feature }}-edit-fields" style="padding: 10px;">
+                        <summary>{{ feature }}</summary>
+                        <div class="detail-contents">
+                            <div style="margin: 5px">
+                                <label for="{{ feature }}-formulation-type"><b>Formulation</b></label>
+                                <select id="{{ feature }}-formulation-type" name="{{ feature }}-formulation-type" style="margin-left:10px;">
+                                    <option value="global" title="Use the global contiguration" selected>Global Configuration</option>
+                                    {% for formulation in formulations %}
+                                        <option value="{{ formulation.id }}" title="{{ formulation.description }}">{{ formulation.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <fieldset style="margin: 5px;" class="description-container">
+                                <legend><b>Description</b></legend>
+                                <p id="{{ feature }}-formulation-description" selector="{{ feature }}-formulation-type" class="description"></p>
+                            </fieldset>
+                            {% for formulation in formulations %}
+                                <fieldset class="{{ feature }} feature-formulation" formulation="{{ formulation.id }}"
+                                     id="{{ feature }}-{{ formulation.clean_name }}-configuration">
+                                    <legend><b>{{ formulation.clean_name }} Parameters for {{ feature }}</b></legend>
+                                    <div class="parameters" display="grid">
+                                        {% for parameter in formulation.formulationparameter_set.all %}
+                                            <label for="{{ feature }}-{{ formulation.clean_name }}-{{ parameter.name }}" class="key-column">{{ parameter.name }}</label>
+                                            <input type="{{ parameter.value_type }}" id="{{ feature }}-{{ formulation.clean_name }}-{{ parameter.name }}"
+                                                   title="{{ parameter.description }}" min='{{ parameter.minimum|default:"" }}'
+                                                   max='{{ parameter.maximum|default:"" }}' value='{{ parameter.default_value|default:"" }}'
+                                                    name="{{ feature }}-{{ formulation.clean_name }}-{{ parameter.name }}"
+                                                   class="value-column">
+                                        {% endfor %}
+                                    </div>
+                                </fieldset>
+                            {% endfor %}
+                            <fieldset>
+                                <legend>Forcing</legend>
+                                <div style="display: grid">
+                                    <label for="{{ feature }}-forcing-pattern" class="key-column">File Pattern:</label>
+                                    <input type="text" value="*" class="value-column" id="{{ feature }}-forcing-pattern" name="{{ feature }}-forcing-pattern">
+                                    <label for="{{ feature }}-forcing-path" class="key-column">Path:</label>
+                                    <input type="text" id="{{ feature }}-forcing-path" name="{{ feature }}-forcing-path" class="value-column">
+                                </div>
+                            </fieldset>
+                            <script>
+                                startup_scripts.push(
+                                    function() {
+                                        $("#{{ feature }}-formulation-type").on("change", function(event){
+                                            $(".{{ feature }}.feature-formulation").hide();
+                                            var selector = ".{{ feature }}.feature-formulation[formulation=" + this.value + "]";
+                                            $(selector).show();
+
+                                            var title = this.options[this.value].title;
+
+                                            if (title == null || title == "") {
+                                                $("#{{ feature }}-formulation-description").parent().hide();
+                                            }
+                                            else {
+                                                $("#{{ feature }}-formulation-description").parent().show();
+                                                $("#{{ feature }}-formulation-description").text(this.options[this.value].title);
+                                            }
+                                        });
+                                    }
+                                );
+                            </script>
+                        </div>
+                    </details>
+                {% endfor %}
+            </fieldset>
+        </div>
+        <button class="btn btn-primary btn-lg btn-block MaaS-btn" type="submit" id="submit-formulations">SUBMIT</button>
+    </form>
+</div>
+
+<script>
+function mouseIntoTag(event) {
+    var toAttribute = this.attributes.getNamedItem("to");
+
+    if (toAttribute != null) {
+        // From tag to pane
+        $(this).addClass("summary-hover");
+        $("#" + toAttribute.value + " summary").addClass("summary-hover");
+    }
+    else {
+        // From pane to tag
+        $("#" + this.id + " summary").addClass("summary-hover");
+        $("li[to=" + this.id + "]").addClass("summary-hover");
+    }
+}
+
+function mouseOutOfTag(event) {
+    var toAttribute = this.attributes.getNamedItem("to");
+
+    if (toAttribute != null) {
+        // From tag to pane
+        $(this).removeClass("summary-hover");
+        $("#" + toAttribute.value + " summary").removeClass("summary-hover");
+    }
+    else {
+        // From pane to tag
+        $("#" + this.id + " summary").removeClass("summary-hover");
+        $("li[to=" + this.id + "]").removeClass("summary-hover");
+    }
+}
+
+function openConfigurationDetails(id) {
+    var notSelector = "details:not(#" + id + ")";
+    $(notSelector).removeAttr('open');
+    $("#" + id).attr("open", "");
+}
+
+ startup_scripts.push(
+    function() {
+        $("details").on("click", function(event){
+            var id = this.id;
+            var notSelector = "details:not(#" + id + ")";
+            $(notSelector).removeAttr('open');
+            $(".summary-selected").removeClass("summary-selected");
+            $("li[to=" + id + "]").addClass("summary-selected");
+        });
+
+        $("li.formulation-navigation-item").on("mouseenter", mouseIntoTag);
+        $("li.formulation-navigation-item").on("mouseleave", mouseOutOfTag);
+        $("details").on("mouseenter", mouseIntoTag);
+        $("details").on("mouseleave", mouseOutOfTag);
+    }
+);
+startup_scripts.push(
+    function() {
+        $("li.formulation-navigation-item").on("click", function(event) {
+            var to = this.attributes['to'].value;
+            openConfigurationDetails(to);
+
+            $(".summary-selected").removeClass("summary-selected");
+            $(this).addClass("summary-selected");
+        });
+    }
+);
+
+startup_scripts.push(
+    function() {
+        $("#configuration-wrapper").on("submit", function(event) {
+            $("#configurable-features").val(configurableFeatures.join("|"));
+            $("#configurable-formulations").val(JSON.stringify(configurableFormulations));
+        });
+    }
+);
+
+startup_scripts.push(
+    function() {
+        $(".description").each(
+            function(index, element) {
+                var selectElement = element.attributes['selector'].value;
+
+                var selectorTitle = $("#" + selectElement).find(":selected").attr("title");
+
+                if (selectorTitle == null || selectorTitle == "") {
+                    $(this).parent().hide();
+                }
+                else {
+                    $(this).text(selectorTitle);
+                    $(this).parent().show();
+                }
+            }
+        );
+    }
+);
+
+startup_scripts.push(
+    function() {
+        // Why isn't CSS used? It will sometimes stick the asterisk INSIDE the input rather than outside
+        $("input[required], select[required]").after(function(index) {
+            if (this.style['grid-row']) {
+                return "<span style='color: red; width: fit-content; grid-row:" + this.style['grid-row'] + ";'>*</span>";
+            }
+            return "<span style='color: red; width: fit-content;'>*</span>";
+        });
+    }
+);
+</script>
+{% endblock content %}

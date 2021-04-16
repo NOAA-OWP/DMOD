@@ -3,14 +3,12 @@
     background: url(/static/common/img/favicon.png) no-repeat left center;
     background-size: 100px 100px;
     background-position-x: 10px;
-    height: 125px;
+    height: fit-content;
     background-color: #33ade0;
 }
 
 #base-banner h1 {
-    padding-top: 42px;
-    margin-left: 125px;
-    margin-top: 0px;
+    padding: 25px;
     font-family: sans-serif;
     color: white;
 }
@@ -35,4 +33,46 @@ body {
 
 input[type="checkbox"] + label {
     cursor: pointer;
+}
+
+.MaaS-btn {
+    margin: 10px 0px;
+    color: white;
+    background-color: #E06633;
+    border: none;
+    font-weight: bold;
+    height: 40px;
+    font-size: larger;
+    cursor: pointer;
+}
+
+.MaaS-btn:hover {
+    background-color: #e7875f;
+}
+
+fieldset {
+    background-color: white;
+    margin: 5px;
+}
+
+legend {
+    padding: 3px;
+    color: white;
+    background-color: #33ade0;
+    font-weight: bold;
+    border: none;
+    width: fit-content;
+}
+
+details summary {
+    font-weight: bold;
+    padding: 10px;
+    background-color: #33ade0;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+summary:hover, summary.summary-hover {
+    background-color: #E06633;
 }

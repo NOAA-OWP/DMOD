@@ -29,7 +29,8 @@ const DataPane = {
 
         const removeClickedValue = function(event) {
             var id = this.attributes.value.value;
-            removeFeature(id);
+            var feature = selectedLayers[id].feature
+            removeFeature(feature);
         }
 
         const addValues = function(selectedValues) {

@@ -2,7 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title>{{ title|default:"DMOD" }}</title>
+        <title>{{ title|default:"Distributed Model on Demand" }}</title>
         {% load static %}
         <link rel="shortcut icon" type="image/png" href="{% static 'common/img/favicon.png' %}"/>
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
@@ -20,7 +20,7 @@
         <header id="base-header">
             <div id="base-banner">
                 {% block bannercontent %}
-                    <h1>{{ banner_title|default:"DMOD" }}</h1>
+                    <h1>{{ banner_title|default:"Distributed Model on Demand" }}</h1>
                 {% endblock bannercontent %}
             </div>
             {% block navbar %}{% endblock navbar %}

@@ -13,8 +13,6 @@
        crossorigin=""></script>
     <script src="{% static 'common/js/map.js' %}"></script>
     <script>
-        var catchments = {{ catchments|safe }};
-
         {% if center %}
             var centerLine = [{{ center.0 }}, {{ center.1 }}];
             console.log("Using passed center line");
@@ -41,7 +39,23 @@
         {% endautoescape %}
 
         {% if layerStyle %}
-            var layerStyle = {{ layerStyle }};
+            {% for style_name, value in layerStyle.items %}
+                startup_scripts.push(
+                    function() {
+                        layerStyle[style_name] = value;
+                    }
+                );
+            {% endfor %}
+        {% endif %}
+
+        {% if lineStyle %}
+            {% for style_name, value in lineStyle.items %}
+                startup_scripts.push(
+                    function() {
+                        lineStyle[style_name] = value;
+                    }
+                );
+            {% endfor %}
         {% endif %}
 
     </script>
@@ -49,15 +63,24 @@
 
 {% block content %}
 <div id="content" class="pane" style="overflow-y: auto; height: 75vh; margin: 20px">
+    <fieldset id="fabric-fields" style="width: fit-content">
+        <legend>Fabric</legend>
+        <select id="fabric-selector" onchange="loadFabric()"></select>
+    </fieldset>
     <div id="mapid" style="width: {{ map_width|default:'95vw' }}; height: {{ map_height|default:'70vh' }}; margin: auto"></div>
 </div>
 
 {% include "data_pane.html" %}
 
-<form id="location-selection-form" method="post" style="display: none" action="{% url 'MaaS:ngen_config' %}">
-    <input type="hidden" name="feature-ids" />
-    {# Add the token to provide cross site request forgery protection #}
+<form id="location-selection-form" method="post" style="display: none" action="{% url 'MaaS:create_config' %}">
     {% csrf_token %}
+    <input type="hidden" name="feature-ids" />
+    <input type="hidden" name="fabric" />
+    {# Add the token to provide cross site request forgery protection #}
+
+    {% for pane_input in pane_inputs %}
+        <input type="hidden" name="{{ pane_input.id }}" id="{{ pane_input.id }}" >
+    {% endfor %}
 </form>
 
 <script>
@@ -69,6 +92,9 @@
             dataPane.setOnSubmit(submitFeatures);
         }
     );
+
+    startup_scripts.push(loadFabricNames);
+    startup_scripts.push(loadFabric);
 </script>
 
 {% endblock content %}

@@ -13,7 +13,7 @@
     #{{ datapane_id|default:"data-pane-wrapper" }} #data-pane {
         grid-column: 2;
         grid-row: 1;
-        height: 100%;
+        height: auto;
         padding-right: 20px;
         white-space: nowrap;
         display: none;
@@ -60,6 +60,22 @@
     #{{ datapane_id|default:"data-pane-wrapper" }} #value-list .even-row {
         background-color: #F0F0F0
     }
+
+    div.pane-input-grouping {
+        margin: 5px 5px 0px 5px;
+    }
+
+    div.pane-input-grouping label {
+        margin-right: 10px;
+    }
+
+    #submit-values-button {
+        width: 100%;
+    }
+
+    .remove-button {
+        cursor: pointer;
+    }
 </style>
 <script src="{% static 'common/js/data_pane.js' %}"></script>
 <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
@@ -67,10 +83,55 @@
 <div id="{{ datapane_id|default:"data-pane-wrapper" }}" class="pane">
     <div id="pane-expander" title="View Data"></div>
     <div id="data-pane">
-        <fieldset id="value-fields" style="height: 90%">
+        <fieldset id="value-fields" style="height: 85%">
             <legend>Selected {{ datapane_label|default:"Values" }}</legend>
             <div id="value-list" style="display: grid; overflow-y: auto;"></div>
         </fieldset>
-        <button type="submit" id="submit-values-button" style="margin: 10px;">{{ datapane_submission_label|default:"Continue" }}</button>
+        {% if pane_inputs %}
+            {% for pane_input in pane_inputs %}
+                <div class="pane-input-grouping">
+                    <label for="{{ pane_input.id }}-editor" title="{{ pane_input.description }}">{{ pane_input.name }}</label>
+                    {% if pane_input.input_type == "select" %}
+                        <select id="{{ pane_input.id }}-editor" update="{{ pane_input.id }}" title="{{ pane_input.description }}" class="pane-input">
+                            {% for choice in pane_input.choices %}
+                                {% if choice.is_selected %}
+                                    <option value="{{ choice.value }}" title="{{ choice.description }}" selected>{{ choice.name }}</option>
+                                {% else %}
+                                    <option value="{{ choice.value }}" title="{{ choice.description }}">{{ choice.name }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                    {% else %}
+                        <input type="{{ pane_input.input_type }}" class="pane-input" id="{{ pane_input.id }}-editor" title="{{ pane_input.description }}" update="{{ pane_input.id }}"
+                               {% for attribute_name, attribute_value in pane_input.attributes.items %}
+                                    {{ attribute_name }}="{{ attribute_value }}"
+                               {% endfor %}
+                               {% if pane_input.choices %}
+                                    list="{{ pane_input.id }}-choices"
+                               {% endif %}
+                               >
+                        {% if pane_input.choices %}
+                            <datalist id="{{ pane_input.id }}-choices">
+                                {% for choice in pane_input.choices %}
+                                    <option value="{{ choice.value }}" title="{{ choice.description }}">{{ choice.name }}</option>
+                                {% endfor %}
+                            </datalist>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            {% endfor %}
+            <script>
+                startup_scripts.push(function() {
+                    $("input.pane-input, select.pane-input").each(
+                        function(index, element) {
+                            var fieldToUpdate = "#" + element.attributes['update'].value;
+                            var value = $(element).val();
+                            $(fieldToUpdate).val(value);
+                        }
+                    );
+                });
+            </script>
+        {% endif %}
+        <button type="submit" id="submit-values-button" class="MaaS-btn">{{ datapane_submission_label|default:"Continue" }}</button>
     </div>
 </div>
