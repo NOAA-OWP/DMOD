@@ -19,6 +19,6 @@ setup(
     license='',
     include_package_data=True,
     #install_requires=['websockets', 'jsonschema'],vi
-    install_requires=['websockets', 'jsonschema', 'redis'],
+    install_requires=['websockets>=8.1', 'jsonschema', 'redis'],
     packages=find_namespace_packages(include=['dmod.*'], exclude=('tests'))
 )
