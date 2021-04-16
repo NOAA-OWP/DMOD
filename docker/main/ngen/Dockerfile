@@ -10,6 +10,7 @@ FROM ${DOCKER_INTERNAL_REGISTRY}/ngen-deps:latest
 ARG REPO_URL=https://github.com/NOAA-OWP/ngen.git
 ARG BRANCH=master
 ARG COMMIT
+ARG BUILD_PARALLEL_JOBS
 ENV PATH "${WORKDIR}/bin:${PATH}"
 ARG BOOST_VERSION=1.72.0
 ENV BOOST_ROOT=${WORKDIR}/boost
@@ -26,7 +27,7 @@ RUN wget https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_$
     && git submodule update --init --recursive -- test/googletest \
     && if [ "x$COMMIT" != "x" ]; then git checkout $COMMIT; fi \
     && cmake -B cmake-build -S . -DCMAKE_INSTALL_PREFIX=${WORKDIR} \
-    && cmake --build cmake-build -j 8 \
+    && cmake --build cmake-build -j ${BUILD_PARALLEL_JOBS} \
     #Run the tests, if they fail, the image build fails \
     && cmake-build/test/test_all \
     #FIXME remove the data copy, only there for temporary testing \
