@@ -57,7 +57,7 @@ class SubsetHandler(ABC):
             nex_ids.add(catchment.outflow.id)
         return SubsetDefinition(catchment_ids=catchment_ids, nexus_ids=nex_ids)
 
-    def get_upstream_subset(self, catchment_id: str, link_limit: Optional[int] = None) -> SubsetDefinition:
+    def get_upstream_subset(self, catchment_ids: Collection[str], link_limit: Optional[int] = None) -> SubsetDefinition:
         """
         Get the subset starting from a particular catchment and going upstream.
 
@@ -72,8 +72,8 @@ class SubsetHandler(ABC):
 
         Parameters
         ----------
-        catchment_id: str
-            The id of an originating catchment from which to proceed upstream.
+        catchment_ids: Collection[str]
+            Collection of ids of one or more originating catchment from which to proceed upstream.
 
         link_limit: Optional[int]
             An optional restriction of how far from the originating catchment entities may be to be added to the subset.
@@ -91,7 +91,8 @@ class SubsetHandler(ABC):
         # Nodes are a tuple of the catchment/nexus object, the link count to it, and bool indication if catchment
         # Third item should be faster than checking instance type repeatedly
         graph_nodes = Queue()
-        graph_nodes.put((self.get_catchment_by_id(catchment_id), 0, True))
+        for cid in catchment_ids:
+            graph_nodes.put((self.get_catchment_by_id(cid), 0, True))
 
         while graph_nodes.qsize() > 0:
             item, link_dist, is_catchment = graph_nodes.get()
