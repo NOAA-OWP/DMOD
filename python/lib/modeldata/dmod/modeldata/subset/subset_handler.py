@@ -84,7 +84,7 @@ class SubsetHandler(ABC):
             The generated subset definition object.
 
         """
-        if link_limit < 0:
+        if link_limit and link_limit < 0:
             link_limit = None
         cat_ids: Set[str] = set()
         nex_ids: Set[str] = set()
