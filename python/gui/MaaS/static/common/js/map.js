@@ -2,8 +2,35 @@
 const maxRows = 10;
 
 var layerUrls = [];
+
 var mymap = null;
-var layerStyle = {};
+
+var layerStyle = {
+    color: "#555",
+    weight: 5,
+    fillColor: "#00ad79",
+    fillOpacity: 0.6
+};
+
+var lineStyle = {
+    color: "#0328fc",
+    weight: 5,
+    fillColor: "#0328fc",
+    fillOpacity: 0.6
+};
+
+var selectedShapeStyle = {
+    fillColor: "#fce803"
+};
+
+var selectedLineStyle = {
+    weight: 10,
+    color: "#ffc130"
+}
+
+var activeLayer = null;
+var activeLayerName = null;
+var loadedLayers = {};
 
 const colorCycle = [
     "#5db4e4",
@@ -29,10 +56,6 @@ startup_scripts.push(
                 tileSize: 512,
                 zoomOffset: -1
             }).addTo(mymap);
-
-        var layers = getLayers();
-
-        plotMapLayers(layers, mymap);
     }
 );
 
@@ -62,24 +85,28 @@ function getLayers() {
     return layers;
 }
 
-function getLayer(layerUrl) {
-    var layers = [];
+function getServerData(serverUrl) {
+    var data = [];
 
     $.ajax(
         {
-            url: layerUrl.replaceAll("&amp;", "&"),
+            url: serverUrl,
             type: 'GET',
             async: false,
             error: function(xhr,status,error) {
                 console.error(error);
             },
             success: function(result,status,xhr) {
-                layers.push(result);
+                data.push(result);
             }
         }
     );
 
-    return layers;
+    if (data.length == 0) {
+        return null;
+    }
+
+    return data[0];
 }
 
 function layerCreation(geoJsonPoint, latlng) {
@@ -173,19 +200,26 @@ function propertiesToHTML(geojson) {
     return markup;
 }
 
-function getSelectedShapeStyle() {
-    return {
-        fillColor: "#fce803",
-    };
+function getSelectedShapeStyle(feature) {
+    var featureExists = feature != null && typeof feature != 'undefined';
+    var featureType = feature.geometry.type.toLowerCase();
+
+    if (featureExists && featureType.includes("linestring")) {
+        return selectedLineStyle;
+    }
+
+    return selectedShapeStyle;
 }
 
-function getShapeStyle() {
-    return {
-        color: "#555",
-        weight: 5,
-        fillColor: "#00ad79",
-        fillOpacity: 0.6
-    };
+function getShapeStyle(feature) {
+    var featureExists = feature != null && typeof feature != 'undefined';
+    var featureType = feature.geometry.type.toLowerCase();
+
+    if (featureExists && featureType.includes("linestring")) {
+        return lineStyle;
+    }
+
+    return layerStyle;
 }
 
 function formSelectionPane() {
@@ -193,12 +227,12 @@ function formSelectionPane() {
 }
 
 function layerClicked(event) {
-    var layer = event.target;
+    var layer = event.layer;
     var feature = layer.feature;
     console.log('clicked feature: '+ feature.id);
 
     if (feature.id in selectedFeatures) {
-        removeFeature(feature.id);
+        removeFeature(feature);
     }
     else {
         // Add the selected feature to the list
@@ -209,15 +243,15 @@ function layerClicked(event) {
 
 function addFeature(descriptor, id) {
     selectedFeatures[id] = descriptor;
-    selectedLayers[id].setStyle(getSelectedShapeStyle());
+    selectedLayers[id].setStyle(getSelectedShapeStyle(selectedLayers[id].feature));
     formSelectionPane();
 }
 
-function removeFeature(id) {
-    selectedLayers[id].setStyle(getShapeStyle());
+function removeFeature(feature) {
+    selectedLayers[feature.id].setStyle(getShapeStyle(feature));
 
-    delete selectedLayers[id];
-    delete selectedFeatures[id];
+    delete selectedLayers[feature.id];
+    delete selectedFeatures[feature.id];
 
     formSelectionPane();
 }
@@ -241,26 +275,107 @@ function submitFeatures(event) {
     document.forms['location-selection-form'].submit();
 }
 
-$(function() {
+function getFabricNames() {
+    var names = [];
+    var fabricNames = getServerData("fabric/names");
 
-    function onLayerCreation(feature, layer) {
-        var popupContent = propertiesToHTML(feature)
-
-        //hover popup
-        layer.bindTooltip(popupContent, {closeButton: false, offset: L.point(0, -20)});
-
-        //click popup
-        layer.on('click', layerClicked);
+    if (fabricNames != null) {
+        names = fabricNames['fabric_names'];
     }
 
-    var catchment_layer = L.geoJSON(
-        catchments,
+    return names;
+}
+
+function titleCase(str) {
+    return str.replaceAll("_", " ").toLowerCase().split(' ').map(function(word) {
+        return word.replace(word[0], word[0].toUpperCase());
+    }).join(' ');
+}
+
+function loadFabricNames() {
+    $.ajax(
         {
-            style: getShapeStyle(),
-            onEachFeature: onLayerCreation
+            url: "fabric/names",
+            type: 'GET',
+            error: function(xhr,status,error) {
+                console.error(error);
+            },
+            success: function(result,status,xhr) {
+                if (result != null) {
+                    result['fabric_names'].forEach(function(name) {
+                        $("#fabric-selector").append("<option value='" + name + "'>" + titleCase(name) + "</option>");
+                    });
+                    $("#fabric-selector option")[0].setAttribute("selected", "");
+                    loadFabric();
+                }
+            }
         }
     );
+}
 
-    catchment_layer.addTo(mymap);
-    mymap.fitBounds(catchment_layer.getBounds());
-});
+function loadFabric(event) {
+    var name = $("#fabric-selector").val();
+    $("input[name=fabric]").val(name);
+
+    var addTooltip = function(feature, layer) {
+        if ("id" in feature) {
+            layer.bindTooltip(feature["id"]);
+        }
+        else if ("properties" in feature && "Name" in feature["properties"]) {
+            layer.bindTooltip(feature['properties']['Name']);
+        }
+    }
+
+    var buildProperties = function(feature, layer) {
+        layer.bindPopup(propertiesToHTML(feature), {"maxWidth": 2000})
+        addTooltip(feature, layer);
+    };
+
+    var addDocument = function(document) {
+        var layer = L.geoJSON(
+            document.features,
+            {
+                onEachFeature: buildProperties,
+                style: getShapeStyle,
+                pointToLayer: layerCreation
+            }
+        ).addTo(mymap);
+        activeLayer = layer;
+
+        //click popup
+        activeLayer.on('click', layerClicked);
+
+        mymap.fitBounds(activeLayer.getBounds());
+    }
+
+    if (name && (name != activeLayerName || activeLayer == null)) {
+        activeLayerName = name;
+
+        if (activeLayer) {
+            Object.values(selectedLayers).forEach(layer => removeFeature(layer.feature.id));
+            activeLayer.remove();
+        }
+
+        if (name in loadedLayers) {
+            addDocument(loadedLayers[name]);
+        }
+        else {
+            var url = "fabric/" + name;
+            $.ajax(
+                {
+                    url: url,
+                    type: "GET",
+                    error: function(xhr, status, error) {
+                        console.error(error);
+                    },
+                    success: function(result, status, xhr) {
+                        if (result) {
+                            loadedLayers[name] = result;
+                            addDocument(result);
+                        }
+                    }
+                }
+            )
+        }
+    }
+}
