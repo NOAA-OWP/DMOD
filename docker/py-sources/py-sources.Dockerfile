@@ -29,8 +29,8 @@ ARG externalrequests_package_name
 ARG scheduler_package_name
 # Set this so script below will not run logic that only applies to when in a full Git repo directory tree
 ENV OUT_OF_GIT_REPO=true
-RUN for p in communication access externalrequests scheduler redis; do \
-        ./scripts/dist_package.sh --sys python/lib/${p} && mv python/lib/${p}/dist/*.whl /DIST/.; \
+RUN for p in `ls python/lib`; do \
+        [ -e python/lib/${p}/setup.py ] && ./scripts/dist_package.sh --sys python/lib/${p} && mv python/lib/${p}/dist/*.whl /DIST/.; \
     done
 ################################################################################################################
 
@@ -46,8 +46,8 @@ ENV PYTHON_PACKAGE_DIST_NAME_SCHEDULER_SERVICE=${scheduler_service_package_dist_
 # Set this so script below will not run logic that only applies to when in a full Git repo directory tree
 ENV OUT_OF_GIT_REPO=true
 # Build service dist packages
-RUN for p in requestservice schedulerservice; do \
-        ./scripts/dist_package.sh --sys python/services/${p}  && mv python/services/${p}/dist/*.whl /DIST/. ; \
+RUN for p in `ls python/services`; do \
+        [ -e python/services/${p}/setup.py ] && ./scripts/dist_package.sh --sys python/services/${p}  && mv python/services/${p}/dist/*.whl /DIST/. ; \
     done
 ################################################################################################################
 
