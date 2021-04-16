@@ -11,6 +11,7 @@ services:
       args:
         DOCKER_INTERNAL_REGISTRY: ${DOCKER_INTERNAL_REGISTRY:?}
         NETCDF_C_VERSION: ${NETCDF_C_VERSION:-latest}
+        NETCDF_FORTRAN_VERSION: ${NETCDF_FORTRAN_VERSION:-latest}
     depends_on:
       - base
   scheduler-service:
