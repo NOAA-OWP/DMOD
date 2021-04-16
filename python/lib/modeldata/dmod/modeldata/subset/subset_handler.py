@@ -112,6 +112,23 @@ class SubsetHandler(ABC):
 
         return SubsetDefinition(catchment_ids=cat_ids, nexus_ids=nex_ids)
 
+    @abstractmethod
+    def is_catchment_recognized(self, catchment_id: str) -> bool:
+        """
+        Test whether a catchment is recognized in the current hydrograph.
+
+        Parameters
+        ----------
+        catchment_id : str
+            The id of the catchment.
+
+        Returns
+        -------
+        bool
+            Whether the catchment is recognized.
+        """
+        pass
+
 
 class SubsetHandlerImpl(SubsetHandler):
 
@@ -232,3 +249,6 @@ class SubsetHandlerImpl(SubsetHandler):
             The appropriate catchment object from the hydrograph.
         """
         return self._hydrofabric_graph[catchment_id]
+
+    def is_catchment_recognized(self, catchment_id: str) -> bool:
+        return catchment_id in self._hydrofabric_graph
