@@ -1,7 +1,9 @@
-from typing import Collection, Tuple
+from numbers import Number
+from typing import Collection, Tuple, Dict, Union
+from dmod.communication.serializeable import Serializable
 
 
-class SubsetDefinition:
+class SubsetDefinition(Serializable):
     """
     Simple type to encapsulate the essential metadata parameters for defining a subset of catchments.
 
@@ -12,6 +14,13 @@ class SubsetDefinition:
     """
 
     __slots__ = ["_catchment_ids", "_nexus_ids"]
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        try:
+            return cls(**json_obj)
+        except Exception as e:
+            return None
 
     def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str]):
         self._catchment_ids = tuple(sorted(set(catchment_ids)))
@@ -48,3 +57,6 @@ class SubsetDefinition:
     @property
     def nexus_ids(self) -> Tuple[str]:
         return self._nexus_ids
+
+    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
+        return {'catchment_ids': list(self.catchment_ids), 'nexus_ids': list(self.nexus_ids)}
