@@ -22,7 +22,7 @@
 
 {% block content %}
 <div id="content" style="padding: 5px;">
-    <form id="configuration-wrapper" method="post" action="{% url 'MaaS:compile' %}">
+    <form id="configuration-wrapper" method="post" action="{% url 'MaaS:execute' %}">
         {% csrf_token %}
         <input type="hidden" name="framework" id="framework" value="ngen"/>
         <input type="hidden" name="features" id="configurable-features" />

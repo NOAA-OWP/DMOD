@@ -28,22 +28,23 @@ var selectedLineStyle = {
     color: "#ffc130"
 }
 
+var incidentalShapeStyle = {
+    fillColor: "#3a34eb"
+};
+
+var incidentalLineStyle = {
+
+};
+
 var activeLayer = null;
 var activeLayerName = null;
 var loadedLayers = {};
 
-const colorCycle = [
-    "#5db4e4",
-    "#e69f25",
-    "#079f72",
-    "#f1e444",
-    "#cc79a8",
-    "#d35f27",
-    "#0773b2",
-    "#000"
-];
-
 var selectedFeatures = {};
+
+// Features that were only selected because another feature was selected
+var incidentalFeatures = {};
+
 var selectedLayers = {};
 
 startup_scripts.push(
@@ -222,6 +223,17 @@ function getShapeStyle(feature) {
     return layerStyle;
 }
 
+function getIncidentalStyle(feature) {
+    var featureExists = feature != null && typeof feature != 'undefined';
+    var featureType = feature.geometry.type.toLowerCase();
+
+    if (featureExists && featureType.includes("linestring")) {
+        return incidentalLineStyle;
+    }
+
+    return incidentalShapeStyle;
+}
+
 function formSelectionPane() {
     dataPane.update(selectedFeatures);
 }
@@ -231,14 +243,68 @@ function layerClicked(event) {
     var feature = layer.feature;
     console.log('clicked feature: '+ feature.id);
 
-    if (feature.id in selectedFeatures) {
+    if (feature.id in incidentalFeatures) {
         removeFeature(feature);
+        removeIncidentalFeatures(feature.id);
     }
     else {
         // Add the selected feature to the list
         selectedLayers[feature.id] = layer;
         addFeature(feature.id, feature.id);
+        addIncidentalFeatures(feature.id);
     }
+}
+
+function addIncidentalFeatures(featureID) {
+    $.ajax({
+        url: "map/connections?id=" + featureID,
+        type: 'GET',
+        error: function(xhr,status,error) {
+            console.error(error);
+        },
+        success: function(result,status,xhr) {
+            incidentalFeatures[featureID] = [];
+
+            for (feature of result['connected_locations']) {
+                var featureLayers = Object.values(mymap._layers).filter(
+                    layer => "feature" in layer && layer.feature.id == feature
+                );
+
+                if (featureLayers.length == 0) {
+                    continue;
+                }
+
+                var featureLayer = featureLayers[0];
+                var incidentalFeature = featureLayer.feature;
+
+                // We want to color and select the feature if it wasn't manually clicked beforehand
+                if (Object.keys(incidentalFeatures).indexOf(feature) < 0) {
+                    featureLayer.setStyle(getIncidentalStyle(incidentalFeature));
+                }
+
+                // Reset the selection panel
+                selectedLayers[feature] = featureLayer;
+                selectedFeatures[feature] = feature;
+                incidentalFeatures[featureID].push(feature);
+            }
+
+            formSelectionPane();
+        }
+    });
+}
+
+function removeIncidentalFeatures(featureID) {
+    var featuresToRemove = incidentalFeatures[featureID].filter(feature => !(feature in incidentalFeatures));
+
+    for (feature of featuresToRemove) {
+        var layer = selectedLayers[feature];
+        layer.setStyle(getShapeStyle(layer.feature))
+        delete selectedFeatures[feature];
+        delete selectedFeatures[feature];
+    }
+
+    delete incidentalFeatures[featureID];
+    formSelectionPane();
 }
 
 function addFeature(descriptor, id) {
