@@ -88,7 +88,8 @@ class SimpleHydrofabricSubset(HydrofabricSubset):
 
     @classmethod
     def factory_create_from_base_and_hydrofabric(cls, subset_def: SubsetDefinition,
-                                                 hydrofabric: Union[Sequence[Union[Catchment, Nexus]], Catchment, Nexus]) \
+                                                 hydrofabric: Union[Sequence[Union[Catchment, Nexus]], Catchment, Nexus],
+                                                 *args, **kwargs) \
             -> 'SimpleHydrofabricSubset':
         """
         Convenience method for creating from a simpler subset def object and a hydrofabric.
@@ -101,17 +102,22 @@ class SimpleHydrofabricSubset(HydrofabricSubset):
         hydrofabric : Union[Sequence[Catchment, Nexus], Catchment, Nexus]
             Hydrofabric parameter of an acceptable type.
 
+        Other Parameters
+        ----------------
+        Other parameters utilized during initialization of the particular class/subclass implementation.
+
         Returns
         -------
         SimpleHydrofabricSubset
             A ::class:`SimpleHFSubsetDefinition` object for the same subset defined by ``subset_def``.
         """
-        return cls(catchment_ids=subset_def.catchment_ids, nexus_ids=subset_def.nexus_ids, hydrofabric=hydrofabric)
+        return cls(catchment_ids=subset_def.catchment_ids, nexus_ids=subset_def.nexus_ids, hydrofabric=hydrofabric,
+                   *args, **kwargs)
 
     __slots__ = ["_catchments", "_nexuses"]
 
     def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str],
-                 hydrofabric: Union[Sequence[Union[Catchment, Nexus]], Catchment, Nexus]):
+                 hydrofabric: Union[Sequence[Union[Catchment, Nexus]], Catchment, Nexus], *args, **kwargs):
         self._catchments: Set[Catchment] = set()
         self._nexuses: Set[Nexus] = set()
         super().__init__(catchment_ids, nexus_ids, hydrofabric)
