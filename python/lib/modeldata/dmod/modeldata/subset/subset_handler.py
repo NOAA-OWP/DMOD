@@ -44,7 +44,7 @@ class SubsetHandler(ABC):
 
         Parameters
         ----------
-        catchment_ids : Collection[str]
+        catchment_ids : Union[str, Collection[str]]
             The string ids of the desired catchments
 
         Returns
@@ -52,12 +52,15 @@ class SubsetHandler(ABC):
 
         """
         nex_ids: Set[str] = set()
+        if isinstance(catchment_ids, str):
+            catchment_ids = [catchment_ids]
         for cid in catchment_ids:
             catchment = self.get_catchment_by_id(cid)
             nex_ids.add(catchment.outflow.id)
         return SubsetDefinition(catchment_ids=catchment_ids, nexus_ids=nex_ids)
 
-    def get_upstream_subset(self, catchment_ids: Collection[str], link_limit: Optional[int] = None) -> SubsetDefinition:
+    def get_upstream_subset(self, catchment_ids: Union[str, Collection[str]],
+                            link_limit: Optional[int] = None) -> SubsetDefinition:
         """
         Get the subset starting from a particular catchment and going upstream.
 
@@ -72,7 +75,7 @@ class SubsetHandler(ABC):
 
         Parameters
         ----------
-        catchment_ids: Collection[str]
+        catchment_ids: Union[str, Collection[str]]
             Collection of ids of one or more originating catchment from which to proceed upstream.
 
         link_limit: Optional[int]
@@ -86,6 +89,8 @@ class SubsetHandler(ABC):
         """
         if link_limit and link_limit < 0:
             link_limit = None
+        if isinstance(catchment_ids, str):
+            catchment_ids = [catchment_ids]
         cat_ids: Set[str] = set()
         nex_ids: Set[str] = set()
         # Nodes are a tuple of the catchment/nexus object, the link count to it, and bool indication if catchment
