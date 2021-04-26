@@ -28,7 +28,7 @@ class HydrofabricSubset(SubsetDefinition, ABC):
     __slots__ = ["_hydrofabric"]
 
     def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str], hydrofabric):
-        SubsetDefinition.__init__(catchment_ids=catchment_ids, nexus_ids=nexus_ids)
+        super().__init__(catchment_ids=catchment_ids, nexus_ids=nexus_ids)
         if not self.validate_hydrofabric(hydrofabric):
             raise RuntimeError("Insufficient or wrongly formatted hydrofabric when trying to create {} object".format(
                 self.__class__.__name__
@@ -114,7 +114,7 @@ class SimpleHydrofabricSubset(HydrofabricSubset):
                  hydrofabric: Union[Sequence[Union[Catchment, Nexus]], Catchment, Nexus]):
         self._catchments: Set[Catchment] = set()
         self._nexuses: Set[Nexus] = set()
-        super(SimpleHydrofabricSubset, self).__init__(catchment_ids, nexus_ids, hydrofabric)
+        super().__init__(catchment_ids, nexus_ids, hydrofabric)
 
     @property
     def catchments(self) -> Tuple[Catchment]:
