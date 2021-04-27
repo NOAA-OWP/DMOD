@@ -50,6 +50,28 @@ def get_upstream_subset():
     return flask.jsonify(subset.to_dict())
 
 
+def _validate_subset(json_data):
+    subset = SubsetDefinition.factory_init_from_deserialized_json(json_data)
+    if subset is None:
+        return flask.jsonify({'valid': False, 'reason': 'Could not deserialize to subset definition object'})
+    is_valid, invalid_reason = subset_handler.validate(subset)
+    return flask.jsonify({'valid': is_valid, 'reason': '' if is_valid else invalid_reason})
+
+
+@app.route('/subset/validate', methods=['POST'])
+def validate_subset():
+    record = json.loads(flask.request.data)
+    return _validate_subset(json_data=record['subset'] if 'subset' in record else record)
+
+
+@app.route('/subset/validate_file', methods=['POST'])
+def validate_subset_file():
+    uploaded_file = flask.request.files['file']
+    if uploaded_file.filename == '':
+        return flask.jsonify({'valid': False, 'reason': 'Invalid file or filename provided to validation routine'})
+    return _validate_subset(json_data=json.load(uploaded_file))
+
+
 def _handle_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--catchment-data-file',
