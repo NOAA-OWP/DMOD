@@ -14,6 +14,6 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=['flask', 'dmod-modeldata>=0.1.0'],
+    install_requires=['flask', 'dmod-modeldata>=0.2.0'],
     packages=find_namespace_packages(exclude=('tests', 'test', 'deprecated', 'conf', 'schemas', 'ssl', 'src'))
 )
