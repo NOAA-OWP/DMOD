@@ -1,10 +1,9 @@
-import git
-import json
 import unittest
+import git
 
 from pathlib import Path
 from typing import Optional, Union
-from ..modeldata.subset import SimpleHydrofabricSubset, SubsetHandlerImpl
+from ..modeldata.subset import SimpleHydrofabricSubset, SubsetHandler, GeoJsonHydrofabricReader, MappedGraphHydrofabric
 
 
 class TestSimpleHydrofabricSubset(unittest.TestCase):
@@ -47,12 +46,14 @@ class TestSimpleHydrofabricSubset(unittest.TestCase):
         proj_root = Path(self.find_project_root())
         test_data_dir = proj_root.joinpath('data', 'example_hydrofabric_1')
 
-        self.subset_handler = SubsetHandlerImpl(catchment_data=test_data_dir.joinpath('catchment_data.geojson'),
-                                                nexus_data=test_data_dir.joinpath('nexus_data.geojson'),
-                                                cross_walk=test_data_dir.joinpath('crosswalk.json'))
-        self.hydrofabric_list = list()
-        for k in self.subset_handler._hydrofabric_graph:
-            self.hydrofabric_list.append(self.subset_handler._hydrofabric_graph[k])
+        catchment_geojson = test_data_dir.joinpath('catchment_data.geojson')
+        nexus_geojson = test_data_dir.joinpath('nexus_data.geojson')
+        crosswalk_json = test_data_dir.joinpath('crosswalk.json')
+
+        geojson_reader = GeoJsonHydrofabricReader(catchment_data=catchment_geojson, nexus_data=nexus_geojson,
+                                                  cross_walk=crosswalk_json)
+        self.hydrofabric = MappedGraphHydrofabric(geojson_reader.hydrofabric_graph, geojson_reader)
+        self.subset_handler = SubsetHandler(self.hydrofabric)
 
         self.subset_examples = list()
         ss = self.subset_handler.get_subset_for('cat-27')
@@ -65,7 +66,8 @@ class TestSimpleHydrofabricSubset(unittest.TestCase):
     def test_factory_create_from_base_and_hydrofabric_1_a(self):
         ex = 0
         hy_subset = SimpleHydrofabricSubset.factory_create_from_base_and_hydrofabric(self.subset_examples[ex],
-                                                                                     self.hydrofabric_list)
+                                                                                     self.hydrofabric)
         self.assertIsInstance(hy_subset, SimpleHydrofabricSubset)
+
 
 
