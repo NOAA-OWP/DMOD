@@ -1,13 +1,13 @@
 import argparse
 import flask
 import json
-from dmod.modeldata import SubsetDefinition, SubsetHandlerImpl
+from dmod.modeldata import SubsetDefinition, SubsetHandler
 from . import name as package_name
 
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
 
-subset_handler: SubsetHandlerImpl = None
+subset_handler: SubsetHandler = None
 
 
 @app.route('/', methods=['GET'])
@@ -112,9 +112,13 @@ def main():
     args = _handle_args()
     files_dir = args.files_directory
 
-    subset_handler = SubsetHandlerImpl(catchment_data=_process_path(files_dir, args.catchment_data_file),
-                                       nexus_data=_process_path(files_dir, args.nexus_data_file),
-                                       cross_walk=_process_path(files_dir, args.crosswalk_file))
+    catchment_geojson = _process_path(files_dir, args.catchment_data_file)
+    nexus_geojson = _process_path(files_dir, args.nexus_data_file)
+    crosswalk_json = _process_path(files_dir, args.crosswalk_file)
+
+    subset_handler = SubsetHandler.factory_create_from_geojson(catchment_data=catchment_geojson,
+                                                               nexus_data=nexus_geojson,
+                                                               cross_walk=crosswalk_json)
     app.run(host=args.host, port=args.port)
 
 
