@@ -6,7 +6,7 @@ from typing import Dict, Optional, Union
 from ..modeldata.subset import SubsetHandler
 
 
-class TestSubsetServiceImpl(unittest.TestCase):
+class TestSubsetHandler(unittest.TestCase):
 
     CAT_KEY = 'catchment_geojson_file'
     FLOW_KEY = 'flowpath_geojson_file'
