@@ -165,6 +165,22 @@ class SubsetHandler:
         """
         return self._hydrofabric.get_catchment_by_id(catchment_id)
 
+    def get_nexus_by_id(self, nexus_id: str) -> Optional[Nexus]:
+        """
+        Get the nexus object for the given id.
+
+        Parameters
+        ----------
+        nexus_id : str
+            The nexus id.
+
+        Returns
+        -------
+        Optional[Nexus]
+            The appropriate nexus object from the hydrograph, or ``None`` if there is none for this id.
+        """
+        return self._hydrofabric.get_nexus_by_id(nexus_id)
+
     def get_subset_for(self, catchment_ids: Union[str, Collection[str]]) -> SubsetDefinition:
         """
         Get the subset for a particular collection of catchments and each's downstream nexus.
@@ -259,6 +275,22 @@ class SubsetHandler:
             Whether the catchment is recognized.
         """
         return self._hydrofabric.is_catchment_recognized(catchment_id)
+
+    def is_nexus_recognized(self, nexus_id: str) -> bool:
+        """
+        Test whether a nexus is recognized in the current hydrograph.
+
+        Parameters
+        ----------
+        nexus_id : str
+            The id of the nexus.
+
+        Returns
+        -------
+        bool
+            Whether the nexus is recognized.
+        """
+        return self._hydrofabric.is_nexus_recognized(nexus_id)
 
     def validate(self, subset: SubsetDefinition) -> Tuple[bool, Optional[str]]:
         """
