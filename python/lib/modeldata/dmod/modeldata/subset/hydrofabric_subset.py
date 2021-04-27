@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from hypy import Catchment, Nexus
-from queue import Queue
-from typing import Collection, Sequence, Set, Tuple, Union
+from typing import Collection, Optional, Sequence, Set, Tuple, Union
+from .hydrofabric import Hydrofabric
 from .subset_definition import SubsetDefinition
 
 
@@ -12,28 +12,37 @@ class HydrofabricSubset(SubsetDefinition, ABC):
     An abstract extension of the base ::class:`SubsetDefinition` that must be initialized with a ``hydrofabric`` param
     as well, making it capable of also accessing to the actual catchment and nexus elements.
 
-    The type for the ``hydrofabric`` param (and utilizing ::attribute:`_hydrofabric` attribute) are not strictly
-    specified.  However, it must be possible for objects implementing this abstraction to derive equivalent
-    ::class:`Catchment` and ::class:`Nexus` objects from the catchments and nexuses are represented therein.  Depending
-    on the particular implementation, these may be restricted to specific subtypes of ::class:`Catchment` and/or
-    ::class:`Nexus`.  These are part of a "validity" constraint for the hydrofabric which is imposed by the
-    ::method:`validate_hydrofabric` method.
+    Note that for equality, the tests of the super class type must be true.  Further, instances of this type must have
+    a valid hydrofabric attribute according to ::method:`validate_hydrofabric` to be deemed equal to an otherwise-equal
+    object.  The only exception is if two objects are of this type and are **both** invalid.  I.e., a base subset is not
+    equal to an object of this type with the exact same catchments and nexuses IFF the object of this type does not
+    possess a valid hydrofabric.
 
-    The requirements of the contained data of the ::attribute:`_hydrofabric` are also loose with respect to this base
-    abstraction. I.e., ::attribute:`_hydrofabric` may contain any amount of data, so long as the it at minimum contains
-    the necessary data for the subset represented by its parent object. As a consequences, ::attribute:`_hydrofabric` is
-    not intended to be used directly externally and so does not effect things like hash value or equality.
+    The hash value is calculated in essentially the same fashion as the super class, except that a small adjustment is
+    made in the case of invalid objects.  In such cases, the hash is equal to the super class hash output plus ``1``.
     """
 
     __slots__ = ["_hydrofabric"]
 
-    def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str], hydrofabric):
+    def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str], hydrofabric: Hydrofabric):
         super().__init__(catchment_ids=catchment_ids, nexus_ids=nexus_ids)
         if not self.validate_hydrofabric(hydrofabric):
             raise RuntimeError("Insufficient or wrongly formatted hydrofabric when trying to create {} object".format(
                 self.__class__.__name__
             ))
         self._hydrofabric = hydrofabric
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.validate_hydrofabric() == other.validate_hydrofabric() and super().__eq__(other)
+        else:
+            return self.validate_hydrofabric() and super().__eq__(other)
+
+    def __hash__(self):
+        if self.validate_hydrofabric():
+            return super().__hash__()
+        else:
+            return super().__hash__() + 1
 
     @property
     @abstractmethod
@@ -62,20 +71,25 @@ class HydrofabricSubset(SubsetDefinition, ABC):
         pass
 
     @abstractmethod
-    def validate_hydrofabric(self, hydrofabric) -> bool:
+    def validate_hydrofabric(self, hydrofabric: Optional[Hydrofabric] = None) -> bool:
         """
-        Determine whether the given hydrofabric is valid for this subset object.
+        Determine whether hydrofabric is valid for this subset object.
 
         A hydrofabric is valid if it has sufficient data to retrieve or derive <i>appropriate</i> ::class:`Catchment`
         and ::class:`Nexus` objects to represent all the catchments and nexuses of this subset object.
 
-        Note that ::class:`Catchment` and ::class:`Nexus` are listed for simplicity and generality, but implementations
-        may require more specific subtypes of either when determining hydrofabric validity.
+        Implementations should be constructed to operate on the objects internal hydrofabric attribute if the provided
+        parameter is ``None``, which should also be the default.
+
+        Parameters
+        ----------
+        hydrofabric : Optional[Hydrofabric]
+            A hydrofabric in which to determine validity, interpreted as the object's own hydrofabric if ``None``.
 
         Returns
         -------
         bool
-            ``True`` if the hydrofabric's has sufficient data, in format and content, for this subset, or ``False``
+            ``True`` if the hydrofabric has sufficient data, in format and content, for this subset, or ``False``
             otherwise.
         """
         pass
@@ -87,8 +101,7 @@ class SimpleHydrofabricSubset(HydrofabricSubset):
     """
 
     @classmethod
-    def factory_create_from_base_and_hydrofabric(cls, subset_def: SubsetDefinition,
-                                                 hydrofabric: Union[Sequence[Union[Catchment, Nexus]], Catchment, Nexus],
+    def factory_create_from_base_and_hydrofabric(cls, subset_def: SubsetDefinition, hydrofabric: Hydrofabric,
                                                  *args, **kwargs) \
             -> 'SimpleHydrofabricSubset':
         """
@@ -116,8 +129,8 @@ class SimpleHydrofabricSubset(HydrofabricSubset):
 
     __slots__ = ["_catchments", "_nexuses"]
 
-    def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str],
-                 hydrofabric: Union[Sequence[Union[Catchment, Nexus]], Catchment, Nexus], *args, **kwargs):
+    def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str], hydrofabric: Hydrofabric, *args,
+                 **kwargs):
         self._catchments: Set[Catchment] = set()
         self._nexuses: Set[Nexus] = set()
         super().__init__(catchment_ids, nexus_ids, hydrofabric)
@@ -146,78 +159,30 @@ class SimpleHydrofabricSubset(HydrofabricSubset):
         """
         return tuple(self._nexuses)
 
-    def validate_hydrofabric(self, hydrofabric: Union[Sequence[Union[Catchment, Nexus]], Catchment, Nexus]) -> bool:
+    def validate_hydrofabric(self, hydrofabric: Optional[Hydrofabric] = None) -> bool:
         """
-        Determine whether the given hydrofabric is valid for this subset object.
+        Determine whether hydrofabric is valid for this subset object.
 
         A hydrofabric is valid if it has sufficient data to retrieve or derive <i>appropriate</i> ::class:`Catchment`
         and ::class:`Nexus` objects to represent all the catchments and nexuses of this subset object.
 
-        The given hydrofabric may either be a ::class:`Catchment` or ::class:`Nexus` object, or a sequences of
-        such objects.
-
-        This particular implementation also populates the ::attribute:`catchments` and ::attribute:`nexuses` properties
-        when processing the hydrofabric for validity.
+        Parameters
+        ----------
+        hydrofabric : Optional[Hydrofabric]
+            A hydrofabric in which to determine validity, interpreted as the object's own hydrofabric if ``None``.
 
         Returns
         -------
         bool
-            ``True`` if the hydrofabric's has sufficient data, in format and content, for this subset, or ``False``
+            ``True`` if the hydrofabric has sufficient data, in format and content, for this subset, or ``False``
             otherwise.
         """
-        hf_graph = Queue()
-        # We will deal with things as a queue of graph nodes to process.  Start by validating the param
-        if isinstance(hydrofabric, Catchment) or isinstance(hydrofabric, Nexus):
-            hf_graph.put(hydrofabric)
-        elif isinstance(hydrofabric, Sequence):
-            for item in hydrofabric:
-                if isinstance(item, Catchment) or isinstance(item, Nexus):
-                    hf_graph.put(item)
-                else:
-                    return False
-        else:
-            return False
-
-        already_seen = set()
-        required_item_ids = set(self._catchment_ids)
-        required_item_ids.update(self._nexus_ids)
-        found_items = 0
-
-        while hf_graph.qsize() > 0:
-            item = hf_graph.get()
-
-            # Keep track of what we have seen, and don't repeat steps
-            if item is None or item.id in already_seen:
-                continue
-            else:
-                already_seen.add(item.id)
-
-            # Whenever seeing something with a required id, update our tally, mark it found, and check if we are done
-            if item.id in required_item_ids:
-                found_items += 1
-
-                # Add found required things to appropriate internal collection
-                # To be in required_item_ids, must be in either set of catchment ids or set of nexus ids, so ...
-                if item.id in self._catchment_ids:
-                    self._catchments.add(item)
-                else:
-                    self._nexuses.add(item)
-
-                # If this was the last thing, we can stop here
-                if found_items == len(required_item_ids):
-                    return True
-
-            # Finally, traverse graph and add new next nodes to the hf_graph processing queue
-            if isinstance(item, Catchment):
-                hf_graph.put(item.inflow)
-                hf_graph.put(item.outflow)
-                # Don't think we should need to worry about containing or contained items; if they are needed,
-                # additional catchments/nexuses that can reach them through same-scoped connections should be present
-            if isinstance(item, Nexus):
-                for c in item.contributing_catchments:
-                    hf_graph.put(c)
-                for c in item.receiving_catchments:
-                    hf_graph.put(c)
-
-        # If we get all the way out here, all nodes have been traversed, but we didn't find everything we needed, so ...
-        return False
+        if hydrofabric is None:
+            hydrofabric = self._hydrofabric
+        for cid in self._catchment_ids:
+            if not hydrofabric.is_catchment_recognized(cid):
+                return False
+        for nid in self._nexus_ids:
+            if not hydrofabric.is_nexus_recognized(nid):
+                return False
+        return True
