@@ -1,11 +1,9 @@
 import git
 import unittest
 from hypy import Catchment
-from geopandas import GeoDataFrame
-from pandas import DataFrame
 from pathlib import Path
 from typing import Dict, Optional, Union
-from ..modeldata.subset import SubsetHandlerImpl
+from ..modeldata.subset import SubsetHandler
 
 
 class TestSubsetServiceImpl(unittest.TestCase):
@@ -74,59 +72,31 @@ class TestSubsetServiceImpl(unittest.TestCase):
     def tearDown(self) -> None:
         pass
 
-    # Test that hyrdofabric catchment file is readible as expected.
-    def test_read_hydrofabric_files_1_a(self):
+    # Test that the function can initialize a new subset handler via the GeoJSON factory method
+    def test_factory_create_from_geojson_1_a(self):
         ex_ind = 1
-
         cf = str(self.hf_examples[ex_ind][self.CAT_KEY])
         nf = str(self.hf_examples[ex_ind][self.NEX_KEY])
         xf = str(self.hf_examples[ex_ind][self.CROSS_KEY])
 
-        catchment_hydro_fabric, nexus_hydro_fabric, x_walk = SubsetHandlerImpl.read_hydrofabric_files(catchment_data=cf,
-                                                                                                      nexus_data=nf,
-                                                                                                      cross_walk=xf)
-        self.assertIsInstance(catchment_hydro_fabric, GeoDataFrame)
-        self.assertEqual(catchment_hydro_fabric.shape, (3, 3))
+        handler = SubsetHandler.factory_create_from_geojson(catchment_data=cf, nexus_data=nf, cross_walk=xf)
+        self.assertIsInstance(handler, SubsetHandler)
 
-    # Test that hyrdofabric nexus file is readible as expected.
-    def test_read_hydrofabric_files_1_b(self):
-        ex_ind = 1
-
-        cf = str(self.hf_examples[ex_ind][self.CAT_KEY])
-        nf = str(self.hf_examples[ex_ind][self.NEX_KEY])
-        xf = str(self.hf_examples[ex_ind][self.CROSS_KEY])
-
-        catchment_hydro_fabric, nexus_hydro_fabric, x_walk = SubsetHandlerImpl.read_hydrofabric_files(catchment_data=cf,
-                                                                                                      nexus_data=nf,
-                                                                                                      cross_walk=xf)
-        self.assertIsInstance(nexus_hydro_fabric, GeoDataFrame)
-        self.assertEqual(nexus_hydro_fabric.shape, (3, 2))
-
-    # Test that hyrdofabric crosswalk file is readible as expected.
-    def test_read_hydrofabric_files_1_c(self):
-        ex_ind = 1
-
-        cf = str(self.hf_examples[ex_ind][self.CAT_KEY])
-        nf = str(self.hf_examples[ex_ind][self.NEX_KEY])
-        xf = str(self.hf_examples[ex_ind][self.CROSS_KEY])
-
-        catchment_hydro_fabric, nexus_hydro_fabric, x_walk = SubsetHandlerImpl.read_hydrofabric_files(catchment_data=cf,
-                                                                                                      nexus_data=nf,
-                                                                                                      cross_walk=xf)
-        self.assertIsInstance(x_walk, DataFrame)
-        self.assertEqual(x_walk.shape, (3, 6))
-
-    # Test that the example object for tests in this line will initialize
+    # Test that catchment can be retrieved by id
     def test_get_catchment_by_id_1_a(self):
         ex_ind = 1
         cf = str(self.hf_examples[ex_ind][self.CAT_KEY])
         nf = str(self.hf_examples[ex_ind][self.NEX_KEY])
         xf = str(self.hf_examples[ex_ind][self.CROSS_KEY])
 
-        handler = SubsetHandlerImpl(catchment_data=cf, nexus_data=nf, cross_walk=xf)
-        self.assertIsInstance(handler, SubsetHandlerImpl)
+        ex_cat_id = 'cat-67'
 
-    # Test that catchment can be retrieved by id
+        handler = SubsetHandler.factory_create_from_geojson(catchment_data=cf, nexus_data=nf, cross_walk=xf)
+        catchment = handler.get_catchment_by_id(ex_cat_id)
+
+        self.assertIsInstance(catchment, Catchment)
+
+    # Test that expected catchment can be retrieved by id
     def test_get_catchment_by_id_1_b(self):
         ex_ind = 1
         cf = str(self.hf_examples[ex_ind][self.CAT_KEY])
@@ -135,21 +105,35 @@ class TestSubsetServiceImpl(unittest.TestCase):
 
         ex_cat_id = 'cat-67'
 
-        handler = SubsetHandlerImpl(catchment_data=cf, nexus_data=nf, cross_walk=xf)
+        handler = SubsetHandler.factory_create_from_geojson(catchment_data=cf, nexus_data=nf, cross_walk=xf)
         catchment = handler.get_catchment_by_id(ex_cat_id)
 
-        self.assertIsInstance(catchment, Catchment)
+        self.assertEqual(catchment.id, ex_cat_id)
 
-    # Test that expected catchment can be retrieved by id
-    def test_get_catchment_by_id_1_c(self):
+    # Test that catchment can be retrieved by id
+    def test_get_catchment_by_id_2_a(self):
         ex_ind = 1
         cf = str(self.hf_examples[ex_ind][self.CAT_KEY])
         nf = str(self.hf_examples[ex_ind][self.NEX_KEY])
         xf = str(self.hf_examples[ex_ind][self.CROSS_KEY])
 
-        ex_cat_id = 'cat-67'
+        ex_cat_id = 'cat-27'
 
-        handler = SubsetHandlerImpl(catchment_data=cf, nexus_data=nf, cross_walk=xf)
+        handler = SubsetHandler.factory_create_from_geojson(catchment_data=cf, nexus_data=nf, cross_walk=xf)
+        catchment = handler.get_catchment_by_id(ex_cat_id)
+
+        self.assertIsInstance(catchment, Catchment)
+
+    # Test that expected catchment can be retrieved by id
+    def test_get_catchment_by_id_2_b(self):
+        ex_ind = 1
+        cf = str(self.hf_examples[ex_ind][self.CAT_KEY])
+        nf = str(self.hf_examples[ex_ind][self.NEX_KEY])
+        xf = str(self.hf_examples[ex_ind][self.CROSS_KEY])
+
+        ex_cat_id = 'cat-27'
+
+        handler = SubsetHandler.factory_create_from_geojson(catchment_data=cf, nexus_data=nf, cross_walk=xf)
         catchment = handler.get_catchment_by_id(ex_cat_id)
 
         self.assertEqual(catchment.id, ex_cat_id)
