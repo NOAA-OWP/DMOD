@@ -148,8 +148,7 @@ class SubsetHandler:
         self._hydrofabric = hydrofabric
         self._validator = validator if validator else BasicSubsetValidator(hydrofabric)
 
-    @abstractmethod
-    def get_catchment_by_id(self, catchment_id: str) -> Catchment:
+    def get_catchment_by_id(self, catchment_id: str) -> Optional[Catchment]:
         """
         Get the catchment object for the given id.
 
@@ -160,8 +159,8 @@ class SubsetHandler:
 
         Returns
         -------
-        Catchment
-            The appropriate catchment object from the hydrograph.
+        Optional[Catchment]
+            The appropriate catchment object from the hydrograph, or ``None`` if there is none for this id.
         """
         return self._hydrofabric.get_catchment_by_id(catchment_id)
 
