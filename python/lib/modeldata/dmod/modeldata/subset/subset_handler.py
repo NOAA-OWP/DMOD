@@ -1,14 +1,137 @@
-import geopandas as gpd
-import pandas as pd
-
 from abc import ABC, abstractmethod
 from hypy import Catchment, HydroLocation, Nexus
 from queue import Queue
 from typing import Collection, Dict, Optional, Set, Union
 from .subset_definition import SubsetDefinition
+from .hydrofabric import Hydrofabric, GeoJsonHydrofabricReader, MappedGraphHydrofabric
 
 
-class SubsetHandler(ABC):
+class SubsetValidator(ABC):
+    """
+    Abstraction for handling the process of validating subsets according to some implementation-specific rules.
+    """
+
+    def __init__(self, hydrofabric: Hydrofabric):
+        """
+
+        Parameters
+        ----------
+        hydrofabric : Hydrofabric
+            The hydrofabric that will be used during validation.
+        """
+        self.hydrofabric: Hydrofabric = hydrofabric
+
+    def is_valid(self, subset: SubsetDefinition) -> bool:
+        """
+        Return whether a given subset is valid.
+
+        The default implementation simply returns whether ::method:`invalid_reason` returns ``None``.
+
+        Parameters
+        ----------
+        subset : SubsetDefinition
+            The subset in question.
+
+        Returns
+        -------
+        bool
+            Whether the given subset is valid.
+        """
+        return self.invalid_reason(subset) is None
+
+    @abstractmethod
+    def invalid_reason(self, subset: SubsetDefinition) -> Optional[str]:
+        """
+        Provide a string description of why the given subset is invalid.
+
+        Note that, unless otherwise explicitly stated in the documentation for implementations, this method only returns
+        a description of the first encountered characteristic that disqualifies the subset as valid.  In other words,
+        there could be additional disqualifying traits.  As such, implementations should try to adhere to a
+        deterministic order for checking things, and should document if they do not.
+
+        Parameters
+        ----------
+        subset : SubsetDefinition
+            The subset in question expected to be invalid.
+
+        Returns
+        -------
+        Optional[str]
+            A string description of the **first** discovered reason for the given subset not qualifying as valid, or
+            ``None`` if it is a valid subset.
+        """
+        pass
+
+
+class BasicSubsetValidator(SubsetValidator):
+    """
+    Simple implementation that checks existence and common-sense node relationships.
+
+    In this type, validation requires:
+        - all catchments and nexuses exist (i.e., for each id, there is a corresponding object in the hydrofabric)
+        - every nexus must have at least one linked catchment included in the subset
+        - every catchment must have at least one linked nexus included in the subset
+            - an exception to this is the case of a subset with exactly 1 catchment and 0 nexuses
+    """
+
+    def invalid_reason(self, subset: SubsetDefinition) -> Optional[str]:
+        """
+        Provide a string description of why the given subset is invalid.
+
+        Note that this method only returns a description of the first encountered characteristic that disqualifies the
+        subset as valid.  In other words, there could be additional disqualifying traits.  The order of checks is
+        deterministic, though this determinism is dependent upon the current implementation of SubsetDefinition, which
+        deterministically represents a particular unique subset.
+
+        In this type, validation requires:
+        - all catchments and nexuses exist (i.e., for each id, there is a corresponding object in the hydrofabric)
+        - every nexus must have at least one linked catchment included in the subset
+        - every catchment must have at least one linked nexus included in the subset
+            - an exception to this is the case of a subset with exactly 1 catchment and 0 nexuses
+
+        Note that while the order of checks is deterministic, they are not necessarily applied in the above order.
+
+        Parameters
+        ----------
+        subset : SubsetDefinition
+            The subset in question expected to be invalid.
+
+        Returns
+        -------
+        Optional[str]
+            A string description of the **first** discovered reason for the given subset not qualifying as valid, or
+            ``None`` if it is a valid subset.
+        """
+        # Handle the special, quick case of a single-catchment subset first
+        if len(subset.catchment_ids) == 1 and len(subset.nexus_ids) == 0:
+            cid = subset.catchment_ids[0]
+            return None if self.hydrofabric.is_catchment_recognized(cid) else 'Unrecognized catchment: {}'.format(cid)
+
+        for cid in subset.catchment_ids:
+            catchment = self.hydrofabric.get_catchment_by_id(cid)
+            if catchment is None:
+                return 'Unrecognized catchment: {}'.format(cid)
+            connected_nexus_found = False
+            for n in [catchment.outflow, catchment.inflow]:
+                if n.id in subset.nexus_ids:
+                    connected_nexus_found = True
+                    break
+            if not connected_nexus_found:
+                return 'Catchment {} has no connected nexus included in this subset'.format(cid)
+
+        for nid in subset.nexus_ids:
+            nexus = self.hydrofabric.get_nexus_by_id(nid)
+            if nexus is None:
+                return 'Unrecognized nexus: {}'.format(nid)
+            connected_cat_found = False
+            for c in [i for sub in [nexus.contributing_catchments, nexus.receiving_catchments] for i in sub]:
+                if c.id in subset.catchment_ids:
+                    connected_cat_found = True
+                    break
+            if not connected_cat_found:
+                return 'Nexus {} has no connected catchment included in this subset'.format(nid)
+
+        return None
 
     def __init__(self, hydrofabric_graph):
         """
