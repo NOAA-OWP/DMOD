@@ -136,6 +136,13 @@ class BasicSubsetValidator(SubsetValidator):
 
 class SubsetHandler:
 
+    @classmethod
+    def factory_create_from_geojson(cls, catchment_data, nexus_data, cross_walk,
+                                    validator: Optional[SubsetValidator] = None) -> 'SubsetHandler':
+        reader = GeoJsonHydrofabricReader(catchment_data, nexus_data, cross_walk)
+        hydrofabric = MappedGraphHydrofabric(hydrofabric_object_graph=reader.hydrofabric_graph, graph_creator=reader)
+        return cls(hydrofabric=hydrofabric, validator=validator)
+
     def __init__(self, hydrofabric: Hydrofabric, validator: Optional[SubsetValidator] = None):
         """
 
