@@ -165,7 +165,7 @@ class SubsetHandler:
         """
         return self._hydrofabric.get_catchment_by_id(catchment_id)
 
-    def get_subset_for(self, catchment_ids: Collection[str]) -> SubsetDefinition:
+    def get_subset_for(self, catchment_ids: Union[str, Collection[str]]) -> SubsetDefinition:
         """
         Get the subset for a particular collection of catchments and each's downstream nexus.
 
