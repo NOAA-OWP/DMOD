@@ -116,7 +116,7 @@ class GeoJsonHydrofabricReader:
         self.nexus_geodataframe = gpd.read_file(nexus_data)
         self.nexus_geodataframe.columns = self.nexus_geodataframe.columns.astype(str).str.lower()
         if 'id' not in self.nexus_geodataframe.columns:
-            raise RuntimeError(id_error_msg.format('nexus hydrofabric', catchment_data))
+            raise RuntimeError(id_error_msg.format('nexus hydrofabric', nexus_data))
         self.nexus_geodataframe.set_index('id', inplace=True)
 
         self.crosswalk_dataframe = pd.read_json(cross_walk, dtype=str)
