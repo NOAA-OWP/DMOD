@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block scripts %}
+<script>
+    var configurableFeatures = [];
+
+    {% for feature in catchments %}
+        configurableFeatures.push("{{ feature }}");
+    {% endfor %}
+
+    startup_scripts.push(
+        function() {
+            $("#configurable-features").val(configurableFeatures.join("|"));
+        }
+    );
+</script>
+{% endblock scripts %}
+
+{% block styles %}
+    <link rel="stylesheet" href="{% static 'maas/css/configuration/nwm.css' %}"/>
+{% endblock styles %}
+
+{% block content %}
+<div id="content" style="padding: 5px;">
+    <form id="configuration-wrapper" method="post" action="{% url 'MaaS:execute' %}">
+        {% csrf_token %}
+        <input type="hidden" name="framework" id="framework" value="nwm"/>
+        <input type="hidden" name="model" id="model" value="nwm"/>
+        <input type="hidden" name="domain" id="configurable-features" />
+        <div id="configuration-navigation-alignment" style="display:grid; grid-template-columns: 200px auto">
+            <fieldset id="navigation" style="grid-column: 1; overflow-y: auto; height: 60vh; padding: 10px;">
+                <legend>Locations</legend>
+                <ul id="formulation-navigation-list" style="padding-left: 10px;">
+                    {% for feature in catchments %}
+                        <li class="formulation-navigation-item" id="{{ feature }}-notifier">
+                            <span class="formulation-navigation-item-label">{{ feature }}</span>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </fieldset>
+            <fieldset id="nwm-configuration" style="grid-column: 2; overflow-y: auto; height: 60vh; padding: 10px;">
+                <legend>Configuration</legend>
+                <div style="display: grid; width: fit-content;">
+                    <fieldset id="general-configuration" >
+                        <legend>General Settings</legend>
+                        <div id="general-grid" style="display: grid; grid-template-columns: 1fr 1fr;">
+                            <label for="nwm-version">Version</label>
+                            <input type="number" id="nwm-version" name="version" value="2.1"/>
+                            <label for="nwm-variable">Variable</label>
+                            <select id="nwm-variable" name="output">
+                                {% for output_type in output_types %}
+                                <option value="{{ output_type.value}}">{{ output_type.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </fieldset>
+                    {% for parameter in parameters %}
+                        <input type="hidden" name="nwm_{{ parameter.value }}" value="on" />
+                        <fieldset id="nwm_{{ parameter.value }}-configuration">
+                            <legend>{{ parameter.name }}</legend>
+                            <div class="parameter-config" style="display: grid; grid-template-columns: 1fr 1fr">
+                                <label for="{{ parameter.value }}_parameter_type">Parameter Type:</label>
+                                <select id="{{ parameter.value }}_parameter_type" name="nwm_{{ parameter.value }}_parameter_type">
+                                    <option value="scalar">Scalar</option>
+                                    <option value="distribution">Distribution</option>
+                                </select>
+                                <label for="{{ parameter.value }}_scalar" class="{{ parameter.value }}-scalar-config">Value</label>
+                                <input type="number" id="{{ parameter.value }}_scalar"
+                                       name="nwm_{{ parameter.value }}_scalar" class="{{ parameter.value }}-scalar-config"
+                                       value="0.0" step="1.0">
+                                <label for="{{ parameter.value }}_distribution_type"
+                                       class="{{ parameter.value }}-distribution-config">
+                                    Distribution Type
+                                </label>
+                                <select id="{{ parameter.value }}_distribution_type" name="nwm_{{ parameter.value }}_distribution_type"
+                                       class="{{ parameter.value }}-distribution-config">
+                                    {% for distribution in distribution_types %}
+                                    <option value="{{ distribution.value }}">{{ distribution.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <label for="{{ parameter.value }}_distribution_min"
+                                       class="{{ parameter.value }}-distribution-config">
+                                    Minimum
+                                </label>
+                                <input type="number" id="{{ parameter.value }}_distribution_min"
+                                       name="nwm_{{ parameter.value }}_distribution_min" value="0" step="1"
+                                       class="{{ parameter.value }}-distribution-config">
+                                <label for="{{ parameter.value }}_distribution_max"
+                                       class="{{ parameter.value }}-distribution-config">
+                                    Maximum
+                                </label>
+                                <input type="number" id="{{ parameter.value }}_distribution_max"
+                                       name="nwm_{{ parameter.value }}_distribution_max" value="10" step="1"
+                                       class="{{ parameter.value }}-distribution-config">
+                            </div>
+                        </fieldset>
+                        <script>
+                            function set{{ parameter.value }}ParameterType() {
+                                var parameterType = $("#{{ parameter.value }}_parameter_type").val();
+
+                                if (parameterType == "scalar") {
+                                    $(".{{ parameter.value }}-scalar-config").show();
+                                    $(".{{ parameter.value }}-distribution-config").hide();
+                                }
+                                else {
+                                    $(".{{ parameter.value }}-scalar-config").hide();
+                                    $(".{{ parameter.value }}-distribution-config").show();
+                                }
+                            }
+
+                            startup_scripts.push(function() {
+                                set{{ parameter.value }}ParameterType();
+                                $("#{{ parameter.value }}_parameter_type").on(
+                                    "change",
+                                    set{{ parameter.value }}ParameterType
+                                );
+                            });
+                        </script>
+                    {% endfor %}
+                </div>
+            </fieldset>
+        </div>
+        <button class="btn btn-primary btn-lg btn-block MaaS-btn" type="submit" id="submit-formulations">SUBMIT</button>
+    </form>
+</div>
+
+<script>
+
+startup_scripts.push(
+    function() {
+        // Why isn't CSS used? It will sometimes stick the asterisk INSIDE the input rather than outside
+        $("input[required], select[required]").after(function(index) {
+            if (this.style['grid-row']) {
+                return "<span style='color: red; width: fit-content; grid-row:" + this.style['grid-row'] + ";'>*</span>";
+            }
+            return "<span style='color: red; width: fit-content;'>*</span>";
+        });
+    }
+);
+</script>
+{% endblock content %}

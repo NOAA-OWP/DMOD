@@ -130,6 +130,17 @@
                         }
                     );
                 });
+
+                startup_scripts.push(function() {
+                    $("input.pane-input, select.pane-input").on(
+                        "change",
+                        function(event) {
+                            var fieldToUpdate = "#" + this.attributes['update'].value;
+                            var value = $(this).val();
+                            $(fieldToUpdate).val(value);
+                        }
+                    );
+                });
             </script>
         {% endif %}
         <button type="submit" id="submit-values-button" class="MaaS-btn">{{ datapane_submission_label|default:"Continue" }}</button>

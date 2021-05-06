@@ -1,10 +1,108 @@
-#!/usr/bin/env python
+"""
+A collection of helper functions and classes
+"""
 
 import os
 import typing
 import types
 import importlib
 import logging
+
+from pprint import pprint
+
+from abc import ABC
+from abc import abstractmethod
+
+from django.http import HttpRequest
+from rest_framework.request import Request
+
+
+class ObjectWrapper(ABC):
+    """
+    Abstract class that allows for objects to be overridden dynamically at runtime
+
+    The wrapper will have references to all attributes from the passed in object aside from those explicitly
+    set to not override
+    """
+    # Attributes that shouldn't be overridden
+    do_not_override = ('__module__', '__dict__', '__doc__')
+
+    @abstractmethod
+    def get_overridden_attributes(self) -> typing.Union[typing.List, typing.Tuple]:
+        """
+        Get attributes that should not be overridden if they exist
+
+        Returns
+        -------
+        collection
+            A collection of attribute names that should not be overridden
+        """
+        pass
+
+    def __init__(self, object_to_wrap):
+        # Store a reference to the object being wrapped
+        self._wrapped_object = object_to_wrap
+
+        # Collect all attributes that should be attached from the passed object
+        attributes_to_add = [
+            (key, value)
+            for key, value in self._wrapped_object.__dict__.items()
+            if key not in self.do_not_override and key not in self.get_overridden_attributes()
+        ]
+
+        # Add all approved attributes to this instance
+        for attribute_name, attribute_value in attributes_to_add:
+            setattr(self, attribute_name, attribute_value)
+
+
+class RequestWrapper(ObjectWrapper):
+    """
+    Wraps the Django HttpRequest to ensure that GET and POST both return the correct values according to the
+    method of the request instance
+    """
+    def get_overridden_attributes(self):
+        """
+        Don't override the GET and POST properties
+
+        Returns
+        -------
+        tuple
+            ("POST", "GET")
+        """
+        return "POST", "GET"
+
+    def __init__(self, request: HttpRequest):
+        # Make sure that the passed in object is an HttpRequest
+        if not isinstance(request, HttpRequest) and not isinstance(request, Request):
+            raise ValueError(
+                "RequestWrapper must be created with an HttpRequest or DRF Request, not a {}".format(type(HttpRequest))
+            )
+
+        super().__init__(request)
+
+    @property
+    def POST(self):
+        """
+        Returns
+        -------
+        The correct collection of request parameters based on the requests method attribute
+        """
+        if self._wrapped_object.method == "POST":
+            return self._wrapped_object.POST
+        else:
+            return self._wrapped_object.GET
+
+    @property
+    def GET(self):
+        """
+        Returns
+        -------
+        The correct collection of request parameters based on the requests method attribute
+        """
+        if self._wrapped_object.method == "POST":
+            return self._wrapped_object.POST
+        else:
+            return self._wrapped_object.GET
 
 
 def get_neighbor_modules(
@@ -15,10 +113,46 @@ def get_neighbor_modules(
         required_member_types: typing.Dict[str, typing.TypeVar] = None,
         logger: logging.Logger = None
 ) -> typing.Dict[str, types.ModuleType]:
+    """
+    Gets references to all appropriate modules within the the given package
+
+    Parameters
+    ----------
+    file_name
+        The path to a file within the package of interest
+
+    package_name
+        The name of the package that is of interest
+
+    required_members_and_values
+        A dictionary or list of members that the encountered module must contain
+
+    required_functions
+        A list of functions that must be within the encountered module
+
+    required_member_types
+        A mapping of strict types that a members must be (required members NOT within this collection can be of any type)
+
+    logger
+        The appropriate logger to write any log messages to
+
+    Returns
+    -------
+    A mapping between the name of a module and its reference
+    """
     if logger is None:
         logger = logging.getLogger()
 
     def is_valid(module: types.ModuleType) -> bool:
+        """
+        Checks to ensure that the passed in module adheres to the callers parameters
+
+        Args:
+            module:
+                A reference to the module that needs to be examined
+        Returns:
+            Whether or not the module should be added to the collection
+        """
         valid = True
 
         if required_members_and_values:
@@ -91,5 +225,18 @@ def get_neighbor_modules(
 
 
 def humanize(words: str) -> str:
-    split = words.split("_")
+    """
+    Converts a string into a more human-readable and friendly form
+
+    Parameters
+    ----------
+    words : str
+        The string to be cleaned up
+
+    Returns
+    -------
+    str
+        A friendlier representation of the passed in word
+    """
+    split = words.strip().split("_")
     return " ".join(split).title()

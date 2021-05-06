@@ -1,0 +1,45 @@
+
+.key-column {
+    margin: 5px;
+}
+
+.value-column {
+    margin: 5px;
+}
+
+.feature-formulation {
+    display: none;
+}
+
+.parameters {
+    display: grid;
+    grid-template-columns: auto 1fr auto 1fr;
+}
+
+.summary-selected {
+    background-color: #E06633 !important;
+    color: white;
+}
+
+ul#formulation-navigation-list li {
+    list-style-type: none;
+    cursor: pointer;
+    font-weight: bold;
+    padding: 5px;
+}
+
+li.summary-selected .formulation-navigation-item-label, ul#formulation-navigation-list li:hover {
+    font-size: large;
+    font-decoration: underline;
+    padding-left: 5px;
+}
+
+div.detail-contents {
+    padding: 10px;
+    background-color: #efefef;
+    border: 1px solid #8C8C8C;
+}
+
+#submit-formulations {
+    width: 100%;
+}

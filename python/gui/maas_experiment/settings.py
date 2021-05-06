@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 """
 
 import os
+import re
 import logging
 from datetime import datetime
 
@@ -207,6 +208,7 @@ LOGGING = {
     }
 }
 
+
 CRITICAL_LEVEL = logging.CRITICAL
 """Logging level used to indicate critical messages"""
 
@@ -229,7 +231,7 @@ DEFAULT_MESSAGE_LEVEL = INFO_LEVEL
 """The logging level used when none is given"""
 
 
-def log(message: str, level: int = DEFAULT_MESSAGE_LEVEL, logger_name: str = "GUI"):
+def log(message: str, level: int = DEFAULT_MESSAGE_LEVEL, logger_name: str = "gui_log"):
     """
     Logs the given message at the given level in the given log.
 
@@ -248,8 +250,111 @@ def log(message: str, level: int = DEFAULT_MESSAGE_LEVEL, logger_name: str = "GU
     # We want to log messages in the form of '[2019-06-04 12:27:14-0500] Something happened...',
     # so we need to determine the time and append it to the message
     timestamp = datetime.now(tz=reference.LocalTimezone()).strftime("%Y-%m-%d %I:%M:%S%z")
-    log_message = "[{}]{}".format(timestamp, message)
+    log_message = "[{}] {}".format(timestamp, message)
 
     # Log the newly formatted message at the given level
     logging.getLogger(logger_name).log(level, log_message)
+
+
+REQUIRED_ENVIRONMENT_VARIABLES = [
+    {
+        "name": "MAAS_ENDPOINT_HOST",
+        "purpose": "The default host address for MaaS"
+    },
+    {
+        "name": "MAAS_ENDPOINT_PORT",
+        "purpose": "The port for the default MaaS endpoint"
+    }
+]
+
+
+def ensure_required_environment_variables():
+    missing_variables = [
+        variable_name
+        for variable_name in REQUIRED_ENVIRONMENT_VARIABLES
+        if variable_name['name'] not in os.environ.keys()
+    ]
+
+    if missing_variables:
+        missing_keys = [
+            variable['name']
+            for variable in missing_variables
+        ]
+
+        log(
+            "The following required environment variales are missing:",
+            level=ERROR_LEVEL
+        )
+
+        for missing_variable in missing_variables:
+            log(
+                "{}: {}".format(missing_variable['name'], missing_variable['purpose']),
+                level=ERROR_LEVEL
+            )
+        raise ValueError("The following environment variables have not been set: [{}]".format(", ".join(missing_keys)))
+
+
+ensure_required_environment_variables()
+
+MAAS_ENDPOINTS = {
+    "default": {
+        "host": "wss://" + os.environ.get("MAAS_ENDPOINT_HOST"),
+        "port": os.environ.get("MAAS_ENDPOINT_PORT")
+    }
+}
+
+
+def load_maas_endpoints():
+    endpoint_hosts = [
+        {
+            "key": re.search(r"(?<=maas_endpoint__).+(?=__host)", key.lower()).group(),
+            "host": os.environ.get("MAAS_ENDPOINT_HOST")
+        }
+        for key in os.environ.keys()
+        if re.search("^maas_endpoint__.+__host$", key.lower())
+    ]
+
+    for host_config in endpoint_hosts:
+        port_key = "maas_endpoint__{}__port".format(host_config['key'])
+
+        possible_keys = [
+            key
+            for key in os.environ.keys()
+            if key.lower() == port_key
+        ]
+
+        if len(possible_keys) > 0:
+            port_key = possible_keys[0]
+        else:
+            log(
+                "No port was given for the '{}' MaaS endpoint; skipping it.".format(host_config['key']),
+                level=WARNING_LEVEL
+            )
+            continue
+
+        if re.search(r"^(?!wss).+://.+", host_config["host"]):
+            protocol = re.search(r"^.+(?=://)", host_config["host"]).group()
+            log(
+                "The protocol for the host URI for {} must be 'wss' for web sockets, not {}; skipping".format(
+                    host_config['key'],
+                    protocol
+                ),
+                level=WARNING_LEVEL
+            )
+            continue
+
+        if not host_config["host"].startswith("wss://"):
+            host_config["host"] = "wss://" + host_config["host"]
+
+        host_config['port'] = port_key
+
+        MAAS_ENDPOINTS[host_config["key"]] = host_config
+
+
+load_maas_endpoints()
+
+# Must be all caps to be accessible
+def GET_MAAS_ENDPOINT(host_type: str) -> str:
+    config = MAAS_ENDPOINTS.get(host_type, MAAS_ENDPOINTS.get("default"))
+    return config["host"] + ":" + config["port"]
 
