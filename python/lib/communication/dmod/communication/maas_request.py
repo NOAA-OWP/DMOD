@@ -58,7 +58,7 @@ class Scalar(object):
         return {'scalar': self.scalar}
 
     def __str__(self):
-        return self.scalar
+        return str(self.scalar)
 
     def __repr__(self):
         return self.__str__()
@@ -231,26 +231,27 @@ class MaaSRequest(AbstractInitRequest):
         if parameters is None:
             parameters = {}
 
-        # We want to check each parameter
-        for parameter in parameters:
-            # If the parameter isn't approved, we want to fail
-            if parameter not in self.get_parameters():
-                raise ValueError(
-                    '{} is not a valid parameter; '
-                    'the only acceptable parameters are: {}'.format(parameter, self.get_parameters())
-                )
+        # We want to check each parameter if they are formally defined by the model request
+        if len(self.get_parameters()) > 0:
+            for parameter in parameters:
+                # If the parameter isn't approved, we want to fail
+                if parameter not in self.get_parameters():
+                    raise ValueError(
+                        '{} is not a valid parameter; '
+                        'the only acceptable parameters are: {}'.format(parameter, self.get_parameters())
+                    )
 
-            # Validate the parameter based on scalar rules if it's a scalar
-            if isinstance(parameters[parameter], Scalar):
-                self.validate_scalar(parameter, parameters[parameter])
-            elif isinstance(parameters[parameter], Distribution):
-                # Validate the parameter based on distribution rules if it's a distribution
-                self.validate_distribution(parameter, parameters[parameter])
-            else:
-                # Raise an exception since we only approve of Scalar or Distribution parameters
-                raise ValueError(
-                    "{} is not a scalar or distribution.".format(parameter)
-                )
+                # Validate the parameter based on scalar rules if it's a scalar
+                if isinstance(parameters[parameter], Scalar):
+                    self.validate_scalar(parameter, parameters[parameter])
+                elif isinstance(parameters[parameter], Distribution):
+                    # Validate the parameter based on distribution rules if it's a distribution
+                    self.validate_distribution(parameter, parameters[parameter])
+                else:
+                    # Raise an exception since we only approve of Scalar or Distribution parameters
+                    raise ValueError(
+                        "{} is not a scalar or distribution.".format(parameter)
+                    )
 
         self._version = version
         self.output = output

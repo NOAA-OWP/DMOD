@@ -4,6 +4,7 @@ import json
 import ssl
 import traceback
 from abc import ABC, abstractmethod
+from asyncio import AbstractEventLoop
 from pathlib import Path
 from typing import Optional, Union
 
@@ -19,6 +20,26 @@ import logging
 
 # TODO: refactor this to allow for implementation-specific overriding more easily
 logger = logging.getLogger("gui_log")
+
+
+def get_or_create_eventloop() -> AbstractEventLoop:
+    """
+    Retrieves an async event loop
+
+    An event loop is created and assigned if it is not present
+
+    Returns:
+    An async event loop
+    """
+    try:
+        return asyncio.get_event_loop()
+    except RuntimeError as ex:
+        # If the error was due to a non-existent loop, create, assign, and return a new one
+        if "There is no current event loop in thread" in str(ex):
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return asyncio.get_event_loop()
+        raise
 
 
 class WebSocketClient(ABC):
@@ -346,7 +367,7 @@ class MaasRequestClient(WebSocketClient, ABC):
     def _acquire_new_session(self):
         try:
             logger.info("Connection to request handler web socket")
-            auth_details = asyncio.get_event_loop().run_until_complete(self.authenticate_over_websocket())
+            auth_details = get_or_create_eventloop().run_until_complete(self.authenticate_over_websocket())
             logger.info("auth_details returned")
             self._session_id, self._session_secret, self._session_created = auth_details
             self._is_new_session = True
@@ -407,7 +428,7 @@ class MaasRequestClient(WebSocketClient, ABC):
                 is_request_valid, request_validation_error = self._run_validation(message=maas_job_request)
                 if is_request_valid:
                     try:
-                        response_obj: MaaSRequestResponse = asyncio.get_event_loop().run_until_complete(
+                        response_obj: MaaSRequestResponse = get_or_create_eventloop().run_until_complete(
                             self.async_make_request(maas_job_request))
                         print('***************** Response: ' + str(response_obj))
                         # Try to get a new session if session is expired (and we hadn't already gotten a new session)
