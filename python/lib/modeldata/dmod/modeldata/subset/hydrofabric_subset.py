@@ -134,6 +134,11 @@ class SimpleHydrofabricSubset(HydrofabricSubset):
         self._catchments: Set[Catchment] = set()
         self._nexuses: Set[Nexus] = set()
         super().__init__(catchment_ids, nexus_ids, hydrofabric)
+        # Since super __init__ validates, and validate function make sure ids are recognized, these won't ever be None
+        for cid in catchment_ids:
+            self._catchments.add(hydrofabric.get_catchment_by_id(cid))
+        for nid in nexus_ids:
+            self._nexuses.add(hydrofabric.get_nexus_by_id(nid))
 
     @property
     def catchments(self) -> Tuple[Catchment]:
