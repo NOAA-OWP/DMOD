@@ -135,6 +135,7 @@ class GeoJsonHydrofabricReader:
         self.crosswalk_dataframe = pd.read_json(cross_walk, dtype=str)
 
         self._hydrofabric_graph = None
+        self._roots = None
 
     @property
     def hydrofabric_graph(self) -> Dict[str, Union[Catchment, Nexus]]:
@@ -146,6 +147,8 @@ class GeoJsonHydrofabricReader:
         all the inter-object relationships.  These are collected in dictionary data structure keyed by the ``id``
         property of each object.  Once that is created, the backing attribute is set to this dictionary for subsequent
         reuse, and the dictionary is returned.
+
+        As the dictionary is built, the set of root notes is also determined and saved to ::attribute:`roots`.
 
         Returns
         -------
@@ -192,6 +195,10 @@ class GeoJsonHydrofabricReader:
                     cat_from[cat_id] = nex_id
 
             hf = dict()
+            # Start with all catchments as roots (for now, they are) and then remove later
+            # Root nexuses we will add individually below
+            roots = set(known_catchment_ids)
+
             # Create the catchments first, just without any upstream/downstream connections
             for cat_id in known_catchment_ids:
                 # TODO: do params need to be something different?
@@ -206,15 +213,44 @@ class GeoJsonHydrofabricReader:
                     receiving.add(hf[cid])
                 hf[nex_id] = Nexus(nexus_id=nex_id, hydro_location=HydroLocation(realized_nexus=nex_id),
                                    receiving_catchments=list(receiving), contributing_catchments=list(contributing))
+                # Add ids of nexuses without contributors to set of roots
+                if len(contributing) == 0:
+                    roots.add(nex_id)
             # Now go back and apply the right to/from relationships for catchments
             for cat_id, nex_id in cat_to.items():
                 hf[cat_id]._outflow = hf[nex_id]
             for cat_id, nex_id in cat_from.items():
                 hf[cat_id]._inflow = hf[nex_id]
+                # Remove any catchment ids from roots that have an upstream/inflow nexus
+                if cat_id in roots:
+                    roots.remove(cat_id)
             # TODO: again, do we need to worry about contained/containing/conjoined?
             # Finally ...
             self._hydrofabric_graph = hf
+            self._roots = frozenset(roots)
         return self._hydrofabric_graph
+
+    @property
+    def roots(self) -> FrozenSet[str]:
+        """
+        Lazily get the ids of the root nodes of the graph.
+
+        Makes a call to the property method for ::attribute:`hydrofabric_graph` when necessary to create, lazily
+        initializing both properties.
+
+        Returns
+        -------
+        FrozenSet[str]
+            The set of ids for the roots of the graph.
+
+        See Also
+        -------
+        ::attribute:`hydrofabric_graph`
+        """
+        if self._roots is None:
+            # Use to lazily instantiate this property also
+            graph = self.hydrofabric_graph
+        return self._roots
 
 
 class MappedGraphHydrofabric(Hydrofabric):
