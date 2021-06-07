@@ -2,7 +2,7 @@ import geopandas as gpd
 import pandas as pd
 from abc import ABC, abstractmethod
 from hypy import Catchment, HydroLocation, Nexus
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, FrozenSet, Optional, Tuple, Union
 
 
 class Hydrofabric(ABC):
@@ -96,6 +96,19 @@ class Hydrofabric(ABC):
         -------
         bool
             Whether the nexus is recognized.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def roots(self) -> FrozenSet[str]:
+        """
+        Get the ids of the root features of this graph.
+
+        Returns
+        -------
+        FrozenSet[str]
+            The set of ids of the root nodes for the hydrograph, from which further upstream traversal is not possible.
         """
         pass
 
@@ -209,7 +222,7 @@ class MappedGraphHydrofabric(Hydrofabric):
     Subtype of ::class:`Hydrofabric` created from an object graph stored as a dictionary.
     """
 
-    def __init__(self, hydrofabric_object_graph: Dict[str, Union[Catchment, Nexus]],
+    def __init__(self, hydrofabric_object_graph: Dict[str, Union[Catchment, Nexus]], roots: FrozenSet[str],
                  graph_creator: Optional[Any] = None):
         """
         Initialize the instance.
@@ -225,6 +238,7 @@ class MappedGraphHydrofabric(Hydrofabric):
         self._graph_creator = graph_creator
         self._catchment_ids = set()
         self._nexus_ids = set()
+        self._roots = roots
         for obj_id, obj in self._hydrofabric_graph.items():
             if isinstance(obj, Catchment):
                 self._catchment_ids.add(obj_id)
@@ -316,4 +330,16 @@ class MappedGraphHydrofabric(Hydrofabric):
             Whether the nexus is recognized.
         """
         return nexus_id in self._hydrofabric_graph
+
+    @property
+    def roots(self) -> FrozenSet[str]:
+        """
+        Get the ids of the root features of this graph.
+
+        Returns
+        -------
+        FrozenSet[str]
+            The set of ids of the root nodes for the hydrograph, from which further upstream traversal is not possible.
+        """
+        return self._roots
 
