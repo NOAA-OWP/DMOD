@@ -97,7 +97,7 @@ class HydrofabricSubset(SubsetDefinition, ABC):
 
 class SimpleHydrofabricSubset(HydrofabricSubset):
     """
-    Simple ::class:`HydrofabricSubset` type hydrofabric being one or more catchment or nexus objects.
+    Simple ::class:`HydrofabricSubset` type.
     """
 
     @classmethod
@@ -109,10 +109,10 @@ class SimpleHydrofabricSubset(HydrofabricSubset):
 
         Parameters
         ----------
-        subset_def : SubsetHandler
-            Simple subset definition object, encapsulating the required catchment and nexus ids.
+        subset_def : SubsetDefinition
+            Subset definition object, encapsulating the required catchment and nexus ids.
 
-        hydrofabric : Union[Sequence[Catchment, Nexus], Catchment, Nexus]
+        hydrofabric : Hydrofabric
             Hydrofabric parameter of an acceptable type.
 
         Other Parameters
@@ -164,7 +164,8 @@ class SimpleHydrofabricSubset(HydrofabricSubset):
         Determine whether hydrofabric is valid for this subset object.
 
         A hydrofabric is valid if it has sufficient data to retrieve or derive <i>appropriate</i> ::class:`Catchment`
-        and ::class:`Nexus` objects to represent all the catchments and nexuses of this subset object.
+        and ::class:`Nexus` objects to represent all the catchments and nexuses of this subset object.  As such, a valid
+        hydrofabric will recognize all catchment and nexus ids making up this subset.
 
         Parameters
         ----------
