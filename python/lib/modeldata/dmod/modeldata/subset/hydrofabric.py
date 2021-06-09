@@ -9,6 +9,89 @@ from .subset_definition import SubsetDefinition
 
 class Hydrofabric(ABC):
 
+    @classmethod
+    def connect_features(cls, catchment: Catchment, nexus: Nexus, is_catchment_upstream: bool):
+        """
+        Make the connections on both sides between this catchment and nexus.
+
+        Set the connections for this catchment and nexus pair.  How the upstream/downstream relationship exists is
+        indicated by another parameter.  E.g., if ``is_catchment_upstream`` is ``True``, then the catchment's
+        ::attribute:`Catchment.outflow` property is set to this nexus, and the catchment is added to the nexus's
+        ::attribute:`Nexus.contributing_catchments` tuple (or the tuple is created with the catchment placed in it).
+
+        Other properties, in particular those on the other "side" of each entity from where the two are connected, are
+        not altered.
+
+        Note that, for ::class:`Nexus` properties, duplication is avoided, but otherwise the catchment will be added to
+        a collection property (potentially with the collection object being created).  However, for ::class`Catchment`
+        properties, which are each an individual reference, the reference will be always be set.  No check is performed
+        as to whether the property currently references ``None``.
+
+        Parameters
+        ----------
+        catchment : Catchment
+            The upstream/downstream catchment in the connected pair.
+        nexus : Nexus
+            The upstream/downstream (with this being opposite the state of ``catchment``) nexus in the connected pair.
+        is_catchment_upstream : bool
+            Whether ``catchment`` is connected upstream of ``nexus``.
+        """
+        if is_catchment_upstream:
+            # Add catchment to nexus's collection of contributing, accounting for it being in there or the collection
+            # needing to be created
+            if nexus.contributing_catchments is None:
+                nexus._contributing_catchments = (catchment,)
+            elif catchment.id not in [cat.id for cat in nexus.contributing_catchments]:
+                nexus._contributing_catchments = nexus.contributing_catchments + (catchment,)
+            # Add nexus as catchment's outflow
+            catchment._outflow = nexus
+        else:
+            # Add catchment to nexus's collection of receiving, accounting for it being in there or the collection
+            # needing to be created
+            if nexus.receiving_catchments is None:
+                nexus._receiving_catchments = (catchment,)
+            elif catchment.id not in [cat.id for cat in nexus.receiving_catchments]:
+                nexus._receiving_catchments = nexus.receiving_catchments + (catchment,)
+            # Add nexus as catchment's inflow
+            catchment._inflow = nexus
+
+    @classmethod
+    def get_ids_of_connected(cls, feature: Union[Catchment, Nexus], upstream: bool, downstream: bool) -> Set[str]:
+        """
+        Get the ids of the features connected to the given feature.
+
+        Gets the ids of features connected a given "base" feature, with connected features being nexuses if the base is
+        a catchment, or catchments if the base is a nexus.  Whether upstream and/or downstream connected features are
+        included is controlled by the other parameters.
+
+        Parameters
+        ----------
+        feature : Union[Catchment, Nexus]
+            The base catchment or nexus.
+        upstream : bool
+            Whether the base's upstream feature(s) should have their ids included.
+        downstream : bool
+            Whether the base's downstream feature(s) should have their ids included.
+
+        Returns
+        -------
+        Set[str]
+            The set of ids of the upstream and/or downstream features directly connected to the given base feature.
+        """
+        output = set()
+        if isinstance(feature, Catchment):
+            if upstream and feature.inflow is not None:
+                output.add(feature.inflow.id)
+            if downstream and feature.outflow is not None:
+                output.add(feature.outflow.id)
+        else:
+            # Assumed to be Nexus
+            if upstream and feature.contributing_catchments is not None:
+                output.update([cat.id for cat in feature.contributing_catchments])
+            if downstream and feature.receiving_catchments is not None:
+                output.update([cat.id for cat in feature.receiving_catchments])
+        return output
+
     @abstractmethod
     def get_all_catchment_ids(self) -> Tuple[str, ...]:
         """
