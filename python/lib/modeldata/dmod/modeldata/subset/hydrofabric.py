@@ -2,7 +2,9 @@ import geopandas as gpd
 import pandas as pd
 from abc import ABC, abstractmethod
 from hypy import Catchment, HydroLocation, Nexus
-from typing import Any, Dict, FrozenSet, Optional, Tuple, Union
+from pathlib import Path
+from typing import Any, Dict, FrozenSet, Optional, Set, Tuple, Union
+from .subset_definition import SubsetDefinition
 
 
 class Hydrofabric(ABC):
@@ -117,8 +119,8 @@ class GeoJsonHydrofabricReader:
     """
     Util type for reading hydrofabric data from GeoJSON.
     """
-    def __init__(self, catchment_data: Union[str, gpd.GeoDataFrame], nexus_data: Union[str, gpd.GeoDataFrame],
-                 cross_walk: Union[str, pd.DataFrame]):
+    def __init__(self, catchment_data: Union[str, Path, gpd.GeoDataFrame],
+                 nexus_data: Union[str, Path, gpd.GeoDataFrame], cross_walk: Union[str, Path, pd.DataFrame]):
         id_error_msg = 'Unexpected format of {} file {}, without \'id\' or \'ID\' column'
 
         if isinstance(catchment_data, gpd.GeoDataFrame):
