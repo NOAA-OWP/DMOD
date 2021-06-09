@@ -117,22 +117,32 @@ class GeoJsonHydrofabricReader:
     """
     Util type for reading hydrofabric data from GeoJSON.
     """
-    def __init__(self, catchment_data, nexus_data, cross_walk):
+    def __init__(self, catchment_data: Union[str, gpd.GeoDataFrame], nexus_data: Union[str, gpd.GeoDataFrame],
+                 cross_walk: Union[str, pd.DataFrame]):
         id_error_msg = 'Unexpected format of {} file {}, without \'id\' or \'ID\' column'
 
-        self.catchment_geodataframe = gpd.read_file(catchment_data)
+        if isinstance(catchment_data, gpd.GeoDataFrame):
+            self.catchment_geodataframe = catchment_data
+        else:
+            self.catchment_geodataframe = gpd.read_file(catchment_data)
         self.catchment_geodataframe.columns = self.catchment_geodataframe.columns.astype(str).str.lower()
         if 'id' not in self.catchment_geodataframe.columns:
             raise RuntimeError(id_error_msg.format('catchment hydrofabric', catchment_data))
         self.catchment_geodataframe.set_index('id', inplace=True)
 
-        self.nexus_geodataframe = gpd.read_file(nexus_data)
+        if isinstance(nexus_data, gpd.GeoDataFrame):
+            self.nexus_geodataframe = nexus_data
+        else:
+            self.nexus_geodataframe = gpd.read_file(nexus_data)
         self.nexus_geodataframe.columns = self.nexus_geodataframe.columns.astype(str).str.lower()
         if 'id' not in self.nexus_geodataframe.columns:
             raise RuntimeError(id_error_msg.format('nexus hydrofabric', nexus_data))
         self.nexus_geodataframe.set_index('id', inplace=True)
 
-        self.crosswalk_dataframe = pd.read_json(cross_walk, dtype=str)
+        if isinstance(cross_walk, pd.DataFrame):
+            self.crosswalk_dataframe = cross_walk
+        else:
+            self.crosswalk_dataframe = pd.read_json(cross_walk, dtype=str)
 
         self._hydrofabric_graph = None
         self._roots = None
