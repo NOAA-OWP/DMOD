@@ -151,6 +151,23 @@ class Hydrofabric(ABC):
         pass
 
     @abstractmethod
+    def get_subset_hydrofabric(self, subset: SubsetDefinition) -> 'Hydrofabric':
+        """
+        Derive a hydrofabric object from this one with only entities included in a given subset.
+
+        Parameters
+        ----------
+        subset : SubsetDefinition
+            Subset describing which catchments/nexuses from this instance may be included in the produced hydrofabric.
+
+        Returns
+        -------
+        Hydrofabric
+            A hydrofabric object that is a subset of this instance as defined by the given param.
+        """
+        pass
+
+    @abstractmethod
     def is_catchment_recognized(self, catchment_id: str) -> bool:
         """
         Test whether a catchment is recognized.
@@ -193,7 +210,7 @@ class Hydrofabric(ABC):
         Returns
         -------
         FrozenSet[str]
-            The set of ids of the root nodes for the hydrograph, from which further upstream traversal is not possible.
+            The set of ids of the root nodes for the hydrofabric, from which further upstream traversal is not possible.
         """
         pass
 
