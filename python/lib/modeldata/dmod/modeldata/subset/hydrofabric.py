@@ -404,6 +404,25 @@ class GeoJsonHydrofabricReader:
         return self._roots
 
 
+class SubsetGeoJsonHydrofabricReader(GeoJsonHydrofabricReader):
+    """
+    Extension of ::class:`GeoJsonHydrofabricReader` to facilitate handling subsets.
+
+    This type requires an existing "base" ::class:`GeoJsonHydrofabricReader` and a subset definition be provided during
+    initialization.  It runs the superclass initialization routine, passing geodataframe data params obtained by
+    filtering the analogs of the "base" to just the rows applicable to the given subset.
+    """
+
+    def __init__(self, base: GeoJsonHydrofabricReader, subset: SubsetDefinition):
+        # Reduce based on subset using Pandas indexing
+        # TODO: look later if we need to also address the crosswalk somehow for subsetting
+        super(self).__init__(catchment_data=base.catchment_geodataframe.loc[list(subset.catchment_ids)],
+                             nexus_data=base.nexus_geodataframe.loc[list(subset.nexus_ids)],
+                             cross_walk=base.crosswalk_dataframe)
+        self._base = base
+        self._subset = subset
+
+
 class MappedGraphHydrofabric(Hydrofabric):
     """
     Subtype of ::class:`Hydrofabric` created from an object graph stored as a dictionary.
