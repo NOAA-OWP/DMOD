@@ -217,29 +217,68 @@ class Hydrofabric(ABC):
 
 class GeoJsonHydrofabricReader:
     """
-    Util type for reading hydrofabric data from GeoJSON.
+    Util type for managing hydrofabric GeoJSON data.
+
+    Type maintains (geo-)dataframe objects with the backing data.  It can receive these directly at initialization or
+    be passed paths to files, read them, and create the data structures directly.
+
+    From the backing dataframes, the type constructs and provides a hydrofabric graph as a dictionary of the included
+    catchments and nexus, keyed by each's string id, as well as a set of ids of the root nodes of the graph.  These
+    are accessible via the ::attribute:`hydrofabric_graph` and ::attribute:`roots` properties respectively, and are
+    lazily instantiated.
+
     """
+
+    @classmethod
+    def _standardize(cls, geo_df: gpd.GeoDataFrame, source: Union[str, Path, gpd.GeoDataFrame], feature_type_str: str):
+        """
+        Standardize the format of a given catchment/nexus geodataframe.
+
+        Method first makes all column names lower case.  Then, the unless initial index already has a name of ``id`` (or
+        some case-insensitive equivalent), the ``id`` column is set as the index.  An error is raised this cannot be
+        done because there is no ``id`` column.
+
+        In the case of the index name already being a case-insensitive equivalent of ``id``, but not ``id`` precisely
+        (e.g., ``ID``), the index's name is also standardized to ``id``.
+
+        Parameters
+        ----------
+        geo_df : gpd.GeoDataFrame
+            The geodataframe in question.
+        source : Union[str, Path, gpd.GeoDataFrame]
+            Either the source file for the data or a passed "base" geodataframe (when file, included in error messages).
+        feature_type_str : str
+            A string describing the type of feature for this data.
+        """
+        geo_df.columns = geo_df.columns.astype(str).str.lower()
+        # Standardize capitalization if it looks like this is already set properly
+        if geo_df.index.name != 'id' and str(geo_df.index.name).lower() == 'id':
+            geo_df.index.name = 'id'
+        # Otherwise, set the index as the 'id' column
+        elif geo_df.index.name != 'id':
+            # This requires 'id' column to be present of course
+            if 'id' not in geo_df.columns:
+                # Adjust error message depending on whether the source was an existing dataframe or a data file
+                if not isinstance(source, gpd.GeoDataFrame):
+                    msg = 'Bad format of {} file {}: no \'id\' or \'ID\' column'.format(feature_type_str, source)
+                else:
+                    msg = 'Bad format of {} dataframe: no \'id\' or \'ID\' column'.format(feature_type_str)
+                raise RuntimeError(msg.format(msg))
+            geo_df.set_index('id', inplace=True)
+
     def __init__(self, catchment_data: Union[str, Path, gpd.GeoDataFrame],
                  nexus_data: Union[str, Path, gpd.GeoDataFrame], cross_walk: Union[str, Path, pd.DataFrame]):
-        id_error_msg = 'Unexpected format of {} file {}, without \'id\' or \'ID\' column'
-
         if isinstance(catchment_data, gpd.GeoDataFrame):
             self.catchment_geodataframe = catchment_data
         else:
             self.catchment_geodataframe = gpd.read_file(catchment_data)
-        self.catchment_geodataframe.columns = self.catchment_geodataframe.columns.astype(str).str.lower()
-        if 'id' not in self.catchment_geodataframe.columns:
-            raise RuntimeError(id_error_msg.format('catchment hydrofabric', catchment_data))
-        self.catchment_geodataframe.set_index('id', inplace=True)
+        self._standardize(self.catchment_geodataframe, catchment_data, 'catchment hydrofabric')
 
         if isinstance(nexus_data, gpd.GeoDataFrame):
             self.nexus_geodataframe = nexus_data
         else:
             self.nexus_geodataframe = gpd.read_file(nexus_data)
-        self.nexus_geodataframe.columns = self.nexus_geodataframe.columns.astype(str).str.lower()
-        if 'id' not in self.nexus_geodataframe.columns:
-            raise RuntimeError(id_error_msg.format('nexus hydrofabric', nexus_data))
-        self.nexus_geodataframe.set_index('id', inplace=True)
+        self._standardize(self.nexus_geodataframe, nexus_data, 'nexus hydrofabric')
 
         if isinstance(cross_walk, pd.DataFrame):
             self.crosswalk_dataframe = cross_walk
