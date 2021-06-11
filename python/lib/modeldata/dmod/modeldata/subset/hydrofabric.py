@@ -697,3 +697,74 @@ class MappedGraphHydrofabric(Hydrofabric):
         """
         return self._roots
 
+
+class GeoJsonHydrofabric(MappedGraphHydrofabric):
+    """
+    Mapped ::class:`Hydrofabric` subtype created from GeoJSON data.
+
+    Subtype of ::class:`Hydrofabric` (specifically :class:`MappedGraphHydrofabric`) created from GeoJSON data or data
+    files. It possesses a ::attribute:`geojson_reader` property for accessing the ::class:`GeoJsonHydrofabricReader`
+    object that is directly responsible for managing the backing hydrofabric GeoJSON data.
+
+    A ::class:`GeoJsonHydrofabricReader` parameter must be provided for typical initialization.  However, a factory
+    method is available (::method:`factory_create_from_data`) for easily getting a new object from the necessary
+    GeoJSON data.
+    """
+
+    @classmethod
+    def factory_create_from_data(cls, catchment_data: Union[str, Path, gpd.GeoDataFrame],
+                                 nexus_data: Union[str, Path, gpd.GeoDataFrame],
+                                 cross_walk: Union[str, Path, pd.DataFrame]) -> 'GeoJsonHydrofabric':
+        """
+        Create an instance by creating and passing the required ::class:`GeoJsonHydrofabricReader`.
+
+        This factory method expects all the parameters required to initialize a new ::class:`GeoJsonHydrofabricReader`.
+        It then does so and uses said instance to initialize and return a new ::class:`GeoJsonHydrofabric` object
+
+        Parameters
+        ----------
+        catchment_data : Union[str, Path, gpd.GeoDataFrame]
+            The catchment data or data file needed for creating the required ::class:`GeoJsonHydrofabricReader`.
+        nexus_data : Union[str, Path, gpd.GeoDataFrame]
+            The nexus data or data file needed for creating the required ::class:`GeoJsonHydrofabricReader`.
+        cross_walk : Union[str, Path, gpd.GeoDataFrame]
+            The cross walk data or data file needed for creating the required ::class:`GeoJsonHydrofabricReader`.
+
+        Returns
+        -------
+        GeoJsonHydrofabric
+            A new ::class:`GeoJsonHydrofabric` object.
+        """
+        return cls(GeoJsonHydrofabricReader(catchment_data, nexus_data, cross_walk))
+
+    def __init__(self, geojson_reader: GeoJsonHydrofabricReader):
+        """
+        Initialize the instance.
+
+        Parameters
+        ----------
+        geojson_reader : GeoJsonHydrofabricReader
+            The reader object which will generate the GeoJSON-based hydrograph.
+        """
+        super(GeoJsonHydrofabric, self).__init__(geojson_reader.hydrofabric_graph, geojson_reader.roots, geojson_reader)
+
+    def get_subset_hydrofabric(self, subset: SubsetDefinition) -> 'GeoJsonHydrofabric':
+        """
+        Derive a hydrofabric object from this one with only entities included in a given subset.
+
+        Parameters
+        ----------
+        subset : SubsetDefinition
+            Subset describing which catchments/nexuses from this instance may be included in the produced hydrofabric.
+
+        Returns
+        -------
+        GeoJsonHydrofabric
+            A hydrofabric object that is a subset of this instance as defined by the given param.
+        """
+        return GeoJsonHydrofabric(geojson_reader=SubsetGeoJsonHydrofabricReader(self.geojson_reader, subset))
+
+    @property
+    def geojson_reader(self) -> GeoJsonHydrofabricReader:
+        return self._graph_creator
+
