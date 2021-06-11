@@ -1,6 +1,7 @@
 import geopandas as gpd
 import pandas as pd
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from hypy import Catchment, HydroLocation, Nexus
 from pathlib import Path
 from typing import Any, Dict, FrozenSet, Optional, Set, Tuple, Union
@@ -451,6 +452,153 @@ class MappedGraphHydrofabric(Hydrofabric):
             else:
                 self._nexus_ids.add(obj_id)
 
+    # def _get_new_subset_hydrofabric_roots(self, subset: SubsetDefinition) -> FrozenSet[str]:
+    #     """
+    #     Get the roots of a subset of this instance's hydrofabric as defined by the given parameter.
+    #
+    #     Parameters
+    #     ----------
+    #     subset : SubsetDefinition
+    #         A definition for the applicable subset of this instance's hydrofabric for which roots are wanted.
+    #
+    #     Returns
+    #     -------
+    #     FrozenSet[str]
+    #         The (frozen) set of ids for the roots of a the applicable subset hydrofabric.
+    #     """
+    #     already_seen = set()
+    #     new_roots = set()
+    #     possible_roots = set(self.roots)
+    #     while len(possible_roots) > 0:
+    #         # Pop possible root pr
+    #         potential_root = possible_roots.pop()
+    #         if potential_root in already_seen:
+    #             continue
+    #         else:
+    #             already_seen.add(potential_root)
+    #         if potential_root in subset.catchment_ids or potential_root in subset.nexus_ids:
+    #             new_roots.add(potential_root)
+    #         else:
+    #             # add ids of each child to possible roots
+    #             possible_roots.update(
+    #                 self.get_ids_of_connected(feature=self._hydrofabric_graph[potential_root],
+    #                                           upstream=False,
+    #                                           downstream=True))
+    #     return frozenset(new_roots)
+
+    def get_subset_hydrofabric(self, subset: SubsetDefinition) -> 'MappedGraphHydrofabric':
+        """
+        Derive a hydrofabric object from this one with only entities included in a given subset.
+
+        Parameters
+        ----------
+        subset : SubsetDefinition
+            Subset describing which catchments/nexuses from this instance may be included in the produced hydrofabric.
+
+        Returns
+        -------
+        GeoJsonHydrofabric
+            A hydrofabric object that is a subset of this instance as defined by the given param.
+        """
+        new_graph: Dict[str, Union[Catchment, Nexus]] = dict()
+        new_graph_roots = set()
+        # TODO: consider changing to implement via Pickle and copy module later
+        graph_features_stack = list(self.roots)
+        already_seen = set()
+        # keep track of new graph entities where we can't immediately link to one (or more) of their parents
+        unlinked_to_parent = defaultdict(set)
+        # Keep track of catchments with related nested catchments to handle at the end
+        have_nested_catchments = set()
+
+        while len(graph_features_stack) > 0:
+            feature_id = graph_features_stack.pop()
+            if feature_id in already_seen:
+                continue
+            else:
+                already_seen.add(feature_id)
+            old_cat = self._hydrofabric_graph[feature_id]
+            # add ids for all downstream connected features to graph_features_stack for later processing
+            graph_features_stack.extend(self.get_ids_of_connected(old_cat, upstream=False, downstream=True))
+
+            subset_copy_of_feature = None
+            # Assume False means feature is a Nexus
+            is_catchment = False
+            # If feature is in subset, make the start of a deep copy.
+            #   Note that the deep copy's upstream refs are handled in next step, and downstream refs are handled during
+            #   creation of the subset copy of the downstream object
+            if feature_id in subset.catchment_ids:
+                is_catchment = True
+                subset_copy_of_feature = Catchment(feature_id, params=dict(), realization=old_cat.realization)
+                # Must track and handle (later) contained_catchments, containing_catchment, and conjoined_catchments
+                if old_cat.containing_catchment is not None:
+                    if old_cat.containing_catchment.id in subset.catchment_ids:
+                        have_nested_catchments.add(feature_id)
+                        graph_features_stack.append(old_cat.containing_catchment.id)
+                if old_cat.contained_catchments:
+                    contained_ids = [c.id for c in old_cat.contained_catchments if c.id in subset.catchment_ids]
+                    have_nested_catchments.update(contained_ids)
+                    graph_features_stack.extend(contained_ids)
+                if old_cat.conjoined_catchments:
+                    conjoined_ids = [c.id for c in old_cat.conjoined_catchments if c.id in subset.catchment_ids]
+                    have_nested_catchments.update(conjoined_ids)
+                    graph_features_stack.extend(conjoined_ids)
+
+            elif feature_id in subset.nexus_ids:
+                subset_copy_of_feature = Nexus(feature_id, hydro_location=old_cat._hydro_location)
+
+            # Will be None when not in subset, so ...
+            if subset_copy_of_feature is not None:
+                # add to new_graph
+                new_graph[feature_id] = subset_copy_of_feature
+                # Get the ids of parents in the subset
+                parent_ids = self.get_ids_of_connected(old_cat, upstream=True, downstream=False)
+                pids_in_subset = [pid for pid in parent_ids if (pid in subset.catchment_ids or pid in subset.nexus_ids)]
+                # If old feature does not have any parents that will be in the subset, this is a new root
+                if len(pids_in_subset) == 0:
+                    new_graph_roots.add(feature_id)
+                # For each parent in the subset, set up ref to new copy of parent and its ref down to feature's new copy
+                for pid in pids_in_subset:
+                    # if parent copy in new graph (i.e., the copy exists)
+                    if pid in new_graph:
+                        # set upstream connections to parent copy and downstream connection of parent copy to this
+                        if is_catchment:
+                            self.connect_features(catchment=subset_copy_of_feature, nexus=new_graph[pid],
+                                                  is_catchment_upstream=False)
+                        else:
+                            self.connect_features(catchment=new_graph[pid], nexus=subset_copy_of_feature,
+                                                  is_catchment_upstream=True)
+                    # If parent copy not in new graph yet (i.e., does not exist), add to collection to deal with later
+                    else:
+                        unlinked_to_parent[feature_id].add(pid)
+
+        # Now deal with any previously unlinked parents
+        for feature_id in unlinked_to_parent:
+            new_cat = new_graph[feature_id]
+            if isinstance(new_cat, Catchment):
+                for pid in unlinked_to_parent[feature_id]:
+                    self.connect_features(catchment=new_cat, nexus=new_graph[pid], is_catchment_upstream=False)
+            else:
+                for pid in unlinked_to_parent[feature_id]:
+                    self.connect_features(catchment=new_graph[pid], nexus=new_cat, is_catchment_upstream=True)
+
+        # Also deal with any catchment conjoined, containing, or contained collections
+        for cid in subset.catchment_ids:
+            old_cat = self._hydrofabric_graph[cid]
+            new_cat = new_graph[cid]
+            if old_cat.containing_catchment is not None and old_cat.containing_catchment.id in subset.catchment_ids:
+                new_cat._containing_catchment = new_graph[old_cat.containing_catchment.id]
+            if old_cat.contained_catchments:
+                for contained_id in [c.id for c in old_cat.contained_catchments if c.id in subset.catchment_ids]:
+                    if contained_id not in [c.id for c in new_cat.contained_catchments]:
+                        new_cat.contained_catchments = new_cat.contained_catchments + (new_graph[contained_id],)
+            if old_cat.conjoined_catchments:
+                for conjoined_id in [c.id for c in old_cat.conjoined_catchments if c.id in subset.catchment_ids]:
+                    if conjoined_id not in [c.id for c in new_cat.conjoined_catchments]:
+                        new_cat.conjoined_catchments = new_cat.conjoined_catchments + (new_graph[conjoined_id],)
+
+        return MappedGraphHydrofabric(hydrofabric_object_graph=new_graph, roots=frozenset(new_graph_roots),
+                                      graph_creator=self)
+
     def get_all_catchment_ids(self) -> Tuple[str, ...]:
         """
         Get ids for all contained catchments.
@@ -545,7 +693,7 @@ class MappedGraphHydrofabric(Hydrofabric):
         Returns
         -------
         FrozenSet[str]
-            The set of ids of the root nodes for the hydrograph, from which further upstream traversal is not possible.
+            The set of ids of the root nodes for the hydrofabric, from which further upstream traversal is not possible.
         """
         return self._roots
 
