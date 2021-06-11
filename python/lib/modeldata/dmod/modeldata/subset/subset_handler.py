@@ -3,7 +3,7 @@ from hypy import Catchment, Nexus
 from queue import Queue
 from typing import Collection, Optional, Set, Tuple, Union
 from .subset_definition import SubsetDefinition
-from .hydrofabric import Hydrofabric, GeoJsonHydrofabricReader, MappedGraphHydrofabric
+from .hydrofabric import Hydrofabric, GeoJsonHydrofabricReader, GeoJsonHydrofabric
 
 
 class SubsetValidator(ABC):
@@ -139,9 +139,7 @@ class SubsetHandler:
     @classmethod
     def factory_create_from_geojson(cls, catchment_data, nexus_data, cross_walk,
                                     validator: Optional[SubsetValidator] = None) -> 'SubsetHandler':
-        reader = GeoJsonHydrofabricReader(catchment_data, nexus_data, cross_walk)
-        hydrofabric = MappedGraphHydrofabric(hydrofabric_object_graph=reader.hydrofabric_graph, roots=reader.roots,
-                                             graph_creator=reader)
+        hydrofabric = GeoJsonHydrofabric(GeoJsonHydrofabricReader(catchment_data, nexus_data, cross_walk))
         return cls(hydrofabric=hydrofabric, validator=validator)
 
     def __init__(self, hydrofabric: Hydrofabric, validator: Optional[SubsetValidator] = None):
