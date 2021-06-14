@@ -60,6 +60,21 @@ services:
     #depends_on:
     #    - deps
     #For building, this only gives shared memory to each build step!!! shm_size: 2GB
+
+  ngen-partitioner:
+    image: ${DOCKER_INTERNAL_REGISTRY:?}/ngen-partitioner:${NGEN_VERSION:-latest}
+    build:
+      context: ./ngen-partitioner
+      args:
+        REPO_URL: ${NGEN_REPO_URL?No NGen repo url configured}
+        BRANCH: ${NGEN_BRANCH?No NGen branch configured}
+        COMMIT: ${NGEN_COMMIT}
+        BUILD_PARALLEL_JOBS: ${NGEN_BUILD_PARALLEL_JOBS:-2}
+        DOCKER_INTERNAL_REGISTRY: ${DOCKER_INTERNAL_REGISTRY:?}
+        PARTITIONER_EXECUTABLE: ${PARTITIONER_EXECUTABLE:-partitionGenerator}
+    depends_on:
+      - ngen-deps
+
   request-service:
     image: ${DOCKER_INTERNAL_REGISTRY:?}/nwm-request-service
     build:
