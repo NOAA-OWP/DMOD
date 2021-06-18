@@ -417,9 +417,10 @@ class SubsetGeoJsonHydrofabricReader(GeoJsonHydrofabricReader):
     def __init__(self, base: GeoJsonHydrofabricReader, subset: SubsetDefinition):
         # Reduce based on subset using Pandas indexing
         # TODO: look later if we need to also address the crosswalk somehow for subsetting
-        super(self).__init__(catchment_data=base.catchment_geodataframe.loc[list(subset.catchment_ids)],
-                             nexus_data=base.nexus_geodataframe.loc[list(subset.nexus_ids)],
-                             cross_walk=base.crosswalk_dataframe)
+        super(SubsetGeoJsonHydrofabricReader, self).__init__(
+            catchment_data=base.catchment_geodataframe.loc[list(subset.catchment_ids)],
+            nexus_data=base.nexus_geodataframe.loc[list(subset.nexus_ids)],
+            cross_walk=base.crosswalk_dataframe)
         self._base = base
         self._subset = subset
 
