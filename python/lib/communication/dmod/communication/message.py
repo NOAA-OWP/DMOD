@@ -11,6 +11,7 @@ class MessageEventType(Enum):
     SCHEDULER_REQUEST = 3,
     INFORMATION_UPDATE = 4,
     METADATA = 5,
+    PARTITION_REQUEST = 6,
     INVALID = -1
 
 
