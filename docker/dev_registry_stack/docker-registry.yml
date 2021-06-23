@@ -7,7 +7,7 @@ services:
       - "${DOCKER_INTERNAL_REGISTRY_PORT}:${DOCKER_INTERNAL_REGISTRY_PORT}"
     volumes:
       # This must exist on manager node to provide a persistent store for images
-      - ../../${DOCKER_HOST_IMAGE_STORE:-/opt/nwm_c/images}:/var/lib/registry
+      - ${DOCKER_HOST_IMAGE_STORE:-/opt/nwm_c/images}:/var/lib/registry
     networks:
       - ${DOCKER_MPI_NET_NAME}
     deploy:

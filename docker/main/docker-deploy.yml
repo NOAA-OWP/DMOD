@@ -10,9 +10,9 @@ services:
         - "3013:3013"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ../../ssl:/ssl
-      - ./schedulerservice/resources.yaml:/code/resources.yaml
-      - ./schedulerservice/image_and_domain.yaml:/code/image_and_domain.yaml
+      - ${DMOD_SSL_DIR:?}:/ssl
+      - ${SCHEDULER_RESOURCE_DIR:?}/resources.yaml:/code/resources.yaml
+      - ${SCHEDULER_RESOURCE_DIR:?}/image_and_domain.yaml:/code/image_and_domain.yaml
     deploy:
       placement:
         constraints:
@@ -38,8 +38,8 @@ services:
           - ${DOCKER_REDIS_SERVICE_ALIAS:-redis}
     entrypoint: "/entrypoint.sh"
     volumes:
-      - ./myredis/entrypoint.sh:/entrypoint.sh
-      - ./myredis/redis.conf:/usr/local/etc/redis/redis.conf
+      - ${REDIS_CONF_DIR:?}/entrypoint.sh:/entrypoint.sh
+      - ${REDIS_CONF_DIR:?}/redis.conf:/usr/local/etc/redis/redis.conf
     deploy:
       placement:
         constraints:
@@ -81,7 +81,7 @@ services:
     ports:
       - "${DOCKER_REQUESTS_HOST_PORT:-3012}:${DOCKER_REQUESTS_CONTAINER_PORT:-3012}"
     volumes:
-      - ../../ssl:/ssl
+      - ${DMOD_SSL_DIR:?}:/ssl
     #  - ./request_handler:/code
     #depends_on:
     #  - myredis
