@@ -3,6 +3,7 @@
 import logging
 from requests.exceptions import ReadTimeout
 import docker
+from docker.types import Mount
 import yaml
 from typing import List, TYPE_CHECKING, Tuple
 
@@ -41,7 +42,45 @@ class DockerServiceParameters():
         self.mounts = mounts
 
 
-class Launcher:
+class SimpleDockerUtil:
+    """
+    Simple class that can work with Docker.
+    """
+    def __init__(self, docker_client=None, api_client=None, **kwargs):
+        """
+        Parameters
+        ----------
+        docker_client
+            Docker API client
+        api_client
+            Docker Low-level API client
+        """
+        if docker_client:
+            self.docker_client = docker_client
+            self.api_client = api_client
+        else:
+            self.checkDocker()
+            self.docker_client = docker.from_env()
+            self.api_client = docker.APIClient()
+
+    def checkDocker(self):
+        """Test that docker is up running"""
+        try:
+            # Check docker client state
+            docker.from_env().ping()
+        except:
+            raise ConnectionError("Please check that the Docker Daemon is installed and running.")
+
+    def run_container(self, image: str, **kwargs):
+        return self.docker_client.containers.run(image=image,
+                                                 command=kwargs.pop('command', None),
+                                                 stdout=kwargs.pop('stdout', True),
+                                                 stderr=kwargs.pop('stderr', False),
+                                                 remove=kwargs.pop('remove', False),
+                                                 **kwargs)
+
+
+class Launcher(SimpleDockerUtil):
 
     def __init__(self, images_and_domains_yaml, docker_client=None, api_client=None, **kwargs):
         """ FIXME
@@ -52,14 +91,8 @@ class Launcher:
         api_client
             Docker Low-level API client
         """
+        super(Launcher, self).__init__(docker_client, api_client, **kwargs)
         self._images_and_domains_yaml = images_and_domains_yaml
-        if docker_client:
-            self.docker_client = docker_client
-            self.api_client = api_client
-        else:
-            self.checkDocker()
-            self.docker_client = docker.from_env()
-            self.api_client = docker.APIClient()
 
         #FIXME make networks, stack name __init__ params
 
@@ -169,14 +202,6 @@ class Launcher:
         logging.info("\n")
         api_client.close()
         client.close()
-
-    def checkDocker(self):
-        """Test that docker is up running"""
-        try:
-            # Check docker client state
-            docker.from_env().ping()
-        except:
-            raise ConnectionError("Please check that the Docker Daemon is installed and running.")
 
     @staticmethod
     def build_host_list(job: 'Job') -> str:
