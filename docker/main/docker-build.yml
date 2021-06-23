@@ -62,7 +62,7 @@ services:
     #For building, this only gives shared memory to each build step!!! shm_size: 2GB
 
   ngen-partitioner:
-    image: ${DOCKER_INTERNAL_REGISTRY:?}/ngen-partitioner:${NGEN_VERSION:-latest}
+    image: ${DOCKER_INTERNAL_REGISTRY:?}/${DOCKER_PARTITIONER_IMAGE:-ngen-partitioner}
     build:
       context: ./ngen-partitioner
       args:
@@ -94,6 +94,16 @@ services:
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
         modeldata_package_name: ${PYTHON_PACKAGE_DIST_NAME_MODELDATA:?}
         subsetservice_package_name: ${PYTHON_PACKAGE_DIST_NAME_SUBSET_SERVICE:?}
+
+  partitioner-service:
+    image: ${DOCKER_INTERNAL_REGISTRY:?}/partitioner-service
+    build:
+      context: ./partitionerservice
+      args:
+        docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY}
+        partitioner_service_package_name: ${PYTHON_PACKAGE_DIST_NAME_PARTITIONER_SERVICE:?}
+        partitioner_service_listener_port: ${DOCKER_PARTITIONER_SERVICE_CONTAINER_PORT:-3014}
+        partitioner_service_module_name: ${PYTHON_PACKAGE_NAME_PARTITIONER_SERVICE:?}
 networks:
   mpi-net:
     external: true
