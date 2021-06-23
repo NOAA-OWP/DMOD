@@ -18,6 +18,6 @@ geopandas
 gitpython
 python-dotenv
 djangorestframework
-git+git://github.com/noaa-owp/hypy@master#egg=hypy&subdirectory=python
-git+git://github.com/noaa-owp/hydrotools#egg=hydrotools-nwis_client&subdirectory=python/nwis_client
+git+https://github.com/noaa-owp/hypy@master#egg=hypy&subdirectory=python
+hydrotools.nwis-client
 numpy>=1.20.1

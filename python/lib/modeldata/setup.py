@@ -15,7 +15,7 @@ setup(
     url='',
     license='',
     install_requires=['numpy>=1.20.1', 'pandas', 'geopandas', 'dmod-communication>=0.3.0',
-                      'hypy@git+git://github.com/noaa-owp/hypy@master#egg=hypy&subdirectory=python',
-                      'hydrotools-nwis_client@git+git://github.com/noaa-owp/hydrotools#egg=hydrotools-nwis_client&subdirectory=python/nwis_client'],
+                      'hypy@git+https://github.com/noaa-owp/hypy@master#egg=hypy&subdirectory=python',
+                      ],
     packages=find_namespace_packages(exclude=('tests', 'schemas', 'ssl', 'src'))
 )
