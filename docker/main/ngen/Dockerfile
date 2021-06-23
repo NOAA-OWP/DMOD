@@ -15,8 +15,9 @@ ENV PATH "${WORKDIR}/bin:${PATH}"
 ARG BOOST_VERSION=1.72.0
 ENV BOOST_ROOT=${WORKDIR}/boost
 
-RUN wget https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION//./_}.tar.gz \
-    #### \
+#RUN wget https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION//./_}.tar.gz \
+RUN wget https://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION//./_}.tar.gz/download -O boost_${BOOST_VERSION//./_}.tar.gz \
+#### \
     # Get boost headers \
     #### \
     && mkdir -p ${WORKDIR}/boost \
