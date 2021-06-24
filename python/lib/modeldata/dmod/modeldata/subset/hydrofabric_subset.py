@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from hypy import Catchment, Nexus
 from typing import Collection, Optional, Sequence, Set, Tuple, Union
-from .hydrofabric import Hydrofabric
+from ..hydrofabric import Hydrofabric
 from .subset_definition import SubsetDefinition
 
 
