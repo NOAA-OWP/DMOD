@@ -3,7 +3,8 @@ import git
 
 from pathlib import Path
 from typing import Optional, Union
-from ..modeldata.subset import SimpleHydrofabricSubset, SubsetHandler, GeoJsonHydrofabricReader, MappedGraphHydrofabric
+from ..modeldata.subset import SimpleHydrofabricSubset, SubsetHandler
+from ..modeldata.hydrofabric import GeoJsonHydrofabricReader, MappedGraphHydrofabric
 
 
 class TestSimpleHydrofabricSubset(unittest.TestCase):
