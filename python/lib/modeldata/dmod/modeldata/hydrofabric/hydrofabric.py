@@ -5,7 +5,7 @@ from collections import defaultdict
 from hypy import Catchment, HydroLocation, Nexus
 from pathlib import Path
 from typing import Any, Dict, FrozenSet, Optional, Set, Tuple, Union
-from .subset_definition import SubsetDefinition
+from ..subset import SubsetDefinition
 
 
 class Hydrofabric(ABC):
