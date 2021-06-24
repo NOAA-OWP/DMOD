@@ -3,7 +3,7 @@ from hypy import Catchment, Nexus
 from queue import Queue
 from typing import Collection, Optional, Set, Tuple, Union
 from .subset_definition import SubsetDefinition
-from .hydrofabric import Hydrofabric, GeoJsonHydrofabricReader, GeoJsonHydrofabric
+from ..hydrofabric import Hydrofabric, GeoJsonHydrofabricReader, GeoJsonHydrofabric
 
 
 class SubsetValidator(ABC):
