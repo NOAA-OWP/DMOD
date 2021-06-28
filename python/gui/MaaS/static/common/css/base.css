@@ -18,7 +18,7 @@ body {
     margin: 0;
     background-color: #ececec;
     font-family: sans-serif;
-    overflow-y: hidden;
+    overflow-y: auto;
 }
 
 #base-content-wrapper {
