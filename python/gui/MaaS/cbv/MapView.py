@@ -2,6 +2,7 @@
 Defines a view that may be used to configure a MaaS request
 """
 
+import re
 import os
 import typing
 import importlib
@@ -20,20 +21,33 @@ from .. import configuration
 import logging
 logger = logging.getLogger("gui_log")
 
+_resolution_regex = re.compile("(.+) \((.+)\)")
 
-FABRICS = {
-    "default": os.path.join(PROJECT_ROOT, 'static', 'ngen', 'catchment_data.geojson'),
-    'flowpath': os.path.join(PROJECT_ROOT, 'static', 'ngen', 'flowpath_data.geojson'),
-    'nexi': os.path.join(PROJECT_ROOT, 'static', 'ngen', 'nexus_data.geojson'),
-}
-
+def _build_fabric_path(fabric, type):
+    """
+        build a qualified path from the hydrofabric name and type
+    """
+    resolution_match = _resolution_regex.search(fabric)
+    
+    if resolution_match:
+        name = resolution_match.group(1)
+        resolution = resolution_match.group(2)
+    else:
+        name = fabric
+        resolution=''
+    
+    path = Path(PROJECT_ROOT, 'static', 'ngen', 'hydrofabric', name, resolution, type+'_data.geojson')
+    return path
 
 class Fabrics(APIView):
     def get(self, request: HttpRequest, fabric: str = None) -> typing.Optional[JsonResponse]:
         if fabric is None:
-            fabric = 'default'
-
-        path = FABRICS.get(fabric)
+            fabric = 'example'
+        type = request.GET.get('fabric_type', 'catchment')
+        if not type:
+            type="catchment"
+        
+        path = _build_fabric_path(fabric, type)
 
         if path is None:
             return None
@@ -41,14 +55,31 @@ class Fabrics(APIView):
         with open(path) as fp:
             data = json.load(fp)
             return JsonResponse(data)
-
-
+    
 class FabricNames(APIView):
+    _fabric_dir = Path(PROJECT_ROOT, 'static', 'ngen', 'hydrofabric')
+    
     def get(self, request: HttpRequest) -> JsonResponse:
+        names = []
+        for f_name in self._fabric_dir.iterdir():
+            if f_name.is_dir():
+                #Check for sub dirs/resolution
+                sub = False
+                for r_name in f_name.iterdir():
+                    if r_name.is_dir():
+                        names.append( '{} ({})'.format(f_name.name, r_name.name))
+                        sub = True
+                if not sub:
+                    names.append( '{}'.format(f_name.name) )
         return JsonResponse(data={
-            "fabric_names": list(FABRICS.keys())
+            "fabric_names": names
         })
 
+class FabricTypes(APIView):
+    def get(self, rquest: HttpRequest) -> JsonResponse:
+        return JsonResponse( data={
+            "fabric_types": ['catchment', 'flowpath', 'nexus']
+            })
 
 class ConnectedFeatures(APIView):
     def get(self, request: HttpRequest) -> JsonResponse:

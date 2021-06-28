@@ -66,6 +66,7 @@
     <fieldset id="fabric-fields" style="width: fit-content">
         <legend>Fabric</legend>
         <select id="fabric-selector" onchange="loadFabric()"></select>
+        <select id="fabric-type-selector" onchange="loadFabric()"></select>
     </fieldset>
     <div id="mapid" style="width: {{ map_width|default:'95vw' }}; height: {{ map_height|default:'70vh' }}; margin: auto"></div>
 </div>
@@ -94,6 +95,7 @@
     );
 
     startup_scripts.push(loadFabricNames);
+    startup_scripts.push(loadFabricTypes);
     startup_scripts.push(loadFabric);
 </script>
 
