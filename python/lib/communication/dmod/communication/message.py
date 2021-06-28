@@ -187,6 +187,10 @@ class Response(Message, ABC):
         self.message = message
         self.data = data
 
+    def __eq__(self, other):
+        return self.success == other.success and self.reason == other.reason and self.message == other.message \
+               and self.data == other.data
+
     def to_dict(self) -> dict:
         if self.data is None:
             data_dict_value = {}
