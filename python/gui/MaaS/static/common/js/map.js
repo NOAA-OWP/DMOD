@@ -379,8 +379,31 @@ function loadFabricNames() {
     );
 }
 
+function loadFabricTypes() {
+    $.ajax(
+        {
+            url: "fabric/types",
+            type: 'GET',
+            error: function(xhr,status,error) {
+                console.error(error);
+            },
+            success: function(result,status,xhr) {
+                if (result != null) {
+                    result['fabric_types'].forEach(function(name) {
+                        $("#fabric-type-selector").append("<option value='" + name + "'>" + titleCase(name) + "</option>");
+                    });
+                    $("#fabric-type-selector option")[0].setAttribute("selected", "");
+                    loadFabric();
+                }
+            }
+        }
+    );
+}
+
 function loadFabric(event) {
     var name = $("#fabric-selector").val();
+    var type = $("#fabric-type-selector").val();
+
     $("input[name=fabric]").val(name);
 
     var addTooltip = function(feature, layer) {
@@ -413,17 +436,17 @@ function loadFabric(event) {
 
         mymap.fitBounds(activeLayer.getBounds());
     }
-
-    if (name && (name != activeLayerName || activeLayer == null)) {
-        activeLayerName = name;
+    var name_type = name+"|"+type;
+    if (name && type &&  (name_type != activeLayerName || activeLayer == null)) {
+        activeLayerName = name_type;
 
         if (activeLayer) {
             Object.values(selectedLayers).forEach(layer => removeFeature(layer.feature.id));
             activeLayer.remove();
         }
 
-        if (name in loadedLayers) {
-            addDocument(loadedLayers[name]);
+        if (name_type in loadedLayers) {
+            addDocument(loadedLayers[name_type]);
         }
         else {
             var url = "fabric/" + name;
@@ -431,12 +454,13 @@ function loadFabric(event) {
                 {
                     url: url,
                     type: "GET",
+                    data: {"fabric_type":type},
                     error: function(xhr, status, error) {
                         console.error(error);
                     },
                     success: function(result, status, xhr) {
                         if (result) {
-                            loadedLayers[name] = result;
+                            loadedLayers[name_type] = result;
                             addDocument(result);
                         }
                     }
