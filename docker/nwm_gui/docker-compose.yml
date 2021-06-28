@@ -13,7 +13,7 @@ services:
     # Link everything within the static volume to /usr/maas_portal/static within the container -
     # this will help share resources
     volumes:
-      - static_volume:/usr/maas_portal/static
+      - ${DMOD_APP_STATIC:?}:/usr/maas_portal/static
       - ${DOCKER_GUI_WEB_SERVER_CONFIG_FILE:-/docker/nwm_gui/web_server/nginx/default.conf}:/etc/nginx/conf.d/default.conf
     # Make this container depend on the container holding the application server
     # TODO: this appears to break things now for some reason, despite documentation suggesting it is still supported
@@ -47,7 +47,7 @@ services:
       - MAAS_ENDPOINT_PORT=${DOCKER_REQUESTS_HOST_PORT:-3012}
       - MAAS_PORTAL_DEBUG=${DOCKER_GUI_MAAS_PORTAL_DEBUG:-true}
     volumes:
-      - static_volume:/usr/maas_portal/static
+      - ${DMOD_APP_STATIC:?}:/usr/maas_portal/static
       #- ../../gui:/usr/maas_portal
       - ${DMOD_SSL_DIR}/requestsservice:/usr/maas_portal/ssl
       #- ${DOCKER_GUI_HOST_VENV_DIR:-/tmp/blah}:${DOCKER_GUI_CONTAINER_VENV_DIR:-/tmp/blah}
@@ -66,5 +66,5 @@ networks:
     name: ${DOCKER_REQUESTS_NET_NAME}
 
 # Define persistent volumes that may be shared and persisted between containers
-volumes:
-  static_volume:
+#volumes:
+#    static_volume:
