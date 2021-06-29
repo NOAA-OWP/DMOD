@@ -2,7 +2,7 @@
 
 Herein is the source for a simple web based frontend based largely on existing code provided by Chris Tubbs.
 
-Within _MaaS/cbv/EditView.py_ is a class named `PostFormJobRequestClient` that implements `MaasRequestClient` and serves as the client for communicating with the request service.  It is used by the `EditView` class, which currently is the main view for the webapp.  
+Within _MaaS/cbv/EditView.py_ is a class named `PostFormRequestClient` that implements `MaasRequestClient` and serves as the client for communicating with the request service.  It is used by the `EditView` class, which currently is the main view for the webapp.  
 
 # Distribution Differences
 

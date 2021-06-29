@@ -14,7 +14,7 @@ logger = logging.getLogger("gui_log")
 from dmod.communication import Distribution, get_available_models, get_available_outputs, get_request, get_parameters, \
     NWMRequestJsonValidator, NWMRequest, MaaSRequest, MaaSRequestResponse, MaasRequestClient, Scalar, MessageEventType
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Tuple, Type
 
 
 class RequestFormProcessor(ABC):
@@ -202,34 +202,29 @@ class ModelExecRequestFormProcessor(RequestFormProcessor):
         return self._maas_request
 
 
-        Returns
-        -------
-        Any error encountered during validation
-        """
-        lazy_load_if_needed_via_side_effect_of_this_property = self.is_valid
-        return self._validation_error
-
-
-class PostFormJobRequestClient(MaasRequestClient):
+class PostFormRequestClient(MaasRequestClient):
     """
-    A client for websocket interaction with the MaaS request handler, specifically for performing a job request based on
-    details provided in a particular HTTP POST request (i.e., with form info on the parameters of the job execution).
+    A client for websocket interaction with the MaaS request handler as initiated by a POST form HTTP request.
     """
 
-    def __init__(self, endpoint_uri: str, http_request: HttpRequest, ssl_dir: Path = None):
+    @classmethod
+    def _bootstrap_ssl_dir(cls, ssl_dir: Optional[Path] = None):
         if ssl_dir is None:
             ssl_dir = Path(__file__).resolve().parent.parent.parent.joinpath('ssl')
             ssl_dir = Path('/usr/maas_portal/ssl') #Fixme
+        return ssl_dir
+
+    def __init__(self, endpoint_uri: str, http_request: HttpRequest, ssl_dir: Optional[Path] = None):
+        super().__init__(endpoint_uri=endpoint_uri, ssl_directory=self._bootstrap_ssl_dir(ssl_dir))
         logger.debug("endpoing_uri: {}".format(endpoint_uri))
-        super().__init__(endpoint_uri=endpoint_uri, ssl_directory=ssl_dir)
         self.http_request = http_request
         self.form_proc = None
 
     def _acquire_session_info(self, use_current_values: bool = True, force_new: bool = False):
         """
-        Attempt to set the session information properties needed to submit a maas job request.
+        Attempt to set the session information properties needed to submit a MaaS request.
 
-        Attempt to set the session information properties needed to submit a maas job request represented by the
+        Attempt to set the session information properties needed to submit a MaaS request represented by the
         HttpRequest in :attr:http_request, either from the cookies of the HttpRequest or by authenticating and obtaining
         a new session from the request handler.
 
@@ -246,7 +241,7 @@ class PostFormJobRequestClient(MaasRequestClient):
         bool
             whether session details were acquired and set successfully
         """
-        logger.info("PostFormJobRequestClient._acquire_session_info:  getting session info")
+        logger.info("{}._acquire_session_info:  getting session info".format(self.__class__.__name__))
         if not force_new and use_current_values and self._session_id and self._session_secret and self._session_created:
             logger.info('Using previously acquired session details (new session not forced)')
             return True
@@ -254,10 +249,10 @@ class PostFormJobRequestClient(MaasRequestClient):
             self._session_id = self.http_request.COOKIES['maas_session_id']
             self._session_secret = self.http_request.COOKIES['maas_session_secret']
             self._session_created = self.http_request.COOKIES['maas_session_created']
-            logger.info("Session From PostFormJobRequestClient")
+            logger.info("Session From {}".format(self.__class__.__name__))
             return self._session_id and self._session_secret and self._session_created
         else:
-            logger.info("Session from ModelRequestClient: force_new={}".format(force_new))
+            logger.info("Session from {}}: force_new={}".format(self.__class__.__name__, force_new))
             tmp = self._acquire_new_session()
             logger.info("Session Info Return: {}".format(tmp))
             return tmp
