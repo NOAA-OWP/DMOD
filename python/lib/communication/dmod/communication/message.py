@@ -7,7 +7,7 @@ from .serializeable import Serializable
 #FIXME make an independent enum of model request types???
 class MessageEventType(Enum):
     SESSION_INIT = 1,
-    MAAS_REQUEST = 2,
+    MODEL_EXEC_REQUEST = 2,
     SCHEDULER_REQUEST = 3,
     INFORMATION_UPDATE = 4,
     METADATA = 5,

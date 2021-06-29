@@ -149,7 +149,7 @@ class TestWebSocketInterface(WebSocketInterfaceTestBase):
             self.test_auth_data = json.load(valid_auth_file)
         self.test_job_data['client_id'] = 10
 
-        self.test_request_data = {MessageEventType.SESSION_INIT: self.test_auth_data, MessageEventType.MAAS_REQUEST: self.test_job_data}
+        self.test_request_data = {MessageEventType.SESSION_INIT: self.test_auth_data, MessageEventType.MODEL_EXEC_REQUEST: self.test_job_data}
         self._parse_return_offset = 42
 
         self.session_secret = hashlib.sha256('blah'.encode('utf-8')).hexdigest()
@@ -167,24 +167,24 @@ class TestWebSocketInterface(WebSocketInterfaceTestBase):
         Test the parse_request_type method of the RequestHandler on the basic test JOB request example, without checking
         for auth.
         """
-        req_type, errors = self._exec_parse(test_source=MessageEventType.MAAS_REQUEST, session_secret=self.session_secret)
-        self.assertEqual(req_type, MessageEventType.MAAS_REQUEST)
+        req_type, errors = self._exec_parse(test_source=MessageEventType.MODEL_EXEC_REQUEST, session_secret=self.session_secret)
+        self.assertEqual(req_type, MessageEventType.MODEL_EXEC_REQUEST)
 
     def test_parse_request_type_1b(self):
         """
         Test the parse_request_type method of the RequestHandler on the basic test JOB request example, checking for
         auth.
         """
-        req_type, errors = self._exec_parse(test_source=MessageEventType.MAAS_REQUEST, session_secret=self.session_secret,
+        req_type, errors = self._exec_parse(test_source=MessageEventType.MODEL_EXEC_REQUEST, session_secret=self.session_secret,
                                             check_for_auth=True)
-        self.assertEqual(req_type, MessageEventType.MAAS_REQUEST)
+        self.assertEqual(req_type, MessageEventType.MODEL_EXEC_REQUEST)
 
     def test_parse_request_type_1c(self):
         """
         Test the parse_request_type method of the RequestHandler on the basic test JOB request example, but with a
         modified invalid session-secret.
         """
-        req_type, errors = self._exec_parse(test_source=MessageEventType.MAAS_REQUEST, session_secret='some_string',
+        req_type, errors = self._exec_parse(test_source=MessageEventType.MODEL_EXEC_REQUEST, session_secret='some_string',
                                             check_for_auth=True)
         self.assertEqual(req_type, MessageEventType.INVALID)
 
@@ -194,7 +194,7 @@ class TestWebSocketInterface(WebSocketInterfaceTestBase):
         to be without model.
         """
         self.test_job_data.pop('model')
-        req_type, errors = self._exec_parse(test_source=MessageEventType.MAAS_REQUEST, session_secret='some_string',
+        req_type, errors = self._exec_parse(test_source=MessageEventType.MODEL_EXEC_REQUEST, session_secret='some_string',
                                             check_for_auth=True)
         self.assertEqual(req_type, MessageEventType.INVALID)
 
