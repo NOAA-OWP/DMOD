@@ -13,7 +13,7 @@ from django.http import HttpRequest
 
 from dmod.communication import MaaSRequest
 from dmod.communication import MaaSRequestResponse
-from dmod.communication import MaasRequestClient
+from dmod.communication import ModelExecRequestClient
 
 from . import utilities
 from .processors.processor import BaseProcessor
@@ -21,7 +21,7 @@ from .processors.processor import BaseProcessor
 logger = logging.getLogger("gui_log")
 
 
-class JobRequestClient(MaasRequestClient):
+class JobRequestClient(ModelExecRequestClient):
     """
     A client for websocket interaction with the MaaS request handler, specifically for performing a job request based on
     details provided in a particular HTTP POST request (i.e., with form info on the parameters of the job execution).
@@ -88,7 +88,8 @@ class JobRequestClient(MaasRequestClient):
         """
         pass
 
-    def make_job_request(self, request: Union[HttpRequest, utilities.RequestWrapper], force_new_session: bool = False):
+    # TODO: refactor to combine logic of this and MaasRequestClient from communication
+    def make_maas_request(self, request: Union[HttpRequest, utilities.RequestWrapper], force_new_session: bool = False):
         logger.debug("client Making Job Request")
         self._cookies = request.COOKIES
         self._acquire_session_info(force_new=force_new_session)
@@ -109,9 +110,9 @@ class JobRequestClient(MaasRequestClient):
                             self.async_make_request(maas_job_request))
                         print('***************** Response: ' + str(response_obj))
                         # Try to get a new session if session is expired (and we hadn't already gotten a new session)
-                        if self._job_request_failed_due_to_expired_session(response_obj) and not force_new_session:
-                            return self.make_job_request(request=request, force_new_session=True)
-                        elif not self.validate_job_request_response(response_obj):
+                        if self._request_failed_due_to_expired_session(response_obj) and not force_new_session:
+                            return self.make_maas_request(request=request, force_new_session=True)
+                        elif not self.validate_maas_request_response(response_obj):
                             raise RuntimeError('Invalid response received for requested job: ' + str(response_obj))
                         elif not response_obj.success:
                             template = 'Request failed (reason: {}): {}'
