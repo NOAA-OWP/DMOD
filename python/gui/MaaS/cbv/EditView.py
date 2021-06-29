@@ -2,7 +2,6 @@
 Defines a view that may be used to configure a MaaS request
 """
 
-import os
 from django.http import HttpRequest, HttpResponse
 from django.views.generic.base import View
 from django.shortcuts import render
@@ -77,7 +76,7 @@ class EditView(View, DMODMixin):
     def post(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         """
         The handler for 'post' requests. This will attempt to submit the request and rerender the page
-        like a 'get' request
+        like a 'get' request.
 
         :param HttpRequest request: The request asking to render this page
         :param args: An ordered list of arguments
@@ -85,8 +84,15 @@ class EditView(View, DMODMixin):
         :return: A rendered page
         """
         #TODO move the entire post method to the proxy mixin???
-        client, session_data = self.forward_request(request)#PostFormJobRequestClient(endpoint_uri=self.maas_endpoint_uri, http_request=request)
+        client, session_data, maas_response = self.forward_request(request, communication.MessageEventType.MODEL_EXEC_REQUEST)
         #logger.info("EditView.post: making job request")
+
+        # TODO: putting this here for now (moving after changing forward_request function) but may not need it
+        # Set data if a job was started and we have the id (rely on client to manage multiple job ids)
+        # TODO might be worth using DJango session to save this to (can serialize a json list of ids?)
+        # Might also be worth saving to a "user" database table with "active jobs"?
+        if maas_response is not None and 'job_id' in maas_response.data:
+            session_data['new_job_id'] = maas_response.data['job_id']
 
         http_response = self.get(request=request, errors=client.errors, warnings=client.warnings,
                                  info=client.info, *args, **kwargs)
