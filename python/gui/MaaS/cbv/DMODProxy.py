@@ -261,15 +261,8 @@ class PostFormJobRequestClient(MaasRequestClient):
             logger.info("Session Info Return: {}".format(tmp))
             return tmp
 
-    def _init_maas_job_request(self):
-        """
-        Set or reset the :attr:`form_proc` field and return its :attr:`RequestFormProcessor`.`maas_request` property.
-
-        Returns
-        -------
-        The processed maas request from the newly initialized form processor in :attr:`form_proc`
-        """
-        self.form_proc = RequestFormProcessor(post_request=self.http_request, maas_secret=self.session_secret)
+    def generate_request(self, form_proc_class: Type[RequestFormProcessor]) -> MaaSRequest:
+        self.form_proc = form_proc_class(post_request=self.http_request, maas_secret=self.session_secret)
         return self.form_proc.maas_request
 
     @property
