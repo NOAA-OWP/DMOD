@@ -11,41 +11,124 @@ import logging
 logger = logging.getLogger("gui_log")
 
 from dmod.communication import Distribution, get_available_models, get_available_outputs, get_request, get_parameters, \
-    NWMRequestJsonValidator, NWMRequest, MaaSRequest, MaasRequestClient, Scalar
+    NWMRequestJsonValidator, NWMRequest, MaaSRequest, MaaSRequestResponse, MaasRequestClient, Scalar, MessageEventType
 from pathlib import Path
+from typing import List
 
 
-class RequestFormProcessor:
-    """
-    Class that receives an HTTP POST request of the form submission for a desired job, and converts this to a
-    MaasRequest to be submitted.
-    """
+class RequestFormProcessor(ABC):
+
     def __init__(self, post_request: HttpRequest, maas_secret):
         """The HttpRequest received, used to submit the form for the job to request from the MaaS."""
         self.post_request = post_request
         self._errors = None
         self.warnings = list()
         self.info = list()
+        self.maas_secret = maas_secret
+
+        self._parameter_keys = None
+
+        self._maas_request = None
+        self._is_valid = None
+        self._validation_error = None
+        self._parameters = None
+
+    @abstractmethod
+    def _init_parameters(self):
+        """
+        Initialize the :attr:`_parameters` mapping object from the parameters of this instance's :attr:`request`, which
+        also results in the :attr:`_errors` list being initialized.
+        """
+        pass
+
+    @property
+    def errors(self) -> list:
+        if self._errors is None:
+            self._init_parameters()
+        return self._errors
+
+    @property
+    def is_valid(self) -> bool:
+        """
+        Return whether the MaaS request represented by :attr:post_request is valid, lazily perform validation if it
+        has not already been done.
+
+        In this implementation, the only supported type of :class:`MaasRequest` is the :class:`NWMRequest` type.  Before
+        using a validator, this method will confirm the type, and return False if it is something different.
+
+        Returns
+        -------
+        bool
+            whether the MaaS job request represented by :attr:post_request is valid
+        """
+        if self._is_valid is None:
+            if not isinstance(self.maas_request, NWMRequest):
+                self._is_valid = False
+                self._validation_error = TypeError('Unsupport MaaS message type created by ' + str(self.__class__))
+            else:
+                self._is_valid, self._validation_error = NWMRequestJsonValidator().validate(self.maas_request.to_dict())
+        return self._is_valid
+
+    @property
+    @abstractmethod
+    def maas_request(self) -> MaaSRequest:
+        """
+        Get the :obj:MaaSRequest instance (which could be a subclass of this type) represented by :attr:post_request,
+        lazily instantiating the former if necessary.
+
+        Returns
+        -------
+        :obj:MaaSRequest
+            the :obj:MaaSRequest instance represented by :attr:post_request
+        """
+        pass
+
+    @property
+    def parameter_keys(self) -> List[str]:
+        return self._parameter_keys
+
+    @property
+    def parameters(self) -> dict:
+        if self._parameters is None:
+            self._init_parameters()
+        return self._parameters
+
+    @property
+    def validation_error(self):
+        """
+        Return any error encountered when validating the MaaS job request represented by :attr:post_request, performing
+        a call to the :attr:is_valid property to ensure validation has been performed.
+
+        Returns
+        -------
+        Any error encountered during validation
+        """
+        lazy_load_if_needed_via_side_effect_of_this_property = self.is_valid
+        return self._validation_error
+
+
+class ModelExecRequestFormProcessor(RequestFormProcessor):
+    """
+    Class that receives an HTTP POST request of the form submission for a desired job, and converts this to a
+    MaasRequest to be submitted.
+    """
+    def __init__(self, post_request: HttpRequest, maas_secret):
+        """The HttpRequest received, used to submit the form for the job to request from the MaaS."""
+        super(ModelExecRequestFormProcessor, self).__init__(post_request, maas_secret)
         self.model = post_request.POST['model']
         self.version = float(post_request.POST['version'])
         self.output = post_request.POST['output']
         self.domain = post_request.POST['domain']
-        self.maas_secret = maas_secret
 
         # This will give us the parameters that were configured for the model we want to use
         # If we configured that we want to tweak 'example_parameter' for the model named 'YetAnother',
         # then change our minds and decide to tweak 'land_cover' for the 'NWM' model, this will filter
         # out the configuration from 'YetAnother'
-        self.parameter_keys = [
+        self._parameter_keys = [
             parameter
             for parameter in post_request.POST
             if post_request.POST[parameter] == 'on' and parameter.startswith(self.model)
         ]
-
-        self._parameters = None
-        self._maas_request = None
-        self._is_valid = None
-        self._validation_error = None
 
     def _init_parameters(self):
         """
@@ -101,34 +184,6 @@ class RequestFormProcessor:
                 self._parameters[parameter.replace(self.model + "_", "")] = scalar
 
     @property
-    def errors(self) -> list:
-        if self._errors is None:
-            self._init_parameters()
-        return self._errors
-
-    @property
-    def is_valid(self) -> bool:
-        """
-        Return whether the MaaS job request represented by :attr:post_request is valid, lazily perform validation if it
-        has not already been done.
-
-        In this implementation, the only supported type of :class:`MaasRequest` is the :class:`NWMRequest` type.  Before
-        using a validator, this method will confirm the type, and return False if it is something different.
-
-        Returns
-        -------
-        bool
-            whether the MaaS job request represented by :attr:post_request is valid
-        """
-        if self._is_valid is None:
-            if not isinstance(self.maas_request, NWMRequest):
-                self._is_valid = False
-                self._validation_error = TypeError('Unsupport MaaS message type created by ' + str(self.__class__))
-            else:
-                self._is_valid, self._validation_error = NWMRequestJsonValidator().validate(self.maas_request.to_dict())
-        return self._is_valid
-
-    @property
     def maas_request(self) -> MaaSRequest:
         """
         Get the :obj:MaaSRequest instance (which could be a subclass of this type) represented by :attr:post_request,
@@ -145,17 +200,6 @@ class RequestFormProcessor:
                                                  self.maas_secret)
         return self._maas_request
 
-    @property
-    def parameters(self) -> dict:
-        if self._parameters is None:
-            self._init_parameters()
-        return self._parameters
-
-    @property
-    def validation_error(self):
-        """
-        Return any error encountered when validating the MaaS job request represented by :attr:post_request, performing
-        a call to the :attr:is_valid property to ensure validation has been performed.
 
         Returns
         -------
