@@ -415,25 +415,26 @@ class MaasRequestClient(WebSocketClient, ABC):
     def is_new_session(self):
         return self._is_new_session
 
-    def make_job_request(self, maas_job_request: MaaSRequest, force_new_session: bool = False):
-        logger.debug("client Making Job Request")
+    def make_maas_request(self, maas_request: MaaSRequest, force_new_session: bool = False):
+        request_type_str = maas_request.__class__.__name__
+        logger.debug("client Making {} type request".format(request_type_str))
         self._acquire_session_info(force_new=force_new_session)
         # Make sure to set if empty or reset if a new session was forced and just acquired
-        if force_new_session or maas_job_request.session_secret is None:
-            maas_job_request.session_secret = self._session_secret
+        if force_new_session or maas_request.session_secret is None:
+            maas_request.session_secret = self._session_secret
         # If able to get session details, proceed with making a job request
         if self._session_secret is not None:
-            print("******************* Request: " + maas_job_request.to_json())
+            print("******************* Request: " + maas_request.to_json())
             try:
-                is_request_valid, request_validation_error = self._run_validation(message=maas_job_request)
+                is_request_valid, request_validation_error = self._run_validation(message=maas_request)
                 if is_request_valid:
                     try:
                         response_obj: MaaSRequestResponse = get_or_create_eventloop().run_until_complete(
-                            self.async_make_request(maas_job_request))
+                            self.async_make_request(maas_request))
                         print('***************** Response: ' + str(response_obj))
                         # Try to get a new session if session is expired (and we hadn't already gotten a new session)
                         if self._job_request_failed_due_to_expired_session(response_obj) and not force_new_session:
-                            return self.make_job_request(maas_job_request=maas_job_request, force_new_session=True)
+                            return self.make_maas_request(maas_request=maas_request, force_new_session=True)
                         elif not self.validate_job_request_response(response_obj):
                             raise RuntimeError('Invalid response received for requested job: ' + str(response_obj))
                         elif not response_obj.success:
@@ -449,14 +450,14 @@ class MaasRequestClient(WebSocketClient, ABC):
                             return response_obj
                     except Exception as e:
                         # TODO: log error instead of print
-                        msg = 'Encountered error submitting maas job request over session ' + str(self._session_id)
-                        msg += " : \n" + str(type(e)) + ': ' + str(e)
+                        msg_template = 'Encountered error submitting {} over session {} : \n{}: {}'
+                        msg = msg_template.format(request_type_str, str(self._session_id), str(type(e)), str(e))
                         print(msg)
                         traceback.print_exc()
                         self.errors.append(msg)
                 else:
-                    msg = 'Could not submit invalid maas job request over session ' + str(self._session_id)
-                    msg += ' (' + str(request_validation_error) + ')'
+                    msg_template = 'Could not submit invalid MaaS request over session {} ({})'
+                    msg = msg_template.format(str(self._session_id), str(request_validation_error))
                     print(msg)
                     self.errors.append(msg)
             except RuntimeError as e:
