@@ -3,6 +3,7 @@ Defines a view that may be used to configure a MaaS request
 """
 
 import os
+from abc import ABC, abstractmethod
 from django.http import HttpRequest, HttpResponse
 from django.views.generic.base import View
 from django.shortcuts import render
