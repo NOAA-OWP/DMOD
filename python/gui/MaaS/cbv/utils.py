@@ -26,3 +26,26 @@ def extract_log_data(kwargs):
         # Otherwise continue to us the passed in list
         info = kwargs['info']  # type: list
     return errors, warnings, info
+
+
+    # Define a function that will make words friendlier towards humans. Text like 'hydro_whatsit' will
+    # become 'Hydro Whatsit'
+def humanize(words: str) -> str:
+    """
+    Make certain words more human-readable.
+
+    A function that makes words in certain formats friendlier towards humans. Individual words joined by "_" are
+    separated and then titlecased.  E.g., text like 'hydro_whatsit' will become 'Hydro Whatsit'.
+
+    Parameters
+    ----------
+    words : str
+        A string of text to potentially make more human-readable.
+
+    Returns
+    -------
+    str
+        A more human-readable version of the string.
+    """
+    split = words.split("_")
+    return " ".join(split).title()
