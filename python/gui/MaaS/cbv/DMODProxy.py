@@ -280,7 +280,7 @@ class PostFormRequestClient(MaasRequestClient):
         return self._warnings
 
 
-class DMODMixin():
+class DMODMixin:
     """
         A mixin to proxy DMOD requests to the aysnc endpoint
     """
@@ -292,28 +292,50 @@ class DMODMixin():
             self._maas_endpoint_uri += os.environ.get('MAAS_ENDPOINT_PORT')
         return self._maas_endpoint_uri
 
-    def forward_request(self, request: HttpRequest):
+    def forward_request(self, request: HttpRequest, event_type: MessageEventType) -> Tuple[
+        PostFormRequestClient, dict, Optional[MaaSRequestResponse]]:
         """
-            :param HttpRequest request: The request containing model configuration
+        Reformat and forward the MaaS request.
 
-            Returns
-            -------
-            MaaSRequestClient configured from posted form in request
+        Parameters
+        ----------
+        request : HttpRequest
+            The encapsulated MaaS request.
+
+        event_type : MessageEventType
+            The type of request event.
+
+        Returns
+        -------
+        Tuple[PostFormRequestClient, dict, Optional[MaaSRequestResponse]]
+            PostFormRequestClient configured from posted form in request, the session data as a dictionary, and the
+            response the client received for the request, if any.
         """
-        client = PostFormJobRequestClient(endpoint_uri=self.maas_endpoint_uri, http_request=request)
-        logger.info("DMODView.forward_request: making job request")
-        response = client.make_job_request(maas_job_request=client._init_maas_job_request(),
-                                           force_new_session=False)
+        client = PostFormRequestClient(endpoint_uri=self.maas_endpoint_uri, http_request=request)
+        if event_type == MessageEventType.MODEL_EXEC_REQUEST:
+            form_processor_type = ModelExecRequestFormProcessor
+        else:
+            raise RuntimeError("{} got unsupported event type: {}".format(self.__class__.__name__, str(event_type)))
+
+        maas_request = client.generate_request(form_processor_type)
+        logger.info("{}.forward_request: making {}".format(self.__class__.__name__, maas_request.__class__.__name__))
+        response = client.make_maas_request(maas_request=maas_request, force_new_session=False)
+
         session_data = { }
         # Set data if a new session was acquired
         if client.is_new_session:
             session_data['maas_session_id'] = client.session_id
             session_data['maas_session_secret'] = client.session_secret
             session_data['maas_session_created'] = client.session_created
-        # Set data if a job was started and we have the id (rely on client to manage multiple job ids)
-        # TODO might be worth using DJango session to save this to (can serialize a json list of ids?)
-        # Might also be worth saving to a "user" database table with "active jobs"?
-        if response is not None and 'job_id' in response.data:
-            session_data['new_job_id'] = response.data['job_id']
 
-        return client, session_data
+        #  TODO: make sure this logic get to the respective appropriate user View types
+        #         # if event_type == MessageEventType.MODEL_EXEC_REQUEST:
+        #         #     # Set data if a job was started and we have the id (rely on client to manage multiple job ids)
+        #         #     # TODO might be worth using DJango session to save this to (can serialize a json list of ids?)
+        #         #     # Might also be worth saving to a "user" database table with "active jobs"?
+        #         #     if response is not None and 'job_id' in response.data:
+        #         #         session_data['new_job_id'] = response.data['job_id']
+        #         # elif event_type == MessageEventType.PARTITION_REQUEST:
+        #         #     session_data['partitioner_response'] = response
+
+        return client, session_data, response
