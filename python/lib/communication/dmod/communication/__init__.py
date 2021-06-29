@@ -1,5 +1,5 @@
 from ._version import __version__
-from .client import MaasRequestClient, SchedulerClient
+from .client import ModelExecRequestClient, MaasRequestClient, SchedulerClient
 from .maas_request import get_available_models, get_available_outputs, get_distribution_types, get_parameters, \
     get_request, Distribution, MaaSRequest, MaaSRequestResponse, ModelExecRequest, ModelExecRequestResponse, \
     NWMRequest, NWMRequestResponse, Scalar, NGENRequest, NGENRequestResponse
