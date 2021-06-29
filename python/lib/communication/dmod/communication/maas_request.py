@@ -14,7 +14,7 @@ def get_available_models() -> dict:
     """
     available_models = dict()
 
-    for subclass in MaaSRequest.__subclasses__():  # type: MaaSRequest
+    for subclass in ModelExecRequest.__subclasses__():  # type: ModelExecRequest
         available_models[subclass.model_name] = subclass
 
     return available_models
@@ -26,7 +26,7 @@ def get_available_outputs() -> set:
     """
     all_outputs = set()
 
-    for model in get_available_models().values():  # type: MaaSRequest
+    for model in get_available_models().values():  # type: ModelExecRequest
         all_outputs = all_outputs.union(set(model.get_output_variables()))
 
     return all_outputs
@@ -88,10 +88,70 @@ class Distribution(object):
         return self.__str__()
 
 
-class MaaSRequest(AbstractInitRequest):
+class MaaSRequest(AbstractInitRequest, ABC):
     """
     The base class underlying all types of MaaS requests
     """
+
+    @classmethod
+    @abstractmethod
+    def factory_init_correct_response_subtype(cls, json_obj: dict):
+        """
+        Init a :obj:`Response` instance of the appropriate subtype for this class from the provided JSON object.
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+
+        """
+        pass
+
+    def __init__(self, session_secret: str):
+        self.session_secret = session_secret
+
+    def _check_class_compatible_for_equality(self, other) -> bool:
+        """
+        Check and return whether another object is of some class that is compatible for equality checking with the class
+        of this instance, such that the class difference does not independently imply the other object and this instance
+        are not equal.
+
+        In the base implementation, the method returns True if and only if the class of the parameter object is equal to
+        the class of the receiver object.
+
+        Overriding implementations must always ensure the method returns True when the parameter has the same class
+        value as the receiver object.
+
+        Further, overriding implementations should ensure the method remains symmetric across implementations; i.e., for
+        any objects x and y where both object have an implementation of this method as a member, then the following
+        should always be True:
+
+            x._check_class_compatible_for_equality(y) == y._check_class_compatible_for_equality(x)
+
+        Parameters
+        ----------
+        other
+
+        Returns
+        -------
+        type_compatible_for_equality : bool
+            whether the class of the other object is not independently sufficient for a '==' check between this and the
+            other object to return False
+        """
+        try:
+            return other is not None and self.__class__ == other.__class__
+        except:
+            return False
+
+
+class ModelExecRequest(MaaSRequest, ABC):
+    """
+    The base class underlying MaaS requests for model execution jobs.
+    """
+
+    event_type: MessageEventType = MessageEventType.MODEL_EXEC_REQUEST
 
     model_name = None
     """(:class:`str`) The name of the model to be used"""
@@ -124,22 +184,6 @@ class MaaSRequest(AbstractInitRequest):
         'streamflow'
     ]
     """(:class:`list`) The collection of output variables that the model may generate"""
-
-    @classmethod
-    @abstractmethod
-    def factory_init_correct_response_subtype(cls, json_obj: dict):
-        """
-        Init a :obj:`Response` instance of the appropriate subtype for this class from the provided JSON object.
-
-        Parameters
-        ----------
-        json_obj
-
-        Returns
-        -------
-
-        """
-        pass
 
     @classmethod
     def factory_init_correct_subtype_from_deserialized_json(cls, json_obj: dict):
@@ -219,7 +263,7 @@ class MaaSRequest(AbstractInitRequest):
         :param dict parameters: A mapping between parameters to configure and their scalar or distribution configurations
         :param str session_secret: The session secret for the right session when communicating with the MaaS request handler
         """
-
+        super(ModelExecRequest, self).__init__(session_secret=session_secret)
         # If this model doesn't generate the output, we want to fail
         if output not in get_available_outputs():
             raise ValueError(
@@ -257,40 +301,6 @@ class MaaSRequest(AbstractInitRequest):
         self.output = output
         self._domain = domain
         self.parameters = parameters
-        self.session_secret = session_secret
-
-    def _check_class_compatible_for_equality(self, other) -> bool:
-        """
-        Check and return whether another object is of some class that is compatible for equality checking with the class
-        of this instance, such that the class difference does not independently imply the other object and this instance
-        are not equal.
-
-        In the base implementation, the method returns True if and only if the class of the parameter object is equal to
-        the class of the receiver object.
-
-        Overriding implementations must always ensure the method returns True when the parameter has the same class
-        value as the receiver object.
-
-        Further, overriding implementations should ensure the method remains symmetric across implementations; i.e., for
-        any objects x and y where both object have an implementation of this method as a member, then the following
-        should always be True:
-
-            x._check_class_compatible_for_equality(y) == y._check_class_compatible_for_equality(x)
-
-        Parameters
-        ----------
-        other
-
-        Returns
-        -------
-        type_compatible_for_equality : bool
-            whether the class of the other object is not independently sufficient for a '==' check between this and the
-            other object to return False
-        """
-        try:
-            return other is not None and self.__class__ == other.__class__
-        except:
-            return False
 
     def __eq__(self, other):
         return self._check_class_compatible_for_equality(other) \
@@ -484,9 +494,11 @@ class MaaSRequest(AbstractInitRequest):
 
 
 class MaaSRequestResponse(Response, ABC):
-
     def __init__(self, success: bool, reason: str, message: str = '', data=None):
         super().__init__(success=success, reason=reason, message=message, data=data)
+
+
+class ModelExecRequestResponse(MaaSRequestResponse, ABC):
 
     @property
     def reason_enum(self):
@@ -515,7 +527,7 @@ class ScalarParameter(Parameter):
         self.min = min
         self.max=max
 
-class NWMRequest(MaaSRequest):
+class NWMRequest(ModelExecRequest):
 
     event_type = MessageEventType.MODEL_EXEC_REQUEST
     """(:class:`MessageEventType`) The type of event for this message"""
@@ -554,7 +566,7 @@ class NWMRequest(MaaSRequest):
     """(:class:`list`) The collection of distribution types that the model may handle"""
 
     @classmethod
-    def factory_init_correct_response_subtype(cls, json_obj: dict) -> MaaSRequestResponse:
+    def factory_init_correct_response_subtype(cls, json_obj: dict) -> ModelExecRequestResponse:
         """
         Init a :obj:`Response` instance of the appropriate subtype for this class from the provided JSON object.
 
@@ -573,7 +585,7 @@ class NWMRequest(MaaSRequest):
                                          session_secret=session_secret)
 
 
-class NWMRequestResponse(MaaSRequestResponse):
+class NWMRequestResponse(ModelExecRequestResponse):
     """
     A response to a :class:`NWMRequest`.
 
@@ -686,7 +698,7 @@ class NWMRequestResponse(MaaSRequestResponse):
         else:
             return self.data[self.get_data_dict_key_for_job_id()]
 
-class NGENRequest(MaaSRequest):
+class NGENRequest(ModelExecRequest):
 
     event_type = MessageEventType.MODEL_EXEC_REQUEST
     """(:class:`MessageEventType`) The type of event for this message"""
@@ -701,7 +713,7 @@ class NGENRequest(MaaSRequest):
     """(:class:`list`) The collection of output variables that the model may generate"""
 
     @classmethod
-    def factory_init_correct_response_subtype(cls, json_obj: dict) -> MaaSRequestResponse:
+    def factory_init_correct_response_subtype(cls, json_obj: dict) -> ModelExecRequestResponse:
         """
         Init a :obj:`Response` instance of the appropriate subtype for this class from the provided JSON object.
 
@@ -720,7 +732,7 @@ class NGENRequest(MaaSRequest):
                                          session_secret=session_secret)
 
 
-class NGENRequestResponse(MaaSRequestResponse):
+class NGENRequestResponse(ModelExecRequestResponse):
     """
     A response to a :class:`NGENRequest`.
 
@@ -875,7 +887,7 @@ def get_parameters() -> dict:
 
 
 def get_request(model: str, version: float = 0.0, output: str = 'streamflow', domain: str = None, parameters: dict = None,
-                session_secret: str = '') -> MaaSRequest:
+                session_secret: str = '') -> ModelExecRequest:
     """
     Converts a basic definition of a request into a proper request object
 
