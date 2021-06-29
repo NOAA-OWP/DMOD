@@ -10,7 +10,8 @@ from typing import Optional, Union
 
 import websockets
 
-from .maas_request import MaaSRequest, MaaSRequestResponse, NWMRequest, NWMRequestResponse, NGENRequest, NGENRequestResponse
+from .maas_request import MaaSRequest, MaaSRequestResponse, ModelExecRequest, ModelExecRequestResponse, NWMRequest, \
+    NWMRequestResponse, NGENRequest, NGENRequestResponse
 from .message import Message, Response, InitRequestResponseReason
 from .scheduler_request import SchedulerRequestMessage, SchedulerRequestResponse
 from .validator import NWMRequestJsonValidator
@@ -275,8 +276,10 @@ class SchedulerClient(WebSocketClient):
 class MaasRequestClient(WebSocketClient, ABC):
 
     @staticmethod
-    def _job_request_failed_due_to_expired_session(response_obj: MaaSRequestResponse):
+    def _request_failed_due_to_expired_session(response_obj: MaaSRequestResponse):
         """
+        Test if request failed due to an expired session.
+
         Test if the response to a websocket-sent request failed specifically because the utilized session is consider to
         be expired, either because the session is explicitly expired or there is no longer a record of the session with
         the session secret in the init request (i.e., it is implicitly expired).
@@ -294,8 +297,8 @@ class MaasRequestClient(WebSocketClient, ABC):
         is_expired = is_expired or response_obj.reason_enum == InitRequestResponseReason.EXPIRED_SESSION
         return response_obj is not None and not response_obj.success and is_expired
 
-    @staticmethod
-    def _run_validation(message: Union[MaaSRequest, MaaSRequestResponse]):
+    @classmethod
+    def _run_validation(cls, message: Union[MaaSRequest, MaaSRequestResponse]):
         """
         Run validation for the given message object using the appropriate validator subtype.
 
@@ -341,29 +344,6 @@ class MaasRequestClient(WebSocketClient, ABC):
         self._warnings = None
         self._info = None
 
-    async def async_make_request(self, maas_request: MaaSRequest) -> MaaSRequestResponse:
-        async with websockets.connect(self.endpoint_uri, ssl=self.client_ssl_context) as websocket:
-            await websocket.send(maas_request.to_json())
-            response = await websocket.recv()
-            return maas_request.__class__.factory_init_correct_response_subtype(json_obj=json.loads(response))
-
-    # TODO: ...
-    async def authenticate_over_websocket(self):
-        async with websockets.connect(self.endpoint_uri, ssl=self.client_ssl_context) as websocket:
-            #async with websockets.connect(self.maas_endpoint_uri) as websocket:
-            # return await EditView._authenticate_over_websocket(websocket)
-            # Right now, it doesn't matter as long as it is valid
-            # TODO: Fix this to not be ... fixed ...
-            json_as_dict = {'username': 'someone', 'user_secret': 'something'}
-            # TODO: validate before sending
-            await websocket.send(json.dumps(json_as_dict))
-            auth_response = json.loads(await websocket.recv())
-            print('*************** Auth response: ' + json.dumps(auth_response))
-            maas_session_id = auth_response['data']['session_id']
-            maas_session_secret = auth_response['data']['session_secret']
-            maas_session_created = auth_response['data']['created']
-            return maas_session_id, maas_session_secret, maas_session_created
-
     def _acquire_new_session(self):
         try:
             logger.info("Connection to request handler web socket")
@@ -397,9 +377,44 @@ class MaasRequestClient(WebSocketClient, ABC):
         """
         pass
 
-    @abstractmethod
-    def _init_maas_job_request(self):
+    def _update_after_valid_response(self, response: MaaSRequestResponse):
+        """
+        Perform any required internal updates immediately after a request gets back a successful, valid response.
+
+        This provides a way of extending the behavior of this type specifically regarding the ::method:make_maas_request
+        function. Any updates specific to the type, which should be performed after a request receives back a valid,
+        successful response object, can be implemented here.
+
+        In the base implementation, no further action is taken.
+
+        See Also
+        -------
+        ::method:make_maas_request
+        """
         pass
+
+    async def async_make_request(self, request: MaaSRequest) -> MaaSRequestResponse:
+        async with websockets.connect(self.endpoint_uri, ssl=self.client_ssl_context) as websocket:
+            await websocket.send(request.to_json())
+            response = await websocket.recv()
+            return request.__class__.factory_init_correct_response_subtype(json_obj=json.loads(response))
+
+    # TODO: ...
+    async def authenticate_over_websocket(self):
+        async with websockets.connect(self.endpoint_uri, ssl=self.client_ssl_context) as websocket:
+            #async with websockets.connect(self.maas_endpoint_uri) as websocket:
+            # return await EditView._authenticate_over_websocket(websocket)
+            # Right now, it doesn't matter as long as it is valid
+            # TODO: Fix this to not be ... fixed ...
+            json_as_dict = {'username': 'someone', 'user_secret': 'something'}
+            # TODO: validate before sending
+            await websocket.send(json.dumps(json_as_dict))
+            auth_response = json.loads(await websocket.recv())
+            print('*************** Auth response: ' + json.dumps(auth_response))
+            maas_session_id = auth_response['data']['session_id']
+            maas_session_secret = auth_response['data']['session_secret']
+            maas_session_created = auth_response['data']['created']
+            return maas_session_id, maas_session_secret, maas_session_created
 
     @property
     @abstractmethod
@@ -433,20 +448,15 @@ class MaasRequestClient(WebSocketClient, ABC):
                             self.async_make_request(maas_request))
                         print('***************** Response: ' + str(response_obj))
                         # Try to get a new session if session is expired (and we hadn't already gotten a new session)
-                        if self._job_request_failed_due_to_expired_session(response_obj) and not force_new_session:
+                        if self._request_failed_due_to_expired_session(response_obj) and not force_new_session:
                             return self.make_maas_request(maas_request=maas_request, force_new_session=True)
-                        elif not self.validate_job_request_response(response_obj):
+                        elif not self.validate_maas_request_response(response_obj):
                             raise RuntimeError('Invalid response received for requested job: ' + str(response_obj))
                         elif not response_obj.success:
                             template = 'Request failed (reason: {}): {}'
                             raise RuntimeError(template.format(response_obj.reason, response_obj.message))
                         else:
-                            #self.job_id = self.resp_as_json['data']['job_id']
-                            #results = self.resp_as_json['data']['results']
-                            #jobs = self.resp_as_json['data']['all_jobs']
-                            #self.info.append("Scheduler started job, id {}, results: {}".format(self.job_id, results))
-                            #self.info.append("All user jobs: {}".format(jobs))
-                            self.info.append("Scheduler started job, id {}".format(response_obj.data['job_id']))
+                            self._update_after_valid_response(response_obj)
                             return response_obj
                     except Exception as e:
                         # TODO: log error instead of print
@@ -480,10 +490,46 @@ class MaasRequestClient(WebSocketClient, ABC):
     def session_secret(self):
         return self._session_secret
 
-    def validate_job_request_response(self, maas_request_response: MaaSRequestResponse):
+    def validate_maas_request_response(self, maas_request_response: MaaSRequestResponse):
         return self._run_validation(message=maas_request_response)[0]
 
     @property
     @abstractmethod
     def warnings(self):
         pass
+
+
+class ModelExecRequestClient(MaasRequestClient, ABC):
+
+    def __init__(self, endpoint_uri: str, ssl_directory: Path):
+        super().__init__(endpoint_uri=endpoint_uri, ssl_directory=ssl_directory)
+
+    @abstractmethod
+    def _init_maas_job_request(self):
+        pass
+
+    def _update_after_valid_response(self, response: MaaSRequestResponse):
+        """
+        Perform any required internal updates immediately after a request gets back a successful, valid response.
+
+        This provides a way of extending the behavior of this type specifically regarding the ::method:make_maas_request
+        function. Any updates specific to the type, which should be performed after a request receives back a valid,
+        successful response object, can be implemented here.
+
+        In this implementation, the ::attribute:`info` property is appended to, noting that the job of the given id has
+        just been started by the scheduler.
+
+        See Also
+        -------
+        ::method:make_maas_request
+        """
+        #self.job_id = self.resp_as_json['data']['job_id']
+        #results = self.resp_as_json['data']['results']
+        #jobs = self.resp_as_json['data']['all_jobs']
+        #self.info.append("Scheduler started job, id {}, results: {}".format(self.job_id, results))
+        #self.info.append("All user jobs: {}".format(jobs))
+        self.info.append("Scheduler started job, id {}".format(response.data['job_id']))
+
+    async def async_make_request(self, request: ModelExecRequest) -> ModelExecRequestResponse:
+        return await super(ModelExecRequestClient, self).async_make_request(request)
+
