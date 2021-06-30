@@ -81,11 +81,14 @@ docker_dev_build_stack_images()
 
 # Work-around to use the .env file loading for compose files when deploying with docker stack (which doesn't by itself)
 # See: https://github.com/moby/moby/issues/29133
+# arg 1 - the base config file
+# arg 2 - the stack name
+# arg 3 - some unique identifier (e.g., a user name) to add to the file name to avoid collisions
 docker_dev_deploy_stack_from_compose_using_env()
 {
     if docker-compose -f "${1:?}" config > /dev/null 2>&1; then
-        docker-compose -f "${1}" config > "/tmp/${2:?}_docker_compose_var_sub.yml" 2>/dev/null
-        docker stack deploy --compose-file "/tmp/${2}_docker_compose_var_sub.yml" "${2}"
+        docker-compose -f "${1}" config > "/tmp/${3:?}_${2:?}_docker_compose_var_sub.yml" 2>/dev/null
+        docker stack deploy --compose-file "/tmp/${3}_${2}_docker_compose_var_sub.yml" "${2}"
         return $?
     else
         echo "Error: invalid docker-compose file '${1}'; cannot start stack; exiting"

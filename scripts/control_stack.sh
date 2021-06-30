@@ -274,7 +274,7 @@ exec_requested_actions()
 
     if [ -n "${DO_DEPLOY_ACTION:-}" ]; then
         echo "Deploying stack ${STACK_NAME:?}"
-        docker_dev_deploy_stack_from_compose_using_env "${DOCKER_DEPLOY_CONFIG:?}" "${STACK_NAME:?}"
+        docker_dev_deploy_stack_from_compose_using_env "${DOCKER_DEPLOY_CONFIG:?}" "${STACK_NAME:?}" "$(whoami)"
         bail_if_action_failed $? deploy
     fi
 }
