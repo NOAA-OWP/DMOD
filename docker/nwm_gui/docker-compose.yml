@@ -24,6 +24,7 @@ services:
          constraints:
            - ${DOCKER_GUI_DEPLOY_CONSTRAINT_1:-node.role==manager}
            - ${DOCKER_GUI_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
+  
   # Define a container belonging exclusively to our django application
   app_server:
     image: maas-portal-development
@@ -39,6 +40,8 @@ services:
     entrypoint: /usr/maas_portal/entrypoint.sh
     # Only restart if a failure was encountered
     restart: on-failure
+    secrets:
+        - postgres_password
     environment:
       #- VENV_DIR=${DOCKER_GUI_CONTAINER_VENV_DIR:-}
       #- CERT_PATH # used by dispatch.py
@@ -46,14 +49,38 @@ services:
       - MAAS_ENDPOINT_HOST=${DOCKER_GUI_MAAS_ENDPOINT_HOST:-localhost}
       - MAAS_ENDPOINT_PORT=${DOCKER_REQUESTS_HOST_PORT:-3012}
       - MAAS_PORTAL_DEBUG=${DOCKER_GUI_MAAS_PORTAL_DEBUG:-true}
+      - SQL_ENGINE=django.db.backends.postgresql
+      - SQL_DATABASE=${DMOD_GUI_POSTGRES_DB:-dmod_dev}
+      - SQL_USER=${DMOD_GUI_POSTGRES_USER:?}
+      - SQL_HOST=nwm_gui_db
+      - SQL_PORT=5432
+      - DATABASE=postgres
+      - DOCKER_SECRET_POSTGRES_PASS=postgres_password
     volumes:
       - ${DMOD_APP_STATIC:?}:/usr/maas_portal/static
-      #- ../../gui:/usr/maas_portal
       - ${DMOD_SSL_DIR}/requestsservice:/usr/maas_portal/ssl
       #- ${DOCKER_GUI_HOST_VENV_DIR:-/tmp/blah}:${DOCKER_GUI_CONTAINER_VENV_DIR:-/tmp/blah}
     # Expose Django's port to the internal network so that the web server may access it
     expose:
       - 8000
+    deploy:
+       placement:
+         constraints:
+           - ${DOCKER_GUI_DEPLOY_CONSTRAINT_1:-node.role==manager}
+           - ${DOCKER_GUI_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
+  db:
+    image: postgres:13.3-alpine
+    networks:
+      - request-listener-net
+    volumes:
+        #- ${DMOD_GUI_POSTGRES_DATA:?}:/var/lib/postgresql/data
+        - dmod_db_volume:/var/lib/postgresql/data
+    secrets:
+        - postgres_password
+    environment:
+        - POSTGRES_USER=${DMOD_GUI_POSTGRES_USER:?}
+        - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+        - POSTGRES_DB=${DMOD_GUI_POSTGRES_DB:-dmod_dev}
     deploy:
        placement:
          constraints:
@@ -65,6 +92,14 @@ networks:
     external: true
     name: ${DOCKER_REQUESTS_NET_NAME}
 
+secrets:
+  postgres_password:
+    file: ../secrets/postgres_password.txt
 # Define persistent volumes that may be shared and persisted between containers
-#volumes:
+volumes:
+    dmod_db_volume:
+#        driver: local
+#        driver_opts:
+#            type: none
+#            o: bind
 #    static_volume:
