@@ -1,0 +1,47 @@
+version: "3.7"
+services:
+  migration:
+    image: maas-portal-migration
+    build:
+        context: ../../..
+        dockerfile: ./docker/nwm_gui/migration_service/Dockerfile
+        args:
+          docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}
+    networks:
+        - request-listener-net
+    entrypoint: /usr/maas_portal/entrypoint.sh
+    restart: "no"
+    secrets:
+        - su_password
+        - postgres_password
+    environment:
+      - MAAS_ENDPOINT_HOST=${DOCKER_GUI_MAAS_ENDPOINT_HOST:-localhost}
+      - MAAS_ENDPOINT_PORT=${DOCKER_REQUESTS_HOST_PORT:-3012}
+      - SQL_ENGINE=django.db.backends.postgresql
+      - SQL_DATABASE=${DMOD_GUI_POSTGRES_DB:-dmod_dev}
+      - SQL_USER=${DMOD_GUI_POSTGRES_USER:?}
+      #- SQL_PASSWORD=${DMOD_GUI_POSTGRES_PASSWORD:?}
+      - SQL_HOST=nwm_gui_db
+      - SQL_PORT=5432
+      - DATABASE=postgres
+      - DMOD_SU_NAME=${DMOD_SU_NAME:-dmod_admin}
+      - DMOD_SU_EMAIL=${DMOD_SU_EMAIL:?}
+      - DOCKER_SECRET_POSTGRES_PASS=postgres_password
+      - DOCKER_SECRET_SU_PASS=su_password
+    deploy:
+       placement:
+         constraints:
+           - ${DOCKER_GUI_DEPLOY_CONSTRAINT_1:-node.role==manager}
+           - ${DOCKER_GUI_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
+
+networks:
+  request-listener-net:
+     external: true
+     name: ${DOCKER_REQUESTS_NET_NAME}
+
+secrets:
+    su_password:
+        file: ../../secrets/superuser_password.txt
+    postgres_password:
+        file: ../../secrets/postgres_password.txt
+#
