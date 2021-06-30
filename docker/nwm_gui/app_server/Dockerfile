@@ -14,7 +14,7 @@ RUN pip install --upgrade --find-links=/DIST ${comms_package_name} \
     && rm -r /DIST
 # Update the aptitude package listing so that packages may be loaded and installed
 # Install python binaries to make pip installs a little smoother
-RUN apt-get update && apt-get install -y python3-django
+RUN apt-get update && apt-get install -y python3-django netcat
 # Move to a new directory at "/usr/wres-gui"
 WORKDIR /usr/maas_portal
 # Copy the requirements.txt file in the current directory for the application to the
