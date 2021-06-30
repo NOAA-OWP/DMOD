@@ -181,6 +181,10 @@ determine_stack_name()
     else
         STACK_NAME="${STACK_DIR_NAME}"
     fi
+    #  If a prefix is defined, prepend it to the stack name
+    if  [ ! -z "${STACK_PREFIX}" ]; then
+        STACK_NAME="${STACK_PREFIX}_${STACK_NAME}"
+    fi
 }
 
 # Process the last group of command line args for actions (after setting the stack dir name)
