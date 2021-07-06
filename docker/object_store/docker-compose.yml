@@ -1,0 +1,116 @@
+version: '3.8'
+services:
+  minio1:
+    image: minio/minio:latest
+    hostname: minio1
+    volumes:
+      - minio1-data1:/export1
+      - minio1-data2:/export2
+      #- minio1-data3:/export3
+      #- minio1-data4:/export4
+      #- minio1-data5:/export5
+      #- minio1-data6:/export6
+    #ports:
+    #     - "9001:9000"
+    expose:
+      - 9000
+    networks:
+      - mpi-net
+      - requests-net
+    deploy:
+      restart_policy:
+        delay: 10s
+        max_attempts: 10
+        window: 60s
+      placement:
+        constraints:
+          - node.labels.minio1==true
+    command: server --address :9000 http://minio{1...2}/export{1...2}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    secrets:
+      - secret_key
+      - access_key
+  minio2:
+    image: minio/minio:latest
+    hostname: minio2
+    volumes:
+      - minio2-data1:/export1
+      - minio2-data2:/export2
+      #- minio2-data3:/export3
+      #- minio2-data4:/export4
+      #- minio2-data5:/export5
+      #- minio2-data6:/export6
+    #ports:
+    #    - "9002:9000"
+    expose: 
+      - 9000
+    networks:
+      - mpi-net
+      - requests-net
+    deploy:
+      restart_policy:
+        delay: 10s
+        max_attempts: 10
+        window: 60s
+      placement:
+        constraints:
+          - node.labels.minio2==true
+    command: server --address :9000 http://minio{1...2}/export{1...2}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    secrets:
+      - secret_key
+      - access_key
+
+  nginx:
+    image: nginx:1.19.2-alpine
+    hostname: nginx
+    networks:
+        #- minio_distributed
+        - requests-net
+        - mpi-net
+    volumes:
+        - ${DMOD_OBJECT_STORE_PROXY_CONFIG:-./nginx.conf}:/etc/nginx/nginx.conf:ro
+    ports:
+      - "9000:9000"
+    #depends_on:
+    #  - minio1
+    #  - minio2
+    deploy:
+        restart_policy: 
+            condition: on-failure
+        placement:
+            constraints:
+                - node.labels.object_store_proxy==true
+volumes:
+  minio1-data1:
+  minio1-data2:
+  #minio1-data3:
+  #minio1-data4:
+  #minio1-data5:
+  #minio1-data6:
+  minio2-data1:
+  minio2-data2:
+  #minio2-data3:
+  #minio2-data4:
+  #minio2-data5:
+  #minio2-data6: 
+networks:
+  mpi-net:
+      external: true
+      name: ${DOCKER_MPI_NET_NAME}
+  requests-net:
+      external: true
+      name: ${DOCKER_REQUESTS_NET_NAME}
+secrets:
+  secret_key:
+    file: ../secrets/object_store/secret_key
+  access_key:
+    file: ../secrets/object_store/access_key
