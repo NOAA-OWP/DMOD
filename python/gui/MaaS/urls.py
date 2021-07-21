@@ -4,6 +4,7 @@ from .cbv.MapView import MapView, Fabrics, FabricNames, FabricTypes, ConnectedFe
 
 from .cbv.configuration import CreateConfiguration
 from .cbv.execution import Execute
+from .cbv.crosswalk import Crosswalk
 
 app_name = 'MaaS'
 
@@ -15,5 +16,6 @@ urlpatterns = [
     url(r'fabric/types$', FabricTypes.as_view(), name='fabric-types'),
     url(r'fabric/(?P<fabric>[a-zA-Z0-9_-]+(\s\([a-zA-Z0-9_-]+\))*)?', Fabrics.as_view(), name='fabrics'),
     url(r'config/edit', CreateConfiguration.as_view(), name='create_config'),
-    url(r'config/execute', Execute.as_view(), name='execute')
+    url(r'config/execute', Execute.as_view(), name='execute'),
+    url(r'crosswalk/(?P<crosswalk>[a-zA-Z0-9_-]+(\s\([a-zA-Z0-9_-]+\))*)?', Crosswalk.as_view(), name='crosswalk')
 ]

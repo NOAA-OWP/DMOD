@@ -189,7 +189,7 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "static/")
 
-
+"""
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -207,6 +207,44 @@ LOGGING = {
     'loggers': {
         'gui_log': {
             'handlers': ['console', ],
+            'level': 'DEBUG'
+        }
+    }
+}
+"""
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse'
+        }
+    },
+    'formatters': {
+        'console': {
+            # exact format is not important, this is the minimum information
+            'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+        },
+    },
+    'handlers': {
+        'guilogFile': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.environ.get('APPLICATION_LOG_PATH', os.path.join(BASE_DIR, 'gui.log')),
+            'maxBytes': 1024*1024*50,  # 50MB
+            'backupCount': 5,
+            'formatter': 'console'
+        },
+        'stdout': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'console'
+        }
+    },
+    'loggers': {
+        'gui_log': {
+            'handlers': ['guilogFile', 'stdout'],
             'level': 'DEBUG'
         }
     }
