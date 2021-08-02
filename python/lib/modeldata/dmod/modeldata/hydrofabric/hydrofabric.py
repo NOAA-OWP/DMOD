@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from hypy import Catchment, HydroLocation, Nexus
 from pathlib import Path
-from typing import Any, Dict, FrozenSet, Optional, Set, Tuple, Union
+from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple, Union
 from ..subset import SubsetDefinition
 
 
@@ -92,6 +92,113 @@ class Hydrofabric(ABC):
             if downstream and feature.receiving_catchments is not None:
                 output.update([cat.id for cat in feature.receiving_catchments])
         return output
+
+    def __eq__(self, other):
+        """
+        Get whether another object is an ::class:`Hydrofabric` instance equal to this one.
+
+        To be equal, two hydrofabrics must have equivalent lists (when sorted) of catchments, nexuses, and links between
+        features.  Links are handled using the encoded form from ::method:`_get_link_representations`, which is used to
+        get the list of links.
+
+        Parameters
+        ----------
+        other
+            The item to compare to this one.
+
+        Returns
+        -------
+        bool
+            ``True`` when the other item is equal, or ``False`` otherwise.
+        """
+        if not isinstance(other, Hydrofabric):
+            return False
+
+        sorted_cat_ids = list(self.get_all_catchment_ids())
+        sorted_cat_ids.sort()
+        other_cat_ids = list(other.get_all_catchment_ids())
+        other_cat_ids.sort()
+        if sorted_cat_ids != other_cat_ids:
+            return False
+
+        sorted_nex_ids = list(self.get_all_nexus_ids())
+        sorted_nex_ids.sort()
+        other_nex_ids = list(other.get_all_nexus_ids())
+        other_nex_ids.sort()
+        if sorted_nex_ids != other_nex_ids:
+            return False
+
+        # Finally, compare these, which should already be sorted
+        return self._get_link_representations == other._get_link_representations
+
+    def __hash__(self):
+        """
+        Get the hash value for this instance.
+
+        The hash is determined from the ordered lists of catchment ids, nexus ids, and link representations.  Link
+        representations are obtained from the ::method:`_get_link_representations` function.
+
+        These three lists are individually joined into comma-separated strings.  These three strings are then formatted
+         into a single string with ``;`` as a separator.  It is the hash value of this last string that is returned.
+
+        Returns
+        -------
+        int
+            The hash value of this instance.
+
+        See Also
+        -------
+        _get_link_representations
+        """
+        sorted_cat_ids = list(self.get_all_catchment_ids())
+        sorted_cat_ids.sort()
+
+        sorted_nex_ids = list(self.get_all_nexus_ids())
+        sorted_nex_ids.sort()
+
+        final_str = "{};{};{}".format(",".join(sorted_cat_ids),
+                                      ",".join(sorted_nex_ids),
+                                      ",".join(self._get_link_representations()))
+        return hash(final_str)
+
+    def _get_link_representations(self) -> List[str]:
+        """
+        Get sorted list containing string encodings of all links between features of the hydrofabric.
+
+        A link between features is encoded as a string by joining the ids of the upstream and downstream features, using
+        underscore (``_``) as a separator.  For example, if cat-81 is upstream of and linked to nex-92, this would be
+        represented with ``cat-81_nex-92``.
+
+        The returned list will be sorted according to the standard rules for list sorting.
+
+        Returns
+        -------
+        List[str]
+            A sorted list of the string encodings for all features links of the hydrofabric.
+
+        See Also
+        -------
+        __hash__
+        """
+        links_reps = []
+        for cat_id in self.get_all_catchment_ids():
+            catchment: Catchment = self.get_catchment_by_id(cat_id)
+            # A catchment has, at most, one outflow/downstream nexus, so ...
+            if catchment.outflow is not None:
+                links_reps.append("{}_{}".format(cat_id, catchment.outflow.id))
+
+        for nex_id in self.get_all_nexus_ids():
+            nexus: Nexus = self.get_nexus_by_id(nex_id)
+            downstream_ids = []
+            for catchment in nexus.receiving_catchments:
+                downstream_ids.append(catchment.id)
+            # Need to sort these also
+            downstream_ids.sort()
+            for cat_id in downstream_ids:
+                links_reps.append("{}_{}".format(nex_id, cat_id))
+
+        links_reps.sort()
+        return links_reps
 
     @abstractmethod
     def get_all_catchment_ids(self) -> Tuple[str, ...]:
