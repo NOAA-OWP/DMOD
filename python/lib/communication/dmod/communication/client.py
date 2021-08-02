@@ -6,13 +6,14 @@ import traceback
 from abc import ABC, abstractmethod
 from asyncio import AbstractEventLoop
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Type, Union
 
 import websockets
 
 from .maas_request import MaaSRequest, MaaSRequestResponse, ModelExecRequest, ModelExecRequestResponse, NWMRequest, \
     NWMRequestResponse, NGENRequest, NGENRequestResponse
-from .message import Message, Response, InitRequestResponseReason
+from .message import AbstractInitRequest, Message, Response, InitRequestResponseReason
+from .partition_request import PartitionRequest, PartitionResponse
 from .scheduler_request import SchedulerRequestMessage, SchedulerRequestResponse
 from .validator import NWMRequestJsonValidator
 from .update_message import UpdateMessage, UpdateMessageResponse
@@ -301,7 +302,11 @@ class InternalServiceClient(WebSocketClient, ABC):
         return response_object
 
 
-class SchedulerClient(WebSocketClient):
+class SchedulerClient(InternalServiceClient):
+
+    @classmethod
+    def get_response_subtype(cls) -> Type[Response]:
+        return SchedulerRequestResponse
 
     async def async_send_update(self, message: UpdateMessage) -> UpdateMessageResponse:
         """
@@ -342,57 +347,27 @@ class SchedulerClient(WebSocketClient):
 
     async def async_make_request(self, message: SchedulerRequestMessage) -> SchedulerRequestResponse:
         """
+        Async send the given request and return the corresponding response.
+
         Send (within Python's async functionality) the appropriate type of request :class:`Message` for this client
         implementation type and return the response as a corresponding, appropriate :class:`Response` instance.
 
         Parameters
         ----------
-        message
-            the request message object
+        message : AbstractInitRequest
+            The request message object.
 
         Returns
         -------
-        response
-            the request response object
+        response : Response
+            The request response object.
         """
-        response_json = {}
-        try:
-            # Send the request and get the scheduler confirmation of job submission
-            serialized_response = await self.async_send(data=str(message), await_response=True)
-            if serialized_response is None:
-                raise ValueError('Serialized response from {} async message was `None`'.format(self.__class__.__name__))
-        except Exception as e:
-            logger.error('Encountered {} sending scheduler request: {}'.format(e.__class__.__name__, str(e)))
-            reason = 'Request Send Failure ({})'.format(e.__class__.__name__)
-            return SchedulerRequestResponse(success=False, reason=reason, message=str(e), data=response_json)
-        try:
-            # Consume the response confirmation by deserializing first to JSON, then from this to a response object
-            response_json = json.loads(serialized_response)
-            try:
-                response_object = SchedulerRequestResponse.factory_init_from_deserialized_json(response_json)
-                if response_object is None:
-                    logging.error('********** Client did not deserialize response content to scheduler response object')
-                    logging.error('********** Content was: ' + serialized_response)
-                    reason = 'Could Not Deserialize Response Object'
-                    response_object = SchedulerRequestResponse(success=False, reason=reason, data=response_json)
-            except Exception as e2:
-                logging.error('********** While deserialize response from scheduler, client encountered {}: {}'.format(
-                    str(e2.__class__.__name__), str(e2)))
-                reason = 'Deserializing scheduler request response failed due to {}'.format(e2.__class__.__name__)
-                response_object = SchedulerRequestResponse(success=False, reason=reason, message=str(e2),
-                                                           data=response_json)
-        except Exception as e:
-            reason = 'Invalid JSON Response'
-            msg = 'Encountered ' + e.__class__.__name__ + ' loading response to JSON: ' + str(e)
-            response_object = SchedulerRequestResponse(success=False, reason=reason, message=msg, data=response_json)
-
-        logging.debug('************* Scheduler client returning response object {}'.format(response_object.to_json()))
-        return response_object
+        return await super(SchedulerClient, self).async_make_request(message)
 
     async def get_results(self):
-        logging.debug('************* Scheduler client preparing to yield results')
+        logging.debug('************* {} preparing to yield results'.format(self.__class__.__name__))
         async for message in self.connection:
-            logging.debug('************* Scheduler client yielding result: {}'.format(str(message)))
+            logging.debug('************* {} yielding result: {}'.format(self.__class__.__name__, str(message)))
             yield message
 
 
