@@ -178,6 +178,129 @@ class WebSocketClient(ABC):
         return self._client_ssl_context
 
 
+class InternalServiceClient(WebSocketClient, ABC):
+    """
+    Abstraction for a client that interacts with some internal, non-public-facing DMOD service.
+    """
+
+    @classmethod
+    @abstractmethod
+    def get_response_subtype(cls) -> Type[Response]:
+        """
+        Return the response subtype class appropriate for this client implementation.
+
+        Returns
+        -------
+        Type[Response]
+            The response subtype class appropriate for this client implementation.
+        """
+        pass
+
+    def build_response(self, success: bool, reason: str, message: str = '', data: Optional[dict] = None,
+                       **kwargs) -> Response:
+        """
+        Build a response of the appropriate subtype from the given response details.
+
+        Build a response of the appropriate subtype for this particular implementation, using the given parameters for
+        this function as the initialization params for the response.  Per the design of ::class:`Response`, the primary
+        attributes are ::attribute:`Response.success`, ::attribute:`Response.reason`, ::attribute:`Response.message`,
+        and ::attribute:`Response.data`.  However, implementations may permit or require additional param values, which
+        can be supplied via keyword args.
+
+        As with the init of ::class:`Request`, defaults of ``''`` (empty string) and  ``None`` are in place for for
+        ``message`` and ``data`` respectively.
+
+        A default implementation is provided that initializes an instance of the type return by
+        ::method:`get_response_subtype`.  Keyword args are not used in this default implementation.
+
+        Parameters
+        ----------
+        success : bool
+            The value for ::attribute:`Response.success` to use when initializing the response object.
+        reason : str
+            The value for ::attribute:`Response.reason` to use when initializing the response object.
+        message : str
+            The value for ::attribute:`Response.message` to use when initializing the response object (default: ``''``).
+        data : dict
+            The value for ::attribute:`Response.data` to use when initializing the response object (default: ``None``).
+        kwargs : dict
+            A dict for any additional implementation specific init params for the response object.
+
+        Returns
+        -------
+        Response
+            A response object of the appropriate subtype.
+        """
+        return self.get_response_subtype()(success=success, reason=reason, message=message, data=data)
+
+    async def async_make_request(self, message: AbstractInitRequest) -> Response:
+        """
+        Async send the given request and return the corresponding response.
+
+        Send (within Python's async functionality) the appropriate type of request :class:`Message` for this client
+        implementation type and return the response as a corresponding, appropriate :class:`Response` instance.
+
+        Parameters
+        ----------
+        message : AbstractInitRequest
+            The request message object.
+
+        Returns
+        -------
+        response : Response
+            The request response object.
+        """
+        response_type = self.get_response_subtype()
+        expected_req_type = response_type.get_response_to_type()
+        my_class_name = self.__class__.__name__
+        req_class_name = message.__class__.__name__
+
+        if not isinstance(message, expected_req_type):
+            reason = '{} Received Unexpected Type {}'.format(my_class_name, req_class_name)
+            msg = '{} received unexpected {} instance as request, rather than a {} instance; not submitting'.format(
+                my_class_name, req_class_name, expected_req_type.__name__)
+            logger.error(msg)
+            return self.build_response(success=False, reason=reason, message=msg)
+
+        response_json = {}
+        try:
+            # Send the request and get the service response
+            serialized_response = await self.async_send(data=str(message), await_response=True)
+            if serialized_response is None:
+                raise ValueError('Serialized response from {} async message was `None`'.format(my_class_name))
+        except Exception as e:
+
+            reason = '{} Send {} Failure ({})'.format(my_class_name, req_class_name, e.__class__.__name__)
+            msg = '{} encountered {} sending {}: {}'.format(my_class_name, e.__class__.__name__, req_class_name, str(e))
+            logger.error(msg)
+            return self.build_response(success=False, reason=reason, message=msg, data=response_json)
+        try:
+            # Consume the response confirmation by deserializing first to JSON, then from this to a response object
+            response_json = json.loads(serialized_response)
+            try:
+                response_object = response_type.factory_init_from_deserialized_json(response_json)
+                if response_object is None:
+                    msg = '********** {} could not deserialize {} from raw websocket response: `{}`'.format(
+                        my_class_name, response_type.__name__, str(serialized_response))
+                    reason = '{} Could Not Deserialize To {}'.format(my_class_name, response_type.__name__)
+                    response_object = self.build_response(success=False, reason=reason, message=msg, data=response_json)
+            except Exception as e2:
+                msg = '********** While deserializing {}, {} encountered {}: {}'.format(
+                    response_type.__name__, my_class_name, e2.__class__.__name__, str(e2))
+                reason = '{} {} Deserializing {}'.format(my_class_name, e2.__class__.__name__, response_type.__name__)
+                response_object = self.build_response(success=False, reason=reason, message=msg, data=response_json)
+        except Exception as e:
+            reason = 'Invalid JSON Response'
+            msg = 'Encountered {} loading response to JSON: {}'.format(e.__class__.__name__, str(e))
+            response_object = self.build_response(success=False, reason=reason, message=msg, data=response_json)
+
+        if not response_object.success:
+            logging.error(response_object.message)
+        logging.debug('************* {} returning {} object {}'.format(self.__class__.__name__, response_type.__name__,
+                                                                       response_object.to_json()))
+        return response_object
+
+
 class SchedulerClient(WebSocketClient):
 
     async def async_send_update(self, message: UpdateMessage) -> UpdateMessageResponse:
