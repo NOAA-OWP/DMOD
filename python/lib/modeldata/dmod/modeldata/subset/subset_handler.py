@@ -212,9 +212,10 @@ class SubsetHandler:
         """
         Get the subset starting from a particular catchment and going upstream.
 
-        Function traverses the graph of Catchments and Nexuses, building a subset of the encountered entities as it
+        Function traverses the graph of Catchments and Nexuses, building a subset of the encountered features as it
         goes. It uses the connections represented by ::attribute:`Catchment.inflow` and
-        ::attribute:`Nexus.contributing_catchments`.
+        ::attribute:`Nexus.contributing_catchments`.  Additionally, it also uses the ::attribute:`Catchment.outflow`
+        property and includes the downstream nexus for every valid catchment identified in the ``catchment_ids`` param.
 
         It is possible to restrict how many links away from the original catchment to proceed.  Each attribute
         traversal, whether ending up in a catchment or nexus, is considered an incremental link.  If ``None`` or a
@@ -225,7 +226,6 @@ class SubsetHandler:
         ----------
         catchment_ids: Union[str, Collection[str]]
             Collection of ids of one or more originating catchment from which to proceed upstream.
-
         link_limit: Optional[int]
             An optional restriction of how far from the originating catchment entities may be to be added to the subset.
 
@@ -233,7 +233,6 @@ class SubsetHandler:
         -------
         SubsetDefinition
             The generated subset definition object.
-
         """
         if link_limit and link_limit < 0:
             link_limit = None
@@ -241,11 +240,17 @@ class SubsetHandler:
             catchment_ids = [catchment_ids]
         cat_ids: Set[str] = set()
         nex_ids: Set[str] = set()
-        # Nodes are a tuple of the catchment/nexus object, the link count to it, and bool indication if catchment
-        # Third item should be faster than checking instance type repeatedly
+        # Construct queue of graph nodes to be processed, start from initially given catchments and their downstream
+        # Nodes are tuple of catchment/nexus object, link count to it, and bool of whether node is catchment (not nexus)
+        # Third tuple item should be faster than checking instance type repeatedly
         graph_nodes = Queue()
         for cid in catchment_ids:
-            graph_nodes.put((self.get_catchment_by_id(cid), 0, True))
+            # Note this could return None, but that case gets handled in the queue processing loop
+            starting_catchment = self.get_catchment_by_id(cid)
+            graph_nodes.put((starting_catchment, 0, True))
+            # If an initial id did match a catchment, also include its downstream nexus
+            if isinstance(starting_catchment, Catchment):
+                graph_nodes.put((starting_catchment.outflow, 0, True))
 
         while graph_nodes.qsize() > 0:
             item, link_dist, is_catchment = graph_nodes.get()
