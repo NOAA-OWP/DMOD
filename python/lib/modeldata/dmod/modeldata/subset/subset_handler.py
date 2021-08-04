@@ -188,7 +188,7 @@ class SubsetHandler:
 
     def get_subset_for(self, catchment_ids: Union[str, Collection[str]]) -> SubsetDefinition:
         """
-        Get the subset for a particular collection of catchments and each's downstream nexus.
+        Get the subset for a particular collection of catchments and the downstream nexus of each.
 
         Parameters
         ----------
@@ -197,14 +197,16 @@ class SubsetHandler:
 
         Returns
         -------
-
+        SubsetDefinition
+            The generated subset definition object.
         """
         nex_ids: Set[str] = set()
         if isinstance(catchment_ids, str):
             catchment_ids = [catchment_ids]
         for cid in catchment_ids:
             catchment = self.get_catchment_by_id(cid)
-            nex_ids.add(catchment.outflow.id)
+            if isinstance(catchment, Catchment):
+                nex_ids.add(catchment.outflow.id)
         return SubsetDefinition(catchment_ids=catchment_ids, nexus_ids=nex_ids)
 
     def get_upstream_subset(self, catchment_ids: Union[str, Collection[str]],
