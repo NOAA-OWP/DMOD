@@ -1,4 +1,4 @@
-from .maas_request import MaaSRequest
+from .maas_request import ModelExecRequest
 from .message import AbstractInitRequest, MessageEventType, Response
 from typing import Optional
 
@@ -38,7 +38,7 @@ class SchedulerRequestMessage(AbstractInitRequest):
             provided parameter could not be used to instantiated a new object of this type.
         """
         try:
-            model_request = MaaSRequest.factory_init_correct_subtype_from_deserialized_json(json_obj['model_request'])
+            model_request = ModelExecRequest.factory_init_correct_subtype_from_deserialized_json(json_obj['model_request'])
             if model_request is not None:
                 return cls(model_request=model_request, user_id=json_obj['user_id'], cpus=json_obj['cpus'],
                            mem=json_obj['mem'], allocation_paradigm=json_obj['allocation'])
@@ -47,7 +47,7 @@ class SchedulerRequestMessage(AbstractInitRequest):
         except:
             return None
 
-    def __init__(self, model_request: MaaSRequest, user_id: str, cpus: Optional[int] = None, mem: Optional[int] = None,
+    def __init__(self, model_request: ModelExecRequest, user_id: str, cpus: Optional[int] = None, mem: Optional[int] = None,
                  allocation_paradigm: Optional[str] = None):
         self.model_request = model_request
         self.user_id = user_id
