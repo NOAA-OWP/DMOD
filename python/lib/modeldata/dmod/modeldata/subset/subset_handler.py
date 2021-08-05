@@ -252,7 +252,7 @@ class SubsetHandler:
             graph_nodes.put((starting_catchment, 0, True))
             # If an initial id did match a catchment, also include its downstream nexus
             if isinstance(starting_catchment, Catchment):
-                graph_nodes.put((starting_catchment.outflow, 0, True))
+                graph_nodes.put((starting_catchment.outflow, 0, False))
 
         while graph_nodes.qsize() > 0:
             item, link_dist, is_catchment = graph_nodes.get()
