@@ -81,12 +81,12 @@ def _handle_args():
                         default='catchment_data.geojson')
     parser.add_argument('--nexus-data-file',
                         '-n',
-                        help='Set the path (relative to files_directory to the hydrofabric nexus data file',
+                        help='Set the path (relative to files_directory) to the hydrofabric nexus data file',
                         dest='nexus_data_file',
                         default='nexus_data.geojson')
     parser.add_argument('--crosswalk-file',
                         '-x',
-                        help='Set the path (relative to files_directory to the hydrofabric crosswalk file',
+                        help='Set the path (relative to files_directory) to the hydrofabric crosswalk file',
                         dest='crosswalk_file',
                         default='crosswalk.json')
     parser.add_argument('--files-directory',
@@ -104,20 +104,31 @@ def _handle_args():
                         help='Set the host on which the API is hosted',
                         dest='host',
                         default='0.0.0.0')
-    # For now, these are not needed, as subset are simple type and thus can always be read directly from hydrofabric
-    # Keep though in case that changes (i.e., includes data)
-    # parser.add_argument('--redis-host',
-    #                     help='Set the host value for making Redis connections',
-    #                     dest='redis_host',
-    #                     default=None)
-    # parser.add_argument('--redis-pass',
-    #                     help='Set the password value for making Redis connections',
-    #                     dest='redis_pass',
-    #                     default=None)
-    # parser.add_argument('--redis-port',
-    #                     help='Set the port value for making Redis connections',
-    #                     dest='redis_port',
-    #                     default=None)
+    parser.add_argument('--upstream',
+                        '-U',
+                        help="Run CLI operation to get upstream subset that starts from provided catchments.",
+                        dest='do_upstream_subset',
+                        action='store_true')
+    parser.add_argument('--subset',
+                        '-S',
+                        help="Run CLI operation to get basic subset of provided catchments and their downstream nexus.",
+                        dest='do_simple_subset',
+                        action='store_true')
+    parser.add_argument('--output-file',
+                        '-o',
+                        help='Write CLI operation output to given file (in working directory) instead of printing.',
+                        dest='output_file',
+                        default='')
+    parser.add_argument('--catchment-ids',
+                        '-C',
+                        help="Provide one or more catchment ids to include when running CLI operation.",
+                        nargs='+',
+                        dest='cat_ids')
+    parser.add_argument('--format-output',
+                        '-F',
+                        help="When running CLI operation, use pretty formatting of the printed or written output.",
+                        action="store_true",
+                        dest='do_formatting')
     parser.prog = package_name
     return parser.parse_args()
 
@@ -132,7 +143,16 @@ def _process_path(files_dir_arg: str, file_name: str):
 def main():
     global subset_handler
     args = _handle_args()
+
+    is_do_simple = args.do_simple_subset
+    is_do_upstream = args.do_upstream_subset
+    is_cli_only = is_do_simple or is_do_upstream
+
+    # TODO: put warning in about not trying both simple and upstream at once
+
     files_dir = args.files_directory
+
+    # TODO: try to split off functionality so that Flask stuff (though declared globally) isn't started for CLI ops
 
     catchment_geojson = _process_path(files_dir, args.catchment_data_file)
     nexus_geojson = _process_path(files_dir, args.nexus_data_file)
@@ -141,7 +161,26 @@ def main():
     subset_handler = SubsetHandler.factory_create_from_geojson(catchment_data=catchment_geojson,
                                                                nexus_data=nexus_geojson,
                                                                cross_walk=crosswalk_json)
-    app.run(host=args.host, port=args.port)
+
+    if is_cli_only and len(args.cat_ids) == 0:
+        print("Cannot run CLI operation without specifying at least one catchment id (see --help for details).")
+        exit(1)
+    elif is_cli_only:
+        if is_do_upstream:
+            subset = subset_handler.get_upstream_subset(args.cat_ids)
+        else:
+            subset = subset_handler.get_subset_for(args.cat_ids)
+        json_output_str = subset.to_json()
+        if args.do_formatting:
+            json_output_str = json.dumps(json.loads(json_output_str), indent=4, sort_keys=True)
+        # If an output file was designated, write the output there
+        if len(args.output_file) > 0:
+            from pathlib import Path
+            Path('.').joinpath(args.output_file).write_text(json_output_str)
+        else:
+            print(json_output_str)
+    else:
+        app.run(host=args.host, port=args.port)
 
 
 if __name__ == '__main__':
