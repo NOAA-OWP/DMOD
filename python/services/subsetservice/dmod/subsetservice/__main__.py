@@ -126,7 +126,7 @@ def _handle_args():
                         dest='cat_ids')
     parser.add_argument('--format-output',
                         '-F',
-                        help="When running CLI operation, use pretty formatting of the printed or written output.",
+                        help="When running CLI operation, use pretty formatting of printed or written JSON.",
                         action="store_true",
                         dest='do_formatting')
     parser.prog = package_name
@@ -138,6 +138,34 @@ def _process_path(files_dir_arg: str, file_name: str):
         return file_name
     else:
         return files_dir_arg + "/" + file_name
+
+
+def _cli_output_subset(handler, cat_ids, is_simple, format_json, file_name=None):
+    """
+    Perform CLI operations to output a subset, either to standard out or a file.
+
+    Parameters
+    ----------
+    handler: SubsetHandler
+        The previously created handler object doing the subsetting.
+    cat_ids: list
+        A list of string catchment ids from which the subset will be created.
+    is_simple: bool
+        Whether a simple subset is created (when ``False``, and upstream type subset will be created).
+    format_json: bool
+        Whether the output should have pretty JSON formatting.
+    file_name: Optional[str]
+        If output should be written to file in working directory, name of this file (output printed when ``None``).
+    """
+    subset = handler.get_subset_for(cat_ids) if is_simple else handler.get_upstream_subset(cat_ids)
+    json_output_str = subset.to_json()
+    if format_json:
+        json_output_str = json.dumps(json.loads(json_output_str), indent=4, sort_keys=True)
+    if file_name:
+        from pathlib import Path
+        Path('.').joinpath(file_name).write_text(json_output_str)
+    else:
+        print(json_output_str)
 
 
 def main():
@@ -165,20 +193,9 @@ def main():
     if is_cli_only and len(args.cat_ids) == 0:
         print("Cannot run CLI operation without specifying at least one catchment id (see --help for details).")
         exit(1)
-    elif is_cli_only:
-        if is_do_upstream:
-            subset = subset_handler.get_upstream_subset(args.cat_ids)
-        else:
-            subset = subset_handler.get_subset_for(args.cat_ids)
-        json_output_str = subset.to_json()
-        if args.do_formatting:
-            json_output_str = json.dumps(json.loads(json_output_str), indent=4, sort_keys=True)
-        # If an output file was designated, write the output there
-        if len(args.output_file) > 0:
-            from pathlib import Path
-            Path('.').joinpath(args.output_file).write_text(json_output_str)
-        else:
-            print(json_output_str)
+    elif is_do_simple or is_do_upstream:
+        output_file = None if len(args.output_file) == 0 else args.output_file
+        _cli_output_subset(subset_handler, args.cat_ids, is_do_simple, args.do_formatting, output_file)
     else:
         app.run(host=args.host, port=args.port)
 
