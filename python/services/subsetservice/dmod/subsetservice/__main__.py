@@ -2,6 +2,8 @@ import argparse
 import flask
 import json
 from dmod.modeldata import SubsetDefinition, SubsetHandler
+from pathlib import Path
+from typing import Optional
 from . import name as package_name
 
 app = flask.Flask(__name__)
@@ -92,8 +94,9 @@ def _handle_args():
     parser.add_argument('--files-directory',
                         '-d',
                         help='Specify base/prefix directory for hydrofabric files',
+                        type=Path,
                         dest='files_directory',
-                        default='')
+                        default=Path.cwd())
     parser.add_argument('--port',
                         '-p',
                         help='Set the port on which the API is hosted',
@@ -116,9 +119,9 @@ def _handle_args():
                         action='store_true')
     parser.add_argument('--output-file',
                         '-o',
-                        help='Write CLI operation output to given file (in working directory) instead of printing.',
-                        dest='output_file',
-                        default='')
+                        help='Write CLI subset operation output to this file in working directory instead of print.',
+                        type=Path,
+                        dest='output_file')
     parser.add_argument('--catchment-ids',
                         '-C',
                         help="Provide one or more catchment ids to include when running CLI operation.",
@@ -129,18 +132,22 @@ def _handle_args():
                         help="When running CLI operation, use pretty formatting of printed or written JSON.",
                         action="store_true",
                         dest='do_formatting')
+    parser.add_argument('--partition-file',
+                        '-P',
+                        help="When given, run CLI operation to create subdivided hydrofabric files according to partitions configured in this file.",
+                        dest='partition_file')
     parser.prog = package_name
     return parser.parse_args()
 
 
-def _process_path(files_dir_arg: str, file_name: str):
-    if not files_dir_arg:
-        return file_name
+def _process_path(files_dir: Optional[Path], file_name: str) -> Path:
+    if files_dir:
+        return files_dir.joinpath(file_name)
     else:
-        return files_dir_arg + "/" + file_name
+        return Path(file_name)
 
 
-def _cli_output_subset(handler, cat_ids, is_simple, format_json, file_name=None):
+def _cli_output_subset(handler, cat_ids, is_simple, format_json, file_name=None) -> bool:
     """
     Perform CLI operations to output a subset, either to standard out or a file.
 
@@ -156,7 +163,15 @@ def _cli_output_subset(handler, cat_ids, is_simple, format_json, file_name=None)
         Whether the output should have pretty JSON formatting.
     file_name: Optional[str]
         If output should be written to file in working directory, name of this file (output printed when ``None``).
+
+    Returns
+    -------
+    bool
+        Whether the CLI operation was completed successfully.
     """
+    if not cat_ids:
+        print("Cannot run CLI operation without specifying at least one catchment id (see --help for details).")
+        return False
     subset = handler.get_subset_for(cat_ids) if is_simple else handler.get_upstream_subset(cat_ids)
     json_output_str = subset.to_json()
     if format_json:
@@ -166,38 +181,106 @@ def _cli_output_subset(handler, cat_ids, is_simple, format_json, file_name=None)
         Path('.').joinpath(file_name).write_text(json_output_str)
     else:
         print(json_output_str)
+    return True
+
+
+# TODO: incorporate a little more tightly with the modeldata package and the Hydrofabric and SubsetDefinition types
+def _cli_divide_hydrofabric(files_dir: Path, catchment_file: Path, nexus_file: Path, partition_file_arg: str) -> bool:
+    """
+    Subdivide a GeoJSON hydrofabric according to a supplied partitions config, writing to new partition-specific files.
+
+    Function reads partition config from the supplied file location relative to either the ``files_dir`` or the current
+    working directory (it returns ``False`` immediately if there it fails to find a file there).  Next it reads in the
+    full hydrofabric files into catchment and nexus ::class:`GeoDataFrame` objects.  It then iterates through each
+    partition, extracting the subsets of catchments and nexuses of the each partition from the full hydrofabric and
+    writing those subsets to files.
+
+    The partition-specific output files are written in to same directory as the analogous full hydrofabric file.  Their
+    names are based on partition index and the name of the full hydrofabric file, with a dot (``.``) and the index
+    being added as a suffix to the latter to form the name.  E.g. for a ``catchment_data.geojson`` file, output files
+    will have names like ``catchment_data.geojson.0``, ``catchment_data.geojson.1``, etc., with these being created in
+    the same directory as the original ``catchment_data.geojson``.
+
+    Parameters
+    ----------
+    files_dir: Path
+        The parent directory for hydrofabric data files.
+    catchment_file: Path
+        The path to the hydrofabric catchment data file (already including the parent directory component).
+    nexus_file: Path
+        The path to the hydrofabric nexus data file (already including the parent directory component).
+    partition_file_arg: str
+        The string form of the relative path to the partition config file, relative either to ``files_dir`` or the
+        current working directory.
+
+    Returns
+    -------
+    bool
+        Whether the CLI operation was completed successfully.
+    """
+    import geopandas as gpd
+
+    # Look for partition file either relative to working directory or files directory
+    partitions_file = Path.cwd() / partition_file_arg
+    if not partitions_file.exists():
+        partitions_file = files_dir / partition_file_arg
+    # If it doesn't exist in either of these two places, then thats a problem
+    if not partitions_file.exists():
+        print("Error: cannot find partition file {} from either working directory or given files directory {}".format(
+            partition_file_arg, files_dir))
+        return False
+
+    with partitions_file.open() as f:
+        partition_config_json = json.load(f)
+
+    hydrofabric_catchments = gpd.read_file(str(catchment_file))
+    hydrofabric_catchments.set_index('id', inplace=True)
+
+    hydrofabric_nexuses = gpd.read_file(str(nexus_file))
+    hydrofabric_nexuses.set_index('id', inplace=True)
+
+    for i in range(len(partition_config_json['partitions'])):
+        partition_cat_ids = partition_config_json['partitions'][i]['cat-ids']
+        partition_catchments: gpd.GeoDataFrame = hydrofabric_catchments.loc[partition_cat_ids]
+        partition_catchment_file = catchment_file.parent / '{}.{}'.format(catchment_file.name, i)
+        partition_catchments.to_file(str(partition_catchment_file), driver='GeoJSON')
+
+        partition_nexus_ids = partition_config_json['partitions'][i]['nex-ids']
+        partition_nexuses = hydrofabric_nexuses.loc[partition_nexus_ids]
+        partition_nexuses_file = nexus_file.parent / '{}.{}'.format(nexus_file.name, i)
+        partition_nexuses.to_file(str(partition_nexuses_file), driver='GeoJSON')
+    return True
 
 
 def main():
     global subset_handler
     args = _handle_args()
 
-    is_do_simple = args.do_simple_subset
-    is_do_upstream = args.do_upstream_subset
-    is_cli_only = is_do_simple or is_do_upstream
-
-    # TODO: put warning in about not trying both simple and upstream at once
-
-    files_dir = args.files_directory
+    # TODO: put warning in about not trying multiple CLI operations at once
 
     # TODO: try to split off functionality so that Flask stuff (though declared globally) isn't started for CLI ops
 
-    catchment_geojson = _process_path(files_dir, args.catchment_data_file)
-    nexus_geojson = _process_path(files_dir, args.nexus_data_file)
-    crosswalk_json = _process_path(files_dir, args.crosswalk_file)
+    if not args.files_directory.is_dir():
+        print("Error: given param '{}' for files directory is not an existing directory".format(args.files_directory))
+
+    catchment_geojson = args.files_directory.joinpath(args.catchment_data_file)
+    nexus_geojson = args.files_directory.joinpath(args.nexus_data_file)
+    crosswalk_json = args.files_directory.joinpath(args.crosswalk_file)
 
     subset_handler = SubsetHandler.factory_create_from_geojson(catchment_data=catchment_geojson,
                                                                nexus_data=nexus_geojson,
                                                                cross_walk=crosswalk_json)
 
-    if is_cli_only and len(args.cat_ids) == 0:
-        print("Cannot run CLI operation without specifying at least one catchment id (see --help for details).")
-        exit(1)
-    elif is_do_simple or is_do_upstream:
-        output_file = None if len(args.output_file) == 0 else args.output_file
-        _cli_output_subset(subset_handler, args.cat_ids, is_do_simple, args.do_formatting, output_file)
+    if args.partition_file:
+        result = _cli_divide_hydrofabric(args.files_directory, catchment_geojson, nexus_geojson, args.partition_file)
+    elif args.do_simple_subset or args.do_upstream_subset:
+        result = _cli_output_subset(subset_handler, args.cat_ids, args.do_simple_subset, args.do_formatting, args.output_file)
     else:
         app.run(host=args.host, port=args.port)
+        result = True
+
+    if not result:
+        exit(1)
 
 
 if __name__ == '__main__':
