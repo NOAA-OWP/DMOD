@@ -136,6 +136,10 @@ def _handle_args():
                         '-P',
                         help="When given, run CLI operation to create subdivided hydrofabric files according to partitions configured in this file.",
                         dest='partition_file')
+    parser.add_argument('--partition-index',
+                        '-I',
+                        help="When running CLI operation to create subdivided hydrofabric, only write files for this partition index.",
+                        dest='partition_index')
     parser.prog = package_name
     return parser.parse_args()
 
@@ -177,7 +181,8 @@ def _cli_output_subset(handler, cat_ids, is_simple, format_json, file_name: Opti
 
 
 # TODO: incorporate a little more tightly with the modeldata package and the Hydrofabric and SubsetDefinition types
-def _cli_divide_hydrofabric(files_dir: Path, catchment_file: Path, nexus_file: Path, partition_file_arg: str) -> bool:
+def _cli_divide_hydrofabric(files_dir: Path, catchment_file: Path, nexus_file: Path, partition_file_arg: str,
+                            partition_index: Optional[int] = None) -> bool:
     """
     Subdivide a GeoJSON hydrofabric according to a supplied partitions config, writing to new partition-specific files.
 
@@ -193,6 +198,9 @@ def _cli_divide_hydrofabric(files_dir: Path, catchment_file: Path, nexus_file: P
     will have names like ``catchment_data.geojson.0``, ``catchment_data.geojson.1``, etc., with these being created in
     the same directory as the original ``catchment_data.geojson``.
 
+    Finally, it is possible to limit the writing of the output files to just a single partition, if that partition index
+    is provided.
+
     Parameters
     ----------
     files_dir: Path
@@ -204,6 +212,9 @@ def _cli_divide_hydrofabric(files_dir: Path, catchment_file: Path, nexus_file: P
     partition_file_arg: str
         The string form of the relative path to the partition config file, relative either to ``files_dir`` or the
         current working directory.
+    partition_index: Optional[int]
+        An optional index for a single partition, if only the subdivided hydrofabric files for that partition should be
+        created.
 
     Returns
     -------
@@ -231,7 +242,13 @@ def _cli_divide_hydrofabric(files_dir: Path, catchment_file: Path, nexus_file: P
     hydrofabric_nexuses = gpd.read_file(str(nexus_file))
     hydrofabric_nexuses.set_index('id', inplace=True)
 
-    for i in range(len(partition_config_json['partitions'])):
+    # This may be just the single give partition; otherwise it will be the indices of all in the range
+    if partition_index and partition_index in partition_config_json['partitions']:
+        partition_indices = [partition_index]
+    else:
+        partition_indices = range(len(partition_config_json['partitions']))
+
+    for i in partition_indices:
         partition_cat_ids = partition_config_json['partitions'][i]['cat-ids']
         partition_catchments: gpd.GeoDataFrame = hydrofabric_catchments.loc[partition_cat_ids]
         partition_catchment_file = catchment_file.parent / '{}.{}'.format(catchment_file.name, i)
@@ -264,7 +281,7 @@ def main():
                                                                cross_walk=crosswalk_json)
 
     if args.partition_file:
-        result = _cli_divide_hydrofabric(args.files_directory, catchment_geojson, nexus_geojson, args.partition_file)
+        result = _cli_divide_hydrofabric(args.files_directory, catchment_geojson, nexus_geojson, args.partition_file, args.partition_index)
     elif args.do_simple_subset or args.do_upstream_subset:
         result = _cli_output_subset(subset_handler, args.cat_ids, args.do_simple_subset, args.do_formatting, args.output_file)
     else:
