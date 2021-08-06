@@ -109,17 +109,17 @@ def _handle_args():
                         default='0.0.0.0')
     parser.add_argument('--upstream',
                         '-U',
-                        help="Run CLI operation to get upstream subset that starts from provided catchments.",
+                        help="Run CLI operation to print upstream subset definition starting from provided catchments.",
                         dest='do_upstream_subset',
                         action='store_true')
     parser.add_argument('--subset',
                         '-S',
-                        help="Run CLI operation to get basic subset of provided catchments and their downstream nexus.",
+                        help="Run CLI operation to print basic subset definition containing the provided catchments and each's downstream nexus.",
                         dest='do_simple_subset',
                         action='store_true')
     parser.add_argument('--output-file',
                         '-o',
-                        help='Write CLI subset operation output to this file in working directory instead of print.',
+                        help='Instead of printing, output any subset definition from a run CLI operation to this file.',
                         type=Path,
                         dest='output_file')
     parser.add_argument('--catchment-ids',
@@ -140,14 +140,7 @@ def _handle_args():
     return parser.parse_args()
 
 
-def _process_path(files_dir: Optional[Path], file_name: str) -> Path:
-    if files_dir:
-        return files_dir.joinpath(file_name)
-    else:
-        return Path(file_name)
-
-
-def _cli_output_subset(handler, cat_ids, is_simple, format_json, file_name=None) -> bool:
+def _cli_output_subset(handler, cat_ids, is_simple, format_json, file_name: Optional[Path] = None) -> bool:
     """
     Perform CLI operations to output a subset, either to standard out or a file.
 
@@ -162,7 +155,7 @@ def _cli_output_subset(handler, cat_ids, is_simple, format_json, file_name=None)
     format_json: bool
         Whether the output should have pretty JSON formatting.
     file_name: Optional[str]
-        If output should be written to file in working directory, name of this file (output printed when ``None``).
+        Optional file in which to write the output; when ``None``, output is printed.
 
     Returns
     -------
@@ -177,8 +170,7 @@ def _cli_output_subset(handler, cat_ids, is_simple, format_json, file_name=None)
     if format_json:
         json_output_str = json.dumps(json.loads(json_output_str), indent=4, sort_keys=True)
     if file_name:
-        from pathlib import Path
-        Path('.').joinpath(file_name).write_text(json_output_str)
+        file_name.write_text(json_output_str)
     else:
         print(json_output_str)
     return True
