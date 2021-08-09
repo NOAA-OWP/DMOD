@@ -2,7 +2,7 @@ import geopandas as gpd
 import json
 from dmod.modeldata import SubsetHandler
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union
 
 
 class Cli:
@@ -10,12 +10,15 @@ class Cli:
     Class for managing CLI operations for this module.
     """
 
-    def __init__(self, files_dir: Path, catchment_geojson: Path, nexus_geojson: Path, crosswalk_json: Path,
-                 partition_file_str: Optional[str], subset_handler: Optional[SubsetHandler]):
-        self.files_dir = files_dir
-        self.catchment_geojson = catchment_geojson
-        self.nexus_geojson = nexus_geojson
-        self.crosswalk = crosswalk_json
+    def __init__(self, catchment_geojson: Union[str, Path], nexus_geojson: Union[str, Path],
+                 crosswalk_json: Union[str, Path], partition_file_str: Optional[str],
+                 subset_handler: Optional[SubsetHandler]):
+        self.catchment_geojson = catchment_geojson if isinstance(catchment_geojson, Path) else Path(catchment_geojson)
+        self.nexus_geojson = nexus_geojson if isinstance(nexus_geojson, Path) else Path(nexus_geojson)
+        self.crosswalk = crosswalk_json if isinstance(crosswalk_json, Path) else Path(crosswalk_json)
+
+        self.files_dir = self.catchment_geojson.parent
+
         self._partitions_file_str = partition_file_str
         self._partitions_file = None
         if subset_handler is None:
