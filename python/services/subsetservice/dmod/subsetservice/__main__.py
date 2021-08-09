@@ -4,6 +4,7 @@ import json
 from dmod.modeldata import SubsetDefinition, SubsetHandler
 from pathlib import Path
 from typing import Optional
+from .cli import Cli
 from . import name as package_name
 
 app = flask.Flask(__name__)
@@ -144,121 +145,12 @@ def _handle_args():
     return parser.parse_args()
 
 
-def _cli_output_subset(handler, cat_ids, is_simple, format_json, file_name: Optional[Path] = None) -> bool:
-    """
-    Perform CLI operations to output a subset, either to standard out or a file.
-
-    Parameters
-    ----------
-    handler: SubsetHandler
-        The previously created handler object doing the subsetting.
-    cat_ids: list
-        A list of string catchment ids from which the subset will be created.
-    is_simple: bool
-        Whether a simple subset is created (when ``False``, and upstream type subset will be created).
-    format_json: bool
-        Whether the output should have pretty JSON formatting.
-    file_name: Optional[str]
-        Optional file in which to write the output; when ``None``, output is printed.
-
-    Returns
-    -------
-    bool
-        Whether the CLI operation was completed successfully.
-    """
-    if not cat_ids:
-        print("Cannot run CLI operation without specifying at least one catchment id (see --help for details).")
-        return False
-    subset = handler.get_subset_for(cat_ids) if is_simple else handler.get_upstream_subset(cat_ids)
-    json_output_str = subset.to_json()
-    if format_json:
-        json_output_str = json.dumps(json.loads(json_output_str), indent=4, sort_keys=True)
-    if file_name:
-        file_name.write_text(json_output_str)
+def exec_cli_op(cli, args) -> bool:
+    if args.partition_file:
+        return cli.divide_hydrofabric(args.partition_index)
     else:
-        print(json_output_str)
-    return True
-
-
-# TODO: incorporate a little more tightly with the modeldata package and the Hydrofabric and SubsetDefinition types
-def _cli_divide_hydrofabric(files_dir: Path, catchment_file: Path, nexus_file: Path, partition_file_arg: str,
-                            partition_index: Optional[int] = None) -> bool:
-    """
-    Subdivide a GeoJSON hydrofabric according to a supplied partitions config, writing to new partition-specific files.
-
-    Function reads partition config from the supplied file location relative to either the ``files_dir`` or the current
-    working directory (it returns ``False`` immediately if there it fails to find a file there).  Next it reads in the
-    full hydrofabric files into catchment and nexus ::class:`GeoDataFrame` objects.  It then iterates through each
-    partition, extracting the subsets of catchments and nexuses of the each partition from the full hydrofabric and
-    writing those subsets to files.
-
-    The partition-specific output files are written in to same directory as the analogous full hydrofabric file.  Their
-    names are based on partition index and the name of the full hydrofabric file, with a dot (``.``) and the index
-    being added as a suffix to the latter to form the name.  E.g. for a ``catchment_data.geojson`` file, output files
-    will have names like ``catchment_data.geojson.0``, ``catchment_data.geojson.1``, etc., with these being created in
-    the same directory as the original ``catchment_data.geojson``.
-
-    Finally, it is possible to limit the writing of the output files to just a single partition, if that partition index
-    is provided.
-
-    Parameters
-    ----------
-    files_dir: Path
-        The parent directory for hydrofabric data files.
-    catchment_file: Path
-        The path to the hydrofabric catchment data file (already including the parent directory component).
-    nexus_file: Path
-        The path to the hydrofabric nexus data file (already including the parent directory component).
-    partition_file_arg: str
-        The string form of the relative path to the partition config file, relative either to ``files_dir`` or the
-        current working directory.
-    partition_index: Optional[int]
-        An optional index for a single partition, if only the subdivided hydrofabric files for that partition should be
-        created.
-
-    Returns
-    -------
-    bool
-        Whether the CLI operation was completed successfully.
-    """
-    import geopandas as gpd
-
-    # Look for partition file either relative to working directory or files directory
-    partitions_file = Path.cwd() / partition_file_arg
-    if not partitions_file.exists():
-        partitions_file = files_dir / partition_file_arg
-    # If it doesn't exist in either of these two places, then thats a problem
-    if not partitions_file.exists():
-        print("Error: cannot find partition file {} from either working directory or given files directory {}".format(
-            partition_file_arg, files_dir))
-        return False
-
-    with partitions_file.open() as f:
-        partition_config_json = json.load(f)
-
-    hydrofabric_catchments = gpd.read_file(str(catchment_file))
-    hydrofabric_catchments.set_index('id', inplace=True)
-
-    hydrofabric_nexuses = gpd.read_file(str(nexus_file))
-    hydrofabric_nexuses.set_index('id', inplace=True)
-
-    # This may be just the single give partition; otherwise it will be the indices of all in the range
-    if partition_index and partition_index in partition_config_json['partitions']:
-        partition_indices = [partition_index]
-    else:
-        partition_indices = range(len(partition_config_json['partitions']))
-
-    for i in partition_indices:
-        partition_cat_ids = partition_config_json['partitions'][i]['cat-ids']
-        partition_catchments: gpd.GeoDataFrame = hydrofabric_catchments.loc[partition_cat_ids]
-        partition_catchment_file = catchment_file.parent / '{}.{}'.format(catchment_file.name, i)
-        partition_catchments.to_file(str(partition_catchment_file), driver='GeoJSON')
-
-        partition_nexus_ids = partition_config_json['partitions'][i]['nex-ids']
-        partition_nexuses = hydrofabric_nexuses.loc[partition_nexus_ids]
-        partition_nexuses_file = nexus_file.parent / '{}.{}'.format(nexus_file.name, i)
-        partition_nexuses.to_file(str(partition_nexuses_file), driver='GeoJSON')
-    return True
+        return cli.output_subset(cat_ids=args.cat_ids, is_simple=args.do_simple_subset, format_json=args.do_formatting,
+                                 output_file_name=args.output_file)
 
 
 def main():
@@ -280,10 +172,11 @@ def main():
                                                                nexus_data=nexus_geojson,
                                                                cross_walk=crosswalk_json)
 
-    if args.partition_file:
-        result = _cli_divide_hydrofabric(args.files_directory, catchment_geojson, nexus_geojson, args.partition_file, args.partition_index)
-    elif args.do_simple_subset or args.do_upstream_subset:
-        result = _cli_output_subset(subset_handler, args.cat_ids, args.do_simple_subset, args.do_formatting, args.output_file)
+    if args.partition_file or args.do_simple_subset or args.do_upstream_subset:
+        cli = Cli(files_dir=args.files_directory, catchment_geojson=catchment_geojson, nexus_geojson=nexus_geojson,
+                  crosswalk_json=crosswalk_json, partition_file_str=args.partition_file, subset_handler=subset_handler)
+        result = exec_cli_op(cli, args)
+
     else:
         app.run(host=args.host, port=args.port)
         result = True
