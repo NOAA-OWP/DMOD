@@ -10,14 +10,22 @@ class Cli:
     Class for managing CLI operations for this module.
     """
 
-    def __init__(self, catchment_geojson: Union[str, Path], nexus_geojson: Union[str, Path],
-                 crosswalk_json: Union[str, Path], partition_file_str: Optional[str],
-                 subset_handler: Optional[SubsetHandler]):
+    def __init__(self,
+                 catchment_geojson: Union[str, Path],
+                 nexus_geojson: Union[str, Path],
+                 crosswalk_json: Union[str, Path, None] = None,
+                 partition_file_str: Optional[str] = None,
+                 subset_handler: Optional[SubsetHandler] = None):
         self.catchment_geojson = catchment_geojson if isinstance(catchment_geojson, Path) else Path(catchment_geojson)
         self.nexus_geojson = nexus_geojson if isinstance(nexus_geojson, Path) else Path(nexus_geojson)
-        self.crosswalk = crosswalk_json if isinstance(crosswalk_json, Path) else Path(crosswalk_json)
-
         self.files_dir = self.catchment_geojson.parent
+
+        if crosswalk_json is None:
+            self.crosswalk = self.files_dir / 'crosswalk.json'
+        elif isinstance(crosswalk_json, Path):
+            self.crosswalk = crosswalk_json
+        else:
+            self.crosswalk = Path(crosswalk_json)
 
         self._partitions_file_str = partition_file_str
         self._partitions_file = None
