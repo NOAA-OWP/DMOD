@@ -173,8 +173,8 @@ def main():
                                                                cross_walk=crosswalk_json)
 
     if args.partition_file or args.do_simple_subset or args.do_upstream_subset:
-        cli = Cli(files_dir=args.files_directory, catchment_geojson=catchment_geojson, nexus_geojson=nexus_geojson,
-                  crosswalk_json=crosswalk_json, partition_file_str=args.partition_file, subset_handler=subset_handler)
+        cli = Cli(catchment_geojson=catchment_geojson, nexus_geojson=nexus_geojson, crosswalk_json=crosswalk_json,
+                  partition_file_str=args.partition_file, subset_handler=subset_handler)
         result = exec_cli_op(cli, args)
 
     else:
