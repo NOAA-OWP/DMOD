@@ -3,7 +3,7 @@ version: "3.7"
 services:
   # Define a container belonging exclusively to the web server
   web_server:
-    image: nginx:1.16
+    image: nginx:1.21
     networks:
       - request-listener-net
     # Only restart if a failure occurs
