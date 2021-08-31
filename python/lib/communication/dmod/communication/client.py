@@ -234,6 +234,36 @@ class InternalServiceClient(WebSocketClient, ABC):
         """
         return self.get_response_subtype()(success=success, reason=reason, message=message, data=data)
 
+    def _process_request_response(self, response_str: str):
+        response_type = self.get_response_subtype()
+        my_class_name = self.__class__.__name__
+        response_json = {}
+        try:
+            # Consume the response confirmation by deserializing first to JSON, then from this to a response object
+            response_json = json.loads(response_str)
+            try:
+                response_object = response_type.factory_init_from_deserialized_json(response_json)
+                if response_object is None:
+                    msg = '********** {} could not deserialize {} from raw websocket response: `{}`'.format(
+                        my_class_name, response_type.__name__, str(response_str))
+                    reason = '{} Could Not Deserialize To {}'.format(my_class_name, response_type.__name__)
+                    response_object = self.build_response(success=False, reason=reason, message=msg, data=response_json)
+            except Exception as e2:
+                msg = '********** While deserializing {}, {} encountered {}: {}'.format(
+                    response_type.__name__, my_class_name, e2.__class__.__name__, str(e2))
+                reason = '{} {} Deserializing {}'.format(my_class_name, e2.__class__.__name__, response_type.__name__)
+                response_object = self.build_response(success=False, reason=reason, message=msg, data=response_json)
+        except Exception as e:
+            reason = 'Invalid JSON Response'
+            msg = 'Encountered {} loading response to JSON: {}'.format(e.__class__.__name__, str(e))
+            response_object = self.build_response(success=False, reason=reason, message=msg, data=response_json)
+
+        if not response_object.success:
+            logging.error(response_object.message)
+        logging.debug('************* {} returning {} object {}'.format(self.__class__.__name__, response_type.__name__,
+                                                                       response_object.to_json()))
+        return response_object
+
     async def async_make_request(self, message: AbstractInitRequest) -> Response:
         """
         Async send the given request and return the corresponding response.
@@ -270,36 +300,12 @@ class InternalServiceClient(WebSocketClient, ABC):
             if serialized_response is None:
                 raise ValueError('Serialized response from {} async message was `None`'.format(my_class_name))
         except Exception as e:
-
             reason = '{} Send {} Failure ({})'.format(my_class_name, req_class_name, e.__class__.__name__)
             msg = '{} encountered {} sending {}: {}'.format(my_class_name, e.__class__.__name__, req_class_name, str(e))
             logger.error(msg)
             return self.build_response(success=False, reason=reason, message=msg, data=response_json)
-        try:
-            # Consume the response confirmation by deserializing first to JSON, then from this to a response object
-            response_json = json.loads(serialized_response)
-            try:
-                response_object = response_type.factory_init_from_deserialized_json(response_json)
-                if response_object is None:
-                    msg = '********** {} could not deserialize {} from raw websocket response: `{}`'.format(
-                        my_class_name, response_type.__name__, str(serialized_response))
-                    reason = '{} Could Not Deserialize To {}'.format(my_class_name, response_type.__name__)
-                    response_object = self.build_response(success=False, reason=reason, message=msg, data=response_json)
-            except Exception as e2:
-                msg = '********** While deserializing {}, {} encountered {}: {}'.format(
-                    response_type.__name__, my_class_name, e2.__class__.__name__, str(e2))
-                reason = '{} {} Deserializing {}'.format(my_class_name, e2.__class__.__name__, response_type.__name__)
-                response_object = self.build_response(success=False, reason=reason, message=msg, data=response_json)
-        except Exception as e:
-            reason = 'Invalid JSON Response'
-            msg = 'Encountered {} loading response to JSON: {}'.format(e.__class__.__name__, str(e))
-            response_object = self.build_response(success=False, reason=reason, message=msg, data=response_json)
 
-        if not response_object.success:
-            logging.error(response_object.message)
-        logging.debug('************* {} returning {} object {}'.format(self.__class__.__name__, response_type.__name__,
-                                                                       response_object.to_json()))
-        return response_object
+        return self._process_request_response(serialized_response)
 
 
 class SchedulerClient(InternalServiceClient):
@@ -429,6 +435,10 @@ class MaasRequestClient(WebSocketClient, ABC):
             return True, None
         elif isinstance(message, NGENRequestResponse):
             return True, None
+        elif isinstance(message, PartitionRequest):
+            return PartitionRequest.factory_init_from_deserialized_json(message.to_json()) == message, None
+        elif isinstance(message, PartitionResponse):
+            return PartitionResponse.factory_init_from_deserialized_json(message.to_json()) == message, None
         else:
             raise RuntimeError('Unsupported MaaSRequest subtype: ' + str(message.__class__))
 
@@ -450,7 +460,7 @@ class MaasRequestClient(WebSocketClient, ABC):
             self._session_id, self._session_secret, self._session_created = auth_details
             self._is_new_session = True
             return True
-        except:
+        except Exception as e:
             logger.info("Expecting exception to follow")
             logger.exception("Failed _acquire_session_info")
             return False
@@ -507,7 +517,8 @@ class MaasRequestClient(WebSocketClient, ABC):
             json_as_dict = {'username': 'someone', 'user_secret': 'something'}
             # TODO: validate before sending
             await websocket.send(json.dumps(json_as_dict))
-            auth_response = json.loads(await websocket.recv())
+            resp_txt = await websocket.recv()
+            auth_response = json.loads(resp_txt)
             print('*************** Auth response: ' + json.dumps(auth_response))
             maas_session_id = auth_response['data']['session_id']
             maas_session_secret = auth_response['data']['session_secret']
@@ -528,6 +539,7 @@ class MaasRequestClient(WebSocketClient, ABC):
     def is_new_session(self):
         return self._is_new_session
 
+    # TODO: refactor to combine logic of this and JobRequestClient from GUI
     def make_maas_request(self, maas_request: MaaSRequest, force_new_session: bool = False):
         request_type_str = maas_request.__class__.__name__
         logger.debug("client Making {} type request".format(request_type_str))
@@ -631,3 +643,23 @@ class ModelExecRequestClient(MaasRequestClient, ABC):
     async def async_make_request(self, request: ModelExecRequest) -> ModelExecRequestResponse:
         return await super(ModelExecRequestClient, self).async_make_request(request)
 
+
+class PartitionerServiceClient(InternalServiceClient):
+    """
+    A client for interacting with the partitioner service.
+
+    Because it is for the partitioner service, and this service is internal to the system and not publicly exposed, this
+    does not need to be a (public) ::class:`MaasRequestClient` based type.
+    """
+
+    @classmethod
+    def get_response_subtype(cls) -> Type[PartitionResponse]:
+        """
+        Return the response subtype class appropriate for this client implementation.
+
+        Returns
+        -------
+        Type[PartitionResponse]
+            The response subtype class appropriate for this client implementation.
+        """
+        return PartitionResponse
