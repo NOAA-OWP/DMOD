@@ -9,9 +9,9 @@ import websockets
 from websockets import WebSocketServerProtocol
 
 from dmod.access import DummyAuthUtil, RedisBackendSessionManager
-from dmod.communication import Response, InvalidMessageResponse, MessageEventType, \
+from dmod.communication import Response, InvalidMessageResponse, MessageEventType, NGENRequest, \
     WebSocketInterface, WebSocketSessionsInterface, SchedulerClient
-from dmod.externalrequests import AuthHandler, NWMRequestHandler
+from dmod.externalrequests import AuthHandler, ModelExecRequestHandler, PartitionRequestHandler
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -74,11 +74,18 @@ class RequestService(WebSocketSessionsInterface):
                                                       authenticator=self.authenticator,
                                                       authorizer=self.authorizer)
         # TODO: make sure this is still valid after finishing implementation
-        self._dmod_request_handler = NWMRequestHandler(session_manager=self._session_manager,
-                                                         authorizer=self.authorizer,
-                                                         scheduler_host=scheduler_host,
-                                                         scheduler_port=scheduler_port,
-                                                         scheduler_ssl_dir=self.scheduler_client_ssl_dir)
+
+        self._model_exec_request_handler = ModelExecRequestHandler(session_manager=self._session_manager,
+                                                                   authorizer=self.authorizer,
+                                                                   scheduler_host=scheduler_host,
+                                                                   scheduler_port=int(scheduler_port),
+                                                                   scheduler_ssl_dir=self.scheduler_client_ssl_dir)
+
+        self._partition_request_handler = PartitionRequestHandler(session_manager=self._session_manager,
+                                                                  authorizer=self.authorizer,
+                                                                  partition_service_host=partitioner_host,
+                                                                  partition_service_port=int(partitioner_port),
+                                                                  partition_service_ssl_dir=self.partitioner_ssl_dir)
 
     @property
     def session_manager(self):
@@ -111,7 +118,7 @@ class RequestService(WebSocketSessionsInterface):
                             str(result)))
                     await websocket.send(str(response))
                 elif event_type == MessageEventType.MODEL_EXEC_REQUEST:
-                    response = await self._dmod_request_handler.handle_request(request=req_message)
+                    response = self._model_exec_request_handler.handle_request(requests=req_message)
                     logging.debug('************************* Handled request response: {}'.format(str(response)))
                     await websocket.send(str(response))
 
