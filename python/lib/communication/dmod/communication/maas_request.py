@@ -516,11 +516,18 @@ class ModelExecRequest(MaaSRequest, ABC):
 
 
 class MaaSRequestResponse(Response, ABC):
+
+    response_to_type = MaaSRequest
+    """ The type of :class:`AbstractInitRequest` for which this type is the response"""
+
     def __init__(self, success: bool, reason: str, message: str = '', data=None):
         super().__init__(success=success, reason=reason, message=message, data=data)
 
 
 class ModelExecRequestResponse(MaaSRequestResponse, ABC):
+
+    response_to_type = ModelExecRequest
+    """ The type of :class:`AbstractInitRequest` for which this type is the response"""
 
     @property
     def reason_enum(self):
