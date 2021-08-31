@@ -1,12 +1,10 @@
 import logging
 from abc import ABC, abstractmethod
 from dmod.access import Authorizer
-from dmod.communication import AbstractRequestHandler, FullAuthSession, MaaSRequest, SessionManager, \
-    InitRequestResponseReason, Session, PartitionRequest, PartitionResponse, PartitionerServiceClient, \
-    MaaSRequestResponse, InternalServiceClient, Response, NGENRequest, NGENRequestResponse, ModelExecRequest, \
-    ModelExecRequestResponse, SchedulerClient, SchedulerRequestMessage, SchedulerRequestResponse
+from dmod.communication import AbstractRequestHandler, FullAuthSession, MaaSRequest, InitRequestResponseReason, \
+    InternalServiceClient, PartitionRequest, PartitionResponse, PartitionerServiceClient, Session, SessionManager
 from pathlib import Path
-from typing import Optional, Tuple, Type
+from typing import Optional, Tuple
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -145,3 +143,57 @@ class MaaSRequestHandler(AbstractRequestHandler, ABC):
         if self._service_url is None:
             self._service_url = 'wss://{}:{}'.format(str(self._service_host), str(self._service_port))
         return self._service_url
+
+
+class PartitionRequestHandler(MaaSRequestHandler):
+
+    def __init__(self, session_manager: SessionManager, authorizer: Authorizer, partition_service_host: str,
+                 partition_service_port: int, partition_service_ssl_dir: Path):
+        super(PartitionRequestHandler, self).__init__(session_manager=session_manager,
+                                                      authorizer=authorizer,
+                                                      service_host=partition_service_host,
+                                                      service_port=partition_service_port,
+                                                      service_ssl_dir=partition_service_ssl_dir)
+
+        # TODO: implement properly
+        self._default_required_access_type = None
+
+        self._service_client = None
+
+    async def determine_required_access_types(self, request: PartitionRequest, user) -> tuple:
+        """
+        Determine what access is required for this request from this user to be accepted.
+
+        Determine the necessary access types for which the given user needs to be authorized in order for the user to
+        be allow to submit this request, in the context of the current state of the system.
+
+        Parameters
+        ----------
+        request
+        user
+
+        Returns
+        -------
+        A tuple of required access types required for authorization for the given request at this time.
+        """
+        # TODO: implement; in particular, consider things like current job count for user, and whether different access
+        #   types are required at different counts.
+        # FIXME: for now, just use the default type (which happens to be "everything")
+        return self._default_required_access_type,
+
+    @property
+    def service_client(self) -> PartitionerServiceClient:
+        if self._service_client is None:
+            self._service_client = PartitionerServiceClient(self.service_url, self.service_ssl_dir)
+        return self._service_client
+
+    async def handle_request(self, request: PartitionRequest, **kwargs) -> PartitionResponse:
+        session, is_authorized, reason, msg = self.get_authorized_session(request)
+        if not is_authorized:
+            return PartitionResponse(success=False, reason=reason.name, message=msg)
+        # In this case, we actually can pass the request as-is straight through (i.e., after confirming authorization)
+        async with self.service_client as client:
+            response = await client.async_make_request(request)
+            logging.debug("************* {} received response:\n{}".format(self.__class__.__name__, str(response)))
+        # Likewise, can just send back the response from the internal service client
+        return response
