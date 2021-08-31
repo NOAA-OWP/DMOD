@@ -90,7 +90,7 @@ class Distribution(object):
 
 class MaaSRequest(AbstractInitRequest, ABC):
     """
-    The base class underlying all types of MaaS requests
+    The base class underlying all types of externally initiated, authorization dependent MaaS requests.
     """
 
     @classmethod
@@ -110,6 +110,14 @@ class MaaSRequest(AbstractInitRequest, ABC):
         pass
 
     def __init__(self, session_secret: str):
+        """
+        Initialize the base attributes and state of this request object.
+
+        Parameters
+        ----------
+        session_secret : str
+            The session secret for the right session when communicating with the MaaS request handler
+        """
         self.session_secret = session_secret
 
     def _check_class_compatible_for_equality(self, other) -> bool:
@@ -186,18 +194,23 @@ class ModelExecRequest(MaaSRequest, ABC):
     """(:class:`list`) The collection of output variables that the model may generate"""
 
     @classmethod
-    def factory_init_correct_subtype_from_deserialized_json(cls, json_obj: dict):
+    def factory_init_correct_subtype_from_deserialized_json(cls, json_obj: dict) -> 'ModelExecRequest':
         """
-        Much like :meth:`factory_init_from_deserialized_json`, except (sub)type agnostic, allowing this to determine the
-        correct type of :class:`MaasRequest` from the contents of the JSON, and return a call to that particular class's
-        :meth:`factory_init_from_deserialized_json`
+        Factory method to deserialize a ::class:`ModelExecRequest` object of the correct subtype.
+
+        Much like ::method:`factory_init_from_deserialized_json`, except (sub)type agnostic, allowing this to determine
+        the correct ::class:`ModelExecRequest` type from the contents of the JSON, and return a call to that particular
+        class's ::method:`factory_init_from_deserialized_json`
+
         Parameters
         ----------
-        json_obj
+        json_obj : dict
+            A JSON object representing the serialize form of a ::class:`ModelExecRequest` to be deserialized.
 
         Returns
         -------
-
+        ModelExecRequest
+            A deserialized ::class:`ModelExecRequest` of the appropriate subtype.
         """
         try:
             model_name = list(json_obj['model'].keys())[0]
@@ -257,11 +270,20 @@ class ModelExecRequest(MaaSRequest, ABC):
     #  number
     def __init__(self, version: float, output: str, domain: str, parameters: dict, session_secret: str):
         """
-        :param float version: The version of the model to use
-        :param str output: The name of the variable to generate numbers for
-        :param str domain: The domain to execute over
-        :param dict parameters: A mapping between parameters to configure and their scalar or distribution configurations
-        :param str session_secret: The session secret for the right session when communicating with the MaaS request handler
+        Initialize model-exec-specific attributes and state of this request object common to all model exec requests.
+
+        Parameters
+        ----------
+        version : float
+            The version of the model to use.
+        output : str
+            The name of the variable for which to generate numbers.
+        domain : str
+            The name of the domain over which to execute.
+        parameters : dict
+            A mapping between parameters to configure and their scalar or distribution configurations.
+        session_secret : str
+            The session secret for the right session when communicating with the request handler.
         """
         super(ModelExecRequest, self).__init__(session_secret=session_secret)
         # If this model doesn't generate the output, we want to fail
