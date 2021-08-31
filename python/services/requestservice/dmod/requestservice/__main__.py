@@ -1,4 +1,5 @@
 import argparse
+import os
 from . import name as package_name
 from . import RequestService
 from pathlib import Path
@@ -39,6 +40,19 @@ def _handle_args():
                         help='Set the ssl directory for scheduler certs, if not the same as for the request handler',
                         dest='scheduler_ssl_dir',
                         default='3013')
+    parser.add_argument('--remote-debug',
+                        help='Activate remote debugging (implied when --debug-host or --debug-port)',
+                        dest='remote_debug',
+                        action="store_true")
+    parser.add_argument('--debug-host',
+                        help='Set the debugging host when using remote debugging',
+                        dest='debug_host',
+                        default=None)
+    parser.add_argument('--debug-port',
+                        help='Set the debugging port when using remote debugging',
+                        dest='debug_port',
+                        default=None)
+
     parser.prog = package_name
     return parser.parse_args()
 
@@ -54,8 +68,28 @@ def _sanity_check_path_arg(path_as_str, is_directory=False):
     return True
 
 
+def _activate_remote_debugging(debug_host: str, debug_port: int):
+    # This is a list of strings that might be considered as False
+    false_options = ['false', '0', 'f', 'no']
+
+    # Read the setting for whether remote debugging should be turned on, again accounting for string instead of bool
+    is_remote_debugging = os.environ.get('PYCHARM_REMOTE_DEBUG_ACTIVE', False)
+    if type(is_remote_debugging) is not bool:
+        is_remote_debugging = is_remote_debugging.lower() not in false_options
+
+    # If debug is set to be on, and remote debugging server is set to be used, import and start the debugging tool
+    if is_remote_debugging:
+        import pydevd_pycharm
+        pydevd_pycharm.settrace(debug_host, port=debug_port, stdoutToServer=True, stderrToServer=True)
+
+
 def main():
     args = _handle_args()
+
+    is_remote_debug = args.remote_debug
+    if is_remote_debug:
+        _activate_remote_debugging(debug_host='host.docker.internal' if args.debug_host is None else args.debug_host,
+                                   debug_port=55875 if args.debug_port is None else int(args.debug_port))
 
     # Sanity check any provided path arguments
     if args.ssl_dir is not None and not _sanity_check_path_arg(args.ssl_dir, is_directory=True):
