@@ -50,15 +50,28 @@ class RequestService(WebSocketSessionsInterface):
         websocket server
     """
 
-    def __init__(self, listen_host='', port='3012', scheduler_host: str = 'localhost',
-                 scheduler_port: Union[str, int] = 3013, ssl_dir=None, cert_pem=None, priv_key_pem=None,
-                 scheduler_ssl_dir=None):
+    def __init__(self, 
+                 listen_host='', 
+                 port='3012', 
+                 scheduler_host: str = 'localhost', 
+                 partitioner_host: str = 'localhost', 
+                 scheduler_port: Union[str, int] = 3013, 
+                 partitioner_port: Union[str, int] = 3014, 
+                 ssl_dir=None, 
+                 cert_pem=None, 
+                 priv_key_pem=None,
+                 scheduler_ssl_dir=None,
+                 partitioner_ssl_dir=None):
         super().__init__(listen_host=listen_host, port=port, ssl_dir=ssl_dir, cert_pem=cert_pem,
                          priv_key_pem=priv_key_pem)
         self._session_manager: RedisBackendSessionManager = RedisBackendSessionManager()
         self.scheduler_host = scheduler_host
         self.scheduler_port = int(scheduler_port)
         self.scheduler_client_ssl_dir = scheduler_ssl_dir if scheduler_ssl_dir is not None else self.ssl_dir
+
+        self.partitioner_host = partitioner_host
+        self.partitioner_port = int(partitioner_port)
+        self.partitioner_ssl_dir = partitioner_ssl_dir if partitioner_ssl_dir is not None else self.ssl_dir
 
         # FIXME: implement real authenticator
         self.authenticator = DummyAuthUtil()
@@ -125,7 +138,10 @@ class RequestService(WebSocketSessionsInterface):
                     # TODO loop here to handle a series of multiple requests, as job goes from requested to allocated to
                     #  scheduled to finished (and of course, the messages for output data)
                     #  try while except connectionClosed; let server tell us when to stop listening
-
+                elif event_type == MessageEventType.PARTITION_REQUEST:
+                    response = await self._partition_request_handler.handle_request(request=req_message)
+                    logging.debug('************************* Handled request response: {}'.format(str(response)))
+                    await websocket.send(str(response))
                 # FIXME: add another message type (here and in client) for data transmission
                 # FIXME: add another message type for closing a session
                 else:
