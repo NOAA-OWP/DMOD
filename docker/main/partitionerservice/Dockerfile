@@ -7,13 +7,13 @@ FROM python:3.8-alpine
 ARG partitioner_service_package_name
 ARG partitioner_service_listener_port
 
+# Currently need Git installed to retrieve some package transitive dependencies
+RUN apk --no-cache --update-cache add git
+
 WORKDIR /code
 
 # Copy custom built packages from previous stage FROM external sources image
 COPY --from=sources /DIST /DIST
-
-# Currently need Git installed to retrieve some package transitive dependencies
-RUN apk --no-cache --update-cache add git
 
 # Install custom and generally available packages, starting with any custom from external source image
 RUN pip install --no-index --find-links=/DIST ${partitioner_service_package_name} \
