@@ -13,14 +13,6 @@ ARG comms_package_name
 ARG modeldata_package_name
 ARG subsetservice_package_name
 
-
-WORKDIR /code
-
-# Copy custom built packages from external sources image
-COPY --from=sources /DIST /DIST
-
-COPY ./entrypoint.sh entrypoint.sh
-
 # Needed until subsetservice package dependencies like hypy, etc. are publish, as opposed to pulled via git
 #ARG REQUIRE="git gcc gfortran musl-dev python3-dev libpng-dev"
 #RUN apk update && apk upgrade && apk add --no-cache ${REQUIRE}
@@ -30,6 +22,13 @@ COPY ./entrypoint.sh entrypoint.sh
 RUN echo "http://dl-8.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
 RUN apk --no-cache --update-cache add git gcc gfortran python3 python3-dev py-pip build-base wget geos-dev gdal-dev freetype-dev libpng-dev openblas-dev
 RUN ln -s /usr/include/locale.h /usr/include/xlocale.h
+
+WORKDIR /code
+
+# Copy custom built packages from external sources image
+COPY --from=sources /DIST /DIST
+
+COPY ./entrypoint.sh entrypoint.sh
 
 # Install custom and generally available packages, starting with any custom from external source image
 RUN pip install --no-index --find-links=/DIST ${subsetservice_package_name} \
