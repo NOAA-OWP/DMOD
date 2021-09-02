@@ -119,7 +119,7 @@ services:
       - "${DOCKER_PARTITIONER_SERVICE_CONTAINER_PORT:-3014}:${DOCKER_PARTITIONER_SERVICE_CONTAINER_PORT:-3014}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${DOCKER_PARTITIONER_VOLUME:-partition_data_vol}:${DOCKER_PARTITIONER_SERVICE_DATA_MOUNT_DIR:-/partitioner_data}
+      - partition_data_vol:${DOCKER_PARTITIONER_SERVICE_DATA_MOUNT_DIR:-/partitioner_data}
     deploy:
       placement:
         constraints:
@@ -143,6 +143,8 @@ networks:
 # Define persistent volumes that may be shared and persisted between containers
 volumes:
   gui_static_volume:
+  partition_data_vol:
+    name: ${DOCKER_PARTITIONER_VOLUME:-partition_data_vol}
 
 secrets:
   myredis_pass:
