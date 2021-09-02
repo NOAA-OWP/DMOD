@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Union
 from websockets import WebSocketServerProtocol
 from dmod.communication import InvalidMessageResponse, PartitionRequest, PartitionResponse, WebSocketInterface
+from dmod.modeldata.hydrofabric import HydrofabricFilesManager
 from dmod.scheduler import SimpleDockerUtil
 
 logging.basicConfig(
@@ -15,12 +16,12 @@ logging.basicConfig(
 )
 
 
-class PartitionerHandler(WebSocketInterface):
+class PartitionerHandler(WebSocketInterface, HydrofabricFilesManager):
     """
     Communication handler for the Partitioner Service, implemented with WebSocketInterface.
 
     To perform partitioning, an instance will run a Docker container with the partitioning executable.  Because the
-    executable expects to read an input file and write to an output file, a Docker volume is mounted inside the
+    executable expects to read input files and write to an output file, a Docker volume is mounted inside the
     container.
 
     It is supported for an instance to itself be run inside a container.  However, it must also be able to access the
@@ -49,6 +50,7 @@ class PartitionerHandler(WebSocketInterface):
             Raised if the expected data volume does not exist.
         """
         super().__init__(port=listen_port, *args, **kwargs)
+        HydrofabricFilesManager.__init__(self)
         self._image_name = image_name
         self._docker_util = SimpleDockerUtil()
         # TODO: probably need to check that image exists or can be pulled (and then actually pull)
@@ -59,14 +61,22 @@ class PartitionerHandler(WebSocketInterface):
             self._data_volume_storage_dir = volume_storage_dir
         else:
             self._data_volume_storage_dir = Path(volume_storage_dir)
+        self._generated_partition_configs_dir = self._data_volume_storage_dir / 'generated_partition_configs'
+        if not self._generated_partition_configs_dir.exists():
+            self._generated_partition_configs_dir.mkdir()
         # Check that path exists and is directory
         if not self._data_volume_storage_dir.is_dir():
             msg = '{} requires local path to volume storage, but provided path {} is not an existing directory'.format(
                 self.__class__.__name__, self._data_volume_storage_dir)
             raise RuntimeError(msg)
+        # Make sure we load what hydrofabrics are supported for partitioning
+        self.find_hydrofabrics()
+        # Go ahead and lazy load the first one of these so it is cached
+        self.get_hydrofabric_hash(0)
 
-    def _execute_partitioner_container(self, catchment_file_basename: str, output_file_basename: str,
-                                       num_partitions: int, num_catchments: int):
+    def _execute_partitioner_container(self, catchment_file_relative: str, nexus_file_relative: str,
+                                       output_file_relative: str, num_partitions: int, nexus_id_subset_str: str = '',
+                                       catchment_id_subset_str: str = ''):
         """
         Execute the partitioner Docker container and executable.
 
@@ -78,17 +88,18 @@ class PartitionerHandler(WebSocketInterface):
 
         Parameters
         ----------
-        catchment_file_basename : str
-            The basename of the input catchment data file for the partitioner, which should exist in the data volume.
-
-        output_file_basename : str
-            The basename of the output file from the partitioner, which will be written to the mounted data volume.
-
+        catchment_file_relative : str
+            The path to the input catchment data file for the partitioner, relative to the data volume mount point.
+        nexus_file_relative : str
+            The path to the input nexus data file for the partitioner, relative to the data volume mount point.
+        output_file_relative : str
+            The path to the output partition config file for the partitioner, relative to the data volume mount point.
         num_partitions : int
             The number of partitions to request of the partitioner.
-
-        num_catchments : int
-            The number of catchments in the data, which is a required arg when running the partitioner.
+        nexus_id_subset_str : str
+            The comma separated string of the subset of nexuses to include in partitions, or empty string by default.
+        catchment_id_subset_str : str
+            The comma separated string of the subset of catchments to include in partitions, or empty string by default.
 
         Raises
         -------
@@ -98,12 +109,14 @@ class PartitionerHandler(WebSocketInterface):
         try:
             container_data_dir = '/data'
 
-            # args are catchment_data_file, output_file, num_partitions, num_catchments
+            # args are catchment_data_file, nexus_data_file, output_file, num_partitions, nexus_subset, catchment_subset
             command = list()
-            command.append(container_data_dir + '/' + catchment_file_basename)
-            command.append(container_data_dir + '/' + output_file_basename)
+            command.append(container_data_dir + '/' + catchment_file_relative)
+            command.append(container_data_dir + '/' + nexus_file_relative)
+            command.append(container_data_dir + '/' + output_file_relative)
             command.append(str(num_partitions))
-            command.append(str(num_catchments))
+            command.append(nexus_id_subset_str)
+            command.append(catchment_id_subset_str)
 
             volumes = dict()
             volumes[self.data_volume_name] = container_data_dir
@@ -113,7 +126,7 @@ class PartitionerHandler(WebSocketInterface):
             msg = 'Could not successfully execute partitioner Docker container: {}'.format(str(e))
             raise RuntimeError(msg) from e
 
-    def _process_request(self, request: PartitionRequest) -> PartitionResponse:
+    async def _process_request(self, request: PartitionRequest) -> PartitionResponse:
         """
         Process a received request and return a response.
 
@@ -134,53 +147,36 @@ class PartitionerHandler(WebSocketInterface):
             The generated response based on success or failure.
         """
         try:
-            cat_data_basename = 'catchment_data_{}.geojson'.format(request.uuid)
+            hydrofabric_index = await self.async_find_hydrofabric_by_hash(request.hydrofabric_hash)
+            tuple_of_files = self.get_hydrofabric_files_tuple(hydrofabric_index)
+
+            if len(tuple_of_files) != 3:
+                raise RuntimeError("Unsupported type of hydrofabric with {} files".format(len(tuple_of_files)))
+
             output_file_basename = 'output_{}.txt'.format(request.uuid)
-            self._write_catchment_data_to_volume(request.catchment_data, cat_data_basename)
-            self._execute_partitioner_container(cat_data_basename, output_file_basename, request.num_partitions,
-                                                request.num_catchments)
-            partitioner_output_json = self._read_and_serialize_partitioner_output(output_file_basename)
+            output_file_path = self.generated_partition_configs_dir / output_file_basename
+
+            # Get relative file paths from self._data_volume_storage_dir, to use from container's mount point
+            catchment_rel_path = str(tuple_of_files[0].relative_to(self._data_volume_storage_dir))
+            nexus_rel_path = str(tuple_of_files[1].relative_to(self._data_volume_storage_dir))
+            output_rel_path = str(output_file_path.relative_to(self._data_volume_storage_dir))
+
+            self._execute_partitioner_container(catchment_rel_path, nexus_rel_path, output_rel_path,
+                                                request.num_partitions)
+
+            partitioner_output_json = self._read_and_serialize_partitioner_output(output_file_path)
+            # TODO: should we clean up the generated file?
+            #output_file_path.unlink()
             return PartitionResponse(success=True, reason='Partitioning Complete', data=partitioner_output_json)
         except RuntimeError as e:
             return PartitionResponse(success=False, reason=e.__cause__.__class__.__name__, message=str(e))
 
-    def _read_and_serialize_partitioner_output(self, output_file_basename: str) -> dict:
+    def _read_and_serialize_partitioner_output(self, output_file: Path) -> dict:
         try:
-            with open(self.data_volume_storage_dir.joinpath(output_file_basename)) as output_data_file:
+            with output_file.open() as output_data_file:
                 return json.load(output_data_file)
         except Exception as e:
             msg = 'Could not read partitioner Docker container output file: {}'.format(str(e))
-            raise RuntimeError(msg) from e
-
-    def _write_catchment_data_to_volume(self, catchment_data_json: dict, catchment_data_file_basename: str):
-        """
-        Write catchment data to a file in the Docker volume to be mounted into a partitioner container.
-
-        Since the partitioning executable deals with files as inputs and outputs, these must be in a mounted Docker
-        volume in the container to be externally accessible.  This includes the input catchment data.
-
-        This function writes catchment data to a file with the given basename.  The file is written to the local storage
-        directory of the involved Docker data volume, as stored in ::attribute:`data_volume_storage_dir`.   This is
-        required at instance init, with checks to ensure it is an existing directory.
-
-        Parameters
-        ----------
-        catchment_data_json : dict
-            The JSON data to be written to a volume file.
-
-        catchment_data_file_basename
-            The basename of the desired file to be written inside the local volume storage directory.
-
-        Raises
-        -------
-        RuntimeError
-            Raised if writing fails, containing as a nested ``cause`` the encountered, more specific error/exception.
-        """
-        try:
-            catchment_data_file = self.data_volume_storage_dir.joinpath(catchment_data_file_basename)
-            catchment_data_file.write_text(str(catchment_data_json))
-        except Exception as e:
-            msg = 'Failed to write partitioner catchment data to container Docker volume: {}'.format(str(e))
             raise RuntimeError(msg) from e
 
     @property
@@ -213,6 +209,38 @@ class PartitionerHandler(WebSocketInterface):
         """
         return self._data_volume_storage_dir
 
+    @property
+    def generated_partition_configs_dir(self) -> Path:
+        """
+        The local path to the subdirectory within the Docker data volume where partition configs are generated.
+
+        This will be the directory in which partitioner container will create partition config files.  As such, it will
+        be an immediate subdirectory of ::attribute:`data_volume_storage_dir`.
+
+        The directory is created if it does not already exist when an instance is initialized.
+
+        Returns
+        -------
+        Path
+            The local path to the subdirectory within the Docker data volume where partition configs are generated.
+        """
+        return self._generated_partition_configs_dir
+
+    @property
+    def hydrofabric_data_root_dir(self) -> Path:
+        """
+        Get the ancestor data directory under which files for managed hydrofabrics are located.
+
+        For this type, this is the ::attribute:`data_volume_storage_dir`.
+
+        Returns
+        -------
+        Path
+            The ancestor data directory under which files for managed hydrofabrics are located, which is
+            ::attribute:`data_volume_storage_dir`.
+        """
+        return self.data_volume_storage_dir
+
     async def listener(self, websocket: WebSocketServerProtocol, path):
         """
         Listen for and process partitioning requests.
@@ -238,7 +266,7 @@ class PartitionerHandler(WebSocketInterface):
                 await websocket.send(str(response))
                 raise TypeError(err_msg)
             else:
-                response = self._process_request(request)
+                response = await self._process_request(request)
                 await websocket.send(str(response))
 
         except TypeError as te:
