@@ -334,9 +334,9 @@ class HydrofabricFilesManager(ABC):
     a hydrofabric object.
 
     The collections are populated with the ::method:`find_hydrofabrics` method, which is called during initialization.
-    This function searches under the directory given by ::method:`data_dir` for supported hydrofabrics, storing the
-    files tuple, appropriate callable, and ``None`` as a hash value placeholder in the given collections. It can be
-    rerun if the ``recheck`` param is explicitly set to ``True``.
+    This function searches under the directory given by ::method:`hydrofabric_data_root_dir` for supported hydrofabrics,
+    storing the files tuple, appropriate callable, and ``None`` as a hash value placeholder in the given collections. It
+    can be rerun if the ``recheck`` param is explicitly set to ``True``.
 
     As noted above, while the list object itself for hydrofabric hash values is established properly by
     ::method:`find_hydrofabrics` and during initialization, the actual hash values are lazily populated, with the list
@@ -352,11 +352,37 @@ class HydrofabricFilesManager(ABC):
         self.find_hydrofabrics()
 
     def find_hydrofabrics(self, recheck: bool = False):
-        # Build a set of each hydrofabric's file or collection of files (with only the latter being currently supported)
-        # This is a set of tuples, with each tuple first having a nested tuple of paths, then having a callable.
-        # The callable should be able to accept the expanded tuple of paths and return the inflated hydrofabric.
-        # E.g., outer_tuple[1](*outer_tuple[0]) should get back a hydrofabric instance
+        """
+        Find hydrofabric file locations and initialize collections for managing.
 
+        Function is responsible for finding valid hydrofabric files, and then preparing a files tuple and initialization
+        callable to be stored in the instance attribute list for these.  It also must prepare the corresponding list
+        for hydrofabric hash values by storing ``None`` in the corresponding index.
+
+        All implementations must implement a search routine that operates within the path specified by
+        ::method:`hydrofabric_data_root_dir`.
+
+        If there are already known tuples of files for hydrofabrics, the method assumes it has already been run for an
+        instances and simply immediately exits without taking action.  However, a ``recheck`` param, defaulting to
+        ``False``, may be explicitly set to ``True`` to override this, in which case the involved lists are first
+        cleared and then the remainder of the method is run.
+
+        In the base implementation, a glob search is performed for ``**/catchment_data*.geojson`` under this data root.
+        for each file that is found, a check for corresponding ``nexus_data*.geojson`` and ``crosswalk*.json`` files is
+        done.  For this, all three files must have the same (potentially empty) substring for the ``*`` component of the
+        file base name, and must be located within the same directory.  When all three exist, the catchment, nexus, and
+        crosswalk files are saved into a files tuple in that order, and a callable to the
+        ::method:`GeoJsonHydrofabric.factory_create_from_data` factory class method is saved for use with initializing
+        an instance.
+
+        The above described search is the only supported search operation.  As such, only ::class:`GeoJsonHydrofabric`
+        hydrofabrics are supported in the base implementation.
+
+        Parameters
+        ----------
+        recheck : bool
+            Whether a full reset of the instance's lists and recheck for hydrofabric files should be performed.
+        """
         # Exit immediately if this has already been run, unless a recheck is specifically requested
         if len(self._hydrofabric_files) > 0 and not recheck:
             return
