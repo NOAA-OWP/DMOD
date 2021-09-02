@@ -28,35 +28,37 @@ ENV HYDRA_HOST_FILE /etc/opt/hosts
 # See installation guide of target MPICH version
 # Ex: http://www.mpich.org/static/downloads/3.2/mpich-3.2-installguide.pdf
 # These options are passed to the steps below
-#ARG MPICH_VERSION="3.2"
-#ARG MPICH_CONFIGURE_OPTIONS="--disable-fortran"
-#ARG MPICH_MAKE_OPTIONS
+ARG MPICH_VERSION="3.2"
+ARG MPICH_CONFIGURE_OPTIONS="--disable-fortran"
+ARG MPICH_MAKE_OPTIONS
 
 ### INSTALL MPICH ####
 # Source is available at http://www.mpich.org/static/downloads/
 # Download, build, and install MPICH
 
 RUN apk update && apk upgrade && apk add --repository ${REPOS} --no-cache ${REQUIRE}
-    #### \
-    # MPICH build and install \
-    #### \
-#    && mkdir /tmp/mpich-src \
-#    && cd /tmp/mpich-src \
-#    && wget http://www.mpich.org/static/downloads/${MPICH_VERSION}/mpich-${MPICH_VERSION}.tar.gz \
-#    && tar xfz mpich-${MPICH_VERSION}.tar.gz  \
-#    && cd mpich-${MPICH_VERSION}  \
-#    && ./configure ${MPICH_CONFIGURE_OPTIONS}  \
-#    && make -j 8 ${MPICH_MAKE_OPTIONS} && make install \
-#    && cd /tmp \
-#    && rm -rf /tmp/mpich-src \
-    #### \
-    #   Configure MPI \
-    #### \
-    # Hostfile location for mpirun. This file will be updated automatically. \
-#    && echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
-#    && touch ${HYDRA_HOST_FILE} \
-#    && chown ${USER}:${USER} ${HYDRA_HOST_FILE} \
-#    && mkdir -p ${WORKDIR}/domains
+
+    ####
+    # MPICH build and install
+    #### 
+RUN mkdir /tmp/mpich-src \
+    && cd /tmp/mpich-src \
+    && wget http://www.mpich.org/static/downloads/${MPICH_VERSION}/mpich-${MPICH_VERSION}.tar.gz \
+    && tar xfz mpich-${MPICH_VERSION}.tar.gz
+
+RUN cd /tmp/mpich-src/mpich-${MPICH_VERSION} && ./configure ${MPICH_CONFIGURE_OPTIONS} 
+RUN cd /tmp/mpich-src/mpich-${MPICH_VERSION} && make -j 4 ${MPICH_MAKE_OPTIONS} && make install
+
+RUN cd /tmp && rm -rf /tmp/mpich-src
+
+    #### 
+    #   Configure MPI
+    #### 
+    # Hostfile location for mpirun. This file will be updated automatically.
+RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
+    && touch ${HYDRA_HOST_FILE} \
+    && chown ${USER}:${USER} ${HYDRA_HOST_FILE} \
+    && mkdir -p ${WORKDIR}/domains
 
 USER ${USER}
 ####
