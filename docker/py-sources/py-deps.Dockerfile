@@ -19,7 +19,7 @@ RUN pip wheel --no-cache-dir --wheel-dir /DIST --prefer-binary pandas${PANDAS_VE
 ############################################################
 FROM foundation as build_numpy_dep
 RUN pip install --upgrade pip
-ARG NUMPY_VERSION=">=1.20.1"
+ARG NUMPY_VERSION=">=1.19.5"
 RUN pip wheel --no-cache-dir --wheel-dir /DIST --prefer-binary numpy${NUMPY_VERSION}
 
 ############################################################
