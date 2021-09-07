@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from dmod.communication import MaaSRequest, NGENRequest, SchedulerRequestMessage
+from dmod.communication import ModelExecRequest, NGENRequest, SchedulerRequestMessage
 from dmod.communication.serializeable import Serializable
 from dmod.modeldata.hydrofabric import PartitionConfig
 from enum import Enum
@@ -517,9 +517,10 @@ class Job(Serializable, ABC):
         """
         pass
 
+    # TODO: do we need to account for jobs for anything other than model exec?
     @property
     @abstractmethod
-    def model_request(self) -> MaaSRequest:
+    def model_request(self) -> ModelExecRequest:
         """
         Get the underlying configuration for the model execution that is being requested.
 
@@ -761,7 +762,8 @@ class JobImpl(Job):
             cpus, memory, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated, partitioning = \
                 cls.deserialize_core_attributes(json_obj)
 
-            model_request = MaaSRequest.factory_init_correct_subtype_from_deserialized_json(json_obj['model_request'])
+            # TODO: do we need to account for jobs for anything other than model exec?
+            model_request = ModelExecRequest.factory_init_correct_subtype_from_deserialized_json(json_obj['model_request'])
 
             obj = cls(cpu_count=cpus, memory_size=memory, model_request=model_request, allocation_paradigm=paradigm,
                       alloc_priority=priority)
@@ -856,7 +858,7 @@ class JobImpl(Job):
             msg = "Failed parsing parameter value `{}` to UUID object: {}".format(str(serialized_value), str(e))
             raise RuntimeError(msg)
 
-    def __init__(self, cpu_count: int, memory_size: int, model_request: MaaSRequest,
+    def __init__(self, cpu_count: int, memory_size: int, model_request: ModelExecRequest,
                  allocation_paradigm: Union[str, JobAllocationParadigm], alloc_priority: int = 0):
         self._cpu_count = cpu_count
         self._memory_size = memory_size
@@ -1022,7 +1024,7 @@ class JobImpl(Job):
         return self._last_updated
 
     @property
-    def model_request(self) -> MaaSRequest:
+    def model_request(self) -> ModelExecRequest:
         """
         Get the underlying configuration for the model execution that is being requested.
 
@@ -1192,7 +1194,7 @@ class RequestedJob(JobImpl):
                          allocation_paradigm=job_request.allocation_paradigm)
 
     @property
-    def model_request(self) -> MaaSRequest:
+    def model_request(self) -> ModelExecRequest:
         """
         Get the underlying configuration for the model execution that is being requested.
 
