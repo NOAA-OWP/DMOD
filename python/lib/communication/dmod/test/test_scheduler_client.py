@@ -138,7 +138,8 @@ class TestSchedulerClient(unittest.TestCase):
         self.client.set_scheduler_response_none()
         request = self.test_scheduler_request_1
 
-        expected_reason = 'Request Send Failure (ValueError)'
+        expected_reason = '{} Send {} Failure (ValueError)'.format(self.client.__class__.__name__,
+                                                                   request.__class__.__name__)
         self.disable_logging()
         response = self.loop.run_until_complete(self.client.async_make_request(request))
         self.disable_logging(None)
@@ -232,7 +233,11 @@ class TestSchedulerClient(unittest.TestCase):
         self.disable_logging()
         response = self.loop.run_until_complete(self.client.async_make_request(request))
         self.disable_logging(None)
-        self.assertEqual(response.reason, 'Could Not Deserialize Response Object')
+
+        expected_response = '{} Could Not Deserialize To {}'.format(self.client.__class__.__name__,
+                                                                    response.__class__.__name__)
+
+        self.assertEqual(response.reason, expected_response)
 
     def test_async_make_request_4_a(self):
         """
