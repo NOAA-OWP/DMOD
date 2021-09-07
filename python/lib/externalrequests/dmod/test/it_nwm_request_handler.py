@@ -8,7 +8,7 @@ from typing import Optional
 from dmod.access import RedisBackendSessionManager
 from dmod.communication import NWMRequest, NWMRequestResponse, SchedulerClient, SchedulerRequestMessage, \
     SchedulerRequestResponse, InitRequestResponseReason
-from dmod.externalrequests import NWMRequestHandler
+from dmod.externalrequests import ModelExecRequestHandler
 from ..test import FailureTestingAuthUtil, SucceedTestAuthUtil
 
 
@@ -202,11 +202,11 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         self.scheduler_ssl_dir = Path('./ssl')
 
         #self._handler = None
-        self.handler = NWMRequestHandler(session_manager=self.session_manager,
-                                         authorizer=self.success_authorizer,
-                                         scheduler_host=self.scheduler_host,
-                                         scheduler_port=self.scheduler_port,
-                                         scheduler_ssl_dir=self.scheduler_ssl_dir)
+        self.handler = ModelExecRequestHandler(session_manager=self.session_manager,
+                                               authorizer=self.success_authorizer,
+                                               scheduler_host=self.scheduler_host,
+                                               scheduler_port=self.scheduler_port,
+                                               scheduler_ssl_dir=self.scheduler_ssl_dir)
 
     def tearDown(self) -> None:
         pass
