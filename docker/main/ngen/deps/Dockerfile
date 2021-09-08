@@ -1,4 +1,10 @@
+################################################################################################################
+################################################################################################################
+##### Get our already-built numpy wheel
 ARG DOCKER_INTERNAL_REGISTRY
+FROM ${DOCKER_INTERNAL_REGISTRY}/dmod-py-deps as deps-sources
+
+################################################################################################################
 FROM ${DOCKER_INTERNAL_REGISTRY}/nwm-base
 
 USER root
@@ -60,8 +66,29 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && chown ${USER}:${USER} ${HYDRA_HOST_FILE} \
     && mkdir -p ${WORKDIR}/domains
 
+
+RUN apk add --repository ${REPOS} python3 python3-dev libstdc++ py3-pip
+COPY --from=deps-sources /DIST/numpy*.whl /wheel_dist/.
+
 USER ${USER}
 ####
 #   Pull latest ngen and build
 ####
 WORKDIR ${WORKDIR}
+
+ARG BOOST_VERSION=1.72.0
+ENV BOOST_ROOT=${WORKDIR}/boost
+
+#RUN wget https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION//./_}.tar.gz \
+RUN wget https://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION//./_}.tar.gz/download -O boost_${BOOST_VERSION//./_}.tar.gz \
+#### \
+    # Get boost headers \
+    #### \
+    && mkdir -p ${WORKDIR}/boost \
+    && tar zxf boost_${BOOST_VERSION//./_}.tar.gz -C ./boost --strip-components=1 \
+    && rm boost_${BOOST_VERSION//./_}.tar.gz
+
+USER root
+RUN rm /wheel_dist && mkdir /wheel_dist
+COPY --from=deps-sources /DIST/numpy*.whl /wheel_dist/.
+USER ${USER}
