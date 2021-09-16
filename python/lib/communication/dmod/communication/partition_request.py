@@ -45,7 +45,7 @@ class PartitionRequest(AbstractInitRequest):
         """
         return PartitionResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
-    def __init__(self, hydrofabric_hash: int, num_partitions: int, session_secret: str, uuid: Optional[str] = None,
+    def __init__(self, hydrofabric_hash: int, num_partitions: int, uuid: Optional[str] = None,
                  description: Optional[str] = None):
         """
         Initialize the request.
@@ -56,14 +56,12 @@ class PartitionRequest(AbstractInitRequest):
             The hash/checksum to identify the hydrofabric associated with the partitioning request.
         num_partitions : int
             The desired number of partitions.
-        session_secret : str
-            The session secret for the right session when communicating with the request handler.
         uuid : Optional[str]
             A unique identifier string for this request.
         description : Optional[str]
             An optional description or name for the hydrofabric.
         """
-        super(PartitionRequest, self).__init__(session_secret=session_secret)
+        super(PartitionRequest, self).__init__()
         self._hydrofabric_hash = hydrofabric_hash
         self._num_partitions = num_partitions
         self._uuid = uuid if uuid else str(uuid4())
