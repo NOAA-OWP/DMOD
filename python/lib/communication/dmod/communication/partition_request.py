@@ -1,10 +1,11 @@
 from uuid import uuid4
 from numbers import Number
 from typing import Optional, Union, Dict
-from .maas_request import MaaSRequest, MaaSRequestResponse, MessageEventType
+from .maas_request import AbstractInitRequest, MessageEventType, Response
 
 
-class PartitionRequest(MaaSRequest):
+# TODO: create separate "external" subtype if support for authenticated, session-based requests becomes necessary
+class PartitionRequest(AbstractInitRequest):
     """
     Request for partitioning of the catchments in a hydrofabric, typically for distributed processing.
     """
@@ -12,7 +13,8 @@ class PartitionRequest(MaaSRequest):
     event_type = MessageEventType.PARTITION_REQUEST
     _KEY_NUM_PARTS = 'partition_count'
     _KEY_NUM_CATS = 'catchment_count'
-    _KEY_SECRET = 'session_secret'
+    # TODO: move this to separate type in the future for external use
+    #_KEY_SECRET = 'session_secret'
     _KEY_UUID = 'uuid'
     _KEY_HYDROFABRIC_HASH = 'hydrofabric_hash'
     _KEY_HYDROFABRIC_DESC = 'hydrofabric_description'
@@ -22,7 +24,7 @@ class PartitionRequest(MaaSRequest):
         try:
             return PartitionRequest(hydrofabric_hash=json_obj[cls._KEY_HYDROFABRIC_HASH],
                                     num_partitions=json_obj[cls._KEY_NUM_PARTS],
-                                    session_secret=json_obj[cls._KEY_SECRET],
+                                    #session_secret=json_obj[cls._KEY_SECRET],
                                     description=json_obj[cls._KEY_HYDROFABRIC_DESC] if cls._KEY_HYDROFABRIC_DESC in json_obj else None,
                                     uuid=json_obj[cls._KEY_UUID])
         except:
@@ -105,7 +107,7 @@ class PartitionRequest(MaaSRequest):
         serialized = {
             self._KEY_HYDROFABRIC_HASH: self.hydrofabric_hash,
             self._KEY_NUM_PARTS: self.num_partitions,
-            self._KEY_SECRET: self.session_secret,
+            #self._KEY_SECRET: self.session_secret,
             self._KEY_UUID: self.uuid,
         }
         if self.description is not None:
@@ -125,7 +127,7 @@ class PartitionRequest(MaaSRequest):
         return self._uuid
 
 
-class PartitionResponse(MaaSRequestResponse):
+class PartitionResponse(Response):
     """
     A response to a ::class:`PartitionRequest`.
 
