@@ -72,7 +72,7 @@ class PartitionerHandler(WebSocketInterface, HydrofabricFilesManager):
         # Make sure we load what hydrofabrics are supported for partitioning
         self.find_hydrofabrics()
         # Go ahead and lazy load the first one of these so it is cached
-        self.get_hydrofabric_hash(0)
+        self.get_hydrofabric_uid(0)
 
     def _execute_partitioner_container(self, catchment_file_relative: str, nexus_file_relative: str,
                                        output_file_relative: str, num_partitions: int, nexus_id_subset_str: str = '',
@@ -147,7 +147,7 @@ class PartitionerHandler(WebSocketInterface, HydrofabricFilesManager):
             The generated response based on success or failure.
         """
         try:
-            hydrofabric_index = await self.async_find_hydrofabric_by_hash(request.hydrofabric_hash)
+            hydrofabric_index = await self.async_find_hydrofabric_by_uid(request.hydrofabric_hash)
             tuple_of_files = self.get_hydrofabric_files_tuple(hydrofabric_index)
 
             if len(tuple_of_files) != 3:

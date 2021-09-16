@@ -1,4 +1,5 @@
 import geopandas as gpd
+import hashlib
 import pandas as pd
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -135,12 +136,6 @@ class Hydrofabric(ABC):
         """
         Get the hash value for this instance.
 
-        The hash is determined from the ordered lists of catchment ids, nexus ids, and link representations.  Link
-        representations are obtained from the ::method:`_get_link_representations` function.
-
-        These three lists are individually joined into comma-separated strings.  These three strings are then formatted
-         into a single string with ``;`` as a separator.  It is the hash value of this last string that is returned.
-
         Returns
         -------
         int
@@ -148,18 +143,9 @@ class Hydrofabric(ABC):
 
         See Also
         -------
-        _get_link_representations
+        _get_string_for_hashing
         """
-        sorted_cat_ids = list(self.get_all_catchment_ids())
-        sorted_cat_ids.sort()
-
-        sorted_nex_ids = list(self.get_all_nexus_ids())
-        sorted_nex_ids.sort()
-
-        final_str = "{};{};{}".format(",".join(sorted_cat_ids),
-                                      ",".join(sorted_nex_ids),
-                                      ",".join(self._get_link_representations()))
-        return hash(final_str)
+        return hash(self._get_string_for_hashing())
 
     def _get_link_representations(self) -> List[str]:
         """
@@ -199,6 +185,42 @@ class Hydrofabric(ABC):
 
         links_reps.sort()
         return links_reps
+
+    def _get_string_for_hashing(self) -> str:
+        """
+        Get a unique string encoding the state of the instance for hashing purpose.
+
+        Function generates a string the is unique to this instance, along with any and every instances that is or could
+        be considered equal to this instance.  This produces something that can then be easily hashed, and is in fact
+        used by this type's implementation of ::method:`__hash__`.  As such, it should be implemented in a way that is
+        consistent with ::method:`__eq__`.
+
+        Specifically, The hash is determined from the ordered lists of catchment ids, nexus ids, and link
+        representations.  Link representations are obtained from the ::method:`_get_link_representations` function.
+
+        These three lists are individually joined into comma-separated strings.  These three strings are then formatted
+        into a single string with ``;`` as a separator.  It is the hash value of this last string that is returned.
+
+        Returns
+        -------
+        str
+            A unique string encoding the state of the instance for hashing purpose.
+
+        See Also
+        -------
+        __eq__
+        __hash__
+        _get_link_representations
+        """
+        sorted_cat_ids = list(self.get_all_catchment_ids())
+        sorted_cat_ids.sort()
+
+        sorted_nex_ids = list(self.get_all_nexus_ids())
+        sorted_nex_ids.sort()
+
+        return "{};{};{}".format(",".join(sorted_cat_ids),
+                                      ",".join(sorted_nex_ids),
+                                      ",".join(self._get_link_representations()))
 
     @abstractmethod
     def get_all_catchment_ids(self) -> Tuple[str, ...]:
@@ -322,24 +344,43 @@ class Hydrofabric(ABC):
         """
         pass
 
+    @property
+    def uid(self) -> str:
+        """
+        Get a unique id for this instance.
+
+        Ids are generated from the same string generated to perform internal object hashing, but then passed to the
+        standard SHA1 algorithm.
+
+        Returns
+        -------
+        int
+            A unique id for this instance.
+
+        See Also
+        -------
+        _get_string_for_hashing
+        """
+        return hashlib.sha1(self._get_string_for_hashing().encode('UTF-8')).hexdigest()
+
 
 class HydrofabricFilesManager(ABC):
     """
     A class to manage persisted hydrofabrics to avoid requiring them to all be loaded into memory constantly.
 
     This type maintains a list of tuples of hydrofabric files tuples (i.e., all files needed for a single hydrofabric),
-    hydrofabric initializer callables, and hydrofabric object hash values, with the items in all three at any given
+    hydrofabric initializer callables, and hydrofabric object uid values, with the items in all three at any given
     index corresponding to each other.  The files tuples should contain paths to all files necessary for initializing
     a hydrofabric object.  The corresponding callable must be able to accept this expanded tuple as arguments and return
     a hydrofabric object.
 
     The collections are populated with the ::method:`find_hydrofabrics` method, which is called during initialization.
     This function searches under the directory given by ::method:`hydrofabric_data_root_dir` for supported hydrofabrics,
-    storing the files tuple, appropriate callable, and ``None`` as a hash value placeholder in the given collections. It
+    storing the files tuple, appropriate callable, and ``None`` as a uid value placeholder in the given collections. It
     can be rerun if the ``recheck`` param is explicitly set to ``True``.
 
-    As noted above, while the list object itself for hydrofabric hash values is established properly by
-    ::method:`find_hydrofabrics` and during initialization, the actual hash values are lazily populated, with the list
+    As noted above, while the list object itself for hydrofabric uid values is established properly by
+    ::method:`find_hydrofabrics` and during initialization, the actual uid values are lazily populated, with the list
     initially setting ``None`` to a corresponding hydrofabric's index.  This is to avoid loading all found hydrofabrics
     initially.
 
@@ -348,7 +389,7 @@ class HydrofabricFilesManager(ABC):
     def __init__(self):
         self._hydrofabric_files: List[Tuple[Path, ...]] = []
         self._hydrofabric_initializers: List[Callable[[Any, ...], Hydrofabric]] = []
-        self._hydrofabric_hashes: List[Optional[int]] = []
+        self._hydrofabric_uids: List[Optional[str]] = []
         self.find_hydrofabrics()
 
     def find_hydrofabrics(self, recheck: bool = False):
@@ -357,7 +398,7 @@ class HydrofabricFilesManager(ABC):
 
         Function is responsible for finding valid hydrofabric files, and then preparing a files tuple and initialization
         callable to be stored in the instance attribute list for these.  It also must prepare the corresponding list
-        for hydrofabric hash values by storing ``None`` in the corresponding index.
+        for hydrofabric uid values by storing ``None`` in the corresponding index.
 
         All implementations must implement a search routine that operates within the path specified by
         ::method:`hydrofabric_data_root_dir`.
@@ -390,7 +431,7 @@ class HydrofabricFilesManager(ABC):
         if recheck:
             self._hydrofabric_files.clear()
             self._hydrofabric_initializers.clear()
-            self._hydrofabric_hashes.clear()
+            self._hydrofabric_uids.clear()
         # Get any groups sharing a distinct value in the file name before the extension.
         # Right now, only GeoJsonHydrofabrics are supported
         # e.g., the set of catchment_data_001.geojson, nexus_data_001.geojson, and crosswalk_001.json (if all exist)
@@ -406,26 +447,26 @@ class HydrofabricFilesManager(ABC):
             if catchment_file.is_file() and nexus_file.is_file() and crosswalk_file.is_file():
                 self._hydrofabric_files.append((catchment_file, nexus_file, crosswalk_file))
                 self._hydrofabric_initializers.append(GeoJsonHydrofabric.factory_create_from_data)
-                # For now, don't inflate a hydrofabric to get its hash
-                self._hydrofabric_hashes.append(None)
+                # For now, don't inflate a hydrofabric to get its uid
+                self._hydrofabric_uids.append(None)
 
     async def _async_get_hydrofabric(self, hf_index: int):
         return self.get_hydrofabric(hf_index)
 
-    async def _async_get_hydrofabric_hash(self, hf_index: int, recheck: bool = False) -> int:
-        return self.get_hydrofabric_hash(hf_index, recheck)
+    async def _async_get_hydrofabric_uid(self, hf_index: int, recheck: bool = False) -> str:
+        return self.get_hydrofabric_uid(hf_index, recheck)
 
-    async def async_find_hydrofabric_by_hash(self, hf_hash: int) -> int:
+    async def async_find_hydrofabric_by_uid(self, hf_uid: int) -> int:
         """
-        Async function to return the index of known hydrofabric with given hash, if there is such a known hydrofabric.
+        Async function to return the index of known hydrofabric with given id, if there is such a known hydrofabric.
 
-        Function is implemented very similarly to ::method:`find_hydrofabric_by_hash` but has a few altered details
+        Function is implemented very similarly to ::method:`find_hydrofabric_by_id` but has a few altered details
         to support more efficient async usage.
 
         Parameters
         ----------
-        hf_hash : int
-            The hash value of the hydrofabric for which the index is sought.
+        hf_uid : str
+            The unique id value of the hydrofabric for which the index is sought.
 
         Returns
         -------
@@ -435,22 +476,22 @@ class HydrofabricFilesManager(ABC):
         """
         for i in range(len(self._hydrofabric_files)):
             # Do a check "manually" here to avoid an await if the value is already set
-            if self._hydrofabric_hashes[i] is not None and self._hydrofabric_hashes[i] == hf_hash:
+            if self._hydrofabric_uids[i] is not None and self._hydrofabric_uids[i] == hf_uid:
                 return i
-            # Introduce another await when a longer hydrofabric load will be required to get the hash
-            elif await self._async_get_hydrofabric_hash(i) == hf_hash:
+            # Introduce another await when a longer hydrofabric load will be required to get the uid
+            elif await self._async_get_hydrofabric_uid(i) == hf_uid:
                 return i
         raise RuntimeError(
-            "No known hydrofabric available to {} with hash {}".format(self.__class__.__name__, hf_hash))
+            "No known hydrofabric available to {} with id {}".format(self.__class__.__name__, hf_uid))
 
-    def find_hydrofabric_index_by_hash(self, hf_hash: int) -> int:
+    def find_hydrofabric_index_by_uid(self, hf_uid: str) -> int:
         """
-        Find and return the index of the known hydrofabric with the given hash, if there is such a known hydrofabric.
+        Find and return the index of the known hydrofabric with the given uid, if there is such a known hydrofabric.
 
         Parameters
         ----------
-        hf_hash : int
-            The hash value of the hydrofabric for which the index is sought.
+        hf_uid : str
+            The unique id of the hydrofabric for which the index is sought.
 
         Returns
         -------
@@ -459,10 +500,10 @@ class HydrofabricFilesManager(ABC):
             instance attributes.
         """
         for i in range(len(self._hydrofabric_files)):
-            if self.get_hydrofabric_hash(i) == hf_hash:
+            if self.get_hydrofabric_uid(i) == hf_uid:
                 return i
         raise RuntimeError(
-            "No known hydrofabric available to {} with hash {}".format(self.__class__.__name__, hf_hash))
+            "No known hydrofabric available to {} with uid {}".format(self.__class__.__name__, hf_uid))
 
     def get_hydrofabric(self, hf_index: int, discard_cached: bool = False, **kwargs) -> Hydrofabric:
         """
@@ -517,16 +558,17 @@ class HydrofabricFilesManager(ABC):
             raise RuntimeError("Attempting to obtain hydrofabric files tuple at invalid index: {}".format(hf_index))
         return self._hydrofabric_files[hf_index]
 
-    def get_hydrofabric_hash(self, hf_index: int, recheck: bool = False) -> int:
+    def get_hydrofabric_uid(self, hf_index: int, recheck: bool = False) -> str:
         """
-        Get the hash value of the hydrofabric at the given index, lazily populating it if necessary.
+        Get the unique id value of the hydrofabric at the given index, lazily populating it if necessary.
 
-        While the list object itself for hydrofabric hash values is established properly by ::method:`find_hydrofabrics`
-        and during initialization, it initially stores a value of ``None`` for every index.  The actual hash values are
-        lazily populated as needed by this method, to avoid excessive load times for loading all the hydrofabrics.
+        While the list object itself for hydrofabric uid values is established properly by ::method:`find_hydrofabrics`
+        and during initialization, it initially stores a value of ``None`` for every index.  The actual uid values are
+        lazily populated as needed by this method, to avoid excessive load times for loading all the hydrofabrics, since
+        these are generated deterministically based on the hydrofabric data.
 
-        If an index does not already have a valid hash value store, or if the optional ``recheck`` parameter is set to
-        ``True``, the hash is re-retrieved from a newly instantiated version of the hydrofabric object.
+        If an index does not already have a valid uid value stored, or if the optional ``recheck`` parameter is set to
+        ``True``, the uid is re-retrieved from a newly instantiated version of the hydrofabric object.
 
         Parameters
         ----------
@@ -538,10 +580,10 @@ class HydrofabricFilesManager(ABC):
 
         """
         if hf_index >= self.number_of_hydrofabrics:
-            raise RuntimeError("Attempting to obtain hydrofabric hash at invalid index: {}".format(hf_index))
-        if self._hydrofabric_hashes[hf_index] is None or recheck:
-            self._hydrofabric_hashes[hf_index] = hash(self.get_hydrofabric(hf_index, discard_cached=recheck))
-        return self._hydrofabric_hashes[hf_index]
+            raise RuntimeError("Attempting to obtain hydrofabric uid at invalid index: {}".format(hf_index))
+        if self._hydrofabric_uids[hf_index] is None or recheck:
+            self._hydrofabric_uids[hf_index] = self.get_hydrofabric(hf_index, discard_cached=recheck).uid
+        return self._hydrofabric_uids[hf_index]
 
     @property
     @abstractmethod
