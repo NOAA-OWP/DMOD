@@ -16,13 +16,13 @@ class PartitionRequest(AbstractInitRequest):
     # TODO: move this to separate type in the future for external use
     #_KEY_SECRET = 'session_secret'
     _KEY_UUID = 'uuid'
-    _KEY_HYDROFABRIC_HASH = 'hydrofabric_hash'
+    _KEY_HYDROFABRIC_UID = 'hydrofabric_uid'
     _KEY_HYDROFABRIC_DESC = 'hydrofabric_description'
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
         try:
-            return PartitionRequest(hydrofabric_hash=json_obj[cls._KEY_HYDROFABRIC_HASH],
+            return PartitionRequest(hydrofabric_uid=json_obj[cls._KEY_HYDROFABRIC_UID],
                                     num_partitions=json_obj[cls._KEY_NUM_PARTS],
                                     #session_secret=json_obj[cls._KEY_SECRET],
                                     description=json_obj[cls._KEY_HYDROFABRIC_DESC] if cls._KEY_HYDROFABRIC_DESC in json_obj else None,
@@ -45,15 +45,15 @@ class PartitionRequest(AbstractInitRequest):
         """
         return PartitionResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
-    def __init__(self, hydrofabric_hash: int, num_partitions: int, uuid: Optional[str] = None,
+    def __init__(self, hydrofabric_uid: str, num_partitions: int, uuid: Optional[str] = None,
                  description: Optional[str] = None):
         """
         Initialize the request.
 
         Parameters
         ----------
-        hydrofabric_hash : int
-            The hash/checksum to identify the hydrofabric associated with the partitioning request.
+        hydrofabric_uid : str
+            The unique id of the hydrofabric associated with the partitioning request.
         num_partitions : int
             The desired number of partitions.
         uuid : Optional[str]
@@ -62,16 +62,16 @@ class PartitionRequest(AbstractInitRequest):
             An optional description or name for the hydrofabric.
         """
         super(PartitionRequest, self).__init__()
-        self._hydrofabric_hash = hydrofabric_hash
+        self._hydrofabric_uid = hydrofabric_uid
         self._num_partitions = num_partitions
         self._uuid = uuid if uuid else str(uuid4())
         self._description = description
 
     def __eq__(self, other):
-        return self.uuid == other.uuid and self.hydrofabric_hash == other.hydrofabric_hash
+        return self.uuid == other.uuid and self.hydrofabric_uid == other.hydrofabric_uid
 
     def __hash__(self):
-        return hash("{}{}".format(self.uuid, self.hydrofabric_hash))
+        return hash("{}{}".format(self.uuid, self.hydrofabric_uid))
 
     @property
     def description(self) -> Optional[str]:
@@ -86,16 +86,16 @@ class PartitionRequest(AbstractInitRequest):
         return self._description
 
     @property
-    def hydrofabric_hash(self) -> int:
+    def hydrofabric_uid(self) -> str:
         """
-        The hash/checksum/identifier for the hydrofabric that is to be partitioned.
+        The unique identifier for the hydrofabric that is to be partitioned.
 
         Returns
         -------
-        int
-            The hash/checksum/identifier for the hydrofabric that is to be partitioned.
+        str
+            The unique identifier for the hydrofabric that is to be partitioned.
         """
-        return self._hydrofabric_hash
+        return self._hydrofabric_uid
 
     @property
     def num_partitions(self) -> int:
@@ -103,7 +103,7 @@ class PartitionRequest(AbstractInitRequest):
 
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
         serialized = {
-            self._KEY_HYDROFABRIC_HASH: self.hydrofabric_hash,
+            self._KEY_HYDROFABRIC_UID: self.hydrofabric_uid,
             self._KEY_NUM_PARTS: self.num_partitions,
             #self._KEY_SECRET: self.session_secret,
             self._KEY_UUID: self.uuid,
