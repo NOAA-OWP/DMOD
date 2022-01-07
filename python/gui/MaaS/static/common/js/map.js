@@ -129,7 +129,7 @@ function plotMapLayers(featureDocuments, map) {
     }
 
     var buildProperties = function(feature, layer) {
-        layer.bindPopup(propertiesToHTML(feature), {"maxWidth": 2000})
+        layer.bindPopup(propertiesToHTML(feature, crosswalk), {"maxWidth": 2000})
         addTooltip(feature, layer);
     };
 
@@ -149,7 +149,7 @@ function plotMapLayers(featureDocuments, map) {
     return layers;
 }
 
-function propertiesToHTML(geojson) {
+function propertiesToHTML(geojson, xwalk) {
     var properties = geojson.properties;
     var markup = "";
     if ("Name" in properties) {
@@ -157,6 +157,19 @@ function propertiesToHTML(geojson) {
     }
     else if ("id" in geojson) {
         markup += "<h3>" + geojson.id + "</h3>";
+    }
+
+    if (geojson.id in xwalk) {
+        var cross_walk = xwalk[geojson.id];
+        if ("COMID" in cross_walk) {
+            var comids = cross_walk['COMID'];
+            markup += "<h4>COMID</h4>";
+            markup += "<ul>";
+            for (comid of comids) {
+                markup += "<li>" + comid + "</li>";
+            }
+            markup += "</ul>";
+        }
     }
 
     markup += "<table style='border-spacing: 8px'>";
@@ -406,6 +419,8 @@ function loadFabric(event) {
 
     $("input[name=fabric]").val(name);
 
+    var crosswalk = getServerData("crosswalk/"+name);
+
     var addTooltip = function(feature, layer) {
         if ("id" in feature) {
             layer.bindTooltip(feature["id"]);
@@ -416,7 +431,7 @@ function loadFabric(event) {
     }
 
     var buildProperties = function(feature, layer) {
-        layer.bindPopup(propertiesToHTML(feature), {"maxWidth": 2000})
+        layer.bindPopup(propertiesToHTML(feature, crosswalk), {"maxWidth": 2000})
         addTooltip(feature, layer);
     };
 
