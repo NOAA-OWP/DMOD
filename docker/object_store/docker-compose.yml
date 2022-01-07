@@ -70,7 +70,7 @@ services:
       - access_key
 
   nginx:
-    image: nginx:1.19.2-alpine
+    image: nginx:1.21.1-alpine
     hostname: nginx
     networks:
         #- minio_distributed
