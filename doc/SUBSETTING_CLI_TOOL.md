@@ -44,6 +44,7 @@ python -m venv venv         # or 'python3' if appropriate
 source venv/bin/activate    # enter the venv in this terminal
 pip install --upgrade pip
 pip install -r requirements.txt
+./scripts/update_package.sh python/lib/communication
 ./scripts/update_package.sh python/lib/modeldata
 ./scripts/update_package.sh python/services/subsetservice
 deactivate                  # exit the venv in this terminal
