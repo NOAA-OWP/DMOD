@@ -20,6 +20,7 @@ services:
       context: ./schedulerservice
       args:
         docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY}
+        stack_name: ${STACK_PREFIX:-}
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
         scheduler_package_dist_name: ${PYTHON_PACKAGE_DIST_NAME_SCHEDULER:?}
         scheduler_service_package_dist_name: ${PYTHON_PACKAGE_DIST_NAME_SCHEDULER_SERVICE:?}
@@ -66,6 +67,7 @@ services:
       context: ./requestservice
       args:
         docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY}
+        stack_name: ${STACK_PREFIX:-}
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
         access_package_name: ${PYTHON_PACKAGE_DIST_NAME_ACCESS:?}
         externalrequests_package_name: ${PYTHON_PACKAGE_DIST_NAME_EXTERNAL_REQUESTS:?}
@@ -76,6 +78,7 @@ services:
       context: ./subsetservice
       args:
         docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY}
+        stack_name: ${STACK_PREFIX:-}
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
         modeldata_package_name: ${PYTHON_PACKAGE_DIST_NAME_MODELDATA:?}
         subsetservice_package_name: ${PYTHON_PACKAGE_DIST_NAME_SUBSET_SERVICE:?}

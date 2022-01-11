@@ -2,7 +2,8 @@
 # problem using the current registry (127.0.0.1:5000), apparently due to the ':'
 # which Docker thinks is an invalid --from value in the multi-stage copy step
 ARG docker_internal_registry
-FROM ${docker_internal_registry}/dmod-py-sources as sources
+ARG stack_name
+FROM ${docker_internal_registry}/${stack_name}_dmod-py-sources as sources
 
 FROM python:3.8-slim
 # Slurp (or set default) wheel package name ...
