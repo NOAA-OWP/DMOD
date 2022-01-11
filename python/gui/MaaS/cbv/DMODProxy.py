@@ -252,7 +252,7 @@ class PostFormRequestClient(MaasRequestClient):
             logger.info("Session From {}".format(self.__class__.__name__))
             return self._session_id and self._session_secret and self._session_created
         else:
-            logger.info("Session from {}}: force_new={}".format(self.__class__.__name__, force_new))
+            logger.info("Session from {}: force_new={}".format(self.__class__.__name__, force_new))
             tmp = self._acquire_new_session()
             logger.info("Session Info Return: {}".format(tmp))
             return tmp
