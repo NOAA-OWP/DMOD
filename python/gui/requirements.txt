@@ -7,7 +7,7 @@ idna==2.8
 jsonschema==3.0.2
 pyrsistent==0.15.4
 pytz==2019.2
-requests==2.22.0
+requests
 six==1.12.0
 sqlparse==0.3.0
 urllib3==1.26.5
