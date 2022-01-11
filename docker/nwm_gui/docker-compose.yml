@@ -27,7 +27,7 @@ services:
   
   # Define a container belonging exclusively to our django application
   app_server:
-    image: maas-portal-development
+    image: ${STACK_PREFIX:-}_maas-portal-development
     build:
       context: ../..
       dockerfile: ./docker/nwm_gui/app_server/Dockerfile
@@ -53,7 +53,7 @@ services:
       - SQL_ENGINE=django.db.backends.postgresql
       - SQL_DATABASE=${DMOD_GUI_POSTGRES_DB:-dmod_dev}
       - SQL_USER=${DMOD_GUI_POSTGRES_USER:?}
-      - SQL_HOST=db
+      - SQL_HOST=${STACK_PREFIX:-}_nwm_gui_db
       - SQL_PORT=5432
       - DATABASE=postgres
       - DOCKER_SECRET_POSTGRES_PASS=postgres_password
