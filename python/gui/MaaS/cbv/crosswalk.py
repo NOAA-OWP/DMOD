@@ -38,7 +38,7 @@ def _build_fabric_path(fabric, type=""):
         resolution=''
 
     logger.debug("fabric path:", fabric, name, resolution)
-    path = Path(PROJECT_ROOT, 'static', 'ngen', 'hydrofabric', name, resolution, type+'crosswalk.json')
+    path = Path(PROJECT_ROOT, 'static', 'ngen', 'hydrofabric', name, resolution, type+'crosswalk-mapping.json')
     if (path == None):
         return JsonResponse({})
     return path

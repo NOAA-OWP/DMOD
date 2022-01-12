@@ -161,9 +161,18 @@ function propertiesToHTML(geojson, xwalk) {
 
     if (geojson.id in xwalk) {
         var cross_walk = xwalk[geojson.id];
-        if ("COMID" in cross_walk) {
-            var comids = cross_walk['COMID'];
-            markup += "<h4>COMID</h4>";
+        if ("member_comids" in cross_walk) {
+            var comids = cross_walk['member_comids'];
+            markup += "<h4>member_comids</h4>";
+            markup += "<ul>";
+            for (comid of comids) {
+                markup += "<li>" + comid + "</li>";
+            }
+            markup += "</ul>";
+        }
+        if ("outlet_comid" in cross_walk) {
+            var comids = cross_walk['outlet_comid'];
+            markup += "<h4>outlet_comid</h4>";
             markup += "<ul>";
             for (comid of comids) {
                 markup += "<li>" + comid + "</li>";
