@@ -7,14 +7,17 @@ FROM ${docker_internal_registry}/dmod-py-sources as sources
 FROM python:3.8-slim
 # Slurp (or set default) wheel package name ...
 ARG comms_package_name=dmod-communication
+
+# Update the aptitude package listing so that packages may be loaded and installed
+# Install python binaries to make pip installs a little smoother
+RUN apt-get update && apt-get install -y python3-django netcat
+
 # Copy custom built packages from external sources image
 COPY --from=sources /DIST /DIST
 RUN pip install --upgrade --find-links=/DIST ${comms_package_name} \
     # After eventually installing all dist files like this, clean up ... \
     && rm -r /DIST
-# Update the aptitude package listing so that packages may be loaded and installed
-# Install python binaries to make pip installs a little smoother
-RUN apt-get update && apt-get install -y python3-django netcat
+
 # Move to a new directory at "/usr/wres-gui"
 WORKDIR /usr/maas_portal
 # Copy the requirements.txt file in the current directory for the application to the
