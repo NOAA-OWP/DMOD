@@ -12,27 +12,73 @@ ARG BRANCH=master
 ARG COMMIT
 ARG BUILD_PARALLEL_JOBS
 ENV PATH "${WORKDIR}/bin:${PATH}"
-ARG BOOST_VERSION=1.72.0
 ENV BOOST_ROOT=${WORKDIR}/boost
 
-#RUN wget https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION//./_}.tar.gz \
-RUN wget https://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION//./_}.tar.gz/download -O boost_${BOOST_VERSION//./_}.tar.gz \
-#### \
-    # Get boost headers \
-    #### \
-    && mkdir -p ${WORKDIR}/boost \
-    && tar zxf boost_${BOOST_VERSION//./_}.tar.gz -C ./boost --strip-components=1 \
-    && rm boost_${BOOST_VERSION//./_}.tar.gz \
-    && git clone --single-branch --branch $BRANCH $REPO_URL \
+ARG NGEN_ACTIVATE_C="ON"
+ARG NGEN_ACTIVATE_FORTRAN="ON"
+ARG NGEN_ACTIVATE_PYTHON="ON"
+ARG NGEN_MPI_ACTIVE="ON"
+ARG NGEN_ROUTING_ACTIVE="ON"
+ARG NGEN_UDUNITS_ACTIVE="ON"
+
+ARG BUILD_NOAH_OWP="true"
+ARG BUILD_CFE="true"
+ARG BUILD_TOPMODEL="true"
+
+# TODO: add something to build to pull (and build) in the submodules (except googletest) when needed based on build config
+
+# Swap or override this as needed (below are the "standard" types from
+#   https://cmake.org/cmake/help/latest/manual/cmake-buildsystem.7.html#default-and-custom-configurations)
+#ARG NGEN_BUILD_CONFIG_TYPE="Debug"
+ARG NGEN_BUILD_CONFIG_TYPE="Release"
+#ARG NGEN_BUILD_CONFIG_TYPE="RelWithDebInfo"
+#ARG NGEN_BUILD_CONFIG_TYPE="MinSizeRel"
+
+RUN git clone --single-branch --branch $BRANCH $REPO_URL \
     && cd ./ngen \
-    && git submodule update --init --recursive -- test/googletest \
     && if [ "x$COMMIT" != "x" ]; then git checkout $COMMIT; fi \
-    && cmake -B cmake-build -S . -DCMAKE_INSTALL_PREFIX=${WORKDIR} \
-    && cmake --build cmake-build -j ${BUILD_PARALLEL_JOBS} \
+    && if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then pip install -r extern/test_bmi_py/requirements.txt; fi \
+    && git submodule update --init test/googletest \
+    && git submodule update --init \
+    && echo "#!/bin/bash" > build_sub \
+    && echo "cmake -B \$1/cmake_build -DCMAKE_BUILD_TYPE=${NGEN_BUILD_CONFIG_TYPE} -S \$1 && cmake --build \$1/cmake_build" >> build_sub \
+    && chmod u+x build_sub \
+    &&  if [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ]; then \
+            ./build_sub extern/iso_c_fortran_bmi; \
+            if [ "${BUILD_NOAH_OWP}" == "true" ] ; then ./build_sub extern/noah-mp-modular; fi; \
+        fi \
+    &&  if [ "${NGEN_ACTIVATE_C}" == "ON" ]; then \
+            if [ "${BUILD_CFE}" == "true" ] ; then ./build_sub extern/cfe; fi; \
+            if [ "${BUILD_TOPMODEL}" == "true" ] ; then ./build_sub extern/topmodel; fi; \
+        fi \
+    && cmake -B cmake_build -S . \
+            -DMPI_ACTIVE:BOOL=${NGEN_MPI_ACTIVE} \
+            -DBMI_C_LIB_ACTIVE:BOOL=${NGEN_ACTIVATE_C} \
+            -DBMI_FORTRAN_ACTIVE:BOOL=${NGEN_ACTIVATE_FORTRAN} \
+            -DNGEN_ACTIVATE_PYTHON:BOOL=${NGEN_ACTIVATE_PYTHON} \
+            -DNGEN_ACTIVATE_ROUTING:BOOL=${NGEN_ROUTING_ACTIVE} \
+            -DUDUNITS_ACTIVE:BOOL=${NGEN_UDUNITS_ACTIVE} \
+            -DCMAKE_INSTALL_PREFIX=${WORKDIR} \
+    && cmake --build cmake_build -j ${BUILD_PARALLEL_JOBS} \
     #Run the tests, if they fail, the image build fails \
-    && cmake-build/test/test_all \
+    && cmake_build/test/test_unit \
+    &&  if [ "${NGEN_ACTIVATE_C}" == "ON" ]; then \
+            ./build_sub extern/test_bmi_c; \
+            cmake_build/test/test_bmi_c; \
+        fi \
+    &&  if [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ]; then \
+            ./build_sub extern/test_bmi_fortran; \
+            cmake_build/test/test_bmi_fortran; \
+        fi \
+    &&  if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
+            ./build_sub extern/test_bmi_py; \
+            cmake_build/test/test_bmi_python; \
+        fi \
+    &&  if [ "${NGEN_ACTIVATE_C}" == "ON" ] && [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ] && [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
+            cmake_build/test/test_bmi_multi; \
+        fi \
     #FIXME remove the data copy, only there for temporary testing \
-    && mkdir ${WORKDIR}/bin && cp cmake-build/ngen ${WORKDIR}/bin && cp -r data ${WORKDIR}/data \
+    && mkdir ${WORKDIR}/bin && cp cmake_build/ngen ${WORKDIR}/bin && cp -r data ${WORKDIR}/data \
     && cd $WORKDIR && rm -rf ngen boost
 
 USER root
