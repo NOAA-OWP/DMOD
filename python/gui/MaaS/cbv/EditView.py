@@ -52,7 +52,7 @@ class EditView(View, DMODMixin):
             outputs.append(output_definition)
 
         # Create a mapping between each distribution type and a friendly representation of it
-        for distribution_type in communication.MaaSRequest.get_distribution_types():
+        for distribution_type in communication.ModelExecRequest.get_distribution_types():
             type_definition = dict()
             type_definition['name'] = humanize(distribution_type)
             type_definition['value'] = distribution_type
@@ -63,7 +63,7 @@ class EditView(View, DMODMixin):
             'models': models,
             'domains': domains,
             'outputs': outputs,
-            'parameters': communication.MaaSRequest.get_parameters(),
+            'parameters': communication.ModelExecRequest.get_parameters(),
             'distribution_types': distribution_types,
             'errors': errors,
             'info': info,
