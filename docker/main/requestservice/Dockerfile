@@ -8,6 +8,7 @@ ARG comms_package_name
 ARG access_package_name
 ARG externalrequests_package_name
 ARG request_service_package_name
+ARG request_service_package_version_constraint
 # A base SSL directory, which may or may not contain subdirectories specifically for service- or client-side certs
 ARG container_base_ssl_directory=/ssl
 
@@ -19,7 +20,9 @@ COPY ./entrypoint.sh entrypoint.sh
 COPY --from=sources /DIST /DIST
 
 # Install custom and generally available packages, starting with any custom from external source image
-RUN pip install --no-index --find-links=/DIST ${request_service_package_name} \
+# Do these separately first to work around some issues
+RUN pip install websockets Deprecated \
+    && pip install --no-index --find-links=/DIST "${request_service_package_name}${request_service_package_version_constraint}" \
     # After eventually installing all custom packages like this, clean up ... \
     && rm -r /DIST
 
