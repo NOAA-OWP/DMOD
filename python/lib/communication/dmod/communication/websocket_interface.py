@@ -16,7 +16,7 @@ import websockets
 import ssl
 import signal
 import logging
-from .maas_request import get_request, MaaSRequest
+from .maas_request import get_request, ModelExecRequest
 from .message import Message, MessageEventType, InvalidMessage
 from .session import Session, SessionInitMessage
 from .validator import NWMRequestJsonValidator, SessionInitMessageJsonValidator
@@ -199,7 +199,7 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
                 raise RuntimeError('Cannot deserialize message: could not parse request to any enumerated event type')
             elif event_type == MessageEventType.MODEL_EXEC_REQUEST:
                 # By default, but don't stick with this ...
-                model_name = MaaSRequest.model_name
+                model_name = ModelExecRequest.model_name
                 # ... get based on key in the message
                 if isinstance(message_data['model'], dict):
                     for key in message_data['model']:
