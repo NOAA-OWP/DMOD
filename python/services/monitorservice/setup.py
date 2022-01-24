@@ -14,6 +14,6 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=['dmod-communication>=0.3.0', 'dmod-monitor>=0.2.0'],
+    install_requires=['dmod-communication>=0.4.2', 'dmod-monitor>=0.5.0'],
     packages=find_namespace_packages(exclude=('tests', 'schemas', 'ssl', 'src'))
 )
