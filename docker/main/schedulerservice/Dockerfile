@@ -7,6 +7,7 @@ FROM python:3.8-alpine
 ARG comms_package_name
 ARG scheduler_package_dist_name
 ARG scheduler_service_package_dist_name
+ARG scheduler_service_package_version_constraint
 
 WORKDIR /code
 
@@ -16,12 +17,12 @@ COPY ./entrypoint.sh entrypoint.sh
 COPY --from=sources /DIST /DIST
 
 RUN apk update \
-    && apk add --no-cache openssl bash \
+    && apk add --no-cache openssl bash python3-dev libffi-dev musl-dev gcc \
     && rm -rf /var/cache/apk/* \
     && alias python=python3 \
     && pip3 install --no-cache-dir --upgrade pip \
     # Install service package, along with custom and generally available dependencies, which should all be in /DIST \
-    && pip3 install --no-cache-dir --find-links=/DIST ${scheduler_service_package_dist_name} \
+    && pip3 install --no-cache-dir --find-links=/DIST "${scheduler_service_package_dist_name}${scheduler_service_package_version_constraint}" \
     # After installing everything needed from /DIST, clean up ... \
     && rm -r /DIST \
     && mkdir -p ~/.ssh \
