@@ -23,6 +23,7 @@ services:
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
         scheduler_package_dist_name: ${PYTHON_PACKAGE_DIST_NAME_SCHEDULER:?}
         scheduler_service_package_dist_name: ${PYTHON_PACKAGE_DIST_NAME_SCHEDULER_SERVICE:?}
+        scheduler_service_package_version_constraint: ${PYTHON_PACKAGE_DIST_VERSION_CONSTRAINT_SCHEDULER_SERVICE:-}
     #depends_on:
     #  - base
   nwm:
@@ -70,6 +71,7 @@ services:
         access_package_name: ${PYTHON_PACKAGE_DIST_NAME_ACCESS:?}
         externalrequests_package_name: ${PYTHON_PACKAGE_DIST_NAME_EXTERNAL_REQUESTS:?}
         request_service_package_name: ${PYTHON_PACKAGE_DIST_NAME_REQUEST_SERVICE:?}
+        request_service_package_version_constraint: ${PYTHON_PACKAGE_DIST_VERSION_CONSTRAINT_REQUEST_SERVICE:-}
   subset-service:
     image: ${DOCKER_INTERNAL_REGISTRY:?}/subset-service
     build:
