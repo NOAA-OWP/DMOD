@@ -1,4 +1,4 @@
-FROM alpine:3.12
+FROM alpine:3.15
 # In case the main package repositories are down, use the alternative base image:
 # FROM gliderlabs/alpine:3.12
 
