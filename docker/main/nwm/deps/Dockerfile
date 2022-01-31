@@ -62,7 +62,7 @@ RUN apk update && apk upgrade \
     && export FFLAGS="${FFLAGS}" \
     && export FCFLAGS="${FCFLAGS}" \
     && ./configure ${MPICH_CONFIGURE_OPTIONS}  \
-    && make -j 8 ${MPICH_MAKE_OPTIONS} && make install \
+    && make -j $(nproc) ${MPICH_MAKE_OPTIONS} && make install \
     && cd /tmp \
     && rm -rf /tmp/mpich-src \
     #### \
