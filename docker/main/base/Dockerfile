@@ -10,7 +10,11 @@ ARG USER=mpi
 ENV USER=${USER} USER_HOME=/home/${USER}
 ENV SSHDIR=${USER_HOME}/.ssh
 RUN apk update && apk upgrade \
-    && apk add --repository ${REPOS} --no-cache ${REQUIRE} \
+    &&  if [ -n "${REPOS}" ]; then \
+            apk add --repository ${REPOS} --no-cache ${REQUIRE}; \
+        else \
+            apk add --no-cache ${REQUIRE}; \
+        fi \
     #### ADD DEFAULT USER #### \
     && adduser -D ${USER} \
     && echo "${USER}   ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
