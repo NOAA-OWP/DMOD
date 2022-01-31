@@ -26,12 +26,11 @@ ARG REPOS="http://dl-cdn.alpinelinux.org/alpine/edge/testing"
 # Building hdf5 from source for parallel support, otherwise add hdf5 hdf5-dev to the list below
 ARG REQUIRE="sudo build-base gfortran openssl curl curl-dev tar git m4 zlib-dev libexecinfo-dev"
 
-# ARG NETCDF_C_VERSION="latest"
-#ARG NETCDF_C_VERSION="v4.6.0"
-ARG NETCDF_C_VERSION
-ENV NETCDF_C_VERSION ${NETCDF_C_VERSION:-latest}
-ARG NETCDF_FORTRAN_VERSION
-ENV NETCDF_FORTRAN_VERSION ${NETCDF_FORTRAN_VERSION:-latest}
+# Due to https://github.com/NOAA-OWP/DMOD/issues/75, these NetCDF versions need to have these defaults for now
+ARG NETCDF_C_VERSION=v4.6.0
+ENV NETCDF_C_VERSION ${NETCDF_C_VERSION}
+ARG NETCDF_FORTRAN_VERSION=v4.5.2
+ENV NETCDF_FORTRAN_VERSION ${NETCDF_FORTRAN_VERSION}
 ENV HYDRA_HOST_FILE /etc/opt/hosts
 # MPICH Build Options:
 # See installation guide of target MPICH version
