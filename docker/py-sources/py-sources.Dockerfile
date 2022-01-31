@@ -4,19 +4,24 @@
 FROM python:3.8-alpine as basis
 ARG REQUIRE="gcc g++ musl-dev gdal-dev libffi-dev openssl-dev rust cargo git"
 RUN apk update && apk upgrade && apk add --no-cache ${REQUIRE}
+# Install a few requirements that are going to be expected first, since they take a very long time
+# I.e., we prefer not to go through an hour of building/installing again whenever some other requirement changes
+RUN mkdir /DIST \
+    && if [ ! -d /CACHE ]; then mkdir /CACHE; fi \
+    && pip install --upgrade pip \
+    && pip wheel --cache-dir /CACHE --wheel-dir /DIST --prefer-binary pandas geopandas setuptools wheel cryptography numpy
 # Copy project requirements file, which should have everything needed to build any package within project
-COPY ./requirements.txt /nwm_service/requirements.txt
-# Along with setup and wheel to build, install all project pip dependencies for package building later
-RUN mkdir /DIST && pip install --upgrade pip
-RUN pip wheel --no-cache-dir --wheel-dir /DIST --prefer-binary -r /nwm_service/requirements.txt
+COPY ./requirements.txt /dmod/requirements.txt
+# Along with setup and wheel to build, install any remaining (see above) project pip dependencies for package building later
+RUN pip wheel --cache-dir /CACHE --wheel-dir /DIST --prefer-binary -r /dmod/requirements.txt
 # Needed for sourced functions used by build scripts in later stages
-RUN mkdir -p /nwm_service/scripts/shared
-COPY ./scripts/dist_package.sh /nwm_service/scripts
-COPY ./scripts/shared /nwm_service/scripts/shared
+RUN mkdir -p /dmod/scripts/shared
+COPY ./scripts/dist_package.sh /dmod/scripts
+COPY ./scripts/shared /dmod/scripts/shared
 # Copy python sources
-COPY ./python /nwm_service/python
+COPY ./python /dmod/python
 # Move to source dir
-WORKDIR ./nwm_service
+WORKDIR ./dmod
 
 ################################################################################################################
 
@@ -57,7 +62,7 @@ RUN for p in `ls python/services`; do \
 #### Create final Docker build stage for desired image
 FROM python:3.8-alpine
 # Copy complete python source packages to location
-COPY ./python /nwm_service/
+COPY ./python /dmod/
 # And for every built dist/wheel package copy wheel file into analogous location for this stage
 COPY --from=lib_packages /DIST/* /DIST/
 COPY --from=service_packages /DIST/* /DIST/
