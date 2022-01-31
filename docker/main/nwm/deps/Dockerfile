@@ -40,6 +40,9 @@ ENV HYDRA_HOST_FILE /etc/opt/hosts
 ARG MPICH_VERSION="3.2"
 ARG MPICH_CONFIGURE_OPTIONS=""
 ARG MPICH_MAKE_OPTIONS
+# Work around Fortran MPI issue
+ARG FCFLAGS="-w -fallow-argument-mismatch -O2"
+ARG FFLAGS="-w -fallow-argument-mismatch -O2"
 
 ### INSTALL MPICH ####
 # Source is available at http://www.mpich.org/static/downloads/
@@ -56,6 +59,8 @@ RUN apk update && apk upgrade \
     && wget http://www.mpich.org/static/downloads/${MPICH_VERSION}/mpich-${MPICH_VERSION}.tar.gz \
     && tar xfz mpich-${MPICH_VERSION}.tar.gz  \
     && cd mpich-${MPICH_VERSION}  \
+    && export FFLAGS="${FFLAGS}" \
+    && export FCFLAGS="${FCFLAGS}" \
     && ./configure ${MPICH_CONFIGURE_OPTIONS}  \
     && make -j 8 ${MPICH_MAKE_OPTIONS} && make install \
     && cd /tmp \
