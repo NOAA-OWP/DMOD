@@ -22,7 +22,8 @@ WORKDIR ${WORKDIR}
 # Model specific dependencies/builds
 ########################################
 
-ARG REPOS="http://dl-cdn.alpinelinux.org/alpine/edge/testing"
+#ARG REPOS="http://dl-cdn.alpinelinux.org/alpine/edge/testing"
+ARG REPOS
 # Building hdf5 from source for parallel support, otherwise add hdf5 hdf5-dev to the list below
 ARG REQUIRE="sudo build-base gfortran openssl curl curl-dev tar git m4 zlib-dev libexecinfo-dev"
 
@@ -44,7 +45,12 @@ ARG MPICH_MAKE_OPTIONS
 # Source is available at http://www.mpich.org/static/downloads/
 # Download, build, and install MPICH
 
-RUN apk update && apk upgrade && apk add --repository ${REPOS} --no-cache ${REQUIRE} \
+RUN apk update && apk upgrade \
+    &&  if [ -n "${REPOS}" ]; then \
+            apk add --repository ${REPOS} --no-cache ${REQUIRE}; \
+        else  \
+            apk add --no-cache ${REQUIRE}; \
+        fi \
     && mkdir /tmp/mpich-src \
     && cd /tmp/mpich-src \
     && wget http://www.mpich.org/static/downloads/${MPICH_VERSION}/mpich-${MPICH_VERSION}.tar.gz \
