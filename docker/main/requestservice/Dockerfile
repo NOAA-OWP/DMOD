@@ -21,6 +21,7 @@ COPY --from=sources /DIST /DIST
 
 # Install custom and generally available packages, starting with any custom from external source image
 # Do these separately first to work around some issues
+# TODO: fix root cause for problem this works around
 RUN pip install websockets Deprecated \
     && pip install --no-index --find-links=/DIST "${request_service_package_name}${request_service_package_version_constraint}" \
     # After eventually installing all custom packages like this, clean up ... \
