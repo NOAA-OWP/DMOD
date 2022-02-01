@@ -30,7 +30,10 @@ COPY --from=sources /DIST /DIST
 
 COPY ./entrypoint.sh entrypoint.sh
 # Install custom and generally available packages, starting with any custom from external source image
-RUN pip install --no-index --find-links=/DIST ${subsetservice_package_name} \
+# Do these first packages separately first to work around some current issues (2/1/2022)
+# TODO: fix root cause for problem this works around
+RUN pip install websockets MarkupSafe yarl wrapt \
+    && pip install --no-index --find-links=/DIST ${subsetservice_package_name} \
     # After eventually installing all custom packages like this, clean up ... \
     && rm -r /DIST
 
