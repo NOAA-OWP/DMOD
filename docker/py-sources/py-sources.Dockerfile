@@ -1,8 +1,9 @@
 ################################################################################################################
 ################################################################################################################
 ##### Create base level intermediate build stage
-FROM python:3.8-alpine as basis
-ARG REQUIRE="gcc g++ musl-dev gdal-dev libffi-dev openssl-dev rust cargo git"
+FROM python:3.8-alpine3.15 as basis
+ARG REQUIRE="gcc g++ musl-dev proj proj-dev proj-util gdal-dev libffi-dev openssl-dev rust cargo git"
+
 RUN apk update && apk upgrade && apk add --no-cache ${REQUIRE}
 # Install a few requirements that are going to be expected first, since they take a very long time
 # I.e., we prefer not to go through an hour of building/installing again whenever some other requirement changes
