@@ -21,6 +21,9 @@ RUN apk update \
     && rm -rf /var/cache/apk/* \
     && alias python=python3 \
     && pip3 install --no-cache-dir --upgrade pip \
+    # Do websockets package separately first to work around some current issues (2/1/2022) \
+    # TODO: fix root cause for problem this works around \
+    && pip3 install websockets \
     # Install service package, along with custom and generally available dependencies, which should all be in /DIST \
     && pip3 install --no-cache-dir --find-links=/DIST "${scheduler_service_package_dist_name}${scheduler_service_package_version_constraint}" \
     # After installing everything needed from /DIST, clean up ... \
