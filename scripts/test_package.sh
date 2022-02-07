@@ -276,10 +276,13 @@ exec_test_files()
     cd "${PACKAGE_DIR}"
     if [ -n "${TEST_CLASS_PATTERN:-}" ] || [ -n "${TEST_METHOD_PATTERN:-}" ]; then
         python -m unittest -k ${TEST_CLASS_PATTERN:-}.${TEST_METHOD_PATTERN:-} ${_ADJUSTED_TEST_DIR} ${SET_VERBOSE:-}
+        _EXEC_FIlES_R=${?}
     else
         python -m unittest ${_ADJUSTED_TEST_DIR} ${SET_VERBOSE:-}
+        _EXEC_FIlES_R=${?}
     fi
     cd "${_TOP_DIR}"
+    return ${_EXEC_FIlES_R}
 }
 
 source_it_env_and_funcs()
