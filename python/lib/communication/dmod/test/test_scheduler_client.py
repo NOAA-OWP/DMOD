@@ -88,7 +88,10 @@ class TestSchedulerClient(unittest.TestCase):
         logging.disable(level)
 
     def setUp(self) -> None:
-        self.loop = asyncio.get_event_loop()
+        try:
+            self.loop = asyncio.get_event_loop()
+        except:
+            self.loop = asyncio.new_event_loop()
         self.client = MockSendTestingSchedulerClient()
 
         self.test_model_request_1 = NWMRequest(version=2.0, output='streamflow', parameters={}, session_secret='')
@@ -96,7 +99,8 @@ class TestSchedulerClient(unittest.TestCase):
                                                                 user_id='default')
 
     def tearDown(self) -> None:
-        pass
+        self.loop.stop()
+        self.loop.close()
 
     def test_async_make_request_1_a(self):
         """
