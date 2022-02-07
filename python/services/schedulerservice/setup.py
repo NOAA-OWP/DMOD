@@ -15,6 +15,6 @@ setup(
     url='',
     license='',
     install_requires=['docker', 'redis', 'cryptography', 'Faker', 'pyyaml', 'dmod-communication>=0.4.2',
-                      'dmod-scheduler>=0.4.0'],
+                      'dmod-scheduler>=0.4.1'],
     packages=find_namespace_packages(exclude=('tests', 'test', 'deprecated', 'conf', 'schemas', 'ssl', 'src'))
 )
