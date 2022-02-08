@@ -4,13 +4,36 @@ from typing import Type
 
 from .serializeable import Serializable
 
+
 #FIXME make an independent enum of model request types???
 class MessageEventType(Enum):
-    SESSION_INIT = 1,
-    MODEL_EXEC_REQUEST = 2,
-    SCHEDULER_REQUEST = 3,
-    INFORMATION_UPDATE = 4,
-    METADATA = 5,
+    SESSION_INIT = 1
+
+    MODEL_EXEC_REQUEST = 2
+    """ Represents when a request occurs for model execution. """
+
+    SCHEDULER_REQUEST = 3
+    """ Represents when a request occurs for an allocated, model execution ***job*** to be scheduled and run. """
+
+    INFORMATION_UPDATE = 4
+
+    METADATA = 5
+
+    PARTITION_REQUEST = 6
+    """ Represents when a request occurs for generating a Nextgen partition configuration. """
+
+    EVALUATION_REQUEST = 7
+    """ Represents when a request occurs for a model evaluation job to be performed. """
+
+    CALIBRATION_REQUEST = 8
+    """ Represents when a request occurs for a model calibration job to be performed. """
+
+    DATA_ACQUIRE_REQUEST = 9
+    """ Represents when a request occurs for data acquisition, either from a supplied source or via direct upload. """
+
+    DATA_PROC_REQUEST = 10
+    """ Represents when a request occurs for data processing (job?) to transform or subdivide currently held data. """
+
     INVALID = -1
 
 
