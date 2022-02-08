@@ -89,9 +89,10 @@ class TestSchedulerClient(unittest.TestCase):
 
     def setUp(self) -> None:
         try:
-            self.loop = asyncio.get_event_loop()
-        except:
+            self.loop = asyncio.get_running_loop()
+        except RuntimeError:
             self.loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self.loop)
         self.client = MockSendTestingSchedulerClient()
 
         self.test_model_request_1 = NWMRequest(version=2.0, output='streamflow', parameters={}, session_secret='')
