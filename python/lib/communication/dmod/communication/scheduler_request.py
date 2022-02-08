@@ -47,6 +47,7 @@ class SchedulerRequestMessage(AbstractInitRequest):
         except:
             return None
 
+    # TODO: may need to generalize the underlying request to support, say, scheduling evaluation jobs
     def __init__(self, model_request: ModelExecRequest, user_id: str, cpus: Optional[int] = None, mem: Optional[int] = None,
                  allocation_paradigm: Optional[str] = None):
         self.model_request = model_request
@@ -76,6 +77,18 @@ class SchedulerRequestMessage(AbstractInitRequest):
                and self.memory == other.memory \
                and self.user_id == other.user_id \
                and self.allocation_paradigm == other.allocation_paradigm
+
+    @property
+    def nested_event(self) -> MessageEventType:
+        """
+        The nested event type of the request this message is trying to have scheduled.
+
+        Returns
+        -------
+        MessageEventType
+            The nested event type of the request this message is trying to have scheduled.
+        """
+        return self.model_request.get_message_event_type()
 
     def to_dict(self) -> dict:
         return {'model_request': self.model_request.to_dict(), 'user_id': self.user_id, 'cpus': self.cpus,
