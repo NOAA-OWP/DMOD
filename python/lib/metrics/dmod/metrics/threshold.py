@@ -18,19 +18,19 @@ class Operators(object):
     def get_method(name: str) -> NUMERIC_FILTER:
         name = name.lower()
 
-        if name in [">", 'greater_than', 'greater than']:
+        if name in [">", 'greater_than']:
             return Operators.greater_than
 
-        if name in [">=", 'greater_than_or_equal', 'greater than or equal', 'greater than or equal to']:
+        if name in [">=", 'greater_than_or_equal']:
             return Operators.greater_than_or_equal
 
-        if name in ["<", 'less_than', 'less than']:
+        if name in ["<", 'less_than']:
             return Operators.less_than
 
-        if name in ["<=", "less_than_or_equal", 'less than or equal', 'less than or equal to']:
+        if name in ["<=", "less_than_or_equal"]:
             return Operators.less_than_or_equal
 
-        if name in ['is', '=', '==', 'equal', 'equals', 'equal to']:
+        if name in ['is', '=', '==', 'equal', 'equals']:
             return Operators.equal
 
         raise ValueError(f"{name} is not a valid threshold operator")
@@ -120,7 +120,7 @@ class Threshold(FRAME_FILTER):
                 allow_sequence = operator(frame[self.__observed_value_key], threshold_value)
                 allow_sequence = allow_sequence & operator(frame[self.__predicted_value_key], threshold_value)
                 return frame[allow_sequence]
-            elif self.__on_observed and self.__observed_value_key in frame.keys():
+            elif self.__on_observed:
                 return frame[operator(frame[self.__observed_value_key], threshold_value)]
 
             return frame[operator(frame[self.__predicted_value_key], threshold_value)]

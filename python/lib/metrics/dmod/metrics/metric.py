@@ -104,10 +104,9 @@ class PearsonCorrelationCoefficient(scoring.Metric):
     def __init__(self, weight: NUMBER):
         super().__init__(
             weight=weight,
-            lower_bound=0,
+            lower_bound=-1,
             upper_bound=1,
-            ideal_value=1,
-            failure=0.0
+            ideal_value=1
         )
 
     def __call__(
@@ -191,8 +190,7 @@ class KlingGuptaEfficiency(scoring.Metric):
 
                 rho = rho_values[kling_threshold]
 
-                initial_result = math.sqrt((rho.value - 1)**2 + (gamma - 1)**2 + (beta - 1)**2)
-                result = 1.0 - initial_result
+                result = 1.0 - math.sqrt((rho.value - 1)**2 + (gamma - 1)**2 + (beta - 1)**2)
             scores.append(scoring.Score(self, result, kling_threshold))
 
         return scoring.Scores(self, scores)
@@ -352,3 +350,12 @@ class Precision(CategoricalMetric):
 
     def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[KEY_AND_ROW]:
         return tables.precision.iterrows()
+
+
+class Hits(CategoricalMetric):
+    @classmethod
+    def get_metadata(cls) -> categorical.CategoricalMetricMetadata:
+        return categorical.TruthTable.get_metric_metadata("hits")
+
+    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[KEY_AND_ROW]:
+        return tables.hits.iterrows()
