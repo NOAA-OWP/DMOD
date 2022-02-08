@@ -63,19 +63,9 @@ def get_thresholds() -> typing.List[Threshold]:
 
     thresholds.append(
         Threshold(
-            name="All",
-            value=0,
-            weight=1,
-            observed_value_key=OBSERVATION_VALUE_KEY,
-            predicted_value_key=MODEL_VALUE_KEY
-        )
-    )
-
-    thresholds.append(
-        Threshold(
             name="Minor",
             value=27,
-            weight=1,
+            weight=5,
             observed_value_key=OBSERVATION_VALUE_KEY,
             predicted_value_key=MODEL_VALUE_KEY
         )
@@ -85,7 +75,7 @@ def get_thresholds() -> typing.List[Threshold]:
         Threshold(
             name="Moderate",
             value=36,
-            weight=1,
+            weight=5,
             observed_value_key=OBSERVATION_VALUE_KEY,
             predicted_value_key=MODEL_VALUE_KEY
         )
@@ -95,7 +85,7 @@ def get_thresholds() -> typing.List[Threshold]:
         Threshold(
             name="Major",
             value=43,
-            weight=1,
+            weight=5,
             observed_value_key=OBSERVATION_VALUE_KEY,
             predicted_value_key=MODEL_VALUE_KEY
         )
@@ -105,7 +95,7 @@ def get_thresholds() -> typing.List[Threshold]:
         Threshold(
             name="Record",
             value=60,
-            weight=1,
+            weight=5,
             observed_value_key=OBSERVATION_VALUE_KEY,
             predicted_value_key=MODEL_VALUE_KEY
         )
@@ -117,16 +107,16 @@ def get_thresholds() -> typing.List[Threshold]:
 def get_metrics() -> typing.List[scoring.Metric]:
     metric_functions: typing.List[scoring.Metric] = list()
 
-    metric_functions.append(metrics.PearsonCorrelationCoefficient(1))
-    metric_functions.append(metrics.NormalizedNashSutcliffeEfficiency(1))
-    metric_functions.append(metrics.FalseAlarmRatio(1))
-    metric_functions.append(metrics.ProbabilityOfDetection(1))
-    metric_functions.append(metrics.EquitableThreatScore(1))
-    metric_functions.append(metrics.Accuracy(1))
-    metric_functions.append(metrics.GeneralSkill(1))
-    metric_functions.append(metrics.FrequencyBias(1))
-    metric_functions.append(metrics.KlingGuptaEfficiency(1))
-    metric_functions.append(metrics.Precision(1))
+    metric_functions.append(metrics.PearsonCorrelationCoefficient(5))
+    metric_functions.append(metrics.NormalizedNashSutcliffeEfficiency(5))
+    metric_functions.append(metrics.FalseAlarmRatio(5))
+    metric_functions.append(metrics.ProbabilityOfDetection(5))
+    metric_functions.append(metrics.EquitableThreatScore(5))
+    metric_functions.append(metrics.Accuracy(5))
+    metric_functions.append(metrics.GeneralSkill(5))
+    metric_functions.append(metrics.FrequencyBias(5))
+    metric_functions.append(metrics.KlingGuptaEfficiency(5))
+    metric_functions.append(metrics.Precision(5))
     
     return metric_functions
 
@@ -174,11 +164,6 @@ def main():
 
     if best_model is not None:
         print(f"The best model was {best_model} with a score of {model_score}")
-
-    for name, metric_results in results.items():
-        output_path = os.path.join(TEST_DIRECTORY, 'results', name + "_results.csv")
-        metric_results.to_dataframe().to_csv(output_path)
-
 
 
 # Run the following if the script was run directly
