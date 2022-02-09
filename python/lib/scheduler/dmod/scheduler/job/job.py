@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from dmod.communication import MaaSRequest, SchedulerRequestMessage
+from dmod.communication import MaaSRequest, ModelExecRequest, SchedulerRequestMessage
 from dmod.communication.serializeable import Serializable
 from enum import Enum
 from typing import List, Optional, Tuple, TYPE_CHECKING, Union
@@ -719,7 +719,12 @@ class JobImpl(Job):
             cpus, memory, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated = \
                 cls.deserialize_core_attributes(json_obj)
 
-            model_request = MaaSRequest.factory_init_correct_subtype_from_deserialized_json(json_obj['model_request'])
+            if 'model_request' in json_obj:
+                model_request = ModelExecRequest.factory_init_correct_subtype_from_deserialized_json(json_obj['model_request'])
+            else:
+                # TODO: add serialize/deserialize support for other situations/requests (also change 'model_request' property name)
+                msg = "Type {} can only support deserializing JSON containing a {} under the 'model_request' key"
+                raise RuntimeError(msg.format(cls.__name__, ModelExecRequest.__name__))
 
             obj = cls(cpu_count=cpus, memory_size=memory, model_request=model_request, allocation_paradigm=paradigm,
                       alloc_priority=priority)
@@ -1038,7 +1043,15 @@ class JobImpl(Job):
         serial['job_class'] = self.__class__.__name__
         serial['cpu_count'] = self.cpu_count
         serial['memory_size'] = self.memory_size
-        serial['model_request'] = self.model_request.to_dict()
+
+        # TODO: support other scenarios along with deserializing (maybe even eliminate RequestedJob subtype)
+        if isinstance(self.model_request, ModelExecRequest):
+            request_key = 'model_request'
+        else:
+            msg = "Type {} can only support serializing to JSON when fulfilled request is a {}"
+            raise RuntimeError(msg.format(self.__class__.__name__, ModelExecRequest.__name__))
+        serial[request_key] = self.model_request.to_dict()
+
         if self.allocation_paradigm:
             serial['allocation_paradigm'] = self.allocation_paradigm.name
         serial['allocation_priority'] = self.allocation_priority
