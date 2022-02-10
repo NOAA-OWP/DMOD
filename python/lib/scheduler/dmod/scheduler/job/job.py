@@ -273,8 +273,8 @@ class JobExecStep(Enum):
     # TODO: come back and add another property for workflow ordering, separate from uid
     DEFAULT = (0, False, False)
     """ The default starting step. """
-    CHECKING_DATA = (7, False, False)
-    """ The step during which a check is performed to make sure required data is directly or implicitly available. """
+    AWAITING_DATA_CHECK = (7, False, False)
+    """ The step indicating a check is needed for availability of required data . """
     DATA_UNPROVIDEABLE = (-2, True, True)
     """ The error step that occurs if/when it is determined that required data is missing and cannot be obtained. """
     AWAITING_ALLOCATION = (1, False, False)
@@ -361,7 +361,7 @@ class JobExecPhase(Enum):
     A component of a JobStatus, representing the high level transition stage at which a status exists.
     """
     INIT = (1, True, JobExecStep.DEFAULT)
-    MODEL_EXEC = (2, True, JobExecStep.CHECKING_DATA)
+    MODEL_EXEC = (2, True, JobExecStep.AWAITING_DATA_CHECK)
     # TODO: this one may no longer be appropriate, depending on how we do output (may need to be an exec step instead)
     # TODO: alternatively for certain job categories, perhaps this is when, e.g., evaluation is done
         # TODO: in that alternative, perhaps jobs of certain categories return to the exec phase (e.g, calibration)
