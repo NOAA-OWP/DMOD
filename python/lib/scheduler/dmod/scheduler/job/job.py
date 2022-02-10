@@ -1265,7 +1265,7 @@ class JobImpl(Job):
             "allocation_priority" : 0,
             "job_id" : "12345678-1234-5678-1234-567812345678",
             "rsa_key_pair" : {<serialized_representation_of_RsaKeyPair_obj>},
-            "status" : CREATED,
+            "status" : INIT:DEFAULT,
             "last_updated" : "2020-07-10 12:05:45",
             "allocations" : [...]
         }
@@ -1406,7 +1406,7 @@ class RequestedJob(JobImpl):
             "allocation_priority" : 0,
             "job_id" : "12345678-1234-5678-1234-567812345678",
             "rsa_key_pair" : {<serialized_representation_of_RsaKeyPair_obj>},
-            "status" : CREATED,
+            "status" : INIT:DEFAULT,
             "last_updated" : "2020-07-10 12:05:45",
             "allocations" : [...],
             "originating_request" : {<serialized_representation_of_originating_message>}
