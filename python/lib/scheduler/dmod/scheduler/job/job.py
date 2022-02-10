@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from numbers import Number
-
 from dmod.communication import MaaSRequest, ModelExecRequest, SchedulerRequestMessage
 from dmod.communication.serializeable import Serializable
 from dmod.modeldata.data import DataRequirement
