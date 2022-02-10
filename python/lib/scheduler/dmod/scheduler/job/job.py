@@ -296,6 +296,27 @@ class JobExecStep(Enum):
     FAILED = (-1, True, True)
     """ The step indicating failure happened that stopped a job after it entered the ``RUNNING`` step. """
 
+    @classmethod
+    def get_for_name(cls, name: str) -> Optional['JobExecStep']:
+        """
+        Parse the given name to its associated enum value, ignoring case and leading/trailing whitespace.
+
+        Parameters
+        ----------
+        name : str
+            The name of the desired enum value.
+
+        Returns
+        -------
+        JobExecStep
+            The associated enum value, or ``None`` if the name could not be parsed to one.
+        """
+        formatted_name = name.strip().upper()
+        for value in cls:
+            if formatted_name == value.name.upper():
+                return value
+        return None
+
     def __hash__(self):
         return self.uid
 
@@ -349,6 +370,27 @@ class JobExecPhase(Enum):
     OUTPUT_EXEC = (3, True, JobExecStep.AWAITING_ALLOCATION)
     CLOSED = (4, False, JobExecStep.COMPLETED)
     UNKNOWN = (-1, False, JobExecStep.DEFAULT)
+
+    @classmethod
+    def get_for_name(cls, name: str) -> Optional['JobExecPhase']:
+        """
+        Parse the given name to its associated enum value, ignoring case and leading/trailing whitespace.
+
+        Parameters
+        ----------
+        name : str
+            The name of the desired enum value.
+
+        Returns
+        -------
+        JobExecPhase
+            The associated enum value, or ``None`` if the name could not be parsed to one.
+        """
+        formatted_name = name.strip().upper()
+        for value in cls:
+            if formatted_name == value.name.upper():
+                return value
+        return None
 
     def __hash__(self):
         return self.uid
