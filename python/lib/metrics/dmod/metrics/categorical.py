@@ -55,7 +55,6 @@ def categorical_metric(
         * upper_bounded: Whether or not there is a upper bound for the metric
         * partially_bounded: Whether or not there is a mutually exclusive upper or lower bound
         * bounded: Whether or not there are any bounds at all
-        * scale_reversed: Whether or not a lower value is preferrable to a higher value
 
     Args:
         minimum: The minimum possible value for the metric
@@ -298,8 +297,8 @@ class TruthTable(object):
         self.__size = len(matches)
 
         # Store evaluated parameters so they don't have to be evaluated multiple times
-        self.__observation_had_activity = len(matches[matches.observation_counts == True]) > 0
-        self.__simulations_had_activity = len(matches[matches.prediction_counts == True]) > 0
+        self.__observation_had_activity = len(matches[matches.observation_counts.notna()]) > 0
+        self.__predictions_had_activity = len(matches[matches.prediction_counts.notna()]) > 0
 
         self.__hits = len(matches[matches.hit == True])
         self.__true_negatives = len(matches[matches.true_negative == True])
@@ -320,7 +319,7 @@ class TruthTable(object):
         self.__general_skill = numpy.nan
 
         # TODO: Change this to be a measure of information density
-        self.__usefull = self.__observation_had_activity or self.__simulations_had_activity
+        self.__usefull = self.__observation_had_activity or self.__predictions_had_activity
 
     @categorical_metric(minimum=0.0)
     def hits(self) -> int:
@@ -363,12 +362,12 @@ class TruthTable(object):
         return self.__observation_had_activity
 
     @property
-    def simulations_had_activity(self) -> bool:
+    def predictions_had_activity(self) -> bool:
         """
         Returns:
             Whether or not any sort of activity in the set of predictions fit within the threshold
         """
-        return self.__simulations_had_activity
+        return self.__predictions_had_activity
 
     @property
     def name(self) -> str:
@@ -378,7 +377,7 @@ class TruthTable(object):
         """
         return self.__name
 
-    @categorical_metric(minimum=0.0, maximum=1.0, ideal=1.0)
+    @categorical_metric(minimum=0.0, maximum=1.0, ideal=1.0, failure=0.0)
     def probability_of_detection(self) -> float:
         """
         Calculates the chances that the predictions fit within the threshold when the observations did
@@ -461,6 +460,9 @@ class TruthTable(object):
         """
         if not numpy.isnan(self.__accuracy):
             return self.__accuracy
+
+        if not (self.observation_had_activity or self.predictions_had_activity):
+            return numpy.nan
 
         top = self.__hits + self.__true_negatives
         bottom = self.__size
@@ -551,16 +553,14 @@ class TruthTable(object):
     @property
     def threshold(self) -> Threshold:
         """
-        Returns:
-            The threshold that determines when something of note happens
+        The threshold that determines when something of note happens
         """
         return self.__threshold
 
     @property
     def weight(self) -> float:
         """
-        Returns:
-            The numerical weight expressing the significance of the table due to the significance of the threshold
+        The numerical weight expressing the significance of the table due to the significance of the threshold
         """
         return self.__threshold.weight
 
@@ -581,6 +581,8 @@ class TruthTable(object):
 
         The table could report an absolutely perfect probability of detection and false alarm ratio, but that doesn't
         tell you much if no data fit within the threshold
+
+        The table is deemed useful if any sort of data was detected within the threshold
 
         Returns:
             Whether or not there was any useful information caught in this table or not
@@ -611,6 +613,23 @@ class TruthTables(object):
             thresholds: typing.Iterable[Threshold],
             weight: float = None,
     ):
+        """
+        Constructor
+
+        NOTE: The weight is relative to other TruthTables and differs from the weights of the thresholds.
+
+        Args:
+            observations: The observations used to form each underlying table
+            predictions: The predicted values used to form each underlying table
+            thresholds: The thresholds used to define what does and does not make a table
+            weight: The relative significance of the data in the table. The value is 1 if none is passed.
+                Must be either None or a positive number
+        """
+        if weight is not None and weight <= 0:
+            raise ValueError(
+                f"If defined, the weight of this truth table must be greater than 0; the passed weight was {weight}"
+            )
+
         self.__tables: typing.Dict[str, TruthTable] = dict()
 
         for threshold in thresholds:
@@ -626,28 +645,70 @@ class TruthTables(object):
             predictions: pandas.Series,
             threshold: Threshold
     ) -> "TruthTables":
+        """
+        Builds a new truth table and adds it to the collection of tables
+
+        Args:
+            observations: The observations to use to act as the truth values for the table
+            predictions: The predicted values used to form the metrics for the table
+            threshold: The threshold used to determine the criteria for what a hit or miss is
+
+        Returns:
+            The updated TruthTables instance
+        """
         table = TruthTable(observations, predictions, threshold)
         return self.add_table(table)
 
     def add_table(self, table: TruthTable) -> "TruthTables":
-        if table.threshold.name in self.__tables:
+        """
+        Adds a new table to the collection.
+
+        The table will be accessible by subscripting and by invoking the name of the table as an attribute
+        on the collection
+
+        For instance:
+            >>> tables.add_table(table)
+            >>> print(table.name)
+            Example
+            >>> print(tables['Example'].name)
+            Example
+            >>> print(tables.Example.name)
+            Example
+
+        NOTE: Only tables with whose name is a valid identifier will be added as an attribute
+
+        Args:
+            table: The truth table to add
+
+        Returns:
+            The updated TruthTables instance
+        """
+        if table.name in self.__tables:
             raise ValueError(
-                f"There is already a truth table named '{table.threshold.name}' in this set of truth tables"
+                f"There is already a truth table named '{table.name}' in this set of truth tables"
             )
 
-        self.__tables[table.threshold.name] = table
+        self.__tables[table.name] = table
 
-        setattr(self, table.name, table)
+        if table.threshold.name.isidentifier():
+            setattr(self, table.name, table)
+
         self.__usefullness = numpy.nan
 
         return self
 
     @property
     def weight(self) -> float:
+        """
+        The relative significance of the set of truth tables
+        """
         return self.__weight
 
     @property
     def hits(self) -> pandas.DataFrame:
+        """
+        A frame depicting the number of hits within each truth table
+        """
         hit_count = [
             {
                 "series_weight": self.__weight,
@@ -662,6 +723,9 @@ class TruthTables(object):
 
     @property
     def misses(self) -> pandas.DataFrame:
+        """
+        A frame depicting the number of misses within each truth table
+        """
         miss_count = [
             {
                 "series_weight": self.__weight,
@@ -676,6 +740,9 @@ class TruthTables(object):
 
     @property
     def false_positives(self) -> pandas.DataFrame:
+        """
+        A frame depicting the number of false positives within each truth table
+        """
         false_positive_count = [
             {
                 "series_weight": self.__weight,
@@ -690,6 +757,9 @@ class TruthTables(object):
 
     @property
     def true_negatives(self) -> pandas.DataFrame:
+        """
+        A frame depicting the number of true negatives within each truth table
+        """
         true_negative_count = [
             {
                 "series_weight": self.__weight,
@@ -704,6 +774,9 @@ class TruthTables(object):
 
     @property
     def probability_of_detection(self) -> pandas.DataFrame:
+        """
+        A frame depicting the probability of detection for each truth table
+        """
         probabilities_of_detection = [
             {
                 "series_weight": self.__weight,
@@ -718,6 +791,9 @@ class TruthTables(object):
 
     @property
     def false_alarm_ratio(self) -> pandas.DataFrame:
+        """
+        A frame depicting the false alarm ratio for each truth table
+        """
         probabilities_of_false_detection = [
             {
                 "series_weight": self.__weight,
@@ -732,6 +808,9 @@ class TruthTables(object):
 
     @property
     def frequency_bias(self) -> pandas.DataFrame:
+        """
+        A frame depicting the frequency for each truth table
+        """
         frequency_biases = [
             {
                 "series_weight": self.__weight,
@@ -746,6 +825,9 @@ class TruthTables(object):
 
     @property
     def accuracy(self) -> pandas.DataFrame:
+        """
+        A frame depicting the accuracy of each truth table
+        """
         accuracies = [
             {
                 "series_weight": self.__weight,
@@ -760,6 +842,9 @@ class TruthTables(object):
 
     @property
     def precision(self) -> pandas.DataFrame:
+        """
+        A frame depicting the precision of each truth table
+        """
         precision_rows = [
             {
                 "series_weight": self.__weight,
@@ -774,6 +859,9 @@ class TruthTables(object):
 
     @property
     def equitable_threat_score(self) -> pandas.DataFrame:
+        """
+        A frame depicting the equitable threat score of each truth table
+        """
         scores = [
             {
                 "series_weight": self.__weight,
@@ -788,6 +876,9 @@ class TruthTables(object):
 
     @property
     def general_skill(self) -> pandas.DataFrame:
+        """
+        A frame depicting the general skill of each truth table
+        """
         skills = [
             {
                 "series_weight": self.__weight,
@@ -802,6 +893,9 @@ class TruthTables(object):
 
     @property
     def metrics(self) -> pandas.DataFrame:
+        """
+        A frame depicting all metrics for all tables
+        """
         metric_data = list()
 
         for table in self.__tables.values():
@@ -820,6 +914,11 @@ class TruthTables(object):
 
     @property
     def usefulness(self) -> float:
+        """
+        The numerical degree to which the set of truth tables bears value
+
+        A table considered valueless if no activity was observed or predicted within it
+        """
         if not numpy.isnan(self.__usefullness):
             return self.__usefullness
 
@@ -832,25 +931,60 @@ class TruthTables(object):
         return self.__usefullness
 
     def keys(self) -> typing.Iterable[str]:
+        """
+        The keys for each contained truth table.
+        """
         return self.__tables.keys()
 
     def values(self) -> typing.Iterable[TruthTable]:
+        """
+        Every contained truth table
+        """
         return self.__tables.values()
 
     def items(self) -> typing.ItemsView[str, TruthTable]:
+        """
+        Returns:
+            An iterable collection of pairs of keys and their tables
+        """
         return self.__tables.items()
 
     def __getitem__(self, key: typing.Union[Threshold, str]) -> TruthTable:
+        """
+        Attempts to retrieve a contained TruthTable by its name or a threshold name
+
+        Args:
+            key: A threshold or its name that should be within the collection
+
+        Returns:
+            The matching TruthTable. A KeyError is thrown if a matching TruthTable is not found
+        """
         if isinstance(key, Threshold):
             key = key.name
 
         return self.__tables[key]
 
     def __len__(self):
+        """
+        Returns:
+            The number of tables
+        """
         return len(self.__tables)
 
     def __iter__(self):
         return self.__tables.__iter__()
 
-    def __contains__(self, key: str) -> bool:
+    def __contains__(self, key: typing.Union[str, Threshold]) -> bool:
+        """
+        Determines whether or not there is a TruthTable present with the matching name or Threshold
+
+        Args:
+            key: The name of the table of interest or a threshold with the same name
+
+        Returns:
+            Whether or not there is a TruthTable present with the matching name or Threshold
+        """
+        if isinstance(key, Threshold):
+            key = key.name
+
         return key in self.__tables
