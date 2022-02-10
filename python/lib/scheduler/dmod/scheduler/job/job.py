@@ -768,6 +768,19 @@ class Job(Serializable, ABC):
 
     @property
     @abstractmethod
+    def should_release_resources(self) -> bool:
+        """
+        Whether the job has entered a state where it is appropriate to release resources.
+
+        Returns
+        -------
+        bool
+            Whether the job has entered a state where it is appropriate to release resources.
+        """
+        pass
+
+    @property
+    @abstractmethod
     def status(self) -> JobStatus:
         """
         The ::class:`JobStatus` of this object.
@@ -1225,6 +1238,21 @@ class JobImpl(Job):
         if key_pair != self._rsa_key_pair:
             self._rsa_key_pair = key_pair
             self._reset_last_updated()
+
+    @property
+    def should_release_resources(self) -> bool:
+        """
+        Whether the job has entered a state where it is appropriate to release resources.
+
+        Returns
+        -------
+        bool
+            Whether the job has entered a state where it is appropriate to release resources.
+        """
+        # TODO: update to account for JobCategory
+        # TODO: confirm that allocations should be maintained for stopped model exec jobs while in output phase
+        # TODO: confirm that allocations should be maintained for stopped output jobs while in eval or calibration phase
+        return self.status_step == JobExecStep.FAILED or self.status_phase == JobExecPhase.CLOSED
 
     @property
     def status(self) -> JobStatus:
