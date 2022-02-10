@@ -437,64 +437,32 @@ class JobExecPhase(Enum):
         return self._uid
 
 
-class JobStatus(Enum):
+class JobStatus(Serializable):
     """
-    Enumerated values for representing possible ::class:`Job` status states.
+    Representation of a ::class:`Job`'s status as a combination of phase and exec step.
     """
-    CREATED = (0, JobExecPhase.INIT, JobExecStep.DEFAULT)
+    _NAME_DELIMITER = ':'
 
-    MODEL_EXEC_AWAITING_ALLOCATION = (1, JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
-    MODEL_EXEC_ALLOCATED = (2, JobExecPhase.MODEL_EXEC, JobExecStep.ALLOCATED)
-    MODEL_EXEC_SCHEDULED = (3, JobExecPhase.MODEL_EXEC, JobExecStep.SCHEDULED)
-    MODEL_EXEC_RUNNING = (4, JobExecPhase.MODEL_EXEC, JobExecStep.RUNNING)
-    # For now, set release_allocations to False for stopped jobs
-    # TODO: confirm that allocations should be maintained for stopped model exec jobs
-    MODEL_EXEC_STOPPED = (5, JobExecPhase.MODEL_EXEC, JobExecStep.STOPPED, False)
-    # For now, set release_allocations to False when model exec is complete (keep allocation for output phase)
-    # TODO: confirm that allocations should be carried over from model exec to output exec phase
-    MODEL_EXEC_COMPLETED = (6, JobExecPhase.MODEL_EXEC, JobExecStep.COMPLETED, False)
-    MODEL_EXEC_FAILED = (-1, JobExecPhase.MODEL_EXEC, JobExecStep.FAILED, True)
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict) -> 'JobStatus':
+        try:
+            cls(phase=JobExecPhase.get_for_name(json_obj['phase']), step=JobExecStep.get_for_name(json_obj['step']))
+        except:
+            return None
 
-    OUTPUT_EXEC_AWAITING_ALLOCATION = (13, JobExecPhase.OUTPUT_EXEC, JobExecStep.AWAITING_ALLOCATION)
-    OUTPUT_EXEC_ALLOCATED = (12, JobExecPhase.OUTPUT_EXEC, JobExecStep.ALLOCATED)
-    OUTPUT_EXEC_SCHEDULED = (11, JobExecPhase.OUTPUT_EXEC, JobExecStep.SCHEDULED)
-    OUTPUT_EXEC_RUNNING = (7, JobExecPhase.OUTPUT_EXEC, JobExecStep.RUNNING)
-    # For now, set release_allocations to False for stopped jobs
-    # TODO: confirm that allocations should be maintained for stopped output exec jobs
-    OUTPUT_EXEC_STOPPED = (8, JobExecPhase.OUTPUT_EXEC, JobExecStep.STOPPED, False)
-    OUTPUT_EXEC_COMPLETED = (9, JobExecPhase.OUTPUT_EXEC, JobExecStep.COMPLETED, True)
-    OUTPUT_EXEC_FAILED = (-2, JobExecPhase.OUTPUT_EXEC, JobExecStep.FAILED, True)
-
-    CLOSED = (10, JobExecPhase.CLOSED, JobExecStep.COMPLETED, True)
-    CLOSED_FAILURE = (-3, JobExecPhase.CLOSED, JobExecStep.FAILED, True)
-
-    # TODO: think through whether it is more appropriate to mark allocations to be release from jobs in unknown status
-    UNKNOWN = (-10, JobExecPhase.UNKNOWN, JobExecStep.DEFAULT)
-
-    @staticmethod
-    def get_active_statuses() -> List['JobStatus']:
+    @classmethod
+    def get_for_name(cls, name: str) -> 'JobStatus':
         """
-        Return a list of the "active" job status values that indicate a job still needs some action taken or completed.
+        Init a status object from the given name, constructed by combining the names of a phase and exec step value.
 
-        Returns
-        -------
-        List[JobStatus]
-            A list of the "active" job status values that indicate a job still needs some action taken or completed.
-        """
-        actives = []
-        for value in JobStatus:
-            if value.is_active:
-                actives.append(value)
-        return actives
+        Method parses the provided ``name`` into two substrings, expected to be the name of the ::class:`JobExecPhase`
+        and ::class:`JobExecStep` that compose the desired status object.  It then initializes the phase and step
+        objects from those names, and in turn uses them to initialize and return a status object.
 
-    @staticmethod
-    def get_for_name(name: str) -> 'JobStatus':
-        """
-        Get the status enum value corresponding to the given name string, or ``UNKNOWN`` if the name string is not
-        recognized.
+        The expected pattern for parsing is ``\w*<phase_name>::attribute:`_NAME_DELIMITER`<exec_step_name>\w*``.
 
-        Note that any leading and/or trailing whitespace is trimmed before testing against enum values.  Also, testing
-        is performed in a case-insensitive manner.
+        Any leading and/or trailing whitespace is trimmed from the provided ``name``.  Also, testing of names for phase
+        and step is performed in a case-insensitive manner.
 
         Parameters
         ----------
@@ -504,46 +472,58 @@ class JobStatus(Enum):
         Returns
         -------
         JobStatus
-            The status enum value corresponding to the given name string, or ``UNKNOWN`` when not recognized.
+            The status instance generated from the parsed phase and step, or ``UNKNOWN``.
         """
-        if name is None or not isinstance(name, str) or len(name) == 0:
-            return JobStatus.UNKNOWN
-        formatted_name = name.lower().strip()
-        for value in JobStatus:
-            if formatted_name == value.name.lower().strip():
-                return value
-        return JobStatus.UNKNOWN
+        if not isinstance(name, str) or len(name) == 0:
+            return JobStatus(JobExecPhase.UNKNOWN, JobExecStep.DEFAULT)
 
-    @staticmethod
-    def get_for_phase_and_step(phase: JobExecPhase, step: JobExecStep) -> 'JobStatus':
-        try:
-            for value in JobStatus:
-                if value.job_exec_phase == phase and value.job_exec_step == step:
-                    return value
-        except:
-            pass
-        return JobStatus.UNKNOWN
+        parsed_list = name.split(cls._NAME_DELIMITER)
+        if len(parsed_list) != 2:
+            return JobStatus(JobExecPhase.UNKNOWN, JobExecStep.DEFAULT)
+
+        return JobStatus(phase=JobExecPhase.get_for_name(parsed_list[0]),
+                         step=JobExecStep.get_for_name(parsed_list[1]))
 
     def __eq__(self, other):
         if isinstance(other, JobStatus):
-            return self.uid == other.uid
-        elif isinstance(other, int):
-            return self.uid == other
-        elif isinstance(other, float) and other.is_integer():
-            return self.uid == int(other)
-        elif isinstance(other, str):
-            return self == self.get_for_name(other)
+            return self.job_exec_phase == other.job_exec_phase and self.job_exec_step == other.job_exec_step
         else:
             return False
 
     def __hash__(self):
-        return self.uid
+        return hash(self.name)
 
-    def __init__(self, uid: int, phase: JobExecPhase, step: JobExecStep, should_release_allocations: bool = False):
-        self._uid = uid
-        self._phase = phase
-        self._step = step
-        self._release_allocations = should_release_allocations
+    def __init__(self, phase: Optional[JobExecPhase], step: Optional[JobExecStep] = None):
+        self._phase = JobExecPhase.UNKNOWN if phase is None else phase
+        if step is not None:
+            self._step = step
+        elif self._phase is not None:
+            self._step = self._phase.default_start_step
+        else:
+            self._step = JobExecStep.DEFAULT
+
+    def get_for_new_step(self, step: JobExecStep) -> 'JobStatus':
+        """
+        Return a (typically) new status object representing a change to this step but the same phase.
+
+        Return a status object representing the same phase of this instance but the provided step.  Typically, this will
+        be a newly initialized object.  However, in the case when the given step is equal to this instance's step, the
+        method will return this instance, rather than create a duplicate.
+
+        Parameters
+        ----------
+        step : JobExecStep
+            The step for which an updated status object is needed.
+
+        Returns
+        -------
+        JobStatus
+            Status object with this instance's phase and the provided step.
+        """
+        if self.job_exec_step == step:
+            return self
+        else:
+            return JobStatus(phase=self.job_exec_phase, step=step)
 
     @property
     def is_active(self) -> bool:
@@ -566,20 +546,14 @@ class JobStatus(Enum):
         return self._step
 
     @property
-    def should_release_allocations(self) -> bool:
-        """
-        Whether this status is one at which any held resource allocations should be released.
+    def name(self) -> str:
+        return self.job_exec_phase.name + self._NAME_DELIMITER + self.job_exec_step.name
 
-        Returns
-        -------
-        bool
-            Whether this status is one at which any held resource allocations should be released.
-        """
-        return self._release_allocations
-
-    @property
-    def uid(self) -> int:
-        return self._uid
+    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
+        serial = dict()
+        serial['phase'] = self.job_exec_phase.name
+        serial['step'] = self.job_exec_step.name
+        return serial
 
 
 class Job(Serializable, ABC):
@@ -1092,7 +1066,7 @@ class JobImpl(Job):
         self._allocation_priority = alloc_priority
         self._job_uuid = uuid_func()
         self._rsa_key_pair = None
-        self._status = JobStatus.CREATED
+        self._status = JobStatus(JobExecPhase.INIT)
         self._allocations = None
         self._allocation_service_names = None
         self._reset_last_updated()
@@ -1268,7 +1242,7 @@ class JobImpl(Job):
 
     @status_phase.setter
     def status_phase(self, phase: JobExecPhase):
-        self.status = JobStatus.get_for_phase_and_step(phase=phase, step=phase.default_start_step)
+        self.status = JobStatus(phase=phase, step=phase.default_start_step)
 
     @property
     def status_step(self) -> JobExecStep:
@@ -1276,7 +1250,7 @@ class JobImpl(Job):
 
     @status_step.setter
     def status_step(self, step: JobExecStep):
-        self.status = JobStatus.get_for_phase_and_step(phase=self.status.job_exec_phase, step=step)
+        self.status = JobStatus(phase=self.status.job_exec_phase, step=step)
 
     def to_dict(self) -> dict:
         """
