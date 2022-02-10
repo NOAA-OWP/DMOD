@@ -266,15 +266,35 @@ class JobAllocationParadigm(Enum):
 class JobExecStep(Enum):
     """
     A component of a JobStatus, representing the particular step within a "phase" encoded within the current status.
+
+    Attributes of assigned tuple correspond to the ::atribute:`uid`, ::attribute:`is_interrupted`, and
+    ::attribute:`is_error` properties respectively.
     """
+    # TODO: come back and add another property for workflow ordering, separate from uid
     DEFAULT = (0, False, False)
+    """ The default starting step. """
+    CHECKING_DATA = (7, False, False)
+    """ The step during which a check is performed to make sure required data is directly or implicitly available. """
+    DATA_UNPROVIDEABLE = (-2, True, True)
+    """ The error step that occurs if/when it is determined that required data is missing and cannot be obtained. """
     AWAITING_ALLOCATION = (1, False, False)
+    """ The step after data is confirmed as available or obtainable, before resources have been allocated. """
+    AWAITING_DATA = (8, False, False)
+    """ The step after job is allocated, when any necessary acquiring/processing/preprocessing of data is performed. """
+    DATA_FAILURE = (-3, True, True)
+    """ The step after unexpected error in obtaining or deriving required data that earlier was deemed provideable. """
     ALLOCATED = (2, False, False)
+    """ The step after a job has resources allocated and all required data is ready and available. """
     SCHEDULED = (3, False, False)
+    """ The step after a job has been scheduled. """
     RUNNING = (4, False, False)
+    """ The step after a scheduled job has started running. """
     STOPPED = (5, True, False)
+    """ The step that occurs if a running job is stopped deliberately. """
     COMPLETED = (6, False, False)
+    """ The step after a running job is finished. """
     FAILED = (-1, True, True)
+    """ The step indicating failure happened that stopped a job after it entered the ``RUNNING`` step. """
 
     def __hash__(self):
         return self.uid
@@ -286,10 +306,28 @@ class JobExecStep(Enum):
 
     @property
     def is_error(self) -> bool:
+        """
+        Whether this step reflects that some error has occurred.
+
+        Returns
+        -------
+        bool
+            Whether this step reflects that some error has occurred.
+        """
         return self._is_error
 
     @property
     def is_interrupted(self) -> bool:
+        """
+        Whether this step reflects that the normal flow of execution was interrupted.
+
+        Note that an interruption may be due to either a deliberate action or some error occurring, which is why this
+        must be separated from ::attribute:`is_error`.
+
+        Returns
+        -------
+
+        """
         return self._is_interrupted
 
     @property
@@ -302,7 +340,12 @@ class JobExecPhase(Enum):
     A component of a JobStatus, representing the high level transition stage at which a status exists.
     """
     INIT = (1, True, JobExecStep.DEFAULT)
-    MODEL_EXEC = (2, True, JobExecStep.AWAITING_ALLOCATION)
+    MODEL_EXEC = (2, True, JobExecStep.CHECKING_DATA)
+    # TODO: this one may no longer be appropriate, depending on how we do output (may need to be an exec step instead)
+    # TODO: alternatively for certain job categories, perhaps this is when, e.g., evaluation is done
+        # TODO: in that alternative, perhaps jobs of certain categories return to the exec phase (e.g, calibration)
+        # TODO: this may or may not also required a different initial step (i.e., not awaiting allocation) and adjusting
+        #  logic for when resources are released
     OUTPUT_EXEC = (3, True, JobExecStep.AWAITING_ALLOCATION)
     CLOSED = (4, False, JobExecStep.COMPLETED)
     UNKNOWN = (-1, False, JobExecStep.DEFAULT)
