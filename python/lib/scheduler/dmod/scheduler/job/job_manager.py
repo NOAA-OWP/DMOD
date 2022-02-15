@@ -636,7 +636,7 @@ class RedisBackedJobManager(JobManager, RedisBacked):
             TODO rename this function, by the time we get here, we are already scheduled, just need to run
         """
         # TODO: make sure there aren't other cases
-        if job.status_step == JobExecStep.ALLOCATED:
+        if job.status_step == JobExecStep.AWAITING_SCHEDULING:
             try: #If we don't catch excpetions from the launcher, they get handled "somewhere" that causes the
                  #connection to close, but no useful information is provided, so handle them here.
                 return self._launcher.start_job(job)
