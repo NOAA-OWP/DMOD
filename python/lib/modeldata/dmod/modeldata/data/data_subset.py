@@ -5,7 +5,7 @@ from typing import Collection, Optional, Sequence, Tuple
 from ..subset import SimpleHydrofabricSubset
 
 
-class AbstractDataSubset(ABC, SimpleHydrofabricSubset):
+class AbstractDataSubset(SimpleHydrofabricSubset, ABC):
     """
     Extension of ::class:`HydrofabricSubset` that also encapsulates the applicable data.
     """
@@ -43,8 +43,8 @@ class AbstractDataSubset(ABC, SimpleHydrofabricSubset):
     def range_start(self) -> datetime:
         return self._range_start
 
-    @abstractmethod
     @property
+    @abstractmethod
     def storage_size(self) -> int:
         """
         Get the size of the backing data files for this data subset, if such files exist.
