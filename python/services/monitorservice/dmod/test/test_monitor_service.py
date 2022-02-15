@@ -105,7 +105,7 @@ class TestMonitorService(unittest.TestCase):
         self._connect_metadata_examples.append('{"purpose": "CONNECT", "additional_metadata": true}')
 
         self._jobs[0].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
-        self._jobs[1].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.ALLOCATED)
+        self._jobs[1].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_SCHEDULING)
         self._jobs[2].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.SCHEDULED)
 
         self._services.append(MockMonitorService(MockMonitor(monitored_jobs=self._jobs)))
@@ -114,7 +114,7 @@ class TestMonitorService(unittest.TestCase):
         for j in self._jobs:
             self._original_statuses.append(j.status)
 
-        self._jobs[0].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.ALLOCATED)
+        self._jobs[0].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_SCHEDULING)
         self._jobs[1].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.SCHEDULED)
         self._jobs[2].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.RUNNING)
 
