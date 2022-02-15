@@ -4,9 +4,9 @@ from numbers import Number
 
 from dmod.communication import MaaSRequest, ModelExecRequest, SchedulerRequestMessage
 from dmod.communication.serializeable import Serializable
+from dmod.modeldata.data import DataRequirement
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING, Union
-from uri import URI
 from uuid import UUID
 from uuid import uuid4 as uuid_func
 
@@ -16,181 +16,6 @@ if TYPE_CHECKING:
     from .. import RsaKeyPair
 
 import logging
-
-
-class WorkerDataRequirement(Serializable):
-    """
-    A definition of a particular data requirement for a job worker.
-
-    This encapsulates, from the perspective of a task worker (e.g., a Docker container allocated for a Job), the means
-    to access data outside the worker, where the data from that source will be accessible to/within the worker, and a
-    few additional pieces of metadata.  The intent is to provide a way to describe worker external data needs, both for
-    input data a worker must consume, and for non-temporary storage of produced worker output.
-
-    The ::attribute:`requires_transformation` property indicates whether there is data at the optional
-    ::attribute:`raw_source_uri` that needs to be transformed or filtered in some manner.  When this is the case, the
-    expectation is that some external service will perform the necessary transformation/filtering and place the result
-    into ::attribute:`source_uri` for a worker to then use.
-
-    The optional ::attribute:`additional_params` property can also be used to contain more complex, dynamic details on
-    requirements for data, including any pertinent to transformation/filtering.
-    """
-
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict) -> Optional['WorkerDataRequirement']:
-        """
-        Deserialize the given JSON to a ::class:`WorkerDataRequirement` instance, or return ``None`` if it is not valid.
-
-        Parameters
-        ----------
-        json_obj : dict
-            The JSON to be deserialized.
-
-        Returns
-        -------
-        Optional[WorkerDataRequirement]
-            A deserialized ::class:`WorkerDataRequirement` instance, or return ``None`` if the JSON is not valid.
-        """
-        try:
-            return cls(source_uri=URI(json_obj['source_uri']),
-                       worker_path=json_obj['worker_path'],
-                       is_directory=json_obj['is_directory'],
-                       is_input=json_obj['is_input'],
-                       size=json_obj['size'] if 'size' in json_obj else None,
-                       raw_source_uri=URI(json_obj['raw_source_uri']) if 'raw_source_uri' in json_obj else None,
-                       additional_params=json_obj['additional_params'] if 'additional_params' in json_obj else None)
-        except:
-            return None
-
-    def __init__(self, source_uri: URI, worker_path: str, is_directory: bool, is_input: bool, size: Optional[int],
-                 raw_source_uri: Optional[URI] = None, additional_params: Optional[dict] = None):
-        self._source_uri = source_uri
-        self._worker_path = worker_path
-        self._is_directory = is_directory
-        self._is_input = is_input
-        self._size = size
-        self._raw_source_uri = raw_source_uri
-        self._additional_params = additional_params
-
-    @property
-    def additional_params(self) -> Optional[Dict[str, Union[str, Number, bool, dict, list]]]:
-        """
-        Additional dynamic parameters describing the requirements for this data, if any.
-
-        It is expected that, when present, this dictionary follow the same typing rules as the serialized dictionaries
-        for all ::class:`Serializable` objects.
-
-        Returns
-        -------
-        Optional[Dict[str, Union[str, Number, dict, list]]]
-            Additional dynamic parameters describing the requirements for this data, if any.
-        """
-        return self._additional_params
-
-    @property
-    def is_directory(self) -> bool:
-        """
-        Whether this represents a directory or required data, as opposed to an individual file.
-
-        Returns
-        -------
-        bool
-            Whether this represents a directory or required data, as opposed to an individual file.
-        """
-        return self._is_directory
-
-    @property
-    def is_input(self) -> bool:
-        """
-        Whether this represents required input data, as opposed to required location to store output data.
-
-        Returns
-        -------
-        bool
-            Whether this represents required input data.
-        """
-        return self._is_input
-
-    @property
-    def raw_source_uri(self) -> Optional[URI]:
-        """
-        A "raw" source data URI, for when data transformation is needed.
-
-        Returns
-        -------
-        Optional[URI]
-            A "raw" source data URI, for when data transformation is needed.
-        """
-        return self._raw_source_uri
-
-    @property
-    def requires_transformation(self) -> bool:
-        """
-        Whether some kind of transformation is/was needed to make data available at the referenced source.
-
-        Indicates whether there is data at the optional ::attribute:`raw_source_uri` that must be transformed or
-        filtered in some manner in order to yield the required data this instance references.  When this is the case,
-        the expectation is that some external service will perform the necessary transformation/filtering and place the
-        result into ::attribute:`source_uri` for a worker to then use.
-
-        Returns
-        -------
-        bool
-            Whether some kind of transformation is/was needed to make data available at the referenced source.
-        """
-        return self.raw_source_uri is not None
-
-    @property
-    def size(self) -> Optional[int]:
-        """
-        The size of the required data, if it is known.
-
-        Returns
-        -------
-        Optional[int]
-            he size of the required data, if it is known, or ``None`` otherwise.
-        """
-        return self._size
-
-    @property
-    def source_uri(self) -> URI:
-        """
-        A ::class:`URI` object defining the source for this required data.
-
-        Returns
-        -------
-        URI
-            The source identifier for this required data.
-        """
-        return self._source_uri
-
-    @property
-    def worker_path(self) -> str:
-        """
-        The path on a job worker's filesystem at which to expect to find this required data.
-
-        Returns
-        -------
-        str
-            The path on a job worker's filesystem at which to expect to find this required data.
-        """
-        return self._worker_path
-
-    def to_dict(self) -> Dict[str, Union[str, Number, bool, dict, list]]:
-        serial = dict()
-        serial['source_uri'] = str(self.source_uri)
-        serial['worker_path'] = self.worker_path
-        # TODO: might need to fix support for bool type in Dict hinting in communication package
-        serial['is_directory'] = self.is_directory
-        serial['is_input'] = self.is_input
-        if self.size is not None:
-            serial['size'] = self.size
-        if self.requires_transformation:
-            serial['raw_source_uri'] = str(self.raw_source_uri)
-        if self.additional_params is not None:
-            serial['additional_params'] = self.additional_params
-
-        return serial
 
 
 class JobAllocationParadigm(Enum):
@@ -704,6 +529,24 @@ class Job(Serializable, ABC):
 
     @property
     @abstractmethod
+    def data_requirements(self) -> List[DataRequirement]:
+        """
+        List of ::class:`DataRequirement` objects representing all data needed for the job.
+
+        Returns
+        -------
+        List[DataRequirement]
+            List of ::class:`DataRequirement` objects representing all data needed for the job.
+        """
+        pass
+
+    @data_requirements.setter
+    @abstractmethod
+    def data_requirements(self, data_requirements: List[DataRequirement]):
+        pass
+
+    @property
+    @abstractmethod
     def job_id(self):
         """
         The unique identifier for this particular job.
@@ -831,6 +674,19 @@ class Job(Serializable, ABC):
     def status_step(self, step: JobExecStep):
         pass
 
+    @property
+    @abstractmethod
+    def worker_data_requirements(self) -> List[List[DataRequirement]]:
+        """
+        List of lists of per-worker data requirements, indexed analogously to worker allocations.
+
+        Returns
+        -------
+        List[List[DataRequirement]]
+            List (indexed analogously to worker allocations) of lists of per-worker data requirements.
+        """
+        pass
+
 
 class JobImpl(Job):
     """
@@ -872,6 +728,29 @@ class JobImpl(Job):
                         str(allocation), cls.__name__))
             allocations.append(allocation)
         return allocations
+
+    @classmethod
+    def _parse_serialized_data_requirements(cls, json_obj: dict, key: Optional[str] = None):
+        if key is None:
+            key = 'data_requirements'
+
+        if key not in json_obj:
+            return None
+
+        serial_list = json_obj[key]
+        if not isinstance(serial_list, list):
+            raise RuntimeError("Invalid format for data requirements list value '{}'".format(str(serial_list)))
+        data_req_list = []
+        for serial_data_req in serial_list:
+            if not isinstance(serial_data_req, dict):
+                raise RuntimeError("Invalid format for data requirements value '{}'".format(str(serial_list)))
+            data_req = DataRequirement.factory_init_from_deserialized_json(serial_data_req)
+            if not isinstance(data_req, DataRequirement):
+                raise RuntimeError(
+                    "Unable to deserialize `{}` to data requirements while deserializing {}".format(
+                        str(data_req), cls.__name__))
+            data_req_list.append(data_req)
+        return data_req_list
 
     @classmethod
     def _parse_serialized_job_status(cls, json_obj: dict, key: Optional[str] = None):
@@ -989,7 +868,8 @@ class JobImpl(Job):
                 obj._last_updated = updated
             if allocations is not None:
                 obj.allocations = allocations
-                
+                obj.data_requirements = cls._parse_serialized_data_requirements(json_obj)
+
             return obj
 
         except RuntimeError as e:
@@ -1081,8 +961,24 @@ class JobImpl(Job):
         self._rsa_key_pair = None
         self._status = JobStatus(JobExecPhase.INIT)
         self._allocations = None
+        self._data_requirements = None
+        self._worker_data_requirements = None
         self._allocation_service_names = None
         self._reset_last_updated()
+
+
+    def _process_per_worker_data_requirements(self) -> List[List[DataRequirement]]:
+        """
+        Process the "global" data requirements to per-worker requirements, in the context of allocated resources.
+
+        Returns
+        -------
+        List[List[DataRequirement]]
+            List (indexed analogously to worker allocations) of lists of per-worker data requirements.
+        """
+        # TODO: implement properly
+        raise RuntimeError("Logic to process job data requirements to per-worker requirements not yet implemented")
+
 
     def _reset_last_updated(self):
         self._last_updated = datetime.now()
@@ -1184,6 +1080,27 @@ class JobImpl(Job):
         return self._cpu_count
 
     @property
+    def data_requirements(self) -> List[DataRequirement]:
+        """
+        List of ::class:`DataRequirement` objects representing all data needed for the job.
+
+        Returns
+        -------
+        List[DataRequirement]
+            List of ::class:`DataRequirement` objects representing all data needed for the job.
+        """
+        if self._data_requirements is None:
+            self._data_requirements = []
+        return self._data_requirements
+
+    @data_requirements.setter
+    def data_requirements(self, data_requirements: List[DataRequirement]):
+        # Make sure to reset worker data requirements if this is changed
+        self._worker_data_requirements = None
+        self._data_requirements = data_requirements
+        self._reset_last_updated()
+
+    @property
     def job_id(self) -> Optional[str]:
         """
         The unique job id for this job in the manager, if one has been set for it, or ``None``.
@@ -1280,6 +1197,20 @@ class JobImpl(Job):
     def status_step(self, step: JobExecStep):
         self.status = JobStatus(phase=self.status.job_exec_phase, step=step)
 
+    @property
+    def worker_data_requirements(self) -> List[List[DataRequirement]]:
+        """
+        List of lists of per-worker data requirements, indexed analogously to worker allocations.
+
+        Returns
+        -------
+        List[List[DataRequirement]]
+            List (indexed analogously to worker allocations) of lists of per-worker data requirements.
+        """
+        if self._worker_data_requirements is None and len(self.data_requirements) > 0 and self.allocations is not None:
+            self._worker_data_requirements = self._process_per_worker_data_requirements()
+        return self._worker_data_requirements
+
     def to_dict(self) -> dict:
         """
         Get the representation of this instance as a dictionary or dictionary-like object (e.g., a JSON object).
@@ -1295,7 +1226,8 @@ class JobImpl(Job):
             "rsa_key_pair" : {<serialized_representation_of_RsaKeyPair_obj>},
             "status" : INIT:DEFAULT,
             "last_updated" : "2020-07-10 12:05:45",
-            "allocations" : [...]
+            "allocations" : [...],
+            'data_requirements" : [...]
         }
 
         Returns
@@ -1329,7 +1261,10 @@ class JobImpl(Job):
         if self.allocations is not None and len(self.allocations) > 0:
             serial['allocations'] = []
             for allocation in self.allocations:
-                serial['allocations'].append(ResourceAllocation.to_dict(allocation))
+                serial['allocations'].append(allocation.to_dict())
+            serial['data_requirements'] = []
+            for dr in self.data_requirements:
+                serial['data_requirements'].append(dr.to_dict())
 
         return serial
 
@@ -1386,6 +1321,7 @@ class RequestedJob(JobImpl):
         new_obj._rsa_key_pair = rsa_key_pair
         new_obj._status = status
         new_obj._allocations = allocations
+        new_obj.data_requirements = cls._parse_serialized_data_requirements(json_obj)
 
         # Do last_updated last, as any usage of setters above might cause the value to be maladjusted
         new_obj._last_updated = updated
@@ -1437,6 +1373,7 @@ class RequestedJob(JobImpl):
             "status" : INIT:DEFAULT,
             "last_updated" : "2020-07-10 12:05:45",
             "allocations" : [...],
+            'data_requirements" : [...],
             "originating_request" : {<serialized_representation_of_originating_message>}
         }
 
