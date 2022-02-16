@@ -39,6 +39,24 @@ def _handle_args():
                         help='Set the ssl directory for scheduler certs, if not the same as for the request handler',
                         dest='scheduler_ssl_dir',
                         default='3013')
+    parser.add_argument('--pycharm-remote-debug',
+                        help='Activate Pycharm remote debugging support',
+                        dest='pycharm_debug',
+                        action='store_true')
+    parser.add_argument('--pycharm-remote-debug-egg',
+                        help='Set path to .egg file for Python remote debugger util',
+                        dest='remote_debug_egg_path',
+                        default='/pydevd-pycharm.egg')
+    parser.add_argument('--remote-debug-host',
+                        help='Set remote debug host to connect back to debugger',
+                        dest='remote_debug_host',
+                        default='host.docker.internal')
+    parser.add_argument('--remote-debug-port',
+                        help='Set remote debug port to connect back to debugger',
+                        dest='remote_debug_port',
+                        type=int,
+                        default=55870)
+
     parser.prog = package_name
     return parser.parse_args()
 
@@ -56,6 +74,18 @@ def _sanity_check_path_arg(path_as_str, is_directory=False):
 
 def main():
     args = _handle_args()
+
+    if args.pycharm_debug:
+        if args.remote_debug_egg_path == '':
+            print('Error: set to debug with Pycharm, but no path to remote debugger egg file provided')
+            exit(1)
+        if not Path(args.remote_debug_egg_path).exists():
+            print('Error: no file at given path to remote debugger egg file "{}"'.format(args.remote_debug_egg_path))
+            exit(1)
+        import sys
+        sys.path.append(args.remote_debug_egg_path)
+        import pydevd_pycharm
+        pydevd_pycharm.settrace(args.remote_debug_host, port=args.remote_debug_port, stdoutToServer=True, stderrToServer=True)
 
     # Sanity check any provided path arguments
     if args.ssl_dir is not None and not _sanity_check_path_arg(args.ssl_dir, is_directory=True):
