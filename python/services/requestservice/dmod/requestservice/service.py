@@ -9,8 +9,8 @@ import websockets
 from websockets import WebSocketServerProtocol
 
 from dmod.access import DummyAuthUtil, RedisBackendSessionManager
-from dmod.communication import Response, InvalidMessageResponse, MessageEventType, \
-    WebSocketInterface, WebSocketSessionsInterface, SchedulerClient
+from dmod.communication import InvalidMessageResponse, MessageEventType, WebSocketSessionsInterface, SchedulerClient, \
+    UnsupportedMessageTypeResponse
 from dmod.externalrequests import AuthHandler, NWMRequestHandler
 
 logging.basicConfig(
@@ -18,18 +18,6 @@ logging.basicConfig(
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
     datefmt="%H:%M:%S"
 )
-
-
-class UnsupportedMessageTypeResponse(Response):
-
-    def __init__(self, actual_event_type: MessageEventType, listener_type: Type[WebSocketInterface],
-                 message: str = None, data=None):
-        if message is None:
-            message = 'The {} event type is not supported by this {} listener'.format(
-                actual_event_type, listener_type.__name__)
-        super().__init__(success=False, reason='Message Event Type Unsupported', message=message, data=data)
-        self.actual_event_type = actual_event_type
-        self.listener_type = listener_type
 
 
 class RequestService(WebSocketSessionsInterface):
