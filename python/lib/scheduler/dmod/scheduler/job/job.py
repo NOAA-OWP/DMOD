@@ -108,7 +108,7 @@ class JobExecStep(Enum):
     """ The step after job is allocated, when any necessary acquiring/processing/preprocessing of data is performed. """
     DATA_FAILURE = (-3, True, True)
     """ The step after unexpected error in obtaining or deriving required data that earlier was deemed provideable. """
-    ALLOCATED = (2, False, False)
+    AWAITING_SCHEDULING = (2, False, False)
     """ The step after a job has resources allocated and all required data is ready and available. """
     SCHEDULED = (3, False, False)
     """ The step after a job has been scheduled. """
