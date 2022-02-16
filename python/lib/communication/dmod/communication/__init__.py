@@ -13,5 +13,6 @@ from .session import Session, FullAuthSession, SessionInitMessage, SessionInitRe
 from .validator import SessionInitMessageJsonValidator, NWMRequestJsonValidator, MessageJsonValidator
 from .update_message import UpdateMessage, UpdateMessageResponse
 from .websocket_interface import EchoHandler, NoOpHandler, WebSocketInterface, WebSocketSessionsInterface
+from .unsupported_message import UnsupportedMessageTypeResponse
 
 name = 'communication'
