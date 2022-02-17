@@ -21,15 +21,7 @@ OBSERVATION_DATA_PATH = os.path.join(TEST_DIRECTORY, "observations.csv")
 def get_thresholds() -> typing.List[metrics.Threshold]:
     thresholds: typing.List[metrics.Threshold] = list()
 
-    thresholds.append(
-        metrics.Threshold(
-            name="All",
-            value=0,
-            weight=1,
-            observed_value_key=OBSERVATION_VALUE_KEY,
-            predicted_value_key=MODEL_VALUE_KEY
-        )
-    )
+    thresholds.append(metrics.Threshold.default())
 
     thresholds.append(
         metrics.Threshold(

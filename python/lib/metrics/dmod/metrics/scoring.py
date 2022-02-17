@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 import typing
-import math
 import abc
 from collections import defaultdict
+from collections import abc as abstract_collections
 
 from math import inf as infinity
 
@@ -25,7 +25,50 @@ FRAME_FILTER = typing.Callable[[pandas.DataFrame], pandas.DataFrame]
 EPSILON = 0.0001
 
 
-class Metric(abc.ABC):
+def scale_value(metric: "Metric", raw_value: NUMBER) -> NUMBER:
+    if numpy.isnan(raw_value):
+        return numpy.nan
+
+    rise = 0
+    run = 1
+
+    if metric.has_ideal_value and metric.bounded:
+        if metric.ideal_value == metric.lower_bound:
+            # Lower should be higher and the max scale factor is 1.0 and the minimum is 0.0
+            rise = -1
+            run = metric.upper_bound - metric.lower_bound
+        elif metric.ideal_value == metric.upper_bound:
+            # lower should stay lower, meaning that the the scale should move from 0 to 1
+            rise = 1
+            run = metric.upper_bound - metric.lower_bound
+        elif metric.lower_bound < metric.ideal_value < metric.upper_bound and raw_value <= metric.ideal_value:
+            rise = 1
+            run = metric.ideal_value - metric.lower_bound
+        elif metric.lower_bound < metric.ideal_value < metric.upper_bound and raw_value > metric.ideal_value:
+            rise = -1
+            run = metric.upper_bound - metric.ideal_value
+
+    slope = rise / run
+    y_intercept = 1 - (slope * metric.ideal_value)
+    scaled_value = slope * raw_value + y_intercept
+
+    if metric.has_upper_bound:
+        scaled_value = min(scaled_value, metric.upper_bound)
+
+    if metric.has_lower_bound:
+        scaled_value = max(scaled_value, metric.lower_bound)
+
+    return scaled_value
+
+
+class Metric(
+    abc.ABC,
+    typing.Callable[[pandas.DataFrame, str, str, typing.Optional[typing.Sequence[Threshold]], ARGS, KWARGS], "Scores"]
+):
+    """
+    A functional that may be called to evaluate metrics based around thresholds, providing access to attributes
+    such as its name and bounds
+    """
     def __init__(
             self,
             weight: NUMBER,
@@ -35,32 +78,104 @@ class Metric(abc.ABC):
             failure: NUMBER = None,
             greater_is_better: bool = True
     ):
-        self.__lower_bound = lower_bound
-        self.__upper_bound = upper_bound
-        self.__ideal_value = ideal_value
+        """
+        Constructor
+
+        Args:
+            weight: The relative, numeric significance of the metric itself
+            lower_bound: The lowest acknowledged value - this doesn't necessarily need to be the lower bound of the statistical function
+            upper_bound: The highest acknowledged value - this doesn't necessarily need to be the upper bound of the statistical function
+            ideal_value: The value deemed to be perfect for the metric
+            failure: A value indicating a complete failure for the metric, triggering a failure among all accompanying metrics
+            greater_is_better: Whether or not a higher value is perferred over a lower value
+        """
+        if weight is None or not (isinstance(weight, int) or isinstance(weight, float)) or numpy.isnan(weight):
+            raise ValueError("Weight must be supplied and must be numeric")
+
+        self.__lower_bound = lower_bound if lower_bound is not None else -infinity
+        self.__upper_bound = upper_bound if upper_bound is not None else infinity
+        self.__ideal_value = ideal_value if ideal_value is not None else numpy.nan
         self.__weight = weight
-        self.__greater_is_better = greater_is_better
+        self.__greater_is_better = greater_is_better if greater_is_better is not None else True
         self.__failure = failure
 
-    @property
+    @classmethod
     @abc.abstractmethod
-    def name(self) -> str:
+    def get_descriptions(cls):
+        """
+        Returns:
+            A description of how the metric works and how it's supposed be be interpreted
+        """
         pass
 
     @property
+    def name(self) -> str:
+        """
+        Returns:
+            The name of the metric
+        """
+        return self.get_name()
+
+    @property
     def fails_on(self) -> NUMBER:
+        """
+        Returns:
+            The value that might trigger a failing evaluation
+        """
         return self.__failure
 
     @property
     def weight(self) -> NUMBER:
+        """
+        Returns:
+            The relative numeric significance of the metric
+        """
         return self.__weight
 
     @property
     def ideal_value(self) -> NUMBER:
+        """
+        Returns:
+            The perfect value
+        """
         return self.__ideal_value
 
     @property
+    def lower_bound(self) -> NUMBER:
+        """
+        The lowest possible value to consider when scaling the result
+
+        NOTE: While the lower and upper bound generally correspond to the upper and lower bound of the metric,
+              the lower bound on this corresponds to the lowers number that has any affect on the scaling process.
+              For instance, a metric might have a bounds of [-1, 1], but we only want to consider [0, 1] for scoring
+              purposes, where anything under 0 is translated as 0
+
+        Returns:
+            The lowest value to consider when scaling
+        """
+        return self.__lower_bound
+
+    @property
+    def upper_bound(self) -> NUMBER:
+        """
+        The highest possible value to consider when scaling the result
+
+        NOTE: While the lower and upper bound generally correspond to the upper and lower bound of the metric,
+              the lower bound on this corresponds to the lowers number that has any affect on the scaling process.
+              For instance, a metric might have a bounds of [-1, 1], but we only want to consider [0, 1] for scoring
+              purposes, where anything under 0 is translated as 0
+
+        Returns:
+            The highest value to consider when scaling
+        """
+        return self.__upper_bound
+
+    @property
     def greater_is_better(self) -> bool:
+        """
+        Returns:
+            Whether or not a greater value is considered better
+        """
         return self.__greater_is_better
 
     @property
@@ -89,64 +204,10 @@ class Metric(abc.ABC):
     def bounded(self) -> bool:
         return self.has_lower_bound or self.has_upper_bound
 
-    def _scaled_value(self, raw_value: NUMBER) -> NUMBER:
-        if numpy.isnan(raw_value):
-            return numpy.nan
-
-        scale_factor = 0.0
-
-        if self.has_ideal_value and raw_value == self.__ideal_value:
-            scale_factor = 1.0
-        elif self.bounded and self.has_ideal_value:
-            if self.has_lower_bound:
-                lower_distance = self.ideal_value - self.__lower_bound
-                lower_bound = self.__lower_bound
-            else:
-                lower_distance = None
-                lower_bound = None
-
-            if self.has_upper_bound:
-                upper_distance = self.__upper_bound - self.__ideal_value
-                upper_bound = self.__upper_bound
-            else:
-                upper_distance = None
-                upper_bound = None
-
-            if lower_distance is None:
-                lower_distance = upper_distance
-                lower_bound = self.ideal_value - lower_distance
-            elif upper_distance is None:
-                upper_distance = lower_distance
-                upper_bound = self.__ideal_value + lower_distance
-
-            if raw_value < self.__ideal_value:
-                rise = 1
-                y_intercept = 0
-            else:
-                rise = -1
-                y_intercept = 1.0
-
-            run = max(upper_distance, lower_distance)
-
-            slope = rise / run
-
-            def line_function(value) -> float:
-                return slope * value + y_intercept
-
-            minimum_possible_factor = 0.0
-
-            if raw_value > self.ideal_value and upper_bound < run:
-                x = self.ideal_value + upper_distance
-                minimum_possible_factor = line_function(x)
-            elif raw_value < self.ideal_value and lower_bound < run:
-                x = self.ideal_value - lower_distance
-                minimum_possible_factor = line_function(x)
-
-            scale_factor = max(line_function(raw_value), minimum_possible_factor)
-
-        scaled_value = raw_value * scale_factor
-
-        return scaled_value
+    @classmethod
+    @abc.abstractmethod
+    def get_name(cls):
+        pass
 
     @abc.abstractmethod
     def __call__(
@@ -179,7 +240,7 @@ class Score(object):
 
     @property
     def scaled_value(self) -> NUMBER:
-        return self.__value * self.__threshold.weight
+        return scale_value(self.__metric, self.__value) * self.__threshold.weight
 
     @property
     def metric(self) -> Metric:
@@ -208,8 +269,14 @@ class Score(object):
     def __str__(self) -> str:
         return f"{self.metric} => ({self.threshold}: {self.scaled_value})"
 
+    def __repr__(self) -> str:
+        return self.__str__()
 
-class Scores(object):
+
+class Scores(abstract_collections.Sized, abstract_collections.Iterable):
+    def __len__(self) -> int:
+        return len(self.__results)
+
     def __init__(self, metric: Metric, scores: typing.Sequence[Score]):
         self.__metric = metric
 
@@ -242,9 +309,11 @@ class Scores(object):
     def __iter__(self):
         return iter(self.__results.values())
 
-    @property
     def __str__(self) -> str:
         return ", ".join([str(score) for score in self.__results])
+
+    def __repr__(self) -> str:
+        return self.__str__()
 
 
 class MetricResults(object):
@@ -264,6 +333,32 @@ class MetricResults(object):
             self.add_scores(scores)
 
         self.__weight = weight or 1
+
+    def to_dataframe(self) -> pandas.DataFrame:
+        rows = list()
+
+        for threshold, scores in self.__results.items():
+            threshold_rows: typing.List[dict] = list()
+
+            for score in scores:
+                row_values = dict()
+                row_values['threshold_name'] = threshold.name
+                row_values['threshold_weight'] = threshold.weight
+                row_values['threshold_value'] = threshold.value
+                row_values['result'] = score.value
+                row_values['scaled_result'] = score.scaled_value
+                row_values['metric'] = score.metric.name
+                row_values['metric_weight'] = score.metric.weight
+                row_values['desired_metric_value'] = score.metric.ideal_value
+                row_values['failing_metric_value'] = score.metric.fails_on
+                row_values['metric_lower_bound'] = score.metric.lower_bound
+                row_values['metric_upper_bound'] = score.metric.upper_bound
+
+                threshold_rows.append(row_values)
+
+            rows.extend(threshold_rows)
+
+        return pandas.DataFrame(rows)
 
     def score_threshold(self, threshold: Threshold) -> NUMBER:
         threshold_score = numpy.nan

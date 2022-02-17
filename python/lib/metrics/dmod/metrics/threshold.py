@@ -1,3 +1,7 @@
+"""
+Defines formalized Threshold objects that serve as functions for subsetting data
+"""
+
 import typing
 
 from math import inf as infinity
@@ -14,8 +18,28 @@ FRAME_FILTER = typing.Callable[[PANDAS_DATA], PANDAS_DATA]
 
 
 class Operators(object):
+    """
+    A collection of stock comparators that form threshold operators
+    """
+
     @staticmethod
     def get_method(name: str) -> NUMERIC_FILTER:
+        """
+        Gets a thresholding function based on a name representation
+
+        Supported Operators:
+        * ">", 'greater_than', 'greater than'
+        * ">=", 'greater_than_or_equal', 'greater than or equal', 'greater than or equal to'
+        * "<", 'less_than', 'less than'
+        * "<=", "less_than_or_equal", 'less than or equal', 'less than or equal to'
+        * is', '=', '==', 'equal', 'equals', 'equal to'
+
+        Args:
+            name: The name of the operator to use
+
+        Returns:
+
+        """
         name = name.lower()
 
         if name in [">", 'greater_than']:
