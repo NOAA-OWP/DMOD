@@ -2,12 +2,19 @@
 Defines formalized Threshold objects that serve as functions for subsetting data
 """
 
+import typing
+
 from math import inf as infinity
 
 import pandas
 import numpy
 
-from ..metrics.common import CommonTypes
+NUMBER = typing.Union[int, float]
+
+PANDAS_DATA = typing.Union[pandas.DataFrame, pandas.Series]
+
+NUMERIC_FILTER = typing.Callable[[NUMBER, NUMBER], bool]
+FRAME_FILTER = typing.Callable[[PANDAS_DATA], PANDAS_DATA]
 
 
 class Operators(object):
@@ -16,7 +23,7 @@ class Operators(object):
     """
 
     @staticmethod
-    def get_method(name: str) -> CommonTypes.NUMERIC_FILTER:
+    def get_method(name: str) -> NUMERIC_FILTER:
         """
         Gets a thresholding function based on a name representation
 
@@ -35,19 +42,19 @@ class Operators(object):
         """
         name = name.lower()
 
-        if name in [">", 'greater_than']:
+        if name in [">", 'greater_than', 'greater than']:
             return Operators.greater_than
 
-        if name in [">=", 'greater_than_or_equal']:
+        if name in [">=", 'greater_than_or_equal', 'greater than or equal', 'greater than or equal to']:
             return Operators.greater_than_or_equal
 
-        if name in ["<", 'less_than']:
+        if name in ["<", 'less_than', 'less than']:
             return Operators.less_than
 
-        if name in ["<=", "less_than_or_equal"]:
+        if name in ["<=", "less_than_or_equal", 'less than or equal', 'less than or equal to']:
             return Operators.less_than_or_equal
 
-        if name in ['is', '=', '==', 'equal', 'equals']:
+        if name in ['is', '=', '==', 'equal', 'equals', 'equal to']:
             return Operators.equal
 
         raise ValueError(f"{name} is not a valid threshold operator")
@@ -73,13 +80,13 @@ class Operators(object):
         return first <= second
 
     def __init__(self, operator_name: str):
-        self.__operator_function: CommonTypes.NUMERIC_FILTER = Operators.get_method(operator_name)
+        self.__operator_function: NUMERIC_FILTER = Operators.get_method(operator_name)
 
-    def __call__(self, first: CommonTypes.NUMBER, second: CommonTypes.NUMBER) -> bool:
+    def __call__(self, first: NUMBER, second: NUMBER) -> bool:
         return self.__operator_function(first, second)
 
 
-class Threshold(CommonTypes.FRAME_FILTER):
+class Threshold(FRAME_FILTER):
     @staticmethod
     def default() -> "Threshold":
         return Threshold(name="All", value=-infinity, weight=1, on_observed=False, on_predicted=False)
@@ -87,13 +94,13 @@ class Threshold(CommonTypes.FRAME_FILTER):
     def __init__(
             self,
             name: str,
-            value: CommonTypes.NUMBER,
-            weight: CommonTypes.NUMBER,
+            value: NUMBER,
+            weight: NUMBER,
             on_observed: bool = True,
             on_predicted: bool = False,
             observed_value_key: str = None,
             predicted_value_key: str = None,
-            operator: CommonTypes.NUMERIC_FILTER = None
+            operator: NUMERIC_FILTER = None
     ):
         if None in (name, value, weight) or numpy.nan in (value, weight) or not name:
             raise ValueError(
@@ -122,15 +129,11 @@ class Threshold(CommonTypes.FRAME_FILTER):
         self.__predicted_value_key = predicted_value_key
         self._allow = self.__build_filter(value, operator)
 
-    def __build_filter(
-            self,
-            threshold_value: CommonTypes.NUMBER,
-            operator: CommonTypes.NUMERIC_FILTER = None
-    ) -> CommonTypes.FRAME_FILTER:
+    def __build_filter(self, threshold_value: NUMBER, operator: NUMERIC_FILTER = None) -> FRAME_FILTER:
         if operator is None:
             operator = Operators.greater_than_or_equal
 
-        def filter_func(frame: CommonTypes.PANDAS_DATA) -> CommonTypes.PANDAS_DATA:
+        def filter_func(frame: PANDAS_DATA) -> PANDAS_DATA:
             if isinstance(frame, pandas.Series):
                 return frame[operator(frame, threshold_value)]
 
@@ -141,14 +144,14 @@ class Threshold(CommonTypes.FRAME_FILTER):
                 allow_sequence = operator(frame[self.__observed_value_key], threshold_value)
                 allow_sequence = allow_sequence & operator(frame[self.__predicted_value_key], threshold_value)
                 return frame[allow_sequence]
-            elif self.__on_observed:
+            elif self.__on_observed and self.__observed_value_key in frame.keys():
                 return frame[operator(frame[self.__observed_value_key], threshold_value)]
 
             return frame[operator(frame[self.__predicted_value_key], threshold_value)]
 
         return filter_func
 
-    def __call__(self, pairs: CommonTypes.PANDAS_DATA) -> CommonTypes.PANDAS_DATA:
+    def __call__(self, pairs: PANDAS_DATA) -> PANDAS_DATA:
         return self._allow(pairs)
 
     @property
@@ -156,11 +159,11 @@ class Threshold(CommonTypes.FRAME_FILTER):
         return self.__name
 
     @property
-    def value(self) -> CommonTypes.NUMBER:
+    def value(self) -> NUMBER:
         return self.__value
 
     @property
-    def weight(self) -> CommonTypes.NUMBER:
+    def weight(self) -> NUMBER:
         return self.__weight
 
     def __str__(self) -> str:

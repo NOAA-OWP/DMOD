@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 import typing
 import abc
 from collections import defaultdict
@@ -9,12 +9,23 @@ from math import inf as infinity
 import pandas
 import numpy
 
-from ..metrics.threshold import Threshold
-from ..metrics.common import CommonTypes
-from ..metrics.common import EPSILON
+from dmod.metrics.threshold import Threshold
+
+ARGS = typing.Optional[typing.Sequence]
+KWARGS = typing.Optional[typing.Dict[str, typing.Any]]
+NUMBER = typing.Union[int, float]
+
+METRIC = typing.Callable[[pandas.DataFrame, pandas.DataFrame, typing.Sequence["Threshold"], ARGS, KWARGS], NUMBER]
+NUMERIC_OPERATOR = typing.Callable[[NUMBER, NUMBER, typing.Optional[NUMBER]], NUMBER]
+NUMERIC_TRANSFORMER = typing.Callable[[NUMBER], NUMBER]
+NUMERIC_FILTER = typing.Callable[[NUMBER, NUMBER], bool]
+FRAME_FILTER = typing.Callable[[pandas.DataFrame], pandas.DataFrame]
 
 
-def scale_value(metric: "Metric", raw_value: CommonTypes.NUMBER) -> CommonTypes.NUMBER:
+EPSILON = 0.0001
+
+
+def scale_value(metric: "Metric", raw_value: NUMBER) -> NUMBER:
     if numpy.isnan(raw_value):
         return numpy.nan
 
@@ -37,32 +48,34 @@ def scale_value(metric: "Metric", raw_value: CommonTypes.NUMBER) -> CommonTypes.
             rise = -1
             run = metric.upper_bound - metric.ideal_value
 
-        slope = rise / run
-        y_intercept = 1 - (slope * metric.ideal_value)
-        scaled_value = slope * raw_value + y_intercept
+    slope = rise / run
+    y_intercept = 1 - (slope * metric.ideal_value)
+    scaled_value = slope * raw_value + y_intercept
 
-        if metric.has_upper_bound:
-            scaled_value = min(scaled_value, metric.upper_bound)
+    if metric.has_upper_bound:
+        scaled_value = min(scaled_value, metric.upper_bound)
 
-        if metric.has_lower_bound:
-            scaled_value = max(scaled_value, metric.lower_bound)
+    if metric.has_lower_bound:
+        scaled_value = max(scaled_value, metric.lower_bound)
 
-        return scaled_value
-    return raw_value
+    return scaled_value
 
 
-class Metric(abc.ABC):
+class Metric(
+    abc.ABC,
+    typing.Callable[[pandas.DataFrame, str, str, typing.Optional[typing.Sequence[Threshold]], ARGS, KWARGS], "Scores"]
+):
     """
     A functional that may be called to evaluate metrics based around thresholds, providing access to attributes
     such as its name and bounds
     """
     def __init__(
             self,
-            weight: CommonTypes.NUMBER,
-            lower_bound: CommonTypes.NUMBER = -infinity,
-            upper_bound: CommonTypes.NUMBER = infinity,
-            ideal_value: CommonTypes.NUMBER = numpy.nan,
-            failure: CommonTypes.NUMBER = None,
+            weight: NUMBER,
+            lower_bound: NUMBER = -infinity,
+            upper_bound: NUMBER = infinity,
+            ideal_value: NUMBER = numpy.nan,
+            failure: NUMBER = None,
             greater_is_better: bool = True
     ):
         """
@@ -70,13 +83,10 @@ class Metric(abc.ABC):
 
         Args:
             weight: The relative, numeric significance of the metric itself
-            lower_bound: The lowest acknowledged value - this doesn't necessarily need to be the lower bound of the
-                statistical function
-            upper_bound: The highest acknowledged value - this doesn't necessarily need to be the upper bound of the
-                statistical function
+            lower_bound: The lowest acknowledged value - this doesn't necessarily need to be the lower bound of the statistical function
+            upper_bound: The highest acknowledged value - this doesn't necessarily need to be the upper bound of the statistical function
             ideal_value: The value deemed to be perfect for the metric
-            failure: A value indicating a complete failure for the metric, triggering a failure among all accompanying
-                metrics
+            failure: A value indicating a complete failure for the metric, triggering a failure among all accompanying metrics
             greater_is_better: Whether or not a higher value is perferred over a lower value
         """
         if weight is None or not (isinstance(weight, int) or isinstance(weight, float)) or numpy.isnan(weight):
@@ -91,7 +101,7 @@ class Metric(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def get_description(cls):
+    def get_descriptions(cls):
         """
         Returns:
             A description of how the metric works and how it's supposed be be interpreted
@@ -107,7 +117,7 @@ class Metric(abc.ABC):
         return self.get_name()
 
     @property
-    def fails_on(self) -> CommonTypes.NUMBER:
+    def fails_on(self) -> NUMBER:
         """
         Returns:
             The value that might trigger a failing evaluation
@@ -115,7 +125,7 @@ class Metric(abc.ABC):
         return self.__failure
 
     @property
-    def weight(self) -> CommonTypes.NUMBER:
+    def weight(self) -> NUMBER:
         """
         Returns:
             The relative numeric significance of the metric
@@ -123,7 +133,7 @@ class Metric(abc.ABC):
         return self.__weight
 
     @property
-    def ideal_value(self) -> CommonTypes.NUMBER:
+    def ideal_value(self) -> NUMBER:
         """
         Returns:
             The perfect value
@@ -131,7 +141,7 @@ class Metric(abc.ABC):
         return self.__ideal_value
 
     @property
-    def lower_bound(self) -> CommonTypes.NUMBER:
+    def lower_bound(self) -> NUMBER:
         """
         The lowest possible value to consider when scaling the result
 
@@ -146,7 +156,7 @@ class Metric(abc.ABC):
         return self.__lower_bound
 
     @property
-    def upper_bound(self) -> CommonTypes.NUMBER:
+    def upper_bound(self) -> NUMBER:
         """
         The highest possible value to consider when scaling the result
 
@@ -219,17 +229,17 @@ class Metric(abc.ABC):
 
 
 class Score(object):
-    def __init__(self, metric: Metric, value: CommonTypes.NUMBER, threshold: Threshold = None):
+    def __init__(self, metric: Metric, value: NUMBER, threshold: Threshold = None):
         self.__metric = metric
         self.__value = value
         self.__threshold = threshold or Threshold.default()
 
     @property
-    def value(self) -> CommonTypes.NUMBER:
+    def value(self) -> NUMBER:
         return self.__value
 
     @property
-    def scaled_value(self) -> CommonTypes.NUMBER:
+    def scaled_value(self) -> NUMBER:
         return scale_value(self.__metric, self.__value) * self.__threshold.weight
 
     @property
@@ -280,7 +290,7 @@ class Scores(abstract_collections.Sized, abstract_collections.Iterable):
         return self.__metric
 
     @property
-    def total(self) -> CommonTypes.NUMBER:
+    def total(self) -> NUMBER:
         if len(self.__results) == 0:
             raise ValueError("There are no scores to total")
 
@@ -309,9 +319,9 @@ class Scores(abstract_collections.Sized, abstract_collections.Iterable):
 class MetricResults(object):
     def __init__(
             self,
-            aggregator: CommonTypes.NUMERIC_OPERATOR,
+            aggregator: NUMERIC_OPERATOR,
             metric_scores: typing.Sequence[Scores] = None,
-            weight: CommonTypes.NUMBER = None
+            weight: NUMBER = None
     ):
         if not metric_scores:
             metric_scores = list()
@@ -350,7 +360,7 @@ class MetricResults(object):
 
         return pandas.DataFrame(rows)
 
-    def score_threshold(self, threshold: Threshold) -> CommonTypes.NUMBER:
+    def score_threshold(self, threshold: Threshold) -> NUMBER:
         threshold_score = numpy.nan
 
         for score in self.__results[threshold]:
@@ -370,7 +380,7 @@ class MetricResults(object):
         return threshold_score
 
     @property
-    def total(self) -> CommonTypes.NUMBER:
+    def total(self) -> NUMBER:
         total_score = numpy.nan
         count = 0
 
@@ -405,12 +415,8 @@ class MetricResults(object):
 
 class ScoringScheme(object):
     @staticmethod
-    def get_default_aggregator() -> CommonTypes.NUMERIC_OPERATOR:
-        def operator(
-                first_score_value: CommonTypes.NUMBER,
-                second_score_value: CommonTypes.NUMBER,
-                count: CommonTypes.NUMBER = None
-        ) -> CommonTypes.NUMBER:
+    def get_default_aggregator() -> NUMERIC_OPERATOR:
+        def operator(first_score_value: NUMBER, second_score_value: NUMBER, count: NUMBER = None) -> NUMBER:
             if numpy.isnan(first_score_value) and numpy.isnan(second_score_value):
                 return numpy.nan
             elif numpy.isnan(first_score_value):
@@ -424,7 +430,7 @@ class ScoringScheme(object):
     def __init__(
             self,
             metrics: typing.Sequence[Metric] = None,
-            aggregator: CommonTypes.NUMERIC_OPERATOR = None
+            aggregator: NUMERIC_OPERATOR = None
     ):
         self.__aggregator = aggregator or ScoringScheme.get_default_aggregator()
         self.__metrics = metrics or list()
@@ -435,7 +441,7 @@ class ScoringScheme(object):
             observed_value_label: str,
             predicted_value_label: str,
             thresholds: typing.Sequence[Threshold] = None,
-            weight: CommonTypes.NUMBER = None,
+            weight: NUMBER = None,
             *args,
             **kwargs
     ) -> MetricResults:
