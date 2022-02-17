@@ -17,6 +17,6 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=["pandas", "scikit-learn"],
+    install_requires=[],
     packages=find_namespace_packages(exclude=('tests', 'schemas', 'ssl', 'src'))
 )
