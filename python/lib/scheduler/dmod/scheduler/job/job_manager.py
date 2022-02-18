@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from asyncio import sleep
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 from uuid import UUID, uuid4 as random_uuid
-from .job import Job, JobAllocationParadigm, JobExecStep, JobStatus, RequestedJob
+from .job import Job, JobAllocationParadigm, JobExecPhase, JobExecStep, JobStatus, RequestedJob
 from ..resources.resource_allocation import ResourceAllocation
 from ..resources.resource_manager import ResourceManager
 from ..rsa_key_pair import RsaKeyPair
@@ -413,11 +413,10 @@ class RedisBackedJobManager(JobManager, RedisBacked):
 
     def _organize_active_jobs(self, active_jobs: List[RequestedJob]) -> List[List[RequestedJob]]:
         """
-        Organize the given list of active jobs into collections ready for various next-steps in their processing,
-        potentially with some housekeeping performed (i.e. side effects).
+        Organize active jobs into collections ready to prepare for certain next-steps in processing.
 
-        In some cases, job status may be changed (e.g., ``CREATED`` to ``MODEL_EXEC_AWAITING_ALLOCATION``).  In those
-        cases and a few other situations, the updated job object will have its state re-saved using ::method:`save_job`.
+        Organize the given list of active jobs into collections ready for certain specific next-steps in their
+        processing, potentially with some housekeeping performed (i.e. side effects).
 
         Parameters
         ----------
@@ -437,11 +436,13 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         jobs_completed_phase = []
 
         for job in active_jobs:
-            # Transition CREATED to awaiting allocation as a first step for them
-            if job.status == JobStatus.CREATED:
-                job.status = JobStatus.MODEL_EXEC_AWAITING_ALLOCATION
+            # Transition newly created to their first appropriate phase and step
+            if job.status_phase == JobExecPhase.INIT:
+                # TODO: revisit this for JobCategory (remember right now this is the only way AWAITING_DATA_CHECK is entered, via default step)
+                job.status = JobStatus(phase=JobExecPhase.MODEL_EXEC)
                 self.save_job(job)
             # TODO: figure out for STOPPED and FAILED if there are implications that require maintaining the same allocation
+            # TODO: figure out for FAILED if restart should be automatic or should require manual request to restart
             # Note that this code should be safe as is as long as the job itself still has the previous allocation saved
             # in situations when it needs to use the same allocation as before
             if job.status_step == JobExecStep.STOPPED:
@@ -461,10 +462,10 @@ class RedisBackedJobManager(JobManager, RedisBacked):
                 else:
                     # TODO: confirm the allocation is still valid (saving it without checking will make it so, which
                     #  could lead to inconsistencies)
-                    job.status_step = JobExecStep.ALLOCATED
+                    job.status_step = JobExecStep.AWAITING_DATA
                     self.save_job(job)
 
-            if job.status.should_release_allocations:
+            if job.should_release_resources:
                 jobs_to_release_resources.append(job)
 
             if job.status_step == JobExecStep.COMPLETED:
@@ -636,7 +637,7 @@ class RedisBackedJobManager(JobManager, RedisBacked):
             TODO rename this function, by the time we get here, we are already scheduled, just need to run
         """
         # TODO: make sure there aren't other cases
-        if job.status_step == JobExecStep.ALLOCATED:
+        if job.status_step == JobExecStep.AWAITING_SCHEDULING:
             try: #If we don't catch excpetions from the launcher, they get handled "somewhere" that causes the
                  #connection to close, but no useful information is provided, so handle them here.
                 return self._launcher.start_job(job)
@@ -685,8 +686,10 @@ class RedisBackedJobManager(JobManager, RedisBacked):
                 allocated_successfully.extend(self._request_allocations_for_queue(med_priority_queue))
                 allocated_successfully.extend(self._request_allocations_for_queue(low_priority_queue))
 
-            # For each Job that received an allocation, save updated state and pass to scheduler
-            for job in allocated_successfully:
+            # TODO: have data management service handle the AWAITING_DATA step so it can transition to the AWAITING_SCHEDULING step
+
+            # For each Job that is at the AWAITING_SCHEDULING, save updated state and pass to scheduler
+            for job in [j for j in active_jobs if j.status_step == JobExecStep.AWAITING_SCHEDULING]:
                 if self.request_scheduling(job):
                     job.status_step = JobExecStep.SCHEDULED
                 else:
@@ -694,7 +697,7 @@ class RedisBackedJobManager(JobManager, RedisBacked):
                     # TODO: probably log something about this, or raise exception
                 self.save_job(job)
 
-            await sleep(60)
+            await sleep(5)
 
     def release_allocations(self, job: Job):
         """
@@ -746,7 +749,7 @@ class RedisBackedJobManager(JobManager, RedisBacked):
             alloc = [None]
         if isinstance(alloc, list) and len(alloc) > 0 and isinstance(alloc[0], ResourceAllocation):
             job.allocations = alloc
-            job.status_step = JobExecStep.ALLOCATED
+            job.status_step = JobExecStep.AWAITING_DATA
             return True
         else:
             return False

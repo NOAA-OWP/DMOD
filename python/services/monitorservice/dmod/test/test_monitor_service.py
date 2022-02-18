@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple, Dict
 
 from ..monitorservice.service import Monitor, MonitorService, Job, JobStatus, MetadataMessage, MetadataPurpose,\
     MonitoredChange, MetadataResponse
-from dmod.scheduler.job import JobAllocationParadigm, JobImpl, JobExecStep
+from dmod.scheduler.job import JobAllocationParadigm, JobExecPhase, JobImpl, JobExecStep
 
 
 class MockMonitor(Monitor):
@@ -104,9 +104,9 @@ class TestMonitorService(unittest.TestCase):
         self._connect_metadata_examples.append('{"purpose": "PROMPT", "additional_metadata": false}')
         self._connect_metadata_examples.append('{"purpose": "CONNECT", "additional_metadata": true}')
 
-        self._jobs[0].status = JobStatus.MODEL_EXEC_AWAITING_ALLOCATION
-        self._jobs[1].status = JobStatus.MODEL_EXEC_ALLOCATED
-        self._jobs[2].status = JobStatus.MODEL_EXEC_SCHEDULED
+        self._jobs[0].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
+        self._jobs[1].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_SCHEDULING)
+        self._jobs[2].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.SCHEDULED)
 
         self._services.append(MockMonitorService(MockMonitor(monitored_jobs=self._jobs)))
 
@@ -114,9 +114,9 @@ class TestMonitorService(unittest.TestCase):
         for j in self._jobs:
             self._original_statuses.append(j.status)
 
-        self._jobs[0].status = JobStatus.MODEL_EXEC_ALLOCATED
-        self._jobs[1].status = JobStatus.MODEL_EXEC_SCHEDULED
-        self._jobs[2].status = JobStatus.MODEL_EXEC_RUNNING
+        self._jobs[0].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_SCHEDULING)
+        self._jobs[1].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.SCHEDULED)
+        self._jobs[2].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.RUNNING)
 
         self._job_ids = list()
         self._jobs_by_id = dict()
@@ -132,6 +132,13 @@ class TestMonitorService(unittest.TestCase):
 
     def tearDown(self) -> None:
         pass
+
+    def _generate_all_status_values(self) -> List[JobStatus]:
+        all_statuses = []
+        for phase in JobExecPhase:
+            for step in JobExecStep:
+                all_statuses.append(JobStatus(phase, step))
+        return all_statuses
 
     # Test object type for simple example change example for job
     def test__generate_update_msg_1_a(self):
@@ -911,7 +918,7 @@ class TestMonitorService(unittest.TestCase):
         job = self._jobs[1]
         original_status = job.status
         get_next_one = False
-        for status in JobStatus:
+        for status in self._generate_all_status_values():
             if get_next_one:
                 job.status = status
                 break
@@ -941,7 +948,8 @@ class TestMonitorService(unittest.TestCase):
         job = self._jobs[1]
         original_status = job.status
         get_next_one = False
-        for status in JobStatus:
+
+        for status in self._generate_all_status_values():
             if get_next_one:
                 job.status = status
                 break
@@ -967,7 +975,7 @@ class TestMonitorService(unittest.TestCase):
         job = self._jobs[1]
         original_status = job.status
         get_next_one = False
-        for status in JobStatus:
+        for status in self._generate_all_status_values():
             if get_next_one:
                 job.status = status
                 break
