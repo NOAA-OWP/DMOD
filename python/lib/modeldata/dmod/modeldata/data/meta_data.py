@@ -3,20 +3,34 @@ from enum import Enum
 from datetime import datetime
 from dmod.communication.serializeable import Serializable
 from numbers import Number
-from typing import Dict, Generic, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, Dict, Generic, Optional, Set, Tuple, Type, TypeVar, Union
 from ..subset import SubsetDefinition
 
 DOMAIN_PARAM_TYPE = TypeVar('DOMAIN_PARAM_TYPE')
 
 
 class DataFormat(Enum):
-    AORC_CSV = (0,)
+    AORC_CSV = (0, True,
+                {"Time": datetime, "APCP_surface": float, "DLWRF_surface": float, "DSWRF_surface": float,
+                 "PRES_surface": float, "SPFH_2maboveground": float, "TMP_2maboveground": float,
+                 "UGRD_10maboveground": float, "VGRD_10maboveground": float, "precip_rate": float}
+                )
     """ The CSV data format the Nextgen framework originally used during its early development. """
-    NETCDF_FORCING_CANONICAL = (1,)
+    NETCDF_FORCING_CANONICAL = (1, True,
+                                {"ids": str, "Time": datetime, "RAINRATE": float, "T2D": float, "Q2D": float,
+                                 "U2D": float, "V2D": float, "PSFC": float, "SWDOWN": float, "LWDOWN": float,
+                                 "offset": int}
+                                )
     """ The Nextgen framework "canonical" NetCDF forcing data format. """
-    NETCDF_AORC_DEFAULT = (2,)
+    NETCDF_AORC_DEFAULT = (2, True,
+                           {"ids": str, "Time": datetime, "RAINRATE": float, "T2D": float, "Q2D": float, "U2D": float,
+                            "V2D": float, "PSFC": float, "SWDOWN": float, "LWDOWN": float, "offset": int}
+                           )
     """ The default format for "raw" AORC forcing data. """
-    # TODO: need to specify the particular data property fields for given formats
+    # TODO: consider whether a datetime format string is necessary for each type value
+    # TODO: consider whether something to indicate the time step size is necessary
+    # TODO: consider whether "ids" (i.e., catchment id) and time should be taken out of "fields" (they aren't as much
+    #  data as they are indices)
     # TODO: need format specifically for Nextgen model output (i.e., for evaluations)
 
     @classmethod
@@ -27,21 +41,49 @@ class DataFormat(Enum):
                 return value
         return None
 
-    def __init__(self, uid: int, data_fields: Optional[Dict[str, Type]] = None):
+    def __init__(self, uid: int, is_time_series: bool, data_fields: Optional[Union[Dict[str, Type]], Set[str]] = None):
         self._uid = uid
-        self._data_fields = data_fields
+        self._is_time_series = is_time_series
+        # If only the field names were provided, infer a type value of 'Any'
+        if isinstance(data_fields, set):
+            self._data_fields = dict()
+            for f in data_fields:
+                self._data_fields[f] = Any
+        # Create an empty dictionary if None was passed
+        elif data_fields is None:
+            self._data_fields = dict()
+        # And otherwise, use what was provided
+        else:
+            self._data_fields = data_fields
 
+    # TODO: consider later also adding the ability for some fields to be treated as optional
     @property
-    def data_fields(self) -> Optional[Dict[str, Type]]:
+    def data_fields(self) -> Dict[str, Type]:
         """
-        The specific data fields for this format.
+        The name and type of data fields specified for this format
+
+        This property will be an empty dictionary if no field specification is available.
+
+        A type value of ::class:`Any` indicates that no specification for the field's type is known.
 
         Returns
         -------
         Optional[Dict[str, Type]]
-            The specific data fields for this format.
+            The data fields for this format, if the format value specifies its fields, or ``None``.
         """
         return self._data_fields
+
+    @property
+    def is_time_series(self) -> bool:
+        """
+        Whether this type is a format of time series data.
+
+        Returns
+        -------
+        bool
+            Whether this type is a format of time series data.
+        """
+        return self._is_time_series
 
 
 class DataCategory(Enum):
