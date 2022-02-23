@@ -10,27 +10,30 @@ DOMAIN_PARAM_TYPE = TypeVar('DOMAIN_PARAM_TYPE')
 
 
 class DataFormat(Enum):
-    AORC_CSV = (0, True,
-                {"Time": datetime, "APCP_surface": float, "DLWRF_surface": float, "DSWRF_surface": float,
+    AORC_CSV = (0,
+                ["catchment-id", ""],
+                {"": datetime, "APCP_surface": float, "DLWRF_surface": float, "DSWRF_surface": float,
                  "PRES_surface": float, "SPFH_2maboveground": float, "TMP_2maboveground": float,
-                 "UGRD_10maboveground": float, "VGRD_10maboveground": float, "precip_rate": float}
+                 "UGRD_10maboveground": float, "VGRD_10maboveground": float, "precip_rate": float},
+                {"catchment-id": str}
                 )
     """ The CSV data format the Nextgen framework originally used during its early development. """
-    NETCDF_FORCING_CANONICAL = (1, True,
-                                {"ids": str, "Time": datetime, "RAINRATE": float, "T2D": float, "Q2D": float,
+    NETCDF_FORCING_CANONICAL = (1,
+                                ["ids", "Time"],
+                                {"Time": datetime, "RAINRATE": float, "T2D": float, "Q2D": float,
                                  "U2D": float, "V2D": float, "PSFC": float, "SWDOWN": float, "LWDOWN": float,
-                                 "offset": int}
+                                 "offset": int},
+                                {"ids": str}
                                 )
     """ The Nextgen framework "canonical" NetCDF forcing data format. """
-    NETCDF_AORC_DEFAULT = (2, True,
+    NETCDF_AORC_DEFAULT = (2,
+                           ["ids", "Time"],
                            {"ids": str, "Time": datetime, "RAINRATE": float, "T2D": float, "Q2D": float, "U2D": float,
                             "V2D": float, "PSFC": float, "SWDOWN": float, "LWDOWN": float, "offset": int}
                            )
     """ The default format for "raw" AORC forcing data. """
     # TODO: consider whether a datetime format string is necessary for each type value
     # TODO: consider whether something to indicate the time step size is necessary
-    # TODO: consider whether "ids" (i.e., catchment id) and time should be taken out of "fields" (they aren't as much
-    #  data as they are indices)
     # TODO: need format specifically for Nextgen model output (i.e., for evaluations)
 
     @classmethod
@@ -41,9 +44,10 @@ class DataFormat(Enum):
                 return value
         return None
 
-    def __init__(self, uid: int, is_time_series: bool, data_fields: Optional[Union[Dict[str, Type]], Set[str]] = None):
+    def __init__(self, uid: int, indices: List[str], data_fields: Optional[Union[Dict[str, Type]], Set[str]] = None,
+                 implicit_indices_types: Optional[Dict[str, Type]] = None):
         self._uid = uid
-        self._is_time_series = is_time_series
+        self._indices = indices
         # If only the field names were provided, infer a type value of 'Any'
         if isinstance(data_fields, set):
             self._data_fields = dict()
@@ -55,6 +59,7 @@ class DataFormat(Enum):
         # And otherwise, use what was provided
         else:
             self._data_fields = data_fields
+        self._implicit_indices_types = implicit_indices_types
 
     # TODO: consider later also adding the ability for some fields to be treated as optional
     @property
@@ -74,16 +79,36 @@ class DataFormat(Enum):
         return self._data_fields
 
     @property
+    def indices(self) -> List[str]:
+        """
+        List of the indices properties for this format.
+
+        Returns
+        -------
+        List[str]
+            List of the indices properties for this format.
+        """
+        return self._indices
+
+    @property
     def is_time_series(self) -> bool:
         """
         Whether this type is a format of time series data.
+
+        This is determined by whether any index from ::attribute:`indices` is of type ::class:`datetime`.
 
         Returns
         -------
         bool
             Whether this type is a format of time series data.
         """
-        return self._is_time_series
+        for i in self.indices:
+            if i in self.data_fields:
+                if self.data_fields[i] == datetime:
+                    return True
+            elif self._implicit_indices_types[i] == datetime:
+                return True
+        return False
 
 
 class DataCategory(Enum):
