@@ -370,30 +370,14 @@ class DataCategory(Enum):
         return None
 
 
-class TimeRange(Serializable):
+class TimeRange(ContinuousRestriction):
     """
     Encapsulated representation of a time range.
     """
 
-    SERIAL_DATETIME_STR_FORMAT = '%Y-%m-%d %H:%M:%S'
-
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        try:
-            return cls(range_begin=datetime.strptime(json_obj['range_begin'], cls.SERIAL_DATETIME_STR_FORMAT),
-                       range_end=datetime.strptime(json_obj['range_end'], cls.SERIAL_DATETIME_STR_FORMAT))
-        except:
-            return None
-
-    def __init__(self, range_begin: datetime, range_end: datetime):
-        self.range_begin = range_begin
-        self.range_end = range_end
-
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        serial = {}
-        serial['range_begin'] = self.range_begin.strftime(self.SERIAL_DATETIME_STR_FORMAT)
-        serial['range_end'] = self.range_end.strftime(self.SERIAL_DATETIME_STR_FORMAT)
-        return serial
+    def __init__(self, begin: datetime, end: datetime, variable: Optional[str] = None):
+        super(TimeRange, self).__init__(variable="Time" if variable is None else variable, begin=begin, end=end,
+                                        datetime_pattern=self.get_datetime_str_format())
 
 
 class DataRequirement(Serializable, ABC, Generic[DOMAIN_PARAM_TYPE]):
