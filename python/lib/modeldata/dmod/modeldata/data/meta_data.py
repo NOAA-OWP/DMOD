@@ -141,20 +141,20 @@ class DataDomain(Serializable):
         except:
             return None
 
-    def __init__(self, continuous_indices: Optional[List[ContinuousRestriction]] = None,
-                 discrete_indices: Optional[List[DiscreteRestriction]] = None):
-        self._continuous_indices = dict()
-        self._discrete_indices = dict()
+    def __init__(self, continuous_restrictions: Optional[List[ContinuousRestriction]] = None,
+                 discrete_restrictions: Optional[List[DiscreteRestriction]] = None):
+        self._continuous_restrictions = dict()
+        self._discrete_restrictions = dict()
         self._indices = list()
 
-        if continuous_indices is not None:
-            for c in continuous_indices:
-                self._continuous_indices[c.variable] = c
+        if continuous_restrictions is not None:
+            for c in continuous_restrictions:
+                self._continuous_restrictions[c.variable] = c
                 self._indices.append(c.variable)
 
-        if discrete_indices is not None:
-            for d in discrete_indices:
-                self._discrete_indices[d.variable] = d
+        if discrete_restrictions is not None:
+            for d in discrete_restrictions:
+                self._discrete_restrictions[d.variable] = d
                 self._indices.append(d.variable)
 
         if len(self._indices) == 0:
@@ -163,11 +163,11 @@ class DataDomain(Serializable):
 
     def _extends_continuous_restriction(self, continuous_restriction: ContinuousRestriction) -> bool:
         idx = continuous_restriction.variable
-        return idx in self.continuous_indices and self.continuous_indices[idx].contains(continuous_restriction)
+        return idx in self.continuous_restrictions and self.continuous_restrictions[idx].contains(continuous_restriction)
 
     def _extends_discrete_restriction(self, discrete_restriction: DiscreteRestriction) -> bool:
         idx = discrete_restriction.variable
-        return idx in self.discrete_indices and self.discrete_indices[idx].contains(discrete_restriction)
+        return idx in self.discrete_restrictions and self.discrete_restrictions[idx].contains(discrete_restriction)
 
     def contains(self, other: Union[ContinuousRestriction, DiscreteRestriction, 'DataDomain']) -> bool:
         """
@@ -188,37 +188,37 @@ class DataDomain(Serializable):
         elif isinstance(other, DiscreteRestriction):
             return self._extends_discrete_restriction(other)
         else:
-            for index in other.continuous_indices:
-                if not self._extends_continuous_restriction(other.continuous_indices[index]):
+            for index in other.continuous_restrictions:
+                if not self._extends_continuous_restriction(other.continuous_restrictions[index]):
                     return False
-            for index in other.discrete_indices:
-                if not self._extends_discrete_restriction(other.discrete_indices[index]):
+            for index in other.discrete_restrictions:
+                if not self._extends_discrete_restriction(other.discrete_restrictions[index]):
                     return False
             return True
 
     @property
-    def continuous_indices(self) -> Dict[str, ContinuousRestriction]:
+    def continuous_restrictions(self) -> Dict[str, ContinuousRestriction]:
         """
-        Map of the continuous domain-defining component parts, keyed by index name.
+        Map of the continuous restrictions defining this domain, keyed by variable name.
 
         Returns
         -------
         Dict[str, ContinuousRestriction]
-            Map of the continuous domain-defining component parts, keyed by index name.
+            Map of the continuous restrictions defining this domain, keyed by variable name.
         """
-        return self._continuous_indices
+        return self._continuous_restrictions
 
     @property
-    def discrete_indices(self) -> Dict[str, DiscreteRestriction]:
+    def discrete_restrictions(self) -> Dict[str, DiscreteRestriction]:
         """
-        Map of the discrete domain-defining component parts, keyed by index name.
+        Map of the discrete restrictions defining this domain, keyed by variable name.
 
         Returns
         -------
         Dict[str, DiscreteRestriction]
-            Map of the discrete domain-defining component parts, keyed by index name.
+            Map of the discrete restrictions defining this domain, keyed by variable name.
         """
-        return self._discrete_indices
+        return self._discrete_restrictions
 
     @property
     def indices(self) -> List[str]:
@@ -246,8 +246,8 @@ class DataDomain(Serializable):
         -------
 
         """
-        return {"continuous": [component.to_dict() for idx, component in self.continuous_indices.items()],
-                "discrete": [component.to_dict() for idx, component in self.discrete_indices.items()]}
+        return {"continuous": [component.to_dict() for idx, component in self.continuous_restrictions.items()],
+                "discrete": [component.to_dict() for idx, component in self.discrete_restrictions.items()]}
 
 
 class DataFormat(Enum):
