@@ -3,10 +3,251 @@ from enum import Enum
 from datetime import datetime
 from dmod.communication.serializeable import Serializable
 from numbers import Number
-from typing import Any, Dict, Generic, Optional, Set, Tuple, Type, TypeVar, Union
+from typing import Any, Dict, Generic, List, Optional, Set, Tuple, Type, TypeVar, Union
 from ..subset import SubsetDefinition
 
 DOMAIN_PARAM_TYPE = TypeVar('DOMAIN_PARAM_TYPE')
+
+
+class ContinuousRestriction(Serializable):
+    """
+    A filtering component, typical applied as a restriction on a domain, by a continuous range of values of a variable.
+    """
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        datetime_ptr = json_obj["datetime_pattern"] if "datetime_pattern" in json_obj else None
+        try:
+            # Handle simple case, which currently means non-datetime item (i.e., no pattern included)
+            if datetime_ptr is None:
+                return cls(variable=json_obj["variable"], begin=json_obj["begin"], end=json_obj["end"])
+
+            # If there is a datetime pattern, then expect begin and end to parse properly to datetime objects
+            begin = datetime.strptime(json_obj["begin"], datetime_ptr)
+            end = datetime.strptime(json_obj["end"], datetime_ptr)
+
+            # Try to initialize the right subclass type, or fall back if appropriate to the base type
+            # TODO: consider adding something for recursive search for subclass, not just immediate children types
+            # Use nested try, because we want to fall back to cls type if no subclass attempt or subclass attempt fails
+            try:
+                for subclass in cls.__subclasses__():
+                    if subclass.__name__ == json_obj["subclass"]:
+                        return subclass(variable=json_obj["variable"], begin=begin, end=end, datetime_pattern=datetime_ptr)
+            except:
+                pass
+
+            # Fall back if needed
+            return cls(variable=json_obj["variable"], begin=begin, end=end, datetime_pattern=datetime_ptr)
+        except:
+            return None
+
+    def __init__(self, variable: str, begin, end, datetime_pattern: Optional[str] = None):
+        self.variable: str = variable
+        if begin > end:
+            raise RuntimeError("Cannot have {} with begin value larger than end.".format(self.__class__.__name__))
+        self.begin = begin
+        self.end = end
+        self._datetime_pattern = datetime_pattern
+
+    def contains(self, other: 'ContinuousRestriction') -> bool:
+        """
+        Whether this object contains all the values of the given object and the two are of the same index.
+
+        For this type, equal begin or end values are considered contained.
+
+        Parameters
+        ----------
+        other : ContinuousRestriction
+
+        Returns
+        -------
+        bool
+            Whether this object contains all the values of the given object and the two are of the same index.
+        """
+        if not isinstance(other, ContinuousRestriction):
+            return False
+        elif self.variable != other.variable:
+            return False
+        else:
+           return self.begin <= other.begin and self.end >= other.end
+
+    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
+        serial = dict()
+        serial["variable"] = self.variable
+        serial["subclass"] = self.__class__.__name__
+        if self._datetime_pattern is not None:
+            serial["datetime_pattern"] = self._datetime_pattern
+            serial["begin"] = self.begin.strftime(self._datetime_pattern)
+            serial["end"] = self.end.strftime(self._datetime_pattern)
+        else:
+            serial["begin"] = self.begin
+            serial["end"] = self.end
+        return serial
+
+
+class DiscreteRestriction(Serializable):
+    """
+    A filtering component, typical applied as a restriction on a domain, by a discrete set of values of a variable.
+    """
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        try:
+            return cls(variable=json_obj["variable"], values=json_obj["values"])
+        except:
+            return None
+
+    def __init__(self, variable: str, values: Union[List[str], List[Number]]):
+        self.variable: str = variable
+        self.values: Union[List[str], List[Number]] = values
+
+    def contains(self, other: 'DiscreteRestriction') -> bool:
+        """
+        Whether this object contains all the values of the given object and the two are of the same index.
+
+        Parameters
+        ----------
+        other : DiscreteRestriction
+
+        Returns
+        -------
+        bool
+            Whether this object contains all the values of the given object and the two are of the same index.
+        """
+        if not isinstance(other, DiscreteRestriction):
+            return False
+        elif self.variable != other.variable:
+            return False
+        else:
+            value_set = set(self.values)
+            for v in other.values:
+                if v not in value_set:
+                    return False
+        return True
+
+    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
+        return {"variable": self.variable, "values": self.values}
+
+
+class DataDomain(Serializable):
+    """
+    A domain for a dataset, with domain-defining values contained by one or more discrete and/or continuous components.
+    """
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        try:
+            cls([ContinuousRestriction.factory_init_from_deserialized_json(c) for c in json_obj["continuous"]],
+                [DiscreteRestriction.factory_init_from_deserialized_json(d) for d in json_obj["discrete"]])
+        except:
+            return None
+
+    def __init__(self, continuous_indices: Optional[List[ContinuousRestriction]] = None,
+                 discrete_indices: Optional[List[DiscreteRestriction]] = None):
+        self._continuous_indices = dict()
+        self._discrete_indices = dict()
+        self._indices = list()
+
+        if continuous_indices is not None:
+            for c in continuous_indices:
+                self._continuous_indices[c.variable] = c
+                self._indices.append(c.variable)
+
+        if discrete_indices is not None:
+            for d in discrete_indices:
+                self._discrete_indices[d.variable] = d
+                self._indices.append(d.variable)
+
+        if len(self._indices) == 0:
+            msg = "Cannot create {} without at least one group of continuous or discrete domain index values"
+            raise RuntimeError(msg.format(self.__class__.__name__))
+
+    def _extends_continuous_restriction(self, continuous_restriction: ContinuousRestriction) -> bool:
+        idx = continuous_restriction.variable
+        return idx in self.continuous_indices and self.continuous_indices[idx].contains(continuous_restriction)
+
+    def _extends_discrete_restriction(self, discrete_restriction: DiscreteRestriction) -> bool:
+        idx = discrete_restriction.variable
+        return idx in self.discrete_indices and self.discrete_indices[idx].contains(discrete_restriction)
+
+    def contains(self, other: Union[ContinuousRestriction, DiscreteRestriction, 'DataDomain']) -> bool:
+        """
+        Whether this domain contains the given domain or collection of domain index values.
+
+        Parameters
+        ----------
+        other : Union[ContinuousRestriction, DiscreteRestriction, 'DataDomain']
+            Another domain, or a group of continuous or discrete values for particular domain index.
+
+        Returns
+        -------
+        bool
+            Whether this domain contains the given domain or collection of domain index values.
+        """
+        if isinstance(other, ContinuousRestriction):
+            return self._extends_continuous_restriction(other)
+        elif isinstance(other, DiscreteRestriction):
+            return self._extends_discrete_restriction(other)
+        else:
+            for index in other.continuous_indices:
+                if not self._extends_continuous_restriction(other.continuous_indices[index]):
+                    return False
+            for index in other.discrete_indices:
+                if not self._extends_discrete_restriction(other.discrete_indices[index]):
+                    return False
+            return True
+
+    @property
+    def continuous_indices(self) -> Dict[str, ContinuousRestriction]:
+        """
+        Map of the continuous domain-defining component parts, keyed by index name.
+
+        Returns
+        -------
+        Dict[str, ContinuousRestriction]
+            Map of the continuous domain-defining component parts, keyed by index name.
+        """
+        return self._continuous_indices
+
+    @property
+    def discrete_indices(self) -> Dict[str, DiscreteRestriction]:
+        """
+        Map of the discrete domain-defining component parts, keyed by index name.
+
+        Returns
+        -------
+        Dict[str, DiscreteRestriction]
+            Map of the discrete domain-defining component parts, keyed by index name.
+        """
+        return self._discrete_indices
+
+    @property
+    def indices(self) -> List[str]:
+        """
+        List of the names of indices that define the data domain.
+
+        This list contains the names of indices (i.e., in the context of some ::class:`DataFormat`) that are used to
+        define this data domain.
+
+        Returns
+        -------
+        List[str]
+            List of the names of indices that define the data domain.
+        """
+        return self._indices
+
+    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
+        """
+        Serialize to a dictionary.
+
+        Serialize this instance to a dictionary, with there being two top-level list items.  These are made from the
+        the contained ::class:`ContinuousRestriction` and ::class:`DiscreteRestriction` objects
+
+        Returns
+        -------
+
+        """
+        return {"continuous": [component.to_dict() for idx, component in self.continuous_indices.items()],
+                "discrete": [component.to_dict() for idx, component in self.discrete_indices.items()]}
 
 
 class DataFormat(Enum):
