@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from .meta_data import ContinuousRestriction, DataCategory, DataFormat, DiscreteRestriction, TimeRange
 from datetime import datetime, timedelta
+
 from dmod.communication.serializeable import Serializable
 from numbers import Number
 from pathlib import Path
