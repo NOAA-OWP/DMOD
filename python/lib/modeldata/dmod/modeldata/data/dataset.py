@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from .meta_data import ContinuousRestriction, DataCategory, DataFormat, DiscreteRestriction, TimeRange
+from .meta_data import ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction, TimeRange
 from datetime import datetime, timedelta
 
 from dmod.communication.serializeable import Serializable
@@ -19,7 +19,7 @@ class Dataset(Serializable, ABC):
     _KEY_ACCESS_LOCATION = 'access_location'
     _KEY_CREATED_ON = 'create_on'
     _KEY_DATA_CATEGORY = 'data_category'
-    _KEY_DATA_FORMAT = 'data_format'
+    _KEY_DATA_DOMAIN = 'data_domain'
     _KEY_DERIVED_FROM = 'derived_from'
     _KEY_DERIVATIONS = 'derivations'
     _KEY_EXPIRES = 'expires'
@@ -28,7 +28,6 @@ class Dataset(Serializable, ABC):
     _KEY_MANAGER_UUID = 'manager_uuid'
     _KEY_NAME = 'name'
     _KEY_UUID = 'uuid'
-    _KEY_TIME_RANGE = 'time_range'
 
     @classmethod
     @abstractmethod
@@ -67,11 +66,6 @@ class Dataset(Serializable, ABC):
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
         try:
-            if cls._KEY_TIME_RANGE in json_obj:
-                time_range = TimeRange.factory_init_from_deserialized_json(json_obj[cls._KEY_TIME_RANGE])
-            else:
-                time_range = None
-
             if cls._KEY_MANAGER_UUID in json_obj:
                 manager_uuid = UUID(json_obj[cls._KEY_MANAGER_UUID])
             else:
@@ -79,12 +73,11 @@ class Dataset(Serializable, ABC):
 
             cls(name=json_obj[cls._KEY_NAME],
                 category=DataCategory.get_for_name(json_obj[cls._KEY_DATA_CATEGORY]),
-                data_format=DataFormat.get_for_name(json_obj[cls._KEY_DATA_FORMAT]),
+                data_domain=DataDomain.factory_init_from_deserialized_json(json_obj[cls._KEY_DATA_DOMAIN]),
                 access_location=json_obj[cls._KEY_ACCESS_LOCATION],
                 uuid=UUID(json_obj[cls._KEY_UUID]),
                 manager_uuid=manager_uuid,
                 is_read_only=json_obj[cls._KEY_IS_READ_ONLY],
-                time_range=time_range,
                 expires=cls._date_parse_helper(json_obj, cls._KEY_EXPIRES),
                 derived_from=json_obj[cls._KEY_DERIVED_FROM] if cls._KEY_DERIVED_FROM in json_obj else None,
                 derivations=json_obj[cls._KEY_DERIVATIONS] if cls._KEY_DERIVATIONS in json_obj else None,
@@ -94,23 +87,20 @@ class Dataset(Serializable, ABC):
         except:
             return None
 
-    def __init__(self, name: str, category: DataCategory, data_format: DataFormat, access_location: str,
-                 uuid: Optional[UUID], manager: Optional['DatasetManager'] = None, manager_uuid: Optional[UUID] = None,
-                 is_read_only: bool = True, time_range: Optional[TimeRange] = None, expires: Optional[datetime] = None,
+    def __init__(self, name: str, category: DataCategory, data_domain: DataDomain, access_location: str,
+                 uuid: Optional[UUID] = None, manager: Optional['DatasetManager'] = None,
+                 manager_uuid: Optional[UUID] = None, is_read_only: bool = True, expires: Optional[datetime] = None,
                  derived_from: Optional[str] = None, derivations: Optional[List[str]] = None,
                  created_on: Optional[datetime] = None, last_updated: Optional[datetime] = None):
         self._name = name
         self._category = category
-        self._data_format = data_format
+        self._data_domain = data_domain
         self._access_location = access_location
         self._uuid = uuid4() if uuid is None else uuid
         self._manager = manager
         self._manager_uuid = manager.uuid if manager is not None else manager_uuid
         self._is_read_only = is_read_only
-        self._time_range = time_range
         self._expires = expires
-        # TODO: handle domain properly
-        #domain
         self._derived_from = derived_from
         self._derivations = derivations if derivations is not None else list()
         self._created_on = created_on
@@ -174,16 +164,28 @@ class Dataset(Serializable, ABC):
         return self._created_on
 
     @property
-    def data_format(self) -> DataFormat:
+    def data_domain(self) -> DataDomain:
         """
-        The ::class:`DataFormat` type value for this instance.
+        The data domain for this instance.
 
         Returns
         -------
-        DataCategory
+        DataDomain
             The ::class:`DataFormat` type value for this instance.
         """
-        return self._data_format
+        return self._data_domain
+
+    @property
+    def data_format(self) -> DataFormat:
+        """
+        The data domain for this instance.
+
+        Returns
+        -------
+        DataFormat
+            The ::class:`DataFormat` type value for this instance.
+        """
+        return self.data_domain.data_format
 
     @property
     def derivations(self) -> List[str]:
@@ -373,7 +375,11 @@ class Dataset(Serializable, ABC):
         Optional[TimeRange]
             The time range over which the dataset has data, if it is a time series, or ``None``.
         """
-        return self._time_range
+        if not self.data_format.is_time_series:
+            return None
+        # As TimeRange extends ContinuousRestriction, it should only be in the continuous_restrictions property list
+        tr = self.data_domain.continuous_restrictions[self.data_format.time_series_index]
+        return tr if isinstance(tr, TimeRange) else TimeRange(begin=tr.begin, end=tr.end, variable=tr.variable)
 
     @property
     def uuid(self) -> UUID:
@@ -398,16 +404,14 @@ class Dataset(Serializable, ABC):
         """
         serial = dict()
         serial[self._KEY_NAME] = self.name
-        serial[self._KEY_DATA_CATEGORY] = self.category
-        serial[self._KEY_DATA_FORMAT] = self.data_format
+        serial[self._KEY_DATA_CATEGORY] = self.category.name
+        serial[self._KEY_DATA_DOMAIN] = self.data_domain.to_dict()
         # TODO: unit test this
         serial[self._KEY_ACCESS_LOCATION] = self.access_location
         serial[self._KEY_UUID] = str(self.uuid)
         serial[self._KEY_IS_READ_ONLY] = self.is_read_only
         if self.manager_uuid is not None:
             serial[self._KEY_MANAGER_UUID] = str(self.manager_uuid)
-        if self.time_range is not None:
-            serial[self._KEY_TIME_RANGE] = self.time_range
         if self.expires is not None:
             serial[self._KEY_EXPIRES] = self.expires
         if self.derived_from is not None:
