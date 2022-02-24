@@ -238,29 +238,29 @@ class DataDomain(Serializable):
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
         try:
-            cls([ContinuousRestriction.factory_init_from_deserialized_json(c) for c in json_obj["continuous"]],
-                [DiscreteRestriction.factory_init_from_deserialized_json(d) for d in json_obj["discrete"]])
+            data_format = DataFormat.get_for_name(json_obj["data_format"])
+            continuous = [ContinuousRestriction.factory_init_from_deserialized_json(c) for c in json_obj["continuous"]]
+            discrete = [DiscreteRestriction.factory_init_from_deserialized_json(d) for d in json_obj["discrete"]]
+            return cls(data_format=data_format, continuous_restrictions=continuous, discrete_restrictions=discrete)
         except:
             return None
 
-    def __init__(self, continuous_restrictions: Optional[List[ContinuousRestriction]] = None,
+    def __init__(self, data_format: DataFormat, continuous_restrictions: Optional[List[ContinuousRestriction]] = None,
                  discrete_restrictions: Optional[List[DiscreteRestriction]] = None):
+        self._data_format = data_format
         self._continuous_restrictions = dict()
         self._discrete_restrictions = dict()
-        self._indices = list()
 
         if continuous_restrictions is not None:
             for c in continuous_restrictions:
                 self._continuous_restrictions[c.variable] = c
-                self._indices.append(c.variable)
 
         if discrete_restrictions is not None:
             for d in discrete_restrictions:
                 self._discrete_restrictions[d.variable] = d
-                self._indices.append(d.variable)
 
-        if len(self._indices) == 0:
-            msg = "Cannot create {} without at least one group of continuous or discrete domain index values"
+        if len(self._continuous_restrictions) + len(self._discrete_restrictions) == 0:
+            msg = "Cannot create {} without at least one finite continuous or discrete restriction"
             raise RuntimeError(msg.format(self.__class__.__name__))
 
     def _extends_continuous_restriction(self, continuous_restriction: ContinuousRestriction) -> bool:
@@ -323,6 +323,20 @@ class DataDomain(Serializable):
         return self._discrete_restrictions
 
     @property
+    def data_format(self) -> DataFormat:
+        """
+        The format for data in this domain.
+
+        The format for the data in this domain, which contains details like the indices and other data fields.
+
+        Returns
+        -------
+        DataFormat
+            The format for data in this domain.
+        """
+        return self._data_format
+
+    @property
     def indices(self) -> List[str]:
         """
         List of the names of indices that define the data domain.
@@ -335,7 +349,7 @@ class DataDomain(Serializable):
         List[str]
             List of the names of indices that define the data domain.
         """
-        return self._indices
+        return self._data_format.indices
 
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
         """
@@ -348,7 +362,8 @@ class DataDomain(Serializable):
         -------
 
         """
-        return {"continuous": [component.to_dict() for idx, component in self.continuous_restrictions.items()],
+        return {"data_format": self._data_format.name,
+                "continuous": [component.to_dict() for idx, component in self.continuous_restrictions.items()],
                 "discrete": [component.to_dict() for idx, component in self.discrete_restrictions.items()]}
 
 
