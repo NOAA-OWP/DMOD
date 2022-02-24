@@ -3,8 +3,9 @@ from . import DataCategory, DataFormat, TimeRange
 from datetime import datetime, timedelta
 from dmod.communication.serializeable import Serializable
 from numbers import Number
-from typing import Any, Dict, List, Optional, Type, Union
-from uri import URI
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Type, Union
+from uuid import UUID, uuid4
 
 
 class Dataset(Serializable, ABC):
@@ -14,6 +15,7 @@ class Dataset(Serializable, ABC):
 
     _SERIAL_DATETIME_STR_FORMAT = '%Y-%m-%d %H:%M:%S %z'
 
+    _KEY_ACCESS_LOCATION = 'access_location'
     _KEY_CREATED_ON = 'create_on'
     _KEY_DATA_CATEGORY = 'data_category'
     _KEY_DATA_FORMAT = 'data_format'
@@ -22,10 +24,10 @@ class Dataset(Serializable, ABC):
     _KEY_EXPIRES = 'expires'
     _KEY_IS_READ_ONLY = 'is_read_only'
     _KEY_LAST_UPDATE = 'last_updated'
-    _KEY_MANAGER = 'manager'
+    _KEY_MANAGER_UUID = 'manager_uuid'
     _KEY_NAME = 'name'
+    _KEY_UUID = 'uuid'
     _KEY_TIME_RANGE = 'time_range'
-    _KEY_URI = 'uri'
 
     @classmethod
     @abstractmethod
@@ -69,10 +71,17 @@ class Dataset(Serializable, ABC):
             else:
                 time_range = None
 
+            if cls._KEY_MANAGER_UUID in json_obj:
+                manager_uuid = UUID(json_obj[cls._KEY_MANAGER_UUID])
+            else:
+                manager_uuid = None
+
             cls(name=json_obj[cls._KEY_NAME],
                 category=DataCategory.get_for_name(json_obj[cls._KEY_DATA_CATEGORY]),
                 data_format=DataFormat.get_for_name(json_obj[cls._KEY_DATA_FORMAT]),
-                uri=URI(json_obj[cls._KEY_URI]),
+                access_location=json_obj[cls._KEY_ACCESS_LOCATION],
+                uuid=UUID(json_obj[cls._KEY_UUID]),
+                manager_uuid=manager_uuid,
                 is_read_only=json_obj[cls._KEY_IS_READ_ONLY],
                 time_range=time_range,
                 expires=cls._date_parse_helper(json_obj, cls._KEY_EXPIRES),
@@ -84,15 +93,18 @@ class Dataset(Serializable, ABC):
         except:
             return None
 
-    def __init__(self, name: str, category: DataCategory, data_format: DataFormat, uri: URI, manager: 'DatasetManager',
+    def __init__(self, name: str, category: DataCategory, data_format: DataFormat, access_location: str,
+                 uuid: Optional[UUID], manager: Optional['DatasetManager'] = None, manager_uuid: Optional[UUID] = None,
                  is_read_only: bool = True, time_range: Optional[TimeRange] = None, expires: Optional[datetime] = None,
                  derived_from: Optional[str] = None, derivations: Optional[List[str]] = None,
                  created_on: Optional[datetime] = None, last_updated: Optional[datetime] = None):
         self._name = name
         self._category = category
         self._data_format = data_format
-        self._uri = uri
+        self._access_location = access_location
+        self._uuid = uuid4() if uuid is None else uuid
         self._manager = manager
+        self._manager_uuid = manager.uuid if manager is not None else manager_uuid
         self._is_read_only = is_read_only
         self._time_range = time_range
         self._expires = expires
@@ -121,6 +133,20 @@ class Dataset(Serializable, ABC):
         # n = datetime.now()
         # n.astimezone().tzinfo.tzname(n.astimezone())
         self._last_updated = datetime.now()
+
+    @property
+    def access_location(self) -> str:
+        """
+        String representation of the location at which this dataset is accessible.
+
+        Depending on the subtype, this may be the string form of a URL, URI, or basic filesystem path.
+
+        Returns
+        -------
+        str
+            String representation of the location at which this dataset is accessible.
+        """
+        return self._access_location
 
     @property
     def category(self) -> DataCategory:
@@ -304,6 +330,23 @@ class Dataset(Serializable, ABC):
         """
         return self._manager
 
+    @manager.setter
+    def manager(self, manager: 'DatasetManager'):
+        self._manager = manager
+        self._manager_uuid = manager.uuid
+
+    @property
+    def manager_uuid(self) -> UUID:
+        """
+        The UUID of the ::class:`DatasetManager` for this instance.
+
+        Returns
+        -------
+        DatasetManager
+            The UUID of the ::class:`DatasetManager` for this instance.
+        """
+        return self._manager_uuid
+
     @property
     def name(self) -> str:
         """
@@ -331,6 +374,18 @@ class Dataset(Serializable, ABC):
         """
         return self._time_range
 
+    @property
+    def uuid(self) -> UUID:
+        """
+        The UUID for this instance.
+
+        Returns
+        -------
+        UUID
+            The UUID for this instance.
+        """
+        return self._uuid
+
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
         """
         Get the serial form of this instance as a dictionary object.
@@ -345,8 +400,11 @@ class Dataset(Serializable, ABC):
         serial[self._KEY_DATA_CATEGORY] = self.category
         serial[self._KEY_DATA_FORMAT] = self.data_format
         # TODO: unit test this
-        serial[self._KEY_URI] = str(self.uri)
+        serial[self._KEY_ACCESS_LOCATION] = self.access_location
+        serial[self._KEY_UUID] = str(self.uuid)
         serial[self._KEY_IS_READ_ONLY] = self.is_read_only
+        if self.manager_uuid is not None:
+            serial[self._KEY_MANAGER_UUID] = str(self.manager_uuid)
         if self.time_range is not None:
             serial[self._KEY_TIME_RANGE] = self.time_range
         if self.expires is not None:
@@ -385,7 +443,8 @@ class DatasetManager(ABC):
     ::method:`transform` creates a new dataset from an existing one, but transforms the data to another format.
     """
 
-    def __init__(self, datasets: Optional[Dict[str, Dataset]] = None):
+    def __init__(self, uuid: Optional[UUID] = None, datasets: Optional[Dict[str, Dataset]] = None):
+        self._uuid = uuid4() if uuid is None else uuid
         self._datasets = datasets if datasets is not None else dict()
 
     @abstractmethod
