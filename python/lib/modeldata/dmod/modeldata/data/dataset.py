@@ -528,3 +528,15 @@ class DatasetManager(ABC):
             Raised if ``prevent_loss`` is ``True`` and the new format does not have the same fields as the original.
         """
         pass
+
+    @property
+    def uuid(self) -> UUID:
+        """
+        UUID for this instance.
+
+        Returns
+        -------
+        UUID
+            UUID for this instance.
+        """
+        return self._uuid
