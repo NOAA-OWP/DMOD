@@ -92,20 +92,34 @@ class DataFormat(Enum):
         """
         Whether this type is a format of time series data.
 
-        This is determined by whether any index from ::attribute:`indices` is of type ::class:`datetime`.
+        This is determined by whether there is a time series index according to ::method:`time_series_index`.
 
         Returns
         -------
         bool
             Whether this type is a format of time series data.
         """
-        for i in self.indices:
-            if i in self.data_fields:
-                if self.data_fields[i] == datetime:
-                    return True
-            elif self._implicit_indices_types[i] == datetime:
-                return True
-        return False
+        return self.time_series_index is not None
+
+    @property
+    def time_series_index(self) -> Optional[str]:
+        """
+        The index for the time component of this format, if it is for time series data.
+
+        This is the index (implied or a data field) with type ::class:`datetime`.
+
+        Returns
+        -------
+        Optional[str]
+            The index for the time component of this format, if it is for time series data; otherwise ``None``.
+        """
+        for idx in self.indices:
+            if idx in self.data_fields:
+                if self.data_fields[idx] == datetime:
+                    return idx
+            elif self._implicit_indices_types[idx] == datetime:
+                return idx
+        return None
 
 
 class ContinuousRestriction(Serializable):
