@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 
 class Dataset(Serializable, ABC):
     """
-    Abstraction representation of a collection of data and its metadata.
+    Abstraction representation of a grouped collection of data and its metadata.
     """
 
     _SERIAL_DATETIME_STR_FORMAT = '%Y-%m-%d %H:%M:%S %z'
@@ -541,7 +541,8 @@ class DatasetManager(ABC):
     # TODO: implement functions and routines for scrubbing temporary datasets as needed
 
     @abstractmethod
-    def create(self, **kwargs) -> Dataset:
+    def create(self, name: str, category: DataCategory, data_format: DataFormat, is_read_only: bool,
+               files_dir: Optional[Path] = None, time_range: Optional[TimeRange] = None, **kwargs) -> Dataset:
         """
         Create a new dataset instance.
 
@@ -551,6 +552,18 @@ class DatasetManager(ABC):
 
         Parameters
         ----------
+        name : str
+            The name for the new dataset.
+        category : DataCategory
+            The data category for the new dataset.
+        data_format : DataFormat
+            The data format for the new dataset.
+        is_read_only : bool
+            Whether the new dataset is read-only.
+        files_dir : Optional[Path]
+            Optional path to a directory containing initial data for the dataset (essential for read-only datasets).
+        time_range : Optional[TimeRange]
+            Optional time range over which the created dataset has data.
         kwargs
             Implementation specific args.
 
@@ -573,8 +586,10 @@ class DatasetManager(ABC):
         """
         return self._datasets
 
-    @abstractmethod
-    def filter(self, base_dataset: Dataset, filter_fields: List[str], **kwargs) -> Dataset:
+    # TODO: add back as abstract, then implement in subtypes
+    #@abstractmethod
+    def filter(self, base_dataset: Dataset, restrictions: List[Union[ContinuousRestriction, DiscreteRestriction]],
+               new_dataset_name: str, is_temporary: bool, **kwargs) -> Dataset:
         """
         Produce a new dataset by filtering the data records in an existing one by values in certain fields.
 
@@ -582,10 +597,14 @@ class DatasetManager(ABC):
         ----------
         base_dataset : Dataset
             The original base dataset
-        filter_fields : List[str]
-            A list of fields that will be used to apply some kind of filtering.
+        restrictions : List[Union[ContinuousRestriction, DiscreteRestriction]]
+            A list of restrictions defining filtering variables and accepted values.
+        new_dataset_name : str
+            The name for the new resulting dataset which will contain the filtered data.
+        is_temporary : bool
+            Whether the new resulting dataset should be created as temporary.
         kwargs
-            Implementation-specific params (e.g., filtering criteria)
+            Implementation-specific params
 
         Returns
         -------
