@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from . import DataCategory, DataFormat, TimeRange
+from .meta_data import ContinuousRestriction, DataCategory, DataFormat, DiscreteRestriction, TimeRange
 from datetime import datetime, timedelta
 from dmod.communication.serializeable import Serializable
 from numbers import Number
