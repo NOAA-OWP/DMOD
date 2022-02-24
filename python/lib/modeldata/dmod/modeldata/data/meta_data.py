@@ -40,7 +40,7 @@ class DataFormat(Enum):
                 return value
         return None
 
-    def __init__(self, uid: int, indices: List[str], data_fields: Optional[Union[Dict[str, Type]], Set[str]] = None,
+    def __init__(self, uid: int, indices: List[str], data_fields: Optional[Union[Dict[str, Type], Set[str]]] = None,
                  implicit_indices_types: Optional[Dict[str, Type]] = None):
         self._uid = uid
         self._indices = indices
