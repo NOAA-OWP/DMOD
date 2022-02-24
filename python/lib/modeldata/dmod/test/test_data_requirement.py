@@ -1,44 +1,36 @@
 import unittest
-from ..modeldata.data.meta_data import DataDomain, DataFormat, DataRequirement, DataCategory, DiscreteRestriction
+from ..modeldata.data import CatchmentDataRequirement, DataRequirement, DataCategory
+from ..modeldata.subset import SubsetDefinition
 
 
-class TestDataRequirement(unittest.TestCase):
+class TestCatchmentDataRequirement(unittest.TestCase):
 
     def setUp(self) -> None:
-        example_domains = []
-        restriction = DiscreteRestriction(variable="catchment-id", values=['cat-1'])
-        example_domains.append(DataDomain(data_format=DataFormat.AORC_CSV, discrete_restrictions=[restriction]))
+        example_subset_defs = []
+        example_subset_defs.append(SubsetDefinition(catchment_ids=['cat-1'], nexus_ids=['nex-1']))
 
         self.example_reqs = []
-        self.example_reqs.append(DataRequirement(domain=example_domains[0], is_input=True,
-                                                 category=DataCategory.FORCING))
+        self.example_reqs.append(CatchmentDataRequirement(domain_params=example_subset_defs[0], is_input=True,
+                                                          category=DataCategory.FORCING))
 
     def tearDown(self) -> None:
         pass
 
-    def test_domain_0_a(self):
+    def test_domain_params_0_a(self):
         """
-        Test domain returns the right type.
+        Test domain params returns the right type.
         """
         ex = 0
         requirement = self.example_reqs[ex]
-        domain = requirement.domain
-        self.assertTrue(isinstance(domain, DataDomain))
+        domain_params: SubsetDefinition = requirement.domain_params
+        self.assertTrue(isinstance(domain_params, SubsetDefinition))
 
     def test_to_dict_0_a(self):
         ex = 0
         requirement = self.example_reqs[ex]
         as_dict = requirement.to_dict()
         self.assertTrue(isinstance(as_dict, dict))
-        self.assertTrue(DataRequirement._KEY_DOMAIN in as_dict)
-
-    def test_to_dict_0_b(self):
-        ex = 0
-        requirement = self.example_reqs[ex]
-        as_dict = requirement.to_dict()
-        self.assertTrue(requirement.is_input)
-        self.assertTrue(isinstance(as_dict[DataRequirement._KEY_IS_INPUT], bool))
-        self.assertTrue(as_dict[DataRequirement._KEY_IS_INPUT])
+        self.assertEqual(CatchmentDataRequirement.__name__, as_dict[CatchmentDataRequirement._KEY_REQ_SUBTYPE])
 
     def test_factory_init_from_deserialized_json_0_a(self):
         """
@@ -47,8 +39,20 @@ class TestDataRequirement(unittest.TestCase):
         ex = 0
         requirement = self.example_reqs[ex]
         as_dict = requirement.to_dict()
-        duplicate = DataRequirement.factory_init_from_deserialized_json(as_dict)
+        duplicate = CatchmentDataRequirement.factory_init_from_deserialized_json(as_dict)
         self.assertEqual(requirement.category, duplicate.category)
-        # TODO: be nice to have this later, but requires implementing equals() in this type
-        #self.assertEqual(requirement.domain, duplicate.domain)
+        self.assertEqual(requirement.domain_params, duplicate.domain_params)
+        self.assertEqual(requirement.is_input, duplicate.is_input)
+
+    def test_factory_init_from_deserialized_json_0_b(self):
+        """
+        Test that the superclass recursive call functionality works for example 0.
+        """
+        ex = 0
+        requirement = self.example_reqs[ex]
+        as_dict = requirement.to_dict()
+        duplicate = DataRequirement.factory_init_from_deserialized_json(as_dict)
+        self.assertEqual(duplicate.__class__, requirement.__class__)
+        self.assertEqual(requirement.category, duplicate.category)
+        self.assertEqual(requirement.domain_params, duplicate.domain_params)
         self.assertEqual(requirement.is_input, duplicate.is_input)
