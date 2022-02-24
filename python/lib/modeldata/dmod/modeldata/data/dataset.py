@@ -637,6 +637,29 @@ class DatasetManager(ABC):
         return True
 
     @abstractmethod
+    def list_files(self, dataset_name: str, **kwargs) -> List[str]:
+        """
+        List the files in the dataset of the provided name, relative to dataset root.
+
+        Note that not all datasets will be file-based.  Implementations should clearly document how they behave in such
+        scenarios.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The name of the relevant dataset.
+        kwargs
+            Other implementation specific keyword args.
+
+        Returns
+        -------
+        List[str]
+            A list of files in the dataset of the provided name, relative to dataset root.
+        """
+        pass
+
+    # TODO: add back as abstract, then implement in subtypes
+    #@abstractmethod
     def transform(self, base_dataset: Dataset, new_format: DataFormat, prevent_loss: bool = True, **kwargs) -> Dataset:
         """
         Transform the given dataset into a new dataset with the same records but in a different ::class:`DataFormat`.
