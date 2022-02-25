@@ -83,10 +83,13 @@ class Metric(
 
         Args:
             weight: The relative, numeric significance of the metric itself
-            lower_bound: The lowest acknowledged value - this doesn't necessarily need to be the lower bound of the statistical function
-            upper_bound: The highest acknowledged value - this doesn't necessarily need to be the upper bound of the statistical function
+            lower_bound: The lowest acknowledged value - this doesn't necessarily need to be the lower bound of the
+                statistical function
+            upper_bound: The highest acknowledged value - this doesn't necessarily need to be the upper bound of the
+                statistical function
             ideal_value: The value deemed to be perfect for the metric
-            failure: A value indicating a complete failure for the metric, triggering a failure among all accompanying metrics
+            failure: A value indicating a complete failure for the metric, triggering a failure among all accompanying
+                metrics
             greater_is_better: Whether or not a higher value is perferred over a lower value
         """
         if weight is None or not (isinstance(weight, int) or isinstance(weight, float)) or numpy.isnan(weight):

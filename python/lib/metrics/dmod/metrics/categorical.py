@@ -12,7 +12,7 @@ import math
 import pandas
 import numpy
 
-from dmod.metrics.threshold import Threshold
+from ..metrics.threshold import Threshold
 
 PANDAS_DATA = typing.Union[pandas.DataFrame, pandas.Series]
 

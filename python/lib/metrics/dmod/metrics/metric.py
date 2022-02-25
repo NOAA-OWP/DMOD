@@ -18,10 +18,9 @@ import numpy
 import pandas
 import sklearn.metrics
 
-import dmod.metrics.scoring as scoring
-import dmod.metrics.threshold as threshold
-import dmod.metrics.categorical as categorical
-from dmod.metrics.threshold import Threshold
+from ..metrics import scoring as scoring
+from ..metrics import threshold as threshold
+from ..metrics import categorical as categorical
 
 
 logging.basicConfig(
@@ -351,7 +350,7 @@ class KlingGuptaEfficiency(scoring.Metric):
             pairs: pandas.DataFrame,
             observed_value_label: str,
             predicted_value_label: str,
-            thresholds: typing.Sequence[Threshold] = None,
+            thresholds: typing.Sequence[threshold.Threshold] = None,
             alpha_scale: float = None,
             beta_scale: float = None,
             gamma_scale: float = None,
@@ -442,7 +441,7 @@ class NormalizedNashSutcliffeEfficiency(scoring.Metric):
             pairs: pandas.DataFrame,
             observed_value_label: str,
             predicted_value_label: str,
-            thresholds: typing.Sequence[Threshold] = None,
+            thresholds: typing.Sequence[threshold.Threshold] = None,
             *args,
             **kwargs
     ) -> scoring.Scores:
@@ -508,7 +507,7 @@ class VolumeError(scoring.Metric):
             pairs: pandas.DataFrame,
             observed_value_label: str,
             predicted_value_label: str,
-            thresholds: typing.Sequence[Threshold] = None,
+            thresholds: typing.Sequence[threshold.Threshold] = None,
             *args,
             **kwargs
     ) -> scoring.Scores:
