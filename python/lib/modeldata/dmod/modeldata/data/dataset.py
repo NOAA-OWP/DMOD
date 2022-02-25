@@ -601,6 +601,27 @@ class DatasetManager(ABC):
         """
         pass
 
+    # TODO: add back as abstract, then implement properly in subtypes
+    #@abstractmethod
+    def delete_data(self, dataset_name: str, **kwargs) -> bool:
+        """
+        Delete data in some format from the dataset.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The dataset from which to delete data.
+        kwargs
+            Implementation-specific params for referencing what data should be deleted and how.
+
+        Returns
+        -------
+        bool
+            Whether the data was deleted successfully.
+        """
+        #pass
+        return False
+
     @property
     def datasets(self) -> Dict[str, Dataset]:
         """
@@ -637,6 +658,32 @@ class DatasetManager(ABC):
         -------
         Dataset
             A new dataset containing a subset of records from the original ``dataset``, but in the same data format.
+        """
+        pass
+
+    # TODO: add back as abstract, then implement in subtypes
+    #@abstractmethod
+    def get_data(self, dataset_name: str, **kwargs) -> Any:
+        """
+        Get data from this dataset.
+
+        Implementations must be responsible for managing (via their use of ``kwargs``) both exactly what data from the
+        dataset is retrieved and how it is provided back to the user, as well as clearly documenting how this works.
+
+        Implementations must also document what the function returns.  This could be an indication of success, an object
+        containing the retrieved data, or nothing at all.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The dataset to which to add data.
+        kwargs
+            Implementation-specific params for representing what data to get and how to get and deliver it.
+
+        Returns
+        -------
+        Any
+            A return value of implementation-specific type.
         """
         pass
 
