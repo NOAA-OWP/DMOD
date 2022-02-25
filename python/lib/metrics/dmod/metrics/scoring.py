@@ -9,7 +9,7 @@ from math import inf as infinity
 import pandas
 import numpy
 
-from dmod.metrics.threshold import Threshold
+from ..metrics.threshold import Threshold
 
 ARGS = typing.Optional[typing.Sequence]
 KWARGS = typing.Optional[typing.Dict[str, typing.Any]]
