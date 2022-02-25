@@ -5,7 +5,7 @@ from numbers import Number
 
 from dmod.communication import MaaSRequest, ModelExecRequest, SchedulerRequestMessage
 from dmod.communication.serializeable import Serializable
-from dmod.modeldata.data import DataRequirement
+from dmod.modeldata.data.meta_data import DataRequirement
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 from uuid import UUID
