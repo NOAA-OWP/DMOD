@@ -546,6 +546,28 @@ class DatasetManager(ABC):
     # TODO: implement functions and routines for scrubbing temporary datasets as needed
 
     @abstractmethod
+    def add_data(self, dataset_name: str, **kwargs) -> bool:
+        """
+        Add data in some format to the dataset.
+
+        Implementations must be responsible for managing (via their use of ``kwargs``) the way data is accepted, what
+        kinds of data can be accepted, and whether what data has been passed is supported.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The dataset to which to add data.
+        kwargs
+            Implementation-specific params for representing the data and details of how it should be added.
+
+        Returns
+        -------
+        bool
+            Whether the data was added successfully.
+        """
+        pass
+
+    @abstractmethod
     def create(self, name: str, category: DataCategory, data_format: DataFormat, is_read_only: bool,
                files_dir: Optional[Path] = None, time_range: Optional[TimeRange] = None, **kwargs) -> Dataset:
         """
