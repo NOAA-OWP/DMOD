@@ -6,7 +6,8 @@ import unittest
 import pandas
 import numpy
 
-import dmod.metrics.metric as metrics
+from ..metrics import metric as metrics
+from ..metrics import Threshold
 
 TEST_DIRECTORY = os.path.dirname(__file__)
 EPSILON = 0.0001
@@ -18,13 +19,13 @@ MODEL_DATA_PATH = os.path.join(TEST_DIRECTORY, "model_1.csv")
 OBSERVATION_DATA_PATH = os.path.join(TEST_DIRECTORY, "observations.csv")
 
 
-def get_thresholds() -> typing.List[metrics.Threshold]:
-    thresholds: typing.List[metrics.Threshold] = list()
+def get_thresholds() -> typing.List[Threshold]:
+    thresholds: typing.List[Threshold] = list()
 
-    thresholds.append(metrics.Threshold.default())
+    thresholds.append(Threshold.default())
 
     thresholds.append(
-        metrics.Threshold(
+        Threshold(
             name="Minor",
             value=27,
             weight=1,
@@ -34,7 +35,7 @@ def get_thresholds() -> typing.List[metrics.Threshold]:
     )
 
     thresholds.append(
-        metrics.Threshold(
+        Threshold(
             name="Moderate",
             value=36,
             weight=1,
@@ -44,7 +45,7 @@ def get_thresholds() -> typing.List[metrics.Threshold]:
     )
 
     thresholds.append(
-        metrics.Threshold(
+        Threshold(
             name="Major",
             value=43,
             weight=1,
@@ -54,7 +55,7 @@ def get_thresholds() -> typing.List[metrics.Threshold]:
     )
 
     thresholds.append(
-        metrics.Threshold(
+        Threshold(
             name="Record",
             value=60,
             weight=1,

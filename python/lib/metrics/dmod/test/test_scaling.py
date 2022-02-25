@@ -2,10 +2,9 @@
 import typing
 import unittest
 
+from ..metrics import metric as metrics
 
-import dmod.metrics.metric as metrics
-
-from dmod.metrics.scoring import scale_value
+from ..metrics.scoring import scale_value
 
 
 EPSILON = 0.0001

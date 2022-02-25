@@ -5,13 +5,13 @@ import unittest
 
 import pandas
 
-from dmod.metrics.threshold import Threshold
-import dmod.metrics.scoring as scoring
-import dmod.metrics.metric as metrics
+from ..metrics.threshold import Threshold
+from ..metrics import scoring as scoring
+from ..metrics import metric as metrics
 
 TEST_DIRECTORY = os.path.dirname(__file__)
 
-OBSERVATIONS_SOURCE = "./observations.csv"
+OBSERVATIONS_SOURCE = os.path.join(TEST_DIRECTORY, "observations.csv")
 MODEL_DATA = {
     "Model 1": os.path.join(TEST_DIRECTORY, "model_1.csv"),
     "Model 2": os.path.join(TEST_DIRECTORY, "model_2.csv"),
