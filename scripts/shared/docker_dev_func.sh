@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
 
+DOCKER_DESKTOP_OS_NAME="Docker Desktop"
+
 docker_dev_init_swarm_network()
 {
     # 1 - network name
@@ -94,6 +96,12 @@ docker_dev_deploy_stack_from_compose_using_env()
         echo "Error: invalid docker-compose file '${1}'; cannot start stack; exiting"
         exit 1
     fi
+}
+
+# Useful for, e.g., seeing of the OS value is "Docker Desktop" to indicate this a local dev environment
+docker_check_daemon_os()
+{
+    docker info --format "{{.OperatingSystem}}"
 }
 
 docker_dev_check_stack_running()
