@@ -424,7 +424,9 @@ if [ -n "${DO_BUILD_ACTION}" ] || [ -n "${DO_PUSH_ACTION}" ]; then
 fi
 # ... then for deploy config
 if [ -z "${DOCKER_DEPLOY_CONFIG:-}" ] && [ -n "${DO_DEPLOY_ACTION}" ]; then
-    if [ -e "${STACK_DIR_PATH}/docker-deploy.yml" ]; then
+    if [ "$(docker_check_daemon_os)" == "${DOCKER_DESKTOP_OS_NAME}" ] && [ -e "${STACK_DIR_PATH}/docker-desktop-deploy.yml" ]; then
+        DOCKER_DEPLOY_CONFIG="${STACK_DIR_PATH}/docker-desktop-deploy.yml"
+    elif [ -e "${STACK_DIR_PATH}/docker-deploy.yml" ]; then
         DOCKER_DEPLOY_CONFIG="${STACK_DIR_PATH}/docker-deploy.yml"
     else
         DOCKER_DEPLOY_CONFIG="${STACK_DIR_PATH}/${DEFAULT_COMPOSE_FILENAME}"
