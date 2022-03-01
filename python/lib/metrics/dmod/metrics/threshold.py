@@ -2,19 +2,12 @@
 Defines formalized Threshold objects that serve as functions for subsetting data
 """
 
-import typing
-
 from math import inf as infinity
 
 import pandas
 import numpy
 
-NUMBER = typing.Union[int, float]
-
-PANDAS_DATA = typing.Union[pandas.DataFrame, pandas.Series]
-
-NUMERIC_FILTER = typing.Callable[[NUMBER, NUMBER], bool]
-FRAME_FILTER = typing.Callable[[PANDAS_DATA], PANDAS_DATA]
+from ..metrics.common import CommonTypes
 
 
 class Operators(object):
@@ -23,7 +16,7 @@ class Operators(object):
     """
 
     @staticmethod
-    def get_method(name: str) -> NUMERIC_FILTER:
+    def get_method(name: str) -> CommonTypes.NUMERIC_FILTER:
         """
         Gets a thresholding function based on a name representation
 
@@ -80,13 +73,13 @@ class Operators(object):
         return first <= second
 
     def __init__(self, operator_name: str):
-        self.__operator_function: NUMERIC_FILTER = Operators.get_method(operator_name)
+        self.__operator_function: CommonTypes.NUMERIC_FILTER = Operators.get_method(operator_name)
 
-    def __call__(self, first: NUMBER, second: NUMBER) -> bool:
+    def __call__(self, first: CommonTypes.NUMBER, second: CommonTypes.NUMBER) -> bool:
         return self.__operator_function(first, second)
 
 
-class Threshold(FRAME_FILTER):
+class Threshold(CommonTypes.FRAME_FILTER):
     @staticmethod
     def default() -> "Threshold":
         return Threshold(name="All", value=-infinity, weight=1, on_observed=False, on_predicted=False)
@@ -94,13 +87,13 @@ class Threshold(FRAME_FILTER):
     def __init__(
             self,
             name: str,
-            value: NUMBER,
-            weight: NUMBER,
+            value: CommonTypes.NUMBER,
+            weight: CommonTypes.NUMBER,
             on_observed: bool = True,
             on_predicted: bool = False,
             observed_value_key: str = None,
             predicted_value_key: str = None,
-            operator: NUMERIC_FILTER = None
+            operator: CommonTypes.NUMERIC_FILTER = None
     ):
         if None in (name, value, weight) or numpy.nan in (value, weight) or not name:
             raise ValueError(
@@ -129,11 +122,15 @@ class Threshold(FRAME_FILTER):
         self.__predicted_value_key = predicted_value_key
         self._allow = self.__build_filter(value, operator)
 
-    def __build_filter(self, threshold_value: NUMBER, operator: NUMERIC_FILTER = None) -> FRAME_FILTER:
+    def __build_filter(
+            self,
+            threshold_value: CommonTypes.NUMBER,
+            operator: CommonTypes.NUMERIC_FILTER = None
+    ) -> CommonTypes.FRAME_FILTER:
         if operator is None:
             operator = Operators.greater_than_or_equal
 
-        def filter_func(frame: PANDAS_DATA) -> PANDAS_DATA:
+        def filter_func(frame: CommonTypes.PANDAS_DATA) -> CommonTypes.PANDAS_DATA:
             if isinstance(frame, pandas.Series):
                 return frame[operator(frame, threshold_value)]
 
@@ -151,7 +148,7 @@ class Threshold(FRAME_FILTER):
 
         return filter_func
 
-    def __call__(self, pairs: PANDAS_DATA) -> PANDAS_DATA:
+    def __call__(self, pairs: CommonTypes.PANDAS_DATA) -> CommonTypes.PANDAS_DATA:
         return self._allow(pairs)
 
     @property
@@ -159,11 +156,11 @@ class Threshold(FRAME_FILTER):
         return self.__name
 
     @property
-    def value(self) -> NUMBER:
+    def value(self) -> CommonTypes.NUMBER:
         return self.__value
 
     @property
-    def weight(self) -> NUMBER:
+    def weight(self) -> CommonTypes.NUMBER:
         return self.__weight
 
     def __str__(self) -> str:
