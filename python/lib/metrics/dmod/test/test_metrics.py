@@ -8,9 +8,9 @@ import numpy
 
 from ..metrics import metric as metrics
 from ..metrics import Threshold
+from ..metrics.common import EPSILON
 
 TEST_DIRECTORY = os.path.dirname(__file__)
-EPSILON = 0.0001
 
 OBSERVATION_VALUE_KEY = "Observations"
 MODEL_VALUE_KEY = "value"

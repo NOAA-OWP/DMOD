@@ -1,13 +1,10 @@
-#!/usr/bin/env python
-import typing
+#!/usr/bin/env python3
 import unittest
 
 from ..metrics import metric as metrics
 
 from ..metrics.scoring import scale_value
-
-
-EPSILON = 0.0001
+from ..metrics.common import EPSILON
 
 
 class TestResultScaling(unittest.TestCase):

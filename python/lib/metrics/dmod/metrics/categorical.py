@@ -1,10 +1,6 @@
 """
 Defines methods and structures that facilitate the evaluation of categorical metrics,
 such as Probability of Detection and False alarm ratio
-
-Attributes:
-    PANDAS_DATA: A type indicating either a pandas DataFrame or a pandas Series
-    NUMBER: A type indicating either a floating point or an integer
 """
 import typing
 import math
@@ -13,26 +9,74 @@ import pandas
 import numpy
 
 from ..metrics.threshold import Threshold
-
-PANDAS_DATA = typing.Union[pandas.DataFrame, pandas.Series]
-
-NUMBER = typing.Union[float, int]
+from ..metrics.common import CommonTypes
 
 
 def value_hit(observation: float, prediction: float) -> bool:
+    """
+    Determines whether or not the two values represent a hit
+
+    This is to be called `after` filtering, so two non-NaN values indicate a hit since both made it past a threshold
+
+    Args:
+        observation: An observed value
+        prediction: A modeled value
+
+    Returns:
+        True if neither values are NaN, False otherwise
+    """
     return not numpy.isnan(observation) and not numpy.isnan(prediction)
 
 
 def value_missed(observation: float, prediction: float) -> bool:
+    """
+    Determines whether or not the two values represent a miss
+
+    This is to be called `after` filtering, so a non-NaN observation and NaN prediction means that the prediction
+    missed the observation
+
+    Args:
+        observation: An observed value
+        prediction: A modeled value
+
+    Returns:
+        True if the observation is non-NaN but the prediction is NaN
+    """
     return not numpy.isnan(observation) and numpy.isnan(prediction)
 
 
 def nothing_happened(observation: float, prediction: float) -> bool:
+    """
+    Determines whether or not the two values represent a lack of interesting data
+
+    This is to be called `after` filtering, so two NaN values indicates that nothing happened,
+    indicating a true negative
+
+    Args:
+        observation: An observed value
+        prediction: A modeled value
+
+    Returns:
+        True if both values are NaN
+    """
     return numpy.isnan(observation) and numpy.isnan(prediction)
 
 
-def value_was_a_false_positive(value: float, prediction: float) -> bool:
-    return numpy.isnan(value) and not numpy.isnan(prediction)
+def value_was_a_false_positive(observation: float, prediction: float) -> bool:
+    """
+    Determines whether or not the prediction stated that something was going to happened but nothing did
+
+    This is to be called `after` filtering, so an observed value of NaN and a predicted value that is non-NaN
+    indicates a false positive
+
+    Args:
+        observation: An observed value
+        prediction: A modeled value
+
+    Returns:
+        True if the observation was NaN but the prediction wasn't
+    """
+    return numpy.isnan(observation) and not numpy.isnan(prediction)
 
 
 def categorical_metric(
@@ -77,6 +121,13 @@ def categorical_metric(
             The updated metric function
 
         """
+        scale_reversed = False
+
+        if math.isfinite(maximum) and math.isfinite(minimum) and ideal is not None and not numpy.isnan(ideal):
+            scale_reversed = abs(maximum - ideal) > abs(ideal - minimum)
+        elif math.isfinite(minimum) and ideal == minimum:
+            scale_reversed = True
+
         setattr(function, "is_metric", True)
         setattr(function, 'maximum', maximum)
         setattr(function, 'minimum', minimum)
@@ -86,7 +137,7 @@ def categorical_metric(
         setattr(function, 'upper_bounded', math.isfinite(maximum))
         setattr(function, 'partially_bounded', math.isfinite(minimum) ^ math.isfinite(maximum))
         setattr(function, 'bounded', math.isfinite(minimum) or math.isfinite(maximum))
-        setattr(function, 'scale_reversed', minimum > maximum)
+        setattr(function, 'scale_reversed', scale_reversed)
         return function
 
     return inner
@@ -103,7 +154,15 @@ class CategoricalMetricMetadata(object):
         ideal: The desired value for the metric
         failure: A value indicating a failure condition for the metric
     """
-    def __init__(self, name: str, maximum: NUMBER, minimum: NUMBER, ideal: NUMBER, failure: NUMBER):
+    def __init__(
+            self,
+            name: str,
+            maximum: CommonTypes.NUMBER,
+            minimum: CommonTypes.NUMBER,
+            ideal: CommonTypes.NUMBER,
+            failure: CommonTypes.NUMBER,
+            scale_reversed: bool
+    ):
         """
         Constructor
 
@@ -119,6 +178,7 @@ class CategoricalMetricMetadata(object):
         self.__minimum = minimum
         self.__ideal = ideal
         self.__failure = failure
+        self.__scale_reversed = scale_reversed
 
     @property
     def name(self) -> str:
@@ -129,7 +189,7 @@ class CategoricalMetricMetadata(object):
         return self.__name
 
     @property
-    def maximum(self) -> NUMBER:
+    def maximum(self) -> CommonTypes.NUMBER:
         """
         Returns:
             The maximum value of the categorical metric
@@ -137,7 +197,7 @@ class CategoricalMetricMetadata(object):
         return self.__maximum
 
     @property
-    def minimum(self) -> NUMBER:
+    def minimum(self) -> CommonTypes.NUMBER:
         """
         Returns:
             The minimum value of the categorical metric
@@ -145,7 +205,7 @@ class CategoricalMetricMetadata(object):
         return self.__minimum
 
     @property
-    def ideal(self) -> NUMBER:
+    def ideal(self) -> CommonTypes.NUMBER:
         """
         Returns:
             The desired value of the categorical metric
@@ -153,7 +213,7 @@ class CategoricalMetricMetadata(object):
         return self.__ideal
 
     @property
-    def failure(self) -> NUMBER:
+    def failure(self) -> CommonTypes.NUMBER:
         """
         Returns:
             A value that is considered to be an utter failure for the metric
@@ -198,7 +258,7 @@ class CategoricalMetricMetadata(object):
         Returns:
             Whether or not a smaller value is preferrable to a larger value
         """
-        return self.__minimum > self.__maximum
+        return self.__scale_reversed
 
 
 class TruthTable(object):
@@ -244,7 +304,8 @@ class TruthTable(object):
             maximum=metric_function.maximum,
             minimum=metric_function.minimum,
             ideal=metric_function.ideal,
-            failure=metric_function.failure
+            failure=metric_function.failure,
+            scale_reversed=metric_function.scale_reversed
         )
 
     def __init__(self, observations: pandas.Series, predictions: pandas.Series, threshold: Threshold):

@@ -21,6 +21,7 @@ import sklearn.metrics
 from ..metrics import scoring as scoring
 from ..metrics import threshold as threshold
 from ..metrics import categorical as categorical
+from ..metrics.common import CommonTypes
 
 
 logging.basicConfig(
@@ -30,11 +31,7 @@ logging.basicConfig(
     datefmt=os.environ.get("LOG_DATEFMT", "%H:%M:%S")
 )
 
-NUMBER = typing.Union[int, float]
 DEFAULT_TRUTH_TABLES_KEY = "TRUTH_TABLES"
-ROW_INDEX_KEY = typing.Optional[typing.Hashable]
-KEY_AND_ROW = typing.Tuple[ROW_INDEX_KEY, pandas.Series]
-INFINITY = math.inf
 
 
 def is_type(value: object, value_type: typing.Type) -> bool:
@@ -87,22 +84,26 @@ def is_type(value: object, value_type: typing.Type) -> bool:
     return value_is_valid
 
 
-def get_all_metrics() -> typing.Iterable[typing.Type]:
+def get_all_metrics() -> typing.List[typing.Type]:
     """
     Returns:
         A collection of all fully implemented metrics
     """
 
-    def filter_metric(klazz) -> bool:
-        return inspect.isclass(klazz) and not inspect.isabstract(klazz)
+    def get_leaf_classes(klazz) -> typing.List[typing.Type]:
+        classes: typing.List[typing.Type] = list()
 
-    collection: typing.List[typing.Type] = [
-        cls
-        for name, cls in inspect.getmembers(
-            scoring.Metric,
-            predicate=filter_metric
-        )
-    ]
+        for cls in klazz.__subclasses__():
+            if not inspect.isclass(cls):
+                continue
+            if inspect.isabstract(cls):
+                classes.extend(get_leaf_classes(cls))
+            else:
+                classes.append(cls)
+
+        return classes
+
+    collection = get_leaf_classes(scoring.Metric)
 
     return collection
 
@@ -171,7 +172,7 @@ class CategoricalMetric(scoring.Metric, abc.ABC):
         return self.get_metadata().name
 
     @abc.abstractmethod
-    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[KEY_AND_ROW]:
+    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[CommonTypes.KEY_AND_ROW]:
         """
         Calculates the categorical metric and returns the results via row number-row pairs
 
@@ -187,7 +188,7 @@ class CategoricalMetric(scoring.Metric, abc.ABC):
     def get_name(cls):
         return cls.get_metadata().name
 
-    def __init__(self, weight: NUMBER):
+    def __init__(self, weight: CommonTypes.NUMBER):
         """
         Constructor
 
@@ -269,15 +270,19 @@ class CategoricalMetric(scoring.Metric, abc.ABC):
 
 
 class PearsonCorrelationCoefficient(scoring.Metric):
+    """
+    Implementation of the Pearson Correlation coefficient
+    """
+
     @classmethod
     def get_name(cls):
         return "Pearson Correlation Coefficient"
 
     @classmethod
-    def get_descriptions(cls):
+    def get_description(cls):
         return "A measure of linear correlation between two sets of data"
 
-    def __init__(self, weight: NUMBER):
+    def __init__(self, weight: CommonTypes.NUMBER):
         """
         Constructor
 
@@ -311,6 +316,11 @@ class PearsonCorrelationCoefficient(scoring.Metric):
             filtered_pairs = pearson_threshold(pairs)
 
             if not filtered_pairs.empty:
+                # Numpy calculates the correlation coefficient and returns it in a matrix of the observed vs
+                # the predicted.
+                #   [ observed vs observed (1) ][ observed vs predicted ]
+                #   [ Predicted vs Observed ][ predicted vs predicted (1) ]
+                # [0][0] and [1][1] will also be 1 since they are measured against themselves.
                 result = numpy.corrcoef(filtered_pairs[observed_value_label], filtered_pairs[predicted_value_label])
                 if result is not None and len(result) > 0:
                     result = result[0][1]
@@ -322,8 +332,16 @@ class PearsonCorrelationCoefficient(scoring.Metric):
 
 
 class KlingGuptaEfficiency(scoring.Metric):
+    """
+    Implementation of the Kling-Gupta Efficiency
+
+    Gupta, H. V., Kling, H., Yilmaz, K. K., & Martinez, G. F. (2009). Decomposition of
+        the mean squared error and NSE performance criteria: Implications for improving
+        hydrological modelling. Journal of hydrology, 377(1-2), 80-91.
+        https://doi.org/10.1016/j.jhydrol.2009.08.003
+    """
     @classmethod
-    def get_descriptions(cls):
+    def get_description(cls):
         return "A goodness-of-fit measure providing a diagnostically interesting decomposition of the " \
                "Nash-Sutcliffe efficiency"
 
@@ -331,7 +349,7 @@ class KlingGuptaEfficiency(scoring.Metric):
     def get_name(cls) -> str:
         return "Kling-Gupta Efficiency"
 
-    def __init__(self, weight: NUMBER):
+    def __init__(self, weight: CommonTypes.NUMBER):
         """
         Constructor
 
@@ -414,15 +432,23 @@ class KlingGuptaEfficiency(scoring.Metric):
 
 
 class NormalizedNashSutcliffeEfficiency(scoring.Metric):
+    """
+    Implementation of the Normalized Nash-Sutcliffe Efficiency
+
+    Nossent, J., & Bauwens, W. (2012, April). Application of a normalized
+        Nash-Sutcliffe efficiency to improve the accuracy of the Sobol'
+        sensitivity analysis of a hydrological model. In EGU General Assembly
+        Conference Abstracts (p. 237).
+    """
     @classmethod
-    def get_descriptions(cls):
+    def get_description(cls):
         return "A normalized statistic that measures the relative magnitude of noise compared to information"
 
     @classmethod
     def get_name(cls) -> str:
         return "Normalized Nash–Sutcliffe Efficiency"
 
-    def __init__(self, weight: NUMBER):
+    def __init__(self, weight: CommonTypes.NUMBER):
         """
         Constructor
 
@@ -482,15 +508,21 @@ class NormalizedNashSutcliffeEfficiency(scoring.Metric):
 
 
 class VolumeError(scoring.Metric):
+    """
+    Calculates the difference between the projected volumes produced by the observations and predictions
+
+    The ideal value is 0. A number greater than 0 indicates an overprediction, a number less indicates an
+    under-prediction
+    """
     @classmethod
-    def get_descriptions(cls):
+    def get_description(cls):
         return "The difference between the observed volume and the predicted volume"
 
     @classmethod
     def get_name(cls) -> str:
         return "Volume Error"
 
-    def __init__(self, weight: NUMBER):
+    def __init__(self, weight: CommonTypes.NUMBER):
         """
         Constructor
 
@@ -499,7 +531,8 @@ class VolumeError(scoring.Metric):
         """
         super().__init__(
             weight=weight,
-            ideal_value=0
+            ideal_value=0,
+            greater_is_better=False
         )
 
     def __call__(
@@ -528,11 +561,11 @@ class VolumeError(scoring.Metric):
 
 class ProbabilityOfDetection(CategoricalMetric):
     @classmethod
-    def get_descriptions(cls):
+    def get_description(cls):
         return "The probability that something was detected. Sensitive to hits, but ignores false alarms. " \
                "Very sensitive to the climatological frequency of the event. Good for rare events."
 
-    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[KEY_AND_ROW]:
+    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[CommonTypes.KEY_AND_ROW]:
         return tables.probability_of_detection.iterrows()
 
     @classmethod
@@ -542,12 +575,12 @@ class ProbabilityOfDetection(CategoricalMetric):
 
 class FalseAlarmRatio(CategoricalMetric):
     @classmethod
-    def get_descriptions(cls):
+    def get_description(cls):
         return "The probability that something was falsely reported as happening. Sensitive to false alarms, " \
                "but ignores misses. Very sensitive to the climatological frequency of the event. " \
                "Should be used in conjunction with the probability of detection."
 
-    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[KEY_AND_ROW]:
+    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[CommonTypes.KEY_AND_ROW]:
         return tables.false_alarm_ratio.iterrows()
 
     @classmethod
@@ -557,7 +590,7 @@ class FalseAlarmRatio(CategoricalMetric):
 
 class FrequencyBias(CategoricalMetric):
     @classmethod
-    def get_descriptions(cls):
+    def get_description(cls):
         return "Measures the ratio of the frequency of forecast events to the frequency of observed events. " \
                "Indicates whether the forecast system has a tendency to underforecast (BIAS<1) or overforecast (BIAS>1)"
 
@@ -565,13 +598,13 @@ class FrequencyBias(CategoricalMetric):
     def get_metadata(cls) -> categorical.CategoricalMetricMetadata:
         return categorical.TruthTable.get_metric_metadata("frequency_bias")
 
-    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[KEY_AND_ROW]:
+    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[CommonTypes.KEY_AND_ROW]:
         return tables.frequency_bias.iterrows()
 
 
 class Accuracy(CategoricalMetric):
     @classmethod
-    def get_descriptions(cls):
+    def get_description(cls):
         return 'Overall, what fraction of the forecasts were correct? Can be misleading since it is heavily ' \
                'influenced by the most common category, usually "no event" in the case of rare weather.'
 
@@ -579,13 +612,13 @@ class Accuracy(CategoricalMetric):
     def get_metadata(cls) -> categorical.CategoricalMetricMetadata:
         return categorical.TruthTable.get_metric_metadata("accuracy")
 
-    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[KEY_AND_ROW]:
+    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[CommonTypes.KEY_AND_ROW]:
         return tables.accuracy.iterrows()
 
 
 class CriticalSuccessIndex(CategoricalMetric):
     @classmethod
-    def get_descriptions(cls):
+    def get_description(cls):
         return 'How well did the forecast "yes" events correspond to the observed "yes" events? It can be thought ' \
                'of as the accuracy when correct negatives have been removed from consideration, that is, TS is only ' \
                'concerned with forecasts that count. Sensitive to hits, penalizes both misses and false alarms.'
@@ -594,13 +627,13 @@ class CriticalSuccessIndex(CategoricalMetric):
     def get_metadata(cls) -> categorical.CategoricalMetricMetadata:
         return categorical.TruthTable.get_metric_metadata("critical_success_index")
 
-    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[KEY_AND_ROW]:
+    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[CommonTypes.KEY_AND_ROW]:
         return tables.critical_success_index.iterrows()
 
 
 class EquitableThreatScore(CategoricalMetric):
     @classmethod
-    def get_descriptions(cls):
+    def get_description(cls):
         return 'How well did the forecast "yes" events correspond to the observed "yes" events ' \
                '(accounting for hits due to chance)? Sensitive to hits. Because it penalises both misses and false ' \
                'alarms in the same way, it does not distinguish the source of forecast error.'
@@ -609,26 +642,26 @@ class EquitableThreatScore(CategoricalMetric):
     def get_metadata(cls) -> categorical.CategoricalMetricMetadata:
         return categorical.TruthTable.get_metric_metadata("equitable_threat_score")
 
-    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[KEY_AND_ROW]:
+    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[CommonTypes.KEY_AND_ROW]:
         return tables.equitable_threat_score.iterrows()
 
 
 class GeneralSkill(CategoricalMetric):
     @classmethod
-    def get_descriptions(cls):
+    def get_description(cls):
         return 'What was the accuracy of the forecast relative to that of random chance?'
 
     @classmethod
     def get_metadata(cls) -> categorical.CategoricalMetricMetadata:
         return categorical.TruthTable.get_metric_metadata("general_skill")
 
-    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[KEY_AND_ROW]:
+    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[CommonTypes.KEY_AND_ROW]:
         return tables.general_skill.iterrows()
 
 
 class Precision(CategoricalMetric):
     @classmethod
-    def get_descriptions(cls):
+    def get_description(cls):
         return 'The ratio of the number of times predictions correctly predicted an event to the total number of ' \
                'times the predictions stated there would be an event.'
 
@@ -636,5 +669,5 @@ class Precision(CategoricalMetric):
     def get_metadata(cls) -> categorical.CategoricalMetricMetadata:
         return categorical.TruthTable.get_metric_metadata("precision")
 
-    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[KEY_AND_ROW]:
+    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[CommonTypes.KEY_AND_ROW]:
         return tables.precision.iterrows()
