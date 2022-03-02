@@ -82,9 +82,8 @@ RUN git clone --single-branch --branch $BRANCH $REPO_URL \
     && cd $WORKDIR && rm -rf ngen boost
 
 USER root
-#Remove the boost headers now that ngen is compiled
-RUN rm -rf ${BOOST_ROOT}
-RUN echo "export PATH=${PATH}" >> /etc/profile
+# Remove the boost headers now that ngen is compiled; also update path and make sure dataset directory is there
+RUN rm -rf ${BOOST_ROOT} && echo "export PATH=${PATH}" >> /etc/profile
 USER ${USER}
 COPY --chown=${USER} entrypoint.sh ${WORKDIR}
 RUN chmod +x ${WORKDIR}/entrypoint.sh
