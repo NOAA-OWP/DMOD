@@ -105,13 +105,15 @@ RUN echo "cd ${WORKDIR}" >> ${USER_HOME}/.profile \
     #&& mkdir -p ${WORKDIR}/domains
 
 # Handle final required dependencies separately so we don't have to, e.g., rebuild MPI if we want to update Python
+# Also include (not quite authoritative) pip packages required for the test Python BMI library
 ARG REQUIRE="sudo gcc g++ musl-dev make cmake tar git gfortran libgfortran python3>=${MIN_PYTHON} python3-dev>=${MIN_PYTHON} py3-pip py3-numpy>=${MIN_NUMPY} py3-numpy-dev>=${MIN_NUMPY} py3-pandas netcdf netcdf-dev hdf5 hdf5-dev bzip2 texinfo expat expat-dev flex bison"
 RUN apk update && apk upgrade \
     && if [ -n "${REPOS}" ]; then \
             apk add --repository ${REPOS} --no-cache ${REQUIRE}; \
         else \
             apk add --no-cache ${REQUIRE}; \
-        fi
+        fi \
+    && pip install numpy pandas pyyaml bmipy netCDF4
 
 ENV BOOST_ROOT=${WORKDIR}/boost
 USER ${USER}
