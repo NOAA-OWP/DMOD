@@ -1,0 +1,67 @@
+version: '3.8'
+services:
+  minio1:
+    image: minio/minio:latest
+    hostname: minio1
+    volumes:
+      - ${DMOD_OBJECT_STORE_HOST_DIR_1:?No host data directory 1 for object store storage provided}:/export1
+    expose:
+      - 9000
+      - 9001
+    ports:
+      - ${DMOD_OBJECT_STORE_1_HOST_PORT:-9002}:9000
+      - ${DMOD_OBJECT_STORE_1_CONSOLE_HOST_PORT:-9001}:9001
+    networks:
+      - mpi-net
+      - requests-net
+    deploy:
+      restart_policy:
+        delay: 10s
+        max_attempts: 10
+        window: 60s
+    command: server /export1 --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    secrets:
+      - exec_user_name
+      - exec_user_passwd
+      - secret_key
+      - access_key
+  minio_proxy:
+    image: nginx:1.21.1-alpine
+    hostname: minio_proxy
+    networks:
+      #- minio_distributed
+      - requests-net
+      - mpi-net
+    volumes:
+      - ${DMOD_OBJECT_STORE_PROXY_CONFIG:-./nginx.conf}:/etc/nginx/nginx-docker-desktop.conf:ro
+    ports:
+      - "9000:9000"
+    #depends_on:
+    #  - minio1
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+networks:
+  mpi-net:
+    external: true
+    name: ${DOCKER_MPI_NET_NAME}
+  requests-net:
+    external: true
+    name: ${DOCKER_REQUESTS_NET_NAME}
+
+secrets:
+  secret_key:
+    file: ../secrets/object_store/secret_key
+  access_key:
+    file: ../secrets/object_store/access_key
+  exec_user_passwd:
+    file: ../secrets/object_store/model_exec_secret_key
+  exec_user_name:
+    file: ../secrets/object_store/model_exec_access_key
+
