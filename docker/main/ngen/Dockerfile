@@ -45,7 +45,7 @@ RUN git clone --single-branch --branch $BRANCH $REPO_URL \
     && chmod u+x build_sub \
     &&  if [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ]; then \
             ./build_sub extern/iso_c_fortran_bmi; \
-            if [ "${BUILD_NOAH_OWP}" == "true" ] ; then ./build_sub extern/noah-mp-modular; fi; \
+            if [ "${BUILD_NOAH_OWP}" == "true" ] ; then ./build_sub extern/noah-owp-modular; fi; \
         fi \
     &&  if [ "${NGEN_ACTIVATE_C}" == "ON" ]; then \
             if [ "${BUILD_CFE}" == "true" ] ; then ./build_sub extern/cfe; fi; \
