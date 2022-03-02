@@ -115,6 +115,9 @@ RUN apk update && apk upgrade \
         fi \
     && pip install numpy pandas pyyaml bmipy netCDF4
 
+# For now, the s3fs-fuse package is only available in the Alpine testing repo
+RUN apk add --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing s3fs-fuse
+
 ENV BOOST_ROOT=${WORKDIR}/boost
 USER ${USER}
 WORKDIR ${WORKDIR}
