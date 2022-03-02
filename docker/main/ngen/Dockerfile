@@ -1,4 +1,5 @@
 ARG DOCKER_INTERNAL_REGISTRY
+ARG DATASET_DIRECTORIES="config forcing hydrofabric observation output"
 #FIXME is base no longer nwm specific??? How about deps?
 #Base is missing a few simple deps, like git...
 #FROM ${DOCKER_INTERNAL_REGISTRY}/nwm-base
@@ -86,7 +87,9 @@ USER root
 RUN rm -rf ${BOOST_ROOT} && echo "export PATH=${PATH}" >> /etc/profile
 USER ${USER}
 COPY --chown=${USER} entrypoint.sh ${WORKDIR}
-RUN chmod +x ${WORKDIR}/entrypoint.sh
+# Change permissions for entrypoint and make sure dataset volume mount parent directories exists
+RUN chmod +x ${WORKDIR}/entrypoint.sh \
+    && for d in ${DATASET_DIRECTORIES}; do mkdir -p /dmod/dataset/${d}; done
 WORKDIR ${WORKDIR}
 ENV PATH=${WORKDIR}:$PATH
 ENTRYPOINT ["entrypoint.sh"]
