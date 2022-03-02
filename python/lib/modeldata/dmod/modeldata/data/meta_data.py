@@ -437,7 +437,6 @@ class TimeRange(ContinuousRestriction):
                                         datetime_pattern=self.get_datetime_str_format())
 
 
-# TODO: ***** fix DataDomain to include a data format value, then refactor this type to just use that as the domain
 class DataRequirement(Serializable):
     """
     A definition of a particular data requirement needed for an execution task.
