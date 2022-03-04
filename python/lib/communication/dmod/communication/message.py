@@ -2,7 +2,7 @@ from abc import ABC
 from enum import Enum
 from typing import Type
 
-from .serializeable import Serializable
+from dmod.core.serializable import Serializable
 
 
 #FIXME make an independent enum of model request types???

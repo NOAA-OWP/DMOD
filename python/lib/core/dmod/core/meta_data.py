@@ -1,7 +1,7 @@
 from enum import Enum
 from datetime import datetime
 
-from dmod.communication.serializeable import Serializable
+from .serializable import Serializable
 from numbers import Number
 from typing import Any, Dict, List, Optional, Set, Type, Union
 

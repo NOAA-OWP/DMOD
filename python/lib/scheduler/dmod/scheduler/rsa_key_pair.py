@@ -1,7 +1,7 @@
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
-from dmod.communication.serializeable import Serializable
+from dmod.core.serializable import Serializable
 from pathlib import Path
 from typing import Dict, Union
 import datetime

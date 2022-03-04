@@ -1,6 +1,6 @@
 from numbers import Number
 from typing import Collection, Tuple, Dict, Union
-from dmod.communication.serializeable import Serializable
+from dmod.core.serializable import Serializable
 
 
 class SubsetDefinition(Serializable):
