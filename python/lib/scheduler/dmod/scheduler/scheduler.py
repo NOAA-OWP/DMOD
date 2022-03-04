@@ -2,6 +2,8 @@
 
 import logging
 from requests.exceptions import ReadTimeout
+from dmod.communication import MessageEventType, NGENRequest, NWMRequest
+from dmod.modeldata.data.meta_data import DataCategory
 import docker
 from docker.types import Mount, SecretReference
 import yaml
@@ -265,6 +267,169 @@ class Launcher(SimpleDockerUtil):
         host_str = host_str.rstrip()
 
         return host_str
+
+    @classmethod
+    def _ds_names_helper(cls, job: Job, worker_index: int, category: DataCategory, min_count: Optional[int] = 1,
+                         max_count: Optional[int] = None) -> List[str]:
+        """
+        Get required dataset names of a category for a worker/allocation, and sanity check those are configured right.
+
+        Parameters
+        ----------
+        job : Job
+            The job of interest.
+        worker_index : int
+            Index of the worker and of the sublist of requirements in ::attribute:`Job.worker_data_requirements`.
+        category : DataCategory
+            The data requirement category type of interest.
+        min_count : Optional[int]
+            Optional minimum number of expected dataset names for this worker and category (default ``1``).
+        max_count : Optional[int]
+            Optional minimum number of expected dataset names for this worker and category (default: ``None``).
+
+        Returns
+        -------
+        List[str]
+            List of the names of datasets fulfilling all the data requirements of the given category for the specified
+            job worker/allocation.
+        """
+        # Get a set of fulfilling dataset names for the worker's data requirements of the given DataCategory
+        worker_data_requirements = job.worker_data_requirements[worker_index]
+        dataset_names = set([req.fulfilled_by for req in worker_data_requirements if req.category == category])
+        # Sanity check the number of dataset names and that we know the fulfilling dataset for all requirements
+        if min_count is not None and len(dataset_names) < min_count:
+            msg = "Attempting to start {} job {} with fewer than allowed minimum of {} required {} datasets."
+            raise RuntimeError(msg.format(job.model_request.__class__.__name__, job.job_id, min_count, category))
+        elif max_count is not None and len(dataset_names) > max_count:
+            msg = "Attempting to start {} job {} with more than allowed max of {} required {} datasets."
+            raise RuntimeError(msg.format(job.model_request.__class__.__name__, job.job_id, max_count, category))
+        elif None in dataset_names is None:
+            msg = "Attempting to start {} job {} with unfulfilled {} data requirement."
+            raise RuntimeError(msg.format(job.model_request.__class__.__name__, job.job_id, category))
+        # If things look good, return the set of names we found after converting to a list
+        else:
+            return list(dataset_names)
+
+    # TODO (later): once we get to dynamic/custom images (i.e., for arbitrary BMI modules), make sure this still works
+    def _generate_docker_cmd_args(self, job: 'Job', worker_index: int) -> List[str]:
+        """
+        Create the Docker "CMD" arguments list to be used to start all services that will perform this job.
+
+        Docker "CMD" arguments are the arguments that will be passed to the Docker entrypoint script/executable when
+        starting a container.  This function essentially generates the appropriate arguments for the applicable
+        entrypoint script, in order to start the worker service at the given index, among the collection of all worker
+        services involved with executing the given job.
+
+        Parameters
+        ----------
+        job : Job
+            The job to have worker Docker services started, with those services needing "CMD" arguments generated.
+        worker_index : int
+            The particular worker service index in question, which will have a specific set of data requirements.
+
+        Returns
+        -------
+        List[str]
+            A list of the Docker "COMMAND" args to be used when creating the worker service at the given index.
+
+        See Also
+        -------
+        https://docs.docker.com/engine/reference/builder/#cmd
+        https://docs.docker.com/engine/reference/builder/#understand-how-cmd-and-entrypoint-interact
+        """
+        # TODO (later): handle non-model-exec jobs in the future
+        if job.model_request.event_type != MessageEventType.MODEL_EXEC_REQUEST:
+            raise RuntimeError("Unsupported requested job event type {}; cannot generate Docker CMD arg values".format(
+                job.model_request.get_message_event_type()))
+
+        # TODO (later): have something more intelligent than class type to determine right entrypoint format and
+        #  values, but for now assume/require a "standard" image
+        if isinstance(job.model_request, NWMRequest) or isinstance(job.model_request, NGENRequest):
+            raise RuntimeError("Unexpected request type {}: cannot build Docker CMD arg list".format(
+                job.model_request.__class__.__name__))
+
+        # For now at least, all image arg lists start the same way (first 3 args: node count, host string, and job id)
+        # TODO: this probably should be a documented standard for any future entrypoints
+        # TODO (later): probably need to move all types to recognize and use explicit flags rather than order arguments
+        docker_cmd_args = [str(len(job.allocations)), self.build_host_list(job), job.job_id]
+
+        if isinstance(job.model_request, NGENRequest):
+            # $4 is the name of the output dataset (which will imply a directory location)
+            output_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.OUTPUT, max_count=1)
+            docker_cmd_args.append(output_dataset_names[0])
+
+            # $5 is the name of the hydrofabric dataset (which will imply a directory location)
+            hydrofabric_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.HYDROFABRIC, max_count=1)
+            docker_cmd_args.append(hydrofabric_dataset_names[0])
+
+            # $6 is the name of the configuration dataset (which will imply a directory location)
+            config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1)
+            docker_cmd_args.append(config_dataset_names[0])
+
+            # Also do a sanity check here to ensure there is at least one forcing dataset
+            self._ds_names_helper(job, worker_index, DataCategory.FORCING)
+
+            # $7 and beyond have colon-joined category+name strings (e.g., FORCING:aorc_csv_forcings_1) for Minio
+            #       object store datasets to mount
+            obj_store_dataset_strings: List[str] = self._get_required_obj_store_datasets_arg_strings(job, worker_index)
+
+            if len(obj_store_dataset_strings) > 0:
+                docker_cmd_args.extend(obj_store_dataset_strings)
+            # TODO (later): remove this once it is possible to have dataset types other than ObjectStoreDataset
+            else:
+                msg = "{} does not currently support starting jobs without any object store datasets."
+                raise RuntimeError(msg.format(self.__class__.__name__))
+
+        return docker_cmd_args
+
+    def _get_required_obj_store_datasets_arg_strings(self, job: Job, worker_index: int) -> List[str]:
+        """
+        Get list of colon-joined category+name strings for required object store datasets for this job worker.
+
+        Function first finds the collection of datasets that are stored in the object store and needed to fulfill one of
+        the ::class:`DataRequirement` objects of the specified worker for the given job (i.e., as stored in the nested
+        list at index ``worker_index`` of this job's ::attribute:`Job.worker_data_requirements` property).  It then maps
+        each of these datasets to a string in the form <category_name>:<dataset_name> (e.g.,
+        FORCING:aorc_csv_forcings_1).  This is the format required for the ``ngen`` entrypoint script to know what
+        object store dataset buckets to mount in the file system.  The function then returns this map of strings.
+
+        Parameters
+        ----------
+        job : Job
+            The job for which there is need of the entrypoint string args for required object store datasets.
+        worker_index : int
+            The particular worker service index in question, which will have a specific set of data requirements.
+
+        Returns
+        -------
+        List[str]
+            The entrypoint string args for all required object store datasets for the referenced worker.
+        """
+        name_list = []
+        for requirement in job.worker_data_requirements[worker_index]:
+            if requirement.fulfilled_by is None:
+                msg = "Can't get object store arg strings and start job {} with unfulfilled data requirements"
+                raise RuntimeError(msg.format(str(job.job_id)))
+            if self._is_object_store_dataset(dataset_name=requirement.fulfilled_by):
+                name_list.append('{}:{}'.format(requirement.category, requirement.fulfilled_by))
+        return name_list
+
+    def _is_object_store_dataset(self, dataset_name: str):
+        """
+        Test whether the dataset of the given name is stored in the object store.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The name of the dataset of interest.
+
+        Returns
+        -------
+        bool
+            Whether the dataset of the given name is stored in the object store.
+        """
+        # TODO (later): for now, when only this type is supported, assume always true, but need to fix this
+        return True
 
     def load_image_and_mounts(self, name: str, version: str, domain: str) -> tuple:
         """ TODO make this a static method, pass in image_and_domain_list file path
