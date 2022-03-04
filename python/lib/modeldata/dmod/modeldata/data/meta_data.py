@@ -413,10 +413,11 @@ class DataCategory(Enum):
     """
     The general category values for different data.
     """
-    FORCING = 0
-    HYDROFABRIC = 1
-    OUTPUT = 2
+    CONFIG = 0
+    FORCING = 1
+    HYDROFABRIC = 2
     OBSERVATION = 3
+    OUTPUT = 4
 
     @classmethod
     def get_for_name(cls, name_str: str) -> Optional['DataCategory']:
