@@ -154,6 +154,13 @@ class Launcher(SimpleDockerUtil):
         serv_name = serviceParams.serv_name
         mounts = serviceParams.mounts
 
+        # Put things that we aren't sure will show up into this
+        additional_kwargs = dict()
+        if len(serviceParams.secrets) > 0:
+            additional_kwargs['secrets'] = serviceParams.secrets
+        if len(serviceParams.env_var_map) > 0:
+            additional_kwargs['env'] = serviceParams.env_var_list
+
         Healthcheck = docker.types.Healthcheck(test = ["CMD-SHELL", 'echo Hello'],
                                                interval = 1000000 * 10000 * 1,
                                                timeout = 1000000 * 10000 * 2,
@@ -177,7 +184,8 @@ class Launcher(SimpleDockerUtil):
                                          networks = networks,
                                          # user = user_id,
                                          healthcheck = Healthcheck,
-                                         restart_policy=restart)
+                                         restart_policy=restart,
+                                         **additional_kwargs)
         except ReadTimeout:
             print("Connection to docker API timed out")
             raise
