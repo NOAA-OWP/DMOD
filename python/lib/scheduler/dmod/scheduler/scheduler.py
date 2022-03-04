@@ -542,13 +542,6 @@ class Launcher(SimpleDockerUtil):
         #FIXME if the stack.namespace needs to align with the stack name, this isn't correct
         labels = {"com.docker.stack.image": image_tag, "com.docker.stack.namespace": model}
 
-        #First arg, number of "nodes"
-        args = [str( len(job.allocations) )]
-        #Second arg, host string
-        args.append(self.build_host_list(job))
-        #third arg, job id
-        args.append(job.job_id)
-
         #This seems to be more of a dev check than anything required
         #self.write_hostfile(basename, cpusList)
         num_allocations = len(job.allocations) if job.allocations is not None else 0
@@ -573,7 +566,8 @@ class Launcher(SimpleDockerUtil):
             # Create the docker service
             service_params = DockerServiceParameters(image_tag, constraints, alloc.hostname, labels, serv_name, mounts)
             #TODO check for proper service creation, return False if doesn't work
-            service = self.create_service(serviceParams=service_params, idx=alloc_index, docker_cmd_args=args)
+            service = self.create_service(serviceParams=service_params, idx=alloc_index,
+                                          docker_cmd_args=self._generate_docker_cmd_args(job, alloc_index))
             service_per_allocation.append(service)
 
         logging.info("\n")
