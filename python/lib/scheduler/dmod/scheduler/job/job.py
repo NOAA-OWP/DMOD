@@ -4,7 +4,7 @@ from datetime import datetime
 from numbers import Number
 
 from dmod.communication import MaaSRequest, ModelExecRequest, SchedulerRequestMessage
-from dmod.communication.serializeable import Serializable
+from dmod.core.serializable import Serializable
 from dmod.core.meta_data import DataRequirement
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING, Union

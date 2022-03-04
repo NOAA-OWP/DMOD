@@ -2,7 +2,7 @@ import datetime
 import hashlib
 import random
 from .message import AbstractInitRequest, MessageEventType, Response
-from .serializeable import Serializable
+from dmod.core.serializable import Serializable
 from abc import ABC, abstractmethod
 from enum import Enum
 from numbers import Number

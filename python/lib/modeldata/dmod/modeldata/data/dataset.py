@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from dmod.core.meta_data import ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction, TimeRange
 from datetime import datetime, timedelta
 
-from dmod.communication.serializeable import Serializable
+from dmod.core.serializable import Serializable
 from numbers import Number
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Type, Union

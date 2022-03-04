@@ -17,6 +17,7 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=['docker', 'Faker', 'dmod-communication>=0.4.2', 'dmod-redis>=0.1.0', 'dmod-scheduler>=0.5.0'],
+    install_requires=['docker', 'Faker', 'dmod-core>=0.1.0', 'dmod-communication>=0.4.2', 'dmod-redis>=0.1.0',
+                      'dmod-scheduler>=0.5.0'],
     packages=find_namespace_packages(exclude=('test', 'src'))
 )
