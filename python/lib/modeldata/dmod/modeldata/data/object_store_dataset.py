@@ -140,7 +140,8 @@ class ObjectStoreDatasetManager(DatasetManager):
         super(ObjectStoreDatasetManager, self).__init__(datasets)
         # TODO: add checks to ensure all datasets passed to this type are ObjectStoreDataset
         self._minio_host_str = minio_host_str
-        self._client = Minio(minio_host_str, access_key=access_key, secret_key=secret_key)
+        # TODO (later): may need to look at turning this back on
+        self._client = Minio(minio_host_str, access_key=access_key, secret_key=secret_key, secure=False)
 
     def _decode_object_name_to_file_path(self, object_name: str) -> str:
         """
