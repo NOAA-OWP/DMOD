@@ -1,4 +1,4 @@
-from .meta_data import DataCategory, DataDomain, DataFormat, TimeRange
+from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, TimeRange
 from .dataset import Dataset, DatasetManager
 from datetime import datetime
 from minio import Minio
