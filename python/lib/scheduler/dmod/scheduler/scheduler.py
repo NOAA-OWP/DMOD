@@ -3,9 +3,9 @@
 import logging
 from requests.exceptions import ReadTimeout
 import docker
-from docker.types import Mount
+from docker.types import Mount, SecretReference
 import yaml
-from typing import List, TYPE_CHECKING, Tuple
+from typing import Dict, List, Optional, TYPE_CHECKING, Tuple
 
 ## local imports
 from .utils import parsing_nested as pn
@@ -17,7 +17,8 @@ if TYPE_CHECKING:
 
 class DockerServiceParameters():
     def __init__(self, image_tag: str = None, constraints: list = [], hostname: str = None, \
-                 labels: dict = {}, serv_name: str = None, mounts: list = []):
+                 labels: dict = {}, serv_name: str = None, mounts: list = [], env_vars: Optional[Dict[str, str]] = None,
+                 secrets: List[SecretReference] = []):
         """
         Parameters
         ----------
@@ -33,6 +34,10 @@ class DockerServiceParameters():
             name parameter for client.services.create()
         mounts
             mounts parameter for client.services.create()
+        env_vars
+            Optional map of environment variables to values (all as strings)
+        secrets
+            List of Docker ::class:`SecretReference` objects
         """
         self.image_tag = image_tag
         self.constraints = constraints
@@ -40,6 +45,22 @@ class DockerServiceParameters():
         self.labels = labels
         self.serv_name = serv_name
         self.mounts = mounts
+        self.secrets = secrets
+        self.env_var_map = env_vars
+
+    @property
+    def env_var_list(self) -> List[str]:
+        """
+        List of environment variables from ::attribute:`env_var_map` property, in the format ``KEY=value``.
+
+        This is the format require when passing through the Docker SDK, but is not as intuitive as a dict/map.
+
+        Returns
+        -------
+        List[str]
+            List of environment variables from ::attribute:`env_var_map` property, in the format ``KEY=value``.
+        """
+        return ["{}={}".format(key, self.env_var_map[key]) for key in self.env_var_map]
 
 
 class SimpleDockerUtil:
