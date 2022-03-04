@@ -551,6 +551,17 @@ class Launcher(SimpleDockerUtil):
 
         service_per_allocation = []
 
+        # Get the Docker Secrets for object store data access
+        # TODO (later): might need to expand to use different users for different situations (create JobType?)
+        secrets = [self.docker_client.secrets.get('object_store_exec_user_name'),
+                   self.docker_client.secrets.get('object_store_exec_user_passwd')]
+
+        # Add this to env variables, depending on whether this is a single node (Desktop) or multi-node setup
+        if len(self.docker_client.nodes.list()) == 1:
+            env_vars = {'MINIO_DEPLOYMENT': 'standalone'}
+        else:
+            env_vars = {'MINIO_DEPLOYMENT': 'multi-host'}
+
         for alloc_index in range(num_allocations):
             alloc = job.allocations[alloc_index]
             constraints_str = "node.hostname == {}".format(alloc.hostname)
@@ -564,7 +575,8 @@ class Launcher(SimpleDockerUtil):
             serv_name = job.allocation_service_names[alloc_index]
 
             # Create the docker service
-            service_params = DockerServiceParameters(image_tag, constraints, alloc.hostname, labels, serv_name, mounts)
+            service_params = DockerServiceParameters(image_tag, constraints, alloc.hostname, labels, serv_name, mounts,
+                                                     env_vars, secrets)
             #TODO check for proper service creation, return False if doesn't work
             service = self.create_service(serviceParams=service_params, idx=alloc_index,
                                           docker_cmd_args=self._generate_docker_cmd_args(job, alloc_index))
