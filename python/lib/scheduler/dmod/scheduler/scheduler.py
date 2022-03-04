@@ -3,7 +3,7 @@
 import logging
 from requests.exceptions import ReadTimeout
 from dmod.communication import MessageEventType, NGENRequest, NWMRequest
-from dmod.modeldata.data.meta_data import DataCategory
+from dmod.core.meta_data import DataCategory
 import docker
 from docker.types import Mount, SecretReference
 import yaml
