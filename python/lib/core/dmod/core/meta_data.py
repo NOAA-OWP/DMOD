@@ -55,7 +55,7 @@ class DataFormat(Enum):
                             "V2D": float, "PSFC": float, "SWDOWN": float, "LWDOWN": float, "offset": int}
                            )
     """ The default format for "raw" AORC forcing data. """
-    NGEN_OUTPUT = (3, ["id", "Time"], None, {"id": str, "Time": datetime})
+    NGEN_OUTPUT = (3, ["id", "Time", "data_id"], None, {"id": str, "Time": datetime, "data_id": str})
     """ Representation of the format for Nextgen output, with unknown/unspecified configuration of output fields. """
     NGEN_REALIZATION_CONFIG = (4, ["id", "time", "data_id"],
                                None,
