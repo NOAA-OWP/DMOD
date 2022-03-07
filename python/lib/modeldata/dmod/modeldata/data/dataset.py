@@ -278,7 +278,7 @@ class Dataset(Serializable, ABC):
         Dict[str, Type]
             The data fields that are available from this dataset.
         """
-        return self.data_format.data_fields
+        return self.data_domain.data_fields
 
     @property
     def is_read_only(self) -> bool:
