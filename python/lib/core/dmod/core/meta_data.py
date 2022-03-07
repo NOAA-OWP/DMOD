@@ -66,7 +66,7 @@ class DataFormat(Enum):
     @property
     def data_fields(self) -> Dict[str, Type]:
         """
-        The name and type of data fields specified for this format
+        The name and type of data fields specified for this format.
 
         This property will be an empty dictionary if no field specification is available.
 
@@ -285,15 +285,34 @@ class DataDomain(Serializable):
             data_format = DataFormat.get_for_name(json_obj["data_format"])
             continuous = [ContinuousRestriction.factory_init_from_deserialized_json(c) for c in json_obj["continuous"]]
             discrete = [DiscreteRestriction.factory_init_from_deserialized_json(d) for d in json_obj["discrete"]]
-            return cls(data_format=data_format, continuous_restrictions=continuous, discrete_restrictions=discrete)
+            if 'data_fields' in json_obj:
+                data_fields = dict()
+                for key in json_obj['data_fields']:
+                    val = json_obj['data_fields'][key]
+                    if val == 'str':
+                        data_fields[key] = str
+                    elif val == 'int':
+                        data_fields[key] = int
+                    elif val == 'float':
+                        data_fields[key] = float
+                    else:
+                        data_fields[key] = Any
+            else:
+                data_fields = None
+
+            return cls(data_format=data_format, continuous_restrictions=continuous, discrete_restrictions=discrete,
+                       custom_data_fields=data_fields)
         except:
             return None
 
     def __init__(self, data_format: DataFormat, continuous_restrictions: Optional[List[ContinuousRestriction]] = None,
-                 discrete_restrictions: Optional[List[DiscreteRestriction]] = None):
+                 discrete_restrictions: Optional[List[DiscreteRestriction]] = None,
+                 custom_data_fields: Optional[Dict[str, Type]] = None):
         self._data_format = data_format
         self._continuous_restrictions = dict()
         self._discrete_restrictions = dict()
+        self._custom_data_fields = custom_data_fields
+        """ Extra attribute for custom data fields when format does not specified (ignore when format does specify). """
 
         if continuous_restrictions is not None:
             for c in continuous_restrictions:
@@ -367,6 +386,23 @@ class DataDomain(Serializable):
         return self._discrete_restrictions
 
     @property
+    def data_fields(self) -> Dict[str, Type]:
+        """
+        Get the data fields map of this domain instance.
+
+        This will either be directly from the format, if its format specifies any fields, or from a custom fields
+        attribute that may be set during initialization (but is ignored when the format specifies fields).
+
+        Returns
+        -------
+
+        """
+        if self.data_format.data_fields is None:
+            return self._custom_data_fields
+        else:
+            return self._data_format.data_fields
+
+    @property
     def data_format(self) -> DataFormat:
         """
         The format for data in this domain.
@@ -406,9 +442,21 @@ class DataDomain(Serializable):
         -------
 
         """
-        return {"data_format": self._data_format.name,
-                "continuous": [component.to_dict() for idx, component in self.continuous_restrictions.items()],
-                "discrete": [component.to_dict() for idx, component in self.discrete_restrictions.items()]}
+        serial = {"data_format": self._data_format.name,
+                  "continuous": [component.to_dict() for idx, component in self.continuous_restrictions.items()],
+                  "discrete": [component.to_dict() for idx, component in self.discrete_restrictions.items()]}
+        if self.data_format.data_fields is None:
+            serial['data_fields'] = dict()
+            for key in self._custom_data_fields:
+                if self._custom_data_fields[key] == str:
+                    serial['data_fields'][key] = 'str'
+                elif self._custom_data_fields[key] == int:
+                    serial['data_fields'][key] = 'int'
+                elif self._custom_data_fields[key] == float:
+                    serial['data_fields'][key] = 'float'
+                else:
+                    serial['data_fields'][key] = 'Any'
+        return serial
 
 
 class DataCategory(Enum):
