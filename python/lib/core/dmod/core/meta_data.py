@@ -7,6 +7,32 @@ from typing import Any, Dict, List, Optional, Set, Type, Union
 
 
 class DataFormat(Enum):
+    """
+    Supported data format types for data needed or produced by workflow execution tasks.
+
+    Enum member values are a tuple corresponding to the params in the ``__init__`` function, which in turn correspond to
+    the document properties.  Assignment is based on ordering within the tuple.
+
+    The ::attribute:`indices` property contains the indices of the data, from which it is possible to uniquely identify
+    data records/object.  The ::attribute:`data_fields` property, when not ``None`` provides the data fields contained
+    within the data (some of which may be indices) and, when possible, the data type.  When this property is ``None``,
+    this means that data fields are not known, as opposed to there being no data fields.
+
+    Some indices will be data fields, while others will not (e.g., for ``AORC_CSV``, data in a given file corresponds to
+    a particular catchment, so the catchment itself is inferred based on the file, instead of explicitly appearing
+    within the data).  While not accessible via public property, an additional (but optional) tuple element after the
+    data fields is set when appropriate to provide such implicit indices and their types.
+
+    A particularly important, common implied indices is that of ``data_id``.  Collections of data of several of formats
+    may be observably indistinguishable (i.e., according to index values) from certain other collections of the same
+    format, while being significantly functionally different.  When this is possible and it is likely to need two such
+    similar collections of data to be available at the same time, the ``data_id`` implied indices is added to give users
+    of the format an additional "standard" index that can provide some distinction.
+
+    An example of the need for ``data_id`` would be a Nextgen framework realization configuration.  Two separate
+    "pieces" (i.e., config files) of data may cover the exact same catchments and time period.  There must be a separate
+    index that can be used to distinguish the collections, so that the right data can be identified.
+    """
     AORC_CSV = (0,
                 ["catchment-id", ""],
                 {"": datetime, "APCP_surface": float, "DLWRF_surface": float, "DSWRF_surface": float,
@@ -31,6 +57,26 @@ class DataFormat(Enum):
     """ The default format for "raw" AORC forcing data. """
     NGEN_OUTPUT = (3, ["id", "Time"], None, {"id": str, "Time": datetime})
     """ Representation of the format for Nextgen output, with unknown/unspecified configuration of output fields. """
+    NGEN_REALIZATION_CONFIG = (4, ["id", "time", "data_id"],
+                               None,
+                               {"id": str, "time": datetime, "data_id": str}
+                               )
+    """ Representation of the format of realization configs, which covers catchments (id) has a time period (time). """
+    NGEN_GEOJSON_HYDROFABRIC = (5,
+                                ["id", "data_id"],
+                                {"id": str, "properties": Any, "geometry": Any},
+                                {"data_id": str}
+                                )
+    """ GeoJSON hydrofabric format used by Nextgen. """
+    NGEN_PARTITION_CONFIG = (6,
+                             ["id", "data_id"],
+                             {"id": int, "cat-ids": List[str], "nex-id": List[str],
+                              "remote-connections": List[Dict[str, int]]},
+                             {"data_id": str}
+                             )
+    """ GeoJSON hydrofabric format used by Nextgen. """
+    BMI_CONFIG = (7, ["file", "data_id"], None, {"file": str, "data_id": str})
+    """ Format for BMI initialization config files, of which (in general) there is only implied index of file name. """
     # TODO: consider whether a datetime format string is necessary for each type value
     # TODO: consider whether something to indicate the time step size is necessary
     # TODO: need format specifically for Nextgen model output (i.e., for evaluations)
