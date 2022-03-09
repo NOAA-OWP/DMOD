@@ -67,12 +67,12 @@ class DataFormat(Enum):
                                 {"id": str, "properties": Any, "geometry": Any},
                                 {"data_id": str}
                                 )
-    """ GeoJSON hydrofabric format used by Nextgen. """
+    """ GeoJSON hydrofabric format used by Nextgen (id is catchment id). """
     NGEN_PARTITION_CONFIG = (6,
-                             ["id", "data_id"],
+                             ["all_cat_ids", "data_id", "count"],
                              {"id": int, "cat-ids": List[str], "nex-id": List[str],
                               "remote-connections": List[Dict[str, int]]},
-                             {"data_id": str}
+                             {"data_id": str, "all_cat_ids": List[str], "count": int}
                              )
     """ GeoJSON hydrofabric format used by Nextgen. """
     BMI_CONFIG = (7, ["file", "data_id"], None, {"file": str, "data_id": str})
