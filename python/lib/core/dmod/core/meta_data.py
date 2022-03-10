@@ -42,13 +42,14 @@ class DataFormat(Enum):
                 )
     """ The CSV data format the Nextgen framework originally used during its early development. """
     NETCDF_FORCING_CANONICAL = (1,
-                                ["ids", "Time"],
-                                {"Time": datetime, "RAINRATE": float, "T2D": float, "Q2D": float,
+                                ["catchment-id", "time"],
+                                {"time": datetime, "RAINRATE": float, "T2D": float, "Q2D": float,
                                  "U2D": float, "V2D": float, "PSFC": float, "SWDOWN": float, "LWDOWN": float,
                                  "offset": int},
-                                {"ids": str}
+                                {"catchment-id": str}
                                 )
     """ The Nextgen framework "canonical" NetCDF forcing data format. """
+    # TODO: need to look at actual format and fix this
     NETCDF_AORC_DEFAULT = (2,
                            ["ids", "Time"],
                            {"ids": str, "Time": datetime, "RAINRATE": float, "T2D": float, "Q2D": float, "U2D": float,
