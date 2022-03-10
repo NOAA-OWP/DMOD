@@ -1,4 +1,5 @@
 import geopandas as gpd
+import hashlib
 import pandas as pd
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -135,12 +136,6 @@ class Hydrofabric(ABC):
         """
         Get the hash value for this instance.
 
-        The hash is determined from the ordered lists of catchment ids, nexus ids, and link representations.  Link
-        representations are obtained from the ::method:`_get_link_representations` function.
-
-        These three lists are individually joined into comma-separated strings.  These three strings are then formatted
-         into a single string with ``;`` as a separator.  It is the hash value of this last string that is returned.
-
         Returns
         -------
         int
@@ -148,18 +143,9 @@ class Hydrofabric(ABC):
 
         See Also
         -------
-        _get_link_representations
+        _get_string_for_hashing
         """
-        sorted_cat_ids = list(self.get_all_catchment_ids())
-        sorted_cat_ids.sort()
-
-        sorted_nex_ids = list(self.get_all_nexus_ids())
-        sorted_nex_ids.sort()
-
-        final_str = "{};{};{}".format(",".join(sorted_cat_ids),
-                                      ",".join(sorted_nex_ids),
-                                      ",".join(self._get_link_representations()))
-        return hash(final_str)
+        return hash(self._get_string_for_hashing())
 
     def _get_link_representations(self) -> List[str]:
         """
@@ -199,6 +185,42 @@ class Hydrofabric(ABC):
 
         links_reps.sort()
         return links_reps
+
+    def _get_string_for_hashing(self) -> str:
+        """
+        Get a unique string encoding the state of the instance for hashing purpose.
+
+        Function generates a string the is unique to this instance, along with any and every instances that is or could
+        be considered equal to this instance.  This produces something that can then be easily hashed, and is in fact
+        used by this type's implementation of ::method:`__hash__`.  As such, it should be implemented in a way that is
+        consistent with ::method:`__eq__`.
+
+        Specifically, The hash is determined from the ordered lists of catchment ids, nexus ids, and link
+        representations.  Link representations are obtained from the ::method:`_get_link_representations` function.
+
+        These three lists are individually joined into comma-separated strings.  These three strings are then formatted
+        into a single string with ``;`` as a separator.  It is the hash value of this last string that is returned.
+
+        Returns
+        -------
+        str
+            A unique string encoding the state of the instance for hashing purpose.
+
+        See Also
+        -------
+        __eq__
+        __hash__
+        _get_link_representations
+        """
+        sorted_cat_ids = list(self.get_all_catchment_ids())
+        sorted_cat_ids.sort()
+
+        sorted_nex_ids = list(self.get_all_nexus_ids())
+        sorted_nex_ids.sort()
+
+        return "{};{};{}".format(",".join(sorted_cat_ids),
+                                      ",".join(sorted_nex_ids),
+                                      ",".join(self._get_link_representations()))
 
     @abstractmethod
     def get_all_catchment_ids(self) -> Tuple[str, ...]:
@@ -321,6 +343,25 @@ class Hydrofabric(ABC):
             The set of ids of the root nodes for the hydrofabric, from which further upstream traversal is not possible.
         """
         pass
+
+    @property
+    def uid(self) -> str:
+        """
+        Get a unique id for this instance.
+
+        Ids are generated from the same string generated to perform internal object hashing, but then passed to the
+        standard SHA1 algorithm.
+
+        Returns
+        -------
+        int
+            A unique id for this instance.
+
+        See Also
+        -------
+        _get_string_for_hashing
+        """
+        return hashlib.sha1(self._get_string_for_hashing().encode('UTF-8')).hexdigest()
 
 
 class GeoJsonHydrofabricReader:
