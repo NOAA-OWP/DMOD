@@ -218,6 +218,10 @@ class ContinuousRestriction(Serializable):
             begin = datetime.strptime(json_obj["begin"], datetime_ptr)
             end = datetime.strptime(json_obj["end"], datetime_ptr)
 
+            # Use this type if that's what the JSON specifies is the Serializable subtype
+            if cls.__name__ == json_obj["subclass"]:
+                return cls(variable=json_obj["variable"], begin=begin, end=end, datetime_pattern=datetime_ptr)
+
             # Try to initialize the right subclass type, or fall back if appropriate to the base type
             # TODO: consider adding something for recursive search for subclass, not just immediate children types
             # Use nested try, because we want to fall back to cls type if no subclass attempt or subclass attempt fails
@@ -529,9 +533,10 @@ class TimeRange(ContinuousRestriction):
     Encapsulated representation of a time range.
     """
 
-    def __init__(self, begin: datetime, end: datetime, variable: Optional[str] = None):
+    def __init__(self, begin: datetime, end: datetime, variable: Optional[str] = None,
+                 datetime_pattern: Optional[str] = None):
         super(TimeRange, self).__init__(variable="Time" if variable is None else variable, begin=begin, end=end,
-                                        datetime_pattern=self.get_datetime_str_format())
+                                        datetime_pattern=self.get_datetime_str_format() if datetime_pattern is None else datetime_pattern)
 
 
 class DataRequirement(Serializable):
