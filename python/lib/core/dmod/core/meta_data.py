@@ -206,7 +206,7 @@ class DataFormat(Enum):
 
 class ContinuousRestriction(Serializable):
     """
-    A filtering component, typical applied as a restriction on a domain, by a continuous range of values of a variable.
+    A filtering component, typically applied as a restriction on a domain, by a continuous range of values of a variable.
     """
 
     @classmethod
@@ -286,7 +286,7 @@ class ContinuousRestriction(Serializable):
 
 class DiscreteRestriction(Serializable):
     """
-    A filtering component, typical applied as a restriction on a domain, by a discrete set of values of a variable.
+    A filtering component, typically applied as a restriction on a domain, by a discrete set of values of a variable.
     """
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
