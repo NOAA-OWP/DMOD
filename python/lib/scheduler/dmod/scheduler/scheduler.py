@@ -269,7 +269,7 @@ class Launcher(SimpleDockerUtil):
         return host_str
 
     @classmethod
-    def _ds_names_helper(cls, job: Job, worker_index: int, category: DataCategory, min_count: Optional[int] = 1,
+    def _ds_names_helper(cls, job: 'Job', worker_index: int, category: DataCategory, min_count: Optional[int] = 1,
                          max_count: Optional[int] = None) -> List[str]:
         """
         Get required dataset names of a category for a worker/allocation, and sanity check those are configured right.
@@ -382,7 +382,7 @@ class Launcher(SimpleDockerUtil):
 
         return docker_cmd_args
 
-    def _get_required_obj_store_datasets_arg_strings(self, job: Job, worker_index: int) -> List[str]:
+    def _get_required_obj_store_datasets_arg_strings(self, job: 'Job', worker_index: int) -> List[str]:
         """
         Get list of colon-joined category+name strings for required object store datasets for this job worker.
 
