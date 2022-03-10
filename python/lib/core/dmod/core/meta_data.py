@@ -63,9 +63,9 @@ class DataFormat(Enum):
                                )
     """ Representation of the format of realization configs, which covers catchments (id) has a time period (time). """
     NGEN_GEOJSON_HYDROFABRIC = (5,
-                                ["id", "data_id"],
+                                ["id", "uid", "data_id"],
                                 {"id": str, "properties": Any, "geometry": Any},
-                                {"data_id": str}
+                                {"uid": str, "data_id": str}
                                 )
     """ GeoJSON hydrofabric format used by Nextgen (id is catchment id). """
     NGEN_PARTITION_CONFIG = (6,
