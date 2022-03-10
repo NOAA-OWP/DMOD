@@ -190,7 +190,7 @@ class Hydrofabric(ABC):
         """
         Get a unique string encoding the state of the instance for hashing purpose.
 
-        Function generates a string the is unique to this instance, along with any and every instances that is or could
+        Function generates a string that is unique to this instance, along with any and every instances that is or could
         be considered equal to this instance.  This produces something that can then be easily hashed, and is in fact
         used by this type's implementation of ::method:`__hash__`.  As such, it should be implemented in a way that is
         consistent with ::method:`__eq__`.
