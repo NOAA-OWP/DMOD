@@ -57,6 +57,8 @@ class DataFormat(Enum):
         else:
             self._data_fields = data_fields
         self._implicit_indices_types = implicit_indices_types
+        self._time_series_index = None
+        self._is_time_series_index = None
 
     # TODO: consider later also adding the ability for some fields to be treated as optional
     @property
@@ -94,12 +96,22 @@ class DataFormat(Enum):
 
         This is determined by whether there is a time series index according to ::method:`time_series_index`.
 
+        This property is backed by a private attribute, but is lazily initialized via a nested get of the
+        ::attribute:`time_series_index` property.
+
         Returns
         -------
         bool
             Whether this type is a format of time series data.
+
+        See Also
+        -------
+        ::attribute:`time_series_index`
         """
-        return self.time_series_index is not None
+        if self._is_time_series_index is None:
+            # A call to this property will set self._is_time_series_index
+            self.time_series_index
+        return self._is_time_series_index
 
     @property
     def time_series_index(self) -> Optional[str]:
@@ -108,18 +120,37 @@ class DataFormat(Enum):
 
         This is the index (implied or a data field) with type ::class:`datetime`.
 
+        Property lazily initializes when appropriate, determining this by examining the "private" attribute
+        ::attribute:`_is_time_series_index` and testing whether it is not set (i.e., it is ``None``).  The property
+        using this private attribute - ::attribute:`is_time_series_index` - is lazily initialized also, and by **this**
+        property getter method, hence use of the "private" attribute for the lazy initialization check.
+
+        When lazy initialization is performed, the last step will be to set ::attribute:`is_time_series_index` to either
+        ``True`` or ``False``, depending on whether this property was initialized to something other than ``None`` or
+        not.
+
         Returns
         -------
         Optional[str]
             The index for the time component of this format, if it is for time series data; otherwise ``None``.
+
+        See Also
+        -------
+        ::attribute:`is_time_series_index`
         """
-        for idx in self.indices:
-            if idx in self.data_fields:
-                if self.data_fields[idx] == datetime:
-                    return idx
-            elif self._implicit_indices_types[idx] == datetime:
-                return idx
-        return None
+        # Because this property can end up actually being None, can't use it to know if lazy init is necessary
+        # Instead, check _is_time_series_index to see if lazy init still needed, and if so, lazy init both
+        if self._is_time_series_index is None:
+            for idx in self.indices:
+                if idx in self.data_fields:
+                    if self.data_fields[idx] == datetime:
+                        self._time_series_index = idx
+                        break
+                elif self._implicit_indices_types[idx] == datetime:
+                    self._time_series_index = idx
+                    break
+            self._is_time_series_index = self._time_series_index is not None
+        return self._time_series_index
 
 
 class ContinuousRestriction(Serializable):
