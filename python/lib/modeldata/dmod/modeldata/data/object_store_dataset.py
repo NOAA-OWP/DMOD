@@ -78,7 +78,7 @@ class ObjectStoreDataset(Dataset):
         is encoded, which may be indicated using the ``bucket_root`` param.  The root level of the backing object store
         bucket is assumed to correspond to ``directory`` itself if ``bucket_root`` is ``None``, which is the default.
 
-        E.g. perhaps there existing the ``dataset_1/`` directory, with structure and contents:
+        E.g. perhaps there exists the ``dataset_1/`` directory, with structure and contents:
 
             dataset_1/
             dataset_1/file_1
@@ -172,7 +172,7 @@ class ObjectStoreDatasetManager(DatasetManager):
         Buckets simulate subdirectories by encoding relative directory structure into object names.  This relative
         structure is based on a bucket "root" directory, corresponding to the directory used to create this dataset.
 
-        E.g. perhaps there existing the ``dataset_1/`` directory, which needs to be uploaded to a dataset, with
+        E.g. perhaps there exists the ``dataset_1/`` directory, which needs to be uploaded to a dataset, with
         structure:
 
             dataset_1/
@@ -268,7 +268,7 @@ class ObjectStoreDatasetManager(DatasetManager):
         keyword arg.  If not provided, it is assumed to be the parent directory when adding a ``file``, or the directory
         itself when adding all files within a ``directory``.
 
-        E.g. perhaps there existing the ``dataset_1/`` directory, with structure and contents:
+        E.g. perhaps there exists the ``dataset_1/`` directory, with structure and contents:
 
             dataset_1/
             dataset_1/file_1
