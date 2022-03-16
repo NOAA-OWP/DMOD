@@ -171,14 +171,14 @@ class Dataset(Serializable, ABC):
         Returns
         -------
         DataDomain
-            The ::class:`DataFormat` type value for this instance.
+            The ::class:`DataDomain` for this instance.
         """
         return self._data_domain
 
     @property
     def data_format(self) -> DataFormat:
         """
-        The data domain for this instance.
+        The data format for this instance.
 
         Returns
         -------
