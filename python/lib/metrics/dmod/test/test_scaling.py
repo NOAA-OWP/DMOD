@@ -9,7 +9,6 @@ from ..metrics.common import EPSILON
 
 class TestResultScaling(unittest.TestCase):
     def test_pearson_scaling(self):
-        print("In test_pearson_scaling...")
         metric = metrics.PearsonCorrelationCoefficient(1)
 
         perfect_value = 1.0
@@ -28,7 +27,6 @@ class TestResultScaling(unittest.TestCase):
         self.assertAlmostEqual(scaled_lowest_value, 0.0, delta=EPSILON)
 
     def test_false_alarm_scaling(self):
-        print("In test_false_alarm_scaling...")
         metric = metrics.FalseAlarmRatio(1)
 
         perfect_value = 0.0
@@ -47,7 +45,6 @@ class TestResultScaling(unittest.TestCase):
         self.assertAlmostEqual(scaled_lowest_value, 0.0, delta=EPSILON)
 
     def test_volume_scaling(self):
-        print("In test_volume_scaling...")
         metric = metrics.VolumeError(1)
 
         perfect_value = 123456
