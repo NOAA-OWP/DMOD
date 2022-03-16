@@ -61,7 +61,8 @@ RUN for p in `ls python/services`; do \
 ################################################################################################################
 ################################################################################################################
 #### Create final Docker build stage for desired image
-FROM python:3.8-alpine
+FROM python:3.8-alpine3.15
+RUN apk update && apk upgrade && apk add --no-cache git
 # Copy complete python source packages to location
 COPY ./python /dmod/
 # And for every built dist/wheel package copy wheel file into analogous location for this stage
