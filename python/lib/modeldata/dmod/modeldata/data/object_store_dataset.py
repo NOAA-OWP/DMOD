@@ -249,6 +249,10 @@ class ObjectStoreDatasetManager(DatasetManager):
         """
         if dataset_name not in self.datasets:
             return False
+        elif 'file' in kwargs and 'directory' in kwargs:
+            from sys import _getframe
+            msg = "{}.{} does not support both 'file' and 'directory' kwargs in a single call"
+            raise ValueError(msg.format(self.__class__.__name__, _getframe(0).f_code.co_name))
         elif 'file' in kwargs:
             bucket_root = kwargs['bucket_root'] if 'bucket_root' in kwargs else kwargs['file'].parent
             result = self._push_file(bucket_name=dataset_name, file=kwargs['file'], bucket_root=bucket_root)
