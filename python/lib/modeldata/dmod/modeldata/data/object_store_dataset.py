@@ -68,7 +68,7 @@ class ObjectStoreDataset(Dataset):
         bucket_root = file.parent if add_relative_to is None else add_relative_to
         return self.manager.add_data(dataset_name=self.name, file=file, bucket_root=bucket_root)
 
-    def add_files(self, directory: Path, add_relative_to: Optional[Path] = None) -> bool:
+    def add_files(self, directory: Path, bucket_root: Optional[Path] = None) -> bool:
         """
         Add all files in the given directory to this existing object store.
 
@@ -77,8 +77,8 @@ class ObjectStoreDataset(Dataset):
         files : List[Path]
             The files to be added
         """
-        bucket_root = directory if add_relative_to is None else add_relative_to
-        return self.manager.add_data(dataset_name=self.name, directory=directory, bucket_root=bucket_root)
+        return self.manager.add_data(dataset_name=self.name, directory=directory,
+                                     bucket_root=(directory if bucket_root is None else bucket_root))
 
     @property
     def files(self) -> List[str]:
