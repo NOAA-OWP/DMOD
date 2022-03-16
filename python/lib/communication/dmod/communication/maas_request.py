@@ -5,7 +5,10 @@ Lays out details describing how a request may be created and the different types
 """
 
 from .message import AbstractInitRequest, MessageEventType, Response, InitRequestResponseReason
+from dmod.core.meta_data import ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction, DataRequirement, TimeRange
 from abc import ABC, abstractmethod
+from numbers import Number
+from typing import Dict, List, Optional, Set, Union
 
 
 def get_available_models() -> dict:
@@ -146,6 +149,8 @@ class MaaSRequest(AbstractInitRequest, ABC):
             return False
 
 
+# TODO: this type, the subtypes (especially for NWM), all things using it, etc., need to be completely overhauled;
+#  instead of itself containing all necessary params, it should reference a config dataset that defines the params
 class ModelExecRequest(MaaSRequest, ABC):
     """
     The base class underlying MaaS requests for model execution jobs.
@@ -709,8 +714,39 @@ class NGENRequest(ModelExecRequest):
     parameters = []
     """(:class:`list`) The collection of parameters to use"""
 
+    # TODO: this no longer makes sense in the context of Nextgen, as it is entirely (BMI) model dependent
     output_variables = []
     """(:class:`list`) The collection of output variables that the model may generate"""
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict) -> Optional['NGENRequest']:
+        """
+        Deserialize request formated as JSON to an instance.
+
+        See the documentation of this type's ::method:`to_dict` for an example of the format of valid JSON.
+
+        Parameters
+        ----------
+        json_obj : dict
+            The serialized JSON representation of a request object.
+
+        Returns
+        -------
+        The deserialized ::class:`NGENRequest`, or ``None`` if the JSON was not valid for deserialization.
+
+        See Also
+        -------
+        ::method:`to_dict`
+        """
+        try:
+            return cls(time_range=TimeRange.factory_init_from_deserialized_json(json_obj['model']['time_range']),
+                       hydrofabric_uid=json_obj['model']['hydrofabric_uid'],
+                       hydrofabric_data_id=json_obj['model']['hydrofabric_data_id'],
+                       cfg_data_id=json_obj['model']['config_data_id'],
+                       catchments=json_obj['catchments'] if 'catchments' in json_obj else None,
+                       session_secret=json_obj['session-secret'])
+        except:
+            return None
 
     @classmethod
     def factory_init_correct_response_subtype(cls, json_obj: dict) -> ModelExecRequestResponse:
@@ -727,9 +763,157 @@ class NGENRequest(ModelExecRequest):
         """
         return NGENRequestResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
-    def __init__(self, session_secret: str, version: float = 0.0, output: str = 'streamflow', domain: str = None, parameters: dict = None):
-        super().__init__(version=version, output=output, domain=domain, parameters=parameters,
-                                         session_secret=session_secret)
+    def __init__(self, session_secret: str, time_range: TimeRange, hydrofabric_uid: str, hydrofabric_data_id: str,
+                 cfg_data_id: str, bmi_cfg_data_id: str, catchments: Optional[Union[Set[str], List[str]]] = None):
+        """
+        Initialize an instance.
+
+        Parameters
+        ----------
+        session_secret : str
+            The session secret used for checking authentication and authorization of this request.
+        time_range : TimeRange
+            A definition of the time range for the requested model execution.
+        hydrofabric_uid : str
+            The unique ID of the applicable hydrofabric for modeling, which provides the outermost geospatial domain.
+        hydrofabric_data_id : str
+            A data identifier for the hydrofabric, for distinguishing between different hydrofabrics that cover the same
+            set of catchments and nexuses (i.e., the same sets of catchment and nexus ids).
+        cfg_data_id : str
+            The config data id index, for identifying the particular configuration datasets applicable to this request.
+        catchments : Optional[Union[Set[str], List[str]]]
+            An optional collection of the catchment ids to narrow the geospatial domain, where the default of ``None``
+            or an empty collection implies all catchments in the hydrofabric.
+        bmi_cfg_data_id : Optional[str]
+            The optioanl BMI init config ``data_id`` index, for identifying the particular BMI init config datasets
+            applicable to this request.
+        """
+        super().__init__(version=4.0, output="streamflow", domain="Nextgen Custom Spatial Domain", parameters={},
+                         session_secret=session_secret)
+        self._time_range = time_range
+        self._hydrofabric_uid = hydrofabric_uid
+        self._hydrofabric_data_id = hydrofabric_data_id
+        self._config_data_id = cfg_data_id
+        # Convert an initial list to a set to remove duplicates
+        if isinstance(catchments, list):
+            catchments = set(catchments)
+        # Then move a set back to list and sort
+        if isinstance(catchments, set):
+            self._catchments = list(catchments)
+            self._catchments.sort()
+        else:
+            self._catchments = catchments
+        self._bmi_config_data_id = bmi_cfg_data_id
+
+    @property
+    def catchments(self) -> Optional[List[str]]:
+        """
+        An optional list of catchment ids for those catchments in the request ngen execution.
+
+        No list implies "all" known catchments.
+
+        Returns
+        -------
+        Optional[List[str]]
+            An optional list of catchment ids for those catchments in the request ngen execution.
+        """
+        return self._catchments
+
+    @property
+    def config_data_id(self) -> str:
+        """
+        The index value of ``data_id`` to uniquely identify sets of config data that are otherwise similar.
+
+        For example, two realization configs may apply to the same time and catchments, but be very different.  The
+        nature of the differences is not necessarily even possible to define generally, and certainly not through
+        (pre-existing) indices.  As such, the `data_id` index is added for such differentiating purposes.
+
+        Returns
+        -------
+        str
+            The index value of ``data_id`` to uniquely identify sets of config data that are otherwise similar.
+        """
+        return self._config_data_id
+
+    @property
+    def hydrofabric_data_id(self) -> str:
+        """
+        The data format ``data_id`` for the hydrofabric dataset to use in requested modeling.
+
+        This identifier is needed to distinguish the correct hydrofabric dataset, and thus the correct hydrofabric,
+        expected for this modeling request.  For arbitrary hydrofabric types, this may not be possible with the unique
+        id of the hydrofabric alone.  E.g., a slight adjustment of catchment coordinates may be ignored with respect
+        to the hydrofabric's uid, but may be relevant with respect to a model request.
+
+        Returns
+        -------
+        str
+            The data format ``data_id`` for the hydrofabric dataset to use in requested modeling.
+        """
+        return self._hydrofabric_data_id
+
+    @property
+    def hydrofabric_uid(self) -> str:
+        """
+        The unique id of the hydrofabric for this modeling request.
+
+        Returns
+        -------
+        str
+            The unique id of the hydrofabric for this modeling request.
+        """
+        return self._hydrofabric_uid
+
+    @property
+    def time_range(self) -> TimeRange:
+        """
+        The time range for the requested model execution.
+
+        Returns
+        -------
+        TimeRange
+            The time range for the requested model execution.
+        """
+        return self._time_range
+
+    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
+        """
+        Converts the request to a dictionary that may be passed to web requests
+
+        Will look like:
+
+        {
+            'model': {
+                'name': 'ngen',
+                'time_range': { <serialized_time_range_object> },
+                'hydrofabric_data_id': 'hy-data-id-val',
+                'hydrofabric_uid': 'hy-uid-val',
+                'config_data_id': 'config-data-id-val',
+                ['catchments': { <serialized_catchment_discrete_restriction_object> },]
+                'version': 4.0
+            },
+            'session-secret': 'secret-string-val'
+        }
+
+        As a reminder, the ``catchments`` item may be absent, which implies the object does not have a specified list of
+        catchment ids.
+
+        Returns
+        -------
+        Dict[str, Union[str, Number, dict, list]]
+            A dictionary containing all the data in such a way that it may be used by a web request
+        """
+        model = dict()
+        model["name"] = self.get_model_name()
+        model["time_range"] = self.time_range.to_dict()
+        model["hydrofabric_data_id"] = self.hydrofabric_data_id
+        model["hydrofabric_uid"] = self.hydrofabric_uid
+        model["config_data_id"] = self.config_data_id
+        if self.catchments is not None:
+            model['catchments'] = self.catchments
+        model['version'] = self._version
+
+        return {'model': model, 'session-secret': self.session_secret}
 
 
 class NGENRequestResponse(ModelExecRequestResponse):
