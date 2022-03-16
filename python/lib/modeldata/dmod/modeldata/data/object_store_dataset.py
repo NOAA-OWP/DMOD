@@ -72,10 +72,44 @@ class ObjectStoreDataset(Dataset):
         """
         Add all files in the given directory to this existing object store.
 
+        Function, via its manager, adds all files within the passed directory to its backing object store.  As the
+        backing store cannot replicate the file system structure, especially nested directories, it simulates this by
+        encoding it into the store file object names.  Only the structure relative to a corresponding "root" directory
+        is encoded, which may be indicated using the ``bucket_root`` param.  The root level of the backing object store
+        bucket is assumed to correspond to ``directory`` itself if ``bucket_root`` is ``None``, which is the default.
+
+        E.g. perhaps there existing the ``dataset_1/`` directory, with structure and contents:
+
+            dataset_1/
+            dataset_1/file_1
+            dataset_1/file_2
+            dataset_1/subdir_a/
+            dataset_1/subdir_a/file_a_1
+            dataset_1/subdir_a/file_a_2
+            dataset_1/subdir_b/
+            dataset_1/subdir_b/file_b_1
+
+        If the ``bucket_root` was set to ``dataset_1``, then ``dataset_1/file_1`` would not receive a subdirectory
+        prefix to its object name, while ``dataset_1/subdir_a/file_a_1`` would receive a prefix encoding that it was
+        within the ``subdir_a`` directory under the bucket root.
+
         Parameters
         ----------
-        files : List[Path]
-            The files to be added
+        directory : Path
+            A path to a directory, for which all contents should be added to this dataset.
+        bucket_root : Optional[Path]
+            An optional directory that corresponds to the dataset's root level, for purposes of naming objects in a way
+            that simulates a nested directory structure (when ``None``, replaced with ``directory`` itself).
+
+        Returns
+        -------
+        bool
+            Whether the data was added successfully.
+
+        See Also
+        -------
+        ::attribute:`manager`
+        ::method:`ObjectStoreDatasetManager.add_data`
         """
         return self.manager.add_data(dataset_name=self.name, directory=directory,
                                      bucket_root=(directory if bucket_root is None else bucket_root))
@@ -193,7 +227,7 @@ class ObjectStoreDatasetManager(DatasetManager):
         bucket_name : str
             The name of the existing bucket to push to.
         dir_path : Path
-            The name of the existing directory containing files to push to the bucket.
+            The path to an existing directory containing files to push to the bucket.
         recursive : bool
             Whether contents of nested directories, their inner directory contents, etc., should all be pushed, as
             opposed to only regular files that are immediate children of ``dir_path`` (``True`` by default)
@@ -220,10 +254,35 @@ class ObjectStoreDatasetManager(DatasetManager):
 
     def add_data(self, dataset_name: str, **kwargs) -> bool:
         """
-        Add data in some format to the dataset.
+        Add one or more files to the object store for the given dataset.
 
-        Implementations must be responsible for managing (via their use of ``kwargs``) the way data is accepted, what
-        kinds of data can be accepted, and whether what data has been passed is supported.
+        Function adds either a single file or all files within a supplied directory to the backing object store of the
+        given dataset, as long as the dataset name is recognized (if not, ``False`` is immediately returned).  This is
+        done using either the ``file`` or ``directory`` kwargs value respectively.  Note that a ::class:`ValueError`
+        will be raised if both are present.
+
+        The manager maintains a simulated directory structure within the dataset by encoding the parent directory path
+        of files in the corresponding bucket object's name, along with the file's basename.  Only the relative path of
+        the parent is included though, with this being relative to an ancestor directory that corresponds to the root
+        level of the object store bucket.  The value of this corresponding root may be provided in the ``bucket_root``
+        keyword arg.  If not provided, it is assumed to be the parent directory when adding a ``file``, or the directory
+        itself when adding all files within a ``directory``.
+
+        E.g. perhaps there existing the ``dataset_1/`` directory, with structure and contents:
+
+            dataset_1/
+            dataset_1/file_1
+            dataset_1/file_2
+            dataset_1/subdir_a/
+            dataset_1/subdir_a/file_a_1
+            dataset_1/subdir_a/file_a_2
+            dataset_1/subdir_b/
+            dataset_1/subdir_b/file_b_1
+
+        If this function passed ``dataset_1`` as the ``directory``, and the ``bucket_root` was set or implied to be
+        ``dataset_1``, then ``dataset_1/file_1`` would not have any directory structure encoded into its object name,
+        while ``dataset_1/subdir_a/file_a_1`` would have ``subdir_a`` encoded, giving that object the name
+        `subdir_a___file_a_1``.  The separator comes from the class variable ::attribute:`_OBJECT_NAME_SEPARATOR`.
 
         Parameters
         ----------
@@ -246,6 +305,10 @@ class ObjectStoreDatasetManager(DatasetManager):
         -------
         bool
             Whether the data was added successfully.
+        See Also
+        -------
+        ::method:`_push_file`
+        ::method:`_push_files`
         """
         if dataset_name not in self.datasets:
             return False
