@@ -17,7 +17,7 @@ COPY ./entrypoint.sh entrypoint.sh
 COPY --from=sources /DIST /DIST
 
 RUN apk update \
-    && apk add --no-cache openssl bash python3-dev libffi-dev musl-dev gcc \
+    && apk add --no-cache openssl bash python3-dev libffi-dev musl-dev gcc git \
     && rm -rf /var/cache/apk/* \
     && alias python=python3 \
     && pip3 install --no-cache-dir --upgrade pip \
