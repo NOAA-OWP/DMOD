@@ -805,6 +805,50 @@ class NGENRequest(ModelExecRequest):
             self._catchments = catchments
         self._bmi_config_data_id = bmi_cfg_data_id
 
+        self._hydrofabric_data_requirement = None
+        self._output_data_requirement = None
+        self._forcing_data_requirement = None
+        self._realization_cfg_data_requirement = None
+        self._bmi_cfg_data_requirement = None
+
+    def _gen_catchments_domain_restriction(self, var_name: str = 'catchment-id') -> DiscreteRestriction:
+        """
+        Generate a ::class:`DiscreteRestriction` that will restrict to the catchments applicable to this request.
+
+        Note that if the ::attribute:`catchments` property is ``None`` or empty, then the generated restriction object
+        will reflect that with an empty list of values, implying "all catchments in hydrofabric."  This is slightly
+        different than the internal behavior of ::class:`DiscreteRestriction` itself, which only infers this for empty
+        lists (i.e., not a ``values`` value of ``None``).  This is intentional here, as the natural implication of
+        specific catchments not being provided as part of a job request is to include all of them.
+
+        Parameters
+        ----------
+        var_name : str
+            The value of the ::attribute:`DiscreteRestriction.variable` for the restriction; defaults to `catchment-id`.
+
+        Returns
+        -------
+        DiscreteRestriction
+            ::class:`DiscreteRestriction` that will restrict to the catchments applicable to this request.
+        """
+        return DiscreteRestriction(variable=var_name, values=([] if self.catchments is None else self.catchments))
+
+    @property
+    def bmi_cfg_data_requirement(self) -> DataRequirement:
+        """
+        A requirement object defining of the BMI configuration data needed to execute this request.
+
+        Returns
+        -------
+        DataRequirement
+            A requirement object defining of the BMI configuration data needed to execute this request.
+        """
+        if self._bmi_cfg_data_requirement is None:
+            bmi_config_restrict = [DiscreteRestriction(variable='data_id', values=[self._bmi_config_data_id])]
+            bmi_config_domain = DataDomain(data_format=DataFormat.BMI_CONFIG, discrete_restrictions=bmi_config_restrict)
+            self._bmi_cfg_data_requirement = DataRequirement(bmi_config_domain, True, DataCategory.CONFIG)
+        return self._bmi_cfg_data_requirement
+
     @property
     def catchments(self) -> Optional[List[str]]:
         """
@@ -836,6 +880,43 @@ class NGENRequest(ModelExecRequest):
         return self._config_data_id
 
     @property
+    def forcing_data_requirement(self) -> DataRequirement:
+        """
+        A requirement object defining of the forcing data needed to execute this request.
+
+        Returns
+        -------
+        DataRequirement
+            A requirement object defining of the forcing data needed to execute this request.
+        """
+        if self._forcing_data_requirement is None:
+            # TODO: going to need to address the CSV usage later
+            forcing_domain = DataDomain(data_format=DataFormat.AORC_CSV, continuous_restrictions=[self._time_range],
+                                        discrete_restrictions=[self._gen_catchments_domain_restriction()])
+            self._forcing_data_requirement = DataRequirement(domain=forcing_domain, is_input=True,
+                                                             category=DataCategory.FORCING)
+        return self._forcing_data_requirement
+
+    @property
+    def hydrofabric_data_requirement(self) -> DataRequirement:
+        """
+        A requirement object defining of the hydrofabric data needed to execute this request.
+
+        Returns
+        -------
+        DataRequirement
+            A requirement object defining of the hydrofabric data needed to execute this request.
+        """
+        if self._hydrofabric_data_requirement is None:
+            hydro_restrictions = [DiscreteRestriction(variable='uid', values=[self._hydrofabric_uid]),
+                                  DiscreteRestriction(variable='data_id', values=[self._hydrofabric_data_id])]
+            hydro_domain = DataDomain(data_format=DataFormat.NGEN_GEOJSON_HYDROFABRIC,
+                                      discrete_restrictions=hydro_restrictions)
+            self._hydrofabric_data_requirement = DataRequirement(domain=hydro_domain, is_input=True,
+                                                                 category=DataCategory.HYDROFABRIC)
+        return self._hydrofabric_data_requirement
+
+    @property
     def hydrofabric_data_id(self) -> str:
         """
         The data format ``data_id`` for the hydrofabric dataset to use in requested modeling.
@@ -863,6 +944,44 @@ class NGENRequest(ModelExecRequest):
             The unique id of the hydrofabric for this modeling request.
         """
         return self._hydrofabric_uid
+
+    @property
+    def output_data_requirement(self) -> DataRequirement:
+        """
+        A requirement object defining of the output data storage capabilities needed to execute this request.
+
+        Returns
+        -------
+        DataRequirement
+            A requirement object defining of the output data storage capabilities needed to execute this request.
+        """
+        if self._output_data_requirement is None:
+            # For now, don't restrict 'data_id' of output domain; expect this to be equal to the job id
+            # TODO: handle setting of output dataset data_id as job_id on the client side properly
+            output_domain = DataDomain(DataFormat.NGEN_OUTPUT)
+            self._output_data_requirement = DataRequirement(domain=output_domain, is_input=False,
+                                                            category=DataCategory.OUTPUT)
+        return self._output_data_requirement
+
+    @property
+    def realization_cfg_data_requirement(self) -> DataRequirement:
+        """
+        A requirement object defining of the realization configuration data needed to execute this request.
+
+        Returns
+        -------
+        DataRequirement
+            A requirement object defining of the realization configuration data needed to execute this request.
+        """
+        if self._realization_cfg_data_requirement is None:
+            real_cfg_dis_restrict = [self._gen_catchments_domain_restriction(),
+                                     DiscreteRestriction(variable='data_id', values=[self.config_data_id])]
+            real_cfg_domain = DataDomain(data_format=DataFormat.NGEN_REALIZATION_CONFIG,
+                                         continuous_restrictions=[self.time_range],
+                                         discrete_restrictions=real_cfg_dis_restrict)
+            self._realization_cfg_data_requirement = DataRequirement(domain=real_cfg_domain, is_input=True,
+                                                                     category=DataCategory.CONFIG)
+        return self._realization_cfg_data_requirement
 
     @property
     def time_range(self) -> TimeRange:
