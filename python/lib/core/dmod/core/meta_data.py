@@ -287,6 +287,9 @@ class ContinuousRestriction(Serializable):
 class DiscreteRestriction(Serializable):
     """
     A filtering component, typically applied as a restriction on a domain, by a discrete set of values of a variable.
+
+    Note that an empty list for the ::attribute:`values` property implies a restriction of all possible values being
+    required.  This is reflected by the :method:`is_all_possible_values` property.
     """
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
@@ -303,6 +306,9 @@ class DiscreteRestriction(Serializable):
         """
         Whether this object contains all the values of the given object and the two are of the same index.
 
+        Note that if the ::attribute:`is_all_possible_values` property is ``True``, then the specific values in the
+        ``other`` restriction are ignored, and this returns ``True`` as long as the variable values align.
+
         Parameters
         ----------
         other : DiscreteRestriction
@@ -311,17 +317,43 @@ class DiscreteRestriction(Serializable):
         -------
         bool
             Whether this object contains all the values of the given object and the two are of the same index.
+
+        See Also
+        -------
+        ::attribute:`is_all_possible_values`
         """
         if not isinstance(other, DiscreteRestriction):
             return False
         elif self.variable != other.variable:
             return False
+        elif self.is_all_possible_values:
+            return True
         else:
             value_set = set(self.values)
             for v in other.values:
                 if v not in value_set:
                     return False
         return True
+
+    @property
+    def is_all_possible_values(self) -> bool:
+        """
+        Whether this object's restriction is effectively "all possible values" of some larger context.
+
+        This property is ``True`` IFF ::attribute:`values` is an empty list.
+
+        Note that the value of this property has implications on the behavior of ::method:`contains`.
+
+        Returns
+        -------
+        bool
+            Whether this object's restriction is effectively "all possible values" of some larger context.
+
+        See Also
+        -------
+        ::method:`contains`
+        """
+        return self.values is not None and len(self.values) == 0
 
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
         return {"variable": self.variable, "values": self.values}
