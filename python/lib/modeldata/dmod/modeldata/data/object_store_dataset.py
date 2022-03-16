@@ -50,7 +50,7 @@ class ObjectStoreDataset(Dataset):
         super(ObjectStoreDataset, self).__init__(name, category, data_domain, access_location, uuid, manager,
                                                  manager_uuid, is_read_only, expires, derived_from, derivations,
                                                  created_on, last_updated)
-        # TODO: remove this if there ends up being no use for it
+        # TODO: remove this explicit override of superclass __init__ if there ends up being nothing type-specific in it
 
     def add_file(self, file: Path, add_relative_to: Optional[Path] = None) -> bool:
         """
