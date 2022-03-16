@@ -37,17 +37,18 @@ def scale_value(metric: "Metric", raw_value: CommonTypes.NUMBER) -> CommonTypes.
             rise = -1
             run = metric.upper_bound - metric.ideal_value
 
-    slope = rise / run
-    y_intercept = 1 - (slope * metric.ideal_value)
-    scaled_value = slope * raw_value + y_intercept
+        slope = rise / run
+        y_intercept = 1 - (slope * metric.ideal_value)
+        scaled_value = slope * raw_value + y_intercept
 
-    if metric.has_upper_bound:
-        scaled_value = min(scaled_value, metric.upper_bound)
+        if metric.has_upper_bound:
+            scaled_value = min(scaled_value, metric.upper_bound)
 
-    if metric.has_lower_bound:
-        scaled_value = max(scaled_value, metric.lower_bound)
+        if metric.has_lower_bound:
+            scaled_value = max(scaled_value, metric.lower_bound)
 
-    return scaled_value
+        return scaled_value
+    return raw_value
 
 
 class Metric(abc.ABC):
