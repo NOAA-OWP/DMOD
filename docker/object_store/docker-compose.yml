@@ -75,9 +75,9 @@ services:
       - exec_user_passwd
       - exec_user_name
 
-  nginx:
+  minio_proxy:
     image: nginx:1.21.1-alpine
-    hostname: nginx
+    hostname: minio_proxy
     networks:
         #- minio_distributed
         - requests-net
