@@ -28,30 +28,6 @@ CONFIG_DATASET_DIR="${ALL_DATASET_DIR}/config/${HYDROFABRIC_DATASET_NAME}"
 
 S3FS_PASSWD_FILE="${HOME}/.passwd-s3fs"
 
-build_non_s3_object_store_url()
-{
-    # Dataset category (lower case) is $1
-    # For now, have all forcings come from minio1 and other stuff work on minio2
-    # TODO (later): do something a little more intelligent
-    _OBJ_STORE_MINIO_HOST_SELECT=""
-    # Account for local development environment maybe running a single node standalone MinIO deployment
-    if [ "${MINIO_DEPLOYMENT:-}" == "standalone" ]; then
-        _OBJ_STORE_MINIO_HOST_SELECT="minio_proxy"
-    else
-        case "${1}" in
-            forcing|forcings|FORCING|FORCINGS|Forcing|Forcings)
-                _OBJ_STORE_MINIO_HOST_SELECT="minio1"
-                ;;
-            *)
-                _OBJ_STORE_MINIO_HOST_SELECT="minio2"
-                ;;
-        esac
-    fi
-    # TODO: confirm that https is not needed (not used in docker-compose.yml minio startup command)
-    #echo "https://${_OBJ_STORE_MINIO_HOST_SELECT}/"
-    echo "http://${_OBJ_STORE_MINIO_HOST_SELECT}/"
-}
-
 # Mount an object store dataset of the given name and data category (which implies mount point directory)
 mount_object_store_dataset()
 {
@@ -61,7 +37,6 @@ mount_object_store_dataset()
     # TODO (later): this is a non-S3 implementation URL; add support for S3 directly also
     # This is based on the nginx proxy config (hopefully)
     _URL="http://minio_proxy:9000/"
-    #_URL="$(build_non_s3_object_store_url ${2})"
     s3fs ${1} ${_MOUNT_DIR} -o passwd_file=${HOME}/.passwd-s3fs -o url=${_URL} -o use_path_request_style
 }
 
