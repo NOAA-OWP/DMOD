@@ -556,12 +556,6 @@ class Launcher(SimpleDockerUtil):
         secrets = [self.docker_client.secrets.get('object_store_exec_user_name'),
                    self.docker_client.secrets.get('object_store_exec_user_passwd')]
 
-        # Add this to env variables, depending on whether this is a single node (Desktop) or multi-node setup
-        if len(self.docker_client.nodes.list()) == 1:
-            env_vars = {'MINIO_DEPLOYMENT': 'standalone'}
-        else:
-            env_vars = {'MINIO_DEPLOYMENT': 'multi-host'}
-
         for alloc_index in range(num_allocations):
             alloc = job.allocations[alloc_index]
             constraints_str = "node.hostname == {}".format(alloc.hostname)
