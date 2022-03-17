@@ -110,6 +110,43 @@ services:
       - FILES_DIRECTORY=/hydrofabric_data
     entrypoint: ["python3", "-m", "${PYTHON_PACKAGE_NAME_SUBSET_SERVICE:?}"]
     command: ["--files-directory", "/hydrofabric_data", "--port", "${DOCKER_SUBSET_CONTAINER_PORT:-5000}"]
+  data-service:
+    image: ${DOCKER_INTERNAL_REGISTRY:?}/dmod-data-service
+    networks:
+      - requests-net
+    deploy:
+      #mode: global
+      #placement:
+      #  constraints:
+      #    - ${DOCKER_REQUESTS_DEPLOY_CONSTRAINT_1:-node.role==manager}
+      #    - ${DOCKER_REQUESTS_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
+      replicas: 1
+    secrets:
+      - object_store_exec_user_name
+      - object_store_exec_user_passwd
+    environment:
+      - SERVICE_PACKAGE_NAME=${PYTHON_PACKAGE_NAME_DATA_SERVICE:-dmod.dataservice}
+      - LISTEN_PORT=${DOCKER_DATASERVICE_CONTAINER_PORT:-3020}
+      - SERVICE_SSL_DIR=${DOCKER_DATASERVICE_CONTAINER_SERVICE_SSL_DIR:-/ssl/dataservice}
+      - USER_SECRET_NAME=object_store_exec_user_name
+      - PASSWD_SECRET_NAME=object_store_exec_user_passwd
+      #- REDIS_HOST=${DOCKER_REDIS_SERVICE_ALIAS:-redis}
+      #- REDIS_PORT=
+      #- REDIS_USER=
+      #- DOCKER_SECRET_REDIS_PASS=myredis_pass
+      - PYCHARM_REMOTE_DEBUG_ACTIVE=${PYCHARM_REMOTE_DEBUG_REQUEST_SERVICE_ACTIVE:-false}
+      - PYCHARM_REMOTE_DEBUG_SERVER_HOST=${PYCHARM_REMOTE_DEBUG_SERVER_HOST:-host.docker.internal}
+      - PYCHARM_REMOTE_DEBUG_SERVER_PORT=${PYCHARM_REMOTE_DEBUG_SERVER_PORT:-55870}
+      #- PYCHARM_REMOTE_DEBUG_VERSION=${PYCHARM_REMOTE_DEBUG_VERSION:-}
+      #- VENV_DIR=${DOCKER_REQUESTS_CONTAINER_VENV_DIR:-}
+    working_dir: /code
+    ports:
+      - "${DOCKER_REQUESTS_HOST_PORT:-3012}:${DOCKER_REQUESTS_CONTAINER_PORT:-3012}"
+    volumes:
+      - ${DMOD_SSL_DIR:?}:/ssl
+    #  - ./request_handler:/code
+    #depends_on:
+    #  - myredis
 networks:
     mpi-net:
         external: true
@@ -125,3 +162,7 @@ volumes:
 secrets:
   myredis_pass:
     file: ../secrets/myredis_password.txt
+  object_store_exec_user_passwd:
+    external: true
+  object_store_exec_user_name:
+    external: true
