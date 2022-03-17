@@ -568,8 +568,7 @@ class DatasetManager(ABC):
         pass
 
     @abstractmethod
-    def create(self, name: str, category: DataCategory, data_format: DataFormat, is_read_only: bool,
-               files_dir: Optional[Path] = None, time_range: Optional[TimeRange] = None, **kwargs) -> Dataset:
+    def create(self, name: str, category: DataCategory, domain: DataDomain, is_read_only: bool, **kwargs) -> Dataset:
         """
         Create a new dataset instance.
 
@@ -583,14 +582,10 @@ class DatasetManager(ABC):
             The name for the new dataset.
         category : DataCategory
             The data category for the new dataset.
-        data_format : DataFormat
-            The data format for the new dataset.
+        domain : DataDomain
+            The data domain for the new dataset, which includes the format, fields, and restrictions on values.
         is_read_only : bool
             Whether the new dataset is read-only.
-        files_dir : Optional[Path]
-            Optional path to a directory containing initial data for the dataset (essential for read-only datasets).
-        time_range : Optional[TimeRange]
-            Optional time range over which the created dataset has data.
         kwargs
             Implementation specific args.
 
