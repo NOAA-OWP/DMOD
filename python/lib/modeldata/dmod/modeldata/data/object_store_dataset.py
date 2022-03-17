@@ -129,19 +129,20 @@ class ObjectStoreDataset(Dataset):
 
 class ObjectStoreDatasetManager(DatasetManager):
     """
-    Implementation specifically for ::class:`ObjectStore` instances.
+    Dataset manager implementation specifically for ::class:`ObjectStoreDataset` instances.
     """
 
     _OBJECT_NAME_SEPARATOR = "___"
     """ Separator for individual parts (e.g., corresponding to directories) of an object name. """
 
-    def __init__(self, minio_host_str: str, access_key: Optional[str] = None, secret_key: Optional[str] = None,
+    def __init__(self, obj_store_host_str: str, access_key: Optional[str] = None, secret_key: Optional[str] = None,
                  datasets: Optional[Dict[str, Dataset]] = None):
         super(ObjectStoreDatasetManager, self).__init__(datasets)
         # TODO: add checks to ensure all datasets passed to this type are ObjectStoreDataset
-        self._minio_host_str = minio_host_str
+        self._obj_store_host_str = obj_store_host_str
         # TODO (later): may need to look at turning this back on
-        self._client = Minio(minio_host_str, access_key=access_key, secret_key=secret_key, secure=False)
+        self._client = Minio(obj_store_host_str, access_key=access_key, secret_key=secret_key, secure=False)
+
 
     def _decode_object_name_to_file_path(self, object_name: str) -> str:
         """
@@ -384,7 +385,7 @@ class ObjectStoreDatasetManager(DatasetManager):
 
         created_on = datetime.now()
         return ObjectStoreDataset(name=name, category=category, data_format=data_format, manager=self,
-                                  access_location=self._minio_host_str, is_read_only=is_read_only,
+                                  access_location=self._obj_store_host_str, is_read_only=is_read_only,
                                   created_on=created_on, last_updated=created_on)
 
     def list_buckets(self) -> List[str]:
