@@ -743,9 +743,10 @@ class NGENRequest(ModelExecRequest):
                        hydrofabric_uid=json_obj['model']['hydrofabric_uid'],
                        hydrofabric_data_id=json_obj['model']['hydrofabric_data_id'],
                        cfg_data_id=json_obj['model']['config_data_id'],
+                       bmi_cfg_data_id=json_obj['model']['bmi_config_data_id'],
                        catchments=json_obj['catchments'] if 'catchments' in json_obj else None,
                        session_secret=json_obj['session-secret'])
-        except:
+        except Exception as e:
             return None
 
     @classmethod
@@ -832,6 +833,18 @@ class NGENRequest(ModelExecRequest):
             ::class:`DiscreteRestriction` that will restrict to the catchments applicable to this request.
         """
         return DiscreteRestriction(variable=var_name, values=([] if self.catchments is None else self.catchments))
+
+    @property
+    def bmi_config_data_id(self) -> str:
+        """
+        The index value of ``data_id`` to uniquely identify sets of BMI module config data that are otherwise similar.
+
+        Returns
+        -------
+        str
+            Index value of ``data_id`` to uniquely identify sets of BMI module config data that are otherwise similar.
+        """
+        return self._bmi_config_data_id
 
     @property
     def bmi_cfg_data_requirement(self) -> DataRequirement:
@@ -1008,6 +1021,7 @@ class NGENRequest(ModelExecRequest):
                 'hydrofabric_data_id': 'hy-data-id-val',
                 'hydrofabric_uid': 'hy-uid-val',
                 'config_data_id': 'config-data-id-val',
+                'bmi_config_data_id': 'bmi-config-data-id',
                 ['catchments': { <serialized_catchment_discrete_restriction_object> },]
                 'version': 4.0
             },
@@ -1028,6 +1042,7 @@ class NGENRequest(ModelExecRequest):
         model["hydrofabric_data_id"] = self.hydrofabric_data_id
         model["hydrofabric_uid"] = self.hydrofabric_uid
         model["config_data_id"] = self.config_data_id
+        model["bmi_config_data_id"] = self._bmi_config_data_id
         if self.catchments is not None:
             model['catchments'] = self.catchments
         model['version'] = self._version
