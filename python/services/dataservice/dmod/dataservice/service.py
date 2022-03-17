@@ -11,15 +11,17 @@ class ServiceManager(WebSocketInterface):
     Primary service management class.
     """
 
-    def __init__(self, known_hosts: List[str], obj_store_host: str, access_key: str, secret_key: str, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._known_hosts = known_hosts
+        self._obj_store_data_mgr = None
+        self._obj_store_access_key = None
+        self._obj_store_secret_key = None
+
+    def init_object_store_dataset_manager(self, obj_store_host: str, access_key: str, secret_key: str):
         self._obj_store_data_mgr = ObjectStoreDatasetManager(obj_store_host_str=obj_store_host, access_key=access_key,
                                                              secret_key=secret_key)
-        # TODO: add ability to re-initialize management of datasets that existed previously, perhaps using redis
-        # TODO: add ability to determine dataset's metadata on domain, etc. (and possibly read catalog file from a
-        #  re-initialized dataset)
-        # TODO: ensure only one manager is actively managing any given dataset
+        self._obj_store_access_key = access_key
+        self._obj_store_secret_key = secret_key
 
     async def listener(self, websocket: WebSocketServerProtocol, path):
         """
