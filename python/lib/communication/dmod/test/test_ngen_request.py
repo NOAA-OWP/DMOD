@@ -31,6 +31,7 @@ class TestNGENRequest(unittest.TestCase):
                 'time_range': time_range.to_dict(),
                 'hydrofabric_data_id': '9876543210',
                 'hydrofabric_uid': '0123456789',
+                'bmi_config_data_id': '02468',
                 'config_data_id': '02468',
                 'version': 4.0
             },
@@ -42,6 +43,7 @@ class TestNGENRequest(unittest.TestCase):
                         time_range=time_range, 
                         hydrofabric_uid="0123456789",
                         hydrofabric_data_id='9876543210',
+                        bmi_cfg_data_id='02468',
                         cfg_data_id='02468'))
 
         # Example 1 - like example 0, but with the object initialized with specific catchment subset
@@ -55,6 +57,7 @@ class TestNGENRequest(unittest.TestCase):
                 'hydrofabric_data_id': '9876543210',
                 'hydrofabric_uid': '0123456789',
                 'config_data_id': '02468',
+                'bmi_config_data_id': '02468',
                 'catchments': cat_ids_list,
                 'version': 4.0
             },
@@ -67,6 +70,7 @@ class TestNGENRequest(unittest.TestCase):
                         hydrofabric_uid="0123456789",
                         hydrofabric_data_id='9876543210',
                         cfg_data_id='02468',
+                        bmi_cfg_data_id='02468',
                         catchments=cat_ids_list))
 
     def test_factory_init_from_deserialized_json_0_a(self):
