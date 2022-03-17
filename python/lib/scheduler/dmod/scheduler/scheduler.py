@@ -570,7 +570,7 @@ class Launcher(SimpleDockerUtil):
 
             # Create the docker service
             service_params = DockerServiceParameters(image_tag, constraints, alloc.hostname, labels, serv_name, mounts,
-                                                     env_vars, secrets)
+                                                     secrets=secrets)
             #TODO check for proper service creation, return False if doesn't work
             service = self.create_service(serviceParams=service_params, idx=alloc_index,
                                           docker_cmd_args=self._generate_docker_cmd_args(job, alloc_index))
