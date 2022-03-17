@@ -344,7 +344,7 @@ class Launcher(SimpleDockerUtil):
 
         # TODO (later): have something more intelligent than class type to determine right entrypoint format and
         #  values, but for now assume/require a "standard" image
-        if isinstance(job.model_request, NWMRequest) or isinstance(job.model_request, NGENRequest):
+        if not (isinstance(job.model_request, NWMRequest) or isinstance(job.model_request, NGENRequest)):
             raise RuntimeError("Unexpected request type {}: cannot build Docker CMD arg list".format(
                 job.model_request.__class__.__name__))
 
