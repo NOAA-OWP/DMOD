@@ -72,6 +72,14 @@ services:
         externalrequests_package_name: ${PYTHON_PACKAGE_DIST_NAME_EXTERNAL_REQUESTS:?}
         request_service_package_name: ${PYTHON_PACKAGE_DIST_NAME_REQUEST_SERVICE:?}
         request_service_package_version_constraint: ${PYTHON_PACKAGE_DIST_VERSION_CONSTRAINT_REQUEST_SERVICE:-}
+  data-service:
+    image: ${DOCKER_INTERNAL_REGISTRY:?}/dmod-data-service
+    build:
+      context: ./dataservice
+      args:
+        docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY}
+        service_package_name: ${PYTHON_PACKAGE_DIST_NAME_DATA_SERVICE:-dmod-dataservice}
+        service_package_constraint: ${PYTHON_PACKAGE_DIST_VERSION_CONSTRAINT_DATA_SERVICE:-}
   subset-service:
     image: ${DOCKER_INTERNAL_REGISTRY:?}/subset-service
     build:
