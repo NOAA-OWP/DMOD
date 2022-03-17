@@ -10,7 +10,7 @@ def _handle_args():
     parser.add_argument('--host',
                         help='Set the appropriate listening host name or address value (NOTE: must match SSL cert)',
                         dest='host',
-                        default=gethostname())
+                        default=None)
     parser.add_argument('--port',
                         help='Set the appropriate listening port value',
                         dest='port',
@@ -69,11 +69,12 @@ def _handle_args():
 def main():
     args = _handle_args()
 
+    listen_host = gethostname() if args.host is None else args.host
     # Flip this here to be less confusing
     use_obj_store = not args.no_obj_store
 
     # Initiate a service manager WebsocketHandler implementation for primary messaging and async task loops
-    service_manager = ServiceManager(listen_host=args.host, port=args.port, ssl_dir=Path(args.ssl_dir))
+    service_manager = ServiceManager(listen_host=listen_host, port=args.port, ssl_dir=Path(args.ssl_dir))
 
     # If we are set to use the object store ...
     if use_obj_store:
