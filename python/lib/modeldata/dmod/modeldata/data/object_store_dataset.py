@@ -331,11 +331,9 @@ class ObjectStoreDatasetManager(DatasetManager):
         else:
             return False
 
-    def create(self, name: str, category: DataCategory, data_format: DataFormat, is_read_only: bool,
-               files_dir: Optional[Path] = None, time_range: Optional[TimeRange] = None,
-               expect_bucket_exists: bool = False, recurse_dir: bool = True, **kwargs) -> ObjectStoreDataset:
+    def create(self, name: str, category: DataCategory, domain: DataDomain, is_read_only: bool, **kwargs) -> ObjectStoreDataset:
         """
-        Create a new ::class:`ObjectStoreDataset` instance.
+        Create a new ::class:`ObjectStoreDataset` instance and, if needed, backing object store bucket of the same name.
 
         Parameters
         ----------
@@ -343,48 +341,61 @@ class ObjectStoreDatasetManager(DatasetManager):
             The name for the new dataset.
         category : DataCategory
             The data category for the new dataset.
-        data_format : DataFormat
-            The data format for the new dataset.
+        domain : DataDomain
+            The data domain for the new dataset, which includes the format, fields, and restrictions on values.
         is_read_only : bool
             Whether the new dataset is read-only.
-        files_dir : Optional[Path]
-            Optional path to a directory containing initial data for the dataset (essential for read-only datasets).
-        time_range : Optional[TimeRange]
-            Optional time range over which the created dataset has data.
-        expect_bucket_exists : bool
-            Whether it is expected that the associated object store bucket is already created (default: ``False``).
-        recurse_dir : bool
-            Whether subdirectories under ``files_dir`` and their contents should also be added as initial data.
         kwargs
-            Implementation specific args.
+            Implementation-specific keyword arguments (see below).
+
+        Keyword Args
+        ----------
+        expect_bucket_exists : bool
+            Whether the associated object store bucket is expected to already exist (default: ``False``).
+        files_dir : Path
+            Directory containing initial dataset data.
+        recurse_dir : bool
+            Whether subdirectories under ``files_dir`` should be recursively added as initial data (default: ``True``).
 
         Returns
         -------
-        Dataset
+        ObjectStoreDataset
             A newly created dataset instance ready for use.
         """
         if name in self.datasets:
             raise RuntimeError("Cannot create new dataset with name {}: name already in use".format(name))
-        does_bucket_exist = self._client.bucket_exists(name)
-        if not expect_bucket_exists and does_bucket_exist:
-            raise RuntimeError("Unexpected existing bucket when creating dataset {}".format(name))
-        elif expect_bucket_exists and not does_bucket_exist:
-            raise RuntimeError("Expected bucket to exist when creating dataset {}".format(name))
-        elif not expect_bucket_exists:
-            self._client.make_bucket(name)
 
-        if files_dir is not None:
-            if not files_dir.is_dir():
-                raise RuntimeError("Invalid non-directory path {} passed for dataset files directory".format(files_dir))
+        # Handle bucket creation, or verify the bucket exists if it was expected to already
+        # If the kwarg tells us to expect the bucket already exists ...
+        if 'expect_bucket_exists' in kwargs and kwargs['expect_bucket_exists']:
+            # ... then just make sure the bucket is there, but raise exception if it isn't
+            if not self._client.bucket_exists(name):
+                raise RuntimeError("Expected bucket to exist when creating dataset {}".format(name))
+        # In this `else`, 'expect_bucket_exists' is either: 1.) not in kwargs (implies False) or 2.) expressly False
+        # I.e., no bucket expected
+        else:
+            # So raise exception if the bucket is there unexpectedly
+            if self._client.bucket_exists(name):
+                raise RuntimeError("Unexpected existing bucket when creating dataset {}".format(name))
+            # And otherwise, create it
             else:
-                self._push_files(bucket_name=name, dir_path=files_dir, recursive=recurse_dir)
+                self._client.make_bucket(name)
+
+        # Handle whether there is initial data in directory provided via 'files_dir' kwargs
+        if 'files_dir' in kwargs:
+            if kwargs['files_dir'].is_dir():
+                # Default for recurse_dir is True when not in kwargs
+                self._push_files(bucket_name=name, dir_path=kwargs['files_dir'],
+                                 recursive=kwargs['recurse_dir'] if 'recurse_dir' in kwargs else True)
+            else:
+                raise RuntimeError("Invalid param for initial dataset data: {} not a directory".format(kwargs['files_dir']))
 
         if is_read_only and len(list(self._client.list_objects(name, recursive=True))) == 0:
             msg = "Attempting to create read-only dataset {} without supplying it with any initial data"
             raise RuntimeError(msg.format(name))
 
         created_on = datetime.now()
-        return ObjectStoreDataset(name=name, category=category, data_format=data_format, manager=self,
+        return ObjectStoreDataset(name=name, category=category, data_domain=domain, manager=self,
                                   access_location=self._obj_store_host_str, is_read_only=is_read_only,
                                   created_on=created_on, last_updated=created_on)
 
