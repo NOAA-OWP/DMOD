@@ -2,7 +2,7 @@
 ################################################################################################################
 ##### Create base level intermediate build stage
 FROM python:3.8-alpine3.15 as basis
-ARG REQUIRE="gcc g++ musl-dev proj proj-dev proj-util gdal-dev libffi-dev openssl-dev rust cargo git"
+ARG REQUIRE="gcc g++ musl-dev proj proj-dev proj-util gdal-dev libffi-dev openssl-dev rust cargo git openblas openblas-dev lapack lapack-dev"
 
 RUN apk update && apk upgrade && apk add --no-cache ${REQUIRE}
 # Install a few requirements that are going to be expected first, since they take a very long time
@@ -10,7 +10,8 @@ RUN apk update && apk upgrade && apk add --no-cache ${REQUIRE}
 RUN mkdir /DIST \
     && if [ ! -d /CACHE ]; then mkdir /CACHE; fi \
     && pip install --upgrade pip \
-    && pip wheel --cache-dir /CACHE --wheel-dir /DIST --prefer-binary pandas geopandas setuptools wheel cryptography numpy
+    && pip wheel --cache-dir /CACHE --wheel-dir /DIST --prefer-binary \
+            pandas geopandas setuptools wheel cryptography numpy scikit-learn
 # Copy project requirements file, which should have everything needed to build any package within project
 COPY ./requirements.txt /dmod/requirements.txt
 # Along with setup and wheel to build, install any remaining (see above) project pip dependencies for package building later
