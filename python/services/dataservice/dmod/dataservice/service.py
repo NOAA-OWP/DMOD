@@ -162,10 +162,8 @@ class ServiceManager(WebSocketInterface):
             elif mgr_msg.management_action == ManagementAction.CREATE:
                 await self._handle_data_creation(message=mgr_msg, websocket=websocket)
             else:
-                response = UnsupportedMessageTypeResponse(actual_event_type=MessageEventType.INVALID,
-                                                          listener_type=self.__class__,
-                                                          message="Listener protocol not yet implemented",
-                                                          data=data)
+                msg = "Unsupported data management message action {}".format(mgr_msg.management_action)
+                response = DatasetManagementResponse(success=False, reason="Unsupported Action", message=msg)
                 await websocket.send(str(response))
 
             # TODO: (later) properly handle additional incoming messages
