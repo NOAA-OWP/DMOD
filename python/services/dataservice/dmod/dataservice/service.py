@@ -6,6 +6,7 @@ from dmod.core.exception import DmodRuntimeError
 from dmod.modeldata.data.object_store_dataset import Dataset, DatasetManager, ObjectStoreDataset, \
     ObjectStoreDatasetManager
 from typing import Dict, Type, TypeVar
+from uuid import UUID
 from websockets import WebSocketServerProtocol
 
 
@@ -24,6 +25,8 @@ class ServiceManager(WebSocketInterface):
         """ Map of dataset class type (key), to service's dataset manager (value) for handling that dataset type. """
         self._known_dataset_names: Dict[str, Type[DATASET_TYPE]] = {}
         """ Map of names (key) of datasets known to this service, to each dataset's type (value). """
+        self._managers_by_uuid: Dict[UUID, DatasetManager] = {}
+        """ Map of dataset managers keyed by the UUID of each. """
         self._obj_store_data_mgr = None
         self._obj_store_access_key = None
         self._obj_store_secret_key = None
@@ -46,6 +49,10 @@ class ServiceManager(WebSocketInterface):
         manager : DatasetManager
             The new dataset manager to add/incorporate and use within this service.
         """
+        # In this case, just return, as the manager is already added
+        if manager.uuid in self._managers_by_uuid:
+            return
+
         if not self._known_dataset_names.keys().isdisjoint(manager.datasets.keys()):
             duplicates = set(self._known_dataset_names.keys()).intersection(manager.datasets.keys())
             msg = "Can't add {} to service with already known dataset names {}."
@@ -57,6 +64,7 @@ class ServiceManager(WebSocketInterface):
             raise DmodRuntimeError(msg.format(manager.__class__.__name__, duplicates))
 
         # We've already done sanity checking for duplicates, so just add things.
+        self._managers_by_uuid[manager.uuid] = manager
         for name, dataset in manager.datasets.items():
             self._known_dataset_names[name] = dataset.__class__
         for dataset_type in manager.supported_dataset_types:
