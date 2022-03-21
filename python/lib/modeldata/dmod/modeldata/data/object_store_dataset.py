@@ -4,7 +4,7 @@ from datetime import datetime
 from minio import Minio
 from minio.api import ObjectWriteResult
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set, Type
 from uuid import UUID
 
 
@@ -134,6 +134,8 @@ class ObjectStoreDatasetManager(DatasetManager):
 
     _OBJECT_NAME_SEPARATOR = "___"
     """ Separator for individual parts (e.g., corresponding to directories) of an object name. """
+    _SUPPORTED_TYPES = {ObjectStoreDataset}
+    """ Supported dataset types set, which is always ::class:`ObjectStoreDataset` for this manager subtype. """
 
     def __init__(self, obj_store_host_str: str, access_key: Optional[str] = None, secret_key: Optional[str] = None,
                  datasets: Optional[Dict[str, Dataset]] = None):
@@ -142,7 +144,6 @@ class ObjectStoreDatasetManager(DatasetManager):
         self._obj_store_host_str = obj_store_host_str
         # TODO (later): may need to look at turning this back on
         self._client = Minio(obj_store_host_str, access_key=access_key, secret_key=secret_key, secure=False)
-
 
     def _decode_object_name_to_file_path(self, object_name: str) -> str:
         """
@@ -449,3 +450,18 @@ class ObjectStoreDatasetManager(DatasetManager):
         for bucket in self._client.list_buckets():
             values[bucket.name] = bucket.creation_date
         return values
+
+    @property
+    def supported_dataset_types(self) -> Set[Type[Dataset]]:
+        """
+        The set of ::class:`Dataset` subclass types that this instance supports.
+
+        Typically (but not necessarily always) this will be backed by a static or hard-coded value for the manager
+        subtype.
+
+        Returns
+        -------
+        Set[Type[Dataset]]
+            The Set of ::class:`Dataset` subclass types that this instance supports.
+        """
+        return self._SUPPORTED_TYPES
