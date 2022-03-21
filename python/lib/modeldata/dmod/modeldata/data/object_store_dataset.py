@@ -147,7 +147,7 @@ class ObjectStoreDatasetManager(DatasetManager):
     """ Separator for individual parts (e.g., corresponding to directories) of an object name. """
     _SUPPORTED_TYPES = {ObjectStoreDataset}
     """ Supported dataset types set, which is always ::class:`ObjectStoreDataset` for this manager subtype. """
-    _SERIALIZED_OBJ_NAME = "serialized.json"
+    _SERIALIZED_OBJ_NAME_TEMPLATE = "{}_serialized.json"
     """ The name of the file/object for serialized versions of datasets, within a dataset's bucket. """
 
     def __init__(self, obj_store_host_str: str, access_key: Optional[str] = None, secret_key: Optional[str] = None,
@@ -157,6 +157,9 @@ class ObjectStoreDatasetManager(DatasetManager):
         self._obj_store_host_str = obj_store_host_str
         # TODO (later): may need to look at turning this back on
         self._client = Minio(obj_store_host_str, access_key=access_key, secret_key=secret_key, secure=False)
+        # For any buckets that have the standard serialized object (i.e., were for datasets previously), reload them
+        for bucket_name in self.list_buckets():
+            self._load_from_existing_bucket(bucket_name)
 
     def _decode_object_name_to_file_path(self, object_name: str) -> str:
         """
@@ -179,6 +182,9 @@ class ObjectStoreDatasetManager(DatasetManager):
         ::method:`_push_file`
         """
         return "/".join(object_name.split(self._OBJECT_NAME_SEPARATOR))
+
+    def _gen_dataset_serial_obj_name(self, dataset_name: str) -> str:
+        return self._SERIALIZED_OBJ_NAME_TEMPLATE.format(dataset_name)
 
     # TODO: add stuff for threading
     def _push_file(self, bucket_name: str, file: Path, bucket_root: Path, do_checks: bool = True,
@@ -237,6 +243,26 @@ class ObjectStoreDatasetManager(DatasetManager):
         if resync_serialized:
             self.persist_serialized(bucket_name)
         return result
+
+    def _load_from_existing_bucket(self, bucket_name: str) -> bool:
+        """
+        Search existing bucket for standard serialized dataset object, and reload the dataset if it is there.
+
+        Parameters
+        ----------
+        bucket_name : str
+            The name of the existing bucket.
+
+        Returns
+        -------
+        bool
+            ``True`` if a previous serialized dataset was reloaded, or ``False`` if one could not be from this bucket.
+        """
+        for obj in self._client.list_objects(bucket_name):
+            if obj.object_name == self._gen_dataset_serial_obj_name(bucket_name):
+                self.reload(bucket_name)
+                return True
+        return False
 
     # TODO: might need to add the threading stuff in this function when ready to add it
     def _push_files(self, bucket_name: str, dir_path: Path, recursive: bool = True, bucket_root: Optional[Path] = None,
@@ -399,6 +425,7 @@ class ObjectStoreDatasetManager(DatasetManager):
                                      access_location=access_loc, is_read_only=is_read_only, created_on=created_on,
                                      last_updated=created_on)
         self.datasets[name] = dataset
+        self.persist_serialized(name)
         return dataset
 
     def list_buckets(self) -> List[str]:
@@ -460,7 +487,7 @@ class ObjectStoreDatasetManager(DatasetManager):
             The name of the dataset.
         """
         bin_json_str = self.datasets[name].to_json().encode()
-        result = self._client.put_object(bucket_name=name, object_name=self._SERIALIZED_OBJ_NAME,
+        result = self._client.put_object(bucket_name=name, object_name=self._gen_dataset_serial_obj_name(name),
                                          data=io.BytesIO(bin_json_str), length=len(bin_json_str))
 
     def reload(self, name: str, is_read_only: bool = False, access_location: Optional[str] = None) -> ObjectStoreDataset:
@@ -488,7 +515,7 @@ class ObjectStoreDatasetManager(DatasetManager):
         # TODO: (later) add something for checking host part of access location if provided, and if that is not this host, its a problem
 
         try:
-            response_obj = self._client.get_object(bucket_name=name, object_name=self._SERIALIZED_OBJ_NAME)
+            response_obj = self._client.get_object(bucket_name=name, object_name=self._gen_dataset_serial_obj_name(name))
             response_data = response_obj.data.decode()
         finally:
             response_obj.close()
