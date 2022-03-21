@@ -1,9 +1,16 @@
 import asyncio
 import json
-from dmod.communication import WebSocketInterface, MessageEventType, UnsupportedMessageTypeResponse
-from dmod.modeldata.data.object_store_dataset import ObjectStoreDatasetManager
-from typing import List
+from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, ManagementAction, MessageEventType,\
+    WebSocketInterface, UnsupportedMessageTypeResponse
+from dmod.core.exception import DmodRuntimeError
+from dmod.modeldata.data.object_store_dataset import Dataset, DatasetManager, ObjectStoreDataset, \
+    ObjectStoreDatasetManager
+from typing import Dict, Type, TypeVar
 from websockets import WebSocketServerProtocol
+
+
+DATASET_MGR = TypeVar('DATASET_MGR', bound=DatasetManager)
+DATASET_TYPE = TypeVar('DATASET_TYPE', bound=Dataset)
 
 
 class ServiceManager(WebSocketInterface):
@@ -13,9 +20,47 @@ class ServiceManager(WebSocketInterface):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._all_data_managers: Dict[Type[DATASET_TYPE], DatasetManager] = {}
+        """ Map of dataset class type (key), to service's dataset manager (value) for handling that dataset type. """
+        self._known_dataset_names: Dict[str, Type[DATASET_TYPE]] = {}
+        """ Map of names (key) of datasets known to this service, to each dataset's type (value). """
         self._obj_store_data_mgr = None
         self._obj_store_access_key = None
         self._obj_store_secret_key = None
+
+    def _add_manager(self, manager: DatasetManager):
+        """
+        Add this manager and its managed datasets to this service's internal collections and mappings.
+
+        Method first ensures that this manager does not have any datasets conflicting with names of dataset of any
+        previously added manager.  It then ensures there is no previously-add manager for managing any of the dataset
+        types the given manager handles.  A ::class:`DmodRuntimeError` is thrown if there are any conflicts in either
+        case.
+
+        As long as there are no above-described conflicts, the method adds datasets of this manager to the service's
+        known datasets collection (mapping the name of each dataset to its type) and the dataset-type-to-manager-object
+        mapping.
+
+        Parameters
+        ----------
+        manager : DatasetManager
+            The new dataset manager to add/incorporate and use within this service.
+        """
+        if not self._known_dataset_names.keys().isdisjoint(manager.datasets.keys()):
+            duplicates = set(self._known_dataset_names.keys()).intersection(manager.datasets.keys())
+            msg = "Can't add {} to service with already known dataset names {}."
+            raise DmodRuntimeError(msg.format(manager.__class__.__name__, duplicates))
+
+        if not manager.supported_dataset_types.isdisjoint(self._all_data_managers.keys()):
+            duplicates = manager.supported_dataset_types.intersection(self._all_data_managers.keys())
+            msg = "Can't add new {} to service for managing already managed dataset types {}."
+            raise DmodRuntimeError(msg.format(manager.__class__.__name__, duplicates))
+
+        # We've already done sanity checking for duplicates, so just add things.
+        for name, dataset in manager.datasets.items():
+            self._known_dataset_names[name] = dataset.__class__
+        for dataset_type in manager.supported_dataset_types:
+            self._all_data_managers[dataset_type] = manager
 
     def init_object_store_dataset_manager(self, obj_store_host: str, access_key: str, secret_key: str):
         self._obj_store_data_mgr = ObjectStoreDatasetManager(obj_store_host_str=obj_store_host, access_key=access_key,
