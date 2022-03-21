@@ -409,22 +409,24 @@ class ObjectStoreDatasetManager(DatasetManager):
         if self._client.bucket_exists(name):
             raise RuntimeError("Unexpected existing bucket when creating dataset {}".format(name))
 
+        files_dir = None
         if initial_data is not None:
             files_dir = Path(initial_data)
-            if files_dir.is_dir():
-                self._push_files(bucket_name=name, dir_path=files_dir, recursive=True)
-            else:
+            if not files_dir.is_dir():
                 raise RuntimeError("Invalid param for initial dataset data: {} not a directory".format(files_dir))
         elif is_read_only:
             msg = "Attempting to create read-only dataset {} without supplying it with any initial data"
             raise RuntimeError(msg.format(name))
 
+        self._client.make_bucket(name)
         created_on = datetime.now()
         access_loc = "{}{}{}".format(self._obj_store_host_str, ObjectStoreDataset._ACCESS_LOCATION_DELIMITER, name)
         dataset = ObjectStoreDataset(name=name, category=category, data_domain=domain, manager=self,
                                      access_location=access_loc, is_read_only=is_read_only, created_on=created_on,
                                      last_updated=created_on)
         self.datasets[name] = dataset
+        if files_dir is not None:
+            self._push_files(bucket_name=name, dir_path=files_dir, recursive=True)
         self.persist_serialized(name)
         return dataset
 
