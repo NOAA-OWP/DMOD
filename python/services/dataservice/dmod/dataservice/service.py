@@ -62,6 +62,56 @@ class ServiceManager(WebSocketInterface):
         for dataset_type in manager.supported_dataset_types:
             self._all_data_managers[dataset_type] = manager
 
+    def _determine_dataset_type(self, message: DatasetManagementMessage) -> Type[DATASET_TYPE]:
+        """
+        Determine the right kind of dataset for this situation.
+
+        Parameters
+        ----------
+        message : DatasetManagementMessage
+            The message initiating some kind of action for which the dataset type is needed.
+
+        Returns
+        -------
+        Type[DATASET_TYPE]
+            The class for the right kind of dataset for this situation.
+        """
+        # TODO: (later) implement this correctly
+        return ObjectStoreDataset
+
+    async def _handle_data_creation(self, message: DatasetManagementMessage, websocket: WebSocketServerProtocol):
+        """
+        As part of the communication protocol for the service, handle incoming messages that request dataset creation.
+
+        Parameters
+        ----------
+        message : DatasetManagementMessage
+            The message that initiated the process of creating a new dataset
+        websocket : WebSocketServerProtocol
+            The websocket over which the communication protocol messages are sent and received.
+        """
+        # Make sure there is no conflict/existing dataset already
+        if message.dataset_name in self._known_dataset_names:
+            response = DatasetManagementResponse(success=False, reason="Dataset Already Exists")
+            await websocket.send(str(response))
+            return
+
+        # Handle when message to create fails to include a dataset domain
+        if message.data_domain is None:
+            msg = "Invalid {} for dataset creation: no dataset domain provided.".format(self.__class__.__name__)
+            response = DatasetManagementResponse(success=False, reason="No Dataset Domain", message=msg)
+            await websocket.send(str(response))
+            return
+
+        # Create the dataset
+        dataset_type = self._determine_dataset_type(message)
+        self._all_data_managers[dataset_type].create(name=message.dataset_name, category=message.data_category,
+                                                     domain=message.data_domain, is_read_only=False)
+
+        response = DatasetManagementResponse(success=True, reason="Dataset Created", is_awaiting=False)
+        await websocket.send(str(response))
+        return
+
     def init_object_store_dataset_manager(self, obj_store_host: str, access_key: str, secret_key: str):
         mgr = ObjectStoreDatasetManager(obj_store_host_str=obj_store_host, access_key=access_key, secret_key=secret_key)
         self._add_manager(mgr)
@@ -77,20 +127,25 @@ class ServiceManager(WebSocketInterface):
         try:
             message = await websocket.recv()
             data = json.loads(message)
+            mgr_msg = DatasetManagementMessage.factory_init_from_deserialized_json(data)
 
-            # TODO: properly handle incoming messages
-            #  - create dataset
-            #  - query whether data to satisfy a set of requirements is available
+            # If we were not able to otherwise process the message into a response, then it is unsupported
+            if mgr_msg is None:
+                response = UnsupportedMessageTypeResponse(actual_event_type=MessageEventType.INVALID,
+                                                          listener_type=self.__class__,
+                                                          message="Listener protocol not yet implemented",
+                                                          data=data)
+                await websocket.send(str(response))
+            elif mgr_msg.management_action == ManagementAction.CREATE:
+                await self._handle_data_creation(message=mgr_msg, websocket=websocket)
+            else:
+                response = UnsupportedMessageTypeResponse(actual_event_type=MessageEventType.INVALID,
+                                                          listener_type=self.__class__,
+                                                          message="Listener protocol not yet implemented",
+                                                          data=data)
+                await websocket.send(str(response))
 
             # TODO: (later) properly handle additional incoming messages
-            #  - delete dataset
-            #  - add data to dataset
-            #  - query for list of dataset names (and possibly types and categories)
-            response = UnsupportedMessageTypeResponse(actual_event_type=MessageEventType.INVALID,
-                                                      listener_type=self.__class__,
-                                                      message="Listener protocol not yet implemented",
-                                                      data=data)
-            await websocket.send(str(response))
 
         # TODO: handle logging
         # TODO: handle exceptions appropriately
