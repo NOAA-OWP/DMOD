@@ -9,7 +9,17 @@ from uuid import UUID
 
 
 class ObjectStoreDataset(Dataset):
+    """
+    Dataset for which data is contained within an object store bucket.
 
+    The backing object store bucket will have the same name as the dataset itself.
+
+    The ::attribute:`access_location` property is based on the object store hostname and the name of the backing bucket,
+    with these delimited with ::attribute:`_ACCESS_LOCATION_DELIMITER`.
+    """
+
+    _ACCESS_LOCATION_DELIMITER = "/"
+    """ Delimiting separator for ::attribute:`access_location` value. """
     _OBJECT_NAME_SEPARATOR = "___"
     """ Separator for individual parts (e.g., corresponding to directories) of an object name. """
 
@@ -397,9 +407,10 @@ class ObjectStoreDatasetManager(DatasetManager):
             raise RuntimeError(msg.format(name))
 
         created_on = datetime.now()
+        access_loc = "{}{}{}".format(self._obj_store_host_str, ObjectStoreDataset._ACCESS_LOCATION_DELIMITER, name)
         dataset = ObjectStoreDataset(name=name, category=category, data_domain=domain, manager=self,
-                                     access_location=self._obj_store_host_str, is_read_only=is_read_only,
-                                     created_on=created_on, last_updated=created_on)
+                                     access_location=access_loc, is_read_only=is_read_only, created_on=created_on,
+                                     last_updated=created_on)
         self.datasets[name] = dataset
         return dataset
 
