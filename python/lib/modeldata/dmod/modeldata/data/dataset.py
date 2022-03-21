@@ -729,6 +729,26 @@ class DatasetManager(ABC):
         """
         pass
 
+    def reload(self, name: str, is_read_only: bool = False, access_location: Optional[str] = None) -> Dataset:
+        """
+        Create a new dataset object by reloading from an existing storage location.
+
+        Parameters
+        ----------
+        name : str
+            The name of the dataset.
+        is_read_only : bool
+            Whether the loaded dataset object should be read-only (default: ``False``).
+        access_location : Optional[str]
+            Optional string for specifying access location when it cannot be inferred from ``name`` (default: ``None``).
+
+        Returns
+        -------
+        Dataset
+            A new dataset object, loaded from a previously stored dataset.
+        """
+        pass
+
     @property
     @abstractmethod
     def supported_dataset_types(self) -> Set[Type[Dataset]]:
