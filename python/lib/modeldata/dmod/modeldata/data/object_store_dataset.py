@@ -395,9 +395,11 @@ class ObjectStoreDatasetManager(DatasetManager):
             raise RuntimeError(msg.format(name))
 
         created_on = datetime.now()
-        return ObjectStoreDataset(name=name, category=category, data_domain=domain, manager=self,
-                                  access_location=self._obj_store_host_str, is_read_only=is_read_only,
-                                  created_on=created_on, last_updated=created_on)
+        dataset = ObjectStoreDataset(name=name, category=category, data_domain=domain, manager=self,
+                                     access_location=self._obj_store_host_str, is_read_only=is_read_only,
+                                     created_on=created_on, last_updated=created_on)
+        self.datasets[name] = dataset
+        return dataset
 
     def list_buckets(self) -> List[str]:
         """
