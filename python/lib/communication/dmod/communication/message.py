@@ -28,11 +28,8 @@ class MessageEventType(Enum):
     CALIBRATION_REQUEST = 8
     """ Represents when a request occurs for a model calibration job to be performed. """
 
-    DATA_ACQUIRE_REQUEST = 9
-    """ Represents when a request occurs for data acquisition, either from a supplied source or via direct upload. """
-
-    DATA_PROC_REQUEST = 10
-    """ Represents when a request occurs for data processing (job?) to transform or subdivide currently held data. """
+    DATASET_MANAGEMENT = 9
+    """ Event relating to management of datasets and contained data (e.g., creation, upload, delete, etc.). """
 
     INVALID = -1
 
