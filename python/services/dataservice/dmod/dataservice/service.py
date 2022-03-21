@@ -63,8 +63,10 @@ class ServiceManager(WebSocketInterface):
             self._all_data_managers[dataset_type] = manager
 
     def init_object_store_dataset_manager(self, obj_store_host: str, access_key: str, secret_key: str):
-        self._obj_store_data_mgr = ObjectStoreDatasetManager(obj_store_host_str=obj_store_host, access_key=access_key,
-                                                             secret_key=secret_key)
+        mgr = ObjectStoreDatasetManager(obj_store_host_str=obj_store_host, access_key=access_key, secret_key=secret_key)
+        self._add_manager(mgr)
+        self._obj_store_data_mgr = mgr
+
         self._obj_store_access_key = access_key
         self._obj_store_secret_key = secret_key
 
