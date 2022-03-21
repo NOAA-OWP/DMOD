@@ -23,8 +23,6 @@ class ServiceManager(WebSocketInterface):
         super().__init__(*args, **kwargs)
         self._all_data_managers: Dict[Type[DATASET_TYPE], DatasetManager] = {}
         """ Map of dataset class type (key), to service's dataset manager (value) for handling that dataset type. """
-        self._known_dataset_names: Dict[str, Type[DATASET_TYPE]] = {}
-        """ Map of names (key) of datasets known to this service, to each dataset's type (value). """
         self._managers_by_uuid: Dict[UUID, DatasetManager] = {}
         """ Map of dataset managers keyed by the UUID of each. """
         self._obj_store_data_mgr = None
@@ -53,8 +51,9 @@ class ServiceManager(WebSocketInterface):
         if manager.uuid in self._managers_by_uuid:
             return
 
-        if not self._known_dataset_names.keys().isdisjoint(manager.datasets.keys()):
-            duplicates = set(self._known_dataset_names.keys()).intersection(manager.datasets.keys())
+        known_dataset_names = set(self.get_known_datasets().keys())
+        if not known_dataset_names.isdisjoint(manager.datasets.keys()):
+            duplicates = known_dataset_names.intersection(manager.datasets.keys())
             msg = "Can't add {} to service with already known dataset names {}."
             raise DmodRuntimeError(msg.format(manager.__class__.__name__, duplicates))
 
@@ -65,8 +64,7 @@ class ServiceManager(WebSocketInterface):
 
         # We've already done sanity checking for duplicates, so just add things.
         self._managers_by_uuid[manager.uuid] = manager
-        for name, dataset in manager.datasets.items():
-            self._known_dataset_names[name] = dataset.__class__
+
         for dataset_type in manager.supported_dataset_types:
             self._all_data_managers[dataset_type] = manager
 
@@ -99,7 +97,7 @@ class ServiceManager(WebSocketInterface):
             The websocket over which the communication protocol messages are sent and received.
         """
         # Make sure there is no conflict/existing dataset already
-        if message.dataset_name in self._known_dataset_names:
+        if message.dataset_name in self.get_known_datasets():
             response = DatasetManagementResponse(success=False, reason="Dataset Already Exists")
             await websocket.send(str(response))
             return
@@ -119,6 +117,23 @@ class ServiceManager(WebSocketInterface):
         response = DatasetManagementResponse(success=True, reason="Dataset Created", is_awaiting=False)
         await websocket.send(str(response))
         return
+
+    def get_known_datasets(self) -> Dict[str, Dataset]:
+        """
+        Get all datasets known to the service via its manager objects, in a map keyed by dataset name.
+
+        This is implemented as a function, and not a property, since it is mutable and could change without this service
+        instance being directly notified.  As such, a new collection object is created and returned on every call.
+
+        Returns
+        -------
+        Dict[str, Dataset]
+            All datasets known to the service via its manager objects, in a map keyed by dataset name.
+        """
+        datasets = {}
+        for uuid, manager in self._managers_by_uuid.items():
+            datasets.update(manager.datasets)
+        return datasets
 
     def init_object_store_dataset_manager(self, obj_store_host: str, access_key: str, secret_key: str):
         mgr = ObjectStoreDatasetManager(obj_store_host_str=obj_store_host, access_key=access_key, secret_key=secret_key)
