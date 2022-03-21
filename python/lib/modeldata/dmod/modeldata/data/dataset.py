@@ -727,6 +727,22 @@ class DatasetManager(ABC):
         """
         pass
 
+    @property
+    @abstractmethod
+    def supported_dataset_types(self) -> Set[Type[Dataset]]:
+        """
+        The set of ::class:`Dataset` subclass types that this instance supports.
+
+        Typically (but not necessarily always) this will be backed by a static or hard-coded value for the manager
+        subtype.
+
+        Returns
+        -------
+        Set[Type[Dataset]]
+            The set of ::class:`Dataset` subclass types that this instance supports.
+        """
+        pass
+
     # TODO: add back as abstract, then implement in subtypes
     #@abstractmethod
     def transform(self, base_dataset: Dataset, new_format: DataFormat, prevent_loss: bool = True, **kwargs) -> Dataset:
