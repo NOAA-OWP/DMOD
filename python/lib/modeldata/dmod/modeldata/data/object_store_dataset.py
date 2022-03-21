@@ -1,3 +1,4 @@
+import io
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, TimeRange
 from .dataset import Dataset, DatasetManager
 from datetime import datetime
@@ -146,6 +147,8 @@ class ObjectStoreDatasetManager(DatasetManager):
     """ Separator for individual parts (e.g., corresponding to directories) of an object name. """
     _SUPPORTED_TYPES = {ObjectStoreDataset}
     """ Supported dataset types set, which is always ::class:`ObjectStoreDataset` for this manager subtype. """
+    _SERIALIZED_OBJ_NAME = "serialized.json"
+    """ The name of the file/object for serialized versions of datasets, within a dataset's bucket. """
 
     def __init__(self, obj_store_host_str: str, access_key: Optional[str] = None, secret_key: Optional[str] = None,
                  datasets: Optional[Dict[str, Dataset]] = None):
@@ -178,7 +181,8 @@ class ObjectStoreDatasetManager(DatasetManager):
         return "/".join(object_name.split(self._OBJECT_NAME_SEPARATOR))
 
     # TODO: add stuff for threading
-    def _push_file(self, bucket_name: str, file: Path, bucket_root: Path, do_checks: bool = True) -> ObjectWriteResult:
+    def _push_file(self, bucket_name: str, file: Path, bucket_root: Path, do_checks: bool = True,
+                   resync_serialized: bool = True) -> ObjectWriteResult:
         """
         Push a file to a bucket.
 
@@ -212,6 +216,8 @@ class ObjectStoreDatasetManager(DatasetManager):
             The directory level that corresponds to the bucket's root level, for object naming purposes.
         do_checks : bool
             Whether to do sanity checks on the local file and bucket root (``True`` by default).
+        resync_serialized : bool
+            Whether to resync the serialized file object within the dataset bucket after pushing (default: ``True``).
 
         Returns
         -------
@@ -227,11 +233,14 @@ class ObjectStoreDatasetManager(DatasetManager):
                 raise RuntimeError(msg.format(str(file), bucket_name, str(bucket_root)))
         file_rel_root = file.relative_to(bucket_root)
         object_name = self._OBJECT_NAME_SEPARATOR.join(file_rel_root.parts)
-        return self._client.fput_object(bucket_name=bucket_name, object_name=object_name, file_path=str(file))
+        result = self._client.fput_object(bucket_name=bucket_name, object_name=object_name, file_path=str(file))
+        if resync_serialized:
+            self.persist_serialized(bucket_name)
+        return result
 
     # TODO: might need to add the threading stuff in this function when ready to add it
     def _push_files(self, bucket_name: str, dir_path: Path, recursive: bool = True, bucket_root: Optional[Path] = None,
-                    do_checks: bool = True):
+                    do_checks: bool = True, resync_serialized: bool = True):
         """
         Push the file contents of the given directory to the provided bucket.
 
@@ -248,6 +257,8 @@ class ObjectStoreDatasetManager(DatasetManager):
             The directory level that corresponds to the bucket's root level, for object naming purposes.
         do_checks : bool
             Whether to do sanity checks on the local file and bucket root (``True`` by default).
+        resync_serialized : bool
+            Whether to resync the serialized file object within the dataset bucket after pushing (default: ``True``).
         """
         if do_checks:
             if not dir_path.exists():
@@ -260,10 +271,12 @@ class ObjectStoreDatasetManager(DatasetManager):
             bucket_root = dir_path
         # First take care of immediate
         for file in [f for f in dir_path.iterdir() if f.is_file()]:
-            self._push_file(bucket_name, file, bucket_root, do_checks=False)
+            self._push_file(bucket_name, file, bucket_root, do_checks=False, resync_serialized=False)
         if recursive:
             for directory in [d for d in dir_path.iterdir() if d.is_dir()]:
-                self._push_files(bucket_name, directory, recursive, bucket_root, do_checks=False)
+                self._push_files(bucket_name, directory, recursive, bucket_root, do_checks=False, resync_serialized=False)
+        if resync_serialized:
+            self.persist_serialized(bucket_name)
 
     def add_data(self, dataset_name: str, **kwargs) -> bool:
         """
@@ -436,6 +449,54 @@ class ObjectStoreDatasetManager(DatasetManager):
         for bucket in self._client.list_buckets():
             values[bucket.name] = bucket.creation_date
         return values
+
+    def persist_serialized(self, name: str):
+        """
+        Write or re-write the serialized object file for this dataset within its bucket.
+
+        Parameters
+        ----------
+        name : str
+            The name of the dataset.
+        """
+        bin_json_str = self.datasets[name].to_json().encode()
+        result = self._client.put_object(bucket_name=name, object_name=self._SERIALIZED_OBJ_NAME,
+                                         data=io.BytesIO(bin_json_str), length=len(bin_json_str))
+
+    def reload(self, name: str, is_read_only: bool = False, access_location: Optional[str] = None) -> ObjectStoreDataset:
+        """
+        Create a new dataset object by reloading from an existing storage location.
+
+        Parameters
+        ----------
+        name : str
+            The name of the dataset.
+        is_read_only : bool
+            Whether the loaded dataset object should be read-only (default: ``False``).
+        access_location : Optional[str]
+            Optional string for specifying access location when it cannot be inferred from ``name`` (default: ``None``).
+
+        Returns
+        -------
+        ObjectStoreDataset
+            A new dataset object, loaded from a previously stored dataset.
+        """
+        if name in self.datasets:
+            raise RuntimeError("Cannot reload dataset with name {}: name already in use".format(name))
+        elif not self._client.bucket_exists(name):
+            raise RuntimeError("Expected bucket to exist when re-creating dataset {}".format(name))
+        # TODO: (later) add something for checking host part of access location if provided, and if that is not this host, its a problem
+
+        try:
+            response_obj = self._client.get_object(bucket_name=name, object_name=self._SERIALIZED_OBJ_NAME)
+            response_data = response_obj.data.decode()
+        finally:
+            response_obj.close()
+            response_obj.release_conn()
+
+        dataset = ObjectStoreDataset.factory_init_from_deserialized_json(response_data)
+        self.datasets[name] = dataset
+        return dataset
 
     @property
     def supported_dataset_types(self) -> Set[Type[Dataset]]:
