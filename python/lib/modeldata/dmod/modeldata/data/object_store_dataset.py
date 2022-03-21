@@ -353,8 +353,8 @@ class ObjectStoreDatasetManager(DatasetManager):
         ----------
         expect_bucket_exists : bool
             Whether the associated object store bucket is expected to already exist (default: ``False``).
-        files_dir : Path
-            Directory containing initial dataset data.
+        files_dir : str
+            String form of path to directory containing initial dataset data.
         recurse_dir : bool
             Whether subdirectories under ``files_dir`` should be recursively added as initial data (default: ``True``).
 
@@ -384,12 +384,13 @@ class ObjectStoreDatasetManager(DatasetManager):
 
         # Handle whether there is initial data in directory provided via 'files_dir' kwargs
         if 'files_dir' in kwargs:
-            if kwargs['files_dir'].is_dir():
+            files_dir = Path(kwargs['files_dir'])
+            if files_dir.is_dir():
                 # Default for recurse_dir is True when not in kwargs
-                self._push_files(bucket_name=name, dir_path=kwargs['files_dir'],
+                self._push_files(bucket_name=name, dir_path=files_dir,
                                  recursive=kwargs['recurse_dir'] if 'recurse_dir' in kwargs else True)
             else:
-                raise RuntimeError("Invalid param for initial dataset data: {} not a directory".format(kwargs['files_dir']))
+                raise RuntimeError("Invalid param for initial dataset data: {} not a directory".format(files_dir))
 
         if is_read_only and len(list(self._client.list_objects(name, recursive=True))) == 0:
             msg = "Attempting to create read-only dataset {} without supplying it with any initial data"
