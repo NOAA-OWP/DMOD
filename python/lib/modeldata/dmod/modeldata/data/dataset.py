@@ -568,7 +568,8 @@ class DatasetManager(ABC):
         pass
 
     @abstractmethod
-    def create(self, name: str, category: DataCategory, domain: DataDomain, is_read_only: bool, **kwargs) -> Dataset:
+    def create(self, name: str, category: DataCategory, domain: DataDomain, is_read_only: bool,
+               initial_data: Optional[str] = None) -> Dataset:
         """
         Create a new dataset instance.
 
@@ -586,8 +587,9 @@ class DatasetManager(ABC):
             The data domain for the new dataset, which includes the format, fields, and restrictions on values.
         is_read_only : bool
             Whether the new dataset is read-only.
-        kwargs
-            Implementation specific args.
+        initial_data : Optional[str]
+            Optional string representation of a location in which there is initial data that should be added to the
+            dataset.
 
         Returns
         -------
