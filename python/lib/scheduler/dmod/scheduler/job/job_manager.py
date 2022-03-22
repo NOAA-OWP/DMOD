@@ -1,21 +1,20 @@
 from abc import ABC, abstractmethod
 from asyncio import sleep
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 from uuid import UUID, uuid4 as random_uuid
 from .job import Job, JobAllocationParadigm, JobExecPhase, JobExecStep, JobStatus, RequestedJob
+from .job_util import JobUtil, RedisBackedJobUtil
 from ..resources.resource_allocation import ResourceAllocation
 from ..resources.resource_manager import ResourceManager
-from ..rsa_key_pair import RsaKeyPair
 from ..scheduler import Launcher
 
-from dmod.communication import MaaSRequest, NWMRequest, SchedulerRequestMessage
-from dmod.redis import KeyNameHelper, RedisBacked
+from dmod.communication import SchedulerRequestMessage
 
 import datetime
 import heapq
-import json
 
 import logging
+
 
 class JobManagerFactory:
     """
@@ -65,7 +64,13 @@ class JobManagerFactory:
                                      redis_pass=pword)
 
 
-class JobManager(ABC):
+class JobManager(JobUtil, ABC):
+    """
+    Abstract utility class for complete management of job objects, including allocations and scheduling.
+
+    Another abstract utility class, extending from ::class:`JobUtil` to also provide an interface for creating and
+    deleting jobs, job resource allocation, and job execution management and scheduling.
+    """
 
     @classmethod
     @abstractmethod
@@ -144,35 +149,6 @@ class JobManager(ABC):
         pass
 
     @abstractmethod
-    def does_job_exist(self, job_id) -> bool:
-        """
-        Test whether a job with the given job id exists.
-
-        Parameters
-        ----------
-        job_id
-            The job id of interest.
-
-        Returns
-        -------
-        bool
-            ``True`` if a job exists with the provided job id, or ``False`` otherwise.
-        """
-        pass
-
-    @abstractmethod
-    def get_all_active_jobs(self) -> List[Job]:
-        """
-        Get a list of every job known to this manager object that is considered active based on each job's status.
-
-        Returns
-        -------
-        List[Job]
-            A list of every job known to this manager object that is considered active based on each job's status.
-        """
-        pass
-
-    @abstractmethod
     async def manage_job_processing(self):
         """
         Monitor for created jobs and perform steps for job queueing, allocation of resources, and hand-off to scheduler.
@@ -235,51 +211,17 @@ class JobManager(ABC):
         """
         pass
 
-    @abstractmethod
-    def retrieve_job(self, job_id) -> Job:
-        """
-        Get the particular job with the given unique id.
-
-        Method will raise a ::class:`ValueError` if called using a job id that does not correspond to an existing job.
-        Users of the method should either catch this error or test job ids for existence first with the
-        ::method:`does_job_exist` method.
-
-        Parameters
-        ----------
-        job_id
-            The unique id of the desired job.
-
-        Returns
-        -------
-        Job
-            The particular job with the given unique id.
-
-        Raises
-        -------
-        ValueError
-            If no job exists with given job id.
-        """
-        pass
-
-    @abstractmethod
-    def save_job(self, job: Job):
-        """
-        Add or update the given job object in this manager's backend data store of job record data.
-
-        Parameters
-        ----------
-        job
-            The job to be updated or added.
-        """
-        pass
-
 
 # TODO: properly account upstream for allocations for finished jobs (or any jobs being deleted) getting cleaned up,
 #   since this type isn't responsible for that.
-class RedisBackedJobManager(JobManager, RedisBacked):
+class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
     """
-    An implementation of ::class:`JobManager` that uses Redis as a backend, works with ::class:`RequestedJob` job
-    objects, and acquires ::class:`ResourceAllocation` objects for processing jobs from some ::class:`ResourceManager`.
+    Implementation of ::class:`JobManager` with a Redis backend.
+
+    An implementation of ::class:`JobManager` that extends ::class:`RedisBackedJobUtil`, thus having a Redis backend.
+    The type works with ::class:`RequestedJob` job objects and acquires ::class:`ResourceAllocation` objects for
+    processing jobs from some ::class:`ResourceManager`.  It also has a ::class:`Launcher` attribute to enable job
+    scheduling and execution.
     """
 
     @classmethod
@@ -337,23 +279,17 @@ class RedisBackedJobManager(JobManager, RedisBacked):
                 heapq.heappush(low_priority_queue, (inverted_priority, eligible_job))
         return {'high': high_priority_queue, 'medium': med_priority_queue, 'low': low_priority_queue}
 
-    # TODO: look at either deprecating this or applying it appropriately to all managed objects
-    @classmethod
-    def get_key_prefix(cls, environment_type: str = 'prod'):
-        parsed_type = environment_type.strip().lower()
-        if parsed_type == 'test' or parsed_type == 'dev' or parsed_type == 'local':
-            return parsed_type + '_job_mgr'
-        else:
-            return 'job_mgr'
-
     def __init__(self, resource_manager : ResourceManager, launcher: Launcher, redis_host: Optional[str] = None,
                  redis_port: Optional[int] = None, redis_pass: Optional[str] = None, **kwargs):
         """
+        Initialize this instance.
 
         Parameters
         ----------
         resource_manager : ResourceManager
             The resource manager from which ::class:`ResourceAllocations` for managed jobs can be obtained.
+        launcher : Launcher
+            The launcher used for job execution.
         redis_host : Optional[str]
             Optional explicit string init param for the Redis connection host value.
         redis_port : Optional[str]
@@ -361,55 +297,11 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         redis_pass : Optional[str]
             Optional explicit string init param for the Redis connection password value.
         kwargs
-            Keyword args, passed through to the ::class:`RedisBacked` superclass init function.
+            Keyword args, passed through to the ::class:`RedisBackedJobUtil` superclass init function.
         """
         super().__init__(redis_host=redis_host, redis_port=redis_port, redis_pass=redis_pass, **kwargs)
         self._resource_manager = resource_manager
-        if 'type' in kwargs:
-            key_prefix = self.get_key_prefix(environment_type=kwargs['type'])
-        else:
-            key_prefix = self.get_key_prefix()
-        self._active_jobs_set_key = self.keynamehelper.create_key_name(key_prefix, 'active_jobs')
         self._launcher = launcher
-
-    def _dev_setup(self):
-        self._clean_keys()
-        self.keynamehelper = 'dev' + KeyNameHelper.get_default_separator() + self.get_key_prefix()
-
-    def _does_redis_key_exist(self, redis_key: str) -> bool:
-        """
-        Test whether a record with the given Redis key exists.
-
-        Works by making an ``EXISTS`` API call for the appropriate key, and seeing if the result of the call is ``1``,
-        per the API spec.
-
-        Parameters
-        ----------
-        redis_key
-            The Redis key of interest.
-
-        Returns
-        -------
-        bool
-            ``True`` if a record exists with the provided key, or ``False`` otherwise.
-        """
-        return self.redis.exists(redis_key) == 1
-
-    def _get_job_key_for_id(self, job_id) -> str:
-        """
-        Get the appropriate Redis key for accessing the manager's record of the job with the given id.
-
-        Parameters
-        ----------
-        job_id
-            The id of the job of interest.
-
-        Returns
-        -------
-        str
-            The appropriate Redis key for accessing the manager's record of the job with the given id.
-        """
-        return self.create_key_name('job', str(job_id))
 
     def _organize_active_jobs(self, active_jobs: List[RequestedJob]) -> List[List[RequestedJob]]:
         """
@@ -441,6 +333,10 @@ class RedisBackedJobManager(JobManager, RedisBacked):
                 # TODO: revisit this for JobCategory (remember right now this is the only way AWAITING_DATA_CHECK is entered, via default step)
                 job.status = JobStatus(phase=JobExecPhase.MODEL_EXEC)
                 self.save_job(job)
+            # Skip any jobs awaiting data check handled by the data service
+            if job.status_step == JobExecStep.AWAITING_DATA_CHECK:
+                continue
+
             # TODO: figure out for STOPPED and FAILED if there are implications that require maintaining the same allocation
             # TODO: figure out for FAILED if restart should be automatic or should require manual request to restart
             # Note that this code should be safe as is as long as the job itself still has the previous allocation saved
@@ -602,36 +498,6 @@ class RedisBackedJobManager(JobManager, RedisBacked):
         # If we get here, it means we failed the max allowed times, so bail
         return False
 
-    def does_job_exist(self, job_id) -> bool:
-        """
-        Test whether a job with the given job id exists.
-
-        Parameters
-        ----------
-        job_id
-            The job id of interest.
-
-        Returns
-        -------
-        bool
-            ``True`` if a job exists with the provided job id, or ``False`` otherwise.
-        """
-        return self._does_redis_key_exist(self._get_job_key_for_id(job_id))
-
-    def get_all_active_jobs(self) -> List[RequestedJob]:
-        """
-        Get a list of every job known to this manager object that is considered active based on each job's status.
-
-        Returns
-        -------
-        List[RequestedJob]
-            A list of every job known to this manager object that is considered active based on each job's status.
-        """
-        active_jobs = []
-        for active_job_redis_key in self.redis.smembers(self._active_jobs_set_key):
-            active_jobs.append(self.retrieve_job_by_redis_key(active_job_redis_key))
-        return active_jobs
-
     def request_scheduling(self, job: RequestedJob):
         """
             TODO rename this function, by the time we get here, we are already scheduled, just need to run
@@ -753,79 +619,3 @@ class RedisBackedJobManager(JobManager, RedisBacked):
             return True
         else:
             return False
-
-    def retrieve_job(self, job_id) -> RequestedJob:
-        """
-        Get the particular job with the given unique id.
-
-        Method will raise a ::class:`ValueError` if called using a job id that does not correspond to an existing job.
-        Users of the method should either catch this error or test job ids for existence first with the
-        ::method:`does_job_exist` method.
-
-        Parameters
-        ----------
-        job_id
-            The unique id of the desired job.
-
-        Returns
-        -------
-        RequestedJob
-            The particular job with the given unique id.
-
-        Raises
-        -------
-        ValueError
-            If no job exists with given job id.
-        """
-        return self.retrieve_job_by_redis_key(job_redis_key=self._get_job_key_for_id(job_id))
-
-    def retrieve_job_by_redis_key(self, job_redis_key: str) -> RequestedJob:
-        """
-        Get the particular job for the given Redis key, which will be based on the id of the job.
-
-        Parameters
-        ----------
-        job_redis_key : str
-            The Redis key for the job's saved record.
-
-        Returns
-        -------
-        RequestedJob
-            The particular job with the given Redis key.
-
-        Raises
-        -------
-        ValueError
-            If no job record exists with given key.
-        """
-        if self._does_redis_key_exist(job_redis_key):
-            serialized_job = json.loads(self.redis.get(job_redis_key))
-            return RequestedJob.factory_init_from_deserialized_json(json_obj=serialized_job)
-        else:
-            raise ValueError('No job record found for job with key {}'.format(job_redis_key))
-
-    def save_job(self, job: RequestedJob):
-        """
-        Add or update the given job object in this manager's backend data store of job record data, also maintaining a
-        Redis set of the ids of 'active' jobs.
-
-        Parameters
-        ----------
-        job : RequestedJob
-            The job to be updated or added.
-        """
-        job_key = self._get_job_key_for_id(job.job_id)
-        serialized_job_str = job.to_json()
-
-        pipeline = self.redis.pipeline()
-        try:
-            pipeline.set(job_key, serialized_job_str)
-            if job.status.is_active:
-                # Add to active set
-                pipeline.sadd(self._active_jobs_set_key, job_key)
-            else:
-                # Make sure not in active set
-                pipeline.srem(self._active_jobs_set_key, job_key)
-            pipeline.execute()
-        finally:
-            pipeline.reset()
