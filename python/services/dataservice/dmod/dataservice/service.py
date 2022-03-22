@@ -209,7 +209,7 @@ class ServiceManager(WebSocketInterface):
 
     def find_dataset_for_requirement(self, requirement: DataRequirement) -> Optional[Dataset]:
         """
-        Asynchronously search for an existing dataset that will fulfill this requirement.
+        Search for an existing dataset that will fulfill this requirement.
 
         Parameters
         ----------
@@ -221,6 +221,9 @@ class ServiceManager(WebSocketInterface):
         Optional[Dataset]
             The dataset fulfilling the requirement, if one is found; otherwise ``None``.
         """
+        for name, dataset in self.get_known_datasets().items():
+            if dataset.category == requirement.category and dataset.data_domain.contains(requirement.domain):
+                return dataset
         return None
 
     def get_known_datasets(self) -> Dict[str, Dataset]:
