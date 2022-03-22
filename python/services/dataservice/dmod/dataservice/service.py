@@ -2,10 +2,12 @@ import asyncio
 import json
 from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, ManagementAction, MessageEventType,\
     WebSocketInterface, UnsupportedMessageTypeResponse
+from dmod.core.meta_data import DataRequirement
 from dmod.core.exception import DmodRuntimeError
 from dmod.modeldata.data.object_store_dataset import Dataset, DatasetManager, ObjectStoreDataset, \
     ObjectStoreDatasetManager
-from typing import Dict, Type, TypeVar
+from dmod.scheduler.job import JobExecStep, JobUtil
+from typing import Dict, Optional, Tuple, Type, TypeVar
 from uuid import UUID
 from websockets import WebSocketServerProtocol
 
@@ -19,8 +21,9 @@ class ServiceManager(WebSocketInterface):
     Primary service management class.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, job_util: JobUtil, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._job_util = job_util
         self._all_data_managers: Dict[Type[DATASET_TYPE], DatasetManager] = {}
         """ Map of dataset class type (key), to service's dataset manager (value) for handling that dataset type. """
         self._managers_by_uuid: Dict[UUID, DatasetManager] = {}
@@ -67,6 +70,50 @@ class ServiceManager(WebSocketInterface):
 
         for dataset_type in manager.supported_dataset_types:
             self._all_data_managers[dataset_type] = manager
+
+    async def _async_can_dataset_be_derived(self, requirement: DataRequirement) -> bool:
+        """
+        Asynchronously determine if a dataset can be derived from existing datasets to fulfill this requirement.
+
+        This function essentially just provides an async wrapper around the synchronous analog.
+
+        Parameters
+        ----------
+        requirement : DataRequirement
+            The requirement that needs to be fulfilled.
+
+        Returns
+        -------
+        bool
+            Whether it is possible for a dataset to be derived from existing datasets to fulfill this requirement.
+
+        See Also
+        -------
+        ::method:`can_dataset_be_derived`
+        """
+        return self.can_dataset_be_derived(requirement)
+
+    async def _async_find_dataset_for_requirement(self, requirement: DataRequirement) -> Optional[Dataset]:
+        """
+        Asynchronously search for an existing dataset that will fulfill this requirement.
+
+        This function essentially just provides an async wrapper around the synchronous analog.
+
+        Parameters
+        ----------
+        requirement : DataRequirement
+            The data requirement that needs to be fulfilled.
+
+        Returns
+        -------
+        Optional[Dataset]
+            The dataset fulfilling the requirement, if one is found; otherwise ``None``.
+
+        See Also
+        -------
+        ::method:`find_dataset_for_requirement`
+        """
+        return self.find_dataset_for_requirement(requirement)
 
     def _determine_dataset_type(self, message: DatasetManagementMessage) -> Type[DATASET_TYPE]:
         """
@@ -117,6 +164,64 @@ class ServiceManager(WebSocketInterface):
         response = DatasetManagementResponse(success=True, reason="Dataset Created", is_awaiting=False)
         await websocket.send(str(response))
         return
+
+    async def can_be_fulfilled(self, requirement: DataRequirement) -> Tuple[bool, Optional[str]]:
+        """
+        Determine whether this requirement for this job can be fulfilled, either directly or by deriving a new dataset.
+
+        The returned tuple will return two items.  The first is whether the data requirement can be fulfilled given the
+        currently existing datasets.  The second is the name of the fulfilling dataset, if a fulfilling dataset already
+        exists.  If data among known datasets is sufficient to fulfill the requirement, but deriving a new dataset is
+        necessary (e.g., in a different format, or by combining data from multiple datasets), then the second value will
+        be ``None``.
+
+        Parameters
+        ----------
+        requirement : DataRequirement
+            The data requirement in question that needs to be fulfilled.
+
+        Returns
+        -------
+        Tuple[bool, Optional[str]]
+            A tuple of whether the requirement can be fulfilled and, if one exists, the name of the fulfilling dataset.
+        """
+        fulfilling_dataset = await self._async_find_dataset_for_requirement(requirement)
+        if isinstance(fulfilling_dataset, Dataset):
+            return True, fulfilling_dataset.name
+        else:
+            await self._async_can_dataset_be_derived(requirement), None
+
+    def can_dataset_be_derived(self, requirement: DataRequirement) -> bool:
+        """
+        Determine if it is possible for a dataset to be derived from existing datasets to fulfill this requirement.
+
+        Parameters
+        ----------
+        requirement : DataRequirement
+            The requirement that needs to be fulfilled.
+
+        Returns
+        -------
+        bool
+            Whether it is possible for a dataset to be derived from existing datasets to fulfill this requirement.
+        """
+        return False
+
+    def find_dataset_for_requirement(self, requirement: DataRequirement) -> Optional[Dataset]:
+        """
+        Asynchronously search for an existing dataset that will fulfill this requirement.
+
+        Parameters
+        ----------
+        requirement : DataRequirement
+            The data requirement that needs to be fulfilled.
+
+        Returns
+        -------
+        Optional[Dataset]
+            The dataset fulfilling the requirement, if one is found; otherwise ``None``.
+        """
+        return None
 
     def get_known_datasets(self) -> Dict[str, Dataset]:
         """
@@ -179,7 +284,39 @@ class ServiceManager(WebSocketInterface):
         #    logging.info("Cancelling listener task")
 
     async def manage_required_data_checks(self):
+        """
+        Task method to periodically examine whether required data for jobs is available.
+
+        Method is expected to be a long-running async task.  In its main routine, it iterates through the job-level
+        ::class:`DataRequirement`, in each active job in the ``AWAITING_DATA_CHECK`` ::class:`JobExecStep`.  It checks
+        whether individual requirement can be fulfilled,
+
+        active jobs in the
+        ``AWAITING_DATA_CHECK`` ::class:`JobExecStep`, which it receives from the service's ::class:`JobUtil`.  For
+        these jobs, it then performs a nested iteration through each job's collection of ::class:`DataRequirement` from
+        the ::attribute:`Job.data_requirements` property.  It then checks to see if the
+        """
         while True:
-            # TODO: implement
+            for job in self._job_util.get_all_active_jobs():
+                if job.status_step != JobExecStep.AWAITING_DATA_CHECK:
+                    continue
+                for requirement in job.data_requirements:
+                    # TODO: (later) do we need to check whether this dataset exists, or handle this differently?
+                    if requirement.fulfilled_by is not None:
+                        continue
+                    can_fulfill, dataset_name = await self.can_be_fulfilled(requirement)
+                    # When this can't be fulfilled, update status appropriately
+                    # Also, we don't need to bother checking the other requirements, so break inner loop
+                    if not can_fulfill:
+                        job.status_step = JobExecStep.DATA_UNPROVIDEABLE
+                        break
+                    # Also if can fulfill and already a specific existing dataset that will, associate with requirement
+                    elif dataset_name is not None:
+                        requirement.fulfilled_by = dataset_name
+                # If we didn't deem job as `DATA_UNPROVIDEABLE`, then check is good, so move to `AWAITING_ALLOCATION`
+                if job.status_step != JobExecStep.DATA_UNPROVIDEABLE:
+                    job.status_step = JobExecStep.AWAITING_ALLOCATION
+                # Regardless, save the updated job state
+                self._job_util.save_job(job)
             await asyncio.sleep(30)
 
