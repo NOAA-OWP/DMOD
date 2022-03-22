@@ -10,6 +10,7 @@ from .request_handler import AbstractRequestHandler
 from .scheduler_request import SchedulerRequestMessage, SchedulerRequestResponse
 from .session import Session, FullAuthSession, SessionInitMessage, SessionInitResponse, FailedSessionInitInfo, \
     SessionInitFailureReason, SessionManager
+from .dataset_management_message import DatasetManagementMessage, DatasetManagementResponse, ManagementAction
 from .validator import SessionInitMessageJsonValidator, NWMRequestJsonValidator, MessageJsonValidator
 from .update_message import UpdateMessage, UpdateMessageResponse
 from .websocket_interface import EchoHandler, NoOpHandler, WebSocketInterface, WebSocketSessionsInterface
