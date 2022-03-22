@@ -546,19 +546,29 @@ class DatasetManager(ABC):
     # TODO: implement functions and routines for scrubbing temporary datasets as needed
 
     @abstractmethod
-    def add_data(self, dataset_name: str, **kwargs) -> bool:
+    def add_data(self, dataset_name: str, dest: str, data: Optional[bytes] = None, source: Optional[str] = None,
+                 **kwargs) -> bool:
         """
         Add data in some format to the dataset.
 
-        Implementations must be responsible for managing (via their use of ``kwargs``) the way data is accepted, what
-        kinds of data can be accepted, and whether what data has been passed is supported.
+        Implementations must support receiving data to insert in the form of byte strings.  Implementations may also
+        support alternative scenarios via their specific keyword args (e.g., adding data from a file).
 
         Parameters
         ----------
         dataset_name : str
             The dataset to which to add data.
+        dest : str
+            A path-like string specifying a location within the dataset (e.g., file, object, sub-URL) where the data
+            should be added.
+        data : Optional[bytes]
+            Optional encoded byte string containing data to be inserted into the data set; either this or ``source``
+            must be provided.
+        source : Optional[str]
+            Optional string specifying a location from which to source the data to be added; either this or ``data``
+            must be provided.
         kwargs
-            Implementation-specific params for representing the data and details of how it should be added.
+            Implementation-specific params for other ways to represent data and details of how it should be added.
 
         Returns
         -------
