@@ -187,12 +187,16 @@ class ObjectStoreDatasetManager(DatasetManager):
         return self._SERIALIZED_OBJ_NAME_TEMPLATE.format(dataset_name)
 
     # TODO: add stuff for threading
-    def _push_file(self, bucket_name: str, file: Path, bucket_root: Path, do_checks: bool = True,
-                   resync_serialized: bool = True) -> ObjectWriteResult:
+    def _push_file(self, bucket_name: str, file: Path, bucket_root: Optional[Path] = None, dest: Optional[str] = None,
+                   do_checks: bool = True, resync_serialized: bool = True) -> ObjectWriteResult:
         """
         Push a file to a bucket.
 
-        Buckets simulate subdirectories by encoding relative directory structure into object names.  This relative
+        A file may be pushed either to an explicitly named object (via ``dest``) or to an object with a name derived
+        from a ``bucket_root`` as described below.  If neither is provided, the file will be pushed to an object named
+        using the basename of the source file.
+
+        Buckets can simulate subdirectories by encoding relative directory structure into object names.  This relative
         structure is based on a bucket "root" directory, corresponding to the directory used to create this dataset.
 
         E.g. perhaps there exists the ``dataset_1/`` directory, which needs to be uploaded to a dataset, with
@@ -219,7 +223,9 @@ class ObjectStoreDatasetManager(DatasetManager):
         file : Path
             The path to a non-directory file to push to the bucket.
         bucket_root : Path
-            The directory level that corresponds to the bucket's root level, for object naming purposes.
+            Optional directory level that corresponds to the bucket's root level, for object naming purposes.
+        dest : Optional[str]
+            An optional explicit name of the destination object that should receive this data.
         do_checks : bool
             Whether to do sanity checks on the local file and bucket root (``True`` by default).
         resync_serialized : bool
@@ -234,12 +240,17 @@ class ObjectStoreDatasetManager(DatasetManager):
                 raise RuntimeError("Cannot push non-existing file {} to bucket {}".format(str(file), bucket_name))
             elif not file.is_file():
                 raise RuntimeError("Cannot push non-regular file {} to bucket {}".format(str(file), bucket_name))
-            elif not file.is_relative_to(bucket_root):
+            elif bucket_root is not None and not file.is_relative_to(bucket_root):
                 msg = "Cannot push {} to bucket {} when provided bad or non-relative bucket root {}"
                 raise RuntimeError(msg.format(str(file), bucket_name, str(bucket_root)))
-        file_rel_root = file.relative_to(bucket_root)
-        object_name = self._OBJECT_NAME_SEPARATOR.join(file_rel_root.parts)
-        result = self._client.fput_object(bucket_name=bucket_name, object_name=object_name, file_path=str(file))
+
+        if bucket_root is not None:
+            file_rel_root = file.relative_to(bucket_root)
+            dest = self._OBJECT_NAME_SEPARATOR.join(file_rel_root.parts)
+        elif dest is None:
+            dest = file.name
+
+        result = self._client.fput_object(bucket_name=bucket_name, object_name=dest, file_path=str(file))
         if resync_serialized:
             self.persist_serialized(bucket_name)
         return result
@@ -304,14 +315,14 @@ class ObjectStoreDatasetManager(DatasetManager):
         if resync_serialized:
             self.persist_serialized(bucket_name)
 
-    def add_data(self, dataset_name: str, **kwargs) -> bool:
+    def add_data(self, dataset_name: str, dest: str, data: Optional[bytes] = None, source: Optional[str] = None,
+                 **kwargs) -> bool:
         """
-        Add one or more files to the object store for the given dataset.
+        Add raw data or data from one or more files to the object store for the given dataset.
 
-        Function adds either a single file or all files within a supplied directory to the backing object store of the
-        given dataset, as long as the dataset name is recognized (if not, ``False`` is immediately returned).  This is
-        done using either the ``file`` or ``directory`` kwargs value respectively.  Note that a ::class:`ValueError`
-        will be raised if both are present.
+        Function adds either a binary data, data from a single file, or data from all files within a supplied directory,
+        to the backing object store of the given dataset.  The dataset name must be recognized; if it is not, ``False``
+        is immediately returned.
 
         The manager maintains a simulated directory structure within the dataset by encoding the parent directory path
         of files in the corresponding bucket object's name, along with the file's basename.  Only the relative path of
@@ -340,18 +351,24 @@ class ObjectStoreDatasetManager(DatasetManager):
         ----------
         dataset_name : str
             The dataset to which to add data.
+        dest : str
+            A path-like string that provides information on the location within the dataset where the data should be
+            added when either adding byte string data from ``data`` or when adding from a single file specified in
+            ``source`` (ignored when adding from files within a ``source`` directory).
+        data : Optional[bytes]
+            Optional encoded byte string containing data to be inserted into the data set; either this or ``source``
+            must be provided.
+        source : Optional[str]
+            Optional string specifying either a source file containing data to be added, or a directory containing
+            multiple files to be added.
         kwargs
             Implementation-specific params for representing the data and details of how it should be added.
 
         Keyword Args
         ----------
-        file : Path
-            When present, path to a file to be added (either ``file`` or ``directory`` must be present).
-        directory : Path
-            When present, path to a directory of files to be added.
         bucket_root : Path
-            The directory level that corresponds to the bucket's root level, for object naming purposes (defaults to the
-            parent of ``file`` if used, or to ``directory`` itself if used).
+            The directory level that corresponds to the bucket's root level, for object naming purposes when ``source``
+            represents a directory of data to add (defaults to the ``source`` directory itself if absent).
 
         Returns
         -------
@@ -364,22 +381,28 @@ class ObjectStoreDatasetManager(DatasetManager):
         """
         if dataset_name not in self.datasets:
             return False
-        elif 'file' in kwargs and 'directory' in kwargs:
+        elif data is not None:
+            # TODO : insert data
+            pass
+        elif source is None or len(source) == 0:
             from sys import _getframe
-            msg = "{}.{} does not support both 'file' and 'directory' kwargs in a single call"
+            msg = "{}.{} requires either binary data or a source for data to be provided."
             raise ValueError(msg.format(self.__class__.__name__, _getframe(0).f_code.co_name))
-        elif 'file' in kwargs:
-            bucket_root = kwargs['bucket_root'] if 'bucket_root' in kwargs else kwargs['file'].parent
-            result = self._push_file(bucket_name=dataset_name, file=kwargs['file'], bucket_root=bucket_root)
-            # TODO: test
-            return isinstance(result.object_name, str)
-        elif 'directory' in kwargs:
-            bucket_root = kwargs['bucket_root'] if 'bucket_root' in kwargs else kwargs['directory']
+
+        src_path = Path(source)
+        if not src_path.exists():
+            from sys import _getframe
+            msg = "{}.{} source path '{}' does not exist."
+            raise ValueError(msg.format(self.__class__.__name__, _getframe(0).f_code.co_name, source))
+        elif src_path.is_dir():
+            bucket_root = kwargs['bucket_root'] if 'bucket_root' in kwargs else src_path
             self._push_files(bucket_name=dataset_name, dir_path=kwargs['directory'], bucket_root=bucket_root)
             # TODO: probably need something better than just always returning True if this gets executed
             return True
         else:
-            return False
+            result = self._push_file(bucket_name=dataset_name, file=src_path, dest=dest)
+            # TODO: test
+            return isinstance(result.object_name, str)
 
     def create(self, name: str, category: DataCategory, domain: DataDomain, is_read_only: bool,
                initial_data: Optional[str] = None) -> ObjectStoreDataset:
