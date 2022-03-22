@@ -747,9 +747,8 @@ class JobImpl(Job):
                 raise RuntimeError("Invalid format for data requirements value '{}'".format(str(serial_list)))
             data_req = DataRequirement.factory_init_from_deserialized_json(serial_data_req)
             if not isinstance(data_req, DataRequirement):
-                raise RuntimeError(
-                    "Unable to deserialize `{}` to data requirements while deserializing {}".format(
-                        str(data_req), cls.__name__))
+                msg = "Unable to deserialize `{}` to nested data requirements while deserializing {}"
+                raise RuntimeError(msg.format(serial_data_req, cls.__name__))
             data_req_list.append(data_req)
         return data_req_list
 
@@ -979,7 +978,6 @@ class JobImpl(Job):
         """
         # TODO: implement properly
         raise RuntimeError("Logic to process job data requirements to per-worker requirements not yet implemented")
-
 
     def _reset_last_updated(self):
         self._last_updated = datetime.now()
