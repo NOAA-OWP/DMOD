@@ -34,8 +34,25 @@ else
     _OBJ_STORE_ARGS="--no-object-store"
 fi
 
+_REDIS_ARGS=""
+# Get the Redis host if provided
+if [ -n "${REDIS_HOST:-}" ]; then
+    _REDIS_ARGS="${_REDIS_ARGS} --redis-host ${REDIS_HOST}"
+fi
+# Get the Redis port if provided
+if [ -n "${REDIS_PORT:-}" ]; then
+    _REDIS_ARGS="${_REDIS_ARGS} --redis-port ${REDIS_PORT}"
+fi
+# Potentially get either the Docker secret for the Redis password or the Redis password itself, but not both
+if [ -n "${DOCKER_SECRET_REDIS_PASS:-}" ]; then
+    _REDIS_ARGS="${_REDIS_ARGS} --redis-pass-secret-name ${DOCKER_SECRET_REDIS_PASS}"
+elif [ -n "${REDIS_PASS:-}" ]; then
+    _REDIS_ARGS="${_REDIS_ARGS} --redis-pass ${REDIS_PASS}"
+fi
+
 python -m ${SERVICE_PACKAGE_NAME:?} \
     --port ${LISTEN_PORT:?} \
     --ssl-dir ${SERVICE_SSL_DIR:?} \
     ${_DEBUG_ARG:-} \
-    ${_OBJ_STORE_ARGS}
+    ${_OBJ_STORE_ARGS} \
+    ${_REDIS_ARGS}
