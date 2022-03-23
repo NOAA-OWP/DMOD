@@ -29,7 +29,7 @@ fi
 
 _OBJ_STORE_ARGS=""
 if [ "${USE_OBJ_STORE:-true}" == "true" ]; then
-    _OBJ_STORE_ARGS="$--object-store-user-secret-name ${USER_SECRET_NAME:?} --object-store-passwd-secret-name ${PASSWD_SECRET_NAME:?}"
+    _OBJ_STORE_ARGS="--object-store-user-secret-name ${USER_SECRET_NAME:?} --object-store-passwd-secret-name ${PASSWD_SECRET_NAME:?}"
 else
     _OBJ_STORE_ARGS="--no-object-store"
 fi
