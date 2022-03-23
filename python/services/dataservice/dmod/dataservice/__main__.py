@@ -1,6 +1,7 @@
 import argparse
 from . import name as package_name
 from .service import ServiceManager
+from dmod.scheduler.job import DefaultJobUtilFactory
 from pathlib import Path
 from socket import gethostname
 
@@ -44,6 +45,22 @@ def _handle_args():
                         dest='no_obj_store',
                         action='store_true',
                         default=False)
+    parser.add_argument('--redis-host',
+                        help='Set the host value for making Redis connections',
+                        dest='redis_host',
+                        default='myredis')
+    parser.add_argument('--redis-port',
+                        help='Set the port value for making Redis connections',
+                        dest='redis_port',
+                        default=6379)
+    parser.add_argument('--redis-pass',
+                        help='Set the password value for making Redis connections',
+                        dest='redis_pass',
+                        default='noaaOwp')
+    parser.add_argument('--redis-pass-secret-name',
+                        help='Set the name of the Docker secret containing the password for Redis connections',
+                        dest='redis_pass_secret',
+                        default=None)
     parser.add_argument('--pycharm-remote-debug',
                         help='Activate Pycharm remote debugging support',
                         dest='pycharm_debug',
@@ -73,13 +90,26 @@ def main():
     # Flip this here to be less confusing
     use_obj_store = not args.no_obj_store
 
+    secrets_dir = Path('/run/secrets')
+
+    # Figure out Redis password, trying for a Docker secret first
+    if args.redis_pass_secret is not None:
+        redis_pass_secret_file = secrets_dir.joinpath(args.redis_pass_secret)
+        redis_pass = redis_pass_secret_file.read_text()
+    else:
+        redis_pass = args.redis_pass
+
+    # Initialize a job util via the default factory, which requires some Redis params
+    job_util = DefaultJobUtilFactory.factory_create(redis_host=args.redis_host, redis_port=args.redis_port,
+                                                    redis_pass=redis_pass)
+
     # Initiate a service manager WebsocketHandler implementation for primary messaging and async task loops
-    service_manager = ServiceManager(listen_host=listen_host, port=args.port, ssl_dir=Path(args.ssl_dir))
+    service_manager = ServiceManager(job_util=job_util, listen_host=listen_host, port=args.port,
+                                     ssl_dir=Path(args.ssl_dir))
 
     # If we are set to use the object store ...
     if use_obj_store:
-        # TODO: (later) manage secret handling a little better
-        secrets_dir = Path('/run/secrets')
+        # TODO: need to adjust arg groupings to allow for this to be cleaned up some
         access_key_file = None if args.obj_store_access_key is None else secrets_dir.joinpath(args.obj_store_access_key)
         secret_key_file = None if args.obj_store_secret_key is None else secrets_dir.joinpath(args.obj_store_secret_key)
         service_manager.init_object_store_dataset_manager(obj_store_host=args.obj_store_host,
