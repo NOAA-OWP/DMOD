@@ -1,7 +1,6 @@
 import asyncio
 import json
-from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, ManagementAction, MessageEventType,\
-    WebSocketInterface, UnsupportedMessageTypeResponse
+from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, ManagementAction, WebSocketInterface
 from dmod.core.meta_data import DataRequirement
 from dmod.core.exception import DmodRuntimeError
 from dmod.modeldata.data.object_store_dataset import Dataset, DatasetManager, ObjectStoreDataset, \
@@ -115,6 +114,48 @@ class ServiceManager(WebSocketInterface):
         """
         return self.find_dataset_for_requirement(requirement)
 
+    async def _async_process_add_data(self, message: DatasetManagementMessage, mngr: DatasetManager) -> DatasetManagementResponse:
+        """
+        Async wrapper function for ::method:`_process_add_data`.
+
+        Parameters
+        ----------
+        message : DatasetManagementMessage
+            The incoming message, expected to include data to be added to a dataset.
+        mngr : DatasetManager
+            The manager instance for the relevant dataset.
+
+        Returns
+        -------
+        DatasetManagementResponse
+            Generated response to the manager message for adding data.
+
+        See Also
+        -------
+        ::method:`_process_add_data`
+        """
+        return self._process_add_data(message, mngr)
+
+    async def _async_process_dataset_create(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
+        """
+        Async wrapper function for ::method:`_process_dataset_create`.
+
+        Parameters
+        ----------
+        message : DatasetManagementMessage
+            The message that initiated the process of creating a new dataset
+
+        Returns
+        -------
+        DatasetManagementResponse
+            A generated response object to the incoming creation message, indicating whether creation was successful.
+
+        See Also
+        -------
+        ::method:`_process_dataset_create`
+        """
+        return self._process_dataset_create(message)
+
     def _determine_dataset_type(self, message: DatasetManagementMessage) -> Type[DATASET_TYPE]:
         """
         Determine the right kind of dataset for this situation.
@@ -132,7 +173,39 @@ class ServiceManager(WebSocketInterface):
         # TODO: (later) implement this correctly
         return ObjectStoreDataset
 
-    async def _handle_data_creation(self, message: DatasetManagementMessage, websocket: WebSocketServerProtocol):
+    def _process_add_data(self, message: DatasetManagementMessage, mngr: DatasetManager) -> DatasetManagementResponse:
+        """
+        Process a management message for adding data to a dataset, adding the data using the provided manager.
+
+        Parameters
+        ----------
+        message : DatasetManagementMessage
+            The incoming message, expected to include data to be added to a dataset.
+        mngr : DatasetManager
+            The manager instance for the relevant dataset.
+
+        Returns
+        -------
+        DatasetManagementResponse
+            Generated response to the manager message for adding data.
+
+        See Also
+        -------
+        ::method:`_async_process_add_data`
+        """
+        if not isinstance(message, DatasetManagementMessage):
+            return DatasetManagementResponse(success=False, reason="Unparseable Message Received")
+        elif message.management_action != ManagementAction.ADD_DATA:
+            msg_txt = "Expected {} action but received {}".format(ManagementAction.ADD_DATA, message.management_action)
+            return DatasetManagementResponse(success=False, reason="Unexpected Management Action", message=msg_txt)
+        elif message.data is None:
+            return DatasetManagementResponse(success=False, reason="No Data In ADD_DATA Message")
+        elif mngr.add_data(message.dataset_name, dest=message.data_location, data=message.data):
+            return DatasetManagementResponse(success=True, reason="Data Added", is_awaiting=message.is_pending_data)
+        else:
+            return DatasetManagementResponse(success=False, reason="Failure Adding Data To Dataset", is_awaiting=False)
+
+    def _process_dataset_create(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
         """
         As part of the communication protocol for the service, handle incoming messages that request dataset creation.
 
@@ -140,30 +213,25 @@ class ServiceManager(WebSocketInterface):
         ----------
         message : DatasetManagementMessage
             The message that initiated the process of creating a new dataset
-        websocket : WebSocketServerProtocol
-            The websocket over which the communication protocol messages are sent and received.
+
+        Returns
+        ----------
+        DatasetManagementResponse
+            A generated response object to the incoming creation message, indicating whether creation was successful.
         """
         # Make sure there is no conflict/existing dataset already
         if message.dataset_name in self.get_known_datasets():
-            response = DatasetManagementResponse(success=False, reason="Dataset Already Exists")
-            await websocket.send(str(response))
-            return
-
+            return DatasetManagementResponse(success=False, reason="Dataset Already Exists")
         # Handle when message to create fails to include a dataset domain
-        if message.data_domain is None:
+        elif message.data_domain is None:
             msg = "Invalid {} for dataset creation: no dataset domain provided.".format(self.__class__.__name__)
-            response = DatasetManagementResponse(success=False, reason="No Dataset Domain", message=msg)
-            await websocket.send(str(response))
-            return
+            return DatasetManagementResponse(success=False, reason="No Dataset Domain", message=msg)
 
         # Create the dataset
         dataset_type = self._determine_dataset_type(message)
         self._all_data_managers[dataset_type].create(name=message.dataset_name, category=message.data_category,
                                                      domain=message.data_domain, is_read_only=False)
-
-        response = DatasetManagementResponse(success=True, reason="Dataset Created", is_awaiting=False)
-        await websocket.send(str(response))
-        return
+        return DatasetManagementResponse(success=True, reason="Dataset Created", is_awaiting=message.is_pending_data)
 
     async def can_be_fulfilled(self, requirement: DataRequirement) -> Tuple[bool, Optional[str]]:
         """
@@ -228,7 +296,7 @@ class ServiceManager(WebSocketInterface):
 
     def get_known_datasets(self) -> Dict[str, Dataset]:
         """
-        Get all datasets known to the service via its manager objects, in a map keyed by dataset name.
+        Get real-time mapping of all datasets known to this instance via its managers, in a map keyed by dataset name.
 
         This is implemented as a function, and not a property, since it is mutable and could change without this service
         instance being directly notified.  As such, a new collection object is created and returned on every call.
@@ -256,25 +324,29 @@ class ServiceManager(WebSocketInterface):
         Process incoming messages over the websocket and respond appropriately.
         """
         try:
-            message = await websocket.recv()
-            data = json.loads(message)
-            mgr_msg = DatasetManagementMessage.factory_init_from_deserialized_json(data)
+            is_awaiting = True
+            # We may need to lazily load a dataset manager
+            dataset_manager = None
+            while is_awaiting:
+                message = await websocket.recv()
+                data = json.loads(message)
+                mgr_msg = DatasetManagementMessage.factory_init_from_deserialized_json(data)
 
-            # If we were not able to otherwise process the message into a response, then it is unsupported
-            if mgr_msg is None:
-                response = UnsupportedMessageTypeResponse(actual_event_type=MessageEventType.INVALID,
-                                                          listener_type=self.__class__,
-                                                          message="Listener protocol not yet implemented",
-                                                          data=data)
+                # If we were not able to otherwise process the message into a response, then it is unsupported
+                if mgr_msg is None:
+                    response = DatasetManagementResponse(success=False, reason="Unparseable Message Received")
+                elif mgr_msg.management_action == ManagementAction.CREATE:
+                    response = await self._async_process_dataset_create(message=mgr_msg)
+                elif mgr_msg.management_action == ManagementAction.ADD_DATA:
+                    # Lazily load the right manager when needed
+                    if dataset_manager is None:
+                        dataset_manager = self.get_known_datasets()[mgr_msg.dataset_name].manager
+                    response = await self._async_process_add_data(message, dataset_manager)
+                else:
+                    msg = "Unsupported data management message action {}".format(mgr_msg.management_action)
+                    response = DatasetManagementResponse(success=False, reason="Unsupported Action", message=msg)
                 await websocket.send(str(response))
-            elif mgr_msg.management_action == ManagementAction.CREATE:
-                await self._handle_data_creation(message=mgr_msg, websocket=websocket)
-            else:
-                msg = "Unsupported data management message action {}".format(mgr_msg.management_action)
-                response = DatasetManagementResponse(success=False, reason="Unsupported Action", message=msg)
-                await websocket.send(str(response))
-
-            # TODO: (later) properly handle additional incoming messages
+                is_awaiting = response.is_awaiting
 
         # TODO: handle logging
         # TODO: handle exceptions appropriately
