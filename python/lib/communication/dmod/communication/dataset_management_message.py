@@ -1,7 +1,8 @@
 from .message import AbstractInitRequest, MessageEventType, Response
 from dmod.core.meta_data import DataCategory, DataDomain
+from numbers import Number
 from enum import Enum
-from typing import Optional
+from typing import Dict, Optional, Union
 
 
 class ManagementAction(Enum):
@@ -94,6 +95,32 @@ class DatasetManagementMessage(AbstractInitRequest):
     """
 
     event_type: MessageEventType = MessageEventType.DATASET_MANAGEMENT
+
+    _SERIAL_KEY_ACTION = 'action'
+    _SERIAL_KEY_CATEGORY = 'category'
+    _SERIAL_KEY_DATA = 'data'
+    _SERIAL_KEY_DATA_DOMAIN = 'data_domain'
+    _SERIAL_KEY_DATA_LOCATION = 'data_location'
+    _SERIAL_KEY_DATASET_NAME = 'dataset_name'
+    _SERIAL_KEY_IS_PENDING_DATA = 'pending_data'
+    _SERIAL_KEY_IS_READ_ONLY = 'read_only'
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict) -> Optional['DatasetManagementMessage']:
+        dataset_name = json_obj[cls._SERIAL_KEY_DATASET_NAME] if cls._SERIAL_KEY_DATASET_NAME in json_obj else None
+        category = json_obj[cls._SERIAL_KEY_CATEGORY] if cls._SERIAL_KEY_CATEGORY in json_obj else None
+        raw_data = json_obj[cls._SERIAL_KEY_DATA] if cls._SERIAL_KEY_DATA in json_obj else None
+        data_loc = json_obj[cls._SERIAL_KEY_DATA_LOCATION] if cls._SERIAL_KEY_DATA_LOCATION in json_obj else None
+
+        try:
+            obj = cls(action=json_obj[cls._SERIAL_KEY_ACTION], dataset_name=dataset_name, category=category,
+                      data=raw_data, is_read_only_dataset=json_obj[cls._SERIAL_KEY_IS_READ_ONLY],
+                      data_location=data_loc, is_pending_data=json_obj[cls._SERIAL_KEY_IS_PENDING_DATA])
+            if cls._SERIAL_KEY_DATA_DOMAIN in json_obj:
+                obj.data_domain = DataDomain.factory_init_from_deserialized_json(json_obj[cls._SERIAL_KEY_DATA_DOMAIN])
+            return obj
+        except Exception as e:
+            return None
 
     def __init__(self, action: ManagementAction, dataset_name: Optional[str] = None, is_read_only_dataset: bool = False,
                  category: Optional[DataCategory] = None, data: Optional[bytes] = None,
@@ -239,6 +266,23 @@ class DatasetManagementMessage(AbstractInitRequest):
             The type of ::class:`ManagementAction` this message embodies or requests.
         """
         return self._action
+
+    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
+        serial = {self._SERIAL_KEY_ACTION: self.management_action,
+                  self._SERIAL_KEY_CATEGORY: self.data_category,
+                  self._SERIAL_KEY_IS_READ_ONLY: self.is_read_only_dataset,
+                  self._SERIAL_KEY_IS_PENDING_DATA: self.is_pending_data}
+        if self.dataset_name is not None:
+            serial[self._SERIAL_KEY_DATASET_NAME] = self.dataset_name
+        if self.data_category is not None:
+            serial[self._SERIAL_KEY_CATEGORY] = self.data_category
+        if self.data is not None:
+            serial[self._SERIAL_KEY_DATA] = self.data
+        if self.data_location is not None:
+            serial[self._SERIAL_KEY_DATA_LOCATION] = self.data_location
+        if self.data_domain is not None:
+            serial[self._SERIAL_KEY_DATA_DOMAIN] = self.data_domain.to_dict()
+        return serial
 
 
 class DatasetManagementResponse(Response):
