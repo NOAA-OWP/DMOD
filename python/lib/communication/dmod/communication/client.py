@@ -6,13 +6,14 @@ import traceback
 from abc import ABC, abstractmethod
 from asyncio import AbstractEventLoop
 from pathlib import Path
-from typing import Optional, Union
+from typing import Generic, Optional, Type, TypeVar, Union
+from dmod.core.serializable import Serializable
 
 import websockets
 
 from .maas_request import MaaSRequest, MaaSRequestResponse, ModelExecRequest, ModelExecRequestResponse, NWMRequest, \
-    NWMRequestResponse, NGENRequest, NGENRequestResponse
-from .message import Message, Response, InitRequestResponseReason
+    NGENRequest
+from .message import AbstractInitRequest, Message, Response, InitRequestResponseReason
 from .scheduler_request import SchedulerRequestMessage, SchedulerRequestResponse
 from .validator import NWMRequestJsonValidator
 from .update_message import UpdateMessage, UpdateMessageResponse
@@ -57,7 +58,7 @@ class WebSocketClient(ABC):
             path = path.strip()
             if path[0] != '/':
                 path = '/' + path
-        return proto + '://' + host.strip() + ':' + str(port).strip() + path
+        return '{}://{}:{}{}'.format(proto, host.strip(), str(port).strip(), path)
 
     def __init__(self, endpoint_uri: str, ssl_directory: Path):
         super().__init__()
@@ -178,7 +179,144 @@ class WebSocketClient(ABC):
         return self._client_ssl_context
 
 
-class SchedulerClient(WebSocketClient):
+M = TypeVar("M", bound=AbstractInitRequest)
+R = TypeVar("R", bound=Response)
+
+
+class InternalServiceClient(WebSocketClient, Generic[M, R], ABC):
+    """
+    Abstraction for a client that interacts with some internal, non-public-facing DMOD service.
+    """
+
+    @classmethod
+    @abstractmethod
+    def get_response_subtype(cls) -> Type[R]:
+        """
+        Return the response subtype class appropriate for this client implementation.
+
+        Returns
+        -------
+        Type[R]
+            The response subtype class appropriate for this client implementation.
+        """
+        pass
+
+    def build_response(self, success: bool, reason: str, message: str = '', data: Optional[dict] = None,
+                       **kwargs) -> R:
+        """
+        Build a response of the appropriate subtype from the given response details.
+
+        Build a response of the appropriate subtype for this particular implementation, using the given parameters for
+        this function as the initialization params for the response.  Per the design of ::class:`Response`, the primary
+        attributes are ::attribute:`Response.success`, ::attribute:`Response.reason`, ::attribute:`Response.message`,
+        and ::attribute:`Response.data`.  However, implementations may permit or require additional param values, which
+        can be supplied via keyword args.
+
+        As with the init of ::class:`Request`, defaults of ``''`` (empty string) and  ``None`` are in place for for
+        ``message`` and ``data`` respectively.
+
+        A default implementation is provided that initializes an instance of the type return by
+        ::method:`get_response_subtype`.  Keyword args are not used in this default implementation.
+
+        Parameters
+        ----------
+        success : bool
+            The value for ::attribute:`Response.success` to use when initializing the response object.
+        reason : str
+            The value for ::attribute:`Response.reason` to use when initializing the response object.
+        message : str
+            The value for ::attribute:`Response.message` to use when initializing the response object (default: ``''``).
+        data : dict
+            The value for ::attribute:`Response.data` to use when initializing the response object (default: ``None``).
+        kwargs : dict
+            A dict for any additional implementation specific init params for the response object.
+
+        Returns
+        -------
+        R
+            A response object of the appropriate subtype.
+        """
+        return self.get_response_subtype()(success=success, reason=reason, message=message, data=data)
+
+    def _process_request_response(self, response_str: str):
+        response_type = self.get_response_subtype()
+        my_class_name = self.__class__.__name__
+        response_json = {}
+        try:
+            # Consume the response confirmation by deserializing first to JSON, then from this to a response object
+            response_json = json.loads(response_str)
+            try:
+                response_object = response_type.factory_init_from_deserialized_json(response_json)
+                if response_object is None:
+                    msg = '********** {} could not deserialize {} from raw websocket response: `{}`'.format(
+                        my_class_name, response_type.__name__, str(response_str))
+                    reason = '{} Could Not Deserialize To {}'.format(my_class_name, response_type.__name__)
+                    response_object = self.build_response(success=False, reason=reason, message=msg, data=response_json)
+            except Exception as e2:
+                msg = '********** While deserializing {}, {} encountered {}: {}'.format(
+                    response_type.__name__, my_class_name, e2.__class__.__name__, str(e2))
+                reason = '{} {} Deserializing {}'.format(my_class_name, e2.__class__.__name__, response_type.__name__)
+                response_object = self.build_response(success=False, reason=reason, message=msg, data=response_json)
+        except Exception as e:
+            reason = 'Invalid JSON Response'
+            msg = 'Encountered {} loading response to JSON: {}'.format(e.__class__.__name__, str(e))
+            response_object = self.build_response(success=False, reason=reason, message=msg, data=response_json)
+
+        if not response_object.success:
+            logging.error(response_object.message)
+        logging.debug('************* {} returning {} object {}'.format(self.__class__.__name__, response_type.__name__,
+                                                                       response_object.to_json()))
+        return response_object
+
+    async def async_make_request(self, message: M) -> R:
+        """
+        Async send the given request and return the corresponding response.
+
+        Send (within Python's async functionality) the appropriate type of request :class:`Message` for this client
+        implementation type and return the response as a corresponding, appropriate :class:`Response` instance.
+
+        Parameters
+        ----------
+        message : M
+            The request message object.
+
+        Returns
+        -------
+        response : R
+            The request response object.
+        """
+        response_type = self.get_response_subtype()
+        expected_req_type = response_type.get_response_to_type()
+        my_class_name = self.__class__.__name__
+        req_class_name = message.__class__.__name__
+
+        if not isinstance(message, expected_req_type):
+            reason = '{} Received Unexpected Type {}'.format(my_class_name, req_class_name)
+            msg = '{} received unexpected {} instance as request, rather than a {} instance; not submitting'.format(
+                my_class_name, req_class_name, expected_req_type.__name__)
+            logger.error(msg)
+            return self.build_response(success=False, reason=reason, message=msg)
+
+        response_json = {}
+        try:
+            # Send the request and get the service response
+            serialized_response = await self.async_send(data=str(message), await_response=True)
+            if serialized_response is None:
+                raise ValueError('Serialized response from {} async message was `None`'.format(my_class_name))
+        except Exception as e:
+            reason = '{} Send {} Failure ({})'.format(my_class_name, req_class_name, e.__class__.__name__)
+            msg = '{} encountered {} sending {}: {}'.format(my_class_name, e.__class__.__name__, req_class_name, str(e))
+            logger.error(msg)
+            return self.build_response(success=False, reason=reason, message=msg, data=response_json)
+
+        return self._process_request_response(serialized_response)
+
+
+class SchedulerClient(InternalServiceClient[SchedulerRequestMessage, SchedulerRequestResponse]):
+
+    @classmethod
+    def get_response_subtype(cls) -> Type[SchedulerRequestResponse]:
+        return SchedulerRequestResponse
 
     async def async_send_update(self, message: UpdateMessage) -> UpdateMessageResponse:
         """
@@ -217,66 +355,21 @@ class SchedulerClient(WebSocketClient):
             return UpdateMessageResponse(digest=message.digest, object_found=False, success=False, reason=reason,
                                          response_text='None' if serialized_response is None else serialized_response)
 
-    async def async_make_request(self, message: SchedulerRequestMessage) -> SchedulerRequestResponse:
-        """
-        Send (within Python's async functionality) the appropriate type of request :class:`Message` for this client
-        implementation type and return the response as a corresponding, appropriate :class:`Response` instance.
-
-        Parameters
-        ----------
-        message
-            the request message object
-
-        Returns
-        -------
-        response
-            the request response object
-        """
-        response_json = {}
-        try:
-            # Send the request and get the scheduler confirmation of job submission
-            serialized_response = await self.async_send(data=str(message), await_response=True)
-            if serialized_response is None:
-                raise ValueError('Serialized response from {} async message was `None`'.format(self.__class__.__name__))
-        except Exception as e:
-            logger.error('Encountered {} sending scheduler request: {}'.format(e.__class__.__name__, str(e)))
-            reason = 'Request Send Failure ({})'.format(e.__class__.__name__)
-            return SchedulerRequestResponse(success=False, reason=reason, message=str(e), data=response_json)
-        try:
-            # Consume the response confirmation by deserializing first to JSON, then from this to a response object
-            response_json = json.loads(serialized_response)
-            try:
-                response_object = SchedulerRequestResponse.factory_init_from_deserialized_json(response_json)
-                if response_object is None:
-                    logging.error('********** Client did not deserialize response content to scheduler response object')
-                    logging.error('********** Content was: ' + serialized_response)
-                    reason = 'Could Not Deserialize Response Object'
-                    response_object = SchedulerRequestResponse(success=False, reason=reason, data=response_json)
-            except Exception as e2:
-                logging.error('********** While deserialize response from scheduler, client encountered {}: {}'.format(
-                    str(e2.__class__.__name__), str(e2)))
-                reason = 'Deserializing scheduler request response failed due to {}'.format(e2.__class__.__name__)
-                response_object = SchedulerRequestResponse(success=False, reason=reason, message=str(e2),
-                                                           data=response_json)
-        except Exception as e:
-            reason = 'Invalid JSON Response'
-            msg = 'Encountered ' + e.__class__.__name__ + ' loading response to JSON: ' + str(e)
-            response_object = SchedulerRequestResponse(success=False, reason=reason, message=msg, data=response_json)
-
-        logging.debug('************* Scheduler client returning response object {}'.format(response_object.to_json()))
-        return response_object
-
     async def get_results(self):
-        logging.debug('************* Scheduler client preparing to yield results')
+        logging.debug('************* {} preparing to yield results'.format(self.__class__.__name__))
         async for message in self.connection:
-            logging.debug('************* Scheduler client yielding result: {}'.format(str(message)))
+            logging.debug('************* {} yielding result: {}'.format(self.__class__.__name__, str(message)))
             yield message
 
 
-class MaasRequestClient(WebSocketClient, ABC):
+MAAS_M = TypeVar("MAAS_M", bound=MaaSRequest)
+MAAS_R = TypeVar("MAAS_R", bound=MaaSRequestResponse)
+
+
+class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
 
     @staticmethod
-    def _request_failed_due_to_expired_session(response_obj: MaaSRequestResponse):
+    def _request_failed_due_to_expired_session(response_obj: MAAS_R):
         """
         Test if request failed due to an expired session.
 
@@ -298,7 +391,7 @@ class MaasRequestClient(WebSocketClient, ABC):
         return response_obj is not None and not response_obj.success and is_expired
 
     @classmethod
-    def _run_validation(cls, message: Union[MaaSRequest, MaaSRequestResponse]):
+    def _run_validation(cls, message: Union[MAAS_M, MAAS_R]):
         """
         Run validation for the given message object using the appropriate validator subtype.
 
@@ -326,11 +419,8 @@ class MaasRequestClient(WebSocketClient, ABC):
         elif isinstance(message, NGENRequest):
             is_valid, error = NWMRequestJsonValidator().validate(message.to_dict())
             return is_valid, error
-        elif isinstance(message, NWMRequestResponse):
-            # TODO: implement (in particular, a suitable validator type)
-            return True, None
-        elif isinstance(message, NGENRequestResponse):
-            return True, None
+        elif isinstance(message, Serializable):
+            return message.__class__.factory_init_from_deserialized_json(message.to_dict()) == message, None
         else:
             raise RuntimeError('Unsupported MaaSRequest subtype: ' + str(message.__class__))
 
@@ -352,7 +442,7 @@ class MaasRequestClient(WebSocketClient, ABC):
             self._session_id, self._session_secret, self._session_created = auth_details
             self._is_new_session = True
             return True
-        except:
+        except Exception as e:
             logger.info("Expecting exception to follow")
             logger.exception("Failed _acquire_session_info")
             return False
@@ -377,7 +467,8 @@ class MaasRequestClient(WebSocketClient, ABC):
         """
         pass
 
-    def _update_after_valid_response(self, response: MaaSRequestResponse):
+    @abstractmethod
+    def _update_after_valid_response(self, response: MAAS_R):
         """
         Perform any required internal updates immediately after a request gets back a successful, valid response.
 
@@ -393,7 +484,8 @@ class MaasRequestClient(WebSocketClient, ABC):
         """
         pass
 
-    async def async_make_request(self, request: MaaSRequest) -> MaaSRequestResponse:
+    # TODO: this can probably be taken out, as the superclass implementation should suffice
+    async def async_make_request(self, request: MAAS_M) -> MAAS_R:
         async with websockets.connect(self.endpoint_uri, ssl=self.client_ssl_context) as websocket:
             await websocket.send(request.to_json())
             response = await websocket.recv()
@@ -430,7 +522,7 @@ class MaasRequestClient(WebSocketClient, ABC):
     def is_new_session(self):
         return self._is_new_session
 
-    def make_maas_request(self, maas_request: MaaSRequest, force_new_session: bool = False):
+    def make_maas_request(self, maas_request: MAAS_M, force_new_session: bool = False):
         request_type_str = maas_request.__class__.__name__
         logger.debug("client Making {} type request".format(request_type_str))
         self._acquire_session_info(force_new=force_new_session)
@@ -444,7 +536,7 @@ class MaasRequestClient(WebSocketClient, ABC):
                 is_request_valid, request_validation_error = self._run_validation(message=maas_request)
                 if is_request_valid:
                     try:
-                        response_obj: MaaSRequestResponse = get_or_create_eventloop().run_until_complete(
+                        response_obj: MAAS_R = get_or_create_eventloop().run_until_complete(
                             self.async_make_request(maas_request))
                         print('***************** Response: ' + str(response_obj))
                         # Try to get a new session if session is expired (and we hadn't already gotten a new session)
@@ -490,7 +582,7 @@ class MaasRequestClient(WebSocketClient, ABC):
     def session_secret(self):
         return self._session_secret
 
-    def validate_maas_request_response(self, maas_request_response: MaaSRequestResponse):
+    def validate_maas_request_response(self, maas_request_response: MAAS_R):
         return self._run_validation(message=maas_request_response)[0]
 
     @property
@@ -499,7 +591,7 @@ class MaasRequestClient(WebSocketClient, ABC):
         pass
 
 
-class ModelExecRequestClient(MaasRequestClient, ABC):
+class ModelExecRequestClient(MaasRequestClient[ModelExecRequest, ModelExecRequestResponse], ABC):
 
     def __init__(self, endpoint_uri: str, ssl_directory: Path):
         super().__init__(endpoint_uri=endpoint_uri, ssl_directory=ssl_directory)
@@ -508,7 +600,7 @@ class ModelExecRequestClient(MaasRequestClient, ABC):
     def _init_maas_job_request(self):
         pass
 
-    def _update_after_valid_response(self, response: MaaSRequestResponse):
+    def _update_after_valid_response(self, response: ModelExecRequestResponse):
         """
         Perform any required internal updates immediately after a request gets back a successful, valid response.
 
@@ -529,7 +621,3 @@ class ModelExecRequestClient(MaasRequestClient, ABC):
         #self.info.append("Scheduler started job, id {}, results: {}".format(self.job_id, results))
         #self.info.append("All user jobs: {}".format(jobs))
         self.info.append("Scheduler started job, id {}".format(response.data['job_id']))
-
-    async def async_make_request(self, request: ModelExecRequest) -> ModelExecRequestResponse:
-        return await super(ModelExecRequestClient, self).async_make_request(request)
-
