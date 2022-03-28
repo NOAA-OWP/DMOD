@@ -201,7 +201,7 @@ class Response(Message, ABC):
         """
         return cls.response_to_type
 
-    def __init__(self, success: bool, reason: str, message: str = '', data=None):
+    def __init__(self, success: bool, reason: str, message: str = '', data=None, *args, **kwargs):
         self.success = success
         self.reason = reason
         self.message = message
