@@ -93,7 +93,7 @@ class Distribution(object):
 
 class MaaSRequest(AbstractInitRequest, ABC):
     """
-    The base class underlying all types of MaaS requests
+    The base class underlying all types of externally-initiated (and, therefore, authenticated) MaaS system requests.
     """
 
     @classmethod
@@ -113,6 +113,14 @@ class MaaSRequest(AbstractInitRequest, ABC):
         pass
 
     def __init__(self, session_secret: str):
+        """
+        Initialize the base attributes and state of this request object.
+
+        Parameters
+        ----------
+        session_secret : str
+            The session secret for the right session when communicating with the MaaS request handler
+        """
         self.session_secret = session_secret
 
     def _check_class_compatible_for_equality(self, other) -> bool:
@@ -147,6 +155,32 @@ class MaaSRequest(AbstractInitRequest, ABC):
             return other is not None and self.__class__ == other.__class__
         except:
             return False
+
+    @property
+    @abstractmethod
+    def data_requirements(self) -> List[DataRequirement]:
+        """
+        List of all the explicit and implied data requirements for this request, as needed for creating a job object.
+
+        Returns
+        -------
+        List[DataRequirement]
+            List of all the explicit and implied data requirements for this request.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def output_formats(self) -> List[DataFormat]:
+        """
+        List of the formats of each required output dataset for the requested job.
+
+        Returns
+        -------
+        List[DataFormat]
+            List of the formats of each required output dataset for the requested job.
+        """
+        pass
 
 
 # TODO: this type, the subtypes (especially for NWM), all things using it, etc., need to be completely overhauled;
@@ -589,6 +623,31 @@ class NWMRequest(ModelExecRequest):
         super(NWMRequest, self).__init__(version=version, output=output, domain=domain, parameters=parameters,
                                          session_secret=session_secret)
 
+    @property
+    def data_requirements(self) -> List[DataRequirement]:
+        """
+        List of all the explicit and implied data requirements for this request, as needed for creating a job object.
+
+        Returns
+        -------
+        List[DataRequirement]
+            List of all the explicit and implied data requirements for this request.
+        """
+        # TODO: this needs to be implemented properly for this workflow
+        return []
+
+    @property
+    def output_formats(self) -> List[DataFormat]:
+        """
+        List of the formats of each required output dataset for the requested job.
+
+        Returns
+        -------
+        List[DataFormat]
+            List of the formats of each required output dataset for the requested job.
+        """
+        return [DataFormat.NWM_OUTPUT]
+
 
 class NWMRequestResponse(ModelExecRequestResponse):
     """
@@ -836,6 +895,19 @@ class NGENRequest(ModelExecRequest):
         return DiscreteRestriction(variable=var_name, values=([] if self.catchments is None else self.catchments))
 
     @property
+    def data_requirements(self) -> List[DataRequirement]:
+        """
+        List of all the explicit and implied data requirements for this request, as needed for creating a job object.
+
+        Returns
+        -------
+        List[DataRequirement]
+            List of all the explicit and implied data requirements for this request.
+        """
+        return [self.bmi_cfg_data_requirement, self.forcing_data_requirement, self.hydrofabric_data_requirement,
+                self.realization_cfg_data_requirement]
+
+    @property
     def bmi_config_data_id(self) -> str:
         """
         The index value of ``data_id`` to uniquely identify sets of BMI module config data that are otherwise similar.
@@ -960,22 +1032,16 @@ class NGENRequest(ModelExecRequest):
         return self._hydrofabric_uid
 
     @property
-    def output_data_requirement(self) -> DataRequirement:
+    def output_formats(self) -> List[DataFormat]:
         """
-        A requirement object defining of the output data storage capabilities needed to execute this request.
+        List of the formats of each required output dataset for the requested job.
 
         Returns
         -------
-        DataRequirement
-            A requirement object defining of the output data storage capabilities needed to execute this request.
+        List[DataFormat]
+            List of the formats of each required output dataset for the requested job.
         """
-        if self._output_data_requirement is None:
-            # For now, don't restrict 'data_id' of output domain; expect this to be equal to the job id
-            # TODO: handle setting of output dataset data_id as job_id on the client side properly
-            output_domain = DataDomain(DataFormat.NGEN_OUTPUT)
-            self._output_data_requirement = DataRequirement(domain=output_domain, is_input=False,
-                                                            category=DataCategory.OUTPUT)
-        return self._output_data_requirement
+        return [DataFormat.NGEN_OUTPUT]
 
     @property
     def realization_cfg_data_requirement(self) -> DataRequirement:
