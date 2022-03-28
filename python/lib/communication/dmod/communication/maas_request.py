@@ -225,18 +225,23 @@ class ModelExecRequest(MaaSRequest, ABC):
     """(:class:`list`) The collection of output variables that the model may generate"""
 
     @classmethod
-    def factory_init_correct_subtype_from_deserialized_json(cls, json_obj: dict):
+    def factory_init_correct_subtype_from_deserialized_json(cls, json_obj: dict) -> 'ModelExecRequest':
         """
-        Much like :meth:`factory_init_from_deserialized_json`, except (sub)type agnostic, allowing this to determine the
-        correct type of :class:`MaasRequest` from the contents of the JSON, and return a call to that particular class's
-        :meth:`factory_init_from_deserialized_json`
+        Factory method to deserialize a ::class:`ModelExecRequest` object of the correct subtype.
+
+        Much like ::method:`factory_init_from_deserialized_json`, except (sub)type agnostic, allowing this to determine
+        the correct ::class:`ModelExecRequest` type from the contents of the JSON, and return a call to that particular
+        class's ::method:`factory_init_from_deserialized_json`
+
         Parameters
         ----------
-        json_obj
+        json_obj : dict
+            A JSON object representing the serialize form of a ::class:`ModelExecRequest` to be deserialized.
 
         Returns
         -------
-
+        ModelExecRequest
+            A deserialized ::class:`ModelExecRequest` of the appropriate subtype.
         """
         try:
             model_name = list(json_obj['model'].keys())[0]
@@ -296,11 +301,20 @@ class ModelExecRequest(MaaSRequest, ABC):
     #  number
     def __init__(self, version: float, output: str, domain: str, parameters: dict, session_secret: str):
         """
-        :param float version: The version of the model to use
-        :param str output: The name of the variable to generate numbers for
-        :param str domain: The domain to execute over
-        :param dict parameters: A mapping between parameters to configure and their scalar or distribution configurations
-        :param str session_secret: The session secret for the right session when communicating with the MaaS request handler
+        Initialize model-exec-specific attributes and state of this request object common to all model exec requests.
+
+        Parameters
+        ----------
+        version : float
+            The version of the model to use.
+        output : str
+            The name of the variable for which to generate numbers.
+        domain : str
+            The name of the domain over which to execute.
+        parameters : dict
+            A mapping between parameters to configure and their scalar or distribution configurations.
+        session_secret : str
+            The session secret for the right session when communicating with the request handler.
         """
         super(ModelExecRequest, self).__init__(session_secret=session_secret)
         # If this model doesn't generate the output, we want to fail
@@ -533,11 +547,123 @@ class ModelExecRequest(MaaSRequest, ABC):
 
 
 class MaaSRequestResponse(Response, ABC):
-    def __init__(self, success: bool, reason: str, message: str = '', data=None):
-        super().__init__(success=success, reason=reason, message=message, data=data)
+
+    response_to_type = MaaSRequest
+    """ The type of :class:`AbstractInitRequest` for which this type is the response"""
+
+    def __init__(self, success: bool, reason: str, message: str = '', data=None, *args, **kwargs):
+        super().__init__(success=success, reason=reason, message=message, data=data, *args, **kwargs)
 
 
 class ModelExecRequestResponse(MaaSRequestResponse, ABC):
+
+    _data_dict_key_job_id = 'job_id'
+    _data_dict_key_output_data_id = 'output_data_id'
+    _data_dict_key_scheduler_response = 'scheduler_response'
+    response_to_type = ModelExecRequest
+    """ The type of :class:`AbstractInitRequest` for which this type is the response"""
+
+    @classmethod
+    def _convert_scheduler_response_to_data_attribute(cls, scheduler_response=None):
+        if scheduler_response is None:
+            return None
+        elif isinstance(scheduler_response, dict) and len(scheduler_response) == 0:
+            return {}
+        elif isinstance(scheduler_response, dict):
+            return scheduler_response
+        else:
+            return {cls._data_dict_key_job_id: scheduler_response.job_id,
+                    cls._data_dict_key_output_data_id: scheduler_response.output_data_id,
+                    cls._data_dict_key_scheduler_response: scheduler_response.to_dict()}
+
+    @classmethod
+    def get_job_id_key(cls) -> str:
+        """
+        Get the serialization dictionary key for the field containing the ::attribute:`job_id` property.
+
+        Returns
+        -------
+        str
+            Serialization dictionary key for the field containing the ::attribute:`job_id` property.
+        """
+        return str(cls._data_dict_key_job_id)
+
+    @classmethod
+    def get_output_data_id_key(cls) -> str:
+        """
+        Get the serialization dictionary key for the field containing the ::attribute:`output_data_id` property.
+
+        Returns
+        -------
+        str
+            Serialization dictionary key for the field containing the ::attribute:`output_data_id` property.
+        """
+        return str(cls._data_dict_key_output_data_id)
+
+    @classmethod
+    def get_scheduler_response_key(cls) -> str:
+        """
+        Get the serialization dictionary key for the field containing the 'scheduler_response' value.
+
+        Returns
+        -------
+        str
+            Serialization dictionary key for the field containing the 'scheduler_response' value.
+        """
+        return str(cls._data_dict_key_scheduler_response)
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        """
+        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+        response_obj : Response
+            A new object of this type instantiated from the deserialize JSON object dictionary, or none if the provided
+            parameter could not be used to instantiated a new object.
+
+        See Also
+        -------
+        _factory_init_data_attribute
+        """
+        try:
+            return cls(success=json_obj['success'], reason=json_obj['reason'], message=json_obj['message'],
+                       scheduler_response=json_obj['data'])
+        except Exception as e:
+            return None
+
+    def __init__(self, success: bool, reason: str, message: str = '', scheduler_response=None):
+        super().__init__(success=success,
+                         reason=reason,
+                         message=message,
+                         data=self._convert_scheduler_response_to_data_attribute(scheduler_response))
+
+    @property
+    def job_id(self):
+        if not isinstance(self.data, dict) or self._data_dict_key_job_id not in self.data:
+            return -1
+        else:
+            return self.data[self._data_dict_key_job_id]
+
+    @property
+    def output_data_id(self) -> Optional[str]:
+        """
+        The 'data_id' of the output dataset for the requested job, if the associated request was successful.
+
+        Returns
+        -------
+        Optional[str]
+            The 'data_id' of the output dataset for requested job, if request was successful; otherwise ``None``.
+        """
+        if not isinstance(self.data, dict) or self._data_dict_key_output_data_id not in self.data:
+            return None
+        else:
+            return self.data[self._data_dict_key_output_data_id]
 
     @property
     def reason_enum(self):
@@ -545,6 +671,7 @@ class ModelExecRequestResponse(MaaSRequestResponse, ABC):
             return InitRequestResponseReason[self.reason]
         except:
             return InitRequestResponseReason.UNKNOWN
+
 
 class Parameter(object):
     """
@@ -556,6 +683,7 @@ class Parameter(object):
         """
         self.name = name
 
+
 class ScalarParameter(Parameter):
     """
         A Scalar parameter is a simple interger parameter who's valid range are integer increments between
@@ -565,6 +693,7 @@ class ScalarParameter(Parameter):
     def __init__(self, min, max):
         self.min = min
         self.max=max
+
 
 class NWMRequest(ModelExecRequest):
 
@@ -655,11 +784,13 @@ class NWMRequestResponse(ModelExecRequestResponse):
 
     Note that, when not ``None``, the :attr:`data` value will be a dictionary with the following format:
         - key 'job_id' : the appropriate job id value in response to the request
+        - key 'output_data_id' : the 'data_id' of the output dataset for the requested job
         - key 'scheduler_response' : the related :class:`SchedulerRequestResponse`, in serialized dictionary form
 
     For example:
     {
         'job_id': 1,
+        'output_data_id': '00000000-0000-0000-0000-000000000000',
         'scheduler_response': {
             'success': True,
             'reason': 'Testing Stub',
@@ -673,6 +804,7 @@ class NWMRequestResponse(ModelExecRequestResponse):
     Or:
     {
         'job_id': 0,
+        'output_data_id': '00000000-0000-0000-0000-000000000000',
         'scheduler_response': {
             'success': False,
             'reason': 'Testing Stub',
@@ -682,85 +814,8 @@ class NWMRequestResponse(ModelExecRequestResponse):
     }
     """
 
-    _data_dict_key_job_id = 'job_id'
-    _data_dict_key_scheduler_response = 'scheduler_response'
     response_to_type = NWMRequest
 
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        """
-        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
-
-        Parameters
-        ----------
-        json_obj
-
-        Returns
-        -------
-        response_obj : Response
-            A new object of this type instantiated from the deserialize JSON object dictionary, or none if the provided
-            parameter could not be used to instantiated a new object.
-
-        See Also
-        -------
-        _factory_init_data_attribute
-        """
-        try:
-            return cls(success=json_obj['success'], reason=json_obj['reason'], message=json_obj['message'],
-                       scheduler_response=json_obj['data'])
-        except Exception as e:
-            return None
-
-    @classmethod
-    def _convert_scheduler_response_to_data_attribute(cls, scheduler_response=None):
-        job_id_key = cls.get_data_dict_key_for_job_id()
-        sched_resp_key = cls.get_data_dict_key_for_scheduler_response()
-        if scheduler_response is None:
-            return None
-        elif isinstance(scheduler_response, dict) and len(scheduler_response) == 0:
-            return {}
-        elif isinstance(scheduler_response, dict):
-            return scheduler_response
-        else:
-            return {job_id_key: scheduler_response.job_id, sched_resp_key: scheduler_response.to_dict()}
-
-    @classmethod
-    def get_data_dict_key_for_job_id(cls):
-        """
-        Get the standard key name used in the :attr:`data` attribute dictionary for storing the ``job_id`` value.
-        Returns
-        -------
-        str
-            the standard key name used in the :attr:`data` attribute dictionary for storing the ``job_id`` value
-        """
-        return cls._data_dict_key_job_id
-
-    @classmethod
-    def get_data_dict_key_for_scheduler_response(cls):
-        """
-        Get the standard key name used in the :attr:`data` attribute dictionary for storing the serialized scheduler
-        response value.
-
-        Returns
-        -------
-        str
-            the standard key name used in the :attr:`data` attribute dictionary for storing the serialized scheduler
-            response value
-        """
-        return cls._data_dict_key_scheduler_response
-
-    def __init__(self, success: bool, reason: str, message: str = '', scheduler_response=None):
-        super().__init__(success=success,
-                         reason=reason,
-                         message=message,
-                         data=self._convert_scheduler_response_to_data_attribute(scheduler_response))
-
-    @property
-    def job_id(self):
-        if not isinstance(self.data, dict):
-            return -1
-        else:
-            return self.data[self.get_data_dict_key_for_job_id()]
 
 class NGENRequest(ModelExecRequest):
 
@@ -867,7 +922,6 @@ class NGENRequest(ModelExecRequest):
 
         self._bmi_config_data_id = bmi_cfg_data_id
         self._hydrofabric_data_requirement = None
-        self._output_data_requirement = None
         self._forcing_data_requirement = None
         self._realization_cfg_data_requirement = None
         self._bmi_cfg_data_requirement = None
@@ -1112,9 +1166,21 @@ class NGENRequest(ModelExecRequest):
         model["bmi_config_data_id"] = self._bmi_config_data_id
         if self.catchments is not None:
             model['catchments'] = self.catchments
-        model['version'] = self._version
+        model['version'] = self.version
 
         return {'model': model, 'session-secret': self.session_secret}
+
+    @property
+    def version(self) -> float:
+        """
+        The model version.
+
+        Returns
+        -------
+        float
+            The model version.
+        """
+        return self._version
 
 
 class NGENRequestResponse(ModelExecRequestResponse):
@@ -1128,6 +1194,7 @@ class NGENRequestResponse(ModelExecRequestResponse):
     For example:
     {
         'job_id': 1,
+        'output_data_id': '00000000-0000-0000-0000-000000000000',
         'scheduler_response': {
             'success': True,
             'reason': 'Testing Stub',
@@ -1141,6 +1208,7 @@ class NGENRequestResponse(ModelExecRequestResponse):
     Or:
     {
         'job_id': 0,
+        'output_data_id': '00000000-0000-0000-0000-000000000000',
         'scheduler_response': {
             'success': False,
             'reason': 'Testing Stub',
@@ -1150,86 +1218,8 @@ class NGENRequestResponse(ModelExecRequestResponse):
     }
     """
 
-    _data_dict_key_job_id = 'job_id'
-    _data_dict_key_scheduler_response = 'scheduler_response'
     response_to_type = NGENRequest
 
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        """
-        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
-
-        Parameters
-        ----------
-        json_obj
-
-        Returns
-        -------
-        response_obj : Response
-            A new object of this type instantiated from the deserialize JSON object dictionary, or none if the provided
-            parameter could not be used to instantiated a new object.
-
-        See Also
-        -------
-        _factory_init_data_attribute
-        """
-        try:
-            return cls(success=json_obj['success'], reason=json_obj['reason'], message=json_obj['message'],
-                       scheduler_response=json_obj['data'])
-        except Exception as e:
-            return None
-
-    #Should this go up level to the abstract request class?
-    @classmethod
-    def _convert_scheduler_response_to_data_attribute(cls, scheduler_response=None):
-        job_id_key = cls.get_data_dict_key_for_job_id()
-        sched_resp_key = cls.get_data_dict_key_for_scheduler_response()
-        if scheduler_response is None:
-            return None
-        elif isinstance(scheduler_response, dict) and len(scheduler_response) == 0:
-            return {}
-        elif isinstance(scheduler_response, dict):
-            return scheduler_response
-        else:
-            return {job_id_key: scheduler_response.job_id, sched_resp_key: scheduler_response.to_dict()}
-
-    @classmethod
-    def get_data_dict_key_for_job_id(cls):
-        """
-        Get the standard key name used in the :attr:`data` attribute dictionary for storing the ``job_id`` value.
-        Returns
-        -------
-        str
-            the standard key name used in the :attr:`data` attribute dictionary for storing the ``job_id`` value
-        """
-        return cls._data_dict_key_job_id
-
-    @classmethod
-    def get_data_dict_key_for_scheduler_response(cls):
-        """
-        Get the standard key name used in the :attr:`data` attribute dictionary for storing the serialized scheduler
-        response value.
-
-        Returns
-        -------
-        str
-            the standard key name used in the :attr:`data` attribute dictionary for storing the serialized scheduler
-            response value
-        """
-        return cls._data_dict_key_scheduler_response
-
-    def __init__(self, success: bool, reason: str, message: str = '', scheduler_response=None):
-        super().__init__(success=success,
-                         reason=reason,
-                         message=message,
-                         data=self._convert_scheduler_response_to_data_attribute(scheduler_response))
-
-    @property
-    def job_id(self):
-        if not isinstance(self.data, dict):
-            return -1
-        else:
-            return self.data[self.get_data_dict_key_for_job_id()]
 
 def get_parameters() -> dict:
     """
