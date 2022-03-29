@@ -3,9 +3,10 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from numbers import Number
 
-from dmod.communication import MaaSRequest, ModelExecRequest, SchedulerRequestMessage
+from dmod.communication import MaaSRequest, ModelExecRequest, NGENRequest, SchedulerRequestMessage
 from dmod.core.serializable import Serializable
 from dmod.core.meta_data import DataRequirement
+from dmod.modeldata.hydrofabric import PartitionConfig
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 from uuid import UUID
@@ -552,6 +553,19 @@ class Job(Serializable, ABC):
 
     @property
     @abstractmethod
+    def is_partitionable(self) -> bool:
+        """
+        Whether this job can have partitioning applied to it.
+
+        Returns
+        -------
+        bool
+            Whether this job can have partitioning applied to it.
+        """
+        pass
+
+    @property
+    @abstractmethod
     def job_id(self):
         """
         The unique identifier for this particular job.
@@ -588,6 +602,7 @@ class Job(Serializable, ABC):
         """
         pass
 
+    # TODO: do we need to account for jobs for anything other than model exec?
     @property
     @abstractmethod
     def model_request(self) -> MaaSRequest:
@@ -599,6 +614,24 @@ class Job(Serializable, ABC):
         MaaSRequest
             The underlying configuration for the model execution that is being requested.
         """
+        pass
+
+    @property
+    @abstractmethod
+    def partition_config(self) -> Optional[PartitionConfig]:
+        """
+        Get this job's partitioning configuration.
+
+        Returns
+        -------
+        PartitionConfig
+            This job's partitioning configuration.
+        """
+        pass
+
+    @partition_config.setter
+    @abstractmethod
+    def partition_config(self, part_config: PartitionConfig):
         pass
 
     @property
@@ -778,6 +811,15 @@ class JobImpl(Job):
             return None
 
     @classmethod
+    def _parse_serialized_partition_config(cls, json_obj: dict, key: Optional[str] = None):
+        if key is None:
+            key = 'partitioning'
+        if key in json_obj:
+            return PartitionConfig.factory_init_from_deserialized_json(json_obj[key])
+        else:
+            return None
+
+    @classmethod
     def _parse_serialized_rsa_key_pair(cls, json_obj: dict, key: Optional[str] = None, warn_if_missing: bool = False):
         # Doing this here for now to avoid import errors
         # TODO: find a better way for this
@@ -817,7 +859,7 @@ class JobImpl(Job):
         Returns
         -------
         The tuple with parse values of (cpus, memory, paradigm, priority, job_id, rsa_key_pair, status, allocations,
-        updated) from the provided dictionary.
+        updated, partitioning) from the provided dictionary.
         """
         int_converter = lambda x: int(x)
         cpus = cls.parse_simple_serialized(json_obj=json_obj, key='cpu_count', expected_type=int,
@@ -832,7 +874,8 @@ class JobImpl(Job):
         status = cls._parse_serialized_job_status(json_obj=json_obj)
         allocations = cls._parse_serialized_allocations(json_obj=json_obj)
         updated = cls._parse_serialized_last_updated(json_obj=json_obj)
-        return cpus, memory, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated
+        partitioning = cls._parse_serialized_partition_config(json_obj=json_obj, key='partitioning')
+        return cpus, memory, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated, partitioning
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
@@ -849,7 +892,7 @@ class JobImpl(Job):
         """
 
         try:
-            cpus, memory, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated = \
+            cpus, memory, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated, partitioning = \
                 cls.deserialize_core_attributes(json_obj)
 
             if 'model_request' in json_obj:
@@ -873,6 +916,8 @@ class JobImpl(Job):
             if allocations is not None:
                 obj.allocations = allocations
                 obj.data_requirements = cls._parse_serialized_data_requirements(json_obj)
+            if partitioning is not None:
+                obj.partition_config = partitioning
 
             return obj
 
@@ -968,8 +1013,8 @@ class JobImpl(Job):
         self._data_requirements = None
         self._worker_data_requirements = None
         self._allocation_service_names = None
+        self._partition_config = None
         self._reset_last_updated()
-
 
     def _process_per_worker_data_requirements(self) -> List[List[DataRequirement]]:
         """
@@ -980,6 +1025,9 @@ class JobImpl(Job):
         List[List[DataRequirement]]
             List (indexed analogously to worker allocations) of lists of per-worker data requirements.
         """
+        # If there is only a single allocation, just return the complete data requirements wrapped in another list
+        if len(self.allocations) == 1:
+            return [self.data_requirements]
         # TODO: implement properly
         raise RuntimeError("Logic to process job data requirements to per-worker requirements not yet implemented")
 
@@ -1104,6 +1152,20 @@ class JobImpl(Job):
         self._reset_last_updated()
 
     @property
+    def is_partitionable(self) -> bool:
+        """
+        Whether the requirements of the job support partitioning.
+
+        At this time, only NextGen model jobs can be partitioned.
+
+        Returns
+        -------
+        bool
+            Whether the requirements of the job support partitioning.
+        """
+        return self.model_request is not None and isinstance(self.model_request, NGENRequest)
+
+    @property
     def job_id(self) -> Optional[str]:
         """
         The unique job id for this job in the manager, if one has been set for it, or ``None``.
@@ -1148,6 +1210,14 @@ class JobImpl(Job):
             The underlying configuration for the model execution that is being requested.
         """
         return self._model_request
+
+    @property
+    def partition_config(self) -> Optional[PartitionConfig]:
+        return self._partition_config
+
+    @partition_config.setter
+    def partition_config(self, part_config: PartitionConfig):
+        self._partition_config = part_config
 
     @property
     def rsa_key_pair(self) -> Optional['RsaKeyPair']:
@@ -1230,7 +1300,8 @@ class JobImpl(Job):
             "status" : INIT:DEFAULT,
             "last_updated" : "2020-07-10 12:05:45",
             "allocations" : [...],
-            'data_requirements" : [...]
+            'data_requirements" : [...],
+            "partitioning" : { "partitions": [ ... ] }
         }
 
         Returns
@@ -1268,6 +1339,8 @@ class JobImpl(Job):
             serial['data_requirements'] = []
             for dr in self.data_requirements:
                 serial['data_requirements'].append(dr.to_dict())
+            if self.partition_config is not None:
+                serial['partitioning'] = self.partition_config.to_dict()
 
         return serial
 
@@ -1295,7 +1368,7 @@ class RequestedJob(JobImpl):
         originating_request_key = 'originating_request'
 
         try:
-            cpus, memory, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated = \
+            cpus, memory, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated, partitioning = \
                 cls.deserialize_core_attributes(json_obj)
 
             if originating_request_key not in json_obj:
@@ -1325,6 +1398,7 @@ class RequestedJob(JobImpl):
         new_obj._status = status
         new_obj._allocations = allocations
         new_obj.data_requirements = cls._parse_serialized_data_requirements(json_obj)
+        new_obj._partition_config = partitioning
 
         # Do last_updated last, as any usage of setters above might cause the value to be maladjusted
         new_obj._last_updated = updated
@@ -1336,6 +1410,7 @@ class RequestedJob(JobImpl):
         super().__init__(cpu_count=job_request.cpus, memory_size=job_request.memory,
                          model_request=job_request.model_request,
                          allocation_paradigm=job_request.allocation_paradigm)
+        self.data_requirements = self.model_request.data_requirements
 
     @property
     def model_request(self) -> MaaSRequest:
@@ -1377,6 +1452,7 @@ class RequestedJob(JobImpl):
             "last_updated" : "2020-07-10 12:05:45",
             "allocations" : [...],
             'data_requirements" : [...],
+            "partitioning" : { "partitions": [ ... ] },
             "originating_request" : {<serialized_representation_of_originating_message>}
         }
 
