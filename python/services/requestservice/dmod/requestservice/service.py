@@ -11,7 +11,7 @@ from websockets import WebSocketServerProtocol
 from dmod.access import DummyAuthUtil, RedisBackendSessionManager
 from dmod.communication import InvalidMessageResponse, MessageEventType, WebSocketSessionsInterface, \
     SchedulerClient, UnsupportedMessageTypeResponse
-from dmod.externalrequests import AuthHandler, ModelExecRequestHandler, PartitionRequestHandler
+from dmod.externalrequests import AuthHandler, DatasetRequestHandler, ModelExecRequestHandler, PartitionRequestHandler
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -43,12 +43,15 @@ class RequestService(WebSocketSessionsInterface):
                  scheduler_host: str = 'localhost',
                  scheduler_port: Union[str, int] = 3013,
                  partitioner_host: str = 'localhost',
+                 data_service_host: str = 'localhost',
                  partitioner_port: Union[str, int] = 3014,
+                 data_service_port: Union[str, int] = 3015,
                  ssl_dir=None,
                  cert_pem=None,
                  priv_key_pem=None,
                  scheduler_ssl_dir=None,
-                 partitioner_ssl_dir=None):
+                 partitioner_ssl_dir=None,
+                 data_service_ssl_dir=None):
         super().__init__(listen_host=listen_host, port=port, ssl_dir=ssl_dir, cert_pem=cert_pem,
                          priv_key_pem=priv_key_pem)
         self._session_manager: RedisBackendSessionManager = RedisBackendSessionManager()
@@ -59,6 +62,10 @@ class RequestService(WebSocketSessionsInterface):
         self.partitioner_host = partitioner_host
         self.partitioner_port = int(partitioner_port)
         self.partitioner_ssl_dir = partitioner_ssl_dir if partitioner_ssl_dir is not None else self.ssl_dir
+
+        self.data_service_host = data_service_host
+        self.data_service_port = int(data_service_port)
+        self.data_service_ssl_dir = data_service_ssl_dir if data_service_ssl_dir is not None else self.ssl_dir
 
         # FIXME: implement real authenticator
         self.authenticator = DummyAuthUtil()
@@ -86,6 +93,12 @@ class RequestService(WebSocketSessionsInterface):
                                                                   partition_service_host=partitioner_host,
                                                                   partition_service_port=int(partitioner_port),
                                                                   partition_service_ssl_dir=self.partitioner_ssl_dir)
+
+        self._data_service_handler = DatasetRequestHandler(session_manager=self._session_manager,
+                                                           authorizer=self.authorizer,
+                                                           data_service_host=data_service_host,
+                                                           data_service_port=int(data_service_port),
+                                                           data_service_ssl_dir=self.data_service_ssl_dir)
 
     @property
     def session_manager(self):
