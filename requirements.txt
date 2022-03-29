@@ -23,4 +23,5 @@ hydrotools.nwis-client
 numpy>=1.20.1
 scikit-learn
 minio
+uri
 aiohttp==3.8.1
