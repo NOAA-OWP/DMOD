@@ -15,6 +15,7 @@ from .maas_request import MaaSRequest, MaaSRequestResponse, ModelExecRequest, Mo
     NGENRequest
 from .message import AbstractInitRequest, Message, Response, InitRequestResponseReason
 from .partition_request import PartitionRequest, PartitionResponse
+from .dataset_management_message import DatasetManagementMessage, DatasetManagementResponse
 from .scheduler_request import SchedulerRequestMessage, SchedulerRequestResponse
 from .validator import NWMRequestJsonValidator
 from .update_message import UpdateMessage, UpdateMessageResponse
@@ -590,6 +591,15 @@ class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
     @abstractmethod
     def warnings(self):
         pass
+
+
+class DataServiceClient(InternalServiceClient[DatasetManagementMessage, DatasetManagementResponse]):
+    """
+    Client for data service communication between internal DMOD services.
+    """
+    @classmethod
+    def get_response_subtype(cls) -> Type[DatasetManagementResponse]:
+        return DatasetManagementResponse
 
 
 class ModelExecRequestClient(MaasRequestClient[ModelExecRequest, ModelExecRequestResponse], ABC):
