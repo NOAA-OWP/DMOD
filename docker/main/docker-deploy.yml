@@ -147,6 +147,32 @@ services:
     #  - ./request_handler:/code
     #depends_on:
     #  - myredis
+  partitioner-service:
+    image: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/partitioner-service
+    networks:
+      - mpi-net
+      - requests-net
+    ports:
+      - "${DOCKER_PARTITIONER_SERVICE_CONTAINER_PORT:-3014}:${DOCKER_PARTITIONER_SERVICE_CONTAINER_PORT:-3014}"
+    secrets:
+      - myredis_pass
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${DMOD_SSL_DIR:?}:/ssl
+    deploy:
+      placement:
+        constraints:
+          - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_1:-node.role==manager}
+          - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
+    entrypoint: [ "python3", "-m", "${PYTHON_PACKAGE_NAME_PARTITIONER_SERVICE:?}" ]
+    command: [ "--listen-port", "${DOCKER_PARTITIONER_SERVICE_CONTAINER_PORT:-3014}", \
+               "--partitioner-image", "${DOCKER_PARTITIONER_IMAGE:-ngen-partitioner}", \
+               "--image-tag", "${DOCKER_PARTITIONER_IMAGE_TAG:-latest}", \
+               "--docker-registry", "${DOCKER_INTERNAL_REGISTRY}", \
+               "---data-service-host", "data-service", \
+               "---data-service-port", "${DOCKER_DATASERVICE_CONTAINER_PORT:-3020}", \
+               "---data-service-ssl-dir", "${DOCKER_DATASERVICE_CONTAINER_SERVICE_SSL_DIR:-/ssl/dataservice}", \
+               "--redis-pass-secret-name", "myredis_pass"]
 networks:
     mpi-net:
         external: true
