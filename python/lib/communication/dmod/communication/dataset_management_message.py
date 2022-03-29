@@ -294,49 +294,18 @@ class DatasetManagementResponse(Response):
     _DATA_KEY_IS_AWAITING = 'is_awaiting'
     response_to_type = DatasetManagementMessage
 
-    @classmethod
-    def factory_create(cls, action: ManagementAction, success: bool, reason: str, message: str = '',
-                       data: Optional[dict] = None, is_awaiting: bool = False, dataset_name: Optional[str] = None,
-                       data_id: Optional[str] = None) -> 'DatasetManagementResponse':
-        """
-        Factory create method to simplify init while maintaining standard structure of ::method:`__init__`.
-
-        Parameters
-        ----------
-        action
-        success
-        reason
-        message
-        data
-        is_awaiting
-        dataset_name
-        data_id
-
-        Returns
-        -------
-        DatasetManagementResponse
-            A newly initialized instance.
-        """
+    def __init__(self, action: Optional[ManagementAction] = None, is_awaiting: bool = False,
+                 data_id: Optional[str] = None, dataset_name: Optional[str] = None, data: Optional[dict] = None,
+                 **kwargs):
         if data is None:
             data = {}
-
-        data[cls._DATA_KEY_ACTION] = action
-        data[cls._DATA_KEY_IS_AWAITING] = is_awaiting
-
+        data[self._DATA_KEY_IS_AWAITING] = is_awaiting
+        data[self._DATA_KEY_ACTION] = ManagementAction.UNKNOWN if action is None else action
         if data_id is not None:
-            data[cls._DATA_KEY_DATA_ID] = data_id
-
+            data[self._DATA_KEY_DATA_ID] = data_id
         if dataset_name is not None:
-            data[cls._DATA_KEY_DATASET_NAME] = dataset_name
-
-        return cls(success=success, reason=reason, message=message, data=data)
-
-    def __init__(self, success: bool, reason: str, message: str = '', data: Optional[dict] = None):
-        if data is None:
-            data = {self._DATA_KEY_IS_AWAITING: False}
-        elif self._DATA_KEY_IS_AWAITING not in data:
-            data[self._DATA_KEY_IS_AWAITING] = False
-        super().__init__(success=success, reason=reason, message=message, data=data)
+            data[self._DATA_KEY_DATASET_NAME] = dataset_name
+        super().__init__(data=data, **kwargs)
 
     @property
     def action(self) -> ManagementAction:
