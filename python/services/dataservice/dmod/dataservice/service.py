@@ -92,6 +92,29 @@ class ServiceManager(WebSocketInterface):
         """
         return self.can_dataset_be_derived(requirements)
 
+    async def _async_dataset_search(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
+        """
+        Search for a dataset that fulfills the requirements of this ::class:`ManagementAction` ``SEARCH`` message.
+
+        Parameters
+        ----------
+        message : DatasetManagementResponse
+            A data management message with the ``SEARCH`` :class:`ManagementAction` set.
+
+        Returns
+        -------
+        DatasetManagementResponse
+            A response indicating the success of the search and, if successful, the
+        """
+        requirements = [DataRequirement(domain=message.data_domain, is_input=True, category=message.data_category)]
+        dataset = await self._async_find_dataset_for_requirements(requirements)
+        if isinstance(dataset, Dataset):
+            return DatasetManagementResponse(action=message.management_action, dataset_name=dataset.name, success=True,
+                                             reason='Qualifying Dataset Found', data_id=str(dataset.uuid))
+        else:
+            return DatasetManagementResponse(action=message.management_action, success=False,
+                                             reason='No Qualifying Dataset Found')
+
     async def _async_find_dataset_for_requirements(self, requirements: List[DataRequirement]) -> Optional[Dataset]:
         """
         Asynchronously search for an existing dataset that will fulfill all the given requirements.
