@@ -5,8 +5,8 @@ from dmod.core.meta_data import DataRequirement
 from dmod.core.exception import DmodRuntimeError
 from dmod.modeldata.data.object_store_dataset import Dataset, DatasetManager, ObjectStoreDataset, \
     ObjectStoreDatasetManager
-from dmod.scheduler.job import JobExecStep, JobUtil
-from typing import Dict, Optional, Tuple, Type, TypeVar
+from dmod.scheduler.job import Job, JobExecStep, JobUtil
+from typing import Dict, List, Optional, Tuple, Type, TypeVar
 from uuid import UUID
 from websockets import WebSocketServerProtocol
 
@@ -70,49 +70,49 @@ class ServiceManager(WebSocketInterface):
         for dataset_type in manager.supported_dataset_types:
             self._all_data_managers[dataset_type] = manager
 
-    async def _async_can_dataset_be_derived(self, requirement: DataRequirement) -> bool:
+    async def _async_can_dataset_be_derived(self, requirements: List[DataRequirement]) -> bool:
         """
-        Asynchronously determine if a dataset can be derived from existing datasets to fulfill this requirement.
+        Asynchronously determine if a dataset can be derived from existing datasets to fulfill all these requirements.
 
         This function essentially just provides an async wrapper around the synchronous analog.
 
         Parameters
         ----------
-        requirement : DataRequirement
-            The requirement that needs to be fulfilled.
+        requirements : List[DataRequirement]
+            The requirements that needs to be fulfilled.
 
         Returns
         -------
         bool
-            Whether it is possible for a dataset to be derived from existing datasets to fulfill this requirement.
+            Whether it is possible for a dataset to be derived from existing datasets to fulfill these requirement.
 
         See Also
         -------
         ::method:`can_dataset_be_derived`
         """
-        return self.can_dataset_be_derived(requirement)
+        return self.can_dataset_be_derived(requirements)
 
-    async def _async_find_dataset_for_requirement(self, requirement: DataRequirement) -> Optional[Dataset]:
+    async def _async_find_dataset_for_requirements(self, requirements: List[DataRequirement]) -> Optional[Dataset]:
         """
-        Asynchronously search for an existing dataset that will fulfill this requirement.
+        Asynchronously search for an existing dataset that will fulfill all the given requirements.
 
         This function essentially just provides an async wrapper around the synchronous analog.
 
         Parameters
         ----------
-        requirement : DataRequirement
-            The data requirement that needs to be fulfilled.
+        requirements : List[DataRequirement]
+            The data requirements that needs to be fulfilled.
 
         Returns
         -------
         Optional[Dataset]
-            The dataset fulfilling the requirement, if one is found; otherwise ``None``.
+            The (first) dataset fulfilling the given requirements, if one is found; otherwise ``None``.
 
         See Also
         -------
-        ::method:`find_dataset_for_requirement`
+        ::method:`find_dataset_for_requirements`
         """
-        return self.find_dataset_for_requirement(requirement)
+        return self.find_dataset_for_requirements(requirements)
 
     async def _async_process_add_data(self, message: DatasetManagementMessage, mngr: DatasetManager) -> DatasetManagementResponse:
         """
@@ -233,65 +233,67 @@ class ServiceManager(WebSocketInterface):
                                                      domain=message.data_domain, is_read_only=False)
         return DatasetManagementResponse(success=True, reason="Dataset Created", is_awaiting=message.is_pending_data)
 
-    async def can_be_fulfilled(self, requirement: DataRequirement) -> Tuple[bool, Optional[str]]:
+    async def can_be_fulfilled(self, requirements: List[DataRequirement]) -> Tuple[bool, Optional[str]]:
         """
-        Determine whether this requirement for this job can be fulfilled, either directly or by deriving a new dataset.
+        Determine whether all the given requirements can be fulfilled, either directly or by deriving a new dataset.
 
-        The returned tuple will return two items.  The first is whether the data requirement can be fulfilled given the
+        The returned tuple will return two items.  The first is whether the data requirements can be fulfilled given the
         currently existing datasets.  The second is the name of the fulfilling dataset, if a fulfilling dataset already
-        exists.  If data among known datasets is sufficient to fulfill the requirement, but deriving a new dataset is
+        exists.  If data among known datasets is sufficient to fulfill the requirements, but deriving a new dataset is
         necessary (e.g., in a different format, or by combining data from multiple datasets), then the second value will
         be ``None``.
 
         Parameters
         ----------
-        requirement : DataRequirement
-            The data requirement in question that needs to be fulfilled.
+        requirements : List[DataRequirement]
+            The data requirements in question that need to be fulfilled.
 
         Returns
         -------
         Tuple[bool, Optional[str]]
-            A tuple of whether the requirement can be fulfilled and, if one exists, the name of the fulfilling dataset.
+            A tuple of whether the requirements can be fulfilled and, if one exists, the name of the fulfilling dataset.
         """
-        fulfilling_dataset = await self._async_find_dataset_for_requirement(requirement)
+        fulfilling_dataset = await self._async_find_dataset_for_requirements(requirements)
         if isinstance(fulfilling_dataset, Dataset):
             return True, fulfilling_dataset.name
         else:
-            return await self._async_can_dataset_be_derived(requirement), None
+            return await self._async_can_dataset_be_derived(requirements), None
 
-    def can_dataset_be_derived(self, requirement: DataRequirement) -> bool:
+    def can_dataset_be_derived(self, requirements: List[DataRequirement]) -> bool:
         """
-        Determine if it is possible for a dataset to be derived from existing datasets to fulfill this requirement.
+        Determine if it is possible for a dataset to be derived from existing datasets to fulfill these requirements.
 
         Parameters
         ----------
-        requirement : DataRequirement
+        requirements : List[DataRequirement]
             The requirement that needs to be fulfilled.
 
         Returns
         -------
         bool
-            Whether it is possible for a dataset to be derived from existing datasets to fulfill this requirement.
+            Whether it is possible for a dataset to be derived from existing datasets to fulfill these requirements.
         """
         return False
 
-    def find_dataset_for_requirement(self, requirement: DataRequirement) -> Optional[Dataset]:
+    def find_dataset_for_requirements(self, requirements: List[DataRequirement]) -> Optional[Dataset]:
         """
-        Search for an existing dataset that will fulfill this requirement.
+        Search for an existing dataset that will fulfill all the given requirements.
 
         Parameters
         ----------
-        requirement : DataRequirement
-            The data requirement that needs to be fulfilled.
+        requirements : List[DataRequirement]
+            The data requirements that needs to be fulfilled.
 
         Returns
         -------
         Optional[Dataset]
-            The dataset fulfilling the requirement, if one is found; otherwise ``None``.
+            The (first) dataset fulfilling all the given requirement, if one is found; otherwise ``None``.
         """
         for name, dataset in self.get_known_datasets().items():
-            if dataset.category == requirement.category and dataset.data_domain.contains(requirement.domain):
-                return dataset
+            for requirement in requirements:
+                if dataset.category != requirement.category or not dataset.data_domain.contains(requirement.domain):
+                    break
+            return dataset
         return None
 
     def get_known_datasets(self) -> Dict[str, Dataset]:
