@@ -379,6 +379,8 @@ class ServiceManager(WebSocketInterface):
                     if dataset_manager is None:
                         dataset_manager = self.get_known_datasets()[mgr_msg.dataset_name].manager
                     response = await self._async_process_add_data(message, dataset_manager)
+                elif mgr_msg.management_action == ManagementAction.SEARCH:
+                    response = await self._async_dataset_search(message=mgr_msg)
                 else:
                     msg = "Unsupported data management message action {}".format(mgr_msg.management_action)
                     response = DatasetManagementResponse(action=mgr_msg.management_action, success=False,
