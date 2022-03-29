@@ -333,8 +333,8 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
                 # TODO: revisit this for JobCategory (remember right now this is the only way AWAITING_DATA_CHECK is entered, via default step)
                 job.status = JobStatus(phase=JobExecPhase.MODEL_EXEC)
                 self.save_job(job)
-            # Skip any jobs awaiting data check handled by the data service
-            if job.status_step == JobExecStep.AWAITING_DATA_CHECK:
+            # Skip jobs awaiting data check handled by the data service, or partitioning handled by partitioning service
+            if job.status_step == JobExecStep.AWAITING_DATA_CHECK or job.status_step == JobExecStep.AWAITING_PARTITIONING:
                 continue
 
             # TODO: figure out for STOPPED and FAILED if there are implications that require maintaining the same allocation
