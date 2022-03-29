@@ -317,6 +317,8 @@ class DatasetManagementResponse(Response):
         ManagementAction
             The action requested by the ::class:`DatasetManagementMessage` for which this instance is the response.
         """
+        if isinstance(self.data[self._DATA_KEY_ACTION], str):
+            self.data[self._DATA_KEY_ACTION] = ManagementAction.get_for_name(self.data[self._DATA_KEY_ACTION])
         return self.data[self._DATA_KEY_ACTION]
 
     @property
