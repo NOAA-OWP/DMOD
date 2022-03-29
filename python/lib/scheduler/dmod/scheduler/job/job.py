@@ -103,6 +103,10 @@ class JobExecStep(Enum):
     """ The step indicating a check is needed for availability of required data . """
     DATA_UNPROVIDEABLE = (-2, True, True)
     """ The error step that occurs if/when it is determined that required data is missing and cannot be obtained. """
+    AWAITING_PARTITIONING = (8, False, False)
+    """ The step indicating the job is waiting on a partitioning configuration to be created. """
+    PARTITIONING_FAILED = (-3, True, True)
+    """ The error step that occurs if/when generating a partitioning config for a job fails. """
     AWAITING_ALLOCATION = (1, False, False)
     """ The step after data is confirmed as available or obtainable, before resources have been allocated. """
     AWAITING_DATA = (8, False, False)
