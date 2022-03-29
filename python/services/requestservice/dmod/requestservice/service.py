@@ -3,15 +3,15 @@
 import asyncio
 import json
 import logging
-from typing import Type, Union
+from typing import Union
 
 import websockets
 from websockets import WebSocketServerProtocol
 
 from dmod.access import DummyAuthUtil, RedisBackendSessionManager
-from dmod.communication import InvalidMessageResponse, MessageEventType, WebSocketSessionsInterface, SchedulerClient, \
-    UnsupportedMessageTypeResponse
-from dmod.externalrequests import AuthHandler, NWMRequestHandler
+from dmod.communication import InvalidMessageResponse, MessageEventType, WebSocketSessionsInterface, \
+    SchedulerClient, UnsupportedMessageTypeResponse
+from dmod.externalrequests import AuthHandler, ModelExecRequestHandler, PartitionRequestHandler
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -38,15 +38,27 @@ class RequestService(WebSocketSessionsInterface):
         websocket server
     """
 
-    def __init__(self, listen_host='', port='3012', scheduler_host: str = 'localhost',
-                 scheduler_port: Union[str, int] = 3013, ssl_dir=None, cert_pem=None, priv_key_pem=None,
-                 scheduler_ssl_dir=None):
+    def __init__(self, listen_host='',
+                 port='3012',
+                 scheduler_host: str = 'localhost',
+                 scheduler_port: Union[str, int] = 3013,
+                 partitioner_host: str = 'localhost',
+                 partitioner_port: Union[str, int] = 3014,
+                 ssl_dir=None,
+                 cert_pem=None,
+                 priv_key_pem=None,
+                 scheduler_ssl_dir=None,
+                 partitioner_ssl_dir=None):
         super().__init__(listen_host=listen_host, port=port, ssl_dir=ssl_dir, cert_pem=cert_pem,
                          priv_key_pem=priv_key_pem)
         self._session_manager: RedisBackendSessionManager = RedisBackendSessionManager()
         self.scheduler_host = scheduler_host
         self.scheduler_port = int(scheduler_port)
         self.scheduler_client_ssl_dir = scheduler_ssl_dir if scheduler_ssl_dir is not None else self.ssl_dir
+
+        self.partitioner_host = partitioner_host
+        self.partitioner_port = int(partitioner_port)
+        self.partitioner_ssl_dir = partitioner_ssl_dir if partitioner_ssl_dir is not None else self.ssl_dir
 
         # FIXME: implement real authenticator
         self.authenticator = DummyAuthUtil()
@@ -62,11 +74,18 @@ class RequestService(WebSocketSessionsInterface):
                                                       authenticator=self.authenticator,
                                                       authorizer=self.authorizer)
         # TODO: make sure this is still valid after finishing implementation
-        self._dmod_request_handler = NWMRequestHandler(session_manager=self._session_manager,
-                                                         authorizer=self.authorizer,
-                                                         scheduler_host=scheduler_host,
-                                                         scheduler_port=scheduler_port,
-                                                         scheduler_ssl_dir=self.scheduler_client_ssl_dir)
+
+        self._model_exec_request_handler = ModelExecRequestHandler(session_manager=self._session_manager,
+                                                                   authorizer=self.authorizer,
+                                                                   scheduler_host=scheduler_host,
+                                                                   scheduler_port=int(scheduler_port),
+                                                                   scheduler_ssl_dir=self.scheduler_client_ssl_dir)
+
+        self._partition_request_handler = PartitionRequestHandler(session_manager=self._session_manager,
+                                                                  authorizer=self.authorizer,
+                                                                  partition_service_host=partitioner_host,
+                                                                  partition_service_port=int(partitioner_port),
+                                                                  partition_service_ssl_dir=self.partitioner_ssl_dir)
 
     @property
     def session_manager(self):
@@ -99,15 +118,18 @@ class RequestService(WebSocketSessionsInterface):
                             str(result)))
                     await websocket.send(str(response))
                 elif event_type == MessageEventType.MODEL_EXEC_REQUEST:
-                    response = await self._dmod_request_handler.handle_request(request=req_message)
+                    response = self._model_exec_request_handler.handle_request(requests=req_message)
                     logging.debug('************************* Handled request response: {}'.format(str(response)))
                     await websocket.send(str(response))
 
                     # TODO loop here to handle a series of multiple requests, as job goes from requested to allocated to
                     #  scheduled to finished (and of course, the messages for output data)
                     #  try while except connectionClosed; let server tell us when to stop listening
-
-                # FIXME: add another message type (here and in client) for data transmission
+                elif event_type == MessageEventType.PARTITION_REQUEST:
+                    response = await self._partition_request_handler.handle_request(request=req_message)
+                    logging.debug('************************* Handled request response: {}'.format(str(response)))
+                    await websocket.send(str(response))
+                # TODO: handle data management messages for creating datasets and adding data
                 # FIXME: add another message type for closing a session
                 else:
                     msg = 'Received valid ' + event_type.name + ' request, but listener does not currently support'
