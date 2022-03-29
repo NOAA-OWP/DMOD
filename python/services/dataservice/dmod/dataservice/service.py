@@ -1,7 +1,7 @@
 import asyncio
 import json
 from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, ManagementAction, WebSocketInterface
-from dmod.core.meta_data import DataRequirement
+from dmod.core.meta_data import DataCategory, DataDomain, DataRequirement, DiscreteRestriction
 from dmod.core.exception import DmodRuntimeError
 from dmod.modeldata.data.object_store_dataset import Dataset, DatasetManager, ObjectStoreDataset, \
     ObjectStoreDatasetManager
@@ -178,6 +178,47 @@ class ServiceManager(WebSocketInterface):
         ::method:`_process_dataset_create`
         """
         return self._process_dataset_create(message)
+
+    def _create_output_datasets(self, job: Job):
+        """
+        Create output datasets and associated requirements for this job, based on its ::method:`Job.output_formats`.
+
+        Create empty output datasets and the associated ::class:`DataRequirement` instances for this job, corresponding
+        to the output dataset formats listed in the job's ::method:`Job.output_formats` property.  The values in this
+        property are iterated through by list index to be able to reuse the index value for dataset name, as noted
+        below.
+
+        Datasets will be named as ``job-<job_uuid>-output-<output_index>``, where ``<output_index>`` is the index of the
+        corresponding value in ::method:`Job.output_formats`.
+
+        Parameters
+        ----------
+        job : Job
+            The job for which to create output datasets.
+        """
+        for i in range(len(job.model_request.output_formats)):
+
+            id_restrict = DiscreteRestriction(variable='id', values=[])
+
+            time_range = None
+            for data_domain in [req.domain for req in job.data_requirements if req.category == DataCategory.FORCING]:
+                time_restrictions = [r for k, r in data_domain.continuous_restrictions.items() if r.variable == 'Time']
+                if len(time_restrictions) > 0:
+                    time_range = time_restrictions[0]
+                    break
+
+            # TODO: (later) more intelligently determine type
+            mgr = self._all_data_managers[ObjectStoreDataset]
+            dataset = mgr.create(name='job-{}-output-{}'.format(job.job_id, i),
+                                 is_read_only=False,
+                                 category=DataCategory.OUTPUT,
+                                 domain=DataDomain(data_format=job.model_request.output_formats[i],
+                                                   continuous_restrictions=None if time_range is None else [time_range],
+                                                   discrete_restrictions=[id_restrict]))
+            # Create a data requirement for the job, fulfilled by the new dataset
+            requirement = DataRequirement(domain=dataset.data_domain, is_input=False,
+                                          category=DataCategory.OUTPUT, fulfilled_by=dataset.name)
+            job.data_requirements.append(requirement)
 
     def _determine_dataset_type(self, message: DatasetManagementMessage) -> Type[DATASET_TYPE]:
         """
@@ -414,6 +455,8 @@ class ServiceManager(WebSocketInterface):
                     continue
                 # Check if all requirements for this job can be fulfilled, updating the job's status based on result
                 if await self.perform_checks_for_job(job):
+                    # Before moving to next successful step, also create output datasets and requirement entries
+                    self._create_output_datasets(job)
                     job.status_step = JobExecStep.AWAITING_PARTITIONING
                 else:
                     job.status_step = JobExecStep.DATA_UNPROVIDEABLE
