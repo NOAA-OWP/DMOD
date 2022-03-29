@@ -401,43 +401,56 @@ class ServiceManager(WebSocketInterface):
         Task method to periodically examine whether required data for jobs is available.
 
         Method is expected to be a long-running async task.  In its main routine, it iterates through the job-level
-        ::class:`DataRequirement`, in each active job in the ``AWAITING_DATA_CHECK`` ::class:`JobExecStep`.  For each 
-        job, it checks whether each individual requirement can be fulfilled, updating the requirement's 
-        ::attribute:`DataRequirement.fulfilled_by` property if so.  However, as soon as any requirement is found that
-        cannot be fulfilled, the function breaks out of the inner loop through the current job's requirements, moving
-        that job to the ``DATA_UNPROVIDEABLE`` step and continuing to the next job to process.
-
-        Assuming iterations for all possible requirements of the current job are processed, with all requirements found
-        the be fulfillable, the current job is moved to the ``AWAITING_ALLOCATION`` step.  The routine then advances to
-        the next iteration in the outer job loop. 
-
-        After all active jobs have been processed, the function sleeps for a brief period, then repeats its routine.
+        ::class:`DataRequirement`, in each active job in the ``AWAITING_DATA_CHECK`` ::class:`JobExecStep`.  It checks
+        whether each individual requirement can be fulfilled for a job.  If so, the job is moved to the
+        ``AWAITING_PARTITIONING`` step and any needed output datasets are created.  If not, the job is moved to the
+        ``DATA_UNPROVIDEABLE`` step.
         """
         while True:
             for job in self._job_util.get_all_active_jobs():
                 if job.status_step != JobExecStep.AWAITING_DATA_CHECK:
                     continue
-                for requirement in job.data_requirements:
-                    # TODO: (later) do we need to check whether this dataset exists, or handle this differently?
-                    if requirement.fulfilled_by is not None:
-                        continue
-                    can_fulfill, dataset_name = await self.can_be_fulfilled(requirement)
-                    # When this can't be fulfilled, update status appropriately
-                    # Also, we don't need to bother checking the other requirements, so break inner loop
-                    if not can_fulfill:
-                        job.status_step = JobExecStep.DATA_UNPROVIDEABLE
-                        break
-                    # Also if can fulfill and already a specific existing dataset that will, associate with requirement
-                    elif dataset_name is not None:
-                        requirement.fulfilled_by = dataset_name
-                    else:
-                        # TODO: need to properly implement generating necessary derived dataset here
-                        msg = "Logic to initiate dataset derivation not yet available in required data checking task"
-                        raise NotImplementedError(msg)
-                # If we didn't deem job as `DATA_UNPROVIDEABLE`, then check is good, so move to `AWAITING_ALLOCATION`
-                if job.status_step != JobExecStep.DATA_UNPROVIDEABLE:
-                    job.status_step = JobExecStep.AWAITING_ALLOCATION
+                # Check if all requirements for this job can be fulfilled, updating the job's status based on result
+                if await self.perform_checks_for_job(job):
+                    job.status_step = JobExecStep.AWAITING_PARTITIONING
+                else:
+                    job.status_step = JobExecStep.DATA_UNPROVIDEABLE
                 # Regardless, save the updated job state
-                self._job_util.save_job(job)
-            await asyncio.sleep(10)
+                try:
+                    self._job_util.save_job(job)
+                except:
+                    # TODO: logging would be good, and perhaps maybe retries
+                    pass
+            await asyncio.sleep(5)
+
+    async def perform_checks_for_job(self, job: Job) -> bool:
+        """
+        Check whether all requirements for this job can be fulfilled, setting the fulfillment associations.
+
+        Check whether all the requirements for the provided job can be fulfilled, such that the job can move on to the
+        next successful step in the execution workflow.  As part of the check, also update the ::class:`DataRequirement`
+        objects with the name of the fulfilling dataset.
+
+        Parameters
+        ----------
+        job : Job
+            The job of interest.
+
+        Returns
+        -------
+        bool
+            Whether all requirements can be fulfilled.
+
+        See Also
+        -------
+        ::method:`can_be_fulfilled`
+        """
+        # TODO: (later) should we check whether any 'fulfilled_by' datasets exist, or handle this differently?
+        for requirement in [req for req in job.data_requirements if req.fulfilled_by is None]:
+            can_fulfill, dataset_name = await self.can_be_fulfilled([requirement])
+            if not can_fulfill:
+                return False
+            elif dataset_name is not None:
+                requirement.fulfilled_by = dataset_name
+        return True
 
