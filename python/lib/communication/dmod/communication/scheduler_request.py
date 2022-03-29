@@ -1,4 +1,4 @@
-from .maas_request import ModelExecRequest
+from .maas_request import ModelExecRequest, ModelExecRequestResponse
 from .message import AbstractInitRequest, MessageEventType, Response
 from typing import Optional
 
@@ -98,12 +98,39 @@ class SchedulerRequestMessage(AbstractInitRequest):
 class SchedulerRequestResponse(Response):
     response_to_type = SchedulerRequestMessage
 
+    def __init__(self, job_id: int = -1, output_data_id: Optional[str] = None, data: dict = None, **kwargs):
+        # TODO: consider how to handle things if 'success=True' comes as keyword arg, but job_id = -1 (implies False)
+        # TODO: similarly, consider successful case but with None for output dataset data_id
+        if data is None:
+            data = {}
+        data[ModelExecRequestResponse.get_job_id_key()] = job_id
+        if output_data_id is not None:
+            data[ModelExecRequestResponse.get_output_data_id_key()] = output_data_id
+        # TODO: also think about whether 'success' in kwargs should be overwritten or removed if present
+        super(SchedulerRequestResponse, self).__init__(success=job_id > 0, data=data, **kwargs)
+
     def __eq__(self, other):
-        return self.__class__ == other.__class__  and self.success == other.success and self.job_id == other.job_id
+        return self.__class__ == other.__class__ and self.success == other.success and self.job_id == other.job_id
 
     @property
     def job_id(self):
         if self.success:
-            return self.data['job_id']
+            return self.data[ModelExecRequestResponse.get_job_id_key()]
         else:
             return -1
+
+    # TODO: make sure this value gets included in the data dict
+    @property
+    def output_data_id(self) -> Optional[str]:
+        """
+        The 'data_id' of the output dataset for the requested job, if known.
+
+        Returns
+        -------
+        Optional[str]
+            The 'data_id' of the output dataset for requested job, or ``None`` if not known.
+        """
+        if ModelExecRequestResponse.get_output_data_id_key() in self.data:
+            return self.data[ModelExecRequestResponse.get_output_data_id_key()]
+        else:
+            return None
