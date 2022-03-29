@@ -31,15 +31,15 @@ def _handle_args():
     parser.add_argument('--ssl-dir',
                         help='Change the base directory when using SSL certificate and key files with default names',
                         dest='ssl_dir',
-                        default=None)
+                        default='/ssl/partitionerservice')
     parser.add_argument('--cert',
                         help='Specify path for a particular SSL certificate file to use',
                         dest='cert_path',
-                        default=None)
+                        default='certificate.pem')
     parser.add_argument('--key',
                         help='Specify path for a particular SSL private key file to use',
                         dest='key_path',
-                        default=None)
+                        default='privkey.pem')
     parser.add_argument('--public-registry',
                         '-p',
                         help='Use public Docker image registry instead of private',
