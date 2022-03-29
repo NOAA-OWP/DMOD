@@ -14,6 +14,7 @@ import websockets
 from .maas_request import MaaSRequest, MaaSRequestResponse, ModelExecRequest, ModelExecRequestResponse, NWMRequest, \
     NGENRequest
 from .message import AbstractInitRequest, Message, Response, InitRequestResponseReason
+from .partition_request import PartitionRequest, PartitionResponse
 from .scheduler_request import SchedulerRequestMessage, SchedulerRequestResponse
 from .validator import NWMRequestJsonValidator
 from .update_message import UpdateMessage, UpdateMessageResponse
@@ -621,3 +622,24 @@ class ModelExecRequestClient(MaasRequestClient[ModelExecRequest, ModelExecReques
         #self.info.append("Scheduler started job, id {}, results: {}".format(self.job_id, results))
         #self.info.append("All user jobs: {}".format(jobs))
         self.info.append("Scheduler started job, id {}".format(response.data['job_id']))
+
+
+class PartitionerServiceClient(InternalServiceClient[PartitionRequest, PartitionResponse]):
+    """
+    A client for interacting with the partitioner service.
+
+    Because it is for the partitioner service, and this service is internal to the system and not publicly exposed, this
+    does not need to be a (public) ::class:`MaasRequestClient` based type.
+    """
+
+    @classmethod
+    def get_response_subtype(cls) -> Type[PartitionResponse]:
+        """
+        Return the response subtype class appropriate for this client implementation.
+
+        Returns
+        -------
+        Type[PartitionResponse]
+            The response subtype class appropriate for this client implementation.
+        """
+        return PartitionResponse
