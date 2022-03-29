@@ -1,4 +1,5 @@
 from .message import AbstractInitRequest, MessageEventType, Response
+from .maas_request import MaaSRequest, MaaSRequestResponse
 from dmod.core.meta_data import DataCategory, DataDomain
 from numbers import Number
 from enum import Enum
@@ -389,3 +390,87 @@ class DatasetManagementResponse(Response):
         """
         return self.data[self._DATA_KEY_IS_AWAITING]
 
+
+class MaaSDatasetManagementMessage(MaaSRequest, DatasetManagementMessage):
+    """
+    A publicly initiated, and thus session authenticated, extension of ::class:`DatasetManagementMessage`.
+    """
+
+    _SERIAL_KEY_SESSION_SECRET = 'session_secret'
+
+    @classmethod
+    def factory_create(cls, mgmt_msg: DatasetManagementMessage, session_secret: str) -> 'MaaSDatasetManagementMessage':
+        return cls(session_secret=session_secret, action=mgmt_msg.management_action, dataset_name=mgmt_msg.dataset_name,
+                   is_read_only_dataset=mgmt_msg.is_read_only_dataset, category=mgmt_msg.data_category,
+                   data=mgmt_msg.data, data_location=mgmt_msg.data_location, is_pending_data=mgmt_msg.is_pending_data)
+
+    @classmethod
+    def factory_init_correct_response_subtype(cls, json_obj: dict) -> 'MaaSDatasetManagementResponse':
+        """
+        Init a :obj:`Response` instance of the appropriate subtype for this class from the provided JSON object.
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+
+        """
+        return MaaSDatasetManagementResponse.factory_init_from_deserialized_json(json_obj=json_obj)
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict) -> Optional['MaaSDatasetManagementMessage']:
+        dataset_name = json_obj[cls._SERIAL_KEY_DATASET_NAME] if cls._SERIAL_KEY_DATASET_NAME in json_obj else None
+        category = json_obj[cls._SERIAL_KEY_CATEGORY] if cls._SERIAL_KEY_CATEGORY in json_obj else None
+        raw_data = json_obj[cls._SERIAL_KEY_DATA] if cls._SERIAL_KEY_DATA in json_obj else None
+        data_loc = json_obj[cls._SERIAL_KEY_DATA_LOCATION] if cls._SERIAL_KEY_DATA_LOCATION in json_obj else None
+
+        try:
+            obj = cls(session_secret=json_obj[cls._SERIAL_KEY_SESSION_SECRET], action=json_obj[cls._SERIAL_KEY_ACTION],
+                      dataset_name=dataset_name, category=category, data=raw_data, data_location=data_loc,
+                      is_read_only_dataset=json_obj[cls._SERIAL_KEY_IS_READ_ONLY],
+                      is_pending_data=json_obj[cls._SERIAL_KEY_IS_PENDING_DATA])
+            if cls._SERIAL_KEY_DATA_DOMAIN in json_obj:
+                obj.data_domain = DataDomain.factory_init_from_deserialized_json(json_obj[cls._SERIAL_KEY_DATA_DOMAIN])
+            return obj
+        except Exception as e:
+            return None
+
+    def __init__(self, session_secret: str, action: ManagementAction, dataset_name: Optional[str] = None,
+                 is_read_only_dataset: bool = False, category: Optional[DataCategory] = None,
+                 data: Optional[bytes] = None, data_location: Optional[str] = None, is_pending_data: bool = False):
+        super(MaaSDatasetManagementMessage, self).__init__(action=action, dataset_name=dataset_name, data=data,
+                                                           is_read_only_dataset=is_read_only_dataset, category=category,
+                                                           data_location=data_location, is_pending_data=is_pending_data)
+        MaaSRequest.__init__(self, session_secret=session_secret)
+
+    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
+        serial = super(MaaSDatasetManagementMessage, self).to_dict()
+        serial[self._SERIAL_KEY_SESSION_SECRET] = self.session_secret
+        return serial
+
+
+class MaaSDatasetManagementResponse(MaaSRequestResponse, DatasetManagementResponse):
+    """
+    Analog of ::class:`DatasetManagementResponse`, but for the ::class:`MaaSDatasetManagementMessage` message type.
+    """
+
+    response_to_type = MaaSDatasetManagementMessage
+
+    @classmethod
+    def factory_create(cls, dataset_mgmt_response: DatasetManagementResponse) -> 'MaaSDatasetManagementResponse':
+        """
+        Create an instance from the non-session-based ::class:`DatasetManagementResponse`.
+
+        Parameters
+        ----------
+        dataset_mgmt_response : DatasetManagementResponse
+            Analogous instance of the non-session type.
+
+        Returns
+        -------
+        MaaSDatasetManagementResponse
+            Factory-created analog of this instance type.
+        """
+        return cls.factory_init_from_deserialized_json(dataset_mgmt_response.to_dict())
