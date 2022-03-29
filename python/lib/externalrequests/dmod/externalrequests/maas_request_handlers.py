@@ -1,9 +1,10 @@
 import logging
 from abc import ABC, abstractmethod
 from dmod.access import Authorizer
-from dmod.communication import AbstractRequestHandler, FullAuthSession, MaaSRequest, \
+from dmod.communication import AbstractRequestHandler, DataServiceClient, FullAuthSession, MaaSRequest, \
     InitRequestResponseReason, InternalServiceClient, PartitionRequest, PartitionResponse, PartitionerServiceClient, \
     Session, SessionManager
+from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage, MaaSDatasetManagementResponse
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -198,3 +199,57 @@ class PartitionRequestHandler(MaaSRequestHandler):
             logging.debug("************* {} received response:\n{}".format(self.__class__.__name__, str(response)))
         # Likewise, can just send back the response from the internal service client
         return response
+
+
+class DatasetRequestHandler(MaaSRequestHandler):
+
+    def __init__(self, session_manager: SessionManager, authorizer: Authorizer, data_service_host: str,
+                 data_service_port: int, data_service_ssl_dir: Path):
+        super(DatasetRequestHandler, self).__init__(session_manager=session_manager,
+                                                    authorizer=authorizer,
+                                                    service_host=data_service_host,
+                                                    service_port=data_service_port,
+                                                    service_ssl_dir=data_service_ssl_dir)
+
+        # TODO: implement properly
+        self._default_required_access_type = None
+
+        self._service_client = None
+
+    async def determine_required_access_types(self, request: MaaSDatasetManagementMessage, user) -> tuple:
+        """
+        Determine what access is required for this request from this user to be accepted.
+
+        Determine the necessary access types for which the given user needs to be authorized in order for the user to
+        be allow to submit this request, in the context of the current state of the system.
+
+        Parameters
+        ----------
+        request
+        user
+
+        Returns
+        -------
+        A tuple of required access types required for authorization for the given request at this time.
+        """
+        # TODO: implement; in particular, consider things like current job count for user, and whether different access
+        #   types are required at different counts.
+        # FIXME: for now, just use the default type (which happens to be "everything")
+        return self._default_required_access_type,
+
+    async def handle_request(self, request: MaaSDatasetManagementMessage, **kwargs) -> MaaSDatasetManagementResponse:
+        session, is_authorized, reason, msg = self.get_authorized_session(request)
+        if not is_authorized:
+            return MaaSDatasetManagementResponse(success=False, reason=reason.name, message=msg)
+        # In this case, we actually can pass the request as-is straight through (i.e., after confirming authorization)
+        async with self.service_client as client:
+            response = await client.async_make_request(request)
+            logging.debug("************* {} received response:\n{}".format(self.__class__.__name__, str(response)))
+        # Likewise, can just send back the response from the internal service client
+        return response
+
+    @property
+    def service_client(self) -> DataServiceClient:
+        if self._service_client is None:
+            self._service_client = DataServiceClient(self.service_url, self.service_ssl_dir)
+        return self._service_client
