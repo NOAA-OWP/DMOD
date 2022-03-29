@@ -194,16 +194,21 @@ class ServiceManager(WebSocketInterface):
         ::method:`_async_process_add_data`
         """
         if not isinstance(message, DatasetManagementMessage):
-            return DatasetManagementResponse(success=False, reason="Unparseable Message Received")
+            return DatasetManagementResponse(action=ManagementAction.UNKNOWN, success=False,
+                                             reason="Unparseable Message Received")
         elif message.management_action != ManagementAction.ADD_DATA:
             msg_txt = "Expected {} action but received {}".format(ManagementAction.ADD_DATA, message.management_action)
-            return DatasetManagementResponse(success=False, reason="Unexpected Management Action", message=msg_txt)
+            return DatasetManagementResponse(action=message.management_action, success=False,
+                                             reason="Unexpected Management Action", message=msg_txt)
         elif message.data is None:
-            return DatasetManagementResponse(success=False, reason="No Data In ADD_DATA Message")
+            return DatasetManagementResponse(action=message.management_action, success=False,
+                                             reason="No Data In ADD_DATA Message")
         elif mngr.add_data(message.dataset_name, dest=message.data_location, data=message.data):
-            return DatasetManagementResponse(success=True, reason="Data Added", is_awaiting=message.is_pending_data)
+            return DatasetManagementResponse(action=message.management_action, success=True, reason='Data Added',
+                                             is_awaiting=message.is_pending_data, dataset_name=message.dataset_name)
         else:
-            return DatasetManagementResponse(success=False, reason="Failure Adding Data To Dataset", is_awaiting=False)
+            return DatasetManagementResponse(action=message.management_action, success=False,
+                                             dataset_name=message.dataset_name, reason="Failure Adding Data To Dataset")
 
     def _process_dataset_create(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
         """
@@ -221,17 +226,23 @@ class ServiceManager(WebSocketInterface):
         """
         # Make sure there is no conflict/existing dataset already
         if message.dataset_name in self.get_known_datasets():
-            return DatasetManagementResponse(success=False, reason="Dataset Already Exists")
+            return DatasetManagementResponse(action=message.management_action, success=False,
+                                             reason="Dataset Already Exists", dataset_name=message.dataset_name)
         # Handle when message to create fails to include a dataset domain
         elif message.data_domain is None:
             msg = "Invalid {} for dataset creation: no dataset domain provided.".format(message.__class__.__name__)
-            return DatasetManagementResponse(success=False, reason="No Dataset Domain", message=msg)
+            return DatasetManagementResponse(action=message.management_action, success=False, message=msg,
+                                             reason="No Dataset Domain", dataset_name=message.dataset_name)
 
         # Create the dataset
         dataset_type = self._determine_dataset_type(message)
-        self._all_data_managers[dataset_type].create(name=message.dataset_name, category=message.data_category,
-                                                     domain=message.data_domain, is_read_only=False)
-        return DatasetManagementResponse(success=True, reason="Dataset Created", is_awaiting=message.is_pending_data)
+        dataset = self._all_data_managers[dataset_type].create(name=message.dataset_name, category=message.data_category,
+                                                               domain=message.data_domain, is_read_only=False)
+        # TODO: determine if there is an expectation to find data
+        # TODO:     if so, attempt to find data, setting pending response based on result
+        return DatasetManagementResponse(action=message.management_action, success=True, reason="Dataset Created",
+                                         data_id=str(dataset.uuid), dataset_name=dataset.name,
+                                         is_awaiting=message.is_pending_data)
 
     async def can_be_fulfilled(self, requirements: List[DataRequirement]) -> Tuple[bool, Optional[str]]:
         """
@@ -336,7 +347,8 @@ class ServiceManager(WebSocketInterface):
 
                 # If we were not able to otherwise process the message into a response, then it is unsupported
                 if mgr_msg is None:
-                    response = DatasetManagementResponse(success=False, reason="Unparseable Message Received")
+                    response = DatasetManagementResponse(action=ManagementAction.UNKNOWN, success=False,
+                                                         reason="Unparseable Message Received")
                 elif mgr_msg.management_action == ManagementAction.CREATE:
                     response = await self._async_process_dataset_create(message=mgr_msg)
                 elif mgr_msg.management_action == ManagementAction.ADD_DATA:
@@ -346,7 +358,8 @@ class ServiceManager(WebSocketInterface):
                     response = await self._async_process_add_data(message, dataset_manager)
                 else:
                     msg = "Unsupported data management message action {}".format(mgr_msg.management_action)
-                    response = DatasetManagementResponse(success=False, reason="Unsupported Action", message=msg)
+                    response = DatasetManagementResponse(action=mgr_msg.management_action, success=False,
+                                                         reason="Unsupported Action", message=msg)
                 await websocket.send(str(response))
                 is_awaiting = response.is_awaiting
 
