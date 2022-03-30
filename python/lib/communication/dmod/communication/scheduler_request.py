@@ -98,16 +98,23 @@ class SchedulerRequestMessage(AbstractInitRequest):
 class SchedulerRequestResponse(Response):
     response_to_type = SchedulerRequestMessage
 
-    def __init__(self, job_id: int = -1, output_data_id: Optional[str] = None, data: dict = None, **kwargs):
-        # TODO: consider how to handle things if 'success=True' comes as keyword arg, but job_id = -1 (implies False)
-        # TODO: similarly, consider successful case but with None for output dataset data_id
-        if data is None:
+    def __init__(self, job_id: Optional[int] = None, output_data_id: Optional[str] = None, data: dict = None, **kwargs):
+        # TODO: how to handle if kwargs has success=True, but job_id value (as param or in data) implies success=False
+        key_job_id = ModelExecRequestResponse.get_job_id_key()
+        # Create an empty data if not supplied a dict, but only if there is a job_id or output_data_id to insert
+        if data is None and (job_id is not None or output_data_id is not None):
             data = {}
-        data[ModelExecRequestResponse.get_job_id_key()] = job_id
+        # Prioritize provided job_id over something already in data
+        # Note that this condition implies that either a data dict was passed as param, or one just got created above
+        if job_id is not None:
+            data[key_job_id] = job_id
+        # Insert this into dict if present also (again, it being non-None implies data must be a dict object)
         if output_data_id is not None:
             data[ModelExecRequestResponse.get_output_data_id_key()] = output_data_id
-        # TODO: also think about whether 'success' in kwargs should be overwritten or removed if present
-        super(SchedulerRequestResponse, self).__init__(success=job_id > 0, data=data, **kwargs)
+        # Ensure that 'success' is being passed as a kwarg to the superclass constructor
+        if 'success' not in kwargs:
+            kwargs['success'] = data is not None and key_job_id in data and data[key_job_id] > 0
+        super(SchedulerRequestResponse, self).__init__(data=data, **kwargs)
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.success == other.success and self.job_id == other.job_id
