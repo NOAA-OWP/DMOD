@@ -15,7 +15,6 @@ setup(
     url='',
     license='',
     install_requires=['numpy>=1.20.1', 'pandas', 'geopandas', 'dmod-communication>=0.4.2', 'dmod-core>=0.1.0', 'minio',
-                      'aiohttp<=3.7.4', 'hypy@git+https://github.com/NOAA-OWP/hypy@master#egg=hypy&subdirectory=python',
-                      ],
+                      'aiohttp<=3.7.4', 'hypy@git+https://github.com/NOAA-OWP/hypy@master#egg=hypy&subdirectory=python'],
     packages=find_namespace_packages(exclude=('tests', 'schemas', 'ssl', 'src'))
 )
