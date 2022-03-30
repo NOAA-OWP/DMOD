@@ -349,7 +349,7 @@ elif [ "${DO_TEARDOWN_IT}" = "true" ]; then
     # Then run the teardown function
     [ -n "${SET_VERBOSE:-}" ] && echo "Tearing down integration tests environment" 2>&1 && echo "" 2>&1
     ${INTEGRATION_TEST_TEARDOWN_FUNC}
-elif [ "${TEST_FILE_PATTERN}" == "both" ]; then
+elif [ "${TEST_FILE_PATTERN}" = "both" ]; then
     echo "Running unit tests:"
     echo "--------------------------"
     find_and_exec_test_files "${DEFAULT_UNIT_TEST_FILE_PATTERN}"
