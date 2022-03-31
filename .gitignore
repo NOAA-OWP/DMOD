@@ -4,6 +4,7 @@ __pycache__/
 /.idea/
 /docker_host_volumes/
 /venv/
+/venv_*/
 .env
 docker/main/base/ssh/
 python/gui/db.sqlite3
