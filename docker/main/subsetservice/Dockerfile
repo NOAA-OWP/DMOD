@@ -7,7 +7,7 @@ FROM ${docker_internal_registry}/dmod-py-sources as sources
 # dependencies related to pandas when using the monitordata package.
 #FROM python:3.8
 
-FROM alpine:3.12
+FROM python:3.8-alpine3.15
 
 ARG comms_package_name
 ARG modeldata_package_name
@@ -21,7 +21,7 @@ WORKDIR /code
 #RUN apt-get update && apt-get upgrade && apt-get -y install ${REQUIRE}
 #RUN ln -s /usr/lib/x86_64-linux-musl/libc.so /lib/libc.musl-x86_64.so.1
 
-RUN echo "http://dl-8.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
+#RUN echo "http://dl-8.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
 RUN apk --no-cache --update-cache add git gcc gfortran python3 python3-dev py-pip build-base wget geos-dev gdal-dev freetype-dev libpng-dev openblas-dev
 RUN ln -s /usr/include/locale.h /usr/include/xlocale.h
 
