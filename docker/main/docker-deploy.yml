@@ -94,7 +94,7 @@ services:
     networks:
       - requests-net
     ports:
-      - ${DOCKER_SUBSET_API_PORT:-5001}:${DOCKER_SUBSET_CONTAINER_PORT:-5000}
+      - ${DOCKER_SUBSET_API_PORT:-5001}:${DOCKER_SUBSET_CONTAINER_PORT:-5001}
     volumes:
       - ${HYDROFABRIC_DATA_DIR:?Please set HYDROFABRIC_DATA_DIR for Docker environment in .env config file}:/hydrofabric_data
     deploy:
