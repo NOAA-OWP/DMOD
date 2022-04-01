@@ -8,7 +8,6 @@ ARG REQUIRE
 RUN apk update && apk upgrade && apk add --no-cache ${REQUIRE}
 # Along with setup and wheel to build, install all project pip dependencies for package building later
 RUN mkdir /DIST && mkdir /dmod && pip install --upgrade pip
-RUN apk add --no-cache python3-dev libstdc++
 RUN for d in numpy pandas crypt scikit-learn; do for b in DIST; do mkdir -p /${b}/${d}; done; done
 
 ################################################################################################################
