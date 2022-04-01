@@ -124,6 +124,7 @@ services:
     secrets:
       - object_store_exec_user_name
       - object_store_exec_user_passwd
+      - myredis_pass
     environment:
       - SERVICE_PACKAGE_NAME=${PYTHON_PACKAGE_NAME_DATA_SERVICE:-dmod.dataservice}
       - LISTEN_PORT=${DOCKER_DATASERVICE_CONTAINER_PORT:-3020}
@@ -141,9 +142,11 @@ services:
       #- VENV_DIR=${DOCKER_REQUESTS_CONTAINER_VENV_DIR:-}
     working_dir: /code
     ports:
-      - "${DOCKER_REQUESTS_HOST_PORT:-3012}:${DOCKER_REQUESTS_CONTAINER_PORT:-3012}"
+      - "${DOCKER_DATASERVICE_HOST_PORT:-3015}:${DOCKER_DATASERVICE_CONTAINER_PORT:-3015}"
     volumes:
       - ${DMOD_SSL_DIR:?}:/ssl
+      # TODO: this needs to be fixed, but right now is necessary because the service imports dmod.scheduler for Job
+      - /var/run/docker.sock:/var/run/docker.sock
     #  - ./request_handler:/code
     #depends_on:
     #  - myredis
