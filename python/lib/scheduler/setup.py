@@ -17,8 +17,8 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=['docker', 'Faker', 'dmod-communication>=0.4.2', 'dmod-modeldata>=0.5.0', 'dmod-redis>=0.1.0',
-                      'dmod-core>=0.1.0', 'uri'],
+    install_requires=['docker', 'Faker', 'dmod-communication>=0.7.0', 'dmod-modeldata>=0.7.1', 'dmod-redis>=0.1.0',
+                      'dmod-core>=0.1.0', 'cryptography', 'uri', 'pyyaml'],
     packages=find_namespace_packages(exclude=('test', 'src'))
 )
 
