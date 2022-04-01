@@ -14,7 +14,7 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=['websockets', 'dmod-core>=0.1.0', 'dmod-communication>=0.7.0', 'dmod-modeldata>=0.7.0',
-                      'dmod-scheduler>=0.7.0', 'uri'],
+    install_requires=['dmod-core>=0.1.0', 'dmod-communication>=0.7.0', 'dmod-modeldata>=0.7.0', 'dmod-scheduler>=0.7.0',
+                      'dmod-externalrequests>=0.3.0'],
     packages=find_namespace_packages(exclude=('tests', 'schemas', 'ssl', 'src'))
 )
