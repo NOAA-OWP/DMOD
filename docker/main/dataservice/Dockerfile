@@ -10,9 +10,12 @@ WORKDIR /code
 COPY ./entrypoint.sh entrypoint.sh
 COPY --from=sources /DIST /DIST
 RUN apk update \
-    && apk add --no-cache openssl git g++ libffi-dev \
+    && apk add --no-cache openssl git g++ libffi-dev proj proj-dev proj-util gdal-dev openblas openblas-dev \
     && chmod u+x entrypoint.sh \
     && pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir aiohttp==3.8.1 \
     && pip install --no-cache-dir --find-links=/DIST "${service_package_name}${service_package_constraint}" \
+    # TODO: this is a workaround, and may have side effects (transitive dependency issue with aiohttp and redis) \
+    && pip install --no-cache-dir aiohttp==3.8.1 \
     && rm -rf /DIST
 ENTRYPOINT ["/code/entrypoint.sh"]
