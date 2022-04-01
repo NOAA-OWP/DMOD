@@ -17,7 +17,7 @@ COPY ./entrypoint.sh entrypoint.sh
 COPY --from=sources /DIST /DIST
 
 RUN apk update \
-    && apk add --no-cache openssl bash python3-dev libffi-dev musl-dev gcc g++ git \
+    && apk add --no-cache openssl bash libffi-dev musl-dev libstdc++ git openblas-dev proj proj-dev proj-util gdal-dev  \
     && rm -rf /var/cache/apk/* \
     && alias python=python3 \
     && pip3 install --no-cache-dir --upgrade pip \
@@ -26,6 +26,8 @@ RUN apk update \
     && pip3 install websockets \
     # Install service package, along with custom and generally available dependencies, which should all be in /DIST \
     && pip3 install --no-cache-dir --find-links=/DIST "${scheduler_service_package_dist_name}${scheduler_service_package_version_constraint}" \
+    # TODO: this is a workaround, and may have side effects (transitive dependency issue with aiohttp and redis) \
+    && pip3 install --no-cache-dir aiohttp==3.8.1 \
     # After installing everything needed from /DIST, clean up ... \
     && rm -r /DIST \
     && mkdir -p ~/.ssh \
