@@ -74,7 +74,7 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
         except Exception as e:
             pass
 
-    def __init__(self, listen_host='', port=3012, ssl_dir=None, cert_pem=None, priv_key_pem=None):
+    def __init__(self, listen_host='', port=3012, ssl_dir=None, cert_pem=None, priv_key_pem=None, *args, **kwargs):
         """
         Initialize this instance, starting its event loop and websocket server.
 
