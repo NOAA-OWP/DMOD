@@ -35,11 +35,11 @@ def _handle_args():
     parser.add_argument('--cert',
                         help='Specify path for a particular SSL certificate file to use',
                         dest='cert_path',
-                        default='certificate.pem')
+                        default=None)
     parser.add_argument('--key',
                         help='Specify path for a particular SSL private key file to use',
                         dest='key_path',
-                        default='privkey.pem')
+                        default=None)
     parser.add_argument('--public-registry',
                         '-p',
                         help='Use public Docker image registry instead of private',
