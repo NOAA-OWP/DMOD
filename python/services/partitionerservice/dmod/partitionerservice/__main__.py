@@ -114,14 +114,14 @@ def main():
                                                     redis_pass=redis_pass)
 
     data_service_url = DataServiceClient.build_endpoint_uri(host=args.data_service_host, port=args.data_service_port)
-    data_client = DataServiceClient(endpoint_uri=data_service_url, ssl_directory=args.data_service_ssl_dir)
+    data_client = DataServiceClient(endpoint_uri=data_service_url, ssl_directory=Path(args.data_service_ssl_dir))
 
-    service = ServiceManager(listen_port=args.listen_port, listen_host=args.listen_host, ssl_dir=Path(args.ssl_dir),
+    service = ServiceManager(port=args.listen_port, listen_host=args.listen_host, ssl_dir=Path(args.ssl_dir),
                              cert_pem=args.cert_path, priv_key_pem=args.key_path, image_name=image, job_util=job_util,
                              data_client=data_client, hydrofabrics_dir=args.hydrofabrics_dir)
 
     # Setup other required async tasks
-    service.add_async_task(service.manage_job_partitioning)
+    service.add_async_task(service.manage_job_partitioning())
 
     service.run()
 
