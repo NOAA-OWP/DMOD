@@ -24,7 +24,7 @@ logging.basicConfig(
 )
 
 
-class ServiceManager(WebSocketInterface, HydrofabricFilesManager):
+class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
     """
     Main service and communication manager class, implemented with WebSocketInterface.
 
@@ -40,14 +40,14 @@ class ServiceManager(WebSocketInterface, HydrofabricFilesManager):
     been mounted by that container also in order to provide access.
     """
 
-    def __init__(self, listen_port: int, image_name: str, hydrofabrics_dir: Union[str, Path], job_util: JobUtil,
+    def __init__(self, image_name: str, hydrofabrics_dir: Union[str, Path], job_util: JobUtil,
                  data_client: DataServiceClient, *args, **kwargs):
         """
         Initialize with type-specific params and any user defined custom server config.
 
         Parameters
         ----------
-        listen_port
+        port
         image_name
         hydrofabrics_dir
         job_util
@@ -60,8 +60,6 @@ class ServiceManager(WebSocketInterface, HydrofabricFilesManager):
         docker.errors.NotFound
             Raised if the expected data volume does not exist.
         """
-        super().__init__(port=listen_port, *args, **kwargs)
-        HydrofabricFilesManager.__init__(self)
         self._job_util = job_util
         self._data_client = data_client
         self._image_name = image_name
@@ -69,9 +67,9 @@ class ServiceManager(WebSocketInterface, HydrofabricFilesManager):
         self._docker_util = SimpleDockerUtil()
         self._hydrofabrics_root_dir = hydrofabrics_dir if isinstance(hydrofabrics_dir, Path) else Path(hydrofabrics_dir)
 
-        # TODO: (later) come back and see if we actually care any about these.
-        # Make sure we load what hydrofabrics are supported for partitioning
-        self.find_hydrofabrics()
+        # TODO: reassess later if we really need to be a HydrofabricFilesManager
+        super().__init__(*args, **kwargs)
+
         # Go ahead and lazy load the first one of these so it is cached
         #self.get_hydrofabric_uid(0)
 
