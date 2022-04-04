@@ -8,6 +8,7 @@ ARG service_package_name
 ARG service_package_constraint
 WORKDIR /code
 COPY ./entrypoint.sh entrypoint.sh
+# Copy custom built packages from external sources image
 COPY --from=sources /DIST /DIST
 RUN apk update \
     && apk add --no-cache openssl git g++ libffi-dev proj proj-dev proj-util gdal-dev openblas openblas-dev \
@@ -18,4 +19,11 @@ RUN apk update \
     # TODO: this is a workaround, and may have side effects (transitive dependency issue with aiohttp and redis) \
     && pip install --no-cache-dir aiohttp==3.8.1 \
     && rm -rf /DIST
+
+# TODO: when image tagging/versioning is improved, look at keeping this in a "debug" image only
+# Copy this to have access to debugging pydevd egg
+COPY --from=sources /dmod /dmod_src
+RUN if [ -e /dmod_src/python/pydevd-pycharm.egg ]; then mv /dmod_src/python/pydevd-pycharm.egg /. ; fi \
+    && rm -rf /dmod_src
+
 ENTRYPOINT ["/code/entrypoint.sh"]
