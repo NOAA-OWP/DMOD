@@ -20,13 +20,14 @@ COPY ./entrypoint.sh entrypoint.sh
 COPY --from=sources /DIST /DIST
 
 # Copy this to have access to debugging pydevd egg
+# TODO: when image tagging/versioning is improved, look at keeping this in a "debug" image only
 COPY --from=sources /dmod /dmod_src
 
 # Install custom and generally available packages, starting with any custom from external source image
 # First install the Pycharm debug helper util egg, if it is there
 # TODO: when image tagging/versioning is improved, look at keeping this in a "debug" image only
-RUN if [ -e /dmod_src/pydevd-pycharm.egg ]; then mv /dmod_src/pydevd-pycharm.egg /. ; fi \
-    && rm -rf /dmod_src \
+RUN if [ -e /dmod_src/python/pydevd-pycharm.egg ]; then mv /dmod_src/python/pydevd-pycharm.egg /. ; fi \
+    && if [ -d /dmod_src ]; then rm -rf /dmod_src ; fi \
     # Install these separately before the service package (and its other deps) to work around a problem issue \
     # TODO: fix root cause for problem this works around  \
     && pip install websockets Deprecated  \
