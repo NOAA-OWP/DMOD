@@ -33,4 +33,10 @@ RUN apk update \
     && mkdir -p ~/.ssh \
     && printf "Host *\n        ServerAliveInterval 300\n        ServerAliveCountMax 2\n" >> ~/.ssh/config
 
+# TODO: when image tagging/versioning is improved, look at keeping this in a "debug" image only
+# Copy this to have access to debugging pydevd egg
+COPY --from=sources /dmod /dmod_src
+RUN if [ -e /dmod_src/python/pydevd-pycharm.egg ]; then mv /dmod_src/python/pydevd-pycharm.egg /. ; fi \
+    && rm -rf /dmod_src
+
 ENTRYPOINT ["/code/entrypoint.sh"]
