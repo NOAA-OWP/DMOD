@@ -97,7 +97,12 @@ def main():
         import sys
         sys.path.append(args.remote_debug_egg_path)
         import pydevd_pycharm
-        pydevd_pycharm.settrace(args.remote_debug_host, port=args.remote_debug_port, stdoutToServer=True, stderrToServer=True)
+        try:
+            pydevd_pycharm.settrace(args.remote_debug_host, port=args.remote_debug_port, stdoutToServer=True,
+                                    stderrToServer=True)
+        except Exception as error:
+            msg = 'Warning: could not set debugging trace to {} on {} due to {} - {}'
+            print(msg.format(args.remote_debug_host, args.remote_debug_port, error.__class__.__name__, str(error)))
 
     # Sanity check any provided path arguments
     if args.ssl_dir is not None and not _sanity_check_path_arg(args.ssl_dir, is_directory=True):
