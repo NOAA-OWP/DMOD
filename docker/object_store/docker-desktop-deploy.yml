@@ -26,10 +26,14 @@ services:
       timeout: 20s
       retries: 3
     secrets:
-      - exec_user_name
-      - exec_user_passwd
-      - secret_key
-      - access_key
+      - source: secret_key
+        target: secret_key
+      - source: access_key
+        target: access_key
+      - source: exec_user_passwd
+        target: exec_user_passwd
+      - source: exec_user_name
+        target: exec_user_name
   minio_proxy:
     image: nginx:1.21.1-alpine
     hostname: minio_proxy
@@ -60,8 +64,10 @@ secrets:
     file: ../secrets/object_store/secret_key
   access_key:
     file: ../secrets/object_store/access_key
+  # Note that these need to be in environment, as other things also use them (or at least the values in the file)
+  # However, our custom stack naming (i.e., with prefix) messes up just simply reusing the secret across stacks
   exec_user_passwd:
-    file: ../secrets/object_store/model_exec_secret_key
+    file: ${DMOD_OBJECT_STORE_EXEC_USER_NAME_SECRET_FILE:?}
   exec_user_name:
-    file: ../secrets/object_store/model_exec_access_key
+    file: ${DMOD_OBJECT_STORE_EXEC_USER_PASSWD_SECRET_FILE:?}
 

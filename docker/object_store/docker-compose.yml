@@ -33,13 +33,13 @@ services:
       timeout: 20s
       retries: 3
     secrets:
-      - source: object_store_secret_key
+      - source: secret_key
         target: secret_key
-      - source: object_store_access_key
+      - source: access_key
         target: access_key
-      - source: object_store_exec_user_passwd
+      - source: exec_user_passwd
         target: exec_user_passwd
-      - source: object_store_exec_user_name
+      - source: exec_user_name
         target: exec_user_name
   minio2:
     image: minio/minio:latest
@@ -74,13 +74,13 @@ services:
       timeout: 20s
       retries: 3
     secrets:
-      - source: object_store_secret_key
+      - source: secret_key
         target: secret_key
-      - source: object_store_access_key
+      - source: access_key
         target: access_key
-      - source: object_store_exec_user_passwd
+      - source: exec_user_passwd
         target: exec_user_passwd
-      - source: object_store_exec_user_name
+      - source: exec_user_name
         target: exec_user_name
 
   minio_proxy:
@@ -111,11 +111,13 @@ networks:
       external: true
       name: ${DOCKER_REQUESTS_NET_NAME}
 secrets:
-  object_store_secret_key:
+  secret_key:
     file: ../secrets/object_store/secret_key
-  object_store_access_key:
+  access_key:
     file: ../secrets/object_store/access_key
-  object_store_exec_user_passwd:
-    file: ../secrets/object_store/model_exec_secret_key
-  object_store_exec_user_name:
-    file: ../secrets/object_store/model_exec_access_key
+  # Note that these need to be in environment, as other things also use them (or at least the values in the file)
+  # However, our custom stack naming (i.e., with prefix) messes up just simply reusing the secret across stacks
+  exec_user_passwd:
+    file: ${DMOD_OBJECT_STORE_EXEC_USER_NAME_SECRET_FILE:?}
+  exec_user_name:
+    file: ${DMOD_OBJECT_STORE_EXEC_USER_PASSWD_SECRET_FILE:?}
