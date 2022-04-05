@@ -438,12 +438,7 @@ class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
 
     def _acquire_new_session(self):
         try:
-            logger.info("Connection to request handler web socket")
-            auth_details = get_or_create_eventloop().run_until_complete(self.authenticate_over_websocket())
-            logger.info("auth_details returned")
-            self._session_id, self._session_secret, self._session_created = auth_details
-            self._is_new_session = True
-            return True
+            return get_or_create_eventloop().run_until_complete(self._async_acquire_new_session())
         except Exception as e:
             logger.info("Expecting exception to follow")
             logger.exception("Failed _acquire_session_info")
@@ -468,6 +463,19 @@ class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
             whether session details were acquired and set successfully
         """
         pass
+
+    async def _async_acquire_new_session(self):
+        try:
+            logger.info("Connection to request handler web socket")
+            auth_details = await self.authenticate_over_websocket()
+            logger.info("auth_details returned")
+            self._session_id, self._session_secret, self._session_created = auth_details
+            self._is_new_session = True
+            return True
+        except Exception as e:
+            logger.info("Expecting exception to follow")
+            logger.exception("Failed _acquire_session_info")
+            return False
 
     @abstractmethod
     def _update_after_valid_response(self, response: MAAS_R):
