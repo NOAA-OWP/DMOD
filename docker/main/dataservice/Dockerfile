@@ -15,7 +15,7 @@ RUN apk update \
     && chmod u+x entrypoint.sh \
     && pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir aiohttp==3.8.1 \
-    && pip install --no-cache-dir --find-links=/DIST "${service_package_name}${service_package_constraint}" \
+    && pip install --no-cache-dir --no-index --find-links=/DIST "${service_package_name}${service_package_constraint}" \
     # TODO: this is a workaround, and may have side effects (transitive dependency issue with aiohttp and redis) \
     && pip install --no-cache-dir aiohttp==3.8.1 \
     && rm -rf /DIST
