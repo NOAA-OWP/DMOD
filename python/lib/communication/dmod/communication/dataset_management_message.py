@@ -1,9 +1,9 @@
 from .message import AbstractInitRequest, MessageEventType, Response
 from .maas_request import MaaSRequest, MaaSRequestResponse
-from dmod.core.meta_data import DataCategory, DataDomain
+from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement
 from numbers import Number
 from enum import Enum
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, List
 
 
 class ManagementAction(Enum):
@@ -427,6 +427,32 @@ class MaaSDatasetManagementMessage(DatasetManagementMessage, MaaSRequest):
         super(MaaSDatasetManagementMessage, self).__init__(session_secret=session_secret, *args, **kwargs)
         self._data_requirements = []
         self._output_formats = []
+
+    @property
+    def data_requirements(self) -> List[DataRequirement]:
+        """
+        List of all the explicit and implied data requirements for this request.
+
+        Returns
+        -------
+        List[DataRequirement]
+            List of all the explicit and implied data requirements for this request.
+        """
+        return self._data_requirements
+
+    @property
+    def output_formats(self) -> List[DataFormat]:
+        """
+        List of the formats of each required output dataset for the requested.
+
+        In most cases, this type of request will not itself produce output.  Therefore, this will be an empty list.
+
+        Returns
+        -------
+        List[DataFormat]
+            List of the formats of each required output dataset for the requested.
+        """
+        return self._output_formats
 
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
         serial = super(MaaSDatasetManagementMessage, self).to_dict()
