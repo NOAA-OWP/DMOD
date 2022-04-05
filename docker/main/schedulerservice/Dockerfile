@@ -23,7 +23,7 @@ RUN apk update \
     && pip3 install --no-cache-dir --upgrade pip \
     # Do websockets package separately first to work around some current issues (2/1/2022) \
     # TODO: fix root cause for problem this works around \
-    && pip3 install websockets \
+    && pip3 install --no-index --find-links=/DIST websockets pandas \
     # Install service package, along with custom and generally available dependencies, which should all be in /DIST \
     && pip3 install --no-cache-dir --find-links=/DIST "${scheduler_service_package_dist_name}${scheduler_service_package_version_constraint}" \
     # TODO: this is a workaround, and may have side effects (transitive dependency issue with aiohttp and redis) \
