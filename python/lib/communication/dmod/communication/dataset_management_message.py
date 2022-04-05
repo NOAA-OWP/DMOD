@@ -125,7 +125,7 @@ class DatasetManagementMessage(AbstractInitRequest):
 
     def __init__(self, action: ManagementAction, dataset_name: Optional[str] = None, is_read_only_dataset: bool = False,
                  category: Optional[DataCategory] = None, data: Optional[bytes] = None,
-                 data_location: Optional[str] = None, is_pending_data: bool = False):
+                 data_location: Optional[str] = None, is_pending_data: bool = False, *args, **kwargs):
         """
         Initialize this instance.
 
@@ -153,6 +153,8 @@ class DatasetManagementMessage(AbstractInitRequest):
             raise RuntimeError(err_msg_template.format(self.__class__.__name__, action, "a dataset name"))
         if category is None and action.requires_data_category:
             raise RuntimeError(err_msg_template.format(self.__class__.__name__, action, "a data category"))
+
+        super(DatasetManagementMessage, self).__init__(*args, **kwargs)
 
         # TODO: raise exceptions for actions for which the workflow is not yet supported (e.g., REMOVE_DATA)
 
