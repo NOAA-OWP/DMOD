@@ -1,0 +1,130 @@
+from dmod.communication import MaasRequestClient, ManagementAction
+from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage, MaaSDatasetManagementResponse
+from dmod.core.meta_data import DataCategory
+from pathlib import Path
+from typing import List, Optional
+
+#import logging
+#logger = logging.getLogger("gui_log")
+
+
+class DatasetExternalClient(MaasRequestClient[MaaSDatasetManagementMessage, MaaSDatasetManagementResponse]):
+    """
+    Client for authenticated communication sessions via ::class:`MaaSDatasetManagementMessage` instances.
+    """
+
+    # In particular needs - endpoint_uri: str, ssl_directory: Path
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.last_response = None
+
+    def _acquire_session_info(self, use_current_values: bool = True, force_new: bool = False):
+        """
+        Attempt to set the session information properties needed to submit a maas request.
+
+        Parameters
+        ----------
+        use_current_values : bool
+            Whether to use currently held attribute values for session details, if already not None (disregarded if
+            ``force_new`` is ``True``).
+        force_new : bool
+            Whether to force acquiring a new session, regardless of data available is available on an existing session.
+
+        Returns
+        -------
+        bool
+            whether session details were acquired and set successfully
+        """
+        #logger.info("{}._acquire_session_info:  getting session info".format(self.__class__.__name__)
+        if not force_new and use_current_values and self._session_id and self._session_secret and self._session_created:
+            #logger.info('Using previously acquired session details (new session not forced)')
+            return True
+        else:
+            #logger.info("Session from JobRequestClient: force_new={}".format(force_new))
+            tmp = self._acquire_new_session()
+            #logger.info("Session Info Return: {}".format(tmp))
+            return tmp
+
+    async def _async_acquire_session_info(self, use_current_values: bool = True, force_new: bool = False):
+        if not force_new and use_current_values and self._session_id and self._session_secret and self._session_created:
+            #logger.info('Using previously acquired session details (new session not forced)')
+            return True
+        else:
+            #logger.info("Session from JobRequestClient: force_new={}".format(force_new))
+            tmp = await self._async_acquire_new_session()
+            #logger.info("Session Info Return: {}".format(tmp))
+            return tmp
+
+    def _parse_list_of_dataset_names_from_response(self, response: MaaSDatasetManagementResponse) -> List[str]:
+        # TODO: *************************************
+        # TODO: how to parse the response for a list of dataset names?
+        pass
+
+    def _update_after_valid_response(self, response: MaaSDatasetManagementResponse):
+        """
+        Perform any required internal updates immediately after a request gets back a successful, valid response.
+
+        This provides a way of extending the behavior of this type specifically regarding the ::method:make_maas_request
+        function. Any updates specific to the type, which should be performed after a request receives back a valid,
+        successful response object, can be implemented here.
+
+        Parameters
+        ----------
+        response : MaaSDatasetManagementResponse
+            The response triggering the update.
+
+        See Also
+        -------
+        ::method:make_maas_request
+        """
+        # TODO: think about if anything is needed for this
+        pass
+
+    async def create_dataset(self, name: str, category: DataCategory) -> bool:
+        await self._async_acquire_session_info()
+        # TODO: (later) consider also adding param for data to be added
+        request = MaaSDatasetManagementMessage(session_secret=self.session_secret, action=ManagementAction.CREATE,
+                                               dataset_name=name, category=category)
+        self.last_response = await self.async_make_request(request)
+        return self.last_response is not None and self.last_response.success
+
+    async def list_datasets(self, category: Optional[DataCategory] = None) -> List[str]:
+        await self._async_acquire_session_info()
+        action = ManagementAction.LIST_ALL if category is None else ManagementAction.SEARCH
+        request = MaaSDatasetManagementMessage(session_secret=self.session_secret, action=action, category=category)
+        self.last_response = await self.async_make_request(request)
+        return self._parse_list_of_dataset_names_from_response(self.last_response)
+
+    async def upload_to_dataset(self, dataset_name: str, paths: List[Path]) -> bool:
+        """
+        Upload data a dataset.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The name of the dataset.
+        paths : List[Path]
+            List of one or more paths of files to upload or directories containing files to upload.
+
+        Returns
+        -------
+        bool
+            Whether uploading was successful
+        """
+        # TODO: *********************************************
+        raise NotImplementedError('Function upload_to_dataset not implemented')
+
+    @property
+    def errors(self):
+        # TODO: think about this more
+        return self._errors
+
+    @property
+    def info(self):
+        # TODO: think about this more
+        return self._info
+
+    @property
+    def warnings(self):
+        # TODO: think about this more
+        return self._warnings
