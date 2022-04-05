@@ -9,6 +9,8 @@ __pycache__/
 docker/main/base/ssh/
 python/gui/db.sqlite3
 
+/.dmod_client_config.yml
+
 /python/pydevd-pycharm.egg
 
 ResourceManager.log
