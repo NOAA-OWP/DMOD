@@ -62,7 +62,7 @@ class WebSocketClient(ABC):
                 path = '/' + path
         return '{}://{}:{}{}'.format(proto, host.strip(), str(port).strip(), path)
 
-    def __init__(self, endpoint_uri: str, ssl_directory: Path):
+    def __init__(self, endpoint_uri: str, ssl_directory: Path, *args, **kwargs):
         super().__init__()
 
         self.endpoint_uri = endpoint_uri
@@ -426,7 +426,7 @@ class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
         else:
             raise RuntimeError('Unsupported MaaSRequest subtype: ' + str(message.__class__))
 
-    def __init__(self, endpoint_uri: str, ssl_directory: Path):
+    def __init__(self, endpoint_uri: str, ssl_directory: Path, *args, **kwargs):
         super().__init__(endpoint_uri=endpoint_uri, ssl_directory=ssl_directory)
 
         # TODO: get full session implementation if possible
