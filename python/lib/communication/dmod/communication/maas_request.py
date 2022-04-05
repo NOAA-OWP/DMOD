@@ -112,7 +112,7 @@ class MaaSRequest(AbstractInitRequest, ABC):
         """
         pass
 
-    def __init__(self, session_secret: str):
+    def __init__(self, session_secret: str, *args, **kwargs):
         """
         Initialize the base attributes and state of this request object.
 
