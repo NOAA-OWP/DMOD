@@ -26,6 +26,8 @@ class ManagementAction(Enum):
     """ Query for information about a dataset (e.g., what time period and catchments does a forcing dataset cover). """
     CLOSE_AWAITING = (7, False, False)
     """ Action to close an ongoing, multi-message dialog. """
+    LIST_ALL = (8, False, False)
+    """ Like ``SEARCH``, but just list all datasets. """
 
     @classmethod
     def get_for_name(cls, name_str: str) -> 'ManagementAction':
