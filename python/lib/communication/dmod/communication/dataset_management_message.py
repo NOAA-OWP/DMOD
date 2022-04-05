@@ -364,7 +364,7 @@ class DatasetManagementResponse(Response):
         return self.data[self._DATA_KEY_IS_AWAITING]
 
 
-class MaaSDatasetManagementMessage(MaaSRequest, DatasetManagementMessage):
+class MaaSDatasetManagementMessage(DatasetManagementMessage, MaaSRequest):
     """
     A publicly initiated, and thus session authenticated, extension of ::class:`DatasetManagementMessage`.
     """
@@ -410,13 +410,23 @@ class MaaSDatasetManagementMessage(MaaSRequest, DatasetManagementMessage):
         except Exception as e:
             return None
 
-    def __init__(self, session_secret: str, action: ManagementAction, dataset_name: Optional[str] = None,
-                 is_read_only_dataset: bool = False, category: Optional[DataCategory] = None,
-                 data: Optional[bytes] = None, data_location: Optional[str] = None, is_pending_data: bool = False):
-        super(MaaSDatasetManagementMessage, self).__init__(action=action, dataset_name=dataset_name, data=data,
-                                                           is_read_only_dataset=is_read_only_dataset, category=category,
-                                                           data_location=data_location, is_pending_data=is_pending_data)
-        MaaSRequest.__init__(self, session_secret=session_secret)
+    def __init__(self, session_secret: str, *args, **kwargs):
+        """
+
+        Keyword Args
+        ----------
+        session_secret : str
+        action : ManagementAction
+        dataset_name : Optional[str]
+        is_read_only_dataset : bool
+        category : Optional[DataCategory]
+        data : Optional[bytes]
+        data_location : Optional[str]
+        is_pending_data : bool
+        """
+        super(MaaSDatasetManagementMessage, self).__init__(session_secret=session_secret, *args, **kwargs)
+        self._data_requirements = []
+        self._output_formats = []
 
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
         serial = super(MaaSDatasetManagementMessage, self).to_dict()
