@@ -90,6 +90,23 @@ def _handle_args():
 def main():
     args = _handle_args()
 
+    if args.pycharm_debug:
+        if args.remote_debug_egg_path == '':
+            print('Error: set to debug with Pycharm, but no path to remote debugger egg file provided')
+            exit(1)
+        if not Path(args.remote_debug_egg_path).exists():
+            print('Error: no file at given path to remote debugger egg file "{}"'.format(args.remote_debug_egg_path))
+            exit(1)
+        import sys
+        sys.path.append(args.remote_debug_egg_path)
+        import pydevd_pycharm
+        try:
+            pydevd_pycharm.settrace(args.remote_debug_host, port=args.remote_debug_port, stdoutToServer=True,
+                                    stderrToServer=True)
+        except Exception as error:
+            msg = 'Warning: could not set debugging trace to {} on {} due to {} - {}'
+            print(msg.format(args.remote_debug_host, args.remote_debug_port, error.__class__.__name__, str(error)))
+
     listen_host = gethostname() if args.host is None else args.host
     # Flip this here to be less confusing
     use_obj_store = not args.no_obj_store
