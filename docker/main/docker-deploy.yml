@@ -112,6 +112,7 @@ services:
     command: ["--files-directory", "/hydrofabric_data", "--port", "${DOCKER_SUBSET_CONTAINER_PORT:-5000}"]
   data-service:
     image: ${DOCKER_INTERNAL_REGISTRY:?}/dmod-data-service
+    hostname: data-service
     networks:
       - requests-net
     deploy:
