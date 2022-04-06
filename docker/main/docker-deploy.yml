@@ -195,6 +195,6 @@ secrets:
   # Have to create these here from the same backing files, since the stack prefix causes issue with sharing secrets
   # across stacks
   object_store_exec_user_passwd:
-    file: ${DMOD_OBJECT_STORE_EXEC_USER_NAME_SECRET_FILE:?}
-  object_store_exec_user_name:
     file: ${DMOD_OBJECT_STORE_EXEC_USER_PASSWD_SECRET_FILE:?}
+  object_store_exec_user_name:
+    file: ${DMOD_OBJECT_STORE_EXEC_USER_NAME_SECRET_FILE:?}
