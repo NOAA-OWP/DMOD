@@ -299,7 +299,7 @@ class ModelExecRequest(MaaSRequest, ABC):
 
     # TODO: version probably needs to be changed from float to str, but leaving for now since the schema has it as a
     #  number
-    def __init__(self, version: float, output: str, domain: str, parameters: dict, session_secret: str):
+    def __init__(self, version: float, output: str, domain: str, parameters: dict, *args, **kwargs):
         """
         Initialize model-exec-specific attributes and state of this request object common to all model exec requests.
 
@@ -316,7 +316,7 @@ class ModelExecRequest(MaaSRequest, ABC):
         session_secret : str
             The session secret for the right session when communicating with the request handler.
         """
-        super(ModelExecRequest, self).__init__(session_secret=session_secret)
+        super(ModelExecRequest, self).__init__(*args, **kwargs)
         # If this model doesn't generate the output, we want to fail
         if output not in get_available_outputs():
             raise ValueError(
@@ -748,9 +748,8 @@ class NWMRequest(ModelExecRequest):
         """
         return NWMRequestResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
-    def __init__(self, session_secret: str, version: float = 0.0, output: str = 'streamflow', domain: str = None, parameters: dict = None):
-        super(NWMRequest, self).__init__(version=version, output=output, domain=domain, parameters=parameters,
-                                         session_secret=session_secret)
+    def __init__(self, *args, **kwargs):
+        super(NWMRequest, self).__init__(*args, **kwargs)
 
     @property
     def data_requirements(self) -> List[DataRequirement]:
@@ -878,8 +877,8 @@ class NGENRequest(ModelExecRequest):
         """
         return NGENRequestResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
-    def __init__(self, session_secret: str, time_range: TimeRange, hydrofabric_uid: str, hydrofabric_data_id: str,
-                 cfg_data_id: str, bmi_cfg_data_id: str, catchments: Optional[Union[Set[str], List[str]]] = None):
+    def __init__(self, time_range: TimeRange, hydrofabric_uid: str, hydrofabric_data_id: str, cfg_data_id: str,
+                 bmi_cfg_data_id: str, catchments: Optional[Union[Set[str], List[str]]] = None, *args, **kwargs):
         """
         Initialize an instance.
 
@@ -904,7 +903,7 @@ class NGENRequest(ModelExecRequest):
             applicable to this request.
         """
         super().__init__(version=4.0, output="streamflow", domain="Nextgen Custom Spatial Domain", parameters={},
-                         session_secret=session_secret)
+                         *args, **kwargs)
         self._time_range = time_range
         self._hydrofabric_uid = hydrofabric_uid
         self._hydrofabric_data_id = hydrofabric_data_id
