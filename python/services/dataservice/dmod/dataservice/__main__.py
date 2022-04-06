@@ -32,6 +32,10 @@ def _handle_args():
                         help='Set hostname for connection to object store',
                         dest='obj_store_host',
                         default='minio_proxy')
+    parser.add_argument('--object-store-port',
+                        help='Set port for connection to object store',
+                        dest='obj_store_port',
+                        default=9000)
     parser.add_argument('--object-store-user-secret-name',
                         help='Set name of the Docker secret containing the object store user access key',
                         dest='obj_store_access_key',
@@ -113,8 +117,9 @@ def main():
         access_key_file = None if args.obj_store_access_key is None else secrets_dir.joinpath(args.obj_store_access_key)
         secret_key_file = None if args.obj_store_secret_key is None else secrets_dir.joinpath(args.obj_store_secret_key)
         service_manager.init_object_store_dataset_manager(obj_store_host=args.obj_store_host,
-                                                          access_key=access_key_file.read_text(),
-                                                          secret_key=secret_key_file.read_text())
+                                                          port=args.obj_store_port,
+                                                          access_key=access_key_file.read_text().strip(),
+                                                          secret_key=secret_key_file.read_text().strip())
 
     # Setup other required async tasks
     service_manager.add_async_task(service_manager.manage_required_data_checks())
