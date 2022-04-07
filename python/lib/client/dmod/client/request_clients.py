@@ -1,14 +1,91 @@
-from dmod.communication import MaasRequestClient, ManagementAction
-from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage, MaaSDatasetManagementResponse
+from abc import ABC, abstractmethod
+from dmod.communication import InternalServiceClient, MaasRequestClient, ManagementAction
+from dmod.communication.client import R
+from dmod.communication.dataset_management_message import DatasetManagementMessage, DatasetManagementResponse, \
+    MaaSDatasetManagementMessage, MaaSDatasetManagementResponse
 from dmod.core.meta_data import DataCategory
 from pathlib import Path
-from typing import List, Optional
+from typing import Generic, List, Optional, TypeVar, Type
 
 #import logging
 #logger = logging.getLogger("gui_log")
 
 
-class DatasetExternalClient(MaasRequestClient[MaaSDatasetManagementMessage, MaaSDatasetManagementResponse]):
+DATA_RESPONSE = TypeVar("DATA_RESPONSE", bound=DatasetManagementResponse)
+
+
+class DatasetClient(Generic[DATA_RESPONSE], ABC):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.last_response = None
+
+    @abstractmethod
+    def _parse_list_of_dataset_names_from_response(self, response: DATA_RESPONSE) -> List[str]:
+        pass
+
+    @abstractmethod
+    async def create_dataset(self, name: str, category: DataCategory) -> bool:
+        pass
+
+    @abstractmethod
+    async def list_datasets(self, category: Optional[DataCategory] = None) -> List[str]:
+        pass
+
+    @abstractmethod
+    async def upload_to_dataset(self, dataset_name: str, paths: List[Path]) -> bool:
+        pass
+
+
+class DatasetInternalClient(DatasetClient[DatasetManagementResponse],
+                            InternalServiceClient[DatasetManagementMessage, DatasetManagementResponse]):
+
+    @classmethod
+    def get_response_subtype(cls) -> Type[R]:
+        return DatasetManagementResponse
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def _parse_list_of_dataset_names_from_response(self, response: DatasetManagementResponse) -> List[str]:
+        # TODO: *************************************
+        # TODO: how to parse the response for a list of dataset names?
+        pass
+
+    async def create_dataset(self, name: str, category: DataCategory) -> bool:
+        # TODO: (later) consider also adding param for data to be added
+        request = DatasetManagementMessage(action=ManagementAction.CREATE, dataset_name=name, category=category)
+        self.last_response = await self.async_make_request(request)
+        return self.last_response is not None and self.last_response.success
+
+    async def list_datasets(self, category: Optional[DataCategory] = None) -> List[str]:
+        action = ManagementAction.LIST_ALL if category is None else ManagementAction.SEARCH
+        request = DatasetManagementMessage(action=action, category=category)
+        self.last_response = await self.async_make_request(request)
+        return self._parse_list_of_dataset_names_from_response(self.last_response)
+
+    async def upload_to_dataset(self, dataset_name: str, paths: List[Path]) -> bool:
+        """
+        Upload data a dataset.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The name of the dataset.
+        paths : List[Path]
+            List of one or more paths of files to upload or directories containing files to upload.
+
+        Returns
+        -------
+        bool
+            Whether uploading was successful
+        """
+        # TODO: *********************************************
+        raise NotImplementedError('Function upload_to_dataset not implemented')
+
+
+class DatasetExternalClient(DatasetClient[MaaSDatasetManagementResponse],
+                            MaasRequestClient[MaaSDatasetManagementMessage, MaaSDatasetManagementResponse]):
     """
     Client for authenticated communication sessions via ::class:`MaaSDatasetManagementMessage` instances.
     """
@@ -16,7 +93,6 @@ class DatasetExternalClient(MaasRequestClient[MaaSDatasetManagementMessage, MaaS
     # In particular needs - endpoint_uri: str, ssl_directory: Path
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.last_response = None
 
     def _acquire_session_info(self, use_current_values: bool = True, force_new: bool = False):
         """
