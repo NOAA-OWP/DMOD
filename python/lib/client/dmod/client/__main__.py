@@ -37,6 +37,9 @@ def _handle_dataset_command_args(parent_subparsers_container):
     # A parser for the 'dataset' command itself, underneath the parent 'command' subparsers container
     command_parser = parent_subparsers_container.add_parser('dataset')
 
+    command_parser.add_argument('--bypass-request-service', '-b', dest='bypass_reqsrv', action='store_true',
+                                default=False, help='Attempt to connect directly to the data-service')
+
     # Subparser under the dataset command's parser for handling the different actions that might be done relating to a
     # dataset (e.g., creation or uploading of data)
     action_subparsers = command_parser.add_subparsers(dest='action')
@@ -183,7 +186,7 @@ def main():
         exit(1)
 
     try:
-        client = DmodClient(client_config=YamlClientConfig(client_config_path))
+        client = DmodClient(client_config=YamlClientConfig(client_config_path), bypass_request_service=args.bypass_reqsrv)
 
         if args.command == 'config':
             execute_config_command(args, client)
