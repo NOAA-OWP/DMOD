@@ -1,4 +1,4 @@
-from .request_clients import DatasetExternalClient
+from .request_clients import DatasetClient, DatasetExternalClient, DatasetInternalClient
 from .client_config import YamlClientConfig
 from dmod.core.meta_data import DataCategory
 from pathlib import Path
@@ -7,9 +7,10 @@ from typing import List, Optional
 
 class DmodClient:
 
-    def __init__(self, client_config: YamlClientConfig, *args, **kwargs):
+    def __init__(self, client_config: YamlClientConfig, bypass_request_service: bool = False, *args, **kwargs):
         self._client_config = client_config
-        self._dataset_handler = None
+        self._dataset_client = None
+        self._bypass_request_service = bypass_request_service
 
     @property
     def client_config(self):
@@ -31,16 +32,22 @@ class DmodClient:
         bool
             Whether creation was successful
         """
-        return await self.dataset_handler.create_dataset(dataset_name, category)
+        return await self.dataset_client.create_dataset(dataset_name, category)
 
     async def list_datasets(self, category: Optional[DataCategory] = None):
-        return await self.dataset_handler.list_datasets(category)
+        return await self.dataset_client.list_datasets(category)
 
     @property
-    def dataset_handler(self) -> DatasetExternalClient:
-        if self._dataset_handler is None:
-            self._dataset_handler = DatasetExternalClient(self.requests_endpoint_uri, self.requests_ssl_dir)
-        return self._dataset_handler
+    def dataset_client(self) -> DatasetClient:
+        if self._dataset_client is None:
+            if self._bypass_request_service:
+                if self.client_config.dataservice_endpoint_uri is None:
+                    raise RuntimeError("Cannot bypass request service without data service config details")
+                self._dataset_client = DatasetInternalClient(self.client_config.dataservice_endpoint_uri,
+                                                             self.client_config.dataservice_ssl_dir)
+            else:
+                self._dataset_client = DatasetExternalClient(self.requests_endpoint_uri, self.requests_ssl_dir)
+        return self._dataset_client
 
     @property
     def requests_endpoint_uri(self) -> str:
@@ -69,7 +76,7 @@ class DmodClient:
         bool
             Whether uploading was successful
         """
-        return await self.dataset_handler.upload_to_dataset(dataset_name, paths)
+        return await self.dataset_client.upload_to_dataset(dataset_name, paths)
 
     def validate_config(self):
         # TODO:
