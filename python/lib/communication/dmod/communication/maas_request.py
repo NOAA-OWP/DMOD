@@ -914,12 +914,12 @@ class NGENRequest(ModelExecRequest):
     @property
     def hydrofabric_data_requirement(self) -> DataRequirement:
         """
-        A requirement object defining of the hydrofabric data needed to execute this request.
+        A requirement object defining the hydrofabric data needed to execute this request.
 
         Returns
         -------
         DataRequirement
-            A requirement object defining of the hydrofabric data needed to execute this request.
+            A requirement object defining the hydrofabric data needed to execute this request.
         """
         if self._hydrofabric_data_requirement is None:
             hydro_restrictions = [DiscreteRestriction(variable='uid', values=[self._hydrofabric_uid]),
