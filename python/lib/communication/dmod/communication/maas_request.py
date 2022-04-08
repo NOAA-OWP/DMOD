@@ -796,16 +796,17 @@ class NGENRequest(ModelExecRequest):
         self._hydrofabric_data_id = hydrofabric_data_id
         self._config_data_id = cfg_data_id
         # Convert an initial list to a set to remove duplicates
-        if isinstance(catchments, list):
+        try:
             catchments = set(catchments)
-        # Then move a set back to list and sort
-        if isinstance(catchments, set):
+        # TypeError should mean that we received `None`, so just use that to set _catchments
+        except TypeError:
+            self._catchments = catchments
+        # Assuming we have a set now, move this set back to list and sort
+        else:
             self._catchments = list(catchments)
             self._catchments.sort()
-        else:
-            self._catchments = catchments
-        self._bmi_config_data_id = bmi_cfg_data_id
 
+        self._bmi_config_data_id = bmi_cfg_data_id
         self._hydrofabric_data_requirement = None
         self._output_data_requirement = None
         self._forcing_data_requirement = None
