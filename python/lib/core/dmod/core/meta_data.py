@@ -23,8 +23,8 @@ class DataFormat(Enum):
     within the data).  While not accessible via public property, an additional (but optional) tuple element after the
     data fields is set when appropriate to provide such implicit indices and their types.
 
-    A particularly important, common implied indices is that of ``data_id``.  Collections of data of several of formats
-    may be observably indistinguishable (i.e., according to index values) from certain other collections of the same
+    A particularly important, common implied index is that of ``data_id``.  Collections of data of several formats may
+    be observably indistinguishable (i.e., according to index values) from certain other collections of the same
     format, while being significantly functionally different.  When this is possible and it is likely to need two such
     similar collections of data to be available at the same time, the ``data_id`` implied indices is added to give users
     of the format an additional "standard" index that can provide some distinction.
