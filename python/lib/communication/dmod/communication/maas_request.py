@@ -1196,26 +1196,26 @@ def get_parameters() -> dict:
     return parameters
 
 
-def get_request(model: str, version: float = 0.0, output: str = 'streamflow', domain: str = None, parameters: dict = None,
-                session_secret: str = '') -> ModelExecRequest:
+def get_request(model: str, config_data_id: str, session_secret: str = '', *args, **kwargs) -> ModelExecRequest:
     """
     Converts a basic definition of a request into a proper request object
 
-    :param str model: The type of model we want to run
-    :param float version: The version of the model to run
-    :param str output: What we want the model to generate
-    :param str domain: What input domain to execute on
-    :param dict parameters: A mapping of all the parameters for the model that we want to set and their values
-    :param str session_secret: The session secret for the right session when communicating with the MaaS request handler
-    :return: A request object that may be converted into context data for a web request
+    Parameters
+    ----------
+    model : str
+        The type of model we want to run.
+    config_data_id : str
+        The model configuration dataset for the request.
+    session_secret : str
+        The session secret for the right session when communicating with the MaaS request handler.
+
+    Returns
+    -------
+    ModelExecRequest
+        A request object that may be converted into context data for a web request.
     """
     if model not in get_available_models():
-        raise ValueError(
-            "{} is not an allowable model; "
-            "the only acceptable models are: {}".format(model, get_available_models())
-        )
+        err_msg = "{} is not an allowable model; the only acceptable models are: {}"
+        raise ValueError(err_msg.format(model, get_available_models()))
 
-    if parameters is None:
-        parameters = dict()
-
-    return get_available_models()[model](version=version, output=output, domain=domain, parameters=parameters, session_secret=session_secret)
+    return get_available_models()[model](config_data_id=config_data_id, session_secret=session_secret, *args, **kwargs)
