@@ -95,7 +95,7 @@ class TestSchedulerClient(unittest.TestCase):
             asyncio.set_event_loop(self.loop)
         self.client = MockSendTestingSchedulerClient()
 
-        self.test_model_request_1 = NWMRequest(version=2.0, output='streamflow', parameters={}, session_secret='')
+        self.test_model_request_1 = NWMRequest(config_data_id='1', session_secret='')
         self.test_scheduler_request_1 = SchedulerRequestMessage(model_request=self.test_model_request_1,
                                                                 user_id='default')
 
