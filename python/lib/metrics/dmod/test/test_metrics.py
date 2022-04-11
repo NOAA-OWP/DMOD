@@ -6,7 +6,7 @@ import unittest
 import pandas
 import numpy
 
-import dmod.metrics.metric as metrics
+from ..metrics import metric as metrics
 
 TEST_DIRECTORY = os.path.dirname(__file__)
 EPSILON = 0.0001

@@ -13,8 +13,9 @@ TEST_DOCUMENT_PATH = os.path.join(os.path.dirname(__file__), "thresholds.json")
 
 
 class TestJSONRetrieving(unittest.TestCase):
-    def setUp(self) -> None:
-        self.__threshold_specification = specification.ThresholdSpecification(
+    @classmethod
+    def get_retriever_config(cls) -> specification.ThresholdSpecification:
+        return specification.ThresholdSpecification(
                 backend=specification.BackendSpecification(
                         backend_type="file",
                         data_format="json",
@@ -46,36 +47,57 @@ class TestJSONRetrieving(unittest.TestCase):
                 ]
         )
 
-    def test_direct_table_json(self):
+    def setUp(self) -> None:
+        self.__threshold_specification = TestJSONRetrieving.get_retriever_config()
+
+    def test_direct_json(self):
         retriever = disk.JSONThresholdRetriever(self.__threshold_specification)
-        self.run_table_assertions(retriever)
+        self.run_assertions(retriever)
 
-    def test_implicit_table_json(self):
-        retriever = threshold.get_thresholds(self.__threshold_specification)
-        self.run_table_assertions(retriever)
+    def test_implicit_json(self):
+        retriever = threshold.get_threshold_retriever(self.__threshold_specification)
+        self.run_assertions(retriever)
 
-    def run_table_assertions(self, retriever: threshold.ThresholdRetriever):
+    def run_assertions(self, retriever: threshold.ThresholdRetriever):
         data = retriever.get_data()
 
-        locations = ("cat-52", "cat-27")
+        threshold_categories = [
+            {
+                "location": "0214655255",
+                "weight": 8,
+                "category": "flood",
+                "value": 9320
+            },
+            {
+                "location": "0214657975",
+                "weight": 8,
+                "category": "flood",
+                "value": 5440
+            },
+            {
+                "location": "0214655255",
+                "weight": 10,
+                "category": "action",
+                "value": 6310
+            },
+            {
+                "location": "0214657975",
+                "weight": 10,
+                "category": "action",
+                "value": 3730
+            },
+        ]
 
-        for location in locations:
-            self.assertIn(location, data.prediction_location.values)
+        self.assertEqual(len(data), len(threshold_categories))
 
-        initial_date = datetime(year=2015, month=12, day=1, tzinfo=timezone.utc)
-        earliest_date = data.value_date.min()
-        self.assertEqual(initial_date, earliest_date)
-
-        value_per_location = 720
-        time_offset = timedelta(hours=1)
-
-        for location_name, subset in data.groupby(by="prediction_location"):
-            self.assertEqual(subset.value_date.min(), earliest_date)
-            self.assertEqual(len(subset), value_per_location)
-
-            for row_number, row in subset.iterrows():
-                expected_offset_value_date = earliest_date + (time_offset * row_number)
-                self.assertEqual(row.value_date, expected_offset_value_date)
+        for category in threshold_categories:
+            row = data[
+                (data.location == category['location'])
+                & (data.weight == category['weight'])
+                & (data.name == category['category'])
+                & (data.value == data.value)
+            ]
+            self.assertEqual(len(row), 1)
 
 
 if __name__ == '__main__':
