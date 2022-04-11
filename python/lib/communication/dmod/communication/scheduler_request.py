@@ -121,7 +121,7 @@ class SchedulerRequestResponse(Response):
 
     @property
     def job_id(self):
-        if self.success:
+        if self.success and self.data is not None:
             return self.data[ModelExecRequestResponse.get_job_id_key()]
         else:
             return -1
@@ -137,7 +137,7 @@ class SchedulerRequestResponse(Response):
         Optional[str]
             The 'data_id' of the output dataset for requested job, or ``None`` if not known.
         """
-        if ModelExecRequestResponse.get_output_data_id_key() in self.data:
+        if self.data is not None and ModelExecRequestResponse.get_output_data_id_key() in self.data:
             return self.data[ModelExecRequestResponse.get_output_data_id_key()]
         else:
             return None
