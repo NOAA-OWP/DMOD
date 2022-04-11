@@ -8,14 +8,20 @@ class TestJob(unittest.TestCase):
     def setUp(self) -> None:
         self._example_jobs = []
         model_request_0 = NWMRequest.factory_init_from_deserialized_json(
-            {"model": {"nwm": {"version": 2.0, "output": "streamflow", "domain": "blah", "parameters": {}}},
+            {"model": {"nwm": {"config_data_id": "1", "data_requirements": [{"domain": {
+                "data_format": "NWM_CONFIG", "continuous": [], "discrete": [{"variable": "data_id", "values": ["1"]}]},
+                "is_input": True,
+                "category": "CONFIG"}]}},
              "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"})
         self._example_jobs.append(JobImpl(cpu_count=4, memory_size=1000, model_request=model_request_0,
                                           allocation_paradigm='single-node'))
 
         scheduler_request = SchedulerRequestMessage(
             model_request=NWMRequest.factory_init_from_deserialized_json(
-                {"model": {"nwm": {"version": 2.0, "output": "streamflow", "domain": "blah", "parameters": {}}},
+                {"model": {"nwm": {"config_data_id": "2", "data_requirements": [{"domain": {
+                    "data_format": "NWM_CONFIG", "continuous": [], "discrete": [{"variable": "data_id", "values": ["2"]}]},
+                    "is_input": True,
+                    "category": "CONFIG"}]}},
                  "session-secret": "123f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}),
             user_id='someone',
             cpus=4,
