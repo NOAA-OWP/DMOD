@@ -140,7 +140,10 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         self._sample_job_requests = []
         self._sample_job_requests.append(SchedulerRequestMessage(
             model_request=NWMRequest.factory_init_from_deserialized_json(
-                {"model": {"nwm": {"version": 2.0, "output": "streamflow", "parameters": {}, "domain": "test-domain"}},
+                {"model": {"nwm": {"config_data_id": "0", "data_requirements": [{"domain": {
+                    "data_format": "NWM_CONFIG", "continuous": [], "discrete": [{"variable": "data_id", "values": ["0"]}]},
+                    "is_input": True,
+                    "category": "CONFIG"}]}},
                 "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}),
             user_id='someone',
             cpus=4,
@@ -149,7 +152,10 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
 
         self._sample_job_requests.append(SchedulerRequestMessage(
             model_request=NWMRequest.factory_init_from_deserialized_json(
-                {"model": {"nwm": {"version": 2.0, "output": "streamflow", "parameters": {}, "domain": "test-domain"}},
+                {"model": {"nwm": {"config_data_id": "1", "data_requirements": [{"domain": {
+                    "data_format": "NWM_CONFIG", "continuous": [], "discrete": [{"variable": "data_id", "values": ["1"]}]},
+                    "is_input": True,
+                    "category": "CONFIG"}]}},
                  "session-secret": "123f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}),
             user_id='someone',
             cpus=4,
@@ -159,7 +165,10 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         # indexes 2 and 3 are the same as the job at index 0, except with the two other allocation paradigms
         self._sample_job_requests.append(SchedulerRequestMessage(
             model_request=NWMRequest.factory_init_from_deserialized_json(
-                {"model": {"nwm": {"version": 2.0, "output": "streamflow", "parameters": {}, "domain": "test-domain"}},
+                {"model": {"nwm": {"config_data_id": "2", "data_requirements": [{"domain": {
+                    "data_format": "NWM_CONFIG", "continuous": [], "discrete": [{"variable": "data_id", "values": ["2"]}]},
+                    "is_input": True,
+                    "category": "CONFIG"}]}},
                  "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}),
             user_id='someone',
             cpus=4,
@@ -168,7 +177,10 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
 
         self._sample_job_requests.append(SchedulerRequestMessage(
             model_request=NWMRequest.factory_init_from_deserialized_json(
-                {"model": {"nwm": {"version": 2.0, "output": "streamflow", "parameters": {}, "domain": "test-domain"}},
+                {"model": {"nwm": {"config_data_id": "3", "data_requirements": [{"domain": {
+                    "data_format": "NWM_CONFIG", "continuous": [], "discrete": [{"variable": "data_id", "values": ["3"]}]},
+                    "is_input": True,
+                    "category": "CONFIG"}]}},
                  "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}),
             user_id='someone',
             cpus=4,
