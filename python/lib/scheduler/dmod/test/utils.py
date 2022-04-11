@@ -1,7 +1,7 @@
 from dmod.scheduler.job import RequestedJob
 from dmod.scheduler.resources import Resource, ResourceAllocation, ResourceManager
 from dmod.communication import NWMRequest, NGENRequest, SchedulerRequestMessage
-
+from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement, DiscreteRestriction
 from uuid import uuid4
 
 from copy import deepcopy
@@ -51,8 +51,19 @@ _request_json = {
     "model": None,
     "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c", "user_id": "someone",
                            "cpus": 4, "mem": 500000, "allocation":"SINGLE_NODE"}
-_nwm_model = {"nwm": {"version": 2.0, "output": "streamflow", "parameters": {}, "domain":"test-domain"}}
-_ngen_model = {"ngen": {"version":1.0, "output": "streamflow", "parameters":{}, "domain":"test-domain"}}
+_nwm_model = {"nwm": {"config_data_id": "1", "data_requirements": [{"domain": {
+    "data_format": "NWM_CONFIG", "continuous": [], "discrete": [{"variable": "data_id", "values": ["1"]}]},
+    "is_input": True,
+    "category": "CONFIG"}]}}
+_time_range = {"variable": "time", "subclass": "TimeRange", "datetime_pattern": "%Y-%m-%d %H:%M:%S", "begin": "2022-01-01 00:00:00", "end": "2022-02-01 00:00:00"}
+_ngen_model = {"name": "ngen",
+               "time_range": _time_range,
+               "hydrofabric_data_id": "00000000-0000-0000-0000-000000000000",
+               "hydrofabric_uid": "00000000-0000-0000-0000-000000000001",
+               "config_data_id": "00000000-0000-0000-0000-000000000002",
+               "bmi_config_data_id": "00000000-0000-0000-0000-000000000003",
+               "catchments": {"variable": "catchment-id", "values": []},
+               "version": 4.0}
 
 def mock_job(model: str = 'nwm', cpus: int = 4, mem: int = 500000, strategy: str = "single_node", allocations: int = 0) -> RequestedJob:
     """
@@ -66,9 +77,15 @@ def mock_job(model: str = 'nwm', cpus: int = 4, mem: int = 500000, strategy: str
     if model == 'nwm':
         request_json['model'] = _nwm_model
         model_request = NWMRequest.factory_init_from_deserialized_json(request_json)
+        output_requirement = None
     elif model == 'ngen':
         request_json['model'] = _ngen_model
+        dataset_name = 'test_output_dataset_1'
         model_request = NGENRequest.factory_init_from_deserialized_json(request_json)
+        data_domain = DataDomain(data_format=DataFormat.NGEN_OUTPUT,
+                                 discrete_restrictions=[DiscreteRestriction(variable='id', values=[])])
+        output_requirement = DataRequirement(domain=data_domain, is_input=False, category=DataCategory.OUTPUT,
+                                             fulfilled_by=dataset_name)
     else:
         raise(ValueError("Unsupported mock model {}".format(model)))
 
@@ -78,6 +95,8 @@ def mock_job(model: str = 'nwm', cpus: int = 4, mem: int = 500000, strategy: str
                                 mem=mem,
                                 allocation_paradigm=strategy)
     mock_job = RequestedJob(schedule_request)
+    if output_requirement is not None:
+        mock_job.data_requirements.append(output_requirement)
     #mock_job.job_id = uuid4()
     allocs = []
     for i in range(1, allocations+1):
