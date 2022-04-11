@@ -248,6 +248,19 @@ class ContinuousRestriction(Serializable):
         self.end = end
         self._datetime_pattern = datetime_pattern
 
+    def __eq__(self, other):
+        if self.__class__ == other.__class__ or isinstance(other, self.__class__):
+            return self.variable == other.variable and self.begin == other.begin and self.end == other.end \
+                   and self._datetime_pattern == other._datetime_pattern
+        elif isinstance(self, other.__class__):
+            return other.__eq__(self)
+        else:
+            return False
+
+    def __hash__(self):
+        str_func = lambda x: str(x) if self._datetime_pattern is None else datetime.strptime(x, self._datetime_pattern)
+        hash('{}-{}-{}'.format(self.variable, str_func(self.begin), str_func(self.end)))
+
     def contains(self, other: 'ContinuousRestriction') -> bool:
         """
         Whether this object contains all the values of the given object and the two are of the same index.
@@ -389,6 +402,23 @@ class DataDomain(Serializable):
                        custom_data_fields=data_fields)
         except:
             return None
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self.data_format == other.data_format \
+               and self.continuous_restrictions == other.continuous_restrictions \
+               and self.discrete_restrictions == other.discrete_restrictions \
+               and self._custom_data_fields == other._custom_data_fields
+
+    def __hash__(self):
+        if self._custom_data_fields is None:
+            cu = ''
+        else:
+            cu = ','.join(['{}:{}'.format(f, self._custom_data_fields[f]) for f in sorted(self._custom_data_fields)])
+        return hash('{}-{}-{}-{}'.format(
+            self.data_format,
+            ','.join([str(hash(self.continuous_restrictions[k])) for k in sorted(self.continuous_restrictions)]),
+            ','.join([str(hash(self.discrete_restrictions[k])) for k in sorted(self.discrete_restrictions)]),
+            cu))
 
     def __init__(self, data_format: DataFormat, continuous_restrictions: Optional[List[ContinuousRestriction]] = None,
                  discrete_restrictions: Optional[List[DiscreteRestriction]] = None,
@@ -614,6 +644,13 @@ class DataRequirement(Serializable):
             return cls(domain=domain, is_input=is_input, category=category, size=size, fulfilled_by=fulfilled_by)
         except:
             return None
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self.domain == other.domain and self.is_input == other.is_input \
+               and self.category == other.category
+
+    def __hash__(self):
+        return hash('{}-{}-{}'.format(hash(self.domain), self.is_input, self.category))
 
     def __init__(self, domain: DataDomain, is_input: bool, category: DataCategory, size: Optional[int] = None,
                  fulfilled_by: Optional[str] = None):
