@@ -225,7 +225,7 @@ class ModelExecRequest(MaaSRequest, ABC):
         """
         return cls.model_name
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, config_data_id: str, *args, **kwargs):
         """
         Initialize model-exec-specific attributes and state of this request object common to all model exec requests.
 
@@ -235,43 +235,7 @@ class ModelExecRequest(MaaSRequest, ABC):
             The session secret for the right session when communicating with the request handler.
         """
         super(ModelExecRequest, self).__init__(*args, **kwargs)
-        # If this model doesn't generate the output, we want to fail
-        if output not in get_available_outputs():
-            raise ValueError(
-                "{} is not an allowable output; "
-                "the only acceptable outputs are: {}".format(output, get_available_outputs())
-            )
-
-        # Replace a value of None for parameters with an empty dict
-        if parameters is None:
-            parameters = {}
-
-        # We want to check each parameter if they are formally defined by the model request
-        if len(self.get_parameters()) > 0:
-            for parameter in parameters:
-                # If the parameter isn't approved, we want to fail
-                if parameter not in self.get_parameters():
-                    raise ValueError(
-                        '{} is not a valid parameter; '
-                        'the only acceptable parameters are: {}'.format(parameter, self.get_parameters())
-                    )
-
-                # Validate the parameter based on scalar rules if it's a scalar
-                if isinstance(parameters[parameter], Scalar):
-                    self.validate_scalar(parameter, parameters[parameter])
-                elif isinstance(parameters[parameter], Distribution):
-                    # Validate the parameter based on distribution rules if it's a distribution
-                    self.validate_distribution(parameter, parameters[parameter])
-                else:
-                    # Raise an exception since we only approve of Scalar or Distribution parameters
-                    raise ValueError(
-                        "{} is not a scalar or distribution.".format(parameter)
-                    )
-
-        self._version = version
-        self.output = output
-        self._domain = domain
-        self.parameters = parameters
+        self._config_data_id = config_data_id
 
     def __eq__(self, other):
         if not self._check_class_compatible_for_equality(other):
@@ -289,6 +253,18 @@ class ModelExecRequest(MaaSRequest, ABC):
                 if req not in other.data_requirements:
                     return False
             return True
+
+    @property
+    def config_data_id(self) -> str:
+        """
+        Value of ``data_id`` index to uniquely identify the dataset with the primary configuration for this request.
+
+        Returns
+        -------
+        str
+            Value of ``data_id`` identifying the dataset with the primary configuration applicable to this request.
+        """
+        return self._config_data_id
 
 
 class MaaSRequestResponse(Response, ABC):
@@ -830,7 +806,7 @@ class NGENRequest(ModelExecRequest):
             return cls(time_range=TimeRange.factory_init_from_deserialized_json(json_obj['model']['time_range']),
                        hydrofabric_uid=json_obj['model']['hydrofabric_uid'],
                        hydrofabric_data_id=json_obj['model']['hydrofabric_data_id'],
-                       cfg_data_id=json_obj['model']['config_data_id'],
+                       config_data_id=json_obj['model']['config_data_id'],
                        bmi_cfg_data_id=json_obj['model']['bmi_config_data_id'],
                        catchments=json_obj['catchments'] if 'catchments' in json_obj else None,
                        session_secret=json_obj['session-secret'])
@@ -852,8 +828,8 @@ class NGENRequest(ModelExecRequest):
         """
         return NGENRequestResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
-    def __init__(self, time_range: TimeRange, hydrofabric_uid: str, hydrofabric_data_id: str, cfg_data_id: str,
-                 bmi_cfg_data_id: str, catchments: Optional[Union[Set[str], List[str]]] = None, *args, **kwargs):
+    def __init__(self, time_range: TimeRange, hydrofabric_uid: str, hydrofabric_data_id: str, bmi_cfg_data_id: str,
+                 catchments: Optional[Union[Set[str], List[str]]] = None, *args, **kwargs):
         """
         Initialize an instance.
 
@@ -868,7 +844,7 @@ class NGENRequest(ModelExecRequest):
         hydrofabric_data_id : str
             A data identifier for the hydrofabric, for distinguishing between different hydrofabrics that cover the same
             set of catchments and nexuses (i.e., the same sets of catchment and nexus ids).
-        cfg_data_id : str
+        config_data_id : str
             The config data id index, for identifying the particular configuration datasets applicable to this request.
         catchments : Optional[Union[Set[str], List[str]]]
             An optional collection of the catchment ids to narrow the geospatial domain, where the default of ``None``
@@ -881,7 +857,6 @@ class NGENRequest(ModelExecRequest):
         self._time_range = time_range
         self._hydrofabric_uid = hydrofabric_uid
         self._hydrofabric_data_id = hydrofabric_data_id
-        self._config_data_id = cfg_data_id
         # Convert an initial list to a set to remove duplicates
         try:
             catchments = set(catchments)
