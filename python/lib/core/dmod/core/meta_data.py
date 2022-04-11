@@ -311,9 +311,23 @@ class DiscreteRestriction(Serializable):
         except:
             return None
 
-    def __init__(self, variable: str, values: Union[List[str], List[Number]]):
+    def __init__(self, variable: str, values: Union[List[str], List[Number]], allow_reorder: bool = True,
+                 remove_duplicates: bool = True):
         self.variable: str = variable
-        self.values: Union[List[str], List[Number]] = values
+        self.values: Union[List[str], List[Number]] = list(set(values)) if remove_duplicates else values
+        if allow_reorder:
+            self.values.sort()
+
+    def __eq__(self, other):
+        if self.__class__ == other.__class__ or isinstance(other, self.__class__):
+            return self.variable == other.variable and self.values == other.values
+        elif isinstance(self, other.__class__):
+            return other.__eq__(self)
+        else:
+            return False
+
+    def __hash__(self):
+        hash('{}-{}'.format(self.variable, ','.join([str(v) for v in self.values])))
 
     def contains(self, other: 'DiscreteRestriction') -> bool:
         """
