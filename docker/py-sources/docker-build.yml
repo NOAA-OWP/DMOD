@@ -1,12 +1,18 @@
 version: "3.7"
 
 services:
+  py-deps:
+    image: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/dmod-py-deps
+    build:
+      context: ../../
+      dockerfile: ./docker/py-sources/py-deps.Dockerfile
   py-sources:
     image: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/dmod-py-sources
     build:
       context: ../../
       dockerfile: ./docker/py-sources/py-sources.Dockerfile
       args:
+        docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY}
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
         access_package_name: ${PYTHON_PACKAGE_DIST_NAME_ACCESS:?}
         externalrequests_package_name: ${PYTHON_PACKAGE_DIST_NAME_EXTERNAL_REQUESTS:?}
