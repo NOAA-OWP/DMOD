@@ -116,8 +116,8 @@ class DatasetManagementMessage(AbstractInitRequest):
         data_loc = json_obj[cls._SERIAL_KEY_DATA_LOCATION] if cls._SERIAL_KEY_DATA_LOCATION in json_obj else None
 
         try:
-            obj = cls(action=json_obj[cls._SERIAL_KEY_ACTION], dataset_name=dataset_name, category=category,
-                      data=raw_data, is_read_only_dataset=json_obj[cls._SERIAL_KEY_IS_READ_ONLY],
+            obj = cls(action=ManagementAction.get_for_name(json_obj[cls._SERIAL_KEY_ACTION]), dataset_name=dataset_name,
+                      category=category, data=raw_data, is_read_only_dataset=json_obj[cls._SERIAL_KEY_IS_READ_ONLY],
                       data_location=data_loc, is_pending_data=json_obj[cls._SERIAL_KEY_IS_PENDING_DATA])
             if cls._SERIAL_KEY_DATA_DOMAIN in json_obj:
                 obj.data_domain = DataDomain.factory_init_from_deserialized_json(json_obj[cls._SERIAL_KEY_DATA_DOMAIN])
@@ -273,7 +273,7 @@ class DatasetManagementMessage(AbstractInitRequest):
         return self._action
 
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        serial = {self._SERIAL_KEY_ACTION: self.management_action,
+        serial = {self._SERIAL_KEY_ACTION: str(self.management_action),
                   self._SERIAL_KEY_CATEGORY: self.data_category,
                   self._SERIAL_KEY_IS_READ_ONLY: self.is_read_only_dataset,
                   self._SERIAL_KEY_IS_PENDING_DATA: self.is_pending_data}
