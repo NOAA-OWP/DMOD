@@ -80,6 +80,8 @@ class DataFormat(Enum):
     """ Format for BMI initialization config files, of which (in general) there is only implied index of file name. """
     NWM_OUTPUT = (8, ["id", "Time", "data_id"], {"Time": datetime, "streamflow": float}, {"id": str, "data_id": str})
     """ Format for NWM 2.0/2.1/2.2 output. """
+    NWM_CONFIG = (9, ["id", "time", "data_id"], None, {"id": str, "time": datetime, "data_id": str})
+    """ Format for initial config for NWM 2.0/2.1/2.2. """
     # TODO: consider whether a datetime format string is necessary for each type value
     # TODO: consider whether something to indicate the time step size is necessary
     # TODO: need format specifically for Nextgen model output (i.e., for evaluations)
