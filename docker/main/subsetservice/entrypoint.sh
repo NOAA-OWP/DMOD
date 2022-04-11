@@ -12,6 +12,19 @@ if [ -n "${VENV_DIR:-}" ]; then
     pip install --update -r /code/requirements.txt
 fi
 
+# If we find this directory, and if there are wheels in it, then install those
+if [ -d ${UPDATED_PACKAGES_DIR:=/updated_packages} ]; then
+    if [ $(ls ${UPDATED_PACKAGES_DIR}/*.whl | wc -l) -gt 0 ]; then
+        for srv in $(pip -qq freeze | grep dmod | awk -F= '{print $1}' | awk -F- '{print $2}'); do
+            if [ $(ls ${UPDATED_PACKAGES_DIR} | grep dmod.${srv}- | wc -l) -eq 1 ]; then
+                pip uninstall -y --no-input $(pip -qq freeze | grep dmod.${srv} | awk -F= '{print $1}')
+                pip install $(ls ${UPDATED_PACKAGES_DIR}/*.whl | grep dmod.${srv}-)
+            fi
+        done
+        #pip install ${UPDATED_PACKAGES_DIR}/*.whl
+    fi
+fi
+
 args=""
 if [ -n "${LISTEN_PORT:-}" ]; then
   args="${args} --port ${LISTEN_PORT}"
