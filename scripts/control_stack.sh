@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-INFO='Perform control tasks for a stack'
+INFO='Perform control tasks for a stack.'
 SCRIPT_PARENT_DIR="$(cd "$(dirname "${0}")"; pwd)"
 
 SHARED_FUNCS_DIR="${SCRIPT_PARENT_DIR}/shared"
@@ -92,8 +92,14 @@ Actions:
     deploy
         Deploy the stack.
 
+    start
+        An alias for the 'deploy' action.
+
     stop
         Stop the stack if it is currently running.
+
+    restart
+        Alias for combo of 'stop' and 'deploy' actions.
 
     See full help section on ACTION EXECUTION ORDER when there
     are multiple Actions.
@@ -149,7 +155,7 @@ Usage:
     ${NAME:?} [opts] <stack_dir_name> <action>[ <action>]*
 
 Actions:
-    check build push deploy stop
+    check build push deploy|start stop restart
 
 Options:
     --[build-|deploy-]config <path> | -[b|d]|c <path>
@@ -187,6 +193,29 @@ determine_stack_name()
     fi
 }
 
+process_deploy_action_arg()
+{
+    if [ -n "${DO_DEPLOY_ACTION:-}" ]; then
+        short_usage
+        exit 1
+    else
+        if [ -z "${DOCKER_NETWORK_IMPLICIT_FLAG:-}" ]; then
+            DOCKER_NETWORK_IMPLICIT_FLAG='true'
+        fi
+        DO_DEPLOY_ACTION='true'
+    fi
+}
+
+process_stop_action_arg()
+{
+    if [ -n "${DO_STOP_ACTION:-}" ]; then
+        short_usage
+        exit 1
+    else
+        DO_STOP_ACTION='true'
+    fi
+}
+
 # Process the last group of command line args for actions (after setting the stack dir name)
 process_action_args()
 {
@@ -196,8 +225,7 @@ process_action_args()
             DO_CHECK_ACTION='true'
             ;;
         stop)
-            [ -n "${DO_STOP_ACTION:-}" ] && short_usage && exit 1
-            DO_STOP_ACTION='true'
+            process_stop_action_arg
             ;;
         build)
             [ -n "${DO_BUILD_ACTION:-}" ] && short_usage && exit 1
@@ -210,12 +238,12 @@ process_action_args()
             [ -n "${DO_PUSH_ACTION:-}" ] && short_usage && exit 1
             DO_PUSH_ACTION='true'
             ;;
-        deploy)
-            [ -n "${DO_DEPLOY_ACTION:-}" ] && short_usage && exit 1
-            if [ -z "${DOCKER_NETWORK_IMPLICIT_FLAG:-}" ]; then
-                DOCKER_NETWORK_IMPLICIT_FLAG='true'
-            fi
-            DO_DEPLOY_ACTION='true'
+        deploy|start)
+            process_deploy_action_arg
+            ;;
+        restart)
+            process_stop_action_arg
+            process_deploy_action_arg
             ;;
         *)
             >&2 echo "Error: unsupported action argument '${1}'"
