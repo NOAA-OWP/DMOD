@@ -183,8 +183,6 @@ class MaaSRequest(AbstractInitRequest, ABC):
         pass
 
 
-# TODO: this type, the subtypes (especially for NWM), all things using it, etc., need to be completely overhauled;
-#  instead of itself containing all necessary params, it should reference a config dataset that defines the params
 class ModelExecRequest(MaaSRequest, ABC):
     """
     The base class underlying MaaS requests for model execution jobs.
@@ -194,35 +192,6 @@ class ModelExecRequest(MaaSRequest, ABC):
 
     model_name = None
     """(:class:`str`) The name of the model to be used"""
-
-    parameters = [
-        'hydraulic_conductivity',
-        'land_cover'
-    ]
-    """(:class:`list`) The collection of parameters to use"""
-
-    max_distribution = 0
-    """(:class:`int`) The maximum value for a distribution for a parameter that the model may handle"""
-
-    min_distribution = 10
-    """(:class:`int`) The minimum value for a distribution for a parameter that the model may handle"""
-
-    min_scalar = 0
-    """(:class:`int`) The minimum scalar value for a parameter that the model may handle"""
-
-    max_scalar = 10
-    """(:class:`int`) The maximum scalar value for a parameter that the model may handle"""
-
-    distribution_types = [
-        'normal',
-        'lognormal'
-    ]
-    """(:class:`list`) The collection of distribution types that the model may handle"""
-
-    output_variables = [
-        'streamflow'
-    ]
-    """(:class:`list`) The collection of output variables that the model may generate"""
 
     @classmethod
     def factory_init_correct_subtype_from_deserialized_json(cls, json_obj: dict) -> 'ModelExecRequest':
@@ -250,69 +219,18 @@ class ModelExecRequest(MaaSRequest, ABC):
             return None
 
     @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
+    def get_model_name(cls) -> str:
         """
-        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
-
-        Recall this will look something like:
-
-        {
-            'model': {
-                'NWM': {
-                    'version': 2.1,
-                    'output': 'streamflow',
-                    'parameters': [
-                        {
-                            'land_cover': {
-                                'distribution': {
-                                    'min': 0,
-                                    'max': 10,
-                                    'type': 'lognormal'
-                                }
-                            }
-                        }
-                    ]
-                }
-            }
-            'session-secret': 'secret-string-val'
-        }
-
-
-        Parameters
-        ----------
-        json_obj
-
-        Returns
-        -------
-        A new object of this type instantiated from the deserialize JSON object dictionary, or none if the provided
-        parameter could not be used to instantiated a new object.
+        :return: The name of this model
         """
-        try:
-            model_name = cls.model_name
-            return cls(version=json_obj['model'][model_name]['version'],
-                       output=json_obj['model'][model_name]['output'],
-                       domain=json_obj['model'][model_name]['domain'],
-                       parameters=json_obj['model'][model_name]['parameters'],
-                       session_secret=json_obj['session-secret'])
-        except:
-            return None
+        return cls.model_name
 
-    # TODO: version probably needs to be changed from float to str, but leaving for now since the schema has it as a
-    #  number
-    def __init__(self, version: float, output: str, domain: str, parameters: dict, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         """
         Initialize model-exec-specific attributes and state of this request object common to all model exec requests.
 
         Parameters
         ----------
-        version : float
-            The version of the model to use.
-        output : str
-            The name of the variable for which to generate numbers.
-        domain : str
-            The name of the domain over which to execute.
-        parameters : dict
-            A mapping between parameters to configure and their scalar or distribution configurations.
         session_secret : str
             The session secret for the right session when communicating with the request handler.
         """
@@ -356,194 +274,21 @@ class ModelExecRequest(MaaSRequest, ABC):
         self.parameters = parameters
 
     def __eq__(self, other):
-        return self._check_class_compatible_for_equality(other) \
-               and self._version == other._version \
-               and self.output == other.output \
-               and self.parameters == other.parameters \
-               and self.session_secret == other.session_secret \
-               and self._domain == other._domain
-
-    #TODO is classmethod appropriate here?  Seems more like an instance
-    @property
-    def version(self) -> float:
-        """
-        :return: the version of the model to run
-        """
-        return self._version
-
-    @property
-    def domain(self) -> str:
-        """
-        :return: domain name the model is executing on
-        """
-        return self._domain
-
-    @classmethod
-    def get_distribution_types(cls) -> list:
-        """
-        :return: All distribution types that this model uses
-        """
-        return cls.distribution_types
-
-    @classmethod
-    def get_model_name(cls) -> str:
-        """
-        :return: The name of this model
-        """
-        return cls.model_name
-
-    @classmethod
-    def get_parameters(cls) -> list:
-        """
-        :return: The parameters for the model that may be configured
-        """
-        return cls.parameters
-
-    @classmethod
-    def get_output_variables(cls) -> list:
-        """
-        :return: The variables that the model is able to generate
-        """
-        return cls.output_variables
-
-    @classmethod
-    def validate_scalar(cls, parameter_name: str, scalar: Scalar):
-        """
-        Test the scalar value to see if it is compatible with the model
-
-        A different way to approach this might be to make the parameter list a mapping between the
-        parameters and their boundaries (i.e. shifting the min/max scalar value into the map). This will allow
-        behavior that has different bounds between parameters. For instance, 'land_cover' could have a max scalar of
-        8 while 'hydro_whatever' might have a max scalar of 72.
-
-        :param str parameter_name: The name of the parameter with the scalar
-        :param Scalar scalar: The value for the parameter
-        :raises ValueError: Raised in the event that the scalar is incompatible with the model
-        """
-        if scalar.scalar < cls.min_scalar:
-            raise ValueError(
-                "{} is too low of a scalar value for {} for {} models. It must be greater than or equal to {}.".format(
-                    scalar.scalar,
-                    parameter_name,
-                    cls.model_name,
-                    cls.min_scalar
-                )
-            )
-        elif scalar.scalar > cls.max_scalar:
-            raise ValueError(
-                "{} is too high of a scalar value for {} for {} models. It must be less than or equal to {}.".format(
-                    scalar.scalar,
-                    parameter_name,
-                    cls.model_name,
-                    cls.max_scalar
-                )
-            )
-
-    @classmethod
-    def validate_distribution(cls, parameter_name: str, distribution: Distribution):
-        """
-        Test the distribution value to see if it is compatible with the model
-
-        A different way to approach this might be to make the parameter list a mapping between the
-        parameters and their boundaries (i.e. shifting the min/max scalar value into the map). This will allow
-        behavior that has different bounds between parameters. For instance, 'land_cover' could have a max scalar of
-        8 while 'hydro_whatever' might have a max scalar of 72.
-
-        :param str parameter_name: The name of the parameter with the distribution
-        :param Distribution distribution: The value for the parameter
-        :raises ValueError: Raised in the event that the distribution is incompatible with the model
-        """
-        messages = list()
-
-        if distribution.minimum < cls.min_distribution:
-            messages.append(
-                "{} is too low of a distribution value for {} for {} models. "
-                "It must be greater than or equal to {}".format(
-                    distribution.minimum,
-                    parameter_name,
-                    cls.model_name,
-                    cls.min_distribution
-                )
-            )
-
-        if distribution.minimum > cls.max_distribution:
-            messages.append(
-                "{} is too high of a distribution value for {} for {} models. "
-                "It must be less than or equal to {}".format(
-                    distribution.maximum,
-                    parameter_name,
-                    cls.model_name,
-                    cls.max_distribution
-                )
-            )
-
-        if distribution.minimum > distribution.maximum:
-            messages.append(
-                "The minimum value for the distribution ({}) is higher than the maximum ({}) "
-                "for the {} parameter".format(distribution.minimum, distribution.maximum, parameter_name)
-            )
-
-        if distribution.distribution_type not in cls.distribution_types:
-            messages.append(
-                "The {} distribution type may not be used for the {} parameter".format(
-                    distribution.distribution_type,
-                    parameter_name
-                )
-            )
-
-        if len(messages) > 0:
-            raise ValueError(". ".join(messages))
-
-    @classmethod
-    def validate_output(cls, output: str):
-        """
-        :param str output: The type of output that we want the model to generate
-        :raises ValueError if the model cannot generate the given output type
-        """
-        if output not in cls.output_variables:
-            raise ValueError("{} is not supported by the {} model.".format(output, cls.model_name))
-
-    def to_dict(self) -> dict:
-        """
-        Converts the request to a dictionary that may be passed to web requests
-
-        Will look like:
-
-        {
-            'model': {
-                'NWM': {
-                    'version': 2.1,
-                    'output': 'streamflow',
-                    'parameters': [
-                        {
-                            'land_cover': {
-                                'distribution': {
-                                    'min': 0,
-                                    'max': 10,
-                                    'type': 'lognormal'
-                                }
-                            }
-                        }
-                    ]
-                    'domain': 'test-domain'
-                }
-            }
-            'session-secret': 'secret-string-val'
-        }
-
-        :return: A dictionary containing all the data in such a way that it may be used by a web request
-        """
-        model = dict()
-        model[self.get_model_name()] = dict()
-        model[self.get_model_name()]['version'] = self._version
-        model[self.get_model_name()]['output'] = self.output
-        model[self.get_model_name()]['domain'] = self._domain
-        model[self.get_model_name()]['parameters'] = dict()
-
-        for parameter in self.parameters:
-            model[self.get_model_name()]['parameters'].update({parameter: self.parameters[parameter].to_dict()})
-
-        return {'model': model, 'session-secret': self.session_secret}
+        if not self._check_class_compatible_for_equality(other):
+            return False
+        elif self.session_secret != other.session_secret:
+            return False
+        elif len(self.data_requirements) != len(other.data_requirements):
+            return False
+        #elif 0 < len([req for req in self.data_requirements if req not in set(other.data_requirements)]):
+        #    return False
+        #else:
+        #    return True
+        else:
+            for req in self.data_requirements:
+                if req not in other.data_requirements:
+                    return False
+            return True
 
 
 class MaaSRequestResponse(Response, ABC):
@@ -895,35 +640,6 @@ class NWMRequest(ModelExecRequest):
     model_name = 'nwm'
     """(:class:`str`) The name of the model to be used"""
 
-    parameters = [
-        'hydraulic_conductivity',
-        'land_cover'
-    ]
-    """(:class:`list`) The collection of parameters to use"""
-
-    output_variables = [
-        'streamflow'
-    ]
-    """(:class:`list`) The collection of output variables that the model may generate"""
-
-    max_distribution = 10
-    """(:class:`int`) The maximum value for a distribution for a parameter that the model may handle"""
-
-    min_distribution = 0
-    """(:class:`int`) The minimum value for a distribution for a parameter that the model may handle"""
-
-    min_scalar = 0
-    """(:class:`int`) The minimum scalar value for a parameter that the model may handle"""
-
-    max_scalar = 10
-    """(:class:`int`) The maximum scalar value for a parameter that the model may handle"""
-
-    distribution_types = [
-        'normal',
-        'lognormal'
-    ]
-    """(:class:`list`) The collection of distribution types that the model may handle"""
-
     @classmethod
     def factory_init_correct_response_subtype(cls, json_obj: dict) -> ModelExecRequestResponse:
         """
@@ -1090,13 +806,6 @@ class NGENRequest(ModelExecRequest):
     model_name = 'ngen' #FIXME case sentitivity
     """(:class:`str`) The name of the model to be used"""
 
-    parameters = []
-    """(:class:`list`) The collection of parameters to use"""
-
-    # TODO: this no longer makes sense in the context of Nextgen, as it is entirely (BMI) model dependent
-    output_variables = []
-    """(:class:`list`) The collection of output variables that the model may generate"""
-
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict) -> Optional['NGENRequest']:
         """
@@ -1168,8 +877,7 @@ class NGENRequest(ModelExecRequest):
             The optioanl BMI init config ``data_id`` index, for identifying the particular BMI init config datasets
             applicable to this request.
         """
-        super().__init__(version=4.0, output="streamflow", domain="Nextgen Custom Spatial Domain", parameters={},
-                         *args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._time_range = time_range
         self._hydrofabric_uid = hydrofabric_uid
         self._hydrofabric_data_id = hydrofabric_data_id
@@ -1431,21 +1139,8 @@ class NGENRequest(ModelExecRequest):
         model["bmi_config_data_id"] = self._bmi_config_data_id
         if self.catchments is not None:
             model['catchments'] = self.catchments
-        model['version'] = self.version
 
         return {'model': model, 'session-secret': self.session_secret}
-
-    @property
-    def version(self) -> float:
-        """
-        The model version.
-
-        Returns
-        -------
-        float
-            The model version.
-        """
-        return self._version
 
 
 class NGENRequestResponse(ModelExecRequestResponse):
