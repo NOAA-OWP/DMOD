@@ -551,8 +551,8 @@ class MaaSRequestResponse(Response, ABC):
     response_to_type = MaaSRequest
     """ The type of :class:`AbstractInitRequest` for which this type is the response"""
 
-    def __init__(self, success: bool, reason: str, message: str = '', data=None, *args, **kwargs):
-        super().__init__(success=success, reason=reason, message=message, data=data, *args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class ModelExecRequestResponse(MaaSRequestResponse, ABC):
@@ -637,11 +637,11 @@ class ModelExecRequestResponse(MaaSRequestResponse, ABC):
         except Exception as e:
             return None
 
-    def __init__(self, success: bool, reason: str, message: str = '', scheduler_response=None):
-        super().__init__(success=success,
-                         reason=reason,
-                         message=message,
-                         data=self._convert_scheduler_response_to_data_attribute(scheduler_response))
+    def __init__(self, scheduler_response=None, *args, **kwargs):
+        data = self._convert_scheduler_response_to_data_attribute(scheduler_response)
+        if data is not None:
+            kwargs['data'] = data
+        super().__init__(*args, **kwargs)
 
     @property
     def job_id(self):
