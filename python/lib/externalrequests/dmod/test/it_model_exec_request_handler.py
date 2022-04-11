@@ -193,6 +193,10 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         self._session_ip_2 = '127.0.0.3'
         self._session_ip_3 = '127.0.0.4'
 
+        self._config_data_id_1 = '1'
+        self._config_data_id_2 = '2'
+        self._config_data_id_3 = '3'
+
         self.session_manager = RedisBackendSessionManager(redis_host='127.0.0.1',
                                                           redis_port=self.redis_test_port,
                                                           redis_pass=self.redis_test_pass)
@@ -223,7 +227,8 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         ip_addr = self._session_ip_1
         user = self._user_1
         session = self.session_manager.create_session(ip_address=ip_addr, username=user)
-        request = NWMRequest(session_secret=session.session_secret, version=2.0)
+        config_data_id = self._config_data_id_1
+        request = NWMRequest(config_data_id=config_data_id, session_secret=session.session_secret)
 
         # Now, remove the session from the manager
         self.session_manager.remove_session(session)
@@ -239,7 +244,8 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         ip_addr = self._session_ip_1
         user = self._user_1
         session = self.session_manager.create_session(ip_address=ip_addr, username=user)
-        request = NWMRequest(session_secret=session.session_secret, version=2.0)
+        config_data_id = self._config_data_id_1
+        request = NWMRequest(config_data_id=config_data_id, session_secret=session.session_secret)
 
         # Now, remove the session from the manager
         self.session_manager.remove_session(session)
@@ -255,7 +261,8 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         ip_addr = self._session_ip_1
         user = self._user_1
         session = self.session_manager.create_session(ip_address=ip_addr, username=user)
-        request = NWMRequest(session_secret=session.session_secret, version=2.0)
+        config_data_id = self._config_data_id_1
+        request = NWMRequest(config_data_id=config_data_id, session_secret=session.session_secret)
 
         #self.session_manager._authorizer = self.fail_authorizer
         self.handler._authorizer = self.fail_authorizer
@@ -272,7 +279,8 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         ip_addr = self._session_ip_1
         user = self._user_1
         session = self.session_manager.create_session(ip_address=ip_addr, username=user)
-        request = NWMRequest(session_secret=session.session_secret, version=2.0)
+        config_data_id = self._config_data_id_2
+        request = NWMRequest(config_data_id=config_data_id, session_secret=session.session_secret)
 
         dummy_scheduler_client = DummySchedulerClient(test_successful=True)
         self.handler._scheduler_client = dummy_scheduler_client
@@ -289,7 +297,8 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         ip_addr = self._session_ip_1
         user = self._user_1
         session = self.session_manager.create_session(ip_address=ip_addr, username=user)
-        request = NWMRequest(session_secret=session.session_secret, version=2.0)
+        config_data_id = self._config_data_id_2
+        request = NWMRequest(config_data_id=config_data_id, session_secret=session.session_secret)
 
         dummy_scheduler_client = DummySchedulerClient(test_successful=True)
         self.handler._scheduler_client = dummy_scheduler_client
@@ -307,7 +316,8 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         ip_addr = self._session_ip_1
         user = self._user_1
         session = self.session_manager.create_session(ip_address=ip_addr, username=user)
-        request = NWMRequest(session_secret=session.session_secret, version=2.0)
+        config_data_id = self._config_data_id_2
+        request = NWMRequest(config_data_id=config_data_id, session_secret=session.session_secret)
 
         dummy_scheduler_client = DummySchedulerClient(test_successful=True)
         self.handler._scheduler_client = dummy_scheduler_client
@@ -325,7 +335,8 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         ip_addr = self._session_ip_1
         user = self._user_1
         session = self.session_manager.create_session(ip_address=ip_addr, username=user)
-        request = NWMRequest(session_secret=session.session_secret, version=2.0)
+        config_data_id = self._config_data_id_2
+        request = NWMRequest(config_data_id=config_data_id, session_secret=session.session_secret)
 
         dummy_scheduler_client = DummySchedulerClient(test_successful=True)
         self.handler._scheduler_client = dummy_scheduler_client
@@ -348,7 +359,8 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         ip_addr = self._session_ip_1
         user = self._user_1
         session = self.session_manager.create_session(ip_address=ip_addr, username=user)
-        request = NWMRequest(session_secret=session.session_secret, version=2.0)
+        config_data_id = self._config_data_id_2
+        request = NWMRequest(config_data_id=config_data_id, session_secret=session.session_secret)
 
         dummy_scheduler_client = DummySchedulerClient(test_successful=True)
         self.handler._scheduler_client = dummy_scheduler_client
@@ -370,7 +382,8 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         ip_addr = self._session_ip_1
         user = self._user_1
         session = self.session_manager.create_session(ip_address=ip_addr, username=user)
-        request = NWMRequest(session_secret=session.session_secret, version=2.0)
+        config_data_id = self._config_data_id_3
+        request = NWMRequest(config_data_id=config_data_id, session_secret=session.session_secret)
 
         dummy_scheduler_client = DummySchedulerClient(test_successful=False)
         self.handler._scheduler_client = dummy_scheduler_client
@@ -387,7 +400,8 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         ip_addr = self._session_ip_1
         user = self._user_1
         session = self.session_manager.create_session(ip_address=ip_addr, username=user)
-        request = NWMRequest(session_secret=session.session_secret, version=2.0)
+        config_data_id = self._config_data_id_3
+        request = NWMRequest(config_data_id=config_data_id, session_secret=session.session_secret)
 
         dummy_scheduler_client = DummySchedulerClient(test_successful=False)
         self.handler._scheduler_client = dummy_scheduler_client
@@ -405,7 +419,8 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         ip_addr = self._session_ip_1
         user = self._user_1
         session = self.session_manager.create_session(ip_address=ip_addr, username=user)
-        request = NWMRequest(session_secret=session.session_secret, version=2.0)
+        config_data_id = self._config_data_id_3
+        request = NWMRequest(config_data_id=config_data_id, session_secret=session.session_secret)
 
         dummy_scheduler_client = DummySchedulerClient(test_successful=False)
         self.handler._scheduler_client = dummy_scheduler_client
@@ -422,7 +437,8 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         ip_addr = self._session_ip_1
         user = self._user_1
         session = self.session_manager.create_session(ip_address=ip_addr, username=user)
-        request = NWMRequest(session_secret=session.session_secret, version=2.0)
+        config_data_id = self._config_data_id_3
+        request = NWMRequest(config_data_id=config_data_id, session_secret=session.session_secret)
 
         dummy_scheduler_client = DummySchedulerClient(test_successful=False)
         self.handler._scheduler_client = dummy_scheduler_client
@@ -441,7 +457,8 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         ip_addr = self._session_ip_1
         user = self._user_1
         session = self.session_manager.create_session(ip_address=ip_addr, username=user)
-        request = NWMRequest(session_secret=session.session_secret, version=2.0)
+        config_data_id = self._config_data_id_3
+        request = NWMRequest(config_data_id=config_data_id, session_secret=session.session_secret)
 
         dummy_scheduler_client = DummySchedulerClient(test_successful=False)
         self.handler._scheduler_client = dummy_scheduler_client
