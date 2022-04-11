@@ -14,19 +14,30 @@ class TestSchedulerRequestMessage(unittest.TestCase):
 
         # Example 0
         self.request_strings.append(
-            '{"allocation": "single-node", "cpus": 4, "mem": 500000, "model_request": {"model": {"nwm": {"domain": "", "output": "streamflow", "parameters": {}, "version": 2.0}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}, "user_id": "someone"}')
+            '{"allocation": "single-node", "cpus": 4, "mem": 500000, "model_request": {"model": {"nwm": {"config_data_id": "1", "data_requirements": [{"category": "CONFIG", "domain": {"continuous": [], "data_format": "NWM_CONFIG", "discrete": [{"values": ["1"], "variable": "data_id"}]}, "is_input": true}]}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}, "user_id": "someone"}')
         self.request_jsons.append({"model_request": {
-            "model": {"nwm": {"version": 2.0, "output": "streamflow", "domain":'', "parameters": {}}},
+            "model": {"nwm": {"config_data_id": "1", "data_requirements": [{"domain": {
+                "data_format": "NWM_CONFIG", "continuous": [], "discrete": [{"variable": "data_id", "values": ["1"]}]},
+                "is_input": True,
+                "category": "CONFIG"}]}},
             "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}, "user_id": "someone",
-                                   "cpus": 4, "mem": 500000, "allocation": "single-node"})
+            "cpus": 4, "mem": 500000, "allocation": "single-node"})
+
+
         self.request_objs.append(
             SchedulerRequestMessage(model_request=NWMRequest.factory_init_from_deserialized_json(
-                {"model": {"nwm": {"version": 2.0, "output": "streamflow", "domain":'', "parameters": {}}},
+                {"model": {"nwm": {"config_data_id": "1", "data_requirements": [{"domain": {"data_format": "NWM_CONFIG",
+                                                                                            "continuous": [],
+                                                                                            "discrete": [
+                                                                                                {"variable": "data_id",
+                                                                                                 "values": ["1"]}]},
+                                                                                 "is_input": True,
+                                                                                 "category": "CONFIG"}]}},
                  "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}),
-                                    user_id='someone',
-                                    cpus=4,
-                                    mem=500000,
-                                    allocation_paradigm='single-node'))
+                user_id='someone',
+                cpus=4,
+                mem=500000,
+                allocation_paradigm='single-node'))
 
     def test_factory_init_from_deserialized_json_0_a(self):
         """
