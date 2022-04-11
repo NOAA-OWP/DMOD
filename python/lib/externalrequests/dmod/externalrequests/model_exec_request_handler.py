@@ -54,9 +54,9 @@ class ModelExecRequestHandler(MaaSRequestHandler):
             model_name = '(n/a; was this a ModelExecRequest instance?)'
 
         if model_name == NGENRequest.model_name:
-            return NGENRequestResponse(success, reason, message, scheduler_response)
+            return NGENRequestResponse(success=success, reason=reason, message=message, scheduler_response=scheduler_response)
         elif model_name == NWMRequest.model_name:
-            return NWMRequestResponse(success, reason, message, scheduler_response)
+            return NWMRequestResponse(success=success, reason=reason, message=message, scheduler_response=scheduler_response)
         else:
             raise RuntimeError("Unrecognized model '{}'; cannot generate ModelExecRequestResponse".format(model_name))
 
