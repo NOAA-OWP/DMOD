@@ -38,4 +38,6 @@ COPY --from=sources /dmod /dmod_src
 RUN if [ -e /dmod_src/python/pydevd-pycharm.egg ]; then mv /dmod_src/python/pydevd-pycharm.egg /. ; fi \
     && rm -rf /dmod_src
 
-ENTRYPOINT [ "python3", "-m", "${partitioner_service_module_name}" ]
+COPY entrypoint.sh /code/entrypoint.sh
+
+ENTRYPOINT [ "/code/entrypoint.sh" ]
