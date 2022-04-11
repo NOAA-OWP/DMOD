@@ -16,23 +16,26 @@ class TestNWMRequest(unittest.TestCase):
         # TODO: improve coverage through more examples
 
         # Example 0
-        self.request_strings.append('{"model": {"nwm": {"domain": "", "output": "streamflow", "parameters": {}, "version": 2.0}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
-        self.request_jsons.append({'model': {'nwm': {'version': 2.0, 'output': 'streamflow', 'parameters': {}, 'domain':''}}, 'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'})
+        self.request_strings.append('{"model": {"nwm": {"config_data_id": "1", "data_requirements": [{"category": "CONFIG", "domain": {"continuous": [], "data_format": "NWM_CONFIG", "discrete": [{"values": ["1"], "variable": "data_id"}]}, "is_input": true}]}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
+        self.request_jsons.append({'model': {"nwm": {"config_data_id": "1", "data_requirements": [{"domain": {
+            "data_format": "NWM_CONFIG", "continuous": [], "discrete": [{"variable": "data_id", "values": ["1"]}]},
+                                                                                                   "is_input": True,
+                                                                                                   "category": "CONFIG"}]}},
+                                   'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'})
         self.request_objs.append(
             NWMRequest(session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
-                       version=2.0,
-                       output='streamflow',
-                       domain='',
-                       parameters={}))
+                       config_data_id="1"))
 
         # Example 1 - like example 0, but with the object initialized with the default 'parameters' value
-        self.request_strings.append('{"model": {"nwm": {"domain": "", "output": "streamflow", "parameters": {}, "version": 2.0}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
-        self.request_jsons.append({'model': {'nwm': {'version': 2.0, 'output': 'streamflow', 'parameters': {}, 'domain':''}}, 'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'})
+        self.request_strings.append('{"model": {"nwm": {"config_data_id": "2", "data_requirements": [{"category": "CONFIG", "domain": {"continuous": [], "data_format": "NWM_CONFIG", "discrete": [{"values": ["2"], "variable": "data_id"}]}, "is_input": true}]}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
+        self.request_jsons.append({'model': {"nwm": {"config_data_id": "2", "data_requirements": [{"domain": {
+            "data_format": "NWM_CONFIG", "continuous": [], "discrete": [{"variable": "data_id", "values": ["2"]}]},
+                                                                                                   "is_input": True,
+                                                                                                   "category": "CONFIG"}]}},
+                                   'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'})
         self.request_objs.append(
             NWMRequest(session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
-                       version=2.0,
-                       output='streamflow',
-                       domain=''))
+                       config_data_id='2'))
 
     def test_factory_init_from_deserialized_json_0_a(self):
         """
