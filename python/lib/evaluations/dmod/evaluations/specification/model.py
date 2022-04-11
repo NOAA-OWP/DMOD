@@ -385,17 +385,21 @@ class ThresholdDefinition(Specification):
             "field": self.__field,
             "unit": self.__unit,
             "weight": self.__weight,
+            "start": self.__start,
+            "end": self.__end,
             "properties": self.__properties
         }
 
-    __slots__ = ["__name", "__field", "__weight", "__unit"]
+    __slots__ = ["__name", "__field", "__weight", "__unit", "__start", "__end"]
 
     def __init__(
             self,
             name: typing.Union[str, bytes],
             field: typing.Union[str, bytes, typing.Sequence[str]],
-            weight: float,
+            weight: typing.Union[str, float],
             unit: UnitDefinition,
+            start: typing.Union[str, typing.Sequence[str], bytes] = None,
+            end: typing.Union[str, typing.Sequence[str], bytes] = None,
             properties: typing.Union[typing.Dict[str, typing.Any], str] = None,
             **kwargs
     ):
@@ -410,6 +414,22 @@ class ThresholdDefinition(Specification):
             self.__field = field.split("/")
         else:
             self.__field = field
+
+        if isinstance(start, bytes):
+            start = start.decode()
+
+        if isinstance(start, str):
+            self.__start = start.split("/")
+        else:
+            self.__start = start
+
+        if isinstance(end, bytes):
+            end = end.decode()
+
+        if isinstance(end, str):
+            self.__end = end.split("/")
+        else:
+            self.__end = end
 
         self.__weight = weight
         self.__unit = unit
@@ -443,15 +463,19 @@ class ThresholdDefinition(Specification):
     def unit(self) -> UnitDefinition:
         return self.__unit
 
+    @property
+    def start(self) -> typing.Sequence[str]:
+        return self.__start
+
+    @property
+    def end(self) -> typing.Sequence[str]:
+        return self.__end
+
     def __str__(self) -> str:
         return f"{self.__name}, weighing {self.__weight}, from the '{self.__field}' field."
 
     def __repr__(self) -> str:
-        return str({
-            "name": self.__name,
-            "weight": self.__weight,
-            "field": self.__field
-        })
+        return str(self.to_dict())
 
 
 class BackendSpecification(Specification):
@@ -691,6 +715,9 @@ class AssociatedField(Specification):
         if datatype in ('str', 'string', 'word', 'id', 'identifier'):
             return str(value)
 
+        if datatype in ('day',):
+            return util.Day(value)
+
         return value
 
     def __str__(self):
@@ -848,6 +875,9 @@ class ValueSelector(Specification):
         if datatype in ('float', 'double', 'number') and util.str_is_float(value):
             return float(value)
 
+        if datatype in ('day',):
+            return util.Day(value)
+
         return value
 
     @property
@@ -894,6 +924,61 @@ class ValueSelector(Specification):
             description += f", indexed by [{','.join(self.__associated_fields)}]"
 
         return description
+
+
+class ThresholdApplicationRules(Specification):
+    """
+    Added rules for how thresholds should be applied
+    """
+
+    __slots__ = ['__threshold_field', '__observation_field', '__prediction_field']
+
+    def validate(self) -> typing.Sequence[str]:
+        pass
+
+    def to_dict(self) -> typing.Dict[str, typing.Any]:
+        pass
+
+    def __init__(
+            self,
+            threshold_field: AssociatedField,
+            observation_field: AssociatedField = None,
+            prediction_field: AssociatedField = None,
+            properties: typing.Dict[str, typing.Any] = None,
+            **kwargs
+    ):
+        super().__init__(properties=properties, **kwargs)
+        self.__threshold_field = threshold_field
+        self.__observation_field = observation_field
+        self.__prediction_field = prediction_field
+
+    @property
+    def threshold_field(self) -> AssociatedField:
+        return self.__threshold_field
+
+    @property
+    def observation_field(self) -> typing.Optional[AssociatedField]:
+        return self.__observation_field
+
+    @property
+    def prediction_field(self) -> typing.Optional[AssociatedField]:
+        return self.__prediction_field
+
+    def __repr__(self):
+        return str(self.to_dict())
+
+    def __str__(self):
+        representation = f"The threshold built around {self.__threshold_field}"
+
+        if self.__observation_field and self.__prediction_field:
+            representation += f" is applied to the observations aligned by {self.__observation_field} " \
+                              f"and the predictions aligned by {self.__prediction_field}"
+        elif self.__observation_field:
+            representation += f" is applied to the observations aligned by {self.__observation_field}"
+        else:
+            representation += f" is applied to the predictions aligned by {self.__prediction_field}"
+
+        return representation
 
 
 class LocationSpecification(Specification):
@@ -1032,10 +1117,11 @@ class DataSourceSpecification(Specification):
 
         return dictionary
 
-    __slots__ = ["__name", "__backend", "__locations", "__field_mapping", "__value_selectors"]
+    __slots__ = ["__name", "__value_field", "__backend", "__locations", "__field_mapping", "__value_selectors"]
 
     def __init__(
             self,
+            value_field: str,
             backend: BackendSpecification,
             value_selectors: typing.Sequence[ValueSelector],
             name: str = None,
@@ -1046,7 +1132,8 @@ class DataSourceSpecification(Specification):
     ):
         super().__init__(properties, **kwargs)
         self.__backend = backend
-        self.__name = name if name else str(backend)
+        self.__name = name if name else value_field
+        self.__value_field = value_field
         self.__locations = locations if locations else LocationSpecification(identify=False)
         self.__field_mapping = field_mapping if field_mapping else list()
         self.__value_selectors = value_selectors
@@ -1070,6 +1157,12 @@ class DataSourceSpecification(Specification):
     @property
     def value_selectors(self) -> typing.Sequence[ValueSelector]:
         return [selector for selector in self.__value_selectors]
+
+    @property
+    def field_names(self) -> typing.Sequence[str]:
+        names: typing.List[str] = list()
+
+        return names
 
     def get_column_options(self) -> typing.Dict[str, typing.Union[typing.Dict[str, typing.Any], typing.List[str]]]:
         """
@@ -1266,7 +1359,9 @@ class ThresholdSpecification(Specification):
         dictionary = {
             "backend": self.__backend.to_dict(),
             "locations": self.__locations.to_dict(),
-            "definitions": [definition.to_dict() for definition in self.__definitions]
+            "origin": self.__origin,
+            "definitions": [definition.to_dict() for definition in self.__definitions],
+            "application_rules": self.__application_rules.to_dict()
         }
 
         if self.__properties:
@@ -1274,13 +1369,14 @@ class ThresholdSpecification(Specification):
 
         return dictionary
 
-    __slots__ = ["__backend", "__locations", "__definitions", "__origin"]
+    __slots__ = ["__backend", "__locations", "__definitions", "__origin", "__application_rules"]
 
     def __init__(
             self,
             backend: BackendSpecification,
             definitions: typing.Sequence[ThresholdDefinition],
             locations: LocationSpecification = None,
+            application_rules: ThresholdApplicationRules = None,
             properties: typing.Dict[str, typing.Any] = None,
             origin: typing.Union[str, typing.Sequence[str]] = None,
             **kwargs
@@ -1290,6 +1386,7 @@ class ThresholdSpecification(Specification):
         self.__backend = backend
         self.__definitions = definitions
         self.__locations = locations
+        self.__application_rules = application_rules
 
         origin_starts_at_root = False
 
@@ -1323,6 +1420,10 @@ class ThresholdSpecification(Specification):
     @property
     def origin(self) -> typing.Optional[typing.Sequence[str]]:
         return self.__origin
+
+    @property
+    def application_rules(self) -> ThresholdApplicationRules:
+        return self.__application_rules
 
 
 class EvaluationSpecification(Specification):

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import io
 import typing
 import os
 import re
@@ -10,7 +11,6 @@ import jsonpath_ng as jsonpath
 from jsonpath_ng.ext import parse as create_expression
 
 from .. import specification
-from ..crosswalk import reader
 from .. import jsonquery
 from .. import util
 
@@ -101,6 +101,9 @@ class JSONThresholdRetriever(retriever.ThresholdRetriever):
 
 
 class FrameThresholdRetriever(retriever.ThresholdRetriever):
+    def load_frame(self, source: str, **kwargs) -> pandas.DataFrame:
+        return pandas.read_csv(self.backend.get_data_stream(source), **kwargs)
+
     def get_data(self) -> pandas.DataFrame:
         constructor_signature = inspect.signature(pandas.read_csv)
         provided_parameters = {
@@ -109,47 +112,40 @@ class FrameThresholdRetriever(retriever.ThresholdRetriever):
             if key in constructor_signature.parameters
         }
 
-        column_options = self.definition.get_column_options()
-
-        for option, value in column_options.items():
-            if option not in provided_parameters:
-                provided_parameters[option] = value
-            elif util.is_arraytype(value) and util.is_arraytype(provided_parameters[option]):
-                for entry in value:
-                    if entry not in provided_parameters[option]:
-                        provided_parameters[option].append(entry)
-            elif isinstance(value, dict) and isinstance(provided_parameters[option], dict):
-                provided_parameters[option].update(value)
-            else:
-                provided_parameters[option] = value
-
         if 'date_parser' not in provided_parameters:
             provided_parameters['date_parser'] = util.parse_non_naive_dates
 
         combined_table = None
 
         for source in self.backend.sources:
-            document = pandas.read_csv(self.backend.get_data_stream(source), **provided_parameters)
+            document = self.load_frame(source, **provided_parameters)
 
-            column_names: typing.Set[str] = set()
+            if self.definition.application_rules:
+                field = self.definition.application_rules.threshold_field
 
-            index_names: typing.Set[str] = set()
+                def conversion_function(column_name_and_value: pandas.Series):
+                    """
+                    Converts a series of column names vs values to the desired data type
 
-            for selector in self.definition.value_selectors:
-                if selector.where.lower() != 'column':
-                    raise ValueError(f"Column to be found in a '{selector.where}' is not valid for csv data.")
+                    Args:
+                        column_name_and_value:
+                            A pandas Series mapping column names to values
+                    Returns:
+                        The converted value
+                    """
+                    converted_value = field.to_datatype([value for value in column_name_and_value])
+                    return converted_value
 
-                if selector.name not in document.keys():
-                    raise KeyError(f"There is not a column named '{selector.name}' in '{source}'")
+                document[field.name] = document[field.path].apply(conversion_function, axis=1)
+                document = document.set_index(field.name)
 
-                column_names.add(selector.name)
+            column_names: typing.List[str] = [
+                threshold_definition.field[-1]
+                for threshold_definition in self.definition.definitions
+            ]
 
-                for index in selector.index:
-                    if index.name not in document.keys():
-                        raise KeyError(f"There is not a column named '{index.name}' in '{source}'")
-
-                    column_names.add(index.name)
-                    index_names.add(index.name)
+            if self.definition.locations.should_identify and self.definition.locations.from_field.lower() == 'column':
+                column_names.append(self.definition.locations.pattern[-1])
 
             table: pandas.DataFrame = document[column_names]
 
@@ -163,6 +159,14 @@ class FrameThresholdRetriever(retriever.ThresholdRetriever):
 
                 table = table.assign(location=[name for _ in range(len(table))])
 
+            renames = {
+                threshold_definition.field[-1]: threshold_definition.name
+                for threshold_definition in self.definition.definitions
+            }
+
+            if renames:
+                table.rename(columns=renames, inplace=True)
+
             if combined_table is None:
                 combined_table = table
             else:
@@ -171,7 +175,45 @@ class FrameThresholdRetriever(retriever.ThresholdRetriever):
         return combined_table
 
 
+class RDBThresholdRetriever(FrameThresholdRetriever):
+    def load_frame(self, source: str, **kwargs) -> pandas.DataFrame:
+        with open(source) as threshold_file:
+            lines = [
+                line
+                for line in threshold_file.readlines()
+                if not line.startswith("#")
+            ]
+        column_names = lines[0].strip().split("\t")
+        column_types = lines.pop(1).strip().split("\t")
+        column_types = [
+            float if column_type[-1] == 'n' else str
+            for column_type in column_types
+        ]
+        dtype = {
+            column_name: column_type
+            for column_name, column_type in zip(column_names, column_types)
+        }
+        threshold_buffer = io.StringIO()
+        threshold_buffer.writelines(lines)
+        threshold_buffer.seek(0)
+
+        arguments = kwargs
+        arguments['sep'] = '\t'
+
+        if 'dtype' in arguments:
+            for column_name, column_type in dtype.items():
+                if column_name not in arguments['dtype']:
+                    arguments['dtype'][column_name] = column_type
+        else:
+            arguments['dtype'] = dtype
+
+        frame: pandas.DataFrame = pandas.read_csv(threshold_buffer, **arguments)
+
+        return frame
+
+
 __FORMAT_MAPPING = {
     "json": JSONThresholdRetriever,
-    "csv": FrameThresholdRetriever
+    "csv": FrameThresholdRetriever,
+    'rdb': RDBThresholdRetriever
 }
