@@ -748,8 +748,48 @@ class NWMRequest(ModelExecRequest):
         """
         return NWMRequestResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        """
+        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
+
+        Recall this will look something like:
+
+        {
+            'model': {
+                'NWM': {
+                    'config_data_id': '<config_dataset_data_id>',
+                    'data_requirements': [ ... (serialized DataRequirement objects) ... ]
+                }
+            }
+            'session-secret': 'secret-string-val'
+        }
+
+        Parameters
+        ----------
+        json_obj
+
+        Returns
+        -------
+        A new object of this type instantiated from the deserialize JSON object dictionary, or none if the provided
+        parameter could not be used to instantiated a new object.
+        """
+        try:
+            obj = cls(config_data_id=json_obj['model'][cls.model_name]['config_data_id'],
+                      session_secret=json_obj['session-secret'])
+
+            reqs = [DataRequirement.factory_init_from_deserialized_json(req_json) for req_json in
+                    json_obj['model'][cls.model_name]['data_requirements']]
+
+            obj._data_requirements = reqs
+
+            return obj
+        except:
+            return None
+
     def __init__(self, *args, **kwargs):
         super(NWMRequest, self).__init__(*args, **kwargs)
+        self._data_requirements = None
 
     @property
     def data_requirements(self) -> List[DataRequirement]:
@@ -761,8 +801,16 @@ class NWMRequest(ModelExecRequest):
         List[DataRequirement]
             List of all the explicit and implied data requirements for this request.
         """
-        # TODO: this needs to be implemented properly for this workflow
-        return []
+        if self._data_requirements is None:
+            data_id_restriction = DiscreteRestriction(variable='data_id', values=[self.config_data_id])
+            self._data_requirements = [
+                DataRequirement(
+                    domain=DataDomain(data_format=DataFormat.NWM_CONFIG, discrete_restrictions=[data_id_restriction]),
+                    is_input=True,
+                    category=DataCategory.CONFIG
+                )
+            ]
+        return self._data_requirements
 
     @property
     def output_formats(self) -> List[DataFormat]:
@@ -775,6 +823,33 @@ class NWMRequest(ModelExecRequest):
             List of the formats of each required output dataset for the requested job.
         """
         return [DataFormat.NWM_OUTPUT]
+
+    def to_dict(self) -> dict:
+        """
+        Converts the request to a dictionary that may be passed to web requests.
+
+        Will look like:
+
+        {
+            'model': {
+                'NWM': {
+                    'config_data_id': '<config_dataset_data_id>',
+                    'data_requirements': [ ... (serialized DataRequirement objects) ... ]
+                }
+            }
+            'session-secret': 'secret-string-val'
+        }
+
+        Returns
+        -------
+        dict
+            A dictionary containing all the data in such a way that it may be used by a web request
+        """
+        model = dict()
+        model[self.get_model_name()] = dict()
+        model[self.get_model_name()]['config_data_id'] = self.config_data_id
+        model[self.get_model_name()]['data_requirements'] = [r.to_dict() for r in self.data_requirements]
+        return {'model': model, 'session-secret': self.session_secret}
 
 
 class NWMRequestResponse(ModelExecRequestResponse):
