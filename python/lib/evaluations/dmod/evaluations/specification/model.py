@@ -333,12 +333,13 @@ class UnitDefinition(Specification):
 
         return data
 
-    __slots__ = ["__field", "__path"]
+    __slots__ = ["__field", "__path", "__value"]
 
     def __init__(
             self,
             field: str = None,
             path: typing.Union[str, typing.Sequence[str]] = None,
+            value: typing.Union[str, bytes] = None,
             properties: typing.Dict[str, typing.Any] = None,
             **kwargs
     ):
@@ -357,6 +358,11 @@ class UnitDefinition(Specification):
         if path_starts_at_root:
             self.__path.insert(0, "$")
 
+        if isinstance(value, bytes):
+            value = value.decode()
+
+        self.__value = value
+
     @property
     def field(self) -> typing.Optional[str]:
         return self.__field
@@ -364,6 +370,10 @@ class UnitDefinition(Specification):
     @property
     def path(self) -> typing.Optional[typing.Sequence[str]]:
         return self.__path
+
+    @property
+    def value(self) -> typing.Optional[str]:
+        return self.__value
 
     def __str__(self):
         if self.__field:
@@ -385,12 +395,10 @@ class ThresholdDefinition(Specification):
             "field": self.__field,
             "unit": self.__unit,
             "weight": self.__weight,
-            "start": self.__start,
-            "end": self.__end,
             "properties": self.__properties
         }
 
-    __slots__ = ["__name", "__field", "__weight", "__unit", "__start", "__end"]
+    __slots__ = ["__name", "__field", "__weight", "__unit"]
 
     def __init__(
             self,
@@ -398,8 +406,6 @@ class ThresholdDefinition(Specification):
             field: typing.Union[str, bytes, typing.Sequence[str]],
             weight: typing.Union[str, float],
             unit: UnitDefinition,
-            start: typing.Union[str, typing.Sequence[str], bytes] = None,
-            end: typing.Union[str, typing.Sequence[str], bytes] = None,
             properties: typing.Union[typing.Dict[str, typing.Any], str] = None,
             **kwargs
     ):
@@ -414,22 +420,6 @@ class ThresholdDefinition(Specification):
             self.__field = field.split("/")
         else:
             self.__field = field
-
-        if isinstance(start, bytes):
-            start = start.decode()
-
-        if isinstance(start, str):
-            self.__start = start.split("/")
-        else:
-            self.__start = start
-
-        if isinstance(end, bytes):
-            end = end.decode()
-
-        if isinstance(end, str):
-            self.__end = end.split("/")
-        else:
-            self.__end = end
 
         self.__weight = weight
         self.__unit = unit
@@ -462,14 +452,6 @@ class ThresholdDefinition(Specification):
     @property
     def unit(self) -> UnitDefinition:
         return self.__unit
-
-    @property
-    def start(self) -> typing.Sequence[str]:
-        return self.__start
-
-    @property
-    def end(self) -> typing.Sequence[str]:
-        return self.__end
 
     def __str__(self) -> str:
         return f"{self.__name}, weighing {self.__weight}, from the '{self.__field}' field."
@@ -1109,7 +1091,8 @@ class DataSourceSpecification(Specification):
             "value_selectors": [selector.to_dict() for selector in self.__value_selectors],
             "backend": self.__backend.to_dict(),
             "locations": self.__locations.to_dict(),
-            "field_mapping": [mapping.to_dict() for mapping in self.__field_mapping]
+            "field_mapping": [mapping.to_dict() for mapping in self.__field_mapping],
+            "unit": self.__unit.to_dict()
         }
 
         if self.__properties:
@@ -1117,13 +1100,14 @@ class DataSourceSpecification(Specification):
 
         return dictionary
 
-    __slots__ = ["__name", "__value_field", "__backend", "__locations", "__field_mapping", "__value_selectors"]
+    __slots__ = ["__name", "__value_field", "__backend", "__locations", "__field_mapping", "__value_selectors", "__unit"]
 
     def __init__(
             self,
             value_field: str,
             backend: BackendSpecification,
             value_selectors: typing.Sequence[ValueSelector],
+            unit: UnitDefinition,
             name: str = None,
             locations: LocationSpecification = None,
             field_mapping: typing.List[FieldMappingSpecification] = None,
@@ -1137,6 +1121,7 @@ class DataSourceSpecification(Specification):
         self.__locations = locations if locations else LocationSpecification(identify=False)
         self.__field_mapping = field_mapping if field_mapping else list()
         self.__value_selectors = value_selectors
+        self.__unit = unit
 
     @property
     def name(self) -> str:
@@ -1203,7 +1188,9 @@ class CrosswalkSpecification(Specification):
         dictionary = {
             "backend": self.__backend.to_dict(),
             "entity_path": self.entity_path,
-            "fields": self.__fields.to_dict()
+            "field": self.__field.to_dict(),
+            "prediction_field_name": self.__prediction_field_name,
+            "observation_field_name": self.__observation_field_name
         }
 
         if self.__properties:
@@ -1211,12 +1198,14 @@ class CrosswalkSpecification(Specification):
 
         return dictionary
 
-    __slots__ = ['__backend', '__origin', "__fields"]
+    __slots__ = ['__backend', '__origin', "__field", '__prediction_field_name', '__observation_field_name']
 
     def __init__(
             self,
             backend: BackendSpecification,
-            fields: ValueSelector,
+            field: ValueSelector,
+            observation_field_name: str,
+            prediction_field_name: str = None,
             origin: typing.Union[str, typing.Sequence[str]] = None,
             properties: typing.Dict[str, typing.Any] = None,
             **kwargs
@@ -1227,28 +1216,32 @@ class CrosswalkSpecification(Specification):
 
         self.__backend = backend
         self.__origin = origin.split(".") if isinstance(origin, str) else origin
-        self.__fields = fields
+        self.__field = field
+        self.__observation_field_name = observation_field_name
+        self.__prediction_field_name = prediction_field_name if prediction_field_name else observation_field_name
 
     @property
     def backend(self) -> BackendSpecification:
         return self.__backend
 
     @property
-    def fields(self) -> ValueSelector:
-        return self.__fields
+    def field(self) -> ValueSelector:
+        return self.__field
 
     @property
-    def prediction_field(self) -> ValueSelector:
-        return self.__prediction_field
+    def prediction_field_name(self) -> str:
+        return self.__prediction_field_name
+
+    @property
+    def observation_field_name(self) -> str:
+        return self.__observation_field_name
 
     @property
     def entity_path(self) -> typing.Sequence[str]:
         return self.__origin
 
     def __str__(self) -> str:
-        return f"Crosswalk from: {self.__backend} with observed values from " \
-               f"{self.__fields} and predicted values from " \
-               f"{self.__prediction_field} off of {os.pathsep.join(self.__origin)}"
+        return f"Crosswalk from: {self.__backend} with observed values from {self.__field}"
 
 
 class MetricSpecification(Specification):

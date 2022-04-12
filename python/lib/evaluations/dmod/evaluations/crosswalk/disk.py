@@ -30,13 +30,24 @@ class FrameRetriever(retriever.CrosswalkRetriever):
 
 class JSONRetriever(retriever.CrosswalkRetriever):
     def retrieve(self, *args, **kwargs) -> pandas.DataFrame:
-        observations = reader.select_values(self._document.data, self.observation_fields)
-        observations.rename(inplace=True, columns={"location": "observed_location"})
+        crosswalked_data = reader.select_values(self._document.data, self.field)
 
-        predictions = reader.select_values(self._document.data, self.prediction_fields)
-        predictions.rename(inplace=True, columns={"location": "predicted_location"})
+        if self.observation_field_name != 'observed_location' or self.prediction_field_name != 'predicted_location':
+            # Rename correct fields to match the config
+            if self.observation_field_name != self.prediction_field_name:
+                renaming = dict()
+                if self.observation_field_name != 'observed_location':
+                    renaming[self.observation_field_name] = 'observed_location'
+                if self.prediction_field_name != 'predicted_location':
+                    renaming[self.prediction_field_name] = 'predicted_location'
 
-        crosswalked_data = observations.join(predictions)
+                crosswalked_data.rename(columns=renaming, inplace=True)
+            else:
+                crosswalked_data['predicted_location'] = crosswalked_data[self.observation_field_name]
+
+                if self.observation_field_name != 'observed_location':
+                    crosswalked_data.rename(columns={self.observation_field_name: "observed_location"}, inplace=True)
+
         crosswalked_data.dropna(inplace=True)
         return crosswalked_data
 

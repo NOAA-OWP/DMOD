@@ -17,12 +17,20 @@ class TestFileCrosswalk(unittest.TestCase):
                         data_format="json"
                 ),
                 origin="",
-                fields=specification.ValueSelector(
+                observation_field_name="observed",
+                prediction_field_name="predicted",
+                field=specification.ValueSelector(
                         name="predicted",
                         where="key",
                         path="*",
                         origin="$",
-                        datatype="string"
+                        datatype="string",
+                        associated_fields=[
+                            specification.AssociatedField(
+                                    name="observed",
+                                    path="site_no"
+                            )
+                        ]
                 )
         )
 
@@ -33,7 +41,18 @@ class TestFileCrosswalk(unittest.TestCase):
             retriever: crosswalk.CrosswalkRetriever,
             expected_mapping: typing.List[typing.Dict[str, str]]
     ):
-        pass
+        data = retriever.retrieve()
+        print("Data Retrieved")
+
+        test.assertEqual(len(data), len(expected_mapping))
+
+        for mapping in expected_mapping:
+            search_results = data[
+                (data.predicted_location == mapping["predicted_location"])
+                & (data.observed_location == mapping["observed_location"])
+            ]
+
+            test.assertFalse(search_results.empty)
 
     def test_inferred_json_crosswalk(self):
         retriever = crosswalk.get_crosswalk(self.__json_specification)
@@ -42,16 +61,16 @@ class TestFileCrosswalk(unittest.TestCase):
                 retriever,
                 [
                     {
-                        "predicted": "cat-67",
-                        "observed": "02146562"
+                        "predicted_location": "cat-67",
+                        "observed_location": "02146562"
                     },
                     {
-                        "predicted": "cat-27",
-                        "observed": "0214655255"
+                        "predicted_location": "cat-27",
+                        "observed_location": "0214655255"
                     },
                     {
-                        "predicted": "cat-52",
-                        "observed": "0214657975"
+                        "predicted_location": "cat-52",
+                        "observed_location": "0214657975"
                     }
                 ]
         )
@@ -63,16 +82,16 @@ class TestFileCrosswalk(unittest.TestCase):
                 retriever,
                 [
                     {
-                        "predicted": "cat-67",
-                        "observed": "02146562"
+                        "predicted_location": "cat-67",
+                        "observed_location": "02146562"
                     },
                     {
-                        "predicted": "cat-27",
-                        "observed": "0214655255"
+                        "predicted_location": "cat-27",
+                        "observed_location": "0214655255"
                     },
                     {
-                        "predicted": "cat-52",
-                        "observed": "0214657975"
+                        "predicted_location": "cat-52",
+                        "observed_location": "0214657975"
                     }
                 ]
         )

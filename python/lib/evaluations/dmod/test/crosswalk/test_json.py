@@ -18,7 +18,7 @@ class TestJSONReading(unittest.TestCase):
                         address=TEST_DOCUMENT_PATH,
                         data_format="json"
                 ),
-                fields=specification.ValueSelector(
+                field=specification.ValueSelector(
                         name="predicted",
                         where="key",
                         path=["* where site_no"],
