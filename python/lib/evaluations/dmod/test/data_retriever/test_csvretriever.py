@@ -17,6 +17,7 @@ class TestCSVRetrieving(unittest.TestCase):
     def setUp(self) -> None:
         self.__multiple_specification = specification.DataSourceSpecification(
                 name="Predictions",
+                value_field="prediction",
                 backend=specification.BackendSpecification(
                         backend_type="file",
                         data_format="csv",
@@ -55,11 +56,17 @@ class TestCSVRetrieving(unittest.TestCase):
                                         datatype="datetime"
                                 )
                             ]
+                    ),
+                    specification.ValueSelector(
+                            name="unit",
+                            where="constant",
+                            path="m3 s-1"
                     )
                 ]
         )
         self.__single_data_specification = specification.DataSourceSpecification(
                 name="Observations",
+                value_field="observation",
                 backend=specification.BackendSpecification(
                         backend_type="file",
                         data_format="csv",

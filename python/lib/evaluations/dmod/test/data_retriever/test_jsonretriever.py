@@ -17,6 +17,7 @@ class TestJSONRetrieving(unittest.TestCase):
     def setUp(self) -> None:
         self.__table_data_specification = specification.DataSourceSpecification(
                 name="Predictions",
+                value_field="prediction",
                 backend=specification.BackendSpecification(
                         backend_type="file",
                         data_format="json",
@@ -52,6 +53,7 @@ class TestJSONRetrieving(unittest.TestCase):
         )
         self.__response_data_specification = specification.DataSourceSpecification(
                 name="Observations",
+                value_field="observation",
                 backend=specification.BackendSpecification(
                         backend_type="file",
                         data_format="json",
@@ -167,8 +169,6 @@ class TestJSONRetrieving(unittest.TestCase):
                 test.assertLess(len(missing_days), 5)
 
                 current_date += timedelta(days=1)
-
-        print("data retrieved")
 
 
 if __name__ == '__main__':

@@ -25,12 +25,16 @@ class CrosswalkRetriever(abc.ABC):
         return self.__backend
 
     @property
-    def observation_fields(self) -> specification.ValueSelector:
-        return self.__definition.fields
+    def field(self) -> specification.ValueSelector:
+        return self.__definition.field
 
     @property
-    def prediction_fields(self) -> specification.ValueSelector:
-        return self.__definition.prediction_field
+    def prediction_field_name(self) -> str:
+        return self.__definition.prediction_field_name
+
+    @property
+    def observation_field_name(self) -> str:
+        return self.__definition.observation_field_name
 
     def __getitem__(self, key: str) -> typing.Any:
         return self.__definition[key]

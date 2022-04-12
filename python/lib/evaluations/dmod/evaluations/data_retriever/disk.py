@@ -30,6 +30,9 @@ class JSONDataRetriever(dataretriever.DataRetriever):
         for document_name, document in documents.items():  # type: str, jsonquery.Document
             frame = None
             for selector in self.definition.value_selectors:
+                if selector.where == "constant":
+                    continue
+
                 selected_data = reader.select_values(document.data, selector)
 
                 if frame is None:
@@ -55,6 +58,22 @@ class JSONDataRetriever(dataretriever.DataRetriever):
 
                     if util.is_indexed(frame):
                         frame.reset_index(inplace=True)
+
+            constants = [
+                selector
+                for selector in self.definition.value_selectors
+                if selector.where == 'constant'
+            ]
+
+            frame_index = frame.index
+
+            for constant in constants:
+                value = constant.to_datatype(constant.path[0])
+                constant_frame = pandas.DataFrame(
+                        data={constant.name: [value for _ in range(len(frame_index))]},
+                        index=frame_index
+                )
+                frame = frame.join(constant_frame)
 
             if self.definition.locations.from_field.lower() == "filename":
                 name = None
@@ -123,7 +142,13 @@ class FrameDataRetriever(dataretriever.DataRetriever):
 
             index_names: typing.Set[str] = set()
 
-            for selector in self.definition.value_selectors:
+            variable_selectors = [
+                selector
+                for selector in self.definition.value_selectors
+                if selector.where.lower() != 'constant'
+            ]
+
+            for selector in variable_selectors:
                 if selector.where.lower() != 'column':
                     raise ValueError(f"Column to be found in a '{selector.where}' is not valid for csv data.")
 
@@ -172,6 +197,23 @@ class FrameDataRetriever(dataretriever.DataRetriever):
 
             if fields_to_rename:
                 table.rename(columns=fields_to_rename, inplace=True)
+
+            constants = [
+                selector for selector in self.definition.value_selectors
+                if selector.where == 'constant'
+            ]
+
+            frame_index = table.index
+
+            for constant in constants:
+                values = {
+                    constant.name: [
+                        constant.to_datatype(constant.path[0])
+                        for _ in range(len(frame_index))
+                    ]
+                }
+                constant_frame = pandas.DataFrame(data=values, index=frame_index)
+                table = table.join(constant_frame)
 
             if combined_table is None:
                 combined_table = table
