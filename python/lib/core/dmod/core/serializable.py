@@ -194,7 +194,7 @@ class Serializable(ABC):
         json_string
             the serialized JSON string representation of this instance
         """
-        return json.dumps(self.to_dict())
+        return json.dumps(self.to_dict(), sort_keys=True)
 
 
 class SerializedDict(Serializable):
