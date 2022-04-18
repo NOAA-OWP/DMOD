@@ -922,7 +922,7 @@ class NGENRequest(ModelExecRequest):
             A requirement object defining the hydrofabric data needed to execute this request.
         """
         if self._hydrofabric_data_requirement is None:
-            hydro_restrictions = [DiscreteRestriction(variable='uid', values=[self._hydrofabric_uid]),
+            hydro_restrictions = [DiscreteRestriction(variable='hydrofabric_uid', values=[self._hydrofabric_uid]),
                                   DiscreteRestriction(variable='data_id', values=[self._hydrofabric_data_id])]
             hydro_domain = DataDomain(data_format=DataFormat.NGEN_GEOJSON_HYDROFABRIC,
                                       discrete_restrictions=hydro_restrictions)
