@@ -397,7 +397,7 @@ class DataDomain(Serializable):
         self._continuous_restrictions = dict()
         self._discrete_restrictions = dict()
         self._custom_data_fields = custom_data_fields
-        """ Extra attribute for custom data fields when format does not specified (ignore when format does specify). """
+        """ Extra attribute for custom data fields when format does not specify all data fields (ignore when format does specify). """
 
         if continuous_restrictions is not None:
             for c in continuous_restrictions:
