@@ -363,13 +363,17 @@ class ServiceManager(WebSocketInterface):
         Task method to periodically examine whether required data for jobs is available.
 
         Method is expected to be a long-running async task.  In its main routine, it iterates through the job-level
-        ::class:`DataRequirement`, in each active job in the ``AWAITING_DATA_CHECK`` ::class:`JobExecStep`.  It checks
-        whether individual requirement can be fulfilled,
+        ::class:`DataRequirement`, in each active job in the ``AWAITING_DATA_CHECK`` ::class:`JobExecStep`.  For each 
+        job, it checks whether each individual requirement can be fulfilled, updating the requirement's 
+        ::attribute:`DataRequirement.fulfilled_by` property if so.  However, as soon as any requirement is found that
+        cannot be fulfilled, the function breaks out of the inner loop through the current job's requirements, moving
+        that job to the ``DATA_UNPROVIDEABLE`` step and continuing to the next job to process.
 
-        active jobs in the
-        ``AWAITING_DATA_CHECK`` ::class:`JobExecStep`, which it receives from the service's ::class:`JobUtil`.  For
-        these jobs, it then performs a nested iteration through each job's collection of ::class:`DataRequirement` from
-        the ::attribute:`Job.data_requirements` property.  It then checks to see if the
+        Assuming iterations for all possible requirements of the current job are processed, with all requirements found
+        the be fulfillable, the current job is moved to the ``AWAITING_ALLOCATION`` step.  The routine then advances to
+        the next iteration in the outer job loop. 
+
+        After all active jobs have been processed, the function sleeps for a brief period, then repeats its routine.
         """
         while True:
             for job in self._job_util.get_all_active_jobs():
