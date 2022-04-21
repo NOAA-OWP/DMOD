@@ -395,7 +395,7 @@ class ObjectStoreDatasetManager(DatasetManager):
             msg = "{}.{} source path '{}' does not exist."
             raise ValueError(msg.format(self.__class__.__name__, _getframe(0).f_code.co_name, source))
         elif src_path.is_dir():
-            bucket_root = kwargs['bucket_root'] if 'bucket_root' in kwargs else src_path
+            bucket_root = kwargs.get('bucket_root', src_path)
             self._push_files(bucket_name=dataset_name, dir_path=kwargs['directory'], bucket_root=bucket_root)
             # TODO: probably need something better than just always returning True if this gets executed
             return True
