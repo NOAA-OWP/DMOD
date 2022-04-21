@@ -392,6 +392,10 @@ class ServiceManager(WebSocketInterface):
                     # Also if can fulfill and already a specific existing dataset that will, associate with requirement
                     elif dataset_name is not None:
                         requirement.fulfilled_by = dataset_name
+                    else:
+                        # TODO: need to properly implement generating necessary derived dataset here
+                        msg = "Logic to initiate dataset derivation not yet available in required data checking task"
+                        raise NotImplementedError(msg)
                 # If we didn't deem job as `DATA_UNPROVIDEABLE`, then check is good, so move to `AWAITING_ALLOCATION`
                 if job.status_step != JobExecStep.DATA_UNPROVIDEABLE:
                     job.status_step = JobExecStep.AWAITING_ALLOCATION
