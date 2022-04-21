@@ -40,17 +40,9 @@ class DefaultJobUtilFactory:
         JobManager
             A newly created ::class:`JobUtil` object.
         """
-        host = None
-        port = None
-        pword = None
-        for key, value in kwargs.items():
-            if key == 'redis_host':
-                host = value
-            elif key == 'redis_port':
-                port = int(value)
-            elif key == 'redis_pass':
-                pword = value
-        return RedisBackedJobUtil(redis_host=host, redis_port=port, redis_pass=pword)
+        return RedisBackedJobUtil(redis_host=kwargs.get('redis_host'), 
+                                  redis_port=kwargs.get('redis_port'), 
+                                  redis_pass=kwargs.get('redis_pass'))
 
 
 class JobUtil(ABC):
