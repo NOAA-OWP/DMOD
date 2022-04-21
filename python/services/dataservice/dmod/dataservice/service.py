@@ -401,5 +401,5 @@ class ServiceManager(WebSocketInterface):
                     job.status_step = JobExecStep.AWAITING_ALLOCATION
                 # Regardless, save the updated job state
                 self._job_util.save_job(job)
-            await asyncio.sleep(30)
+            await asyncio.sleep(10)
 
