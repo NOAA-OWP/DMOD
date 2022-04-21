@@ -257,7 +257,7 @@ class ServiceManager(WebSocketInterface):
         if isinstance(fulfilling_dataset, Dataset):
             return True, fulfilling_dataset.name
         else:
-            await self._async_can_dataset_be_derived(requirement), None
+            return await self._async_can_dataset_be_derived(requirement), None
 
     def can_dataset_be_derived(self, requirement: DataRequirement) -> bool:
         """
