@@ -224,7 +224,7 @@ class ServiceManager(WebSocketInterface):
             return DatasetManagementResponse(success=False, reason="Dataset Already Exists")
         # Handle when message to create fails to include a dataset domain
         elif message.data_domain is None:
-            msg = "Invalid {} for dataset creation: no dataset domain provided.".format(self.__class__.__name__)
+            msg = "Invalid {} for dataset creation: no dataset domain provided.".format(message.__class__.__name__)
             return DatasetManagementResponse(success=False, reason="No Dataset Domain", message=msg)
 
         # Create the dataset
