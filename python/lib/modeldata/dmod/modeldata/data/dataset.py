@@ -739,6 +739,7 @@ class DatasetManager(ABC):
         """
         pass
 
+    @abstractmethod
     def reload(self, name: str, is_read_only: bool = False, access_location: Optional[str] = None) -> Dataset:
         """
         Create a new dataset object by reloading from an existing storage location.
