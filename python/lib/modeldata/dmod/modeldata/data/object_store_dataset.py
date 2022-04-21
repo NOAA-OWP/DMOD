@@ -382,8 +382,7 @@ class ObjectStoreDatasetManager(DatasetManager):
         if dataset_name not in self.datasets:
             return False
         elif data is not None:
-            result = self._client.put_object(bucket_name=dataset_name, data=data, length=len(data),
-                                             object_name=self._gen_dataset_serial_obj_name(dest))
+            result = self._client.put_object(bucket_name=dataset_name, data=data, length=len(data), object_name=dest)
             return result.bucket_name == dataset_name
         elif source is None or len(source) == 0:
             from sys import _getframe
