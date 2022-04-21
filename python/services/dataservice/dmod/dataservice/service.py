@@ -23,7 +23,7 @@ class ServiceManager(WebSocketInterface):
     def __init__(self, job_util: JobUtil, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._job_util = job_util
-        self._all_data_managers: Dict[Type[DATASET_TYPE], DatasetManager] = {}
+        self._all_data_managers: Dict[Type[DATASET_TYPE], DATASET_MGR] = {}
         """ Map of dataset class type (key), to service's dataset manager (value) for handling that dataset type. """
         self._managers_by_uuid: Dict[UUID, DatasetManager] = {}
         """ Map of dataset managers keyed by the UUID of each. """
