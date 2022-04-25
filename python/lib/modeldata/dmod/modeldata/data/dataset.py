@@ -14,7 +14,7 @@ class Dataset(Serializable, ABC):
     Abstraction representation of a grouped collection of data and its metadata.
     """
 
-    _SERIAL_DATETIME_STR_FORMAT = '%Y-%m-%d %H:%M:%S %z'
+    _SERIAL_DATETIME_STR_FORMAT = '%Y-%m-%d %H:%M:%S'
 
     _KEY_ACCESS_LOCATION = 'access_location'
     _KEY_CREATED_ON = 'create_on'
@@ -61,7 +61,10 @@ class Dataset(Serializable, ABC):
     # TODO: move this (and something more to better automatically handle Serializable subtypes) to Serializable directly
     @classmethod
     def _date_parse_helper(cls, json_obj: dict, key: str) -> Optional[datetime]:
-        return datetime.strptime(json_obj[key], cls.get_datetime_str_format()) if key in json_obj else None
+        if key in json_obj:
+            return datetime.strptime(json_obj[key], cls.get_datetime_str_format())
+        else:
+            return None
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
