@@ -594,6 +594,10 @@ class DatasetManager(ABC):
         pass
 
     @abstractmethod
+    def combine_partials_into_composite(self, dataset_name: str, item_name: str, combined_list: List[str]) -> bool:
+        pass
+
+    @abstractmethod
     def create(self, name: str, category: DataCategory, domain: DataDomain, is_read_only: bool,
                initial_data: Optional[str] = None) -> Dataset:
         """
@@ -621,6 +625,23 @@ class DatasetManager(ABC):
         -------
         Dataset
             A newly created dataset instance ready for use.
+        """
+        pass
+
+    @abstractmethod
+    def delete(self, dataset: Dataset, **kwargs) -> bool:
+        """
+        Delete the supplied dataset, as long as it is managed by this manager.
+
+        Parameters
+        ----------
+        dataset
+        kwargs
+
+        Returns
+        -------
+        bool
+            Whether the delete was successful.
         """
         pass
 
