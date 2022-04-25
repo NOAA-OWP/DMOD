@@ -78,11 +78,6 @@ class DatasetInternalClient(DatasetClient, InternalServiceClient[DatasetManageme
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def _parse_list_of_dataset_names_from_response(self, response: DatasetManagementResponse) -> List[str]:
-        # TODO: *************************************
-        # TODO: how to parse the response for a list of dataset names?
-        pass
-
     async def create_dataset(self, name: str, category: DataCategory) -> bool:
         # TODO: (later) consider also adding param for data to be added
         request = DatasetManagementMessage(action=ManagementAction.CREATE, dataset_name=name, category=category)
@@ -161,11 +156,6 @@ class DatasetExternalClient(DatasetClient,
             tmp = await self._async_acquire_new_session()
             #logger.info("Session Info Return: {}".format(tmp))
             return tmp
-
-    def _parse_list_of_dataset_names_from_response(self, response: MaaSDatasetManagementResponse) -> List[str]:
-        # TODO: *************************************
-        # TODO: how to parse the response for a list of dataset names?
-        pass
 
     def _update_after_valid_response(self, response: MaaSDatasetManagementResponse):
         """
