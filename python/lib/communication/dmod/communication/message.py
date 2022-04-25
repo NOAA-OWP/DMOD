@@ -2,7 +2,7 @@ from abc import ABC
 from enum import Enum
 from typing import Type
 
-from dmod.core.serializable import Serializable
+from dmod.core.serializable import Serializable, ResultIndicator
 
 
 #FIXME make an independent enum of model request types???
@@ -86,9 +86,9 @@ class AbstractInitRequest(Message, ABC):
     """
 
 
-class Response(Message, ABC):
+class Response(ResultIndicator, Message, ABC):
     """
-    Class representing in particular the type for a response to some :class:`AbstractInitRequest` sub-type.
+    Class representing a response to some ::class:`Message`, typically a ::class:`AbstractInitRequest` sub-type.
 
     Parameters
     ----------
@@ -201,11 +201,8 @@ class Response(Message, ABC):
         """
         return cls.response_to_type
 
-    def __init__(self, success: bool, reason: str, message: str = '', data=None, *args, **kwargs):
+    def __init__(self, data=None, *args, **kwargs):
         super(Response, self).__init__(*args, **kwargs)
-        self.success = success
-        self.reason = reason
-        self.message = message
         self.data = data
 
     def __eq__(self, other):
@@ -213,13 +210,14 @@ class Response(Message, ABC):
                and self.data == other.data
 
     def to_dict(self) -> dict:
+        serial = super(Response, self).to_dict()
         if self.data is None:
-            data_dict_value = {}
+            serial['data'] = {}
         elif isinstance(self.data, dict):
-            data_dict_value = self.data
+            serial['data'] = self.data
         else:
-            data_dict_value = self.data.to_dict()
-        return {'success': self.success, 'reason': self.reason, 'message': self.message, 'data': data_dict_value}
+            serial['data'] = self.data.to_dict()
+        return serial
 
 
 class InvalidMessage(AbstractInitRequest):
