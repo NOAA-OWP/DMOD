@@ -352,7 +352,10 @@ class SessionInitMessage(AbstractInitRequest):
         -------
         A new object of this type instantiated from the deserialize JSON object dictionary
         """
-        return SessionInitMessage(username=json_obj['username'], user_secret=json_obj['user_secret'])
+        try:
+            return SessionInitMessage(username=json_obj['username'], user_secret=json_obj['user_secret'])
+        except:
+            return None
 
     def __init__(self, username: str, user_secret: str):
         self.username = username
