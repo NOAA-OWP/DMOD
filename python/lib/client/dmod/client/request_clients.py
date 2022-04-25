@@ -20,13 +20,37 @@ class DatasetClient(Generic[DATA_RESPONSE], ABC):
         super().__init__(*args, **kwargs)
         self.last_response = None
 
-    @abstractmethod
-    def _parse_list_of_dataset_names_from_response(self, response: DATA_RESPONSE) -> List[str]:
-        pass
+    def _parse_list_of_dataset_names_from_response(self, response: DatasetManagementResponse) -> List[str]:
+        """
+        Parse an includes list of dataset names from a received management response.
 
-    @abstractmethod
-    async def create_dataset(self, name: str, category: DataCategory) -> bool:
-        pass
+        Note that an unsuccessful response, or a response (of the correct type) that does not explicitly include the
+        expected data attribute with dataset names, will result in an empty list being returned.  However, an unexpected
+        type for the parameter will cause a ::class:`RuntimeError`.
+
+        Parameters
+        ----------
+        response : DatasetManagementResponse
+            The response message from which to parse dataset names.
+
+        Returns
+        -------
+        List[str]
+            The list of parsed dataset names.
+
+        Raises
+        -------
+        RuntimeError
+            Raised if the parameter is not a ::class:`DatasetManagementResponse` (or subtype) object.
+        """
+        if not isinstance(response, DatasetManagementResponse):
+            msg = "Can't parse list of datasets from non-{} (received a {} object)"
+            raise RuntimeError(msg.format(DatasetManagementResponse.__name__, response.__class__.__name__))
+        # Consider these as valid cases, and treat them as just not listing any datasets
+        elif not response.success or response.data is None or 'datasets' not in response.data:
+            return []
+        else:
+            return response.data['datasets']
 
     @abstractmethod
     async def list_datasets(self, category: Optional[DataCategory] = None) -> List[str]:
