@@ -560,7 +560,7 @@ class DatasetManager(ABC):
 
     @abstractmethod
     def add_data(self, dataset_name: str, dest: str, data: Optional[bytes] = None, source: Optional[str] = None,
-                 **kwargs) -> bool:
+                 is_temp: bool = False, **kwargs) -> bool:
         """
         Add data in some format to the dataset.
 
@@ -580,6 +580,8 @@ class DatasetManager(ABC):
         source : Optional[str]
             Optional string specifying a location from which to source the data to be added; either this or ``data``
             must be provided.
+        is_temp : bool
+            Indication of whether this item should be treated as temporary, as applicable to the implementation.
         kwargs
             Implementation-specific params for other ways to represent data and details of how it should be added.
 
