@@ -78,7 +78,7 @@ def _handle_dataset_command_args(parent_subparsers_container):
 
 
 def _handle_args():
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter, prog='dmod.client')
     parser.add_argument('--client-config',
                         help='Set path to client configuration file',
                         dest='client_config',
@@ -93,7 +93,7 @@ def _handle_args():
     # Nested command parsers handling config actions
     _handle_config_command_args(parent_subparsers_container=subparsers)
 
-    parser.prog = package_name
+    #parser.prog = package_name
     return parser.parse_args()
 
 
