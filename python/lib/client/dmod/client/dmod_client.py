@@ -97,6 +97,9 @@ class DmodClient:
                 self._dataset_client = DatasetExternalClient(self.requests_endpoint_uri, self.requests_ssl_dir)
         return self._dataset_client
 
+    async def delete_dataset(self, dataset_name: str, **kwargs):
+        return await self.dataset_client.delete_dataset(dataset_name, **kwargs)
+
     @property
     def requests_endpoint_uri(self) -> str:
         return self.client_config.requests_endpoint_uri
