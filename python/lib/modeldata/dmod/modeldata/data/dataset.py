@@ -74,20 +74,20 @@ class Dataset(Serializable, ABC):
             else:
                 manager_uuid = None
 
-            cls(name=json_obj[cls._KEY_NAME],
-                category=DataCategory.get_for_name(json_obj[cls._KEY_DATA_CATEGORY]),
-                data_domain=DataDomain.factory_init_from_deserialized_json(json_obj[cls._KEY_DATA_DOMAIN]),
-                access_location=json_obj[cls._KEY_ACCESS_LOCATION],
-                uuid=UUID(json_obj[cls._KEY_UUID]),
-                manager_uuid=manager_uuid,
-                is_read_only=json_obj[cls._KEY_IS_READ_ONLY],
-                expires=cls._date_parse_helper(json_obj, cls._KEY_EXPIRES),
-                derived_from=json_obj[cls._KEY_DERIVED_FROM] if cls._KEY_DERIVED_FROM in json_obj else None,
-                derivations=json_obj[cls._KEY_DERIVATIONS] if cls._KEY_DERIVATIONS in json_obj else None,
-                created_on=cls._date_parse_helper(json_obj, cls._KEY_CREATED_ON),
-                last_updated=cls._date_parse_helper(json_obj, cls._KEY_LAST_UPDATE),
-                **cls.additional_init_param_deserialized(json_obj))
-        except:
+            return cls(name=json_obj[cls._KEY_NAME],
+                       category=DataCategory.get_for_name(json_obj[cls._KEY_DATA_CATEGORY]),
+                       data_domain=DataDomain.factory_init_from_deserialized_json(json_obj[cls._KEY_DATA_DOMAIN]),
+                       access_location=json_obj[cls._KEY_ACCESS_LOCATION],
+                       uuid=UUID(json_obj[cls._KEY_UUID]),
+                       manager_uuid=manager_uuid,
+                       is_read_only=json_obj[cls._KEY_IS_READ_ONLY],
+                       expires=cls._date_parse_helper(json_obj, cls._KEY_EXPIRES),
+                       derived_from=json_obj[cls._KEY_DERIVED_FROM] if cls._KEY_DERIVED_FROM in json_obj else None,
+                       derivations=json_obj[cls._KEY_DERIVATIONS] if cls._KEY_DERIVATIONS in json_obj else [],
+                       created_on=cls._date_parse_helper(json_obj, cls._KEY_CREATED_ON),
+                       last_updated=cls._date_parse_helper(json_obj, cls._KEY_LAST_UPDATE),
+                       **cls.additional_init_param_deserialized(json_obj))
+        except Exception as e:
             return None
 
     def __init__(self, name: str, category: DataCategory, data_domain: DataDomain, access_location: str,
@@ -103,11 +103,11 @@ class Dataset(Serializable, ABC):
         self._manager = manager
         self._manager_uuid = manager.uuid if manager is not None else manager_uuid
         self._is_read_only = is_read_only
-        self._expires = expires
+        self._expires = expires if expires is None else expires.replace(microsecond=0)
         self._derived_from = derived_from
         self._derivations = derivations if derivations is not None else list()
-        self._created_on = created_on
-        self._last_updated = last_updated
+        self._created_on = created_on if created_on is None else created_on.replace(microsecond=0)
+        self._last_updated = last_updated if last_updated is None else last_updated.replace(microsecond=0)
         # TODO: have manager handle the logic
         #retention_strategy
 
@@ -416,14 +416,15 @@ class Dataset(Serializable, ABC):
         if self.manager_uuid is not None:
             serial[self._KEY_MANAGER_UUID] = str(self.manager_uuid)
         if self.expires is not None:
-            serial[self._KEY_EXPIRES] = self.expires
+            serial[self._KEY_EXPIRES] = self.expires.strftime(self.get_datetime_str_format())
         if self.derived_from is not None:
             serial[self._KEY_DERIVED_FROM] = self.derived_from
-        serial[self._KEY_DERIVATIONS] = self.derivations
+        if len(self.derivations) > 0:
+            serial[self._KEY_DERIVATIONS] = self.derivations
         if self.created_on is not None:
-            serial[self._KEY_CREATED_ON] = self.created_on
+            serial[self._KEY_CREATED_ON] = self.created_on.strftime(self.get_datetime_str_format())
         if self.last_updated is not None:
-            serial[self._KEY_LAST_UPDATE] = self.last_updated
+            serial[self._KEY_LAST_UPDATE] = self.last_updated.strftime(self.get_datetime_str_format())
         return serial
 
 
