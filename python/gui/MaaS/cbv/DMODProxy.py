@@ -12,7 +12,7 @@ import logging
 logger = logging.getLogger("gui_log")
 
 from dmod.communication import Distribution, get_available_models, get_available_outputs, get_request, get_parameters, \
-    NWMRequestJsonValidator, NWMRequest, MaaSRequest, MaaSRequestResponse, MaasRequestClient, Scalar, MessageEventType
+    NWMRequestJsonValidator, NWMRequest, MaaSRequest, MaaSRequestResponse, ModelExecRequestClient, Scalar, MessageEventType
 from pathlib import Path
 from typing import List, Optional, Tuple, Type
 
@@ -117,9 +117,8 @@ class ModelExecRequestFormProcessor(RequestFormProcessor):
         """The HttpRequest received, used to submit the form for the job to request from the MaaS."""
         super(ModelExecRequestFormProcessor, self).__init__(post_request, maas_secret)
         self.model = post_request.POST['model']
-        self.version = float(post_request.POST['version'])
-        self.output = post_request.POST['output']
-        self.domain = post_request.POST['domain']
+        # TODO: fix this later to be required
+        self.config_data_id = post_request.POST['config_data_id'] if 'config_data_id' in post_request.POST else '1'
 
         # This will give us the parameters that were configured for the model we want to use
         # If we configured that we want to tweak 'example_parameter' for the model named 'YetAnother',
@@ -197,12 +196,11 @@ class ModelExecRequestFormProcessor(RequestFormProcessor):
         """
         if self._maas_request is None:
             if len(self.errors) == 0:
-                self._maas_request = get_request(self.model, self.version, self.output, self.domain, self.parameters,
-                                                 self.maas_secret)
+                self._maas_request = get_request(self.model, self.config_data_id, self.maas_secret)
         return self._maas_request
 
 
-class PostFormRequestClient(MaasRequestClient):
+class PostFormRequestClient(ModelExecRequestClient):
     """
     A client for websocket interaction with the MaaS request handler as initiated by a POST form HTTP request.
     """
@@ -256,6 +254,9 @@ class PostFormRequestClient(MaasRequestClient):
             tmp = self._acquire_new_session()
             logger.info("Session Info Return: {}".format(tmp))
             return tmp
+
+    def _init_maas_job_request(self):
+        pass
 
     def generate_request(self, form_proc_class: Type[RequestFormProcessor]) -> MaaSRequest:
         self.form_proc = form_proc_class(post_request=self.http_request, maas_secret=self.session_secret)
