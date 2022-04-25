@@ -60,6 +60,10 @@ def _handle_dataset_command_args(parent_subparsers_container):
     parser_create.add_argument('--domain-json', dest='domain_file', help='Deserialize the dataset domain from a file.')
     parser_create.add_argument('category', choices=dataset_categories, help='Specify dataset category.')
 
+    # Nested parser for the 'delete' action, with required argument for dataset name
+    parser_delete = action_subparsers.add_parser('delete')
+    parser_delete.add_argument('name', help='Specify the name of the dataset to delete.')
+
     # Nested parser for the 'upload' action, with required args for dataset name and files to upload
     parser_upload = action_subparsers.add_parser('upload')
     parser_upload.add_argument('name', help='Specify the name of the desired dataset.')
