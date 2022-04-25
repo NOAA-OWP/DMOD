@@ -119,6 +119,7 @@ class DatasetExternalClient(DatasetClient,
     # In particular needs - endpoint_uri: str, ssl_directory: Path
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._cached_session_file = Path.home().joinpath('.dmod_client_session')
 
     def _acquire_session_info(self, use_current_values: bool = True, force_new: bool = False):
         """
@@ -148,6 +149,16 @@ class DatasetExternalClient(DatasetClient,
             return tmp
 
     async def _async_acquire_session_info(self, use_current_values: bool = True, force_new: bool = False):
+        if use_current_values and not force_new and self._cached_session_file.exists():
+            try:
+                session_id, secret, created = self.parse_session_auth_text(self._cached_session_file.read_text())
+                self._session_id = session_id
+                self._session_secret = secret
+                self._session_create = created
+            except Exception as e:
+                # TODO: consider logging; for now, just don't bail and move on to logic for new session
+                pass
+
         if not force_new and use_current_values and self._session_id and self._session_secret and self._session_created:
             #logger.info('Using previously acquired session details (new session not forced)')
             return True
