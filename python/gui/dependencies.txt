@@ -12,6 +12,5 @@ six==1.12.0
 sqlparse==0.3.0
 urllib3==1.26.5
 websockets
-dmod-communication>=0.4.2
 djangorestframework==3.12.4
 psycopg2-binary==2.8.6 #todo get source package in future
