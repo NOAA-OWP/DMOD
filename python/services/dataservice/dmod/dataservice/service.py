@@ -550,43 +550,47 @@ class ServiceManager(WebSocketInterface):
         Process incoming messages over the websocket and respond appropriately.
         """
         try:
-            is_awaiting = True
-            # We may need to lazily load a dataset manager
-            dataset_manager = None
-            while is_awaiting:
-                message = await websocket.recv()
-                data = json.loads(message)
-                mgr_msg = DatasetManagementMessage.factory_init_from_deserialized_json(data)
+
+            async for raw_message in websocket:
+                data = json.loads(raw_message)
+                inbound_message: DatasetManagementMessage = DatasetManagementMessage.factory_init_from_deserialized_json(data)
 
                 # If we were not able to otherwise process the message into a response, then it is unsupported
-                if mgr_msg is None:
+                if inbound_message is None:
                     response = DatasetManagementResponse(action=ManagementAction.UNKNOWN, success=False,
                                                          reason="Unparseable Message Received")
-                elif mgr_msg.management_action == ManagementAction.CREATE:
-                    response = await self._async_process_dataset_create(message=mgr_msg)
-                elif mgr_msg.management_action == ManagementAction.ADD_DATA:
-                    # Lazily load the right manager when needed
-                    if dataset_manager is None:
-                        dataset_manager = self.get_known_datasets()[mgr_msg.dataset_name].manager
-                    response = await self._async_process_add_data(message, dataset_manager)
-                elif mgr_msg.management_action == ManagementAction.SEARCH:
-                    response = await self._async_dataset_search(message=mgr_msg)
+
+                elif inbound_message.management_action == ManagementAction.CREATE:
+                    response = await self._async_process_dataset_create(message=inbound_message)
+
+                elif inbound_message.management_action == ManagementAction.QUERY:
+                    response = await self._async_process_query(message=inbound_message)
+                elif inbound_message.management_action == ManagementAction.DELETE:
+                    response = await self._async_process_dataset_delete(message=inbound_message)
+                elif inbound_message.management_action == ManagementAction.LIST_ALL:
+                    dataset_names = list(self.get_known_datasets().keys())
+                    dataset_names.sort()
+                    response = DatasetManagementResponse(action=ManagementAction.LIST_ALL, success=True,
+                                                         reason='List Assembled', data={'datasets': dataset_names})
+                elif inbound_message.management_action == ManagementAction.SEARCH:
+                    response = await self._async_dataset_search(message=inbound_message)
+                # TODO: (later) properly handle additional incoming messages
                 else:
-                    msg = "Unsupported data management message action {}".format(mgr_msg.management_action)
-                    response = DatasetManagementResponse(action=mgr_msg.management_action, success=False,
+                    msg = "Unsupported data management message action {}".format(inbound_message.management_action)
+                    response = DatasetManagementResponse(action=inbound_message.management_action, success=False,
                                                          reason="Unsupported Action", message=msg)
                 await websocket.send(str(response))
-                is_awaiting = response.is_awaiting
 
         # TODO: handle logging
         # TODO: handle exceptions appropriately
         except TypeError as te:
-            #logging.error("Problem with object types when processing received message", te)
-            pass
+            logging.error("Problem with object types when processing received message", te)
         #except websockets.exceptions.ConnectionClosed:
-            #logging.info("Connection Closed at Consumer")
-        #except asyncio.CancelledError:
-        #    logging.info("Cancelling listener task")
+        #    logging.info("Connection Closed at Consumer")
+        except asyncio.CancelledError:
+            logging.error("Cancelling listener task")
+        except Exception as e:
+            logging.error("Encountered error: {}".format(str(e)))
 
     async def manage_required_data_checks(self):
         """
