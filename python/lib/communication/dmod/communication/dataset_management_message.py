@@ -1,9 +1,68 @@
 from .message import AbstractInitRequest, MessageEventType, Response
+from dmod.core.serializable import Serializable
 from .maas_request import MaaSRequest, MaaSRequestResponse
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement
 from numbers import Number
 from enum import Enum
 from typing import Dict, Optional, Union, List
+
+
+class QueryType(Enum):
+    LIST_FILES = 1
+    GET_CATEGORY = 2
+    GET_FORMAT = 3
+    GET_INDICES = 4
+    GET_DATA_FIELDS = 5
+    GET_VALUES = 6
+    GET_MIN_VALUE = 7
+    GET_MAX_VALUE = 8
+
+    @classmethod
+    def get_for_name(cls, name_str: str) -> 'QueryType':
+        """
+        Get the enum value corresponding to the given string, ignoring case, and defaulting to ``LIST_FILES``.
+
+        Parameters
+        ----------
+        name_str : str
+            Expected string representation of one of the enum values.
+
+        Returns
+        -------
+        QueryType
+            Enum value corresponding to the given string, or ``LIST_FILES`` if correspondence could not be determined.
+        """
+        cleaned_up_str = name_str.strip().upper()
+        for value in cls:
+            if value.name.upper() == cleaned_up_str:
+                return value
+        return cls.LIST_FILES
+
+
+class DatasetQuery(Serializable):
+
+    _KEY_QUERY_TYPE = 'query_type'
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict) -> Optional['DatasetQuery']:
+        try:
+            return cls(query_type=QueryType.get_for_name(json_obj[cls._KEY_QUERY_TYPE]))
+        except Exception as e:
+            return None
+
+    def __hash__(self):
+        return hash(self.query_type)
+
+    def __eq__(self, other):
+        return isinstance(other, DatasetQuery) and self.query_type == other.query_type
+
+    def __init__(self, query_type: QueryType):
+        self.query_type = query_type
+
+    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
+        serial = dict()
+        serial[self._KEY_QUERY_TYPE] = self.query_type.name
+        return serial
 
 
 class ManagementAction(Enum):
