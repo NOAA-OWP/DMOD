@@ -78,9 +78,10 @@ class DatasetInternalClient(DatasetClient, InternalServiceClient[DatasetManageme
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    async def create_dataset(self, name: str, category: DataCategory) -> bool:
+    async def create_dataset(self, name: str, category: DataCategory, domain: DataDomain, **kwargs) -> bool:
         # TODO: (later) consider also adding param for data to be added
-        request = DatasetManagementMessage(action=ManagementAction.CREATE, dataset_name=name, category=category)
+        request = DatasetManagementMessage(action=ManagementAction.CREATE, domain=domain, dataset_name=name,
+                                           category=category)
         self.last_response = await self.async_make_request(request)
         return self.last_response is not None and self.last_response.success
 
@@ -163,8 +164,8 @@ class DatasetExternalClient(DatasetClient,
             #logger.info('Using previously acquired session details (new session not forced)')
             return True
         else:
-            #logger.info("Session from JobRequestClient: force_new={}".format(force_new))
-            tmp = await self._async_acquire_new_session()
+            # TODO: look at if there needs to be an addition to connection count, active connections, or something here
+            tmp = await self._async_acquire_new_session(cached_session_file=self._cached_session_file)
             #logger.info("Session Info Return: {}".format(tmp))
             return tmp
 
@@ -188,11 +189,11 @@ class DatasetExternalClient(DatasetClient,
         # TODO: think about if anything is needed for this
         pass
 
-    async def create_dataset(self, name: str, category: DataCategory) -> bool:
+    async def create_dataset(self, name: str, category: DataCategory, domain: DataDomain, **kwargs) -> bool:
         await self._async_acquire_session_info()
         # TODO: (later) consider also adding param for data to be added
         request = MaaSDatasetManagementMessage(session_secret=self.session_secret, action=ManagementAction.CREATE,
-                                               dataset_name=name, category=category)
+                                               domain=domain, dataset_name=name, category=category)
         self.last_response = await self.async_make_request(request)
         return self.last_response is not None and self.last_response.success
 
