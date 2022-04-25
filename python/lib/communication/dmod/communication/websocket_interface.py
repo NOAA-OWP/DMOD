@@ -54,6 +54,20 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
     """
 
     @classmethod
+    @abstractmethod
+    def get_parseable_request_types(cls) -> List[Type[AbstractInitRequest]]:
+        """
+        Get the ::class:`AbstractInitRequest` subtypes this type supports parsing when handling incoming messages.
+
+        Returns
+        -------
+        List[Type[AbstractInitRequest]]
+            The ::class:`AbstractInitRequest` subtypes this type supports parsing when handling incoming messages.
+        """
+        # TODO: implement in other types
+        pass
+
+    @classmethod
     def _get_async_loop(cls):
         """
         Class method for getting the appropriate asyncio event loop, primarily to allow test-only implementations a way
@@ -422,6 +436,21 @@ class NoOpHandler(WebSocketInterface):
         Custom server init can be done by calling super().__init__(...)
     """
 
+    _PARSEABLE_REQUEST_TYPES = [SessionInitMessage, NWMRequest, NGENRequest, MaaSDatasetManagementMessage, PartitionRequest]
+    """ Parseable request types, which are all authenticated ::class:`MaaSRequest` subtypes for this implementation. """
+
+    @classmethod
+    def get_parseable_request_types(cls) -> List[Type[AbstractInitRequest]]:
+        """
+        Get the ::class:`AbstractInitRequest` subtypes this type supports parsing when handling incoming messages.
+
+        Returns
+        -------
+        List[Type[AbstractInitRequest]]
+            The ::class:`AbstractInitRequest` subtypes this type supports parsing when handling incoming messages.
+        """
+        return cls._PARSEABLE_REQUEST_TYPES
+
     @classmethod
     def _get_async_loop(cls):
         """
@@ -444,6 +473,21 @@ class EchoHandler(WebSocketInterface):
     Example class, largely for testing purposes, which just echos out the same message received over a websocket as
     its reply, then shuts down the listener
     """
+
+    _PARSEABLE_REQUEST_TYPES = [SessionInitMessage, NWMRequest, NGENRequest, MaaSDatasetManagementMessage, PartitionRequest]
+    """ Parseable request types, which are all authenticated ::class:`MaaSRequest` subtypes for this implementation. """
+
+    @classmethod
+    def get_parseable_request_types(cls) -> List[Type[AbstractInitRequest]]:
+        """
+        Get the ::class:`AbstractInitRequest` subtypes this type supports parsing when handling incoming messages.
+
+        Returns
+        -------
+        List[Type[AbstractInitRequest]]
+            The ::class:`AbstractInitRequest` subtypes this type supports parsing when handling incoming messages.
+        """
+        return cls._PARSEABLE_REQUEST_TYPES
 
     @classmethod
     def _get_async_loop(cls):
