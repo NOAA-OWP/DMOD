@@ -11,9 +11,11 @@ from dmod.core.exception import DmodRuntimeError
 from dmod.modeldata.data.object_store_dataset import Dataset, DatasetManager, ObjectStoreDataset, \
     ObjectStoreDatasetManager
 from dmod.scheduler.job import Job, JobExecStep, JobUtil
-from typing import Dict, List, Optional, Tuple, Type, TypeVar
-from uuid import UUID
+from typing import Dict, List, Optional, Tuple, Type, TypeVar, Union
+from uuid import UUID, uuid4
 from websockets import WebSocketServerProtocol
+
+import logging
 
 
 DATASET_MGR = TypeVar('DATASET_MGR', bound=DatasetManager)
@@ -227,6 +229,26 @@ class ServiceManager(WebSocketInterface):
         """
         return self._process_dataset_create(message)
 
+    async def _async_process_dataset_delete(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
+        """
+        Async wrapper function for ::method:`_process_dataset_delete`.
+
+        Parameters
+        ----------
+        message : DatasetManagementMessage
+            The message that initiated the process of deleting a dataset
+
+        Returns
+        -------
+        DatasetManagementResponse
+            A generated response object to the incoming delete message, indicating whether deletion was successful.
+
+        See Also
+        -------
+        ::method:`_process_dataset_delete`
+        """
+        return self._process_dataset_delete(message)
+
     def _create_output_datasets(self, job: Job):
         """
         Create output datasets and associated requirements for this job, based on its ::method:`Job.output_formats`.
@@ -355,6 +377,34 @@ class ServiceManager(WebSocketInterface):
         return DatasetManagementResponse(action=message.management_action, success=True, reason="Dataset Created",
                                          data_id=str(dataset.uuid), dataset_name=dataset.name,
                                          is_awaiting=message.is_pending_data)
+
+    def _process_dataset_delete(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
+        """
+        As part of the communication protocol for the service, handle incoming messages that request dataset deletion.
+
+        Parameters
+        ----------
+        message : DatasetManagementMessage
+            The message that initiated the process of deleting an existing dataset
+
+        Returns
+        ----------
+        DatasetManagementResponse
+            A generated response object to the incoming delete message, indicating whether deletion was successful.
+        """
+        known_datasets = self.get_known_datasets()
+        if message.dataset_name not in known_datasets:
+            return DatasetManagementResponse(action=message.management_action, success=False,
+                                             reason="Dataset Does Not Exists", dataset_name=message.dataset_name)
+        dataset: Dataset = known_datasets[message.dataset_name]
+
+        # TODO: later look at doing something more related to if there are things using a dataset
+        #dataset_users = dataset.manager.get_dataset_users(dataset.name)
+
+        result = dataset.manager.delete(dataset=dataset)
+        reason = 'Dataset Deleted' if result else 'Dataset Delete Failed'
+        return DatasetManagementResponse(action=message.management_action, success=result, reason=reason,
+                                         dataset_name=dataset.name)
 
     async def can_be_fulfilled(self, requirements: List[DataRequirement]) -> Tuple[bool, Optional[str]]:
         """
