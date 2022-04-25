@@ -1,4 +1,5 @@
 import argparse
+import json
 from . import name as package_name
 from .dmod_client import YamlClientConfig, DmodClient
 from dmod.communication.client import get_or_create_eventloop
@@ -134,6 +135,46 @@ def _process_uploads(upload_path_str: Optional[List[str]]):
     # Track bad paths, though, and bail if there are any
     bad_paths = [p for p in upload_paths if not p.exists()]
     return upload_paths, bad_paths
+
+
+def _process_domain_restriction_args(domain_restriction_strs: List[str]) -> Tuple[List[ContinuousRestriction], List[DiscreteRestriction]]:
+    """
+    Process serialized JSON strings to restriction objects.
+
+    Strings are expected to be in either the standard serialized format from each type's ``to_dict`` function, or
+    for continuous restrictions, in a similar, truncated form that can be converted to the standard format by using
+    ::method:`ContinuousRestriction.convert_truncated_serial_form`.
+
+    Parameters
+    ----------
+    domain_restriction_strs : List[str]
+        List of JSON strings, where strings are serialized restriction objects, possibly in a simplified format for
+        ::class:`ContinuousRestriction`
+
+    Returns
+    -------
+    Tuple[List[ContinuousRestriction], List[DiscreteRestriction]]
+        A tuple of two lists of restriction objects, with the first being continuous and the second discrete.
+    """
+    discrete_restrictions = []
+    continuous_restrictions = []
+    for json_str in domain_restriction_strs:
+        json_obj = json.loads(json_str)
+        discrete_restrict = DiscreteRestriction.factory_init_from_deserialized_json(json_obj)
+        if discrete_restrict is not None:
+            discrete_restrictions.append(discrete_restrict)
+            continue
+        continuous_restrict = ContinuousRestriction.factory_init_from_deserialized_json(json_obj)
+        if continuous_restrict is not None:
+            continuous_restrictions.append(continuous_restrict)
+            continue
+        # Try this as well so continuous restrictions can use simpler format
+        continuous_restrict = ContinuousRestriction.factory_init_from_deserialized_json(
+            ContinuousRestriction.convert_truncated_serial_form(json_obj))
+        if continuous_restrict is not None:
+            continuous_restrictions.append(continuous_restrict)
+            continue
+    return continuous_restrictions, discrete_restrictions
 
 
 def execute_dataset_command(parsed_args, client: DmodClient):
