@@ -51,7 +51,7 @@ def _handle_dataset_command_args(parent_subparsers_container):
     # Nested parser for the 'create' action, with required argument for dataset name, category, and format
     parser_create = action_subparsers.add_parser('create')
     parser_create.add_argument('name', help='Specify the name of the dataset to create.')
-    parser_create.add_argument('--paths', dest='upload_paths', nargs='?', help='Specify files/directories to upload.')
+    parser_create.add_argument('--paths', dest='upload_paths', nargs='+', help='Specify files/directories to upload.')
     json_form = '{"variable": "<variable_name>", ("begin": "<value>", "end": "<value>" | "values": [<values>])}'
     restrict_help_str = 'Specify continuous or discrete domain restriction as (simplified) serialized JSON - {}'
     parser_create.add_argument('--restriction', dest='domain_restrictions', nargs='*',
