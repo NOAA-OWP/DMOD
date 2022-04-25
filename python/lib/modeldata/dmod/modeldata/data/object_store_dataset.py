@@ -162,28 +162,6 @@ class ObjectStoreDatasetManager(DatasetManager):
             # TODO: consider if we should not re-throw this (which would likely force us to ensure users checked this)
             raise e
 
-    def _decode_object_name_to_file_path(self, object_name: str) -> str:
-        """
-        Reverse the object name encoding of nested file names.
-
-        This essentially just decodes the encoding performed by ::method:`_push_file`.
-
-        Parameters
-        ----------
-        object_name : str
-            The name of the object storing some previously uploaded file data.
-
-        Returns
-        -------
-        str
-            The decoded file name that reflects any subdirectory structure.
-
-        See Also
-        -------
-        ::method:`_push_file`
-        """
-        return "/".join(object_name.split(self._OBJECT_NAME_SEPARATOR))
-
     def _gen_dataset_serial_obj_name(self, dataset_name: str) -> str:
         return self._SERIALIZED_OBJ_NAME_TEMPLATE.format(dataset_name)
 
