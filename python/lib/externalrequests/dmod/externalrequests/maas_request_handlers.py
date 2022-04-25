@@ -238,7 +238,8 @@ class DatasetRequestHandler(MaaSRequestHandler):
         return self._default_required_access_type,
 
     async def handle_request(self, request: MaaSDatasetManagementMessage, **kwargs) -> MaaSDatasetManagementResponse:
-        session, is_authorized, reason, msg = self.get_authorized_session(request)
+        # Need receiver websocket (i.e. DMOD client side) as kwarg
+        session, is_authorized, reason, msg = await self.get_authorized_session(request)
         if not is_authorized:
             return MaaSDatasetManagementResponse(success=False, reason=reason.name, message=msg)
         # In this case, we actually can pass the request as-is straight through (i.e., after confirming authorization)
