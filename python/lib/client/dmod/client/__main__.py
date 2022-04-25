@@ -185,9 +185,34 @@ def execute_dataset_command(parsed_args, client: DmodClient):
         if len(bad_paths):
             raise RuntimeError('Aborted before dataset {} created; invalid upload paths: {}'.format(parsed_args.name,
                                                                                                     bad_paths))
-
         # Proceed with create, and raising error on failure
-        if not async_loop.run_until_complete(client.create_dataset(parsed_args.name, category)):
+
+        key_args = dict()
+
+        # If we have a domain file, parse it, and use it as the only key args
+        if parsed_args.domain_file is not None:
+            domain_file = Path(parsed_args.domain_file)
+            domain = DataDomain.factory_init_from_deserialized_json(json.load(domain_file.open()))
+            if domain is None:
+                raise RuntimeError("Could nod deserialize data domain from file {}".format(domain_file))
+            key_args['domain'] = domain
+        else:
+            # Otherwise, start by processing any serialized restrictions provided on the command line
+            c_restricts, d_restricts = _process_domain_restriction_args(parsed_args.domain_restrictions)
+            # With restrictions processed, proceed to generating keyword args for the client's create function
+            data_format = DataFormat.get_for_name(parsed_args.dataset_format)
+            if data_format is None:
+                msg = 'Failed to create dataset {} due to unparseable data format'
+                raise RuntimeError(msg.format(parsed_args.name, parsed_args.dataset_format))
+            else:
+                key_args['data_format'] = data_format
+            # Finally, assemble the key args we will use
+            if d_restricts:
+                key_args['discrete_restrictions'] = d_restricts
+            if c_restricts:
+                key_args['continuous_restrictions'] = c_restricts
+
+        if not async_loop.run_until_complete(client.create_dataset(parsed_args.name, category, **key_args)):
             raise RuntimeError('Failed to create dataset {}'.format(parsed_args.name))
         # Display message if create succeeded and there was nothing to upload
         elif len(upload_paths) == 0:
@@ -200,7 +225,6 @@ def execute_dataset_command(parsed_args, client: DmodClient):
         else:
             print('Dataset {} of category {} created successfully, and uploaded {}'.format(parsed_args.name, category,
                                                                                            upload_paths))
-
     elif parsed_args.action == 'list':
         category = None if parsed_args.category == 'all' else DataCategory.get_for_name(parsed_args.category)
         dataset_names = async_loop.run_until_complete(client.list_datasets(category))
