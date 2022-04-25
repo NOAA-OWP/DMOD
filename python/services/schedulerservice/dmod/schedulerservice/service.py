@@ -8,8 +8,8 @@ logging.basicConfig(
 
 from websockets import WebSocketServerProtocol
 from typing import List, Type
-from dmod.communication import InvalidMessageResponse, Message, SchedulerRequestMessage, SchedulerRequestResponse, \
-    UpdateMessage, UpdateMessageResponse, WebSocketInterface
+from dmod.communication import AbstractInitRequest, InvalidMessageResponse, Message, SchedulerRequestMessage, \
+    SchedulerRequestResponse, UpdateMessage, UpdateMessageResponse, WebSocketInterface
 from dmod.scheduler.job import Job, JobManager, JobStatus
 import json
 
@@ -73,6 +73,21 @@ class SchedulerHandler(WebSocketInterface):
         elif isinstance(response, UpdateMessageResponse) and response.digest != update_message.digest:
             logging.error('Expected response to update message {}, but response digest {}'.format(
                 update_message.digest, response.digest))
+
+    _PARSEABLE_REQUEST_TYPES = [SchedulerRequestMessage]
+    """ Parseable request types, which are all authenticated ::class:`MaaSRequest` subtypes for this implementation. """
+
+    @classmethod
+    def get_parseable_request_types(cls) -> List[Type[AbstractInitRequest]]:
+        """
+        Get the ::class:`AbstractInitRequest` subtypes this type supports parsing when handling incoming messages.
+
+        Returns
+        -------
+        List[Type[AbstractInitRequest]]
+            The ::class:`AbstractInitRequest` subtypes this type supports parsing when handling incoming messages.
+        """
+        return cls._PARSEABLE_REQUEST_TYPES
 
     def __init__(self, job_mgr: JobManager, *args, **kwargs):
         """
