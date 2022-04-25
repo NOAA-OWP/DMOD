@@ -10,6 +10,7 @@ import logging
 logger = logging.getLogger("gui_log")
 
 import dmod.communication as communication
+from dmod.communication.maas_request import NWMConfig
 from pathlib import Path
 
 from .DMODProxy import DMODMixin
@@ -45,14 +46,14 @@ class EditView(View, DMODMixin):
         distribution_types = list()
 
         # Create a mapping between each output type and a friendly representation of it
-        for output in communication.get_available_outputs():
+        for output in NWMConfig.get_output_variables():
             output_definition = dict()
             output_definition['name'] = humanize(output)
             output_definition['value'] = output
             outputs.append(output_definition)
 
         # Create a mapping between each distribution type and a friendly representation of it
-        for distribution_type in communication.ModelExecRequest.get_distribution_types():
+        for distribution_type in NWMConfig.get_distribution_types():
             type_definition = dict()
             type_definition['name'] = humanize(distribution_type)
             type_definition['value'] = distribution_type
@@ -63,7 +64,7 @@ class EditView(View, DMODMixin):
             'models': models,
             'domains': domains,
             'outputs': outputs,
-            'parameters': communication.ModelExecRequest.get_parameters(),
+            'parameters': NWMConfig.get_parameters(),
             'distribution_types': distribution_types,
             'errors': errors,
             'info': info,
