@@ -82,9 +82,6 @@ class DmodClient:
         # Finally, ask the client to create the dataset, passing the details
         return await self.dataset_client.create_dataset(dataset_name, category, domain, **kwargs)
 
-    async def list_datasets(self, category: Optional[DataCategory] = None):
-        return await self.dataset_client.list_datasets(category)
-
     @property
     def dataset_client(self) -> DatasetClient:
         if self._dataset_client is None:
@@ -99,6 +96,9 @@ class DmodClient:
 
     async def delete_dataset(self, dataset_name: str, **kwargs):
         return await self.dataset_client.delete_dataset(dataset_name, **kwargs)
+
+    async def list_datasets(self, category: Optional[DataCategory] = None):
+        return await self.dataset_client.list_datasets(category)
 
     @property
     def requests_endpoint_uri(self) -> str:
