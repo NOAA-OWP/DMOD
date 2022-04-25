@@ -1,4 +1,5 @@
 import asyncio
+from dmod.communication import AbstractInitRequest
 import json
 from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, ManagementAction, WebSocketInterface
 from dmod.core.meta_data import DataCategory, DataDomain, DataRequirement, DiscreteRestriction
@@ -19,6 +20,21 @@ class ServiceManager(WebSocketInterface):
     """
     Primary service management class.
     """
+
+    _PARSEABLE_REQUEST_TYPES = [DatasetManagementMessage]
+    """ Parseable request types, which are all authenticated ::class:`MaaSRequest` subtypes for this implementation. """
+
+    @classmethod
+    def get_parseable_request_types(cls) -> List[Type[AbstractInitRequest]]:
+        """
+        Get the ::class:`AbstractInitRequest` subtypes this type supports parsing when handling incoming messages.
+
+        Returns
+        -------
+        List[Type[AbstractInitRequest]]
+            The ::class:`AbstractInitRequest` subtypes this type supports parsing when handling incoming messages.
+        """
+        return cls._PARSEABLE_REQUEST_TYPES
 
     def __init__(self, job_util: JobUtil, *args, **kwargs):
         super().__init__(*args, **kwargs)
