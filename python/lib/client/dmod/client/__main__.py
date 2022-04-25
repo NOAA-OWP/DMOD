@@ -2,7 +2,7 @@ import argparse
 from . import name as package_name
 from .dmod_client import YamlClientConfig, DmodClient
 from dmod.communication.client import get_or_create_eventloop
-from dmod.core.meta_data import DataCategory
+from dmod.core.meta_data import ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -45,12 +45,19 @@ def _handle_dataset_command_args(parent_subparsers_container):
     action_subparsers = command_parser.add_subparsers(dest='action')
     action_subparsers.required = True
 
-    dataset_categories = [str(e.name).lower() for e in DataCategory]
+    dataset_categories = [e.name.lower() for e in DataCategory]
+    dataset_formats = [e.name for e in DataFormat]
 
-    # Nested parser for the 'create' action, with required argument for dataset name
+    # Nested parser for the 'create' action, with required argument for dataset name, category, and format
     parser_create = action_subparsers.add_parser('create')
     parser_create.add_argument('name', help='Specify the name of the dataset to create.')
     parser_create.add_argument('--paths', dest='upload_paths', nargs='?', help='Specify files/directories to upload.')
+    json_form = '{"variable": "<variable_name>", ("begin": "<value>", "end": "<value>" | "values": [<values>])}'
+    restrict_help_str = 'Specify continuous or discrete domain restriction as (simplified) serialized JSON - {}'
+    parser_create.add_argument('--restriction', dest='domain_restrictions', nargs='*',
+                               help=restrict_help_str.format(json_form))
+    parser_create.add_argument('--format', dest='dataset_format', choices=dataset_formats, help='Specify dataset domain format.')
+    parser_create.add_argument('--domain-json', dest='domain_file', help='Deserialize the dataset domain from a file.')
     parser_create.add_argument('category', choices=dataset_categories, help='Specify dataset category.')
 
     # Nested parser for the 'upload' action, with required args for dataset name and files to upload
