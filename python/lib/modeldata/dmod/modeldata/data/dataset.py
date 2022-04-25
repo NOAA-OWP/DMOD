@@ -90,6 +90,15 @@ class Dataset(Serializable, ABC):
         except Exception as e:
             return None
 
+    def __eq__(self, other):
+        return isinstance(other, Dataset) and self.name == other.name and self.category == other.category \
+               and self.data_domain == other.data_domain and self.access_location == other.access_location \
+               and self.is_read_only == other.is_read_only and self.created_on == other.created_on
+
+    def __hash__(self):
+        return hash(','.join([self.__class__.__name__, self.name, self.category.name, str(hash(self.data_domain)),
+                              self.access_location, str(self.is_read_only), str(hash(self.created_on))]))
+
     def __init__(self, name: str, category: DataCategory, data_domain: DataDomain, access_location: str,
                  uuid: Optional[UUID] = None, manager: Optional['DatasetManager'] = None,
                  manager_uuid: Optional[UUID] = None, is_read_only: bool = True, expires: Optional[datetime] = None,
