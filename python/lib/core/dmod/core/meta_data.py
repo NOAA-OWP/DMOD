@@ -212,6 +212,39 @@ class ContinuousRestriction(Serializable):
     """
 
     @classmethod
+    def convert_truncated_serial_form(cls, truncated_json_obj: dict, datetime_format: Optional[str] = None) -> dict:
+        """
+        Take the JSON in a truncated format and generated a converted copy in the valid serialized form of this type.
+
+        Parameters
+        ----------
+        truncated_json_obj : dict
+            The simplified JSON representation that can be used, with some intelligence, to derived an instance.
+        datetime_format : str
+            An optional datetime format string to test ``begin`` and ``end`` for times (replaced with the default from
+            ::method:`get_datetime_str_format` if not included or ``None``).
+
+        Returns
+        -------
+        dict
+            A new dictionary object, based on the arg, but with extra items added to it in order to make it consistent
+            with the format required by the standard ::method:`factory_init_from_deserialized_json` of this type.
+        """
+        json_copy = truncated_json_obj.copy()
+        try:
+            format_str = cls.get_datetime_str_format() if datetime_format is None else datetime_format
+            begin_time = datetime.strptime(truncated_json_obj['begin'], format_str)
+            end_time = datetime.strptime(truncated_json_obj['end'], format_str)
+            if isinstance(begin_time, datetime) and isinstance(end_time, datetime):
+                json_copy['datetime_pattern'] = format_str
+                json_copy['subclass'] = 'TimeRange'
+        except:
+            if 'subclass' not in json_copy:
+                json_copy['subclass'] = cls.__name__
+
+        return json_copy
+
+    @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
         datetime_ptr = json_obj["datetime_pattern"] if "datetime_pattern" in json_obj else None
         try:
