@@ -2,10 +2,9 @@ from abc import ABC, abstractmethod
 from dmod.core.meta_data import ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction, TimeRange
 from datetime import datetime, timedelta
 
-from dmod.core.serializable import Serializable
+from dmod.core.serializable import Serializable, ResultIndicator
 from numbers import Number
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Type, Union
+from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple, Type, Union
 from uuid import UUID, uuid4
 
 
@@ -555,6 +554,8 @@ class DatasetManager(ABC):
         self._datasets = datasets if datasets is not None else dict()
         self._dataset_users: Dict[str, Set[UUID]] = dict()
         """ Collection of dataset names each keyed to a set of UUIDs of each user using the corresponding dataset. """
+        self._errors = []
+        """ A property attribute to hold errors encountered during operations. """
 
     # TODO: implement functions and routines for scrubbing temporary datasets as needed
 
@@ -655,6 +656,20 @@ class DatasetManager(ABC):
             The datasets known to and managed by this instance.
         """
         return self._datasets
+
+    @property
+    def errors(self) -> List[Union[str, Exception, ResultIndicator]]:
+        """
+        List of previously encountered errors, which may be strings, exceptions, or ::class:`ResultIndicator` objects.
+
+        Note that earlier error will have lower indices.
+
+        Returns
+        -------
+        List[Union[str, Exception, ResultIndicator]]
+            List of representational objects for previously encountered errors.
+        """
+        return self._errors
 
     # TODO: add back as abstract, then implement in subtypes
     #@abstractmethod
