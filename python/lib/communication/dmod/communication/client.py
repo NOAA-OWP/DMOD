@@ -177,7 +177,7 @@ class WebSocketClient(ABC):
         if self._client_ssl_context is None:
             self._client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
             endpoint_pem = self._ssl_directory.joinpath(self._cert_pem_file_basename)
-            self.client_ssl_context.load_verify_locations(str(endpoint_pem))
+            self.client_ssl_context.load_verify_locations(endpoint_pem)
         return self._client_ssl_context
 
 
