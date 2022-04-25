@@ -85,6 +85,11 @@ class DatasetInternalClient(DatasetClient, InternalServiceClient[DatasetManageme
         self.last_response = await self.async_make_request(request)
         return self.last_response is not None and self.last_response.success
 
+    async def delete_dataset(self, name: str, **kwargs) -> bool:
+        request = DatasetManagementMessage(action=ManagementAction.DELETE, dataset_name=name)
+        self.last_response = await self.async_make_request(request)
+        return self.last_response is not None and self.last_response.success
+
     async def list_datasets(self, category: Optional[DataCategory] = None) -> List[str]:
         action = ManagementAction.LIST_ALL if category is None else ManagementAction.SEARCH
         request = DatasetManagementMessage(action=action, category=category)
@@ -194,6 +199,13 @@ class DatasetExternalClient(DatasetClient,
         # TODO: (later) consider also adding param for data to be added
         request = MaaSDatasetManagementMessage(session_secret=self.session_secret, action=ManagementAction.CREATE,
                                                domain=domain, dataset_name=name, category=category)
+        self.last_response = await self.async_make_request(request)
+        return self.last_response is not None and self.last_response.success
+
+    async def delete_dataset(self, name: str, **kwargs) -> bool:
+        await self._async_acquire_session_info()
+        request = MaaSDatasetManagementMessage(session_secret=self.session_secret, action=ManagementAction.DELETE,
+                                               dataset_name=name)
         self.last_response = await self.async_make_request(request)
         return self.last_response is not None and self.last_response.success
 
