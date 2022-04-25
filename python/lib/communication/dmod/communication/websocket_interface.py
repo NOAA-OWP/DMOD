@@ -16,12 +16,14 @@ import websockets
 import ssl
 import signal
 import logging
-from .maas_request import get_request, ModelExecRequest
-from .message import Message, MessageEventType, InvalidMessage
+from .maas_request import AbstractInitRequest, NWMRequest, NGENRequest
+from .partition_request import PartitionRequest
+from .dataset_management_message import MaaSDatasetManagementMessage
+from .message import MessageEventType, InvalidMessage
 from .session import Session, SessionInitMessage
-from .validator import NWMRequestJsonValidator, SessionInitMessageJsonValidator
+from .validator import SessionInitMessageJsonValidator
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Type
 from websockets import WebSocketServerProtocol
 from .async_service import AsyncServiceInterface
 
@@ -191,7 +193,11 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
             self._scheduled_tasks.append(self.loop.create_task(coro))
         return next_index
 
-    async def deserialized_message(self, message_data: dict, event_type: MessageEventType = None, check_for_auth=False):
+    async def deserialized_message(self, message_data: dict):
+        # TODO: update the params for this
+        return self._deserialized_message(message_data=message_data)
+
+    def _deserialized_message(self, message_data: dict):
         """
         Deserialize
 
@@ -206,31 +212,12 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
 
         """
         try:
-            if event_type is None:
-                event_type, errors = await self.parse_request_type(data=message_data, check_for_auth=check_for_auth)
+            for message_type in self.get_parseable_request_types():
+                message = message_type.factory_init_from_deserialized_json(message_data)
+                if isinstance(message, message_type):
+                    return message
+            return InvalidMessage(content=message_data)
 
-            if event_type is None:
-                raise RuntimeError('Cannot deserialize message: could not parse request to any enumerated event type')
-            elif event_type == MessageEventType.MODEL_EXEC_REQUEST:
-                # By default, but don't stick with this ...
-                model_name = ModelExecRequest.model_name
-                # ... get based on key in the message
-                if isinstance(message_data['model'], dict):
-                    for key in message_data['model']:
-                        if key != 'session_secret':
-                            model_name = key
-                return get_request(model=model_name,
-                                   session_secret=message_data['session-secret'],
-                                   version=message_data['model'][model_name]['version'],
-                                   output=message_data['model'][model_name]['output'],
-                                   domain=message_data['model'][model_name]['domain'],
-                                   parameters=message_data['model'][model_name]['parameters'])
-            elif event_type == MessageEventType.SESSION_INIT:
-                return SessionInitMessage(username=message_data['username'], user_secret=message_data['user_secret'])
-            elif event_type == MessageEventType.INVALID:
-                return InvalidMessage(content=message_data)
-            else:
-                raise RuntimeError("Cannot deserialize message for unsupported event type {}".format(event_type))
         except RuntimeError as re:
             raise re
 
@@ -285,6 +272,9 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
         return self._loop
 
     async def parse_request_type(self, data: dict, check_for_auth=False) -> Tuple[MessageEventType, dict]:
+        return self._parse_request_type(data=data, check_for_auth=check_for_auth)
+
+    def _parse_request_type(self, data: dict, check_for_auth=False) -> Tuple[MessageEventType, dict]:
         """
         Parse for request for validity, optionally for authentication type, determining which type of request this is.
 
@@ -311,10 +301,10 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
             if is_auth_req:
                 return MessageEventType.SESSION_INIT, errors
 
-        is_job_req, error = NWMRequestJsonValidator().validate(data)
-        errors[MessageEventType.MODEL_EXEC_REQUEST] = error
-        if is_job_req:
-            return MessageEventType.MODEL_EXEC_REQUEST, errors
+        for t in self.get_parseable_request_types():
+            message = t.factory_init_from_deserialized_json(data)
+            if isinstance(message, t):
+                return message.get_message_event_type(), errors
 
         return MessageEventType.INVALID, errors
 
