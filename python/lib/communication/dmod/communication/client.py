@@ -106,7 +106,10 @@ class WebSocketClient(ABC):
             # If not, mark that this exec is opening a connection, before giving up control during the await
             self._opening_connection = True
             # Then asynchronously open the connection ...
-            self.connection = await websockets.client.connect(self.endpoint_uri, ssl=self.client_ssl_context)
+            try:
+                self.connection = await websockets.connect(self.endpoint_uri, ssl=self.client_ssl_context)
+            except Exception as e:
+                raise e
             # And now, note that we are no longer in the middle of an attempt to open a connection
             self._opening_connection = False
 
@@ -472,6 +475,10 @@ class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
             self._session_id, self._session_secret, self._session_created = auth_details
             self._is_new_session = True
             return True
+        except ConnectionResetError as e:
+            logger.info("Expecting exception to follow")
+            logger.exception("Failed _acquire_session_info")
+            return False
         except Exception as e:
             logger.info("Expecting exception to follow")
             logger.exception("Failed _acquire_session_info")
