@@ -4,11 +4,11 @@ import logging
 
 import websockets
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Type
 from websockets import WebSocketServerProtocol
 from docker.errors import ContainerError
-from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, InvalidMessageResponse, \
-    PartitionRequest, PartitionResponse, ManagementAction, WebSocketInterface
+from dmod.communication import AbstractInitRequest, DatasetManagementMessage, DatasetManagementResponse, \
+    InvalidMessageResponse, PartitionRequest, PartitionResponse, ManagementAction, WebSocketInterface
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement, DiscreteRestriction
 from dmod.core.exception import DmodRuntimeError
 from dmod.externalrequests.maas_request_handlers import DataServiceClient
@@ -39,6 +39,21 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
     be the volume mount target of the instance's container in cases when one exists, since the volume will need to have
     been mounted by that container also in order to provide access.
     """
+
+    _PARSEABLE_REQUEST_TYPES = [PartitionRequest]
+    """ Parseable request types, which are all authenticated ::class:`MaaSRequest` subtypes for this implementation. """
+
+    @classmethod
+    def get_parseable_request_types(cls) -> List[Type[AbstractInitRequest]]:
+        """
+        Get the ::class:`AbstractInitRequest` subtypes this type supports parsing when handling incoming messages.
+
+        Returns
+        -------
+        List[Type[AbstractInitRequest]]
+            The ::class:`AbstractInitRequest` subtypes this type supports parsing when handling incoming messages.
+        """
+        return cls._PARSEABLE_REQUEST_TYPES
 
     def __init__(self, image_name: str, hydrofabrics_dir: Union[str, Path], job_util: JobUtil,
                  data_client: DataServiceClient, *args, **kwargs):
