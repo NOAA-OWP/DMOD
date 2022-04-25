@@ -5,16 +5,16 @@ from dmod.communication.dataset_management_message import DatasetManagementMessa
     MaaSDatasetManagementMessage, MaaSDatasetManagementResponse
 from dmod.core.meta_data import DataCategory
 from pathlib import Path
-from typing import Generic, List, Optional, TypeVar, Type
+from typing import List, Optional, Tuple, Type, Union
+
+import json
+import websockets
 
 #import logging
 #logger = logging.getLogger("gui_log")
 
 
-DATA_RESPONSE = TypeVar("DATA_RESPONSE", bound=DatasetManagementResponse)
-
-
-class DatasetClient(Generic[DATA_RESPONSE], ABC):
+class DatasetClient(ABC):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -69,8 +69,7 @@ class DatasetClient(Generic[DATA_RESPONSE], ABC):
         pass
 
 
-class DatasetInternalClient(DatasetClient[DatasetManagementResponse],
-                            InternalServiceClient[DatasetManagementMessage, DatasetManagementResponse]):
+class DatasetInternalClient(DatasetClient, InternalServiceClient[DatasetManagementMessage, DatasetManagementResponse]):
 
     @classmethod
     def get_response_subtype(cls) -> Type[R]:
@@ -116,7 +115,7 @@ class DatasetInternalClient(DatasetClient[DatasetManagementResponse],
         raise NotImplementedError('Function upload_to_dataset not implemented')
 
 
-class DatasetExternalClient(DatasetClient[MaaSDatasetManagementResponse],
+class DatasetExternalClient(DatasetClient,
                             MaasRequestClient[MaaSDatasetManagementMessage, MaaSDatasetManagementResponse]):
     """
     Client for authenticated communication sessions via ::class:`MaaSDatasetManagementMessage` instances.
