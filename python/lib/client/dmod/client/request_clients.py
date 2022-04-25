@@ -53,6 +53,14 @@ class DatasetClient(Generic[DATA_RESPONSE], ABC):
             return response.data['datasets']
 
     @abstractmethod
+    async def create_dataset(self, name: str, category: DataCategory, domain: DataDomain, **kwargs) -> bool:
+        pass
+
+    @abstractmethod
+    async def delete_dataset(self, name: str, **kwargs) -> bool:
+        pass
+
+    @abstractmethod
     async def list_datasets(self, category: Optional[DataCategory] = None) -> List[str]:
         pass
 
