@@ -464,10 +464,10 @@ class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
         """
         pass
 
-    async def _async_acquire_new_session(self):
+    async def _async_acquire_new_session(self, cached_session_file: Optional[Path] = None):
         try:
             logger.info("Connection to request handler web socket")
-            auth_details = await self.authenticate_over_websocket()
+            auth_details = await self.authenticate_over_websocket(cached_session_file=cached_session_file)
             logger.info("auth_details returned")
             self._session_id, self._session_secret, self._session_created = auth_details
             self._is_new_session = True
@@ -501,8 +501,16 @@ class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
             response = await websocket.recv()
             return request.__class__.factory_init_correct_response_subtype(json_obj=json.loads(response))
 
+    def parse_session_auth_text(self, auth_text: str):
+        auth_response = json.loads(auth_text)
+        # TODO: consider making sure this parses to a SessionInitResponse
+        maas_session_id = auth_response['data']['session_id']
+        maas_session_secret = auth_response['data']['session_secret']
+        maas_session_created = auth_response['data']['created']
+        return maas_session_id, maas_session_secret, maas_session_created
+
     # TODO: ...
-    async def authenticate_over_websocket(self):
+    async def authenticate_over_websocket(self, cached_session_file: Optional[Path] = None):
         async with websockets.connect(self.endpoint_uri, ssl=self.client_ssl_context) as websocket:
             #async with websockets.connect(self.maas_endpoint_uri) as websocket:
             # return await EditView._authenticate_over_websocket(websocket)
@@ -511,12 +519,16 @@ class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
             json_as_dict = {'username': 'someone', 'user_secret': 'something'}
             # TODO: validate before sending
             await websocket.send(json.dumps(json_as_dict))
-            auth_response = json.loads(await websocket.recv())
-            print('*************** Auth response: ' + json.dumps(auth_response))
-            maas_session_id = auth_response['data']['session_id']
-            maas_session_secret = auth_response['data']['session_secret']
-            maas_session_created = auth_response['data']['created']
-            return maas_session_id, maas_session_secret, maas_session_created
+            response_txt = await websocket.recv()
+            try:
+                if cached_session_file is not None and not cached_session_file.is_dir() \
+                        and cached_session_file.parent.is_dir():
+                    cached_session_file.write_text(response_txt)
+            except Exception as e:
+                # TODO: consider logging something here, but for now just handle so a bad save file doesn't tank us
+                pass
+            #print('*************** Auth response: ' + json.dumps(response_txt))
+            return self.parse_session_auth_text(response_txt)
 
     @property
     @abstractmethod
