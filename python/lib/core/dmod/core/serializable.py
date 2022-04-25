@@ -211,3 +211,56 @@ class SerializedDict(Serializable):
 
     def to_dict(self) -> dict:
         return self.base_dict
+
+
+class ResultIndicator(Serializable, ABC):
+    """
+    A type extending from ::class:`Serializable` for encapsulating a status indication for a result of something.
+
+    Parameters
+    ----------
+    success : bool
+        Whether this indicates a successful result.
+    reason : str
+        A very short, high-level summary of the result.
+    message : str
+        An option, more detailed explanation of the result, which by default is an empty string.
+
+    Attributes
+    ----------
+    success : bool
+        Whether this indicates a successful result.
+    reason : str
+        A very short, high-level summary of the result.
+    message : str
+        An option, more detailed explanation of the result, which by default is an empty string.
+
+    """
+
+    def __init__(self, success: bool, reason: str, message: str = '', *args, **kwargs):
+        super(ResultIndicator, self).__init__(*args, **kwargs)
+        self.success: bool = success
+        """ Whether this indicates a successful result. """
+        self.reason: str = reason
+        """ A very short, high-level summary of the result. """
+        self.message: str = message
+        """ An option, more detailed explanation of the result, which by default is an empty string. """
+
+    def to_dict(self) -> dict:
+        return {'success': self.success, 'reason': self.reason, 'message': self.message}
+
+
+class BasicResultIndicator(ResultIndicator):
+    """
+    Bare-bones, concrete implementation of ::class:`ResultIndicator`.
+    """
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict):
+        try:
+            return cls(success=json_obj['success'], reason=json_obj['reason'], message=json_obj['message'])
+        except Exception as e:
+            return None
+
+    def __init__(self, *args, **kwargs):
+        super(BasicResultIndicator, self).__init__(*args, **kwargs)
