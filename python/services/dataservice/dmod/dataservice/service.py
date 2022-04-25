@@ -249,6 +249,26 @@ class ServiceManager(WebSocketInterface):
         """
         return self._process_dataset_delete(message)
 
+    async def _async_process_query(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
+        """
+        Async wrapper function for ::method:`_process_query`.
+
+        Parameters
+        ----------
+        message : DatasetManagementMessage
+            The message that initiated the process of querying a dataset
+
+        Returns
+        -------
+        DatasetManagementResponse
+            A generated response object to the incoming query message, which includes the query response.
+
+        See Also
+        -------
+        ::method:`_process_query`
+        """
+        return self._process_query(message)
+
     def _create_output_datasets(self, job: Job):
         """
         Create output datasets and associated requirements for this job, based on its ::method:`Job.output_formats`.
@@ -405,6 +425,36 @@ class ServiceManager(WebSocketInterface):
         reason = 'Dataset Deleted' if result else 'Dataset Delete Failed'
         return DatasetManagementResponse(action=message.management_action, success=result, reason=reason,
                                          dataset_name=dataset.name)
+
+    def _process_query(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
+        """
+        As part of the communication protocol for the service, handle incoming dataset query messages.
+
+        Parameters
+        ----------
+        message : DatasetManagementMessage
+            The message that initiated the process of querying a dataset
+
+        Returns
+        -------
+        DatasetManagementResponse
+            A generated response object to the incoming query message, which includes the query response.
+
+        See Also
+        -------
+        ::method:`_async_process_query`
+        """
+        query_type = message.query.query_type
+        if query_type == QueryType.LIST_FILES:
+            dataset_name = message.dataset_name
+            list_of_files = self.get_known_datasets()[dataset_name].manager.list_files(dataset_name)
+            return DatasetManagementResponse(action=message.management_action, success=True, dataset_name=dataset_name,
+                                             reason='Obtained {} Items List',
+                                             data={DatasetManagementResponse._DATA_KEY_QUERY_RESULTS: list_of_files})
+            # TODO: (later) add support for messages with other query types also
+        else:
+            reason = 'Unsupported {} Query Type - {}'.format(DatasetQuery.__class__.__name__, query_type.name)
+            return DatasetManagementResponse(action=message.management_action, success=False, reason=reason)
 
     async def can_be_fulfilled(self, requirements: List[DataRequirement]) -> Tuple[bool, Optional[str]]:
         """
