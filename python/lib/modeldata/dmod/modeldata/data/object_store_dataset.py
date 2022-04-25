@@ -152,10 +152,15 @@ class ObjectStoreDatasetManager(DatasetManager):
         # TODO: add checks to ensure all datasets passed to this type are ObjectStoreDataset
         self._obj_store_host_str = obj_store_host_str
         # TODO (later): may need to look at turning this back on
-        self._client = Minio(obj_store_host_str, access_key=access_key, secret_key=secret_key, secure=False)
-        # For any buckets that have the standard serialized object (i.e., were for datasets previously), reload them
-        for bucket_name in self.list_buckets():
-            self._load_from_existing_bucket(bucket_name)
+        try:
+            self._client = Minio(endpoint=obj_store_host_str, access_key=access_key, secret_key=secret_key, secure=False)
+            # For any buckets that have the standard serialized object (i.e., were for datasets previously), reload them
+            for bucket_name in self.list_buckets():
+                self._load_from_existing_bucket(bucket_name)
+        except Exception as e:
+            self._errors.append(e)
+            # TODO: consider if we should not re-throw this (which would likely force us to ensure users checked this)
+            raise e
 
     def _decode_object_name_to_file_path(self, object_name: str) -> str:
         """
