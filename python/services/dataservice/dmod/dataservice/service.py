@@ -1,8 +1,12 @@
 import asyncio
 from dmod.communication import AbstractInitRequest
 import json
-from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, ManagementAction, WebSocketInterface
+from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, \
+    ManagementAction, WebSocketInterface
+from dmod.communication.dataset_management_message import DatasetQuery, QueryType
+from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
 from dmod.core.meta_data import DataCategory, DataDomain, DataRequirement, DiscreteRestriction
+from dmod.core.serializable import ResultIndicator, BasicResultIndicator
 from dmod.core.exception import DmodRuntimeError
 from dmod.modeldata.data.object_store_dataset import Dataset, DatasetManager, ObjectStoreDataset, \
     ObjectStoreDatasetManager
@@ -107,6 +111,34 @@ class ServiceManager(WebSocketInterface):
         ::method:`can_dataset_be_derived`
         """
         return self.can_dataset_be_derived(requirements)
+
+    async def _async_can_provide_data(self, dataset_name: str, data_item: str) -> ResultIndicator:
+        """
+        Check if the requested data can be provided by the service.
+
+        Check if the requested data can be provided by the service.  If so, return a ::class:`BasicResultIndicator`
+        that indicates success is ``True``.  If not, return a ::class:`DatasetManagementResponse` instance that includes
+        ``reason`` and ``message`` properties that provide inforamtion on why the requested data cannot be provided.
+
+        Parameters
+        ----------
+        message : DatasetManagementMessage
+            A ``REQUEST_DATA`` action management message.
+
+        Returns
+        -------
+        ResultIndicator
+            A ::class:`BasicResultIndicator` if possible, or a ::class:`DatasetManagementResponse` if not.
+        """
+        action = ManagementAction.REQUEST_DATA
+        if dataset_name not in self.get_known_datasets():
+            msg = "Data service does not recognized a dataset with name '{}'".format(dataset_name)
+            return DatasetManagementResponse(success=False, action=action, reason="Unknown Dataset", message=msg)
+        elif data_item not in self.get_known_datasets()[dataset_name].manager.list_files(dataset_name):
+            msg = "No file/item named '{}' exist within the '{}' dataset".format(data_item, dataset_name)
+            return DatasetManagementResponse(success=False, action=action, reason='Unknown Data Item', message=msg)
+        else:
+            return BasicResultIndicator(success=True, reason='Valid Dataset and Item')
 
     async def _async_dataset_search(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
         """
