@@ -71,7 +71,7 @@ class ManagementAction(Enum):
     """
     UNKNOWN = (-1, False, False)
     """ Placeholder action for when actual action is not known, generally representing an error (e.g., bad parsing). """
-    CREATE = (1, True, True)
+    CREATE = (1, True, True, True)
     """ Dataset creation action. """
     ADD_DATA = (2, True, False)
     """ Addition of data to an existing dataset. """
@@ -109,10 +109,11 @@ class ManagementAction(Enum):
                 return value
         return cls.UNKNOWN
 
-    def __init__(self, uid: int, requires_name: bool, requires_category: bool):
+    def __init__(self, uid: int, requires_name: bool, requires_category: bool, requires_domain: bool = False):
         self._uid = uid
         self._requires_name = requires_name
         self._requires_category = requires_category
+        self._requires_domain = requires_domain
 
     @property
     def requires_data_category(self) -> bool:
@@ -123,6 +124,22 @@ class ManagementAction(Enum):
         -------
         bool
             Whether this type of action requires a data category in order for the action to be valid.
+
+        See Also
+        -------
+        ::method:`requires_dataset_name`
+        """
+        return self._requires_category
+
+    @property
+    def requires_data_domain(self) -> bool:
+        """
+        Whether this type of action requires a data domain in order for the action to be valid.
+
+        Returns
+        -------
+        bool
+            Whether this type of action requires a data domain in order for the action to be valid.
 
         See Also
         -------
