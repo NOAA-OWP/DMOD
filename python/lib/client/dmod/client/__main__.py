@@ -233,6 +233,11 @@ def execute_dataset_command(parsed_args, client: DmodClient):
         else:
             for d in dataset_names:
                 print(d)
+
+    elif parsed_args.action == 'delete':
+        if not async_loop.run_until_complete(client.delete_dataset(parsed_args.name)):
+            raise RuntimeError('Failed to delete dataset {}'.format(parsed_args.name))
+
     elif parsed_args.action == 'upload':
         upload_paths, bad_paths = _process_uploads(parsed_args.paths)
         if len(bad_paths):
