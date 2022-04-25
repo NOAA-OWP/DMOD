@@ -21,8 +21,6 @@ class ObjectStoreDataset(Dataset):
 
     _ACCESS_LOCATION_DELIMITER = "/"
     """ Delimiting separator for ::attribute:`access_location` value. """
-    _OBJECT_NAME_SEPARATOR = "___"
-    """ Separator for individual parts (e.g., corresponding to directories) of an object name. """
 
     @classmethod
     def additional_init_param_deserialized(cls, json_obj: dict) -> Dict[str, Any]:
@@ -143,8 +141,6 @@ class ObjectStoreDatasetManager(DatasetManager):
     Dataset manager implementation specifically for ::class:`ObjectStoreDataset` instances.
     """
 
-    _OBJECT_NAME_SEPARATOR = "___"
-    """ Separator for individual parts (e.g., corresponding to directories) of an object name. """
     _SUPPORTED_TYPES = {ObjectStoreDataset}
     """ Supported dataset types set, which is always ::class:`ObjectStoreDataset` for this manager subtype. """
     _SERIALIZED_OBJ_NAME_TEMPLATE = "{}_serialized.json"
