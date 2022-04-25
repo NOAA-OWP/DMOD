@@ -724,6 +724,22 @@ class DatasetManager(ABC):
         """
         pass
 
+    def get_dataset_users(self, dataset_name: str) -> FrozenSet[UUID]:
+        """
+        Get an immutable set of UUIDs for the linked users of a dataset.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The name of the dataset of interest.
+
+        Returns
+        -------
+        FrozenSet[UUID]
+            Immutable set of UUIDs for the linked users of a dataset.
+        """
+        return frozenset(self._dataset_users[dataset_name]) if dataset_name in self._dataset_users else frozenset()
+
     def link_user(self, user: DatasetUser, dataset: Dataset) -> bool:
         """
         Link a dataset user with this dataset.
