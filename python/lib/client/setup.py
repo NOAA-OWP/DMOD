@@ -19,6 +19,6 @@ setup(
     license='',
     include_package_data=True,
     #install_requires=['websockets', 'jsonschema'],vi
-    install_requires=['dmod-core>=0.1.0', 'websockets>=8.1', 'dmod-communication>=0.7.0', 'dmod-externalrequests>=0.3.0'],
+    install_requires=['dmod-core>=0.1.0', 'websockets>=8.1', 'pyyaml', 'dmod-communication>=0.7.0', 'dmod-externalrequests>=0.3.0'],
     packages=find_namespace_packages(include=['dmod.*'], exclude=('tests'))
 )
