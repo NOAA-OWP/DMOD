@@ -7,6 +7,8 @@ import ssl
 import sys
 import unittest
 from ..communication.message import MessageEventType
+from dmod.communication import ModelExecRequest, SessionInitMessage
+from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage
 from ..communication.websocket_interface import NoOpHandler
 from pathlib import Path
 from socket import gethostname
@@ -143,117 +145,212 @@ class TestWebSocketInterface(WebSocketInterfaceTestBase):
 
     def setUp(self):
         super().setUp()
-        with self.__class__._valid_request_json_file.open(mode='r') as valid_test_file:
-            self.test_job_data = json.load(valid_test_file)
-        with self.__class__._valid_auth_json_file.open(mode='r') as valid_auth_file:
-            self.test_auth_data = json.load(valid_auth_file)
-        self.test_job_data['client_id'] = 10
 
-        self.test_request_data = {MessageEventType.SESSION_INIT: self.test_auth_data, MessageEventType.MODEL_EXEC_REQUEST: self.test_job_data}
+        self.example_request_data = []
+        self.example_request_data.append({"username": "someone", "user_secret": "something"})
+
+        self.example_request_data.append({
+            "model": {
+                "nwm": {
+                    "config_data_id": "1",
+                    "data_requirements": [{"domain": {"data_format": "NWM_CONFIG", "continuous": [],
+                                                      "discrete": [{"variable": "data_id", "values": ["1"]}]}}]
+                }
+            },
+            "session-secret": "3fc9b689459d738f8c88a3a48aa9e33542016b7a4052e001aaa536fca74813cb",
+        })
+
+        self.example_request_data.append(
+            {'action': 'LIST_ALL', 'category': None, 'read_only': False, 'pending_data': False,
+             'session_secret': '409770e8cc4bfd10e276b98aff1d3817c8848e1747b3ad2e13f88ca45252e67e'})
+
         self._parse_return_offset = 42
 
         self.session_secret = hashlib.sha256('blah'.encode('utf-8')).hexdigest()
         self.request_handler = NoOpHandler(listen_host=self.host, port=self.port, ssl_dir=self.test_ssl_dir)
 
-    def _exec_parse(self, test_source: MessageEventType, session_secret=None, check_for_auth=False):
-        if session_secret is not None:
-            self.test_request_data[test_source]['session-secret'] = session_secret
-        #return_code = self.run_coroutine(self.request_handler.parse(json.dumps(self.test_request_data)))
-        return self.request_handler.loop.run_until_complete(
-            self.request_handler.parse_request_type(self.test_request_data[test_source], check_for_auth))
+    def test__deserialize_message_0_a(self):
+        """
+        Test that example 0 parses to a ::class:`SessionInitMessage`.
+        """
+        ex_indx = 0
+        data = self.example_request_data[ex_indx]
+        event = MessageEventType.SESSION_INIT
+        expected_request_type = SessionInitMessage
 
-    def test_parse_request_type_1a(self):
-        """
-        Test the parse_request_type method of the RequestHandler on the basic test JOB request example, without checking
-        for auth.
-        """
-        req_type, errors = self._exec_parse(test_source=MessageEventType.MODEL_EXEC_REQUEST, session_secret=self.session_secret)
-        self.assertEqual(req_type, MessageEventType.MODEL_EXEC_REQUEST)
+        request = self.request_handler._deserialized_message(message_data=data)
+        self.assertIsInstance(request, expected_request_type)
 
-    def test_parse_request_type_1b(self):
+    def test__deserialize_message_1_a(self):
         """
-        Test the parse_request_type method of the RequestHandler on the basic test JOB request example, checking for
-        auth.
+        Test that example 1 parses to a ::class:`ModelExecRequest`.
         """
-        req_type, errors = self._exec_parse(test_source=MessageEventType.MODEL_EXEC_REQUEST, session_secret=self.session_secret,
-                                            check_for_auth=True)
-        self.assertEqual(req_type, MessageEventType.MODEL_EXEC_REQUEST)
+        ex_indx = 1
+        data = self.example_request_data[ex_indx]
+        event = MessageEventType.MODEL_EXEC_REQUEST
+        expected_request_type = ModelExecRequest
 
-    def test_parse_request_type_1c(self):
-        """
-        Test the parse_request_type method of the RequestHandler on the basic test JOB request example, but with a
-        modified invalid session-secret.
-        """
-        req_type, errors = self._exec_parse(test_source=MessageEventType.MODEL_EXEC_REQUEST, session_secret='some_string',
-                                            check_for_auth=True)
-        self.assertEqual(req_type, MessageEventType.INVALID)
+        request = self.request_handler._deserialized_message(message_data=data)
+        self.assertIsInstance(request, expected_request_type)
 
-    def test_parse_request_type_1d(self):
+    def test__deserialize_message_2_a(self):
         """
-        Test the parse_request_type method of the RequestHandler on the basic test JOB request example, but modified
-        to be without model.
+        Test that example 2 parses to a ::class:`MaaSDatasetManagementMessage`.
         """
-        self.test_job_data.pop('model')
-        req_type, errors = self._exec_parse(test_source=MessageEventType.MODEL_EXEC_REQUEST, session_secret='some_string',
-                                            check_for_auth=True)
-        self.assertEqual(req_type, MessageEventType.INVALID)
+        ex_indx = 2
+        data = self.example_request_data[ex_indx]
+        event = MessageEventType.DATASET_MANAGEMENT
+        expected_request_type = MaaSDatasetManagementMessage
 
-    def test_parse_request_type_2a(self):
-        """
-        Test the parse_request_type method of the RequestHandler on the basic test AUTHENTICATION request example.
-        """
-        req_type, errors = self._exec_parse(test_source=MessageEventType.SESSION_INIT, session_secret=self.session_secret,
-                                            check_for_auth=True)
-        self.assertEqual(req_type, MessageEventType.SESSION_INIT)
+        request = self.request_handler._deserialized_message(message_data=data)
+        self.assertIsInstance(request, expected_request_type)
 
-    def test_parse_request_type_2b(self):
+    def test__deserialize_message_2_b(self):
         """
-        Test the parse_request_type method of the RequestHandler on the basic test AUTHENTICATION request example, but
-        with check_for_auth turned off
+        Test that example 2 parses to a ::class:`MaaSDatasetManagementMessage`, even with no ``event_type`` param passed.
         """
-        req_type, errors = self._exec_parse(test_source=MessageEventType.SESSION_INIT, session_secret=self.session_secret,
-                                            check_for_auth=False)
-        self.assertEqual(req_type, MessageEventType.INVALID)
+        ex_indx = 2
+        data = self.example_request_data[ex_indx]
+        expected_request_type = MaaSDatasetManagementMessage
 
-    def test_parse_request_type_2c(self):
+        request = self.request_handler._deserialized_message(message_data=data)
+        self.assertIsInstance(request, expected_request_type)
+
+    def test__parse_request_type_0_a(self):
         """
+        Test that example 0 parses the expected ``SESSION_INIT`` ::class:`MessageEventType`.
+        """
+        ex_indx = 0
+        data = self.example_request_data[ex_indx]
+        expected_event = MessageEventType.SESSION_INIT
+
+        event_type, errors = self.request_handler._parse_request_type(data=data, check_for_auth=True)
+
+        self.assertEqual(expected_event, event_type)
+
+    # Skip unless/until we re-add formal validators for all types
+    @unittest.skip
+    def test_parse_request_type_0_b(self):
+        """
+        Test that example 0 parses the expected ``INVALID`` ::class:`MessageEventType` if modified to be invalid.
+
         Test the parse_request_type method of the RequestHandler on the basic test AUTHENTICATION request example, but
         with a modified, too short username
         """
-        self.test_auth_data['username'] = 'short'
-        req_type, errors = self._exec_parse(test_source=MessageEventType.SESSION_INIT, session_secret=self.session_secret,
-                                            check_for_auth=True)
-        self.assertEqual(req_type, MessageEventType.INVALID)
+        ex_indx = 0
+        data = self.example_request_data[ex_indx]
+        expected_event = MessageEventType.INVALID
 
-    def test_parse_request_type_2d(self):
+        data['username'] = 'short'
+        event_type, errors = self.request_handler._parse_request_type(data=data, check_for_auth=False)
+
+        self.assertEqual(expected_event, event_type)
+
+    # Skip unless/until we re-add formal validators for all types
+    @unittest.skip
+    def test_parse_request_type_0_c(self):
         """
+        Test that example 0 parses the expected ``INVALID`` ::class:`MessageEventType` if modified to be invalid.
+
         Test the parse_request_type method of the RequestHandler on the basic test AUTHENTICATION request example, but
         with a modified, too short user_secret
         """
-        self.test_auth_data['user_secret'] = 'short'
-        req_type, errors = self._exec_parse(test_source=MessageEventType.SESSION_INIT, session_secret=self.session_secret,
-                                            check_for_auth=True)
-        self.assertEqual(req_type, MessageEventType.INVALID)
+        ex_indx = 0
+        data = self.example_request_data[ex_indx]
+        expected_event = MessageEventType.INVALID
 
-    def test_parse_request_type_2e(self):
+        data['user_secret'] = 'short'
+        event_type, errors = self.request_handler._parse_request_type(data=data, check_for_auth=False)
+
+        self.assertEqual(expected_event, event_type)
+
+    def test_parse_request_type_0_e(self):
         """
+        Test that example 0 parses the expected ``INVALID`` ::class:`MessageEventType` if modified to be invalid.
+
         Test the parse_request_type method of the RequestHandler on the basic test AUTHENTICATION request example, but
         modified to be missing username
         """
-        self.test_auth_data.pop('username')
-        req_type, errors = self._exec_parse(test_source=MessageEventType.SESSION_INIT, session_secret=self.session_secret,
-                                            check_for_auth=True)
-        self.assertEqual(req_type, MessageEventType.INVALID)
+        ex_indx = 0
+        data = self.example_request_data[ex_indx]
+        expected_event = MessageEventType.INVALID
 
-    def test_parse_request_type_2f(self):
+        data.pop('username')
+        event_type, errors = self.request_handler._parse_request_type(data=data, check_for_auth=True)
+
+        self.assertEqual(expected_event, event_type)
+
+    def test_parse_request_type_0_f(self):
         """
+        Test that example 0 parses the expected ``INVALID`` ::class:`MessageEventType` if modified to be invalid.
+
         Test the parse_request_type method of the RequestHandler on the basic test AUTHENTICATION request example, but
         modified to be missing user_secret
         """
-        self.test_auth_data.pop('user_secret')
-        req_type, errors = self._exec_parse(test_source=MessageEventType.SESSION_INIT, session_secret=self.session_secret,
-                                            check_for_auth=True)
-        self.assertEqual(req_type, MessageEventType.INVALID)
+        ex_indx = 0
+        data = self.example_request_data[ex_indx]
+        expected_event = MessageEventType.INVALID
+
+        data.pop('user_secret')
+        event_type, errors = self.request_handler._parse_request_type(data=data, check_for_auth=True)
+
+        self.assertEqual(expected_event, event_type)
+
+    def test__parse_request_type_1_a(self):
+        """
+        Test that example 1 parses the expected ``MODEL_EXEC_REQUEST`` ::class:`MessageEventType`.
+        """
+        ex_indx = 1
+        data = self.example_request_data[ex_indx]
+        expected_event = MessageEventType.MODEL_EXEC_REQUEST
+
+        event_type, errors = self.request_handler._parse_request_type(data=data, check_for_auth=False)
+        self.assertEqual(expected_event, event_type)
+
+    # Skip unless/until we re-add formal validators for all types
+    @unittest.skip
+    def test_parse_request_type_1_b(self):
+        """
+        Test that example 1 parses the expected ``INVALID`` ::class:`MessageEventType` if altered to be invalid.
+
+        Test the parse_request_type method of the RequestHandler on the basic test JOB request example, but with a
+        modified invalid session-secret.
+        """
+        ex_indx = 1
+        data = self.example_request_data[ex_indx]
+        expected_event = MessageEventType.INVALID
+
+        data['session-secret'] = 'some_string'
+        event_type, errors = self.request_handler._parse_request_type(data=data, check_for_auth=False)
+
+        self.assertEqual(event_type, expected_event)
+
+    def test_parse_request_type_1_c(self):
+        """
+        Test that example 1 parses the expected ``INVALID`` ::class:`MessageEventType` if altered to be invalid.
+
+        Test the parse_request_type method of the RequestHandler on the basic test JOB request example, but modified
+        to be without model.
+        """
+        ex_indx = 1
+        data = self.example_request_data[ex_indx]
+        expected_event = MessageEventType.INVALID
+
+        data.pop('model')
+        event_type, errors = self.request_handler._parse_request_type(data=data, check_for_auth=False)
+
+        self.assertEqual(event_type, expected_event)
+
+    def test__parse_request_type_2_a(self):
+        """
+        Test that example 2 parses the expected ``DATASET_MANAGEMENT`` ::class:`MessageEventType`.
+        """
+        ex_indx = 2
+        data = self.example_request_data[ex_indx]
+        expected_event = MessageEventType.DATASET_MANAGEMENT
+
+        event_type, errors = self.request_handler._parse_request_type(data=data, check_for_auth=False)
+        self.assertEqual(expected_event, event_type)
 
 
 if __name__ == '__main__':
