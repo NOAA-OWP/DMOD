@@ -842,7 +842,8 @@ class NGENRequest(ModelExecRequest):
         return NGENRequestResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
     def __init__(self, time_range: TimeRange, hydrofabric_uid: str, hydrofabric_data_id: str, bmi_cfg_data_id: str,
-                 catchments: Optional[Union[Set[str], List[str]]] = None, *args, **kwargs):
+                 catchments: Optional[Union[Set[str], List[str]]] = None, partition_cfg_data_id: Optional[str] = None,
+                 *args, **kwargs):
         """
         Initialize an instance.
 
@@ -873,6 +874,8 @@ class NGENRequest(ModelExecRequest):
         self._time_range = time_range
         self._hydrofabric_uid = hydrofabric_uid
         self._hydrofabric_data_id = hydrofabric_data_id
+        self._bmi_config_data_id = bmi_cfg_data_id
+        self._part_config_data_id = partition_cfg_data_id
         # Convert an initial list to a set to remove duplicates
         try:
             catchments = set(catchments)
@@ -884,11 +887,11 @@ class NGENRequest(ModelExecRequest):
             self._catchments = list(catchments)
             self._catchments.sort()
 
-        self._bmi_config_data_id = bmi_cfg_data_id
         self._hydrofabric_data_requirement = None
         self._forcing_data_requirement = None
         self._realization_cfg_data_requirement = None
         self._bmi_cfg_data_requirement = None
+        self._partition_cfg_data_requirement = None
 
     def _gen_catchments_domain_restriction(self, var_name: str = 'catchment-id') -> DiscreteRestriction:
         """
@@ -923,7 +926,7 @@ class NGENRequest(ModelExecRequest):
             List of all the explicit and implied data requirements for this request.
         """
         return [self.bmi_cfg_data_requirement, self.forcing_data_requirement, self.hydrofabric_data_requirement,
-                self.realization_cfg_data_requirement]
+                self.partition_cfg_data_requirement, self.realization_cfg_data_requirement]
 
     @property
     def bmi_config_data_id(self) -> str:
@@ -1060,6 +1063,50 @@ class NGENRequest(ModelExecRequest):
             List of the formats of each required output dataset for the requested job.
         """
         return [DataFormat.NGEN_OUTPUT]
+
+    @property
+    def partition_cfg_data_id(self) -> Optional[str]:
+        """
+        The ``data_id`` for the partition config dataset to use in requested modeling.
+
+        This identifier is needed to distinguish the correct specific partition config dataset, and thus the correct
+        partition config, expected for this modeling request.  However, this may not always be necessary, as it should
+        be possible to find a compatible partitioning config dataset of the right hydrofabric and size, so long as one
+        exists.
+
+        Returns
+        -------
+        Optional[str]
+            The data format ``data_id`` for the partition config dataset to use in requested modeling, or ``None``.
+        """
+        return self._part_config_data_id
+
+    @property
+    def partition_cfg_data_requirement(self) -> DataRequirement:
+        """
+        A requirement object defining of the partitioning configuration data needed to execute this request.
+
+        Returns
+        -------
+        DataRequirement
+            A requirement object defining of the partitioning configuration data needed to execute this request.
+        """
+        if self._partition_cfg_data_requirement is None:
+            d_restricts = []
+
+            # Add restriction on hydrofabric
+            d_restricts.append(DiscreteRestriction(variable="hydrofabric_uid", values=[self.hydrofabric_uid]))
+
+            # Add restriction on partition count, which will be based on the number of request CPUs
+            d_restricts.append(DiscreteRestriction(variable="count", values=[self.cpu_count]))
+
+            # If present, add restriction on data_id
+            if self.partition_cfg_data_id is not None:
+                d_restricts.append(DiscreteRestriction(variable="data_id", values=[self.partition_cfg_data_id]))
+            part_domain = DataDomain(data_format=DataFormat.NGEN_PARTITION_CONFIG, discrete_restrictions=d_restricts)
+            self._partition_cfg_data_requirement = DataRequirement(domain=part_domain, is_input=True,
+                                                                   category=DataCategory.CONFIG)
+        return self._partition_cfg_data_requirement
 
     @property
     def realization_cfg_data_requirement(self) -> DataRequirement:
