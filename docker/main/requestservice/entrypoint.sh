@@ -50,4 +50,10 @@ python -m ${SERVICE_PACKAGE_NAME:?} \
     ${_DEBUG_ARG:-} \
     --scheduler-host ${SCHEDULER_ENDPOINT_HOST:?} \
     --scheduler-port ${SCHEDULER_ENDPOINT_PORT:?} \
-    --scheduler-ssl-dir ${SCHEDULER_CLIENT_SSL_DIR:?}
+    --scheduler-ssl-dir ${SCHEDULER_CLIENT_SSL_DIR:?} \
+    --data-service-host ${DATA_SERVICE_ENDPOINT_HOST:?} \
+    --data-service-port ${DATA_SERVICE_ENDPOINT_PORT:?} \
+    --data-service-ssl-dir ${DATA_SERVICE_CLIENT_SSL_DIR:?} \
+    --partitioner-service-host ${PARTITIONER_SERVICE_ENDPOINT_HOST:?} \
+    --partitioner-service-port ${PARTITIONER_SERVICE_ENDPOINT_PORT:?} \
+    --partitioner-service-ssl-dir ${PARTITIONER_SERVICE_CLIENT_SSL_DIR:?}
