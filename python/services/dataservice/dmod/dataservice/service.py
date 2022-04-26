@@ -507,43 +507,6 @@ class ServiceManager(WebSocketInterface):
         # TODO: (later) implement this correctly
         return ObjectStoreDataset
 
-    def _process_add_data(self, message: DatasetManagementMessage, mngr: DatasetManager) -> DatasetManagementResponse:
-        """
-        Process a management message for adding data to a dataset, adding the data using the provided manager.
-
-        Parameters
-        ----------
-        message : DatasetManagementMessage
-            The incoming message, expected to include data to be added to a dataset.
-        mngr : DatasetManager
-            The manager instance for the relevant dataset.
-
-        Returns
-        -------
-        DatasetManagementResponse
-            Generated response to the manager message for adding data.
-
-        See Also
-        -------
-        ::method:`_async_process_add_data`
-        """
-        if not isinstance(message, DatasetManagementMessage):
-            return DatasetManagementResponse(action=ManagementAction.UNKNOWN, success=False,
-                                             reason="Unparseable Message Received")
-        elif message.management_action != ManagementAction.ADD_DATA:
-            msg_txt = "Expected {} action but received {}".format(ManagementAction.ADD_DATA, message.management_action)
-            return DatasetManagementResponse(action=message.management_action, success=False,
-                                             reason="Unexpected Management Action", message=msg_txt)
-        elif message.data is None:
-            return DatasetManagementResponse(action=message.management_action, success=False,
-                                             reason="No Data In ADD_DATA Message")
-        elif mngr.add_data(message.dataset_name, dest=message.data_location, data=message.data):
-            return DatasetManagementResponse(action=message.management_action, success=True, reason='Data Added',
-                                             is_awaiting=message.is_pending_data, dataset_name=message.dataset_name)
-        else:
-            return DatasetManagementResponse(action=message.management_action, success=False,
-                                             dataset_name=message.dataset_name, reason="Failure Adding Data To Dataset")
-
     def _process_dataset_create(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
         """
         As part of the communication protocol for the service, handle incoming messages that request dataset creation.
@@ -605,6 +568,48 @@ class ServiceManager(WebSocketInterface):
         reason = 'Dataset Deleted' if result else 'Dataset Delete Failed'
         return DatasetManagementResponse(action=message.management_action, success=result, reason=reason,
                                          dataset_name=dataset.name)
+
+    def _process_initial_add_data(self, message: DatasetManagementMessage) -> Tuple[str, DatasetManager, str, UUID, DataTransmitResponse]:
+        """
+        Process initial ``ADD_DATA`` message, preparing things needed for the subsequent transfer routine.
+
+        Process the initial ``ADD_DATA`` management message, which involves preparing things needed for the subsequent
+        transfer routine.  These are then returned as a tuple, typically to be used by the ::method:`listener` method
+        in the ``for`` loop of messages coming through the current thread's websocket.
+
+        The function prepares and returns the following:
+
+        - the name of the dataset to which data is to be added
+        - the ::class:`DatasetManager` object managing the aforementioned dataset
+        - the name/identifier of the item/file/object/etc. within the dataset into which the added data is to be placed
+        - the "series" ::class:`UUID` to identify multiple transmit messages of the same ``ADD_DATA`` process
+        - the initial ::class:`DataTransmitResponse` that indicates the service is ready to receive transmitted data
+
+        Parameters
+        ----------
+        message : DatasetManagementMessage
+            The message initiating the ``ADD_DATA`` process.
+
+        Returns
+        -------
+        Tuple[str, DatasetManager, str, UUID, DataTransmitResponse]
+            Tuple of ``dataset_name``, ``dataset_manager``, ``dest_item_name``, ``series_uuid``, ``transmit_response``.
+
+        See Also
+        -------
+        listener
+        """
+        if message.management_action != ManagementAction.ADD_DATA:
+            msg = "Data service function to process initial '{}' {} instead received one with action '{}'"
+            raise ValueError(msg.format(ManagementAction.ADD_DATA.name, DatasetManagementMessage.__name__,
+                                        message.management_action.name))
+        dataset_name = message.dataset_name
+        manager = self.get_known_datasets()[dataset_name].manager
+        series_uuid = uuid4()
+        dest_item_name = message.data_location
+        # TODO: (later) probably need some logic to check the manager to make sure this is actually ready
+        response = DataTransmitResponse(series_uuid=series_uuid, success=True, reason='Ready')
+        return message.dataset_name, manager, dest_item_name, series_uuid, response
 
     def _process_query(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
         """
