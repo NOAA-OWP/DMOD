@@ -558,9 +558,9 @@ class Launcher(SimpleDockerUtil):
         """
         model = job.model_request.get_model_name()
         #FIXME read all image/domain at init and select from internal cache (i.e. dict) or even push to redis for long term cache
-        (image_tag, mounts) = self.load_image_and_mounts(model,
-                                                         str(job.model_request.version),
-                                                         job.model_request.domain)
+
+        image_tag = "127.0.0.1:5000/ngen:latest"
+        mounts = []
 
         #TODO better align labels/defaults with serviceparam class
         #FIXME if the stack.namespace needs to align with the stack name, this isn't correct
