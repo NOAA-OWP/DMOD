@@ -540,6 +540,43 @@ class ObjectStoreDatasetManager(DatasetManager):
             self._errors.extend(error_list)
             return False
 
+    def get_data(self, dataset_name: str, item_name: str, **kwargs) -> bytes:
+        """
+        Get data from this dataset.
+
+        The specific object from which to obtain data must be indicated via the ``object_name`` keyword arg.
+
+        The function returns the contents of the given object as a binary string.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The name of the dataset (i.e., bucket) from which to get data.
+        item_name : str
+            The name of the object from which to get data.
+        kwargs
+            Implementation-specific params for representing what data to get and how to get and deliver it.
+
+        Keyword Args
+        -------
+        offset : int
+            Optional start byte position of object data.
+        length : int
+            Optional number of bytes of object data from offset.
+
+        Returns
+        -------
+        bytes
+            The contents of the given object as a binary string.
+        """
+        if item_name not in self.list_files(dataset_name):
+            raise RuntimeError('Cannot get data for non-existing {} file in {} dataset'.format(item_name, dataset_name))
+        optional_params = dict()
+        for key in [k for k in self.data_chunking_params if k in kwargs]:
+            optional_params[key] = kwargs[key]
+        response_object = self._client.get_object(bucket_name=dataset_name, object_name=item_name, **optional_params)
+        return response_object.data
+
     def list_buckets(self) -> List[str]:
         """
         List currently existing object store buckets.
