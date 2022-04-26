@@ -971,22 +971,6 @@ class NGENRequest(ModelExecRequest):
         return self._catchments
 
     @property
-    def config_data_id(self) -> str:
-        """
-        The index value of ``data_id`` to uniquely identify sets of config data that are otherwise similar.
-
-        For example, two realization configs may apply to the same time and catchments, but be very different.  The
-        nature of the differences is not necessarily even possible to define generally, and certainly not through
-        (pre-existing) indices.  As such, the `data_id` index is added for such differentiating purposes.
-
-        Returns
-        -------
-        str
-            The index value of ``data_id`` to uniquely identify sets of config data that are otherwise similar.
-        """
-        return self._config_data_id
-
-    @property
     def forcing_data_requirement(self) -> DataRequirement:
         """
         A requirement object defining of the forcing data needed to execute this request.
@@ -1109,6 +1093,22 @@ class NGENRequest(ModelExecRequest):
         return self._partition_cfg_data_requirement
 
     @property
+    def realization_config_data_id(self) -> str:
+        """
+        The index value of ``data_id`` to uniquely identify sets of realization config data that are otherwise similar.
+
+        For example, two realization configs may apply to the same time and catchments, but be very different.  The
+        nature of the differences is not necessarily even possible to define generally, and certainly not through
+        (pre-existing) indices.  As such, the `data_id` index is added for such differentiating purposes.
+
+        Returns
+        -------
+        str
+            The index value of ``data_id`` to uniquely identify the required realization config dataset.
+        """
+        return self.config_data_id
+
+    @property
     def realization_cfg_data_requirement(self) -> DataRequirement:
         """
         A requirement object defining of the realization configuration data needed to execute this request.
@@ -1120,7 +1120,7 @@ class NGENRequest(ModelExecRequest):
         """
         if self._realization_cfg_data_requirement is None:
             real_cfg_dis_restrict = [self._gen_catchments_domain_restriction(),
-                                     DiscreteRestriction(variable='data_id', values=[self.config_data_id])]
+                                     DiscreteRestriction(variable='data_id', values=[self.realization_config_data_id])]
             real_cfg_domain = DataDomain(data_format=DataFormat.NGEN_REALIZATION_CONFIG,
                                          continuous_restrictions=[self.time_range],
                                          discrete_restrictions=real_cfg_dis_restrict)
