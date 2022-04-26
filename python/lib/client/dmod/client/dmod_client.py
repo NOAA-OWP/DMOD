@@ -105,6 +105,13 @@ class DmodClient:
     async def delete_dataset(self, dataset_name: str, **kwargs):
         return await self.dataset_client.delete_dataset(dataset_name, **kwargs)
 
+    async def download_dataset(self, dataset_name: str, dest_dir: Path) -> bool:
+        return await self.dataset_client.download_dataset(dataset_name=dataset_name, dest_dir=dest_dir)
+
+    async def download_from_dataset(self, dataset_name: str, item_name: str, dest: Path) -> bool:
+        return await self.dataset_client.download_from_dataset(dataset_name=dataset_name, item_name=item_name,
+                                                               dest=dest)
+
     async def list_datasets(self, category: Optional[DataCategory] = None):
         return await self.dataset_client.list_datasets(category)
 
