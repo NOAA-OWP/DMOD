@@ -109,6 +109,19 @@ def _handle_dataset_command_args(parent_subparsers_container):
     parser_upload.add_argument('name', help='Specify the name of the desired dataset.')
     parser_upload.add_argument('paths', nargs='+', help='Specify files or directories to upload.')
 
+    # Nested parser for the 'upload' action, with required args for dataset name and files to upload
+    parser_download = action_subparsers.add_parser('download')
+    parser_download.add_argument('name', help='Specify the name of the desired dataset.')
+    parser_download.add_argument('--dest', dest='download_dest', default=None,
+                                 help='Specify local destination path to save to.')
+    parser_download.add_argument('path', help='Specify a file/item within dataset to download.')
+
+    # Nested parser for the 'upload' action, with required args for dataset name and files to upload
+    parser_download_all = action_subparsers.add_parser('download_all')
+    parser_download_all.add_argument('name', help='Specify the name of the desired dataset.')
+    parser_download_all.add_argument('--directory', dest='download_dir', default=None,
+                                     help='Specify local destination directory to save to (defaults to ./<dataset_name>')
+
     # Nested parser for the 'list' action
     parser_list = action_subparsers.add_parser('list')
     listing_categories_choices = list(dataset_categories)
@@ -172,10 +185,30 @@ def find_client_config(basenames: Optional[List[str]] = None, dirs: Optional[Lis
     return existing[0] if len(existing) > 0 else None
 
 
-def _process_uploads(upload_path_str: Optional[List[str]]):
-    # Get paths to upload, if appropriate, bailing before create if any are bad
-    upload_paths = [Path(p) for p in upload_path_str] if upload_path_str is not None else []
-    # Track bad paths, though, and bail if there are any
+def _process_uploads(upload_path_str: Optional[List[str]]) -> Tuple[List[Path], List[Path]]:
+    """
+    Process the given list of string representations of paths, returning a tuple of lists of processed and bad paths.
+
+    Process the given list of string representations of paths, converting the initial list to a second list of
+    ::class:`Path` objects. Then, derive a third list from the second, consisting of any "bad" paths that do not
+    exist.  Return a tuple containing the second and third lists.
+
+    If the param is ``None``, it will be treated as an empty list, resulting in a tuple of two empty lists returned.
+
+    Parameters
+    ----------
+    upload_path_str : Optional[List[str]]
+        A list of string forms of paths to process.
+
+    Returns
+    -------
+    Tuple[List[Path], List[Path]]
+        Tuple of two lists of ::class:`Path`, with the first list being all derived from the param, and the second being
+        a list of any non-existing ::class:`Path` objects within the first list.
+    """
+    # Convert the string form of the given paths to Path objects
+    upload_paths = [] if upload_path_str is None else [Path(p) for p in upload_path_str]
+    # Track bad paths, though, so that we can bail if there are any
     bad_paths = [p for p in upload_paths if not p.exists()]
     return upload_paths, bad_paths
 
@@ -289,6 +322,39 @@ def execute_dataset_command(parsed_args, client: DmodClient):
             raise RuntimeError('Upload of data to {} failed from paths {}'.format(parsed_args.name, upload_paths))
         else:
             print('Upload succeeded.')
+
+    elif parsed_args.action == 'download':
+        if parsed_args.download_dest is None:
+            dest = Path('./{}'.format(Path(parsed_args.path).name))
+        else:
+            dest = Path(parsed_args.download_dest)
+        if not dest.parent.is_dir():
+            raise RuntimeError("Cannot download file to {}:  parent directory doesn't exist.".format(dest))
+        if dest.exists():
+            raise RuntimeError("Cannot download file to {}:  file already exists".format(dest))
+        if not async_loop.run_until_complete(client.download_from_dataset(dataset_name=parsed_args.name,
+                                                                          item_name=parsed_args.path, dest=dest)):
+            msg = 'Download of {} data to {} failed from locations {}'
+            raise RuntimeError(msg.format(parsed_args.name, dest, parsed_args.path))
+        else:
+            print('Downloaded {} to local file {}.'.format(parsed_args.path, dest))
+
+    elif parsed_args.action == 'download_all':
+        dest_dir = Path(parsed_args.download_dir) if parsed_args.download_dir is not None else Path(parsed_args.name)
+        if dest_dir.exists():
+            if dest_dir.is_dir():
+                dest_dir_orig = dest_dir.name
+                old_backup = dest_dir.rename(dest_dir.parent.joinpath('.{}_old'.format(dest_dir_orig)))
+                dest_dir = dest_dir.parent.joinpath(dest_dir_orig)
+                dest_dir.mkdir()
+                print("Backing up existing {} to {}".format(dest_dir, old_backup))
+            else:
+                RuntimeError("Can't download files to directory named '{}':  this is an existing file".format(dest_dir))
+        if not async_loop.run_until_complete(client.download_dataset(dataset_name=parsed_args.name, dest_dir=dest_dir)):
+            msg = 'Download of dataset {} to directory {} failed.'
+            raise RuntimeError(msg.format(parsed_args.name, dest_dir))
+        else:
+            print('Downloaded {} contents to local directory {}.'.format(parsed_args.name, dest_dir))
     else:
         raise RuntimeError("Bad dataset command action '{}'".format(parsed_args.action))
 
