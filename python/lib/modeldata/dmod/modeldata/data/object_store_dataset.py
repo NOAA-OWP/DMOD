@@ -182,25 +182,22 @@ class ObjectStoreDatasetManager(DatasetManager):
         from a ``bucket_root`` as described below.  If neither is provided, the file will be pushed to an object named
         using the basename of the source file.
 
-        Buckets can simulate subdirectories by encoding relative directory structure into object names.  This relative
-        structure is based on a bucket "root" directory, corresponding to the directory used to create this dataset.
-
-        E.g. perhaps there exists the ``dataset_1/`` directory, which needs to be uploaded to a dataset, with
+        E.g. perhaps there exists the ``dataset-1/`` directory, which needs to be uploaded to a dataset, with
         structure:
 
-            dataset_1/
-            dataset_1/file_1
-            dataset_1/file_2
-            dataset_1/subdir_a/
-            dataset_1/subdir_a/file_a_1
-            dataset_1/subdir_a/file_a_2
-            dataset_1/subdir_b/
-            dataset_1/subdir_b/file_b_1
+            dataset-1/
+            dataset-1/file-1
+            dataset-1/file-2
+            dataset-1/subdir-a/
+            dataset-1/subdir-a/file-a-1
+            dataset-1/subdir-a/file-a-2
+            dataset-1/subdir-b/
+            dataset-1/subdir-b/file-b-1
 
-        Assume ``dataset_1/`` is the "root", and there already exists a ``file_1`` object in the bucket for
-        ``dataset_1/file_1``.  When it is time to for this method to push ``dataset_1/subdir_a/file_a_1``, the file is
-        associated with an object name that encodes the subdirectory structure:  ``subdir_a___file_a_1``.  The separator
-        comes from the class variable ::attribute:`_OBJECT_NAME_SEPARATOR`.
+        Assume ``dataset-1/`` is the "bucket root", and there already exists a ``file-1`` object in the bucket for
+        ``dataset-1/file-1``.  When it is time for this method to push ``dataset-1/subdir-a/file-a-1``, as long as the
+        bucket root of ``dataset-1/`` is supplied, then ``dataset-1/subdir-a/file-a-1`` will be stored as the
+        ``subdir-a/file-a-1`` object, mirroring the original structure.
 
         Parameters
         ----------
@@ -310,28 +307,30 @@ class ObjectStoreDatasetManager(DatasetManager):
         to the backing object store of the given dataset.  The dataset name must be recognized; if it is not, ``False``
         is immediately returned.
 
-        The manager maintains a simulated directory structure within the dataset by encoding the parent directory path
-        of files in the corresponding bucket object's name, along with the file's basename.  Only the relative path of
-        the parent is included though, with this being relative to an ancestor directory that corresponds to the root
-        level of the object store bucket.  The value of this corresponding root may be provided in the ``bucket_root``
-        keyword arg.  If not provided, it is assumed to be the parent directory when adding a ``file``, or the directory
-        itself when adding all files within a ``directory``.
+        Binary data must be added to a specified object, supplied by ``dest``.  A single ``source`` file may be pushed
+        either to an explicitly named ``dest`` object, or to an object with a name derived from a ``bucket_root`` as
+        described below.  If neither ``dest`` or ``bucket_root`` is provided, the file will be pushed to an object named
+        after the basename of the source file.
 
-        E.g. perhaps there exists the ``dataset_1/`` directory, with structure and contents:
+        When ``source`` is a directory of files to add, the object names will be based on the relative ``bucket_root``,
+        with ``source`` itself being used as the bucket root if none is provided.
 
-            dataset_1/
-            dataset_1/file_1
-            dataset_1/file_2
-            dataset_1/subdir_a/
-            dataset_1/subdir_a/file_a_1
-            dataset_1/subdir_a/file_a_2
-            dataset_1/subdir_b/
-            dataset_1/subdir_b/file_b_1
+        E.g. perhaps there exists the ``dataset-1/`` directory, which needs to be uploaded to a dataset, with
+        structure:
 
-        If this function passed ``dataset_1`` as the ``directory``, and the ``bucket_root` was set or implied to be
-        ``dataset_1``, then ``dataset_1/file_1`` would not have any directory structure encoded into its object name,
-        while ``dataset_1/subdir_a/file_a_1`` would have ``subdir_a`` encoded, giving that object the name
-        `subdir_a___file_a_1``.  The separator comes from the class variable ::attribute:`_OBJECT_NAME_SEPARATOR`.
+            dataset-1/
+            dataset-1/file-1
+            dataset-1/file-2
+            dataset-1/subdir-a/
+            dataset-1/subdir-a/file-a-1
+            dataset-1/subdir-a/file-a-2
+            dataset-1/subdir-b/
+            dataset-1/subdir-b/file-b-1
+
+        Assume ``dataset-1/`` is the "bucket root", and there already exists a ``file-1`` object in the bucket for
+        ``dataset-1/file-1``.  When it is time for this method to push ``dataset-1/subdir-a/file-a-1``, as long as the
+        bucket root of ``dataset-1/`` is supplied, then ``dataset-1/subdir-a/file-a-1`` will be stored as the
+        ``subdir-a/file-a-1`` object, mirroring the original structure.
 
         Parameters
         ----------
