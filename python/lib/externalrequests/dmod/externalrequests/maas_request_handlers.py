@@ -1,10 +1,13 @@
+import json
 import logging
 from abc import ABC, abstractmethod
 from dmod.access import Authorizer
 from dmod.communication import AbstractRequestHandler, DataServiceClient, FullAuthSession, MaaSRequest, \
     InitRequestResponseReason, InternalServiceClient, PartitionRequest, PartitionResponse, PartitionerServiceClient, \
     Session, SessionManager
-from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage, MaaSDatasetManagementResponse
+from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage, MaaSDatasetManagementResponse, \
+    ManagementAction
+from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -237,6 +240,49 @@ class DatasetRequestHandler(MaaSRequestHandler):
         # FIXME: for now, just use the default type (which happens to be "everything")
         return self._default_required_access_type,
 
+    async def _handle_data_download(self, client_websocket, service_websocket) -> MaaSDatasetManagementResponse:
+        series_uuid = None
+        while True:
+            # This might be data transmission, or it might be a management response message
+            raw_service_response = await service_websocket.recv()
+            service_response_json = json.loads(raw_service_response)
+            mgmt_response = MaaSDatasetManagementResponse.factory_init_from_deserialized_json(service_response_json)
+            if mgmt_response is not None:
+                return mgmt_response
+            data_transmit_msg = DataTransmitMessage.factory_init_from_deserialized_json(service_response_json)
+            if series_uuid is None:
+                series_uuid = data_transmit_msg.series_uuid
+            elif data_transmit_msg.series_uuid != series_uuid:
+                raise RuntimeError("Data series UUID for data transmit does not match expected.")
+            await client_websocket.send(raw_service_response)
+            raw_client_response = await client_websocket.recv()
+            data_response = DataTransmitResponse.factory_init_from_deserialized_json(json.loads(raw_client_response))
+            if data_response.series_uuid != series_uuid:
+                raise RuntimeError("Data series UUID for data receipt does not match expected.")
+            await service_websocket.send(raw_client_response)
+
+    async def _handle_data_upload(self, client_websocket, service_websocket) -> MaaSDatasetManagementResponse:
+        series_uuid = None
+        while True:
+            # Await a DataTransmitResponse with success indicating ready to receive
+            # TODO: update Data service to do this
+            raw_service_response = await service_websocket.recv()
+            service_response_json = json.loads(raw_service_response)
+            mgmt_response = MaaSDatasetManagementResponse.factory_init_from_deserialized_json(service_response_json)
+            if mgmt_response is not None:
+                return mgmt_response
+            data_transmit_response = DataTransmitResponse.factory_init_from_deserialized_json(service_response_json)
+            if series_uuid is None:
+                series_uuid = data_transmit_response.series_uuid
+            elif data_transmit_response.series_uuid != series_uuid:
+                raise RuntimeError("Data series UUID for data upload response does not match expected.")
+            await client_websocket.send(raw_service_response)
+            raw_client_response = await client_websocket.recv()
+            data_transmit_msg = DataTransmitMessage.factory_init_from_deserialized_json(json.loads(raw_client_response))
+            if data_transmit_msg.series_uuid != series_uuid:
+                raise RuntimeError("Data series UUID for data upload transmit does not match expected.")
+            await service_websocket.send(raw_client_response)
+
     async def handle_request(self, request: MaaSDatasetManagementMessage, **kwargs) -> MaaSDatasetManagementResponse:
         # Need receiver websocket (i.e. DMOD client side) as kwarg
         session, is_authorized, reason, msg = await self.get_authorized_session(request)
@@ -244,10 +290,20 @@ class DatasetRequestHandler(MaaSRequestHandler):
             return MaaSDatasetManagementResponse(success=False, reason=reason.name, message=msg)
         # In this case, we actually can pass the request as-is straight through (i.e., after confirming authorization)
         async with self.service_client as client:
-            response = await client.async_make_request(request)
-            logging.debug("************* {} received response:\n{}".format(self.__class__.__name__, str(response)))
+            # Have to handle these two slightly differently, since multiple message will be going over the websocket
+            if request.management_action == ManagementAction.REQUEST_DATA:
+                await client.connection.send(str(request))
+                mgmt_response = await self._handle_data_download(client_websocket=kwargs['upstream_websocket'],
+                                                                 service_websocket=client.connection)
+            elif request.management_action == ManagementAction.ADD_DATA:
+                await client.connection.send(str(request))
+                mgmt_response = await self._handle_data_upload(client_websocket=kwargs['upstream_websocket'],
+                                                               service_websocket=client.connection)
+            else:
+                mgmt_response = await client.async_make_request(request)
+            logging.debug("************* {} received response:\n{}".format(self.__class__.__name__, str(mgmt_response)))
         # Likewise, can just send back the response from the internal service client
-        return response
+        return MaaSDatasetManagementResponse.factory_create(mgmt_response)
 
     @property
     def service_client(self) -> DataServiceClient:
