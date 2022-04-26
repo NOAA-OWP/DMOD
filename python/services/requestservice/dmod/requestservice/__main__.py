@@ -54,6 +54,19 @@ def _handle_args():
                         dest='data_service_ssl_dir',
                         type=Path,
                         default=None)
+    parser.add_argument('--partitioner-service-host',
+                        help='Set the appropriate hostname for the partitioner service to connect with',
+                        dest='partitioner_service_host',
+                        default='partitioner-service')
+    parser.add_argument('--partitioner-service-port',
+                        help='Set the appropriate port value for the partitioner service to connect with',
+                        dest='partitioner_service_port',
+                        default='3014')
+    parser.add_argument('--partitioner-service-ssl-dir',
+                        help='Set the ssl directory for partitioner service certs, if not the same as for the request handler',
+                        dest='partitioner_service_ssl_dir',
+                        type=Path,
+                        default=None)
     parser.add_argument('--pycharm-remote-debug',
                         help='Activate Pycharm remote debugging support',
                         dest='pycharm_debug',
@@ -126,8 +139,13 @@ def main():
                              priv_key_pem=args.key_path,
                              scheduler_host=args.scheduler_host,
                              scheduler_port=args.scheduler_port,
-                             scheduler_ssl_dir=args.scheduler_ssl_dir)
-
+                             scheduler_ssl_dir=args.scheduler_ssl_dir,
+                             data_service_host=args.data_service_host,
+                             data_service_port=args.data_service_port,
+                             data_service_ssl_dir=args.data_service_ssl_dir,
+                             partitioner_host=args.partitioner_service_host,
+                             partitioner_port=args.partitioner_service_port,
+                             partitioner_ssl_dir=args.partitioner_service_ssl_dir)
     handler.run()
 
 
