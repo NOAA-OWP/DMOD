@@ -162,7 +162,7 @@ class ObjectStoreDatasetManager(DatasetManager):
             # For any buckets that have the standard serialized object (i.e., were for datasets previously), reload them
             for bucket_name in self.list_buckets():
                 serialized_item = self._gen_dataset_serial_obj_name(bucket_name)
-                if serialized_item in [o for o in self._client.list_objects(bucket_name)]:
+                if serialized_item in [o.object_name for o in self._client.list_objects(bucket_name)]:
                     self.reload(name=bucket_name, reload_item=serialized_item)
         except Exception as e:
             self._errors.append(e)
@@ -275,6 +275,7 @@ class ObjectStoreDatasetManager(DatasetManager):
         if resync_serialized:
             self.persist_serialized(bucket_name)
 
+    # TODO: update to also make adjustments to the domain appropriately when data changes (deleting data also)
     def add_data(self, dataset_name: str, dest: str, data: Optional[bytes] = None, source: Optional[str] = None,
                  is_temp: bool = False, **kwargs) -> bool:
         """
