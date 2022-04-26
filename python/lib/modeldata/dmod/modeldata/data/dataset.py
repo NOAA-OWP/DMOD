@@ -667,6 +667,18 @@ class DatasetManager(ABC):
         return False
 
     @property
+    @abstractmethod
+    def data_chunking_params(self) -> Optional[Tuple[str, str]]:
+        """
+        The "offset" and "length" keywords than can be used with ::method:`get_data` to chunk results, when supported.
+        Returns
+        -------
+        Optional[Tuple[str, str]]
+            The "offset" and "length" keywords to chunk results, or ``None`` if chunking not supported.
+        """
+        pass
+
+    @property
     def datasets(self) -> Dict[str, Dataset]:
         """
         The datasets known to and managed by this instance, mapped by the unique ::attribute:`Dataset.name` of each.
