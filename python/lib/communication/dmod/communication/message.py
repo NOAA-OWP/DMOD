@@ -31,6 +31,8 @@ class MessageEventType(Enum):
     DATASET_MANAGEMENT = 9
     """ Event relating to management of datasets and contained data (e.g., creation, upload, delete, etc.). """
 
+    DATA_TRANSMISSION = 10
+
     INVALID = -1
 
 
