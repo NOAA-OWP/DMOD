@@ -3,7 +3,7 @@
 import logging
 from requests.exceptions import ReadTimeout
 from dmod.communication import MessageEventType, NGENRequest, NWMRequest
-from dmod.core.meta_data import DataCategory
+from dmod.core.meta_data import DataCategory, DataFormat
 import docker
 from docker.types import Mount, SecretReference
 import yaml
@@ -269,7 +269,8 @@ class Launcher(SimpleDockerUtil):
         return host_str
 
     @classmethod
-    def _ds_names_helper(cls, job: 'Job', worker_index: int, category: DataCategory, min_count: Optional[int] = 1,
+    def _ds_names_helper(cls, job: 'Job', worker_index: int, category: DataCategory,
+                         data_format: Optional[DataFormat] = None, min_count: Optional[int] = 1,
                          max_count: Optional[int] = None) -> List[str]:
         """
         Get required dataset names of a category for a worker/allocation, and sanity check those are configured right.
@@ -282,6 +283,8 @@ class Launcher(SimpleDockerUtil):
             Index of the worker and of the sublist of requirements in ::attribute:`Job.worker_data_requirements`.
         category : DataCategory
             The data requirement category type of interest.
+        data_format : Optional[DataFormat]
+            Optional data format restriction for applicable datasets.
         min_count : Optional[int]
             Optional minimum number of expected dataset names for this worker and category (default ``1``).
         max_count : Optional[int]
@@ -293,9 +296,16 @@ class Launcher(SimpleDockerUtil):
             List of the names of datasets fulfilling all the data requirements of the given category for the specified
             job worker/allocation.
         """
-        # Get a set of fulfilling dataset names for the worker's data requirements of the given DataCategory
-        worker_data_requirements = job.worker_data_requirements[worker_index]
-        dataset_names = set([req.fulfilled_by for req in worker_data_requirements if req.category == category])
+        # First, filter to requirements of the specified working and category
+        reqs_for_category = [req for req in job.worker_data_requirements[worker_index] if req.category == category]
+
+        # If a format set (typically only for specialized config datasets), filter by that as well
+        # Also, reduce the requirements to fulfilling dataset names
+        if data_format is None:
+            dataset_names = set([r.fulfilled_by for r in reqs_for_category])
+        else:
+            dataset_names = set([r.fulfilled_by for r in reqs_for_category if r.domain.data_format == data_format])
+
         # Sanity check the number of dataset names and that we know the fulfilling dataset for all requirements
         if min_count is not None and len(dataset_names) < min_count:
             msg = "Attempting to start {} job {} with fewer than allowed minimum of {} required {} datasets."
