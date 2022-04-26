@@ -44,11 +44,11 @@ def _handle_args():
     parser.add_argument('--data-service-host',
                         help='Set the appropriate hostname for the data service to connect with',
                         dest='data_service_host',
-                        default='localhost')
+                        default='data-service')
     parser.add_argument('--data-service-port',
                         help='Set the appropriate port value for the data service to connect with',
                         dest='data_service_port',
-                        default='3014')
+                        default='3015')
     parser.add_argument('--data-service-ssl-dir',
                         help='Set the ssl directory for data service certs, if not the same as for the request handler',
                         dest='data_service_ssl_dir',
