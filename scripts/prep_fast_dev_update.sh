@@ -20,9 +20,10 @@ CONTROL_SCRIPT="${PROJECT_ROOT}/scripts/control_stack.sh"
 PY_PACKAGES_STACK_NAME="py-sources"
 # Main services stack name
 PRIMARY_STACK_NAME="main"
+GUI_STACK_NAME="nwm_gui"
 # The name and tag of the last image/service, if just rebuilding that and not the prior deps image layers
-LAST_SERVICE_NAME="py-sources"
-HELPER_IMAGE="${DOCKER_INTERNAL_REGISTRY}/dmod-py-sources:latest"
+PY_PACKAGES_LAST_SERVICE_NAME="py-sources"
+PY_PACKAGES_HELPER_IMAGE="${DOCKER_INTERNAL_REGISTRY}/dmod-py-sources:latest"
 
 usage()
 {
@@ -39,7 +40,7 @@ Options:
         the Docker command to force removal.
 
     --full-build|-B
-        Do a full build of the ${LAST_SERVICE_NAME} service image with
+        Do a full build of the ${PY_PACKAGES_LAST_SERVICE_NAME} service image with
         the Python DMOD packages, instead of an optimized build.
 
     --remove-volume-only|-O
@@ -57,6 +58,11 @@ Options:
     --deploy|-D
         Go ahead and deploy the code to services, stopping and starting as
         needed (conflicts with --safe).
+
+    --gui|-G
+        Update GUI service images and (if deploying) start those also; note this
+        will stop GUI service if they are running, but not restart them if
+        --deploy was not also set.
 "
 
     echo "${_O}" 2>&1
@@ -69,6 +75,23 @@ clean_existing_volume()
             && echo "INFO: removed previously existing volume '${UPDATED_PACKAGES_VOLUME_NAME}' successfully."
     else
         echo "INFO: no existing volume '${UPDATED_PACKAGES_VOLUME_NAME}' to remove."
+    fi
+}
+
+# Try three times - once immediately, then again after a 10 second delay, up to 3 times total - to clear the volume
+try_clean_volume()
+{
+    if ! clean_existing_volume; then
+        #echo "Warn: failed 1st removal attempt of Docker volume '${UPDATED_PACKAGES_VOLUME_NAME}'; will sleep and try again"
+        sleep 10
+        if ! clean_existing_volume; then
+            #echo "Warn: failed 2nd removal attempt of Docker volume '${UPDATED_PACKAGES_VOLUME_NAME}'; will sleep and try once more"
+            sleep 10
+            if ! clean_existing_volume; then
+                >&2 echo "Error: removal of existing Docker volume '${UPDATED_PACKAGES_VOLUME_NAME}' failed; exiting."
+                exit 1
+            fi
+        fi
     fi
 }
 
@@ -104,6 +127,10 @@ while [ ${#} -gt 0 ]; do
             [ -n "${RUN_SAFE:-}" ] && usage && exit 1
             RUN_SAFE="true"
             ;;
+        --gui|-G)
+            [ -n "${DO_GUI:-}" ] && usage && exit 1
+            DO_GUI="true"
+            ;;
         *)
             usage
             exit 1
@@ -113,37 +140,65 @@ while [ ${#} -gt 0 ]; do
 done
 
 # Make sure nothing is running if it doesn't need to be, bailing or stopping it as appropriate
-if [ -n "${RUN_SAFE:-}"]; then
+if [ -n "${RUN_SAFE:-}" ]; then
     if ${CONTROL_SCRIPT} ${PRIMARY_STACK_NAME} check > /dev/null; then
         >&2 echo "Error: option for safe mode active and found primary '${PRIMARY_STACK_NAME}' stack running; exiting."
         exit 1
     fi
-elif [ -n "${DO_DEPLOY:-}"]; then
+elif [ -n "${DO_DEPLOY:-}" ]; then
+    if ${CONTROL_SCRIPT} ${GUI_STACK_NAME} check > /dev/null; then
+        ${CONTROL_SCRIPT} ${GUI_STACK_NAME} stop
+        STOPPED_GUI_FOR_REBUILD="true"
+        sleep 1
+    fi
+
     if ${CONTROL_SCRIPT} ${PRIMARY_STACK_NAME} check > /dev/null; then
         ${CONTROL_SCRIPT} ${PRIMARY_STACK_NAME} stop
+        echo "Waiting for services to stop ..."
+        sleep 3
+    fi
+fi
+
+if [ -n "${DO_GUI:-}" ]; then
+    if [ -z "${STOPPED_GUI_FOR_REBUILD:-}" ]; then
+        if ${CONTROL_SCRIPT} ${GUI_STACK_NAME} check > /dev/null; then
+            ${CONTROL_SCRIPT} ${GUI_STACK_NAME} stop
+            STOPPED_GUI_FOR_REBUILD="true"
+        fi
     fi
 fi
 
 # Prepare a Docker volume for the dmod Python packages, removing any existing
-if ! clean_existing_volume; then
-     >&2 echo "Error: removal of existing Docker volume '${UPDATED_PACKAGES_VOLUME_NAME}' failed; exiting."
-     exit 1
-fi
+# Do in background so other things can be done
+try_clean_volume &
+_CLEAN_TRIES_PID=$!
 
 if [ -n "${JUST_REMOVE_VOLUME:-}" ]; then
+    wait ${_CLEAN_TRIES_PID}
     exit
-fi
-
-if ! docker volume create ${UPDATED_PACKAGES_VOLUME_NAME} > /dev/null 2>&1; then
-    >&2 echo "Error: Docker volume creation for '${UPDATED_PACKAGES_VOLUME_NAME}' failed; exiting."
-    exit 1
 fi
 
 # Build updated py-sources image; if requested, build everything, but by default, just build the last image
 if [ -n "${DO_FULL_BUILD:-}" ]; then
     ${CONTROL_SCRIPT} ${PY_PACKAGES_STACK_NAME} build
 else
-    ${CONTROL_SCRIPT} --build-args "${LAST_SERVICE_NAME}" ${PY_PACKAGES_STACK_NAME} build
+    ${CONTROL_SCRIPT} --build-args "${PY_PACKAGES_LAST_SERVICE_NAME}" ${PY_PACKAGES_STACK_NAME} build
+fi
+
+if [ -n "${STOPPED_GUI_FOR_REBUILD:-}${DO_GUI:-}" ]; then
+    echo "Rebuilding nwm_gui stack app service image"
+    ${CONTROL_SCRIPT} ${GUI_STACK_NAME} build &
+    _REBUILD_GUI_IMAGES_PID=$!
+fi
+
+# Wait here for background volume cleaning tasks; bail if it came back bad
+echo "Waiting for background task to finish for removing previous Docker volume '${UPDATED_PACKAGES_VOLUME_NAME}' ..."
+if ! wait ${_CLEAN_TRIES_PID}; then
+    exit 1
+# Otherwise, create a new volume, but again, bail if that doesn't work
+elif ! docker volume create ${UPDATED_PACKAGES_VOLUME_NAME} > /dev/null 2>&1; then
+    >&2 echo "Error: Docker volume creation for '${UPDATED_PACKAGES_VOLUME_NAME}' failed; exiting."
+    exit 1
 fi
 
 # Run a (cleaned-up) container from py-sources, with the volume mounted, and copy the dmod Python packages there
@@ -152,9 +207,19 @@ docker run --rm \
     --name fast_dev_updater \
     --entrypoint /bin/sh \
     --mount source=${UPDATED_PACKAGES_VOLUME_NAME},target=/updated_packages \
-  ${HELPER_IMAGE} \
+  ${PY_PACKAGES_HELPER_IMAGE} \
   -c "cp -a /DIST/dmod*.whl /updated_packages/."
 
 if [ -n "${DO_DEPLOY:-}" ]; then
     ${CONTROL_SCRIPT} ${PRIMARY_STACK_NAME} start
+
+    # If we were rebuilding the GUI images, make sure to wait here for that to finish before starting services
+    if [ -n "${_REBUILD_GUI_IMAGES_PID:-}" ]; then
+        wait ${_REBUILD_GUI_IMAGES_PID}
+    fi
+
+    if [ -n "${STOPPED_GUI_FOR_REBUILD:-}" ] || [ -n "${DO_GUI:-}" ]; then
+        echo "Starting nwm_gui services"
+        ${CONTROL_SCRIPT} ${GUI_STACK_NAME} start
+    fi
 fi
