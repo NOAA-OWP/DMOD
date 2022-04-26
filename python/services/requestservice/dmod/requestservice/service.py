@@ -9,8 +9,9 @@ import websockets
 from websockets import WebSocketServerProtocol
 
 from dmod.access import DummyAuthUtil, RedisBackendSessionManager
-from dmod.communication import InvalidMessageResponse, MessageEventType, WebSocketSessionsInterface, \
-    SchedulerClient, UnsupportedMessageTypeResponse
+from dmod.communication import AbstractInitRequest, InvalidMessageResponse, MessageEventType, NGENRequest, NWMRequest, \
+    PartitionRequest, WebSocketSessionsInterface, SessionInitMessage, SchedulerClient, UnsupportedMessageTypeResponse
+from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage
 from dmod.externalrequests import AuthHandler, DatasetRequestHandler, ModelExecRequestHandler, PartitionRequestHandler
 
 logging.basicConfig(
@@ -128,24 +129,27 @@ class RequestService(WebSocketSessionsInterface):
             async for message in websocket:
                 data = json.loads(message)
                 logging.info(f"Got payload: {data}")
-                should_check_for_auth = session is None
-                event_type, errors_map = await self.parse_request_type(data=data, check_for_auth=should_check_for_auth)
-                req_message = await self.deserialized_message(message_data=data, event_type=event_type)
+                req_message = await self.deserialized_message(message_data=data)
+                event_type = MessageEventType.INVALID if req_message is None else req_message.get_message_event_type()
 
                 if event_type == MessageEventType.INVALID:
                     response = InvalidMessageResponse(data=req_message)
                     await websocket.send(str(response))
                 elif event_type == MessageEventType.SESSION_INIT:
                     response = await self._auth_handler.handle_request(request=req_message, client_ip=client_ip)
-                    #
                     if response is not None and response.success:
                         session = response.data
                         result = await self.register_websocket_session(websocket, session)
                         logging.debug('************************* Attempt to register session-websocket: {}'.format(
                             str(result)))
                     await websocket.send(str(response))
+                # Handle data management messages for creating datasets and adding data
+                elif event_type == MessageEventType.DATASET_MANAGEMENT:
+                    response = await self._data_service_handler.handle_request(request=req_message,
+                                                                               upstream_websocket=websocket)
+                    await websocket.send(str(response))
                 elif event_type == MessageEventType.MODEL_EXEC_REQUEST:
-                    response = self._model_exec_request_handler.handle_request(requests=req_message)
+                    response = self._model_exec_request_handler.handle_request(request=req_message)
                     logging.debug('************************* Handled request response: {}'.format(str(response)))
                     await websocket.send(str(response))
 
@@ -156,7 +160,6 @@ class RequestService(WebSocketSessionsInterface):
                     response = await self._partition_request_handler.handle_request(request=req_message)
                     logging.debug('************************* Handled request response: {}'.format(str(response)))
                     await websocket.send(str(response))
-                # TODO: handle data management messages for creating datasets and adding data
                 # FIXME: add another message type for closing a session
                 else:
                     msg = 'Received valid ' + event_type.name + ' request, but listener does not currently support'
@@ -167,10 +170,12 @@ class RequestService(WebSocketSessionsInterface):
                     logging.error(response.message)
                     await websocket.send(str(response))
 
-        except websockets.exceptions.ConnectionClosed:
-            logging.info("Connection Closed at Consumer")
-        except asyncio.CancelledError:
-            logging.info("Cancelling listerner task")
+        except websockets.exceptions.ConnectionClosed as e:
+            logging.info("Connection Closed at Consumer ({})".format(str(e)))
+        except asyncio.CancelledError as e:
+            logging.info("Cancelling listerner task - {}".format(str(e)))
+        except Exception as e:
+            logging.info('Unexpected exception - {}'.format(str(e)))
         finally:
             if session is not None:
                 await self.unregister_websocket_session(session=session)
