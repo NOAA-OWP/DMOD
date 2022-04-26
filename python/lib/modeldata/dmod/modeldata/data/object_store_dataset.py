@@ -227,11 +227,8 @@ class ObjectStoreDatasetManager(DatasetManager):
                 msg = "Cannot push {} to bucket {} when provided bad or non-relative bucket root {}"
                 raise RuntimeError(msg.format(str(file), bucket_name, str(bucket_root)))
 
-        if bucket_root is not None:
-            file_rel_root = file.relative_to(bucket_root)
-            dest = self._OBJECT_NAME_SEPARATOR.join(file_rel_root.parts)
-        elif dest is None:
-            dest = file.name
+        if dest is None:
+            dest = str(file.relative_to(bucket_root) if bucket_root is not None else file.name)
 
         result = self._client.fput_object(bucket_name=bucket_name, object_name=dest, file_path=str(file))
         if resync_serialized:
