@@ -288,7 +288,7 @@ class ObjectStoreDatasetManager(DatasetManager):
             bucket_root = dir_path
         # First take care of immediate
         for file in [f for f in dir_path.iterdir() if f.is_file()]:
-            self._push_file(bucket_name, file, bucket_root, do_checks=False, resync_serialized=False)
+            self._push_file(bucket_name=bucket_name, file=file, bucket_root=bucket_root, do_checks=False, resync_serialized=False)
         if recursive:
             for directory in [d for d in dir_path.iterdir() if d.is_dir()]:
                 self._push_files(bucket_name, directory, recursive, bucket_root, do_checks=False, resync_serialized=False)
