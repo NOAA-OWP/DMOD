@@ -731,29 +731,27 @@ class DatasetManager(ABC):
         """
         pass
 
-    # TODO: add back as abstract, then implement in subtypes
-    #@abstractmethod
-    def get_data(self, dataset_name: str, **kwargs) -> Any:
+    @abstractmethod
+    def get_data(self, dataset_name: str, item_name: str, **kwargs) -> Union[bytes, Any]:
         """
         Get data from this dataset.
 
-        Implementations must be responsible for managing (via their use of ``kwargs``) both exactly what data from the
-        dataset is retrieved and how it is provided back to the user, as well as clearly documenting how this works.
-
-        Implementations must also document what the function returns.  This could be an indication of success, an object
-        containing the retrieved data, or nothing at all.
+        All implementation must support returning data as a ::class:`bytes` object by default.  Implementations may
+        support other return types, with their keyword args being used in some manner to cause that.
 
         Parameters
         ----------
         dataset_name : str
-            The dataset to which to add data.
+            The dataset from which to get data.
+        item_name : str
+            The name of the object from which to get data.
         kwargs
             Implementation-specific params for representing what data to get and how to get and deliver it.
 
         Returns
         -------
-        Any
-            A return value of implementation-specific type.
+        Union[bytes, Any]
+            A ::class:`bytes` object containing the data, or a return value of implementation-specific type.
         """
         pass
 
