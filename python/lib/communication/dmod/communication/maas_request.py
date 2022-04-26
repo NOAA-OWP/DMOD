@@ -225,7 +225,7 @@ class ModelExecRequest(MaaSRequest, ABC):
         """
         return cls.model_name
 
-    def __init__(self, config_data_id: str, *args, **kwargs):
+    def __init__(self, config_data_id: str, cpu_count: int = 1, *args, **kwargs):
         """
         Initialize model-exec-specific attributes and state of this request object common to all model exec requests.
 
@@ -236,6 +236,7 @@ class ModelExecRequest(MaaSRequest, ABC):
         """
         super(ModelExecRequest, self).__init__(*args, **kwargs)
         self._config_data_id = config_data_id
+        self._cpu_count = cpu_count
 
     def __eq__(self, other):
         if not self._check_class_compatible_for_equality(other):
@@ -265,6 +266,18 @@ class ModelExecRequest(MaaSRequest, ABC):
             Value of ``data_id`` identifying the dataset with the primary configuration applicable to this request.
         """
         return self._config_data_id
+
+    @property
+    def cpu_count(self) -> int:
+        """
+        The number of processors requested for this job.
+
+        Returns
+        -------
+        int
+            The number of processors requested for this job.
+        """
+        return self._cpu_count
 
 
 class MaaSRequestResponse(Response, ABC):
