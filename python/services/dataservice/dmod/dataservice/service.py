@@ -4,8 +4,7 @@ import json
 import os
 from time import sleep as time_sleep
 from docker.types import Healthcheck, RestartPolicy, SecretReference, ServiceMode
-from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, \
-    ManagementAction, WebSocketInterface
+from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, ManagementAction, WebSocketInterface
 from dmod.communication.dataset_management_message import DatasetQuery, QueryType
 from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
 from dmod.core.meta_data import DataCategory, DataDomain, DataRequirement, DiscreteRestriction, StandardDatasetIndex
@@ -763,19 +762,64 @@ class ServiceManager(WebSocketInterface):
         Process incoming messages over the websocket and respond appropriately.
         """
         try:
-
+            # We may need to lazily load a dataset manager
+            dataset_manager = None
+            dest_dataset_name = None
+            dest_item_name = None
+            transmit_series_uuid = None
+            partial_indx = 0
             async for raw_message in websocket:
                 data = json.loads(raw_message)
-                inbound_message: DatasetManagementMessage = DatasetManagementMessage.factory_init_from_deserialized_json(data)
-
+                if transmit_series_uuid is None:
+                    inbound_message: DatasetManagementMessage = DatasetManagementMessage.factory_init_from_deserialized_json(data)
+                else:
+                    inbound_message: DataTransmitMessage = DataTransmitMessage.factory_init_from_deserialized_json(data)
                 # If we were not able to otherwise process the message into a response, then it is unsupported
                 if inbound_message is None:
                     response = DatasetManagementResponse(action=ManagementAction.UNKNOWN, success=False,
                                                          reason="Unparseable Message Received")
-
+                elif transmit_series_uuid:
+                    # TODO: need to refactor this to be cleaner
+                    # Write data to temporary, partial item name, then after the last one, combine all the temps in this
+                    # transmit series into a single file
+                    partial_item_name = '{}.{}.{}'.format(transmit_series_uuid, dest_item_name, partial_indx)
+                    response = await self._async_process_add_data(dataset_name=dest_dataset_name,
+                                                                  dest_item_name=partial_item_name,
+                                                                  message=inbound_message,
+                                                                  is_temp=True,
+                                                                  manager=dataset_manager)
+                    partial_indx += 1
+                    if inbound_message.is_last and response.success:
+                        partial_items = ['{}.{}.{}'.format(transmit_series_uuid, dest_item_name, i) for i in range(partial_indx)]
+                        # Combine partial files into a composite
+                        dataset_manager.combine_partials_into_composite(dataset_name=dest_dataset_name,
+                                                                        item_name=dest_item_name,
+                                                                        combined_list=partial_items)
+                        # Clean up the partial items
+                        dataset_manager.delete_data(dataset_name=dest_dataset_name, item_names=partial_items)
+                    # Clear the series UUID if we just processed the last transmit message (response will have the UUID
+                    # by this point), or if we got back an unsuccessful response (whether management or transfer type)
+                    elif inbound_message.is_last or not response.success:
+                        transmit_series_uuid = None
+                        # Clean up the partial items
+                        partial_items = ['{}.{}.{}'.format(transmit_series_uuid, dest_item_name, i) for i in range(partial_indx)]
+                        result = dataset_manager.delete_data(dataset_name=dest_dataset_name, item_names=partial_items)
+                        # If this didn't work, retry without the very last partial item name, since it may have failed
+                        if not result:
+                            dataset_manager.delete_data(dataset_name=dest_dataset_name, item_names=[
+                                '{}.{}.{}'.format(transmit_series_uuid, dest_item_name, i) for i in
+                                range(partial_indx - 1)])
+                        partial_indx = 0
                 elif inbound_message.management_action == ManagementAction.CREATE:
                     response = await self._async_process_dataset_create(message=inbound_message)
-
+                elif inbound_message.management_action == ManagementAction.REQUEST_DATA:
+                    response = await self._async_process_data_request(message=inbound_message, websocket=websocket)
+                elif inbound_message.management_action == ManagementAction.ADD_DATA:
+                    # When seeing ADD_DATA, this is the beginning of several messages, so init/cache certain things
+                    # Note that transmit_series_uuid should be 'None' before this, as this is its initial value and it
+                    #   will be reset to 'None' after the last
+                    dest_dataset_name, dataset_manager, dest_item_name, transmit_series_uuid, response = \
+                        self._process_initial_add_data(inbound_message)
                 elif inbound_message.management_action == ManagementAction.QUERY:
                     response = await self._async_process_query(message=inbound_message)
                 elif inbound_message.management_action == ManagementAction.DELETE:
