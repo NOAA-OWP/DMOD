@@ -121,12 +121,13 @@ def main():
     # Init request handler
     handler = RequestService(listen_host=args.host,
                              port=args.port,
-                             ssl_dir=Path(args.ssl_dir),
+                             ssl_dir=args.ssl_dir,
                              cert_pem=args.cert_path,
                              priv_key_pem=args.key_path,
                              scheduler_host=args.scheduler_host,
                              scheduler_port=args.scheduler_port,
-                             scheduler_ssl_dir=Path(args.scheduler_ssl_dir))
+                             scheduler_ssl_dir=args.scheduler_ssl_dir)
+
     handler.run()
 
 
