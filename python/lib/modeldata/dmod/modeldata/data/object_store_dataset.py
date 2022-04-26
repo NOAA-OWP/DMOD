@@ -296,7 +296,7 @@ class ObjectStoreDatasetManager(DatasetManager):
             self.persist_serialized(bucket_name)
 
     def add_data(self, dataset_name: str, dest: str, data: Optional[bytes] = None, source: Optional[str] = None,
-                 **kwargs) -> bool:
+                 is_temp: bool = False, **kwargs) -> bool:
         """
         Add raw data or data from one or more files to the object store for the given dataset.
 
@@ -343,6 +343,8 @@ class ObjectStoreDatasetManager(DatasetManager):
         source : Optional[str]
             Optional string specifying either a source file containing data to be added, or a directory containing
             multiple files to be added.
+        is_temp : bool
+            Indication of whether this item should be temporary, and thus given a 1-hour retention config.
         kwargs
             Implementation-specific params for representing the data and details of how it should be added.
 
@@ -364,8 +366,17 @@ class ObjectStoreDatasetManager(DatasetManager):
         if dataset_name not in self.datasets:
             return False
         elif data is not None:
-            result = self._client.put_object(bucket_name=dataset_name, data=data, length=len(data), object_name=dest)
+            if is_temp:
+                retention = minio.retention.Retention(mode=minio.retention.GOVERNANCE,
+                                                      retain_until_date=datetime.now() + timedelta(hours=1))
+            else:
+                retention = None
+            result = self._client.put_object(bucket_name=dataset_name, data=io.BytesIO(data), length=len(data),
+                                             object_name=dest, retention=retention)
+            # TODO: do something more intelligent than this for determining success
             return result.bucket_name == dataset_name
+        elif is_temp:
+            raise NotImplementedError("Function add_data() does not support ``is_temp`` except when suppying raw data.")
         elif source is None or len(source) == 0:
             from sys import _getframe
             msg = "{}.{} requires either binary data or a source for data to be provided."
@@ -378,7 +389,7 @@ class ObjectStoreDatasetManager(DatasetManager):
             raise ValueError(msg.format(self.__class__.__name__, _getframe(0).f_code.co_name, source))
         elif src_path.is_dir():
             bucket_root = kwargs.get('bucket_root', src_path)
-            self._push_files(bucket_name=dataset_name, dir_path=kwargs['directory'], bucket_root=bucket_root)
+            self._push_files(bucket_name=dataset_name, dir_path=src_path, bucket_root=bucket_root)
             # TODO: probably need something better than just always returning True if this gets executed
             return True
         else:
