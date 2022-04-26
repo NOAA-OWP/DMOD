@@ -364,22 +364,36 @@ class Launcher(SimpleDockerUtil):
         docker_cmd_args = [str(len(job.allocations)), self.build_host_list(job), job.job_id]
 
         if isinstance(job.model_request, NGENRequest):
-            # $4 is the name of the output dataset (which will imply a directory location)
+            # $4 is the worker index (where index 0 is assumed to be the lead node)
+            docker_cmd_args.append(str(worker_index))
+
+            # $5 is the name of the output dataset (which will imply a directory location)
             output_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.OUTPUT, max_count=1)
             docker_cmd_args.append(output_dataset_names[0])
 
-            # $5 is the name of the hydrofabric dataset (which will imply a directory location)
+            # $6 is the name of the hydrofabric dataset (which will imply a directory location)
             hydrofabric_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.HYDROFABRIC, max_count=1)
             docker_cmd_args.append(hydrofabric_dataset_names[0])
 
-            # $6 is the name of the configuration dataset (which will imply a directory location)
-            config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1)
-            docker_cmd_args.append(config_dataset_names[0])
+            # $7 is the name of the realization configuration dataset (which will imply a directory location)
+            realization_cfg_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1,
+                                                                  data_format=DataFormat.NGEN_REALIZATION_CONFIG)
+            docker_cmd_args.append(realization_cfg_dataset_names[0])
+
+            # $8 is the name of the BMI config dataset (which will imply a directory location)
+            bmi_config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1,
+                                                             data_format=DataFormat.BMI_CONFIG)
+            docker_cmd_args.append(bmi_config_dataset_names[0])
+
+            # $9 is the name of the partition config dataset (which will imply a directory location)
+            partition_config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1,
+                                                                   data_format=DataFormat.NGEN_PARTITION_CONFIG)
+            docker_cmd_args.append(partition_config_dataset_names[0])
 
             # Also do a sanity check here to ensure there is at least one forcing dataset
             self._ds_names_helper(job, worker_index, DataCategory.FORCING)
 
-            # $7 and beyond have colon-joined category+name strings (e.g., FORCING:aorc_csv_forcings_1) for Minio
+            # $10 and beyond have colon-joined category+name strings (e.g., FORCING:aorc_csv_forcings_1) for Minio
             #       object store datasets to mount
             obj_store_dataset_strings: List[str] = self._get_required_obj_store_datasets_arg_strings(job, worker_index)
 
