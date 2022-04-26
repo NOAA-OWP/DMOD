@@ -70,14 +70,14 @@ class DataFormat(Enum):
                                 )
     """ GeoJSON hydrofabric format used by Nextgen (id is catchment id). """
     NGEN_PARTITION_CONFIG = (6,
-                             ["all_cat_ids", "data_id", "count"],
+                             ["data_id", "hydrofabric_uid", "count"],
                              {"id": int, "cat-ids": List[str], "nex-id": List[str],
                               "remote-connections": List[Dict[str, int]]},
-                             {"data_id": str, "all_cat_ids": List[str], "count": int}
+                             {"data_id": str, "hydrofabric_uid": str, "count": int}
                              )
     """ GeoJSON hydrofabric format used by Nextgen. """
-    BMI_CONFIG = (7, ["file", "data_id"], None, {"file": str, "data_id": str})
-    """ Format for BMI initialization config files, of which (in general) there is only implied index of file name. """
+    BMI_CONFIG = (7, ["file_names_md5", "data_id"], None, {"file_names_md5": str, "data_id": str})
+    """ Format for BMI init configs, of which (in general) there is implied comma-joined filename string checksum. """
     NWM_OUTPUT = (8, ["id", "Time", "data_id"], {"Time": datetime, "streamflow": float}, {"id": str, "data_id": str})
     """ Format for NWM 2.0/2.1/2.2 output. """
     NWM_CONFIG = (9, ["id", "time", "data_id"], None, {"id": str, "time": datetime, "data_id": str})
