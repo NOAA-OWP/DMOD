@@ -148,10 +148,43 @@ class DatasetClient(ABC):
 
     @abstractmethod
     async def download_dataset(self, dataset_name: str, dest_dir: Path) -> bool:
+        """
+        Download an entire dataset to a local directory.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The dataset of interest.
+        dest_dir : Path
+            Path to the local directory to which to save the dataset's data.
+
+        Returns
+        -------
+        bool
+            Whether the download was successful.
+        """
         pass
 
     @abstractmethod
     async def download_from_dataset(self, dataset_name: str, item_name: str, dest: Path) -> bool:
+        """
+        Download a specific item within a dataset to a local path.
+
+        Exactly what an "item" is is implementation specific, and should be documented.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The dataset of interest.
+        item_name : str
+            The name of the item within a dataset to download.
+        dest : Path
+            A local path at which to save the downloaded item.
+
+        Returns
+        -------
+
+        """
         pass
 
     @abstractmethod
@@ -160,6 +193,21 @@ class DatasetClient(ABC):
 
     @abstractmethod
     async def upload_to_dataset(self, dataset_name: str, paths: List[Path]) -> bool:
+        """
+        Upload data a dataset.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The name of the dataset.
+        paths : List[Path]
+            List of one or more paths of files to upload or directories containing files to upload.
+
+        Returns
+        -------
+        bool
+            Whether uploading was successful
+        """
         pass
 
 
@@ -185,6 +233,21 @@ class DatasetInternalClient(DatasetClient, InternalServiceClient[DatasetManageme
         return self.last_response is not None and self.last_response.success
 
     async def download_dataset(self, dataset_name: str, dest_dir: Path) -> bool:
+        """
+        Download an entire dataset to a local directory.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The dataset of interest.
+        dest_dir : Path
+            Path to the local directory to which to save the dataset's data.
+
+        Returns
+        -------
+        bool
+            Whether the download was successful.
+        """
         try:
             dest_dir.mkdir(parents=True, exist_ok=True)
         except:
