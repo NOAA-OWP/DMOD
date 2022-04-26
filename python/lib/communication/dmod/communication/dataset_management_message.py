@@ -87,6 +87,8 @@ class ManagementAction(Enum):
     """ Action to close an ongoing, multi-message dialog. """
     LIST_ALL = (8, False, False)
     """ Like ``SEARCH``, but just list all datasets. """
+    REQUEST_DATA = (9, True, False)
+    """ Action to request data from a dataset, which expect a response with details on how. """
 
     @classmethod
     def get_for_name(cls, name_str: str) -> 'ManagementAction':
@@ -177,7 +179,6 @@ class DatasetManagementMessage(AbstractInitRequest):
 
     _SERIAL_KEY_ACTION = 'action'
     _SERIAL_KEY_CATEGORY = 'category'
-    _SERIAL_KEY_DATA = 'data'
     _SERIAL_KEY_DATA_DOMAIN = 'data_domain'
     _SERIAL_KEY_DATA_LOCATION = 'data_location'
     _SERIAL_KEY_DATASET_NAME = 'dataset_name'
@@ -246,8 +247,6 @@ class DatasetManagementMessage(AbstractInitRequest):
                 return False
             elif self.is_pending_data != other.is_pending_data:
                 return False
-            #elif self.page != other.page:
-            #    return False
             elif self.query != other.query:
                 return False
             else:
@@ -258,13 +257,12 @@ class DatasetManagementMessage(AbstractInitRequest):
     def __hash__(self):
         return hash('-'.join([self.management_action.name, self.dataset_name, str(self.is_read_only_dataset),
                               self.data_category.name, str(hash(self.data_domain)), self.data_location,
-                              str(self.is_pending_data), #str(self.page),
-                              self.query.to_json()]))
+                              str(self.is_pending_data), self.query.to_json()]))
 
     def __init__(self, action: ManagementAction, dataset_name: Optional[str] = None, is_read_only_dataset: bool = False,
-                 category: Optional[DataCategory] = None, data: Optional[bytes] = None, domain: Optional[DataDomain] = None,
-                 data_location: Optional[str] = None, #page: Optional[int] = None,
-                 is_pending_data: bool = False, query: Optional[DatasetQuery] = None, *args, **kwargs):
+                 category: Optional[DataCategory] = None, domain: Optional[DataDomain] = None,
+                 data_location: Optional[str] = None, is_pending_data: bool = False,
+                 query: Optional[DatasetQuery] = None, *args, **kwargs):
         """
         Initialize this instance.
 
@@ -278,13 +276,12 @@ class DatasetManagementMessage(AbstractInitRequest):
             Whether dataset involved is, should be, or must be (depending on action) read-only; defaults to ``False``.
         category : Optional[str]
             The optional category of the involved dataset or datasets, when applicable; defaults to ``None``.
-        data : Optional[bytes]
-            Optional encoded byte string containing data to insert into the dataset.
         data_location : Optional[str]
             Optional location/file/object/etc. for acted-upon data.
         is_pending_data : bool
-            Whether the message sender has more data not included within this message, but that the sender will want to
-            send in a subsequent message.
+            Whether the sender has data pending transmission after this message (default: ``False``).
+        query : Optional[DatasetQuery]
+            Optional ::class:`DatasetQuery` object for query messages.
         """
         # Sanity check certain param values depending on the action; e.g., can't CREATE a dataset without a name
         err_msg_template = "Cannot create {} for action {} without {}"
@@ -304,22 +301,9 @@ class DatasetManagementMessage(AbstractInitRequest):
         self._is_read_only_dataset = is_read_only_dataset
         self._category = category
         self._domain = domain
-        self._data = data
         self._data_location = data_location
         self._query = query
         self._is_pending_data = is_pending_data
-
-    @property
-    def data(self) -> Optional[bytes]:
-        """
-        Optional byte string containing raw data to be added to a dataset.
-
-        Returns
-        -------
-        Optional[bytes]
-            Byte string of raw data to be added to a dataset.
-        """
-        return self._data
 
     @property
     def data_location(self) -> Optional[str]:
@@ -336,15 +320,15 @@ class DatasetManagementMessage(AbstractInitRequest):
     @property
     def is_pending_data(self) -> bool:
         """
-        Whether there is additional data the sender has beyond what is included in this message.
+        Whether the sender has data pending transmission after this message.
 
-        The implication when this is ``True`` is that, after this message is handled and responded to, the sender will
-        want to send at least one additional message to transmit further data.
+        Whether the sender has data it wants to transmit after this message.  The typical use case is during a
+        ``CREATE`` action, where this indicates there is already data to add to the newly created dataset.
 
         Returns
         -------
         bool
-            Whether there is additional data the sender has beyond what is included in this message.
+            Whether the sender has data pending transmission after this message.
         """
         return self._is_pending_data
 
@@ -408,6 +392,10 @@ class DatasetManagementMessage(AbstractInitRequest):
         """
         return self._action
 
+    @property
+    def query(self) -> Optional[DatasetQuery]:
+        return self._query
+
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
         serial = {self._SERIAL_KEY_ACTION: self.management_action.name,
                   self._SERIAL_KEY_IS_READ_ONLY: self.is_read_only_dataset,
@@ -416,8 +404,6 @@ class DatasetManagementMessage(AbstractInitRequest):
             serial[self._SERIAL_KEY_DATASET_NAME] = self.dataset_name
         if self.data_category is not None:
             serial[self._SERIAL_KEY_CATEGORY] = self.data_category.name
-        if self.data is not None:
-            serial[self._SERIAL_KEY_DATA] = self.data
         if self.data_location is not None:
             serial[self._SERIAL_KEY_DATA_LOCATION] = self.data_location
         if self.data_domain is not None:
@@ -426,18 +412,13 @@ class DatasetManagementMessage(AbstractInitRequest):
             serial[self._SERIAL_KEY_QUERY] = self.query.to_dict()
         return serial
 
-    @property
-    def query(self) -> Optional[DatasetQuery]:
-        return self._query
-
 
 class DatasetManagementResponse(Response):
 
     _DATA_KEY_ACTION= 'action'
     _DATA_KEY_DATA_ID = 'data_id'
     _DATA_KEY_DATASET_NAME = 'dataset_name'
-    _DATA_KEY_FILE_NAME = 'file_name'
-    _DATA_KEY_FILE_DATA = 'file_data'
+    _DATA_KEY_ITEM_NAME = 'item_name'
     _DATA_KEY_QUERY_RESULTS = 'query_results'
     _DATA_KEY_IS_AWAITING = 'is_awaiting'
     response_to_type = DatasetManagementMessage
@@ -515,32 +496,20 @@ class DatasetManagementResponse(Response):
         return self.data[self._DATA_KEY_DATASET_NAME] if self._DATA_KEY_DATASET_NAME in self.data else None
 
     @property
-    def file_data(self) -> Optional[str]:
+    def item_name(self) -> Optional[str]:
         """
-        When available, a part of the data for a file in the dataset that was requested and is now being transmitted.
+        When available/appropriate, the name of the relevant dataset item/object/file.
 
         Returns
         -------
         Optional[str]
-            A part of the data for a file in the dataset that was requested and is now being transmitted, or ``None``.
+            The name of the relevant dataset item/object/file, or ``None``.
         """
-        return self.data[self._DATA_KEY_FILE_DATA] if self._DATA_KEY_FILE_DATA in self.data else None
-
-    @property
-    def file_name(self) -> Optional[str]:
-        """
-        When available, the name of the dataset file for which this message carries data.
-
-        Returns
-        -------
-        Optional[str]
-            The name of the dataset file for which this message carries data, or ``None``.
-        """
-        return self.data[self._DATA_KEY_FILE_NAME] if self._DATA_KEY_FILE_NAME in self.data else None
+        return self.data.get(self._DATA_KEY_ITEM_NAME)
 
     @property
     def query_results(self) -> Optional[dict]:
-        return self.data[self._DATA_KEY_QUERY_RESULTS] if self._DATA_KEY_QUERY_RESULTS in self.data else None
+        return self.data.get(self._DATA_KEY_QUERY_RESULTS)
 
     @property
     def is_awaiting(self) -> bool:
@@ -573,7 +542,7 @@ class MaaSDatasetManagementMessage(DatasetManagementMessage, MaaSRequest):
     def factory_create(cls, mgmt_msg: DatasetManagementMessage, session_secret: str) -> 'MaaSDatasetManagementMessage':
         return cls(session_secret=session_secret, action=mgmt_msg.management_action, dataset_name=mgmt_msg.dataset_name,
                    is_read_only_dataset=mgmt_msg.is_read_only_dataset, category=mgmt_msg.data_category,
-                   domain=mgmt_msg.data_domain, data=mgmt_msg.data, data_location=mgmt_msg.data_location,
+                   domain=mgmt_msg.data_domain, data_location=mgmt_msg.data_location,
                    is_pending_data=mgmt_msg.is_pending_data)
 
     @classmethod
@@ -617,9 +586,9 @@ class MaaSDatasetManagementMessage(DatasetManagementMessage, MaaSRequest):
         dataset_name : Optional[str]
         is_read_only_dataset : bool
         category : Optional[DataCategory]
-        data : Optional[bytes]
         data_location : Optional[str]
         is_pending_data : bool
+        query : Optional[DataQuery]
         """
         super(MaaSDatasetManagementMessage, self).__init__(session_secret=session_secret, *args, **kwargs)
         self._data_requirements = []
