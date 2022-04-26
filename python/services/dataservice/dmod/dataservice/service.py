@@ -278,27 +278,81 @@ class ServiceManager(WebSocketInterface):
         """
         return self.find_dataset_for_requirement(requirement)
 
-    async def _async_process_add_data(self, message: DatasetManagementMessage, mngr: DatasetManager) -> DatasetManagementResponse:
+    async def _async_process_add_data(self, dataset_name: str, dest_item_name: str, message: DataTransmitMessage,
+                                      manager: DatasetManager, is_temp: bool = False) -> Union[DataTransmitResponse,
+                                                                                               DatasetManagementResponse]:
         """
-        Async wrapper function for ::method:`_process_add_data`.
+        Process a data transmit message for adding data to a dataset.
 
         Parameters
         ----------
-        message : DatasetManagementMessage
-            The incoming message, expected to include data to be added to a dataset.
-        mngr : DatasetManager
+        dataset_name : str
+            The name of the dataset to which data should be added.
+        dest_item_name : str
+            The name of the item/object/file within the dataset to which data should be added.
+        message : DataTransmitMessage
+            The incoming data message.
+        manager : DatasetManager
             The manager instance for the relevant dataset.
+        is_temp : bool
+            Value to pass through to the dataset manager, which is an indication of whether the destination item should
+            be treated as temporary.
 
         Returns
         -------
-        DatasetManagementResponse
+        Union[DataTransmitResponse, DatasetManagementResponse]
             Generated response to the manager message for adding data.
-
-        See Also
-        -------
-        ::method:`_process_add_data`
         """
-        return self._process_add_data(message, mngr)
+        if not isinstance(message, DataTransmitMessage):
+            return DatasetManagementResponse(action=ManagementAction.ADD_DATA, success=False, dataset_name=dataset_name,
+                                             reason="Unexpected Message Type Received")
+        elif message.data is None:
+            return DatasetManagementResponse(action=ManagementAction.ADD_DATA, success=False, dataset_name=dataset_name,
+                                             reason="No Data In Transmit Message")
+        elif manager.add_data(dataset_name=dataset_name, dest=dest_item_name, data=message.data.encode(), is_temp=is_temp):
+            if message.is_last:
+                return DatasetManagementResponse(action=ManagementAction.ADD_DATA, success=True,
+                                                 dataset_name=dataset_name, reason="All Data Added Successfully")
+            else:
+                return DataTransmitResponse(series_uuid=message.series_uuid, success=True, reason='Data Added')
+        else:
+            return DatasetManagementResponse(action=ManagementAction.ADD_DATA, success=False,
+                                             dataset_name=dataset_name, reason="Failure Adding Data To Dataset")
+
+    async def _async_process_data_request(self, message: DatasetManagementMessage, websocket) -> DatasetManagementResponse:
+        # Check if the data request can actually be fulfilled
+        dataset_name = message.dataset_name
+        item_name = message.data_location
+        check_possible_result = await self._async_can_provide_data(dataset_name=dataset_name, data_item=item_name)
+        if not check_possible_result.success:
+            # This should mean this is specifically a response instance than we can directly return
+            return check_possible_result
+
+        chunk_size = 1024
+        manager = self.get_known_datasets()[dataset_name].manager
+        chunking_keys = manager.data_chunking_params
+        if chunking_keys is None:
+            raw_data = manager.get_data(dataset_name=dataset_name, item_name=item_name)
+            transmit = DataTransmitMessage(data=raw_data, series_uuid=uuid4(), is_last=True)
+            await websocket.send(str(transmit))
+            response = DataTransmitResponse.factory_init_from_deserialized_json(json.loads(await websocket.recv()))
+        else:
+            offset = 0
+            actual_length = chunk_size
+            while actual_length == chunk_size:
+                chunk_params = {chunking_keys[0]: offset, chunking_keys[1]: chunk_size}
+                raw_data = manager.get_data(dataset_name, item_name, **chunk_params)
+                offset += chunk_size
+                actual_length = len(raw_data)
+                transmit = DataTransmitMessage(data=raw_data, series_uuid=uuid4(), is_last=True)
+                await websocket.send(str(transmit))
+                raw_response = await websocket.recv()
+                json_response = json.loads(raw_response)
+                response = DataTransmitResponse.factory_init_from_deserialized_json(json_response)
+                if not response.success:
+                    break
+        return DatasetManagementResponse(success=response.success, message='' if response.success else response.message,
+                                         reason='All Data Transferred' if response.success else response.reason)
 
     async def _async_process_data_request(self, message: DatasetManagementMessage, websocket) -> DatasetManagementResponse:
         # Check if the data request can actually be fulfilled
