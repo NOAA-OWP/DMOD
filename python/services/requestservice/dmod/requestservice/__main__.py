@@ -18,6 +18,7 @@ def _handle_args():
     parser.add_argument('--ssl-dir',
                         help='Change the base directory when using SSL certificate and key files with default names',
                         dest='ssl_dir',
+                        type=Path,
                         default=None)
     parser.add_argument('--cert',
                         help='Specify path for a particular SSL certificate file to use',
@@ -38,6 +39,7 @@ def _handle_args():
     parser.add_argument('--scheduler-ssl-dir',
                         help='Set the ssl directory for scheduler certs, if not the same as for the request handler',
                         dest='scheduler_ssl_dir',
+                        type=Path,
                         default=None)
     parser.add_argument('--data-service-host',
                         help='Set the appropriate hostname for the data service to connect with',
@@ -50,6 +52,7 @@ def _handle_args():
     parser.add_argument('--data-service-ssl-dir',
                         help='Set the ssl directory for data service certs, if not the same as for the request handler',
                         dest='data_service_ssl_dir',
+                        type=Path,
                         default=None)
     parser.add_argument('--pycharm-remote-debug',
                         help='Activate Pycharm remote debugging support',
