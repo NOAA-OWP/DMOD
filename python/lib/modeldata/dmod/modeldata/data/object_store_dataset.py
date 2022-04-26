@@ -235,26 +235,6 @@ class ObjectStoreDatasetManager(DatasetManager):
             self.persist_serialized(bucket_name)
         return result
 
-    def _load_from_existing_bucket(self, bucket_name: str) -> bool:
-        """
-        Search existing bucket for standard serialized dataset object, and reload the dataset if it is there.
-
-        Parameters
-        ----------
-        bucket_name : str
-            The name of the existing bucket.
-
-        Returns
-        -------
-        bool
-            ``True`` if a previous serialized dataset was reloaded, or ``False`` if one could not be from this bucket.
-        """
-        for obj in self._client.list_objects(bucket_name):
-            if obj.object_name == self._gen_dataset_serial_obj_name(bucket_name):
-                self.reload(bucket_name)
-                return True
-        return False
-
     # TODO: might need to add the threading stuff in this function when ready to add it
     def _push_files(self, bucket_name: str, dir_path: Path, recursive: bool = True, bucket_root: Optional[Path] = None,
                     do_checks: bool = True, resync_serialized: bool = True):
