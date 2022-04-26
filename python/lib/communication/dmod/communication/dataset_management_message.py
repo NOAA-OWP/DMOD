@@ -536,6 +536,8 @@ class MaaSDatasetManagementMessage(DatasetManagementMessage, MaaSRequest):
     the superclass.
     """
 
+    _SERIAL_KEY_DATA_REQUIREMENTS = 'data_requirements'
+    _SERIAL_KEY_OUTPUT_FORMATS = 'output_formats'
     _SERIAL_KEY_SESSION_SECRET = 'session_secret'
 
     @classmethod
@@ -566,13 +568,26 @@ class MaaSDatasetManagementMessage(DatasetManagementMessage, MaaSRequest):
             # Inject this if necessary before passing to supertype
             if 'deserialized_class' not in json_obj:
                 json_obj['deserialized_class'] = cls
+            elif isinstance(json_obj['deserialized_class'], str):
+                json_obj['deserialized_class'] = globals()[json_obj['deserialized_class']]
             # Also inject things that will be used as additional kwargs to the eventual class init
             if 'deserialized_class_kwargs' not in json_obj:
                 json_obj['deserialized_class_kwargs'] = dict()
             if 'session_secret' not in json_obj['deserialized_class_kwargs']:
                 json_obj['deserialized_class_kwargs']['session_secret'] = json_obj[cls._SERIAL_KEY_SESSION_SECRET]
 
-            return super().factory_init_from_deserialized_json(json_obj=json_obj)
+            obj = super().factory_init_from_deserialized_json(json_obj=json_obj)
+
+            # Also add these if there happened to be any present
+            if cls._SERIAL_KEY_DATA_REQUIREMENTS in json_obj:
+                obj.data_requirements.extend([DataRequirement.factory_init_from_deserialized_json(json) for json in
+                                              json_obj[cls._SERIAL_KEY_DATA_REQUIREMENTS]])
+            if cls._SERIAL_KEY_OUTPUT_FORMATS in json_obj:
+                obj.output_formats.extend(
+                    [DataFormat.get_for_name(f) for f in json_obj[cls._SERIAL_KEY_OUTPUT_FORMATS]])
+
+            # Finally, return the object
+            return obj
         except Exception as e:
             return None
 
@@ -599,6 +614,8 @@ class MaaSDatasetManagementMessage(DatasetManagementMessage, MaaSRequest):
         """
         List of all the explicit and implied data requirements for this request.
 
+        By default, this is an empty list, though it is possible to append requirements to the list.
+
         Returns
         -------
         List[DataRequirement]
@@ -611,8 +628,8 @@ class MaaSDatasetManagementMessage(DatasetManagementMessage, MaaSRequest):
         """
         List of the formats of each required output dataset for the requested task.
 
-        For now at least, this type of request will not itself produce any (direct) output.  Therefore, this will be an
-        empty list.
+        By default, this will be an empty list, though if any request does need to produce output, formats can be
+        appended to it
 
         Returns
         -------
@@ -624,6 +641,10 @@ class MaaSDatasetManagementMessage(DatasetManagementMessage, MaaSRequest):
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
         serial = super(MaaSDatasetManagementMessage, self).to_dict()
         serial[self._SERIAL_KEY_SESSION_SECRET] = self.session_secret
+        if len(self.data_requirements) > 0:
+            serial[self._SERIAL_KEY_DATA_REQUIREMENTS] = [r.to_dict() for r in self.data_requirements]
+        if len(self.output_formats) > 0:
+            serial[self._SERIAL_KEY_OUTPUT_FORMATS] = [f.name for f in self.output_formats]
         return serial
 
 
