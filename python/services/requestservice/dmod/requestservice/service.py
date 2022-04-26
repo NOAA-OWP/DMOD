@@ -3,7 +3,7 @@
 import asyncio
 import json
 import logging
-from typing import Union
+from typing import List, Type, Union
 
 import websockets
 from websockets import WebSocketServerProtocol
@@ -37,6 +37,20 @@ class RequestService(WebSocketSessionsInterface):
     server:
         websocket server
     """
+    _PARSEABLE_REQUEST_TYPES = [SessionInitMessage, NWMRequest, NGENRequest, MaaSDatasetManagementMessage, PartitionRequest]
+    """ Parseable request types, which are all authenticated ::class:`MaaSRequest` subtypes for this implementation. """
+
+    @classmethod
+    def get_parseable_request_types(cls) -> List[Type[AbstractInitRequest]]:
+        """
+        Get the ::class:`AbstractInitRequest` subtypes this type supports parsing when handling incoming messages.
+
+        Returns
+        -------
+        List[Type[AbstractInitRequest]]
+            The ::class:`AbstractInitRequest` subtypes this type supports parsing when handling incoming messages.
+        """
+        return cls._PARSEABLE_REQUEST_TYPES
 
     def __init__(self, listen_host='',
                  port='3012',
