@@ -9,6 +9,11 @@ from .. import specification
 
 
 class Backend(abc.ABC):
+    @classmethod
+    @abc.abstractmethod
+    def get_backend_type(cls) -> str:
+        ...
+
     def __init__(self, definition: specification.BackendSpecification, cache_limit: int = None):
         self.__definition = definition
         self._raw_data: typing.Dict[str, typing.Tuple[datetime, bytes]] = dict()
@@ -43,11 +48,7 @@ class Backend(abc.ABC):
         self._raw_data[identifier] = datetime.utcnow(), self._raw_data[identifier][1]
 
     @abc.abstractmethod
-    def _load_sources(self):
-        pass
-
-    @abc.abstractmethod
-    def get_data(self, identifier: str, store_data: bool = None) -> bytes:
+    def read(self, identifier: str, store_data: bool = None) -> bytes:
         """
         Returns:
             The raw data accessible via the backend
@@ -55,7 +56,7 @@ class Backend(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_data_stream(self, identifier: str, store_data: bool = None):
+    def read_stream(self, identifier: str, store_data: bool = None):
         """
         Get the data in the form of a bytes stream
 

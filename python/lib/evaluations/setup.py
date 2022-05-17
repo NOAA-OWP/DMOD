@@ -17,6 +17,16 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=['dmod-metrics'],
+    install_requires=[
+        'dmod-metrics',
+        'pandas',
+        'xarray',
+        'h5py',
+        'jsonquery-ng',
+        'pint',
+        'dateutil',
+        'pytz',
+        'requests'
+    ],
     packages=find_namespace_packages(exclude=('tests', 'schemas', 'ssl', 'src'))
 )

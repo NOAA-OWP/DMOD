@@ -4,6 +4,8 @@ import os
 import re
 import inspect
 
+from datetime import datetime
+
 import pandas
 
 from .. import specification
@@ -19,21 +21,25 @@ def get_datasource(datasource_definition: specification.DataSourceSpecification)
 
 
 class JSONDataRetriever(dataretriever.DataRetriever):
+    @classmethod
+    def get_format_name(cls) -> str:
+        return "json"
+
     def get_data(self) -> pandas.DataFrame:
         documents = {
-            source: jsonquery.Document(self.backend.get_data(source))
+            str(source): util.data_to_dictionary(self.backend.read(source))
             for source in self.backend.sources
         }
 
         frames = dict()
 
-        for document_name, document in documents.items():  # type: str, jsonquery.Document
+        for document_name, document in documents.items():  # type: str, typing.Dict[str, typing.Any]
             frame = None
             for selector in self.definition.value_selectors:
                 if selector.where == "constant":
                     continue
 
-                selected_data = reader.select_values(document.data, selector)
+                selected_data = reader.select_values(document, selector)
 
                 if frame is None:
                     frame = selected_data
@@ -106,8 +112,11 @@ class JSONDataRetriever(dataretriever.DataRetriever):
         return combined_frame
 
 
-
 class FrameDataRetriever(dataretriever.DataRetriever):
+    @classmethod
+    def get_format_name(cls) -> str:
+        return "csv"
+
     def get_data(self) -> pandas.DataFrame:
         constructor_signature = inspect.signature(pandas.read_csv)
         provided_parameters = {
@@ -136,7 +145,7 @@ class FrameDataRetriever(dataretriever.DataRetriever):
         combined_table = None
 
         for source in self.backend.sources:
-            document = pandas.read_csv(self.backend.get_data_stream(source), **provided_parameters)
+            document = pandas.read_csv(self.backend.read_stream(source), **provided_parameters)
 
             column_names: typing.Set[str] = set()
 
@@ -168,15 +177,22 @@ class FrameDataRetriever(dataretriever.DataRetriever):
 
             if self.definition.locations.should_identify and self.definition.locations.from_field.lower() == 'filename':
                 file_name_without_extension = os.path.splitext(os.path.basename(source))[0]
+                pattern = self.definition.locations.pattern
 
+                path_to_check = os.path.join(*pattern) if util.is_arraytype(pattern) else pattern
                 search_results = re.search(
-                        os.path.pathsep.join(self.definition.locations.pattern),
+                        path_to_check,
                         file_name_without_extension
                 )
 
                 name = search_results.group() if search_results else file_name_without_extension
 
                 table = table.assign(location=[name for _ in range(len(table))])
+
+            if self.definition.unit.value:
+                index = table.index
+                unit_field = pandas.Series(data=[self.definition.unit.value for _ in range(len(index))], index=index)
+                table['unit'] = unit_field
 
             fields_to_rename: typing.Dict[str, str] = dict()
 

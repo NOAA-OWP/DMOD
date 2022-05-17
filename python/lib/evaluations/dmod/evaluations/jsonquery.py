@@ -12,30 +12,6 @@ clause_separator: typing.Final[str] = "/"
 WILDCARDS = ("", "#", "*")
 
 
-class QueryResult:
-    def __init__(self, result: RESULT_VALUE):
-        self.__result = result
-
-    def __get__(self, instance, owner) -> RESULT_VALUE:
-        return self.__result
-
-    def all(self, function: typing.Callable[[RESULT_VALUE], typing.Any]) -> typing.Sequence:
-        function_results = list()
-
-        if isinstance(self.__result, str):
-            function_results.append(function(self.__result))
-        elif isinstance(self.__result, typing.Dict):
-            for key, value in self.__result.items():
-                function_results.append(function((key, value)))
-        elif isinstance(self.__result, typing.Sequence):
-            for member in self.__result:
-                function_results.append(function(member))
-        else:
-            function_results.append(function(self.__result))
-
-        return function_results
-
-
 class _DocumentElement:
     def __init__(self, data: RESULT_VALUE = None, parent: "_DocumentElement" = None):
         self.__data = data
@@ -163,17 +139,3 @@ class Document:
 
     def __repr__(self):
         return str(self.__data)
-
-
-def main():
-    sample_path = "/Users/christopher.tubbs/workspace/DMOD/python/lib/evaluations/dmod/test/reading/nwis.json"
-    with open(sample_path, 'r') as sample_file:
-        document = Document(sample_file)
-
-    query_url = document.query("value/queryInfo/queryURL")
-    result = document.query("value/timeSeries/#/values/#/value/*")
-    print("Testing done")
-
-
-if __name__ == "__main__":
-    main()

@@ -9,30 +9,34 @@ TEST_DOCUMENT_PATH = os.path.join(os.path.dirname(__file__), "crosswalk.json")
 
 
 class TestFileCrosswalk(unittest.TestCase):
-    def setUp(self) -> None:
-        self.__json_specification = specification.CrosswalkSpecification(
+    @classmethod
+    def get_json_specification(cls) -> specification.CrosswalkSpecification:
+        return specification.CrosswalkSpecification(
                 backend=specification.BackendSpecification(
                         backend_type="file",
                         address=TEST_DOCUMENT_PATH,
                         data_format="json"
                 ),
                 origin="",
-                observation_field_name="observed",
-                prediction_field_name="predicted",
+                observation_field_name="observation_location",
+                prediction_field_name="prediction_location",
                 field=specification.ValueSelector(
-                        name="predicted",
+                        name="prediction_location",
                         where="key",
                         path="*",
                         origin="$",
                         datatype="string",
                         associated_fields=[
                             specification.AssociatedField(
-                                    name="observed",
+                                    name="observation_location",
                                     path="site_no"
                             )
                         ]
                 )
         )
+
+    def setUp(self) -> None:
+        self.__json_specification = TestFileCrosswalk.get_json_specification()
 
     @classmethod
     def make_assertions(

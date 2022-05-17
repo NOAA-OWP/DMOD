@@ -14,10 +14,14 @@ TEST_OBSERVATION_PATH = os.path.join(os.path.dirname(__file__), "observations.cs
 
 
 class TestCSVRetrieving(unittest.TestCase):
-    def setUp(self) -> None:
-        self.__multiple_specification = specification.DataSourceSpecification(
+    @classmethod
+    def create_multiple_specification(cls) -> specification.DataSourceSpecification:
+        return specification.DataSourceSpecification(
                 name="Predictions",
                 value_field="prediction",
+                unit=specification.UnitDefinition(
+                        value="m3 s-1"
+                ),
                 backend=specification.BackendSpecification(
                         backend_type="file",
                         data_format="csv",
@@ -56,17 +60,18 @@ class TestCSVRetrieving(unittest.TestCase):
                                         datatype="datetime"
                                 )
                             ]
-                    ),
-                    specification.ValueSelector(
-                            name="unit",
-                            where="constant",
-                            path="m3 s-1"
                     )
                 ]
         )
-        self.__single_data_specification = specification.DataSourceSpecification(
+
+    @classmethod
+    def create_single_data_specification(cls) -> specification.DataSourceSpecification:
+        return specification.DataSourceSpecification(
                 name="Observations",
                 value_field="observation",
+                unit=specification.UnitDefinition(
+                        field="unit"
+                ),
                 backend=specification.BackendSpecification(
                         backend_type="file",
                         data_format="csv",
@@ -99,6 +104,15 @@ class TestCSVRetrieving(unittest.TestCase):
                     )
                 ]
         )
+
+    def setUp(self) -> None:
+        self.__multiple_specification = TestCSVRetrieving.create_multiple_specification()
+        self.__single_data_specification = TestCSVRetrieving.create_single_data_specification()
+
+    def test_uninstantiated_single_table(self):
+        data_retriever
+        retriever = disk.FrameDataRetriever(self.__single_data_specification)
+        TestCSVRetrieving.run_single_assertions(self, retriever)
 
     def test_direct_multiple_tables(self):
         retriever = disk.FrameDataRetriever(self.__multiple_specification)

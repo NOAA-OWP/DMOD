@@ -3,7 +3,6 @@ import unittest
 import typing
 import io
 
-from datetime import datetime
 from datetime import timedelta
 
 from dateutil.parser import parse as parse_date

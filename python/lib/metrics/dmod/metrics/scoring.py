@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 import typing
+import string
 import abc
+import re
+
 from collections import defaultdict
 from collections import abc as abstract_collections
 
@@ -9,7 +12,7 @@ from math import inf as infinity
 import pandas
 import numpy
 
-from dmod.metrics.threshold import Threshold
+from .threshold import Threshold
 
 ARGS = typing.Optional[typing.Sequence]
 KWARGS = typing.Optional[typing.Dict[str, typing.Any]]
@@ -23,6 +26,8 @@ FRAME_FILTER = typing.Callable[[pandas.DataFrame], pandas.DataFrame]
 
 
 EPSILON = 0.0001
+
+WHITESPACE_PATTERN = re.compile(f"[{string.whitespace}]+")
 
 
 def scale_value(metric: "Metric", raw_value: NUMBER) -> NUMBER:
@@ -63,8 +68,8 @@ def scale_value(metric: "Metric", raw_value: NUMBER) -> NUMBER:
 
 
 class Metric(
-    abc.ABC,
-    typing.Callable[[pandas.DataFrame, str, str, typing.Optional[typing.Sequence[Threshold]], ARGS, KWARGS], "Scores"]
+        abc.ABC,
+        typing.Callable[[pandas.DataFrame, str, str, typing.Optional[typing.Sequence[Threshold]], ARGS, KWARGS], "Scores"]
 ):
     """
     A functional that may be called to evaluate metrics based around thresholds, providing access to attributes
@@ -108,6 +113,27 @@ class Metric(
             A description of how the metric works and how it's supposed be be interpreted
         """
         pass
+
+    @classmethod
+    def get_identifier(cls) -> str:
+        """
+        Returns an identifier that may be compared against other strings for identification
+
+        This will convert "Pearson Correlation Coefficient" to "pearsoncorrelationcoefficient"
+
+        If a function tries to find a metric by name, it can compare and find the metric with values like
+        "pEArSoNcOrreLaTionC oeffIcIEnT" or "pearson correlation_coefficient"
+
+        Returns:
+            An identifier that may be compared against other strings for identification
+        """
+        identifier = cls.get_name()
+        identifier = WHITESPACE_PATTERN.sub("", identifier)
+        identifier = identifier.replace("_", "")
+        identifier = identifier.replace(chr(45), "")
+        identifier = identifier.replace(chr(8211), "")
+        identifier = identifier.lower()
+        return identifier
 
     @property
     def name(self) -> str:
@@ -207,7 +233,7 @@ class Metric(
 
     @classmethod
     @abc.abstractmethod
-    def get_name(cls):
+    def get_name(cls) -> str:
         pass
 
     @abc.abstractmethod
@@ -241,7 +267,7 @@ class Score(object):
 
     @property
     def scaled_value(self) -> NUMBER:
-        return scale_value(self.__metric, self.__value) * self.__threshold.weight
+        return scale_value(self.__metric, self.__value) * self.__metric.weight
 
     @property
     def metric(self) -> Metric:
@@ -335,31 +361,51 @@ class MetricResults(object):
 
         self.__weight = weight or 1
 
-    def to_dataframe(self) -> pandas.DataFrame:
+    def to_dataframe(self, include_metadata: bool = None) -> pandas.DataFrame:
+        if include_metadata is None:
+            include_metadata = False
+
         rows = list()
 
         for threshold, scores in self.__results.items():
             threshold_rows: typing.List[dict] = list()
+            threshold_value = None
+
+            threshold_value_is_sequence = isinstance(threshold_value, (pandas.Series, typing.Sequence))
+            threshold_value_is_sequence &= not isinstance(threshold.value, str)
+
+            threshold_value = threshold.value[0] if threshold_value_is_sequence else threshold.value
 
             for score in scores:
                 row_values = dict()
                 row_values['threshold_name'] = threshold.name
                 row_values['threshold_weight'] = threshold.weight
-                row_values['threshold_value'] = threshold.value
                 row_values['result'] = score.value
                 row_values['scaled_result'] = score.scaled_value
                 row_values['metric'] = score.metric.name
                 row_values['metric_weight'] = score.metric.weight
-                row_values['desired_metric_value'] = score.metric.ideal_value
-                row_values['failing_metric_value'] = score.metric.fails_on
-                row_values['metric_lower_bound'] = score.metric.lower_bound
-                row_values['metric_upper_bound'] = score.metric.upper_bound
+
+                if include_metadata:
+                    row_values['threshold_value'] = threshold_value
+                    row_values['desired_metric_value'] = score.metric.ideal_value
+                    row_values['failing_metric_value'] = score.metric.fails_on
+                    row_values['metric_lower_bound'] = score.metric.lower_bound
+                    row_values['metric_upper_bound'] = score.metric.upper_bound
 
                 threshold_rows.append(row_values)
 
             rows.extend(threshold_rows)
 
         return pandas.DataFrame(rows)
+
+    @property
+    def maximum_value_per_threshold(self) -> NUMBER:
+        total_value_per_threshold = 0
+        for threshold_scores in self.__results.values():
+            for score in threshold_scores:
+                total_value_per_threshold += score.metric.weight
+            break
+        return total_value_per_threshold
 
     def score_threshold(self, threshold: Threshold) -> NUMBER:
         threshold_score = numpy.nan
@@ -384,13 +430,30 @@ class MetricResults(object):
     def total(self) -> NUMBER:
         total_score = numpy.nan
         count = 0
+        max_per_threshold = self.maximum_value_per_threshold
+        max_across_thresholds = sum([
+            threshold.weight
+            for threshold in self.__results.keys()
+        ])
 
         for threshold in self.__results.keys():
             threshold_score = self.score_threshold(threshold)
+
+            if numpy.isnan(threshold_score):
+                threshold_score = 0
+            else:
+                threshold_factor = threshold_score / max_per_threshold
+                threshold_score = threshold.weight * threshold_factor
             count += 1
             total_score = self.__aggregator(total_score, threshold_score, count)
 
         return total_score
+
+    def keys(self) -> typing.KeysView:
+        return self.__results.keys()
+
+    def values(self) -> typing.ValuesView:
+        return self.__results.values()
 
     def add_scores(self, scores: Scores):
         for score in scores:
@@ -410,8 +473,8 @@ class MetricResults(object):
 
         raise KeyError(f"There are no thresholds named '{key}'. Available keys are: {', '.join(available_thresholds)}")
 
-    def __iter__(self) -> typing.ItemsView[Threshold, typing.List[Score]]:
-        return self.__results.items()
+    def __iter__(self) -> typing.Iterator[typing.Tuple[Threshold, typing.List[Score]]]:
+        return iter(self.__results.items())
 
 
 class ScoringScheme(object):
@@ -435,7 +498,7 @@ class ScoringScheme(object):
     ):
         self.__aggregator = aggregator or ScoringScheme.get_default_aggregator()
         self.__metrics = metrics or list()
-    
+
     def score(
             self,
             pairs: pandas.DataFrame,
@@ -448,7 +511,7 @@ class ScoringScheme(object):
     ) -> MetricResults:
         if len(self.__metrics) == 0:
             raise ValueError(
-                "No metrics were attached to the scoring scheme - values cannot be scored and aggregated"
+                    "No metrics were attached to the scoring scheme - values cannot be scored and aggregated"
             )
 
         weight = 1 if not weight or numpy.isnan(weight) else weight
@@ -457,12 +520,12 @@ class ScoringScheme(object):
 
         for metric in self.__metrics:
             scores = metric(
-                pairs=pairs,
-                observed_value_label=observed_value_label,
-                predicted_value_label=predicted_value_label,
-                thresholds=thresholds,
-                *args,
-                **kwargs
+                    pairs=pairs,
+                    observed_value_label=observed_value_label,
+                    predicted_value_label=predicted_value_label,
+                    thresholds=thresholds,
+                    *args,
+                    **kwargs
             )
             results.add_scores(scores)
 

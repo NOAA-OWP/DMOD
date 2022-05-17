@@ -8,6 +8,16 @@ from .. import backends
 
 
 class CrosswalkRetriever(abc.ABC):
+    @classmethod
+    @abc.abstractmethod
+    def get_format(cls) -> str:
+        ...
+
+    @classmethod
+    @abc.abstractmethod
+    def get_type(cls) -> str:
+        ...
+
     def __init__(self, definition: specification.CrosswalkSpecification):
         self.__definition = definition
         self.__backend = backends.get_backend(definition.backend)

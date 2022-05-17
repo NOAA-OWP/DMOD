@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import typing
 
+from datetime import datetime
+
 import pandas
 import jsonpath_ng as jsonpath
 
@@ -70,6 +72,7 @@ def select_values(document: dict, selector: specification.ValueSelector):
                     columns[index.name] = column_data
             else:
                 index_path = full_path + "." + ".".join(index.path)
+
                 index_expression: jsonpath.This = jsonpath.parse(index_path)
                 index_results = index_expression.find(document)
 
@@ -88,7 +91,9 @@ def select_values(document: dict, selector: specification.ValueSelector):
 
         tables.append(pandas.DataFrame(data=columns))
 
-    if tables:
+    if len(tables) == 1:
+        return tables[0]
+    elif tables:
         table = pandas.concat(tables, ignore_index=True)
         return table
 

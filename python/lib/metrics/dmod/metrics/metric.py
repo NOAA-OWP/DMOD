@@ -12,16 +12,18 @@ import typing
 import abc
 import math
 import inspect
+import re
+import string
 import logging
 
 import numpy
 import pandas
 import sklearn.metrics
 
-import dmod.metrics.scoring as scoring
-import dmod.metrics.threshold as threshold
-import dmod.metrics.categorical as categorical
-from dmod.metrics.threshold import Threshold
+from . import scoring
+from . import threshold
+from . import categorical
+from .threshold import Threshold
 
 
 logging.basicConfig(
@@ -36,6 +38,7 @@ DEFAULT_TRUTH_TABLES_KEY = "TRUTH_TABLES"
 ROW_INDEX_KEY = typing.Optional[typing.Hashable]
 KEY_AND_ROW = typing.Tuple[ROW_INDEX_KEY, pandas.Series]
 INFINITY = math.inf
+WHITESPACE_PATTERN = re.compile(f"[{string.whitespace}]+")
 
 
 def is_type(value: object, value_type: typing.Type) -> bool:
@@ -54,14 +57,11 @@ def is_type(value: object, value_type: typing.Type) -> bool:
     value_is_valid = False
 
     try:
-        type_members: typing.Sequence[typing.Type] = typing.get_args(value_type)
+        type_members: typing.Tuple = typing.get_args(value_type)
 
         # If the given value is not a scalar value, we need to check the types against
         if isinstance(value, typing.Sequence):
             if len(value) == len(type_members):
-                value_is_valid = len([
-
-                ])
                 for type_index in range(len(type_members)):
                     value_is_valid = isinstance(value[type_index], type_members[type_index])
                     if not value_is_valid:
@@ -88,24 +88,44 @@ def is_type(value: object, value_type: typing.Type) -> bool:
     return value_is_valid
 
 
-def get_all_metrics() -> typing.Iterable[typing.Type]:
+def _get_subclasses(klazz: typing.Type[scoring.Metric]) -> typing.Sequence[typing.Type[scoring.Metric]]:
+    subclasses: typing.List[typing.Type[scoring.Metric]] = list()
+
+    if inspect.isabstract(klazz):
+        for subclass in klazz.__subclasses__():
+            subclasses.extend(_get_subclasses(subclass))
+    else:
+        subclasses.append(klazz)
+
+    return subclasses
+
+
+def get_all_metrics() -> typing.Iterable[typing.Type[scoring.Metric]]:
     """
     Returns:
         A collection of all fully implemented metrics
     """
 
-    def filter_metric(klazz) -> bool:
-        return inspect.isclass(klazz) and not inspect.isabstract(klazz)
-
-    collection: typing.List[typing.Type] = [
-        cls
-        for name, cls in inspect.getmembers(
-            scoring.Metric,
-            predicate=filter_metric
-        )
-    ]
+    collection = _get_subclasses(scoring.Metric)
 
     return collection
+
+
+def get_metric(name: str, weight: float) -> scoring.Metric:
+    cleaned_up_name = WHITESPACE_PATTERN.sub("", name)
+    cleaned_up_name = cleaned_up_name.replace("_", "")
+    cleaned_up_name = cleaned_up_name.replace(chr(45), "")
+    cleaned_up_name = cleaned_up_name.replace(chr(8211), "")
+    cleaned_up_name = cleaned_up_name.lower()
+
+    matching_metrics: typing.Sequence[typing.Type[scoring.Metric]] = [
+        metric for metric in get_all_metrics() if metric.get_identifier() == cleaned_up_name
+    ]
+
+    if len(matching_metrics) == 0:
+        raise KeyError(f"There are no metrics named '{name}'")
+
+    return matching_metrics[0](weight)
 
 
 def find_truthtables_key(**kwargs) -> typing.Optional[str]:
@@ -421,7 +441,7 @@ class NormalizedNashSutcliffeEfficiency(scoring.Metric):
 
     @classmethod
     def get_name(cls) -> str:
-        return "Normalized Nash–Sutcliffe Efficiency"
+        return "Normalized Nash-Sutcliffe Efficiency"
 
     def __init__(self, weight: NUMBER):
         """
