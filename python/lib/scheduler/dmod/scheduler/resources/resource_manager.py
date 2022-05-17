@@ -155,8 +155,7 @@ class ResourceManager(ABC):
 
     def allocate_single_node(self, cpus: int, memory: int) -> List[Optional[ResourceAllocation]]:
         """
-        Check available resources to allocate job request to a single node to optimize
-        computation efficiency
+        Check available resources to allocate job request to single-cpu allocations on a single node.
 
         Parameters
         ----------
@@ -166,23 +165,32 @@ class ResourceManager(ABC):
         Returns
         -------
         [ResourceAlloction]
-            Single element List of ResourceAllocation if allocation successful, otherwise, [None]
+            List of ResourceAllocation if allocation successful; otherwise, [None]
         """
         #Fit the entire allocation on a single resource
         self.validate_allocation_parameters(cpus, memory)
 
         for res in self.get_useable_resources():
-            #if res.cpu_count >= cpus and res.memory >= memory:
-            allocation = self.allocate_resource(resource_id=res.resource_id, requested_cpus=cpus,
-                                                requested_memory=memory)
-            if allocation:
-                return [allocation]
+            if res.cpu_count >= cpus and res.memory >= memory:
+                allocations = []
+                mem = int(memory / cpus)
+                for i in range(cpus):
+                    alloc = self.allocate_resource(resource_id=res.resource_id, requested_cpus=1, requested_memory=mem)
+                    if alloc is None:
+                        allocations = None
+                        break
+                    else:
+                        allocations.append(alloc)
+                if allocations is not None:
+                    return allocations
         return [None]
 
     def allocate_fill_nodes(self, cpus: int, memory: int) -> List[Optional[ResourceAllocation]]:
         """
-        Check available resources to allocate job request to one or more nodes, claiming all required
-        resources from each node until the request is satisfied.
+        Allocate job request to single-cpu allocations on one or more nodes, filling nodes before moving to next.
+
+        Allocate job request to single-cpu allocations on one or more nodes, claiming all available, required resources
+        from the current node before beginning to get resources from the next.
 
         Parameters
         ----------
@@ -196,32 +204,32 @@ class ResourceManager(ABC):
         """
         self.validate_allocation_parameters(cpus, memory)
         #TODO fill_nodes really should allocate on a MEM per CPU basis???
-        allocation = []
+        allocations = []
+        per_alloc_mem = int(memory / cpus)
 
         for res in self.get_useable_resources(): #i in range(len(resources)):
-            #Greedily allocate a (potentially) partial allocation on this resource
-            alloc = self.allocate_resource(resource_id=res.resource_id, requested_cpus=cpus,
-                                                requested_memory=memory, partial=True)
-            if alloc:
-                #The allocation was (partially) successful
-                allocation.append(alloc)
-                cpus -= alloc.cpu_count
-                #TODO what about memory?  If mem_per_node, don't change it
-            else:
-                #TODO think about mem per process type allocation
-                #For now, this resource cannot provide anything to the allocation
-                #So we skip to the next one
-                continue
+            # Greedily allocate a (potentially) partial allocation on this resource
+            alloc = self.allocate_resource(resource_id=res.resource_id, requested_cpus=1,
+                                           requested_memory=per_alloc_mem, partial=True)
+            # Whenever the allocation was (partially) successful
+            while alloc is not None and cpus > 0:
+                # Append, then do it again
+                allocations.append(alloc)
+                cpus -= 1
+                alloc = self.allocate_resource(resource_id=res.resource_id, requested_cpus=1,
+                                               requested_memory=per_alloc_mem, partial=True)
+                # TODO what about memory?  If mem_per_node, don't change it
+            # TODO think about mem per process type allocation
+            # Here (back in outer loop), if we have all needed allocations, break (otherwise, continue to next resource)
             if cpus < 1:
                 break
 
-        #If enough resources found, return the allocations
-        #otherwise we have to roll back the greedily aquired resources
+        # If not enough resources found, roll back and release the acquired allocations
         if cpus > 0:
-            self.release_resources(allocation)
-            allocation = [None]
-
-        return allocation
+            self.release_resources(allocations)
+            allocations = [None]
+        # Otherwise, return the allocations
+        return allocations
 
     def allocate_round_robin(self, cpus: int, memory: int) -> List[Optional[ResourceAllocation]]:
         """
@@ -248,32 +256,40 @@ class ResourceManager(ABC):
         #Find the number of cpus to allocate to each node
         self.validate_allocation_parameters(cpus, memory)
         resources = list(self.get_useable_resources())
+        per_alloc_mem = int(memory / cpus)
 
         num_node = len(resources)
         if num_node == 0:
             return [None]
 
-        int_cpus = int(cpus / num_node)
-        remaining_cpus = cpus % num_node
-        cpu_per_resource = [int_cpus]*num_node #The minimun number of cpus on each resource
-        for i in range(remaining_cpus):
-            cpu_per_resource[i] += 1    #Add remainder if needed
+        allocations = []
 
-        allocation = []
+        # Keep track of when we have exhausted resources and can no longer allocate from them
+        resource_is_exhausted = []
+        for r in resources:
+            resource_is_exhausted.append(False)
 
-        for i in range(num_node):
-            #Greedily allocate a full allocation on this resource
-            alloc = self.allocate_resource(resource_id=resources[i].resource_id, requested_cpus=cpu_per_resource[i],
-                                                requested_memory=memory)
-            if alloc:
-                #This resource can satisfy the allocation so far
-                allocation.append(alloc)
-                cpus -= alloc.cpu_count
-            else:
-                #TODO think about mem per process type allocation
-                #For now, this resource cannot provide anything to the allocation
-                #If alloc wasn't successful, don't need to try any more, release any we are holding and return
-                self.release_resources(allocation)
-                return [None]
+        #
+        resource_index = 0
+        while not all(resource_is_exhausted) and cpus > 0:
+            # If the resource for this iteration is not known to be exhausted, try to allocate from it
+            if not resource_is_exhausted[resource_index]:
+                # Assuming this resource isn't already known to be exhausted, try to allocate
+                alloc = self.allocate_resource(resource_id=resources[resource_index].resource_id, requested_cpus=1,
+                                               requested_memory=per_alloc_mem, partial=True)
+                # If we can't actually allocate from it, mark this resource as being exhausted
+                if alloc is None:
+                    resource_is_exhausted[resource_index] = True
+                # Whenever allocation was (partially) successful, add the allocation and decrement the cpus remaining
+                else:
+                    allocations.append(alloc)
+                    cpus -= 1
+            # Regardless, always move to the next resource (index) for next loop iteration
+            resource_index = (resource_index + 1) % len(resources)
 
-        return allocation
+        # If this occurs, all resources were exhausted before everything could be fulfilled, so rollback and release
+        if cpus > 0:
+            self.release_resources(allocations)
+            allocations = [None]
+
+        return allocations

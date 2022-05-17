@@ -28,9 +28,12 @@ class JobAllocationParadigm(Enum):
     The values are as follows:
         FILL_NODES  - obtain allocations of assets by proceeding through resources in some order, getting either the max
                       possible allocation from the current resource or a allocation that fulfills the outstanding need,
-                      until the sum of assets among all received allocations is sufficient
-        ROUND_ROBIN - obtain allocations of assets from available resource nodes in a round-robin manner
-        SINGLE_NODE - require all allocation of assets to be from a single resource/host
+                      until the sum of assets among all received allocations is sufficient; also, have allocations be
+                      single cpu/process
+        ROUND_ROBIN - obtain allocations of assets from available resource nodes in a round-robin manner; also, have
+                      allocations be single cpu/process
+        SINGLE_NODE - require all allocation of assets to be from a single resource/host; also, require allocations to
+                      be single cpu/process
     """
 
     FILL_NODES = 0
