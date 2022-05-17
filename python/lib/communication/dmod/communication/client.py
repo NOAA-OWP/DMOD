@@ -634,10 +634,6 @@ class ModelExecRequestClient(MaasRequestClient[ModelExecRequest, ModelExecReques
     def __init__(self, endpoint_uri: str, ssl_directory: Path):
         super().__init__(endpoint_uri=endpoint_uri, ssl_directory=ssl_directory)
 
-    @abstractmethod
-    def _init_maas_job_request(self):
-        pass
-
     def _update_after_valid_response(self, response: ModelExecRequestResponse):
         """
         Perform any required internal updates immediately after a request gets back a successful, valid response.
