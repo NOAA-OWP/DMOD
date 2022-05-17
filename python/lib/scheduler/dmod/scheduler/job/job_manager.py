@@ -350,7 +350,7 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
             # For now, assume failure requires manual re-transition
             #if job.status_step == JobExecStep.FAILED
 
-            if job.status_step.AWAITING_ALLOCATION:
+            if job.status_step == JobExecStep.AWAITING_ALLOCATION:
                 # Add to collection, though make sure it doesn't already have an allocation
                 if job.allocations is None or len(job.allocations) == 0:
                     jobs_eligible_for_allocate.append(job)
