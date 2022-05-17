@@ -910,7 +910,7 @@ class NGENRequest(ModelExecRequest):
         self._bmi_cfg_data_requirement = None
         self._partition_cfg_data_requirement = None
 
-    def _gen_catchments_domain_restriction(self, var_name: str = 'catchment-id') -> DiscreteRestriction:
+    def _gen_catchments_domain_restriction(self, var_name: str = 'catchment_id') -> DiscreteRestriction:
         """
         Generate a ::class:`DiscreteRestriction` that will restrict to the catchments applicable to this request.
 
@@ -1016,7 +1016,7 @@ class NGENRequest(ModelExecRequest):
             A requirement object defining the hydrofabric data needed to execute this request.
         """
         if self._hydrofabric_data_requirement is None:
-            hydro_restrictions = [DiscreteRestriction(variable='hydrofabric_uid', values=[self._hydrofabric_uid]),
+            hydro_restrictions = [DiscreteRestriction(variable='hydrofabric_id', values=[self._hydrofabric_uid]),
                                   DiscreteRestriction(variable='data_id', values=[self._hydrofabric_data_id])]
             hydro_domain = DataDomain(data_format=DataFormat.NGEN_GEOJSON_HYDROFABRIC,
                                       discrete_restrictions=hydro_restrictions)
@@ -1096,10 +1096,10 @@ class NGENRequest(ModelExecRequest):
             d_restricts = []
 
             # Add restriction on hydrofabric
-            d_restricts.append(DiscreteRestriction(variable="hydrofabric_uid", values=[self.hydrofabric_uid]))
+            d_restricts.append(DiscreteRestriction(variable="hydrofabric_id", values=[self.hydrofabric_uid]))
 
             # Add restriction on partition count, which will be based on the number of request CPUs
-            d_restricts.append(DiscreteRestriction(variable="count", values=[self.cpu_count]))
+            d_restricts.append(DiscreteRestriction(variable="length", values=[self.cpu_count]))
 
             # If present, add restriction on data_id
             if self.partition_cfg_data_id is not None:
