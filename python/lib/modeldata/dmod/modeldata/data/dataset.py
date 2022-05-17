@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from dmod.core.meta_data import ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction, TimeRange
+from dmod.core.meta_data import ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction, \
+    StandardDatasetIndex, TimeRange
 from datetime import datetime, timedelta
 
 from dmod.core.serializable import Serializable, ResultIndicator
@@ -389,7 +390,7 @@ class Dataset(Serializable, ABC):
         if not self.data_format.is_time_series:
             return None
         # As TimeRange extends ContinuousRestriction, it should only be in the continuous_restrictions property list
-        tr = self.data_domain.continuous_restrictions[self.data_format.time_series_index]
+        tr = self.data_domain.continuous_restrictions[StandardDatasetIndex.TIME]
         return tr if isinstance(tr, TimeRange) else TimeRange(begin=tr.begin, end=tr.end, variable=tr.variable)
 
     @property
