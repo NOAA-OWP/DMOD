@@ -4,6 +4,7 @@ import unittest
 import json
 
 from ...evaluations import backends
+from ...evaluations.backends import file as file_backend
 from ...evaluations import specification
 
 TEST_DOCUMENT_PATH = os.path.join(os.path.dirname(__file__), "nexus_data.geojson")
@@ -43,21 +44,30 @@ def is_geojson(data: typing.Union[str, bytes, typing.Dict[str, typing.Any]]) -> 
     except:
         return False
 
+
 class TestFileBackend(unittest.TestCase):
-    def setUp(self) -> None:
-        self.__direct_definition = specification.BackendSpecification(
+    @classmethod
+    def create_direct_definition(cls) -> specification.BackendSpecification:
+        return specification.BackendSpecification(
                 backend_type="file",
                 data_format="json",
                 address=TEST_DOCUMENT_PATH
         )
-        self.__regex_definition = specification.BackendSpecification(
+
+    @classmethod
+    def create_regex_definition(cls) -> specification.BackendSpecification:
+        return specification.BackendSpecification(
                 backend_type="file",
                 data_format="json",
                 address=TEST_DOCUMENT_REGEX
         )
 
+    def setUp(self) -> None:
+        self.__direct_definition = TestFileBackend.create_direct_definition()
+        self.__regex_definition = TestFileBackend.create_regex_definition()
+
     def test_single_loading(self):
-        direct_backend = backends.FileBackend(self.__direct_definition)
+        direct_backend = file_backend.FileBackend(self.__direct_definition)
         self.run_assertions(
                 self,
                 direct_backend,
@@ -65,7 +75,7 @@ class TestFileBackend(unittest.TestCase):
         )
 
     def test_multi_loading(self):
-        multi_backend = backends.FileBackend(self.__regex_definition)
+        multi_backend = file_backend.FileBackend(self.__regex_definition)
         self.run_assertions(
                 self,
                 multi_backend,
@@ -107,13 +117,13 @@ class TestFileBackend(unittest.TestCase):
 
         for expected_file in expected_files:
             test.assertIn(expected_file, backend)
-            raw_data = backend.get_data(expected_file, store_data=False)
+            raw_data = backend.read(expected_file, store_data=False)
 
-            stream = backend.get_data_stream(expected_file, store_data=True)
+            stream = backend.read_stream(expected_file, store_data=True)
             stream_data = stream.read()
             test.assertEqual(raw_data, stream_data)
 
-            raw_data = backend.get_data(expected_file)
+            raw_data = backend.read(expected_file)
             test.assertEqual(raw_data, stream_data)
 
 

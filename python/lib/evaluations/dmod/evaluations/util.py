@@ -1,12 +1,19 @@
+import pathlib
 import typing
 import inspect
 import string
+import re
+import sys
 
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 from datetime import date
 from datetime import time
+
+from glob import glob
+
+import json
 
 import dateutil.tz
 
@@ -17,6 +24,10 @@ import pandas
 import pytz
 
 from dateutil.parser import parse as parse_date_string
+
+RE_PATTERN = re.compile(r"(\{.+\}|\[.+\]|\(.+\)|(?<!\\)\.|\{|\}|\]|\[|\(|\)|\+|\*|\\[a-zA-Z]|\?)+")
+MULTI_GLOB_PATTERN = re.compile(r"\*+")
+EXPLICIT_START_PATTERN = re.compile(r"^(~|\.)?/.*$")
 
 
 def type_name_to_dtype(type_name: str) -> typing.Optional[typing.Type]:
@@ -449,6 +460,37 @@ def to_date_or_time(
     return None
 
 
+def get_local_subclasses(module, parent_class: typing.Type) -> typing.Sequence:
+    if not hasattr(parent_class, "__subclasses__"):
+        return list()
+
+    subclasses = [
+        member
+        for name, member in inspect.getmembers(module)
+        if inspect.isclass(member)
+            and not inspect.isabstract(member)
+           and member in parent_class.__subclasses__()
+    ]
+
+    return subclasses
+
+
+def data_to_dictionary(data: typing.Union[typing.IO, str, bytes, typing.Dict[str, typing.Any]]) -> dict:
+    if hasattr(data, 'read'):
+        data: typing.Union[str, bytes] = data.read()
+
+    if isinstance(data, bytes):
+        data: str = data.decode()
+
+    if isinstance(data, str):
+        data: typing.Dict[str, typing.Any] = json.loads(data)
+
+    if not isinstance(data, dict):
+        raise ValueError("Input data could not be converted to an object")
+
+    return data
+
+
 class Day:
     """
     A simple wrapper around an integer value between 1 and 366 to represent a consistent number of a day of a year
@@ -513,7 +555,7 @@ class Day:
         # All day of the year numbers will be one behind after the non-existent February 29th, so that number
         # is incremented by 1 to ensure that it matches in and out of leap years.
         if isinstance(day, pandas.Timestamp):
-            if not day.is_leap_year and day >= datetime(day.year, month=3, day=1):
+            if not day.is_leap_year and day >= datetime(day.year, month=3, day=1, tzinfo=day.tzinfo):
                 day = day.day_of_year + 1
             else:
                 day = day.day_of_year
@@ -584,3 +626,37 @@ class Day:
     def __hash__(self):
         return hash(self.__repr__())
 
+
+def get_globbed_address(address: str) -> str:
+    """
+    Returns:
+        The address except with regular expressions converted to glob statements
+    """
+    globbed_address = RE_PATTERN.sub("*", address)
+
+    if globbed_address.endswith("$"):
+        globbed_address = globbed_address[:-1]
+    else:
+        globbed_address += "*"
+
+    if not EXPLICIT_START_PATTERN.match(globbed_address):
+        globbed_address = f"*{globbed_address}"
+
+    # Make sure to remove multiple '*' from the glob that may have been added
+    globbed_address = MULTI_GLOB_PATTERN.sub("*", globbed_address)
+    globbed_address = globbed_address.replace("\\", "")
+
+    return globbed_address
+
+
+def get_matching_paths(address: str) -> typing.Sequence[typing.Union[str, pathlib.Path]]:
+    globbed_address = get_globbed_address(address)
+    matching_paths_by_glob: typing.Sequence[str] = glob(globbed_address, recursive=True)
+
+    address_pattern: re.Pattern = re.compile(address)
+    matching_paths = [
+        path
+        for path in matching_paths_by_glob
+        if address_pattern.match(path)
+    ]
+    return matching_paths

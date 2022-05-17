@@ -1,10 +1,16 @@
 from .backend import Backend
-from .file import FileBackend
+import inspect
+import os
 from .. import specification
 
-__BACKEND_TYPE_MAP = {
-    "file": FileBackend
-}
+
+__all__ = [
+    os.path.splitext(package_file)[0]
+    for package_file in os.listdir(os.path.dirname(__file__))
+    if package_file != "__init__.py"
+       and package_file != 'backend.py'
+]
+from . import *
 
 
 def get_backend(backend_specification: specification.BackendSpecification, cache_limit: int = None) -> Backend:
@@ -18,12 +24,17 @@ def get_backend(backend_specification: specification.BackendSpecification, cache
     Returns:
          A backend through which to retrieve data
     """
-    data_backend = None
+    backend_map = {
+        subclass.get_backend_type().lower(): subclass
+        for subclass in Backend.__subclasses__()
+        if not inspect.isabstract(subclass)
+    }
 
-    if backend_specification.type.lower() in __BACKEND_TYPE_MAP:
-        data_backend = __BACKEND_TYPE_MAP[backend_specification.type.lower()](backend_specification, cache_limit)
+    data_backend = backend_map.get(backend_specification.type.lower())
 
-    if backend is None:
-        raise TypeError(f"'{backend_specification.type}' is not a supported type of data backend.")
+    if data_backend is None:
+        raise TypeError(
+                f"'{backend_specification.type}' is not a supported type of data backend."
+        )
 
-    return data_backend
+    return data_backend(backend_specification, cache_limit)

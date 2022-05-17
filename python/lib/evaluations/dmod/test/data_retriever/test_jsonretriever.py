@@ -14,10 +14,14 @@ TEST_RESPONSE_PATH = os.path.join(os.path.dirname(__file__), "observations.json"
 
 
 class TestJSONRetrieving(unittest.TestCase):
-    def setUp(self) -> None:
-        self.__table_data_specification = specification.DataSourceSpecification(
+    @classmethod
+    def get_prediction_specification(cls) -> specification.DataSourceSpecification:
+        return specification.DataSourceSpecification(
                 name="Predictions",
                 value_field="prediction",
+                unit=specification.UnitDefinition(
+                        value="CMS"
+                ),
                 backend=specification.BackendSpecification(
                         backend_type="file",
                         data_format="json",
@@ -51,9 +55,15 @@ class TestJSONRetrieving(unittest.TestCase):
                     )
                 ]
         )
-        self.__response_data_specification = specification.DataSourceSpecification(
+
+    @classmethod
+    def get_observation_specification(cls) -> specification.DataSourceSpecification:
+        return specification.DataSourceSpecification(
                 name="Observations",
                 value_field="observation",
+                unit=specification.UnitDefinition(
+                        field="unit"
+                ),
                 backend=specification.BackendSpecification(
                         backend_type="file",
                         data_format="json",
@@ -90,6 +100,10 @@ class TestJSONRetrieving(unittest.TestCase):
                     )
                 ]
         )
+
+    def setUp(self) -> None:
+        self.__table_data_specification = TestJSONRetrieving.get_prediction_specification()
+        self.__response_data_specification = TestJSONRetrieving.get_observation_specification()
 
     def test_direct_table_json(self):
         retriever = disk.JSONDataRetriever(self.__table_data_specification)

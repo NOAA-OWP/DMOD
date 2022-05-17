@@ -1,6 +1,10 @@
 """
 Defines methods and structures that facilitate the evaluation of categorical metrics,
 such as Probability of Detection and False alarm ratio
+
+Attributes:
+    PANDAS_DATA: A type indicating either a pandas DataFrame or a pandas Series
+    NUMBER: A type indicating either a floating point or an integer
 """
 import typing
 import math
@@ -8,75 +12,47 @@ import math
 import pandas
 import numpy
 
-from ..metrics.threshold import Threshold
-from ..metrics.common import CommonTypes
+from dmod.metrics.threshold import Threshold
+
+PANDAS_DATA = typing.Union[pandas.DataFrame, pandas.Series]
+
+NUMBER = typing.Union[float, int]
+
+
+def series_has_activity(series: pandas.Series) -> bool:
+    if series.dtype in (int, float):
+        return series.count() > 0
+    return len(
+            [
+                val
+                for val in series
+                if bool(val)
+            ]
+    ) > 0
 
 
 def value_hit(observation: float, prediction: float) -> bool:
-    """
-    Determines whether or not the two values represent a hit
-
-    This is to be called `after` filtering, so two non-NaN values indicate a hit since both made it past a threshold
-
-    Args:
-        observation: An observed value
-        prediction: A modeled value
-
-    Returns:
-        True if neither values are NaN, False otherwise
-    """
-    return not numpy.isnan(observation) and not numpy.isnan(prediction)
+    if isinstance(observation, float) and isinstance(prediction, float):
+        return not numpy.isnan(observation) and not numpy.isnan(prediction)
+    return observation and prediction
 
 
 def value_missed(observation: float, prediction: float) -> bool:
-    """
-    Determines whether or not the two values represent a miss
-
-    This is to be called `after` filtering, so a non-NaN observation and NaN prediction means that the prediction
-    missed the observation
-
-    Args:
-        observation: An observed value
-        prediction: A modeled value
-
-    Returns:
-        True if the observation is non-NaN but the prediction is NaN
-    """
-    return not numpy.isnan(observation) and numpy.isnan(prediction)
+    if isinstance(observation, float) and isinstance(prediction, float):
+        return not numpy.isnan(observation) and numpy.isnan(prediction)
+    return observation and not prediction
 
 
 def nothing_happened(observation: float, prediction: float) -> bool:
-    """
-    Determines whether or not the two values represent a lack of interesting data
-
-    This is to be called `after` filtering, so two NaN values indicates that nothing happened,
-    indicating a true negative
-
-    Args:
-        observation: An observed value
-        prediction: A modeled value
-
-    Returns:
-        True if both values are NaN
-    """
-    return numpy.isnan(observation) and numpy.isnan(prediction)
+    if isinstance(observation, float) and isinstance(prediction, float):
+        return numpy.isnan(observation) and numpy.isnan(prediction)
+    return not (observation or prediction)
 
 
 def value_was_a_false_positive(observation: float, prediction: float) -> bool:
-    """
-    Determines whether or not the prediction stated that something was going to happened but nothing did
-
-    This is to be called `after` filtering, so an observed value of NaN and a predicted value that is non-NaN
-    indicates a false positive
-
-    Args:
-        observation: An observed value
-        prediction: A modeled value
-
-    Returns:
-        True if the observation was NaN but the prediction wasn't
-    """
-    return numpy.isnan(observation) and not numpy.isnan(prediction)
+    if isinstance(observation, float) and isinstance(prediction, float):
+        return numpy.isnan(observation) and not numpy.isnan(prediction)
+    return not observation and prediction
 
 
 def categorical_metric(
@@ -121,13 +97,6 @@ def categorical_metric(
             The updated metric function
 
         """
-        scale_reversed = False
-
-        if math.isfinite(maximum) and math.isfinite(minimum) and ideal is not None and not numpy.isnan(ideal):
-            scale_reversed = abs(maximum - ideal) > abs(ideal - minimum)
-        elif math.isfinite(minimum) and ideal == minimum:
-            scale_reversed = True
-
         setattr(function, "is_metric", True)
         setattr(function, 'maximum', maximum)
         setattr(function, 'minimum', minimum)
@@ -137,7 +106,7 @@ def categorical_metric(
         setattr(function, 'upper_bounded', math.isfinite(maximum))
         setattr(function, 'partially_bounded', math.isfinite(minimum) ^ math.isfinite(maximum))
         setattr(function, 'bounded', math.isfinite(minimum) or math.isfinite(maximum))
-        setattr(function, 'scale_reversed', scale_reversed)
+        setattr(function, 'scale_reversed', minimum > maximum)
         return function
 
     return inner
@@ -154,15 +123,7 @@ class CategoricalMetricMetadata(object):
         ideal: The desired value for the metric
         failure: A value indicating a failure condition for the metric
     """
-    def __init__(
-            self,
-            name: str,
-            maximum: CommonTypes.NUMBER,
-            minimum: CommonTypes.NUMBER,
-            ideal: CommonTypes.NUMBER,
-            failure: CommonTypes.NUMBER,
-            scale_reversed: bool
-    ):
+    def __init__(self, name: str, maximum: NUMBER, minimum: NUMBER, ideal: NUMBER, failure: NUMBER):
         """
         Constructor
 
@@ -178,7 +139,6 @@ class CategoricalMetricMetadata(object):
         self.__minimum = minimum
         self.__ideal = ideal
         self.__failure = failure
-        self.__scale_reversed = scale_reversed
 
     @property
     def name(self) -> str:
@@ -189,7 +149,7 @@ class CategoricalMetricMetadata(object):
         return self.__name
 
     @property
-    def maximum(self) -> CommonTypes.NUMBER:
+    def maximum(self) -> NUMBER:
         """
         Returns:
             The maximum value of the categorical metric
@@ -197,7 +157,7 @@ class CategoricalMetricMetadata(object):
         return self.__maximum
 
     @property
-    def minimum(self) -> CommonTypes.NUMBER:
+    def minimum(self) -> NUMBER:
         """
         Returns:
             The minimum value of the categorical metric
@@ -205,7 +165,7 @@ class CategoricalMetricMetadata(object):
         return self.__minimum
 
     @property
-    def ideal(self) -> CommonTypes.NUMBER:
+    def ideal(self) -> NUMBER:
         """
         Returns:
             The desired value of the categorical metric
@@ -213,7 +173,7 @@ class CategoricalMetricMetadata(object):
         return self.__ideal
 
     @property
-    def failure(self) -> CommonTypes.NUMBER:
+    def failure(self) -> NUMBER:
         """
         Returns:
             A value that is considered to be an utter failure for the metric
@@ -258,7 +218,7 @@ class CategoricalMetricMetadata(object):
         Returns:
             Whether or not a smaller value is preferrable to a larger value
         """
-        return self.__scale_reversed
+        return self.__minimum > self.__maximum
 
 
 class TruthTable(object):
@@ -279,7 +239,7 @@ class TruthTable(object):
             if hasattr(value, 'is_metric')
                and getattr(value, 'is_metric')
         }
-        
+
         return [key for key in categorical_metrics.keys()]
 
     @classmethod
@@ -300,12 +260,11 @@ class TruthTable(object):
         clean_metric_name = metric_name.replace("_", " ").title()
 
         return CategoricalMetricMetadata(
-            name=clean_metric_name,
-            maximum=metric_function.maximum,
-            minimum=metric_function.minimum,
-            ideal=metric_function.ideal,
-            failure=metric_function.failure,
-            scale_reversed=metric_function.scale_reversed
+                name=clean_metric_name,
+                maximum=metric_function.maximum,
+                minimum=metric_function.minimum,
+                ideal=metric_function.ideal,
+                failure=metric_function.failure
         )
 
     def __init__(self, observations: pandas.Series, predictions: pandas.Series, threshold: Threshold):
@@ -326,40 +285,43 @@ class TruthTable(object):
             * observations: All passed observed values
             * predictions: All passed simulated values
         """
+        number_of_observed_hits = threshold(observations)
+        number_of_predicted_hits = threshold(predictions)
         matches = pandas.DataFrame(
-            {
-                "observation_counts": threshold(observations),
-                "prediction_counts": threshold(predictions),
-                "observations": observations,
-                "predictions": predictions
-            }
+                {
+                    "observation_counts": number_of_observed_hits,
+                    "prediction_counts": number_of_predicted_hits,
+                    "observations": observations,
+                    "predictions": predictions
+                },
+                index=observations.index
         )
 
         self.__pairs = matches
 
         # Derive the four cells of the truth table
         matches['hit'] = matches.apply(
-            lambda row: value_hit(row['observation_counts'], row['prediction_counts']),
-            axis=1
+                lambda row: value_hit(row['observation_counts'], row['prediction_counts']),
+                axis=1
         )
         matches['true_negative'] = matches.apply(
-            lambda row: nothing_happened(row['observation_counts'], row['prediction_counts']),
-            axis=1
+                lambda row: nothing_happened(row['observation_counts'], row['prediction_counts']),
+                axis=1
         )
         matches['false_positive'] = matches.apply(
-            lambda row: value_was_a_false_positive(row['observation_counts'], row['prediction_counts']),
-            axis=1
+                lambda row: value_was_a_false_positive(row['observation_counts'], row['prediction_counts']),
+                axis=1
         )
         matches['miss'] = matches.apply(
-            lambda row: value_missed(row['observation_counts'], row['prediction_counts']),
-            axis=1
+                lambda row: value_missed(row['observation_counts'], row['prediction_counts']),
+                axis=1
         )
 
         self.__size = len(matches)
 
         # Store evaluated parameters so they don't have to be evaluated multiple times
-        self.__observation_had_activity = len(matches[matches.observation_counts.notna()]) > 0
-        self.__predictions_had_activity = len(matches[matches.prediction_counts.notna()]) > 0
+        self.__observation_had_activity = series_has_activity(matches.observation_counts)
+        self.__predictions_had_activity = series_has_activity(matches.prediction_counts)
 
         self.__hits = len(matches[matches.hit == True])
         self.__true_negatives = len(matches[matches.true_negative == True])
@@ -455,10 +417,12 @@ class TruthTable(object):
         top = self.__hits
         bottom = self.__positives
 
-        if bottom == 0:
+        if top == bottom:
+            self.__probability_of_detection = 1.0
+        elif bottom == 0:
             return numpy.nan
-
-        self.__probability_of_detection = top / bottom
+        else:
+            self.__probability_of_detection = top / bottom
 
         return self.__probability_of_detection
 
@@ -478,10 +442,12 @@ class TruthTable(object):
         top = self.__false_positives
         bottom = self.__hits + self.__false_positives
 
-        if bottom == 0:
+        if bottom == 0 and top == bottom:
+            self.__false_alarm_ratio = 0.0
+        elif bottom == 0:
             return numpy.nan
-
-        self.__false_alarm_ratio = top / bottom
+        else:
+            self.__false_alarm_ratio = top / bottom
 
         return self.__false_alarm_ratio
 
@@ -503,10 +469,12 @@ class TruthTable(object):
         top = self.__hits + self.__false_positives
         bottom = self.__hits + self.__misses
 
+        if top == bottom:
+            self.__frequency_bias = 1.0
         if bottom == 0:
             return numpy.nan
-
-        self.__frequency_bias = top / bottom
+        else:
+            self.__frequency_bias = top / bottom
 
         return self.__frequency_bias
 
@@ -517,10 +485,12 @@ class TruthTable(object):
 
         denominator = self.__hits + self.__misses + self.__false_positives
 
+        if self.__hits == denominator:
+            self.__critical_success_index = 1.0
         if denominator == 0:
             return numpy.nan
-
-        self.__critical_success_index = self.__hits / denominator
+        else:
+            self.__critical_success_index = self.__hits / denominator
 
         return self.__critical_success_index
 
@@ -537,16 +507,15 @@ class TruthTable(object):
         if not numpy.isnan(self.__accuracy):
             return self.__accuracy
 
-        if not (self.observation_had_activity or self.predictions_had_activity):
-            return numpy.nan
-
         top = self.__hits + self.__true_negatives
         bottom = self.__size
 
+        if top == bottom:
+            self.__accuracy = 1.0
         if bottom == 0:
             return numpy.nan
-
-        self.__accuracy = top / bottom
+        else:
+            self.__accuracy = top / bottom
 
         return self.__accuracy
 
@@ -568,18 +537,22 @@ class TruthTable(object):
         random_hit_top = (self.__hits + self.__misses) * (self.__hits + self.__false_positives)
         random_hit_bottom = self.__size
 
-        if random_hit_bottom == 0:
+        if random_hit_top == random_hit_bottom:
+            random_hits = 1.0
+        elif random_hit_bottom == 0:
             return numpy.nan
-
-        random_hits = random_hit_top / random_hit_bottom
+        else:
+            random_hits = random_hit_top / random_hit_bottom
 
         top = self.__hits - random_hits
         bottom = self.__hits + self.__misses + self.__false_positives - random_hits
 
-        if bottom == 0:
+        if top == bottom:
+            self.__equitable_threat_score = 1.0
+        elif bottom == 0:
             return numpy.nan
-
-        self.__equitable_threat_score = top / bottom
+        else:
+            self.__equitable_threat_score = top / bottom
 
         return self.__equitable_threat_score
 
@@ -604,10 +577,12 @@ class TruthTable(object):
         bottom = (self.__hits + self.__misses) * (self.__misses + self.__true_negatives)
         bottom += (self.__hits + self.__false_positives) * (self.__false_positives + self.__true_negatives)
 
-        if bottom == 0:
+        if top == bottom:
+            self.__general_skill = 1.0
+        elif bottom == 0:
             return numpy.nan
-
-        self.__general_skill = top / bottom
+        else:
+            self.__general_skill = top / bottom
 
         return self.__general_skill
 
@@ -619,10 +594,12 @@ class TruthTable(object):
         top = self.__hits
         bottom = self.__predicted_positives
 
-        if bottom == 0:
+        if top == bottom:
+            self.__precision = 1.0
+        elif bottom == 0:
             return numpy.nan
-
-        self.__precision = top / bottom
+        else:
+            self.__precision = top / bottom
 
         return self.__precision
 
@@ -705,7 +682,7 @@ class TruthTables(object):
         """
         if weight is not None and weight <= 0:
             raise ValueError(
-                f"If defined, the weight of this truth table must be greater than 0; the passed weight was {weight}"
+                    f"If defined, the weight of this truth table must be greater than 0; the passed weight was {weight}"
             )
 
         self.__tables: typing.Dict[str, TruthTable] = dict()
@@ -775,7 +752,7 @@ class TruthTables(object):
         """
         if table.name in self.__tables:
             raise ValueError(
-                f"There is already a truth table named '{table.name}' in this set of truth tables"
+                    f"There is already a truth table named '{table.name}' in this set of truth tables"
             )
 
         self.__tables[table.name] = table
@@ -1008,13 +985,13 @@ class TruthTables(object):
         for table in self.__tables.values():
             for metric in TruthTable.metrics():
                 metric_data.append(
-                    {
-                        "series_weight": self.__weight,
-                        "threshold": table.name,
-                        "threshold_weight": table.weight,
-                        "metric": metric,
-                        "value": getattr(table, metric)()
-                    }
+                        {
+                            "series_weight": self.__weight,
+                            "threshold": table.name,
+                            "threshold_weight": table.weight,
+                            "metric": metric,
+                            "value": getattr(table, metric)()
+                        }
                 )
 
         return pandas.DataFrame(metric_data)
@@ -1083,13 +1060,13 @@ class TruthTables(object):
 
     def __contains__(self, key: typing.Union[str, Threshold]) -> bool:
         """
-        Determines whether or not there is a TruthTable present with the matching name or Threshold
+        Determines whether there is a TruthTable present with the matching name or Threshold
 
         Args:
             key: The name of the table of interest or a threshold with the same name
 
         Returns:
-            Whether or not there is a TruthTable present with the matching name or Threshold
+            Whether there is a TruthTable present with the matching name or Threshold
         """
         if isinstance(key, Threshold):
             key = key.name

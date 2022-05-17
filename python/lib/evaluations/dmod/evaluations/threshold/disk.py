@@ -24,7 +24,7 @@ def get_datasource(datasource_definition: specification.DataSourceSpecification)
 class JSONThresholdRetriever(retriever.ThresholdRetriever):
     def get_data(self) -> pandas.DataFrame:
         documents = {
-            source: jsonquery.Document(self.backend.get_data(source)).data
+            source: util.data_to_dictionary(self.backend.read(source))
             for source in self.backend.sources
         }
 
@@ -33,12 +33,14 @@ class JSONThresholdRetriever(retriever.ThresholdRetriever):
         search_path = ".".join(self.definition.origin)
         base_expression = create_expression(search_path)
 
+        location_key = self.definition.locations.pattern[-1]
+
         values = {
             "value": list(),
             "name": list(),
             "weight": list(),
             "unit": list(),
-            "location": list()
+            location_key: list()
         }
 
         for document_name, document in documents.items():  # type: str, dict
@@ -77,10 +79,10 @@ class JSONThresholdRetriever(retriever.ThresholdRetriever):
                         location_expression = create_expression(location_path)
 
                         for location_name in location_expression.find(document):
-                            values['location'].append(location_name.value)
+                            values[location_key].append(location_name.value)
                     elif location_name:
-                        while len(values['location']) < len(values['value']):
-                            values['location'].append(location_name)
+                        while len(values[location_key]) < len(values['value']):
+                            values[location_key].append(location_name)
 
                     while len(values['name']) < len(values['value']):
                         values['name'].append(threshold.name)
@@ -102,7 +104,7 @@ class JSONThresholdRetriever(retriever.ThresholdRetriever):
 
 class FrameThresholdRetriever(retriever.ThresholdRetriever):
     def load_frame(self, source: str, **kwargs) -> pandas.DataFrame:
-        return pandas.read_csv(self.backend.get_data_stream(source), **kwargs)
+        return pandas.read_csv(self.backend.read_stream(source), **kwargs)
 
     def get_data(self) -> pandas.DataFrame:
         constructor_signature = inspect.signature(pandas.read_csv)
@@ -115,13 +117,44 @@ class FrameThresholdRetriever(retriever.ThresholdRetriever):
         if 'date_parser' not in provided_parameters:
             provided_parameters['date_parser'] = util.parse_non_naive_dates
 
+        if self.definition.locations.from_field == 'column':
+            if 'dtype' not in provided_parameters:
+                provided_parameters['dtype'] = dict()
+
+            provided_parameters['dtype'][self.definition.locations.pattern[-1]] = str
+
         combined_table = None
 
         for source in self.backend.sources:
             document = self.load_frame(source, **provided_parameters)
+            custom_rules = self.definition.application_rules
 
-            if self.definition.application_rules:
-                field = self.definition.application_rules.threshold_field
+            column_names: typing.List[str] = [
+                threshold_definition.field[-1]
+                for threshold_definition in self.definition.definitions
+                if threshold_definition.field[-1] in document.keys()
+            ]
+
+            column_names.extend([
+                threshold_definition.name
+                for threshold_definition in self.definition.definitions
+                if threshold_definition.name in document.keys()
+            ])
+
+            column_names.extend([
+                    threshold_definition.unit.path[-1]
+                    for threshold_definition in self.definition.definitions
+                    if bool(threshold_definition.unit.path)
+            ])
+
+            column_names.extend([
+                threshold_definition.unit.field
+                for threshold_definition in self.definition.definitions
+                if bool(threshold_definition.unit.field)
+            ])
+
+            if custom_rules and custom_rules.threshold_field.name not in document.keys():
+                field = custom_rules.threshold_field
 
                 def conversion_function(column_name_and_value: pandas.Series):
                     """
@@ -137,12 +170,9 @@ class FrameThresholdRetriever(retriever.ThresholdRetriever):
                     return converted_value
 
                 document[field.name] = document[field.path].apply(conversion_function, axis=1)
-                document = document.set_index(field.name)
+                column_names.append(field.name)
 
-            column_names: typing.List[str] = [
-                threshold_definition.field[-1]
-                for threshold_definition in self.definition.definitions
-            ]
+            # TODO: This is missing handling for value units
 
             if self.definition.locations.should_identify and self.definition.locations.from_field.lower() == 'column':
                 column_names.append(self.definition.locations.pattern[-1])
@@ -159,18 +189,31 @@ class FrameThresholdRetriever(retriever.ThresholdRetriever):
 
                 table = table.assign(location=[name for _ in range(len(table))])
 
-            renames = {
-                threshold_definition.field[-1]: threshold_definition.name
-                for threshold_definition in self.definition.definitions
-            }
-
-            if renames:
-                table.rename(columns=renames, inplace=True)
-
             if combined_table is None:
                 combined_table = table
             else:
                 combined_table = pandas.concat([combined_table, table])
+
+        definition_columns = [
+            definition.field[-1]
+            for definition in self.definition.definitions
+            if definition.field[-1] in combined_table.keys()
+               and definition.field[-1].lower() not in ("name", "value")
+        ]
+
+        if definition_columns:
+            id_variables = [self.definition.locations.pattern[-1]]
+            threshold_field = None
+            if self.definition.application_rules:
+                threshold_field = self.definition.application_rules.threshold_field
+                id_variables.append(threshold_field.name)
+
+            # This is going to take all the columns that should be rows for threshold values and rotate them
+            combined_table = combined_table.melt(id_vars=id_variables, var_name="name")
+
+            # If there was a special rule for thresholding, go ahead and set the index for later joining
+            if threshold_field:
+                combined_table = combined_table.set_index(threshold_field.name)
 
         return combined_table
 
@@ -207,7 +250,28 @@ class RDBThresholdRetriever(FrameThresholdRetriever):
         else:
             arguments['dtype'] = dtype
 
+        if self.definition.application_rules:
+            threshold_field = self.definition.application_rules.threshold_field
+
+            # We want pandas to handle the conversion,
+            # but only if the threshold field is already present (i.e. not added later)
+            if 'dtype' in arguments and threshold_field.name in column_names:
+                arguments['dtype'][threshold_field.name] = threshold_field.get_concrete_datatype()
+            elif threshold_field.name in column_names:
+                arguments['dtype'] = {
+                    threshold_field.name: threshold_field.get_concrete_datatype()
+                }
+
         frame: pandas.DataFrame = pandas.read_csv(threshold_buffer, **arguments)
+
+        threshold_names = [
+            definition.field[-1]
+            for definition in self.definition.definitions
+        ]
+
+        for threshold_name in threshold_names:
+            if threshold_name in frame.keys() and frame[threshold_name].dtype != float:
+                frame[threshold_name] = frame[threshold_name].astype(float)
 
         return frame
 

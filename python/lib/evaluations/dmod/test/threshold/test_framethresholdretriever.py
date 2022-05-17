@@ -1,10 +1,6 @@
 import os.path
 import unittest
 
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
-
 import pandas
 
 from ...evaluations import specification
@@ -12,7 +8,7 @@ from ...evaluations import threshold
 from ...evaluations.threshold import disk
 
 TEST_CSV_PATH = os.path.join(os.path.dirname(__file__), "thresholds.csv")
-TEST_RDB_PATH = os.path.join(os.path.dirname(__file__), "thresholds.rdb")
+TEST_RDB_PATH = os.path.join(os.path.dirname(__file__), "nwis_stat_thresholds.rdb")
 
 
 class TestFrameRetrieving(unittest.TestCase):
@@ -68,11 +64,27 @@ class TestFrameRetrieving(unittest.TestCase):
                 ),
                 definitions=[
                     specification.ThresholdDefinition(
-                            name="p75_va",
+                            name="75th Percentile",
                             field="p75_va",
                             weight=10,
                             unit=specification.UnitDefinition(
-                                    path="unit"
+                                    value="ft^3/s"
+                            )
+                    ),
+                    specification.ThresholdDefinition(
+                            name="80th Percentile",
+                            field="p80_va",
+                            weight=5,
+                            unit=specification.UnitDefinition(
+                                    value="ft^3/s"
+                            )
+                    ),
+                    specification.ThresholdDefinition(
+                            name="Median",
+                            field="p50_va",
+                            weight=1,
+                            unit=specification.UnitDefinition(
+                                    value="ft^3/s"
                             )
                     )
                 ]
@@ -84,11 +96,11 @@ class TestFrameRetrieving(unittest.TestCase):
 
     def test_direct_rdb(self) -> None:
         retriever = threshold.disk.RDBThresholdRetriever(self.__rdb_threshold_specification)
-        self.run_rdb_assertions(self, retriever)
+        self.run_rdb_assertions(self, retriever, self.__rdb_threshold_specification)
 
     def test_implicit_rdb(self) -> None:
         retriever = threshold.get_threshold_retriever(self.__rdb_threshold_specification)
-        self.run_rdb_assertions(self, retriever)
+        self.run_rdb_assertions(self, retriever, self.__rdb_threshold_specification)
 
     def test_direct_csv(self):
         retriever = disk.JSONThresholdRetriever(self.__csv_threshold_specification)
@@ -99,16 +111,25 @@ class TestFrameRetrieving(unittest.TestCase):
         self.run_csv_assertions(retriever)
 
     @classmethod
-    def run_rdb_assertions(cls, test_case: unittest.TestCase, retriever: threshold.ThresholdRetriever):
+    def run_rdb_assertions(
+            cls,
+            test_case: unittest.TestCase,
+            retriever: threshold.ThresholdRetriever,
+            definition: specification.ThresholdSpecification
+    ):
         test_case.assertIsInstance(retriever, threshold.disk.RDBThresholdRetriever)
 
         data: pandas.DataFrame = retriever.get_data()
 
-        test_case.assertEqual(sorted([column for column in data.keys()]), ['p75_va', 'site_no'])
+        test_case.assertEqual(sorted([column for column in data.keys()]), ['name', 'site_no', 'value'])
         test_case.assertEqual(len(data.site_no.unique()), 2)
         test_case.assertEqual(len(data.index.unique()), 366)
         test_case.assertEqual(data.index.name, 'threshold_day')
-        print("data loaded")
+
+        created_thresholds = threshold.get_thresholds(definition)
+        print("Definitions Generated")
+
+
 
     def run_csv_assertions(self, retriever: threshold.ThresholdRetriever):
         data = retriever.get_data()
@@ -116,25 +137,21 @@ class TestFrameRetrieving(unittest.TestCase):
         threshold_categories = [
             {
                 "location": "0214655255",
-                "weight": 8,
                 "category": "flood",
                 "value": 9320
             },
             {
                 "location": "0214657975",
-                "weight": 8,
                 "category": "flood",
                 "value": 5440
             },
             {
                 "location": "0214655255",
-                "weight": 10,
                 "category": "action",
                 "value": 6310
             },
             {
                 "location": "0214657975",
-                "weight": 10,
                 "category": "action",
                 "value": 3730
             },
@@ -145,7 +162,6 @@ class TestFrameRetrieving(unittest.TestCase):
         for category in threshold_categories:
             row = data[
                 (data.location == category['location'])
-                & (data.weight == category['weight'])
                 & (data.name == category['category'])
                 & (data.value == data.value)
             ]

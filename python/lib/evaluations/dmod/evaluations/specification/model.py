@@ -4,11 +4,20 @@ import abc
 import json
 import inspect
 import logging
-import io
+import collections
+import math
 
+from datetime import datetime
+from datetime import date
+from datetime import time
+
+import pandas
 import numpy
 
 from dateutil.parser import parse as parse_date
+
+import dmod.metrics as metrics
+import dmod.metrics.metric as metric_functions
 
 from .. import util
 
@@ -43,7 +52,7 @@ def value_matches_parameter_type(value, parameter: typing.Union[inspect.Paramete
         parameter: The parameter to check
 
     Returns:
-        Whether or not the given value conforms to the parameter
+        Whether the given value conforms to the parameter
     """
     if isinstance(parameter, inspect.Parameter) and parameter.annotation == parameter.empty:
         return True
@@ -221,7 +230,9 @@ class Specification(abc.ABC):
             for member in instance:
                 messages.extend(member.validate())
         else:
-            messages.extend(instance.validate())
+            validation_messages = instance.validate()
+            if validation_messages:
+                messages.extend(validation_messages)
 
         if messages:
             message = f"{cls.__name__} could not be properly created:{os.linesep}{os.linesep.join(messages)}"
@@ -245,7 +256,7 @@ class Specification(abc.ABC):
         """
         pass
 
-    def to_json(self, buffer: io.IOBase = None) -> typing.Optional[typing.Union[str, io.IOBase]]:
+    def to_json(self, buffer: typing.IO = None) -> typing.Optional[typing.Union[str, typing.IO]]:
         """
         Either converts the instance into a json string or writes that json string into the given buffer
 
@@ -316,10 +327,23 @@ class UnitDefinition(Specification):
     def validate(self) -> typing.Sequence[str]:
         messages = list()
 
-        if not self.__path and not self.__field:
-            messages.append("Unit definition is missing both a field and a path; not unit data will be found.")
-        elif self.__path and self.__field:
-            messages.append("A unit definition may only have a field or a path defined, not both.")
+        if not self.__value and not self.__path and not self.__field:
+            messages.append("Unit definition is missing a field, a path, and a value; no unit data will be found.")
+
+        fields_and_values = {
+            "value": bool(self.__value),
+            "path": bool(self.__path),
+            "field": bool(self.__field)
+        }
+
+        marked_fields = [
+            name
+            for name, exists in fields_and_values.items()
+            if exists
+        ]
+
+        if len(marked_fields) > 1:
+            messages.append(f"Values for {' and '.join(marked_fields)} have all been set - only one is valid")
 
         return messages
 
@@ -701,6 +725,23 @@ class AssociatedField(Specification):
             return util.Day(value)
 
         return value
+
+    def get_concrete_datatype(self) -> typing.Type:
+        datatype = self.__datatype.lower()
+        if datatype == 'datetime':
+            return datetime
+        if datatype == 'date':
+            return date
+        if datatype == 'time':
+            return time
+        if datatype in ('float', 'double', 'number'):
+            return float
+        if datatype in ('int', 'integer'):
+            return int
+        if datatype in ('day',):
+            return util.Day
+
+        return str
 
     def __str__(self):
         return f"{self.__name}: {self.__datatype}"
@@ -1092,7 +1133,8 @@ class DataSourceSpecification(Specification):
             "backend": self.__backend.to_dict(),
             "locations": self.__locations.to_dict(),
             "field_mapping": [mapping.to_dict() for mapping in self.__field_mapping],
-            "unit": self.__unit.to_dict()
+            "unit": self.__unit.to_dict(),
+            "x_axis": self.__x_axis
         }
 
         if self.__properties:
@@ -1100,7 +1142,7 @@ class DataSourceSpecification(Specification):
 
         return dictionary
 
-    __slots__ = ["__name", "__value_field", "__backend", "__locations", "__field_mapping", "__value_selectors", "__unit"]
+    __slots__ = ["__name", "__value_field", "__backend", "__locations", "__field_mapping", "__value_selectors", "__unit", "__x_axis"]
 
     def __init__(
             self,
@@ -1109,6 +1151,7 @@ class DataSourceSpecification(Specification):
             value_selectors: typing.Sequence[ValueSelector],
             unit: UnitDefinition,
             name: str = None,
+            x_axis: str = None,
             locations: LocationSpecification = None,
             field_mapping: typing.List[FieldMappingSpecification] = None,
             properties: typing.Dict[str, typing.Any] = None,
@@ -1122,10 +1165,15 @@ class DataSourceSpecification(Specification):
         self.__field_mapping = field_mapping if field_mapping else list()
         self.__value_selectors = value_selectors
         self.__unit = unit
+        self.__x_axis = x_axis or "value_date"
 
     @property
     def name(self) -> str:
         return self.__name
+
+    @property
+    def value_field(self) -> str:
+        return self.__value_field
 
     @property
     def backend(self) -> BackendSpecification:
@@ -1148,6 +1196,14 @@ class DataSourceSpecification(Specification):
         names: typing.List[str] = list()
 
         return names
+
+    @property
+    def unit(self) -> UnitDefinition:
+        return self.__unit
+
+    @property
+    def x_axis(self) -> str:
+        return self.__x_axis
 
     def get_column_options(self) -> typing.Dict[str, typing.Union[typing.Dict[str, typing.Any], typing.List[str]]]:
         """
@@ -1322,8 +1378,21 @@ class SchemeSpecification(Specification):
         self.__metrics = metrics
 
     @property
-    def metrics(self) -> typing.Sequence[MetricSpecification]:
+    def metric_functions(self) -> typing.Sequence[MetricSpecification]:
         return [metric for metric in self.__metrics]
+
+    @property
+    def total_weight(self) -> float:
+        return sum([metric.weight for metric in self.__metrics])
+
+    def generate_scheme(self) -> metrics.ScoringScheme:
+        generated_metrics: typing.List[metrics.Metric] = [
+            metric_functions.get_metric(metric.name, metric.weight)
+            for metric in self.__metrics
+        ]
+        return metrics.ScoringScheme(
+                generated_metrics
+        )
 
     def __str__(self) -> str:
         details = {
@@ -1342,6 +1411,9 @@ class ThresholdSpecification(Specification):
 
         messages.extend(self.__backend.validate())
         messages.extend(self.__locations.validate())
+
+        if len(self.__definitions) == 0:
+            messages.append("There are no threshold definitions defined within a threshold specification")
 
         for definition in self.__definitions:
             messages.extend(definition.validate())
@@ -1418,6 +1490,34 @@ class ThresholdSpecification(Specification):
     def application_rules(self) -> ThresholdApplicationRules:
         return self.__application_rules
 
+    @property
+    def total_weight(self) -> float:
+        """
+        The weight of all defined thresholds
+        """
+        return sum([definition.weight for definition in self.__definitions])
+
+    def __getitem__(self, definition_name) -> typing.Optional[ThresholdDefinition]:
+        matching_definitions = [
+            definition
+            for definition in self.__definitions
+            if definition.name.lower() == definition_name.lower()
+        ]
+
+        if matching_definitions:
+            return matching_definitions[0]
+
+        matching_definitions = [
+            definition
+            for definition in self.__definitions
+            if definition.field[-1].lower() == definition_name.lower()
+        ]
+
+        if matching_definitions:
+            return matching_definitions[0]
+
+        return None
+
 
 class EvaluationSpecification(Specification):
     def validate(self) -> typing.Sequence[str]:
@@ -1435,7 +1535,7 @@ class EvaluationSpecification(Specification):
         for threshold_source in self.__thresholds:
             messages.extend(threshold_source.validate())
 
-        messages.extend(self.__scheme)
+        messages.extend(self.__scheme.validate())
 
         return messages
 
@@ -1475,14 +1575,23 @@ class EvaluationSpecification(Specification):
 
     @property
     def observations(self) -> typing.Sequence[DataSourceSpecification]:
+        """
+        All specifications for where observation data should come from
+        """
         return self.__observations
 
     @property
     def predictions(self) -> typing.Sequence[DataSourceSpecification]:
+        """
+        All specifications for where prediction data should come from
+        """
         return self.__predictions
 
     @property
     def crosswalks(self) -> typing.Sequence[CrosswalkSpecification]:
+        """
+        All specifcations for where to get data detailing how to tie observation locations to prediction locations
+        """
         return self.__crosswalks
 
     @property
@@ -1491,4 +1600,249 @@ class EvaluationSpecification(Specification):
 
     @property
     def thresholds(self) -> typing.Sequence[ThresholdSpecification]:
+        """
+        All specifications for what thresholds should be applied to observations and predictions
+        """
         return self.__thresholds
+
+    @property
+    def weight_per_location(self) -> float:
+        """
+        The maximum value each location can have
+        """
+        total_threshold_weight = sum([threshold.total_weight for threshold in self.__thresholds])
+
+        return total_threshold_weight + self.__scheme.total_weight
+
+
+
+class EvaluationResults:
+    def __init__(
+            self,
+            instructions: EvaluationSpecification,
+            raw_results: typing.Dict[typing.Tuple[str, str], metrics.MetricResults]
+    ):
+        self._instructions = instructions
+        self._original_results = raw_results.copy()
+        self._location_map: typing.Dict[str, typing.Dict[str, metrics.MetricResults]] = collections.defaultdict(dict)
+
+        self._total = sum([
+            metric_result.total
+            for metric_result in raw_results.values()
+            if not numpy.isnan(metric_result.total)
+        ])
+
+        for (observed_location, predicted_location), metric_result in self._original_results.items():
+            self._location_map[observed_location][predicted_location] = metric_result
+            self._location_map[predicted_location][observed_location] = metric_result
+
+    def __getitem__(self, item: str) -> typing.Dict[str, metrics.MetricResults]:
+        return self._location_map[item]
+
+    def __iter__(self):
+        return iter(self._original_results.items())
+
+    def __len__(self):
+        return len(self._original_results)
+
+    def __str__(self):
+        locations_in_calculations = [
+            f"{observation_location} vs. {prediction_location}"
+            for (observation_location, prediction_location) in self._original_results.keys()
+        ]
+        return f"{', '.join(locations_in_calculations)}: {self._total}"
+
+    def to_frames(self, include_metadata: bool = None) -> typing.Dict[str, pandas.DataFrame]:
+        """
+        Converts two or more dimensional results into a DataFrame
+
+        NOTE: Scalar values, such as the final results, will not be included
+
+        Returns:
+            A DataFrame describing the results of all scores, across all thresholds, across all location pairings
+        """
+        if include_metadata is None:
+            include_metadata = False
+
+        frames: typing.Dict[str, pandas.DataFrame] = dict()
+
+        for (observation_location, prediction_location), results in self._original_results.items():
+            results_frame = results.to_dataframe(include_metadata=include_metadata)
+            results_frame['observed_location'] = observation_location
+            results_frame['predicted_location'] = prediction_location
+            frames[f"{observation_location} vs. {prediction_location}"] = results_frame
+
+        return frames
+
+    def to_dict(self, include_specification: bool = None) -> typing.Dict[str, typing.Any]:
+        """
+        Converts the results into a dictionary
+
+        Args:
+            include_specification: Whether to include the specifications for how to conduct the evaluation
+
+        Returns:
+            The evaluation results in the form of a nested dictionary
+        """
+        data = dict()
+
+        data['total'] = self._total
+        data['grade'] = "{:.2f}%".format(self.grade)
+        data['max_possible_total'] = self.max_possible_value
+        data['mean'] = self.mean
+        data['median'] = self.median
+        data['standard_deviation'] = self.standard_deviation
+
+        data['results'] = list()
+
+        include_specification = bool(include_specification)
+
+        if include_specification:
+            data['specification'] = self._instructions.to_dict()
+
+        included_metrics: typing.List[dict] = list()
+
+        for result in self._original_results.values():
+            for _, scores in result:
+                for score in scores:
+                    if not [metric for metric in included_metrics if metric['name'] == score.metric.name]:
+                        included_metrics.append({
+                            "name": score.metric.name,
+                            "weight": score.metric.weight,
+                            "description": score.metric.get_descriptions()
+                        })
+
+        data['metrics'] = included_metrics
+
+        for (observation_location, prediction_location), results in self._original_results.items():
+            result_data = {
+                "observation_location": observation_location,
+                "prediction_location": prediction_location,
+                'total': results.total,
+                "results": list()
+            }
+
+            for score_threshold, scores in results:  # type: metrics.Threshold, typing.List[metrics.Score]
+                threshold_results: typing.Dict[str, typing.Any] = {
+                    "name": score_threshold.name,
+                    "weight": score_threshold.weight,
+                    "scores": list(),
+                }
+
+                if isinstance(score_threshold.value, pandas.DataFrame) \
+                        and len(score_threshold.value) == 1 \
+                        and len(score_threshold.value.keys()) == 1:
+                    first_column = [key for key in score_threshold.value.keys()][0]
+                    threshold_value = float(score_threshold.value[first_column].values[0])
+                elif isinstance(score_threshold.value, pandas.Series) and len(score_threshold.value) == 1:
+                    threshold_value = float(score_threshold.value.values[0])
+                elif isinstance(score_threshold.value, typing.Sequence) and len(score_threshold.value) == 1:
+                    threshold_value = float(score_threshold.value[0])
+                elif isinstance(score_threshold.value, (pandas.DataFrame, pandas.Series, typing.Sequence)):
+                    threshold_value = "varying"
+                else:
+                    threshold_value = float(score_threshold.value)
+
+                threshold_results['threshold_value'] = threshold_value
+
+                threshold_total = 0
+                maximum_value = 0
+
+                for score in scores:
+                    threshold_total += 0 if numpy.isnan(score.scaled_value) else score.scaled_value
+                    maximum_value += score.metric.weight
+                    score_data = {
+                        "metric": score.metric.name,
+                        "weight": score.metric.weight,
+                        "value": None if numpy.isnan(score.value) else score.value,
+                        "scaled_value": None if numpy.isnan(score.scaled_value) else score.scaled_value
+                    }
+
+                    threshold_results['scores'].append(score_data)
+
+                total_factor = threshold_total / maximum_value
+                threshold_results['result'] = threshold_total
+                threshold_results['maximum_result'] = maximum_value
+                threshold_results['scaled_result'] = score_threshold.weight * total_factor
+                result_data['results'].append(threshold_results)
+
+            data['results'].append(result_data)
+
+        return data
+
+    @property
+    def value(self) -> float:
+        """
+        The resulting value for the evaluation over all location pairings
+        """
+        return self._total
+
+    @property
+    def instructions(self) -> EvaluationSpecification:
+        """
+        The specifications that told the system how to evaluate
+        """
+        return self._instructions
+
+    @property
+    def max_possible_value(self) -> float:
+        """
+        The highest possible value that can be achieved with the given instructions
+        """
+        total_threshold_weight = sum([
+            evaluation_threshold.total_weight
+            for evaluation_threshold in self._instructions.thresholds
+        ])
+        result_count = len(self._original_results)
+
+        return float(result_count * total_threshold_weight)
+
+    @property
+    def grade(self) -> float:
+        """
+        The total grade percentage result across all location pairings. Scales from 0.0 to 100.0
+        """
+        if self.max_possible_value in (0, None, numpy.nan, math.nan):
+            return 0.0
+
+        percentage = (self.value / self.max_possible_value) * 100.0
+
+        percentage = max(min(percentage, 100.0), 0)
+
+        return float(percentage)
+
+    @property
+    def mean(self) -> float:
+        """
+        The mean total value across all evaluated location pairings
+        """
+        return float(numpy.mean(
+                [
+                    result.total
+                    for result in self._original_results.values()
+                ]
+        ))
+
+    @property
+    def median(self) -> float:
+        """
+        The median total value across all evaluated location pairings
+        """
+        return float(numpy.median(
+                [
+                    result.total
+                    for result in self._original_results.values()
+                ]
+        ))
+
+    @property
+    def standard_deviation(self) -> float:
+        """
+        The standard deviation for result values across all location pairings
+        """
+        return float(numpy.std(
+                [
+                    result.total
+                    for result in self._original_results.values()
+                ]
+        ))
