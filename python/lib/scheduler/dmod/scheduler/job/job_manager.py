@@ -498,7 +498,7 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
         # If we get here, it means we failed the max allowed times, so bail
         return False
 
-    def request_scheduling(self, job: RequestedJob):
+    def request_scheduling(self, job: RequestedJob) -> Tuple[bool, tuple]:
         """
             TODO rename this function, by the time we get here, we are already scheduled, just need to run
         """
@@ -510,7 +510,9 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
             except Exception as e:
                 logging.error("launcher failed to start job")
                 logging.exception(e)
+                return False, (e,)
         logging.debug("Failed to start job")
+        return False, ()
 
     async def manage_job_processing(self):
         """
