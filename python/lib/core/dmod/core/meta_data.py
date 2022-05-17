@@ -6,6 +6,32 @@ from numbers import Number
 from typing import Any, Dict, List, Optional, Set, Type, Union
 
 
+class StandardDatasetIndex(Enum):
+
+    UNKNOWN = (-1, Any)
+    TIME = (0, datetime)
+    CATCHMENT_ID = (1, str)
+    """ A specialized index for catchment id, since that will be so commonly needed. """
+    DATA_ID = (2, str)
+    """ An index for the data_id of the dataset itself. """
+    HYDROFABRIC_ID = (3, str)
+    """ A specialized index for the unique id of a hydrofabric itself. """
+    LENGTH = (4, int)
+    """ Index to represent the number of records within a dataset (important in particular for partition configs). """
+    GLOBAL_CHECKSUM = (5, str)
+    """ Index for some type of dataset-scope checksum. """
+    ELEMENT_ID = (6, str)
+    """ A general-purpose index for the applicable data element unique identifier. """
+
+    @classmethod
+    def get_for_name(cls, name_str: str) -> 'StandardDatasetIndex':
+        cleaned_up_str = name_str.strip().upper()
+        for value in cls:
+            if value.name.upper() == cleaned_up_str:
+                return value
+        return StandardDatasetIndex.UNKNOWN
+
+
 class DataFormat(Enum):
     """
     Supported data format types for data needed or produced by workflow execution tasks.
@@ -34,53 +60,52 @@ class DataFormat(Enum):
     index that can be used to distinguish the collections, so that the right data can be identified.
     """
     AORC_CSV = (0,
-                ["catchment-id", ""],
+                {StandardDatasetIndex.CATCHMENT_ID: None, StandardDatasetIndex.TIME: ""},
                 {"": datetime, "APCP_surface": float, "DLWRF_surface": float, "DSWRF_surface": float,
                  "PRES_surface": float, "SPFH_2maboveground": float, "TMP_2maboveground": float,
                  "UGRD_10maboveground": float, "VGRD_10maboveground": float, "precip_rate": float},
-                {"catchment-id": str}
+                True
                 )
     """ The CSV data format the Nextgen framework originally used during its early development. """
     NETCDF_FORCING_CANONICAL = (1,
-                                ["catchment-id", "time"],
+                                {StandardDatasetIndex.CATCHMENT_ID: None, StandardDatasetIndex.TIME: "time"},
                                 {"time": datetime, "RAINRATE": float, "T2D": float, "Q2D": float,
                                  "U2D": float, "V2D": float, "PSFC": float, "SWDOWN": float, "LWDOWN": float,
                                  "offset": int},
-                                {"catchment-id": str}
+                                True
                                 )
     """ The Nextgen framework "canonical" NetCDF forcing data format. """
     # TODO: need to look at actual format and fix this
     NETCDF_AORC_DEFAULT = (2,
-                           ["ids", "Time"],
+                           {StandardDatasetIndex.CATCHMENT_ID: "ids", StandardDatasetIndex.TIME: "Time"},
                            {"ids": str, "Time": datetime, "RAINRATE": float, "T2D": float, "Q2D": float, "U2D": float,
-                            "V2D": float, "PSFC": float, "SWDOWN": float, "LWDOWN": float, "offset": int}
+                            "V2D": float, "PSFC": float, "SWDOWN": float, "LWDOWN": float, "offset": int},
+                           True
                            )
     """ The default format for "raw" AORC forcing data. """
-    NGEN_OUTPUT = (3, ["id", "Time", "data_id"], None, {"id": str, "Time": datetime, "data_id": str})
+    NGEN_OUTPUT = (3,
+                   {StandardDatasetIndex.CATCHMENT_ID: None, StandardDatasetIndex.TIME: None, StandardDatasetIndex.DATA_ID: None},
+                   None,
+                   True)
     """ Representation of the format for Nextgen output, with unknown/unspecified configuration of output fields. """
-    NGEN_REALIZATION_CONFIG = (4, ["id", "time", "data_id"],
-                               None,
-                               {"id": str, "time": datetime, "data_id": str}
-                               )
+    NGEN_REALIZATION_CONFIG = (
+        4, {StandardDatasetIndex.CATCHMENT_ID: None, StandardDatasetIndex.TIME: None, StandardDatasetIndex.DATA_ID: None}, None, True)
     """ Representation of the format of realization configs, which covers catchments (id) has a time period (time). """
     NGEN_GEOJSON_HYDROFABRIC = (5,
-                                ["id", "hydrofabric_uid", "data_id"],
+                                {StandardDatasetIndex.CATCHMENT_ID: "id", StandardDatasetIndex.HYDROFABRIC_ID: None, StandardDatasetIndex.DATA_ID: None},
                                 {"id": str, "properties": Any, "geometry": Any},
-                                {"hydrofabric_uid": str, "data_id": str}
                                 )
     """ GeoJSON hydrofabric format used by Nextgen (id is catchment id). """
     NGEN_PARTITION_CONFIG = (6,
-                             ["data_id", "hydrofabric_uid", "count"],
-                             {"id": int, "cat-ids": List[str], "nex-id": List[str],
-                              "remote-connections": List[Dict[str, int]]},
-                             {"data_id": str, "hydrofabric_uid": str, "count": int}
+                             {StandardDatasetIndex.DATA_ID: None, StandardDatasetIndex.HYDROFABRIC_ID: None, StandardDatasetIndex.LENGTH: None},
+                             {"id": int, "cat-ids": List[str], "nex-id": List[str], "remote-connections": List[Dict[str, int]]},
                              )
     """ GeoJSON hydrofabric format used by Nextgen. """
-    BMI_CONFIG = (7, ["file_names_md5", "data_id"], None, {"file_names_md5": str, "data_id": str})
+    BMI_CONFIG = (7, {StandardDatasetIndex.GLOBAL_CHECKSUM: None, StandardDatasetIndex.DATA_ID: None}, None)
     """ Format for BMI init configs, of which (in general) there is implied comma-joined filename string checksum. """
-    NWM_OUTPUT = (8, ["id", "Time", "data_id"], {"Time": datetime, "streamflow": float}, {"id": str, "data_id": str})
+    NWM_OUTPUT = (8, {StandardDatasetIndex.CATCHMENT_ID: None, StandardDatasetIndex.TIME: "Time", StandardDatasetIndex.DATA_ID: None}, {"Time": datetime, "streamflow": float}, True)
     """ Format for NWM 2.0/2.1/2.2 output. """
-    NWM_CONFIG = (9, ["id", "time", "data_id"], None, {"id": str, "time": datetime, "data_id": str})
+    NWM_CONFIG = (9, {StandardDatasetIndex.ELEMENT_ID: None, StandardDatasetIndex.TIME: None, StandardDatasetIndex.DATA_ID: None}, None)
     """ Format for initial config for NWM 2.0/2.1/2.2. """
     # TODO: consider whether a datetime format string is necessary for each type value
     # TODO: consider whether something to indicate the time step size is necessary
@@ -94,10 +119,10 @@ class DataFormat(Enum):
                 return value
         return None
 
-    def __init__(self, uid: int, indices: List[str], data_fields: Optional[Union[Dict[str, Type], Set[str]]] = None,
-                 implicit_indices_types: Optional[Dict[str, Type]] = None):
+    def __init__(self, uid: int, indices_to_fields: Dict[StandardDatasetIndex, Optional[str]],
+                 data_fields: Optional[Union[Dict[str, Type], Set[str]]] = None, is_time_series: bool = False):
         self._uid = uid
-        self._indices = indices
+        self._indices_to_fields = indices_to_fields
         # If only the field names were provided, infer a type value of 'Any'
         if isinstance(data_fields, set):
             self._data_fields = dict()
@@ -109,9 +134,7 @@ class DataFormat(Enum):
         # And otherwise, use what was provided
         else:
             self._data_fields = data_fields
-        self._implicit_indices_types = implicit_indices_types
-        self._time_series_index = None
-        self._is_time_series_index = None
+        self._is_time_series_index = is_time_series
 
     # TODO: consider later also adding the ability for some fields to be treated as optional
     @property
@@ -133,77 +156,42 @@ class DataFormat(Enum):
     @property
     def indices(self) -> List[str]:
         """
-        List of the indices properties for this format.
+        List of the string forms of the applicable ::class:`StandardDataIndex` properties for this format.
 
         Returns
         -------
         List[str]
-            List of the indices properties for this format.
+            List of the string forms of the applicable standard indices properties for this format.
         """
-        return self._indices
+        return [std_idx.name for std_idx in self.indices_to_fields().keys()]
+
+    def indices_to_fields(self) -> Dict[StandardDatasetIndex, Optional[str]]:
+        """
+        The mapping of the indices properties for this format, to the names of the corresponding fields within the data.
+
+        Note that when an index is an implicit or metadata value, and not within the data itself, the index maps to
+        ``None``.  An example of this is in the ``AORC_CSV`` format with its ``CATCHMENT_ID`` index, because datasets
+        with this format contain their data in individual, catchment-specific CSV files (named based on the catchment
+        id) that do not explicitly contain the catchment id within individual data records.
+
+        Returns
+        -------
+        Dict[StandardDatasetIndex, Optional[str]]
+            Mapping of the indices properties for this format to data field names (when in the data) or ``None``.
+        """
+        return self._indices_to_fields
 
     @property
     def is_time_series(self) -> bool:
         """
         Whether this type is a format of time series data.
 
-        This is determined by whether there is a time series index according to ::method:`time_series_index`.
-
-        This property is backed by a private attribute, but is lazily initialized via a nested get of the
-        ::attribute:`time_series_index` property.
-
         Returns
         -------
         bool
             Whether this type is a format of time series data.
-
-        See Also
-        -------
-        ::attribute:`time_series_index`
         """
-        if self._is_time_series_index is None:
-            # A call to this property will set self._is_time_series_index
-            self.time_series_index
         return self._is_time_series_index
-
-    @property
-    def time_series_index(self) -> Optional[str]:
-        """
-        The index for the time component of this format, if it is for time series data.
-
-        This is the index (implied or a data field) with type ::class:`datetime`.
-
-        Property lazily initializes when appropriate, determining this by examining the "private" attribute
-        ::attribute:`_is_time_series_index` and testing whether it is not set (i.e., it is ``None``).  The property
-        using this private attribute - ::attribute:`is_time_series_index` - is lazily initialized also, and by **this**
-        property getter method, hence use of the "private" attribute for the lazy initialization check.
-
-        When lazy initialization is performed, the last step will be to set ::attribute:`is_time_series_index` to either
-        ``True`` or ``False``, depending on whether this property was initialized to something other than ``None`` or
-        not.
-
-        Returns
-        -------
-        Optional[str]
-            The index for the time component of this format, if it is for time series data; otherwise ``None``.
-
-        See Also
-        -------
-        ::attribute:`is_time_series_index`
-        """
-        # Because this property can end up actually being None, can't use it to know if lazy init is necessary
-        # Instead, check _is_time_series_index to see if lazy init still needed, and if so, lazy init both
-        if self._is_time_series_index is None:
-            for idx in self.indices:
-                if idx in self.data_fields:
-                    if self.data_fields[idx] == datetime:
-                        self._time_series_index = idx
-                        break
-                elif self._implicit_indices_types[idx] == datetime:
-                    self._time_series_index = idx
-                    break
-            self._is_time_series_index = self._time_series_index is not None
-        return self._time_series_index
 
 
 class ContinuousRestriction(Serializable):
@@ -248,9 +236,13 @@ class ContinuousRestriction(Serializable):
     def factory_init_from_deserialized_json(cls, json_obj: dict):
         datetime_ptr = json_obj["datetime_pattern"] if "datetime_pattern" in json_obj else None
         try:
+            variable = StandardDatasetIndex.get_for_name(json_obj['variable'])
+            if variable == StandardDatasetIndex.UNKNOWN:
+                raise RuntimeError(
+                    "Unrecognized continuous restriction serialize variable: {}".format(json_obj['variable']))
             # Handle simple case, which currently means non-datetime item (i.e., no pattern included)
             if datetime_ptr is None:
-                return cls(variable=json_obj["variable"], begin=json_obj["begin"], end=json_obj["end"])
+                return cls(variable=variable, begin=json_obj["begin"], end=json_obj["end"])
 
             # If there is a datetime pattern, then expect begin and end to parse properly to datetime objects
             begin = datetime.strptime(json_obj["begin"], datetime_ptr)
@@ -258,7 +250,7 @@ class ContinuousRestriction(Serializable):
 
             # Use this type if that's what the JSON specifies is the Serializable subtype
             if cls.__name__ == json_obj["subclass"]:
-                return cls(variable=json_obj["variable"], begin=begin, end=end, datetime_pattern=datetime_ptr)
+                return cls(variable=variable, begin=begin, end=end, datetime_pattern=datetime_ptr)
 
             # Try to initialize the right subclass type, or fall back if appropriate to the base type
             # TODO: consider adding something for recursive search for subclass, not just immediate children types
@@ -266,17 +258,19 @@ class ContinuousRestriction(Serializable):
             try:
                 for subclass in cls.__subclasses__():
                     if subclass.__name__ == json_obj["subclass"]:
-                        return subclass(variable=json_obj["variable"], begin=begin, end=end, datetime_pattern=datetime_ptr)
+                        return subclass(variable=variable, begin=begin, end=end, datetime_pattern=datetime_ptr)
             except:
                 pass
 
             # Fall back if needed
-            return cls(variable=json_obj["variable"], begin=begin, end=end, datetime_pattern=datetime_ptr)
+            return cls(variable=variable, begin=begin, end=end, datetime_pattern=datetime_ptr)
         except:
             return None
 
-    def __init__(self, variable: str, begin, end, datetime_pattern: Optional[str] = None):
-        self.variable: str = variable
+    def __init__(self, variable: Union[str, StandardDatasetIndex], begin, end, datetime_pattern: Optional[str] = None):
+        self.variable = StandardDatasetIndex.get_for_name(variable) if isinstance(variable, str) else variable
+        if self.variable == StandardDatasetIndex.UNKNOWN:
+            raise ValueError("Invalid value for {} variable: {}".format(self.__class__.__name__, variable))
         if begin > end:
             raise RuntimeError("Cannot have {} with begin value larger than end.".format(self.__class__.__name__))
         self.begin = begin
@@ -294,7 +288,7 @@ class ContinuousRestriction(Serializable):
 
     def __hash__(self):
         str_func = lambda x: str(x) if self._datetime_pattern is None else datetime.strptime(x, self._datetime_pattern)
-        hash('{}-{}-{}'.format(self.variable, str_func(self.begin), str_func(self.end)))
+        hash('{}-{}-{}'.format(self.variable.name, str_func(self.begin), str_func(self.end)))
 
     def contains(self, other: 'ContinuousRestriction') -> bool:
         """
@@ -320,7 +314,7 @@ class ContinuousRestriction(Serializable):
 
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
         serial = dict()
-        serial["variable"] = self.variable
+        serial["variable"] = self.variable.name
         serial["subclass"] = self.__class__.__name__
         if self._datetime_pattern is not None:
             serial["datetime_pattern"] = self._datetime_pattern
@@ -342,13 +336,18 @@ class DiscreteRestriction(Serializable):
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
         try:
-            return cls(variable=json_obj["variable"], values=json_obj["values"])
+            variable = StandardDatasetIndex.get_for_name(json_obj["variable"])
+            if variable == StandardDatasetIndex.UNKNOWN:
+                return None
+            return cls(variable=variable, values=json_obj["values"])
         except:
             return None
 
-    def __init__(self, variable: str, values: Union[List[str], List[Number]], allow_reorder: bool = True,
+    def __init__(self, variable: Union[str, StandardDatasetIndex], values: Union[List[str], List[Number]], allow_reorder: bool = True,
                  remove_duplicates: bool = True):
-        self.variable: str = variable
+        self.variable = StandardDatasetIndex.get_for_name(variable) if isinstance(variable, str) else variable
+        if self.variable == StandardDatasetIndex.UNKNOWN:
+            raise ValueError("Invalid value for {} variable: {}".format(self.__class__.__name__, variable))
         self.values: Union[List[str], List[Number]] = list(set(values)) if remove_duplicates else values
         if allow_reorder:
             self.values.sort()
@@ -362,7 +361,7 @@ class DiscreteRestriction(Serializable):
             return False
 
     def __hash__(self):
-        hash('{}-{}'.format(self.variable, ','.join([str(v) for v in self.values])))
+        hash('{}-{}'.format(self.variable.name, ','.join([str(v) for v in self.values])))
 
     def contains(self, other: 'DiscreteRestriction') -> bool:
         """
@@ -418,7 +417,7 @@ class DiscreteRestriction(Serializable):
         return self.values is not None and len(self.values) == 0
 
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        return {"variable": self.variable, "values": self.values}
+        return {"variable": self.variable.name, "values": self.values}
 
 
 class DataDomain(Serializable):
@@ -528,7 +527,7 @@ class DataDomain(Serializable):
             return True
 
     @property
-    def continuous_restrictions(self) -> Dict[str, ContinuousRestriction]:
+    def continuous_restrictions(self) -> Dict[StandardDatasetIndex, ContinuousRestriction]:
         """
         Map of the continuous restrictions defining this domain, keyed by variable name.
 
@@ -540,7 +539,7 @@ class DataDomain(Serializable):
         return self._continuous_restrictions
 
     @property
-    def discrete_restrictions(self) -> Dict[str, DiscreteRestriction]:
+    def discrete_restrictions(self) -> Dict[StandardDatasetIndex, DiscreteRestriction]:
         """
         Map of the discrete restrictions defining this domain, keyed by variable name.
 
@@ -585,7 +584,7 @@ class DataDomain(Serializable):
     @property
     def indices(self) -> List[str]:
         """
-        List of the names of indices that define the data domain.
+        List of the string forms of the ::class:`StandardDataIndex` indices that define this domain.
 
         This list contains the names of indices (i.e., in the context of some ::class:`DataFormat`) that are used to
         define this data domain.
@@ -593,7 +592,7 @@ class DataDomain(Serializable):
         Returns
         -------
         List[str]
-            List of the names of indices that define the data domain.
+            List of the string forms of the ::class:`StandardDataIndex` indices that define this domain.
         """
         return self._data_format.indices
 
@@ -649,9 +648,8 @@ class TimeRange(ContinuousRestriction):
     Encapsulated representation of a time range.
     """
 
-    def __init__(self, begin: datetime, end: datetime, variable: Optional[str] = None,
-                 datetime_pattern: Optional[str] = None):
-        super(TimeRange, self).__init__(variable="Time" if variable is None else variable, begin=begin, end=end,
+    def __init__(self, begin: datetime, end: datetime, datetime_pattern: Optional[str] = None, **kwargs):
+        super(TimeRange, self).__init__(variable=StandardDatasetIndex.TIME, begin=begin, end=end,
                                         datetime_pattern=self.get_datetime_str_format() if datetime_pattern is None else datetime_pattern)
 
 
