@@ -1289,8 +1289,8 @@ class JobImpl(Job):
         return super().status_step
 
     @status_step.setter
-    def status_step(self, step: JobExecStep):
-        self.status = JobStatus(phase=self.status.job_exec_phase, step=step)
+    def status_step(self, new_step: JobExecStep):
+        self.status = JobStatus(phase=self.status.job_exec_phase, step=new_step)
 
     @property
     def worker_data_requirements(self) -> List[List[DataRequirement]]:
@@ -1354,13 +1354,13 @@ class JobImpl(Job):
             serial['rsa_key_pair'] = self.rsa_key_pair.to_dict()
         serial['status'] = self.status.name
         serial['last_updated'] = self._last_updated.strftime(self.get_datetime_str_format())
+        serial['data_requirements'] = []
+        for dr in self.data_requirements:
+            serial['data_requirements'].append(dr.to_dict())
         if self.allocations is not None and len(self.allocations) > 0:
             serial['allocations'] = []
             for allocation in self.allocations:
                 serial['allocations'].append(allocation.to_dict())
-            serial['data_requirements'] = []
-            for dr in self.data_requirements:
-                serial['data_requirements'].append(dr.to_dict())
             if self.partition_config is not None:
                 serial['partitioning'] = self.partition_config.to_dict()
 
