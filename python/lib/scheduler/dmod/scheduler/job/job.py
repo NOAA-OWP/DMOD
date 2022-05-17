@@ -1047,11 +1047,8 @@ class JobImpl(Job):
         List[List[DataRequirement]]
             List (indexed analogously to worker allocations) of lists of per-worker data requirements.
         """
-        # If there is only a single allocation, just return the complete data requirements wrapped in another list
-        if len(self.allocations) == 1:
-            return [self.data_requirements]
-        # TODO: implement properly
-        raise RuntimeError("Logic to process job data requirements to per-worker requirements not yet implemented")
+        # TODO: implement this properly/more efficiently
+        return [list(self.data_requirements) for a in self.allocations]
 
     def _reset_last_updated(self):
         self._last_updated = datetime.now()
