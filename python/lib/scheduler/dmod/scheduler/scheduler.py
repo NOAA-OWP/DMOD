@@ -577,8 +577,11 @@ class Launcher(SimpleDockerUtil):
 
         # Get the Docker Secrets for object store data access
         # TODO (later): might need to expand to use different users for different situations (create JobType?)
-        secrets = [self.docker_client.secrets.get('object_store_exec_user_name'),
-                   self.docker_client.secrets.get('object_store_exec_user_passwd')]
+        # Note that client gets docker.models.secrets.Secret objects, but service creation requires
+        #   docker.types.SecretReference objects, so have to do a little manipulation
+        secrets_objects = [self.docker_client.secrets.get('object_store_exec_user_name'),
+                           self.docker_client.secrets.get('object_store_exec_user_passwd')]
+        secrets = [docker.types.SecretReference(secret_id=s.id, secret_name=s.name) for s in secrets_objects]
 
         for alloc_index in range(num_allocations):
             alloc = job.allocations[alloc_index]
