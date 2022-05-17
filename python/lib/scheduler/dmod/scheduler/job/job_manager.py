@@ -1,3 +1,4 @@
+import uuid
 from abc import ABC, abstractmethod
 from asyncio import sleep
 from typing import Dict, List, Optional, Tuple, Union
@@ -518,7 +519,15 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
         """
         Monitor for created jobs and perform steps for job queueing, allocation of resources, and hand-off to scheduler.
         """
+        logging.debug("Starting job management async task")
         while True:
+            logging.debug("Starting next iteration of job manager async task")
+
+            # TODO: do this better
+            lock_id = str(uuid.uuid4())
+            while not self.lock_active_jobs(lock_id):
+                await sleep(2)
+
             # Get collection of "active" jobs
             active_jobs: List[RequestedJob] = self.get_all_active_jobs()
 
@@ -565,6 +574,7 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
                     # TODO: probably log something about this, or raise exception
                 self.save_job(job)
 
+            self.unlock_active_jobs(lock_id)
             await sleep(5)
 
     def release_allocations(self, job: Job):
