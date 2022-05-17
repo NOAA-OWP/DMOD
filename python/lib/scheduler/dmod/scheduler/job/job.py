@@ -476,6 +476,9 @@ class Job(Serializable, ABC):
     def __hash__(self):
         return hash(self.job_id)
 
+    def __lt__(self, other):
+        return self.allocation_priority < other.allocation_priority
+
     @property
     @abstractmethod
     def allocation_paradigm(self) -> JobAllocationParadigm:
