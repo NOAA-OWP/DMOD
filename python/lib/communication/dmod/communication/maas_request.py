@@ -844,6 +844,20 @@ class NGENRequest(ModelExecRequest):
         """
         return NGENRequestResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
+    def __eq__(self, other):
+        return self.time_range == other.time_range and self.hydrofabric_data_id == other.hydrofabric_data_id \
+               and self.hydrofabric_uid == other.hydrofabric_uid and self.config_data_id == other.config_data_id \
+               and self.bmi_config_data_id == other.bmi_config_data_id and self.session_secret == other.session_secret \
+               and self.cpu_count == other.cpu_count and self.partition_cfg_data_id == other.partition_cfg_data_id \
+               and self.catchments == other.catchments
+
+    def __hash__(self):
+        hash_str = '{}-{}-{}-{}-{}-{}-{}-{}-{}'.format(self.time_range.to_json(), self.hydrofabric_data_id,
+                                                       self.hydrofabric_uid, self.config_data_id,
+                                                       self.bmi_config_data_id, self.session_secret, self.cpu_count,
+                                                       self.partition_cfg_data_id, ','.join(self.catchments))
+        return hash(hash_str)
+
     def __init__(self, time_range: TimeRange, hydrofabric_uid: str, hydrofabric_data_id: str, bmi_cfg_data_id: str,
                  catchments: Optional[Union[Set[str], List[str]]] = None, partition_cfg_data_id: Optional[str] = None,
                  *args, **kwargs):
