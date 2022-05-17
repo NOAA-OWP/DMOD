@@ -160,7 +160,7 @@ class Launcher(SimpleDockerUtil):
         additional_kwargs = dict()
         if len(serviceParams.secrets) > 0:
             additional_kwargs['secrets'] = serviceParams.secrets
-        if len(serviceParams.env_var_map) > 0:
+        if serviceParams.env_var_map is not None and len(serviceParams.env_var_map) > 0:
             additional_kwargs['env'] = serviceParams.env_var_list
 
         Healthcheck = docker.types.Healthcheck(test = ["CMD-SHELL", 'echo Hello'],
