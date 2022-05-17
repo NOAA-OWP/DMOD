@@ -308,6 +308,18 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
 
         return MessageEventType.INVALID, errors
 
+    async def _runner(self):
+        """
+        Async runner function to encapsulate gathering multiple async coroutine tasks for running the instance.
+
+        See Also
+        -------
+        run
+        """
+        self._requested_tasks.append(self.server)
+        result = await asyncio.gather(*self._requested_tasks)
+        return result
+
     def run(self):
         """
         Run the event loop indefinitely.
@@ -319,19 +331,16 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
 
         As each tasks gets created/scheduled, the server ::class:`Task` object are placed in a private collection,
         making them accessible with ::method:`get_task_object` by index.
+
+        See Also
+        -------
+        _runner
         """
         try:
-            # For each requested task, create a scheduled tasks
-            for requested_coro in self._requested_tasks:
-                self._scheduled_tasks.append(self.loop.create_task(requested_coro))
-
-            # Then establish the main server function (and append to scheduled tasks list)
-            # Make sure this gets put into the list of requested tasks to keep indexes consistent with scheduled list
-            self._requested_tasks.append(self.server)
-            self._scheduled_tasks.append(self.loop.run_until_complete(self.server))
-
             # Run server forever
+            self.loop.run_until_complete(self._runner())
             self.loop.run_forever()
+
         finally:
             self.loop.close()
             logging.info("Handler Finished")
