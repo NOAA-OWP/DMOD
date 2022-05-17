@@ -1,6 +1,6 @@
 import json
 
-from .job import Job, RequestedJob
+from .job import Job, JobStatus, RequestedJob
 from abc import ABC, abstractmethod
 from dmod.redis import KeyNameHelper, RedisBacked
 from typing import List, Optional
@@ -84,6 +84,36 @@ class JobUtil(ABC):
         pass
 
     @abstractmethod
+    def lock_active_jobs(self, lock_id: str) -> bool:
+        """
+        Attempt to acquire an actual or de facto lock for access to ::method:`get_all_active_jobs`.
+
+        This function should be used before critical sections of code accessing active jobs via the
+        ::method:`get_all_active_jobs` method, to ensure that saves by different users are not accidentally undermined.
+
+        A unique identifier must be supplied for the lock.  The recommendation is for this to be a ::class:`UUID` cast
+        to a string.  Regardless, implementations should associate the id with the backing mechanism for locking access.
+
+        Implementations may be defined such that locks expire automatically, though this should be clearly documented.
+
+        Parameters
+        ----------
+        lock_id : str
+            The string form of some unique identifier for the requested lock.
+
+        Returns
+        -------
+        bool
+            ``True`` if a lock was acquired, or ``False`` if it was not (i.e., an active lock is held elsewhere).
+
+        See Also
+        -------
+        get_all_active_jobs
+        unlock_active_jobs
+        """
+        pass
+
+    @abstractmethod
     def retrieve_job(self, job_id) -> Job:
         """
         Get the particular job with the given unique id.
@@ -121,6 +151,39 @@ class JobUtil(ABC):
         """
         pass
 
+    @abstractmethod
+    def unlock_active_jobs(self, lock_id: str) -> bool:
+        """
+        Release a lock for access to ::method:`get_all_active_jobs` associated with the given id.
+
+        This function should be used after critical sections of code accessing active jobs via the
+        ::method:`get_all_active_jobs` method, where these critical sections were started with a call to
+        ::method:`lock_active_jobs`.
+
+        As with ::method:`lock_active_jobs`, a unique identifier must be supplied for the lock, this time to identify
+        (i.e., confirm) the lock to be released.
+
+        Implementations may be defined such that locks expire automatically.  As such, this method must return ``True``
+        IFF at the end of its execution there is no lock - for the given ``lock_id`` or any other - for active jobs.
+
+        Parameters
+        ----------
+        lock_id : str
+            The string form of some unique identifier for the lock to release.
+
+        Returns
+        -------
+        bool
+            ``True`` if there is no longer (or not) a lock for access to active jobs; ``False`` if there is still a lock
+            on access to active jobs, either with the given ``lock_id`` or some other unique identifier.
+
+        See Also
+        -------
+        get_all_active_jobs
+        lock_active_jobs
+        """
+        pass
+
 
 class RedisBackedJobUtil(JobUtil, RedisBacked):
     """
@@ -129,6 +192,8 @@ class RedisBackedJobUtil(JobUtil, RedisBacked):
     An implementation of both ::class:`JobUtil` and ::class:`RedisBacked`, thereby being a job util type with a Redis
     backend for job record storage.
     """
+
+    _ACTIVE_JOBS_LOCK_KEY = b':lock:active_jobs:'
 
     # TODO: look at either deprecating this or applying it appropriately to all managed objects
     @classmethod
@@ -231,6 +296,22 @@ class RedisBackedJobUtil(JobUtil, RedisBacked):
             active_jobs.append(self.retrieve_job_by_redis_key(active_job_redis_key))
         return active_jobs
 
+    def get_jobs_for_status(self, status: JobStatus) -> List[Job]:
+        """
+        Get a list of the known jobs to this object with the given ::class:`JobStatus`.
+
+        Parameters
+        ----------
+        status : JobStatus
+            The status value of interest.
+
+        Returns
+        -------
+        List[Job]
+            A list of the known jobs to this object with the given ::class:`JobStatus`.
+        """
+        pass
+
     def retrieve_job(self, job_id) -> RequestedJob:
         """
         Get the particular job with the given unique id.
@@ -281,6 +362,42 @@ class RedisBackedJobUtil(JobUtil, RedisBacked):
         else:
             raise ValueError('No job record found for job with key {}'.format(job_redis_key))
 
+    def lock_active_jobs(self, lock_id: str) -> bool:
+        """
+        Attempt to acquire a de facto lock for access to ::method:`get_all_active_jobs`.
+
+        This function should be used before critical sections of code accessing active jobs via the
+        ::method:`get_all_active_jobs` method, to ensure that saves by different users are not accidentally undermined.
+
+        A de facto lock is implemented as the existence of a special key-value pair within the backing Redis store.  The
+        value is the provided ``lock_id`` when a lock is successfully acquired (i.e., when this is called and the key is
+        not already present).  The key is the class attribute ::attribute:`_ACTIVE_JOBS_LOCK_KEY`.
+
+        The method is implemented to use the ::method:`Redis.set` function's ``nx`` param when saving a pair in an
+        attempt to acquire a new lock, thus ensuring the pair is only set if the key does not already exist.
+
+        Additionally, the method also uses the ::method:`Redis.set` function's ``px`` to have locks expire automatically
+        after 30 seconds.
+
+        Parameters
+        ----------
+        lock_id : str
+            The string form of some unique identifier for the requested lock.
+
+        Returns
+        -------
+        bool
+            ``True`` if a lock was acquired, or ``False`` if it was not (i.e., an active lock is held elsewhere).
+
+        See Also
+        -------
+        get_all_active_jobs
+        unlock_active_jobs
+        """
+        self.redis.set(self._ACTIVE_JOBS_LOCK_KEY, lock_id, nx=True, px=30000)
+        result = self.redis.get(self._ACTIVE_JOBS_LOCK_KEY)
+        return lock_id == result
+
     def save_job(self, job: RequestedJob):
         """
         Add or update the given job object's Redis record, also maintaining a Redis set of the ids of 'active' jobs.
@@ -305,3 +422,39 @@ class RedisBackedJobUtil(JobUtil, RedisBacked):
             pipeline.execute()
         finally:
             pipeline.reset()
+
+    def unlock_active_jobs(self, lock_id: str) -> bool:
+        """
+        Release a lock, if one exists, for access to ::method:`get_all_active_jobs` associated with the given id.
+
+        This function should be used after critical sections of code accessing active jobs via the
+        ::method:`get_all_active_jobs` method, where these critical sections were started with a call to
+        ::method:`lock_active_jobs`.
+
+        As with ::method:`lock_active_jobs`, a unique identifier must be supplied for the lock, this time to identify
+        (i.e., confirm) the lock to be released.
+
+        Parameters
+        ----------
+        lock_id : str
+            The string form of some unique identifier for the lock to release.
+
+        Returns
+        -------
+        bool
+            ``True`` if there is no longer (or not) a lock for access to active jobs; ``False`` if there is still a lock
+            on access to active jobs, either with the given ``lock_id`` or some other unique identifier.
+
+        See Also
+        -------
+        get_all_active_jobs
+        lock_active_jobs
+        """
+        value = self.redis.get(self._ACTIVE_JOBS_LOCK_KEY)
+        if value is None:
+            return True
+        elif lock_id == value:
+            self.redis.delete(self._ACTIVE_JOBS_LOCK_KEY)
+            return True
+        else:
+            return False
