@@ -5,7 +5,7 @@ Lays out details describing how a request may be created and the different types
 """
 
 from .message import AbstractInitRequest, MessageEventType, Response, InitRequestResponseReason
-from dmod.core.meta_data import ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction, DataRequirement, TimeRange
+from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DiscreteRestriction, DataRequirement, TimeRange
 from abc import ABC, abstractmethod
 from numbers import Number
 from typing import Dict, List, Optional, Set, Union
@@ -213,8 +213,10 @@ class ModelExecRequest(MaaSRequest, ABC):
             A deserialized ::class:`ModelExecRequest` of the appropriate subtype.
         """
         try:
-            model_name = list(json_obj['model'].keys())[0]
-            return get_available_models()[model_name].factory_init_from_deserialized_json(json_obj)
+            for model in get_available_models():
+                if model in json_obj['model'] or ('name' in json_obj['model'] and json_obj['model']['name'] == model):
+                    return get_available_models()[model].factory_init_from_deserialized_json(json_obj)
+            return None
         except:
             return None
 
