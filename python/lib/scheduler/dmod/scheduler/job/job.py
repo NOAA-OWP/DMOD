@@ -102,17 +102,17 @@ class JobExecStep(Enum):
     """ The default starting step. """
     AWAITING_DATA_CHECK = (7, False, False)
     """ The step indicating a check is needed for availability of required data . """
-    DATA_UNPROVIDEABLE = (-2, True, True)
+    DATA_UNPROVIDEABLE = (-2, True, True, True)
     """ The error step that occurs if/when it is determined that required data is missing and cannot be obtained. """
     AWAITING_PARTITIONING = (8, False, False)
     """ The step indicating the job is waiting on a partitioning configuration to be created. """
-    PARTITIONING_FAILED = (-3, True, True)
+    PARTITIONING_FAILED = (-3, True, True, True)
     """ The error step that occurs if/when generating a partitioning config for a job fails. """
     AWAITING_ALLOCATION = (1, False, False)
     """ The step after data is confirmed as available or obtainable, before resources have been allocated. """
     AWAITING_DATA = (8, False, False)
     """ The step after job is allocated, when any necessary acquiring/processing/preprocessing of data is performed. """
-    DATA_FAILURE = (-3, True, True)
+    DATA_FAILURE = (-3, True, True, True)
     """ The step after unexpected error in obtaining or deriving required data that earlier was deemed provideable. """
     AWAITING_SCHEDULING = (2, False, False)
     """ The step after a job has resources allocated and all required data is ready and available. """
@@ -122,9 +122,9 @@ class JobExecStep(Enum):
     """ The step after a scheduled job has started running. """
     STOPPED = (5, True, False)
     """ The step that occurs if a running job is stopped deliberately. """
-    COMPLETED = (6, False, False)
+    COMPLETED = (6, False, False, True)
     """ The step after a running job is finished. """
-    FAILED = (-1, True, True)
+    FAILED = (-1, True, True, True)
     """ The step indicating failure happened that stopped a job after it entered the ``RUNNING`` step. """
 
     @classmethod
@@ -151,10 +151,26 @@ class JobExecStep(Enum):
     def __hash__(self):
         return self.uid
 
-    def __init__(self, uid: int, is_interrupted: bool, is_error: bool):
+    def __init__(self, uid: int, is_interrupted: bool, is_error: bool, completes_phase: bool = False):
         self._uid = uid
         self._is_interrupted = is_interrupted
         self._is_error = is_error
+        self._completes_phase = completes_phase
+
+    @property
+    def completes_phase(self) -> bool:
+        """
+        Whether this step is the last step in the process for this applicable job phase.
+
+        This will be ``True`` for steps like ``COMPLETED``, ``FAILED``, ``PARTITIONING_FAILED``, etc., to indicate that
+        the current job status phase has no further steps to proceed through.
+
+        Returns
+        -------
+        bool
+            Whether this step is the last step in the process for this applicable job phase.
+        """
+        return self._completes_phase
 
     @property
     def is_error(self) -> bool:
@@ -358,7 +374,7 @@ class JobStatus(Serializable):
 
     @property
     def is_active(self) -> bool:
-        return self.job_exec_phase.is_active
+        return self.job_exec_phase.is_active and not self.job_exec_step.completes_phase
 
     @property
     def is_error(self) -> bool:
