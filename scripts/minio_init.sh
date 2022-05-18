@@ -22,18 +22,39 @@ USER_PASS_SECRET_FILE="${PROJECT_ROOT}/docker/secrets/object_store/model_exec_se
 MINIO_ROOT_PASSWORD_FILE="${PROJECT_ROOT}/docker/secrets/object_store/secret_key"
 MINIO_ROOT_USER_FILE="${PROJECT_ROOT}/docker/secrets/object_store/access_key"
 
+check_alias_exists()
+{
+    ${MC_COMMAND} alias ls ${ALIAS:?No alias set when verifying alias exists} > /dev/null 2>&1;
+}
+
 create_alias()
 {
-    # If appropriate, remove an existing connection alias
-    if [ -n "${RESET_CONN:-}" ]; then
-        ${MC_COMMAND} alias rm ${ALIAS:?No alias set when creating alias}
-    fi
+    # Check whether flag was set to indicate the alias has already been created (and doesn't need to be reset)
+    if [ -n "${ALIAS_EXISTS:-}" ] && [ -z "${RESET_CONN:-}" ]; then
+        # Make sure it is there
+        if check_alias_exists; then
+            echo "Using existing alias ${ALIAS}"
+        else
+            echo "Error: option set to expect existing alias ${ALIAS}, but it was not found; exiting." 1>&2
+            exit 1
+        fi
+    else
+        # If appropriate, remove an existing connection alias
+        if [ -n "${RESET_CONN:-}" ]; then
+            if check_alias_exists; then
+                echo "Removing existing alias ${ALIAS}"
+                ${MC_COMMAND} alias rm ${ALIAS:?No alias set when creating alias}
+            else
+                echo "Warning: option set to reset alias ${ALIAS}, but it did not already exist"
+            fi
+        fi
 
-    ${MC_COMMAND} alias set \
-        ${ALIAS:?No alias set when creating alias} \
-        ${CONNECTION_URL:?No connection url set when creating alias} \
-        ${MINIO_ROOT_USER:?No admin user name set when creating alias} \
-        ${MINIO_ROOT_PASSWORD:?No admin user passwd set when creating alias}
+        ${MC_COMMAND} alias set \
+            ${ALIAS:?No alias set when creating alias} \
+            ${CONNECTION_URL:?No connection url set when creating alias} \
+            ${MINIO_ROOT_USER:?No admin user name set when creating alias} \
+            ${MINIO_ROOT_PASSWORD:?No admin user passwd set when creating alias}
+    fi
 }
 
 create_user()
@@ -66,7 +87,7 @@ print_info()
 {
     echo "Alias:        ${ALIAS}"
     echo "Admin User:   ${MINIO_ROOT_USER}"
-    echo "URL:          ${CONNECTION_URL}"
+    echo "URL:          ${CONNECTION_URL:?}"
     echo "User:         ${USER_NAME}"
     echo "Group:        ${GROUP_NAME}"
 }
@@ -81,7 +102,8 @@ Usage:
     ${NAME:?} [--alias|-a <name>] [--url|-u <url>]
 
 Options:
-    --alias|-a <name>   Specify the connection alias name for the mc CLI (default: ${DEFAULT_ALIAS})
+    --alias|-a <name>   Specify the connection alias name for the mc CLI (default: ${DEFAULT_ALIAS}).
+    --alias-exists|-x   Specify that the alias should already exist and does not need to be created.
     --reset-connection  Remove existing connection before performing typical setup.
     --url|-u <name>     Specify connection URL (default: ${DEFAULT_URL})
 "
@@ -99,6 +121,9 @@ while [ ${#} -gt 0 ]; do
         --alias|-a)
             ALIAS="${2}"
             shift
+            ;;
+        --alias-exists|-x)
+            ALIAS_EXISTS='true'
             ;;
         --url|-u)
             CONNECTION_URL="${2}"
@@ -152,7 +177,9 @@ USER_SECRET="$(cat ${USER_PASS_SECRET_FILE})"
 if [ -z "${ALIAS:-}" ]; then
     ALIAS="${DEFAULT_ALIAS}"
 fi
-if [ -z "${CONNECTION_URL:-}" ]; then
+# Set the default for URL, but only if the alias is not expected to exist
+# (Better to have a failure happen otherwise, as we shouldn't expect to NEED it except to create the alias)
+if [ -z "${CONNECTION_URL:-}" ] && [ -z "${ALIAS_EXISTS:-}" ]; then
     CONNECTION_URL="${DEFAULT_URL}"
 fi
 if [ -z "${GROUP_NAME:-}" ]; then
