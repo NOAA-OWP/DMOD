@@ -22,9 +22,8 @@ setup(
         'pandas',
         'xarray',
         'h5py',
-        'jsonquery-ng',
+        'jsonpath-ng',
         'pint',
-        'dateutil',
         'pytz',
         'requests'
     ],

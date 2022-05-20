@@ -90,9 +90,11 @@ class TestJSONRetrieving(unittest.TestCase):
 
         self.assertEqual(len(data), len(threshold_categories))
 
+        location_column_name = retriever.definition.locations.pattern[-1]
+
         for category in threshold_categories:
             row = data[
-                (data.location == category['location'])
+                (data[location_column_name] == category['location'])
                 & (data.weight == category['weight'])
                 & (data.name == category['category'])
                 & (data.value == data.value)

@@ -3,10 +3,10 @@ import unittest
 import typing
 
 from ..evaluations.specification import model
-from .common import TestConstruction
+from .common import ConstructionTest
 
 
-class TestIndexFieldConstruction(TestConstruction):
+class TestIndexFieldConstruction(ConstructionTest, unittest.TestCase):
     def get_model_to_construct(cls) -> typing.Type[model.Specification]:
         return model.AssociatedField
 
@@ -48,49 +48,55 @@ class TestIndexFieldConstruction(TestConstruction):
     @classmethod
     def make_assertion_for_single_definition(
             cls,
-            test: TestConstruction,
-            parameters: typing.Dict[str, typing.Any],
+            test: typing.Union[ConstructionTest, unittest.TestCase],
+            parameters: typing.Union[typing.Dict[str, typing.Any], model.AssociatedField],
             definition: model.AssociatedField
     ):
-        test.assertEqual(definition.name, parameters['name'])
-        test.assertEqual(definition.datatype, parameters.get('datatype'))
+        if isinstance(parameters, model.AssociatedField):
+            test.assertEqual(definition.name, parameters.name)
+            test.assertEqual(definition.datatype, parameters.datatype)
 
-        path = parameters.get("path")
-
-        if path is not None:
-            if isinstance(path, bytes):
-                path = path.decode()
-            if isinstance(path, str):
-                path = path.split("/")
-
-            test.assertEqual(len(definition.path), len(path))
-
-            for value in path:
-                test.assertIn(value, definition.path)
+            test.assertEqual(parameters.path, definition.path)
         else:
-            test.assertEqual(definition.path[0], parameters['name'])
+            test.assertEqual(definition.name, parameters['name'])
+            test.assertEqual(definition.datatype, parameters.get('datatype'))
 
-        if 'properties' in parameters:
-            for key in parameters['properties']:
+            path = parameters.get("path")
+
+            if path is not None:
+                if isinstance(path, bytes):
+                    path = path.decode()
+                if isinstance(path, str):
+                    path = path.split("/")
+
+                test.assertEqual(len(definition.path), len(path))
+
+                for value in path:
+                    test.assertIn(value, definition.path)
+            else:
+                test.assertEqual(definition.path[0], parameters['name'])
+
+            if 'properties' in parameters:
+                for key in parameters['properties']:
+                    test.assertIn(key, definition)
+                    test.assertEqual(definition[key], parameters['properties'][key])
+                    test.assertEqual(definition.properties[key], parameters['properties'][key])
+                    test.assertEqual(definition.get(key), parameters['properties'][key])
+
+            extra_properties = {
+                key: value
+                for key, value in parameters.items()
+                if "__" + key not in definition.__slots__
+            }
+
+            for key, value in extra_properties.items():
                 test.assertIn(key, definition)
-                test.assertEqual(definition[key], parameters['properties'][key])
-                test.assertEqual(definition.properties[key], parameters['properties'][key])
-                test.assertEqual(definition.get(key), parameters['properties'][key])
+                test.assertEqual(definition[key], value)
+                test.assertEqual(definition.properties[key], value)
+                test.assertEqual(definition.get(key), value)
 
-        extra_properties = {
-            key: value
-            for key, value in parameters.items()
-            if "__" + key not in definition.__slots__
-        }
-
-        for key, value in extra_properties.items():
-            test.assertIn(key, definition)
-            test.assertEqual(definition[key], value)
-            test.assertEqual(definition.properties[key], value)
-            test.assertEqual(definition.get(key), value)
-
-        test.assertIsNone(definition.get("NonExistentProperty"))
-        test.assertTrue(definition.get("NonExistentProperty", True))
+            test.assertIsNone(definition.get("NonExistentProperty"))
+            test.assertTrue(definition.get("NonExistentProperty", True))
 
 
 if __name__ == '__main__':

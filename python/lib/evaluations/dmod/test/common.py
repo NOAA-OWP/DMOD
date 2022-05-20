@@ -41,7 +41,7 @@ RESOURCE_DIRECTORY = get_resource_directory()
 EPSILON = 0.00001
 
 
-class TestConstruction(unittest.TestCase, abc.ABC):
+class ConstructionTest(abc.ABC):
     @classmethod
     @abc.abstractmethod
     def get_model_to_construct(cls) -> typing.Type[model.Specification]:
@@ -139,7 +139,7 @@ class TestConstruction(unittest.TestCase, abc.ABC):
     @classmethod
     def make_assertions_for_multiple_definitions(
             cls,
-            test: "TestConstruction",
+            test: typing.Union["ConstructionTest", unittest.TestCase],
             definitions: typing.Sequence[model.Specification],
             parameter_list: typing.Sequence[typing.Dict[str, typing.Any]] = None
     ):
@@ -157,14 +157,14 @@ class TestConstruction(unittest.TestCase, abc.ABC):
     @abc.abstractmethod
     def make_assertion_for_single_definition(
             cls,
-            test: "TestConstruction",
+            test: "ConstructionTest",
             parameters: typing.Dict[str, typing.Any],
             definition: model.Specification
     ):
         pass
 
 
-class TestOuterConstruction(TestConstruction, abc.ABC):
+class OuterConstructionTest(ConstructionTest, abc.ABC):
     @property
     @abc.abstractmethod
     def full_object_parameters(self) -> typing.Dict[str, typing.Any]:
@@ -188,21 +188,21 @@ class TestOuterConstruction(TestConstruction, abc.ABC):
     def test_full_object_basic_construction(self):
         definition = self.get_model_to_construct().create(self.full_object_parameters)
 
-        self.make_assertion_for_single_definition(self, self.params, definition)
+        self.make_assertion_for_single_definition(self, self.full_object_parameters, definition)
 
     def test_full_object_multiple_basic_construction(self):
 
         definitions: typing.List[model.Specification] = self.get_model_to_construct().create(self.full_object_parameter_list)
 
-        self.make_assertions_for_multiple_definitions(self, definitions)
+        self.make_assertions_for_multiple_definitions(self, definitions, self.full_object_parameter_list)
 
     def test_partial_object_basic_construction(self):
         definition = self.get_model_to_construct().create(self.partial_object_parameters)
 
-        self.make_assertion_for_single_definition(self, self.params, definition)
+        self.make_assertion_for_single_definition(self, self.partial_object_parameters, definition)
 
     def test_partial_object_multiple_basic_construction(self):
 
         definitions: typing.List[model.Specification] = self.get_model_to_construct().create(self.partial_object_parameter_list)
 
-        self.make_assertions_for_multiple_definitions(self, definitions)
+        self.make_assertions_for_multiple_definitions(self, definitions, self.partial_object_parameter_list)

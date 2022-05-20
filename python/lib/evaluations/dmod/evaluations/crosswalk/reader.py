@@ -44,7 +44,7 @@ def select_values(document: dict, selector: specification.ValueSelector):
                     for result in value_results
                 ]
 
-        for index in selector.index:
+        for index in selector.associated_fields:
             if selector.where.lower() == "key":
                 column_data = list()
                 missing_entries = 0

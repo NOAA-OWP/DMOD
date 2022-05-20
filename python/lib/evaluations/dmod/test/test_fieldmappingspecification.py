@@ -2,10 +2,10 @@ import unittest
 import typing
 
 from ..evaluations.specification import model
-from .common import TestConstruction
+from .common import ConstructionTest
 
 
-class TestFieldMappingSpecificationConstruction(TestConstruction):
+class TestFieldMappingSpecificationConstruction(ConstructionTest, unittest.TestCase):
     def get_model_to_construct(cls) -> typing.Type[model.Specification]:
         return model.FieldMappingSpecification
 
@@ -64,23 +64,34 @@ class TestFieldMappingSpecificationConstruction(TestConstruction):
     @classmethod
     def make_assertion_for_single_definition(
             cls,
-            test: TestConstruction,
-            parameters: typing.Dict[str, typing.Any],
+            test: typing.Union[ConstructionTest, unittest.TestCase],
+            parameters: typing.Union[typing.Dict[str, typing.Any], model.FieldMappingSpecification],
             definition: model.FieldMappingSpecification
     ):
-        test.assertEqual(definition.field, parameters['field'])
-        test.assertEqual(definition.map_type, parameters['map_type'])
-        test.assertEqual(definition.value, parameters['value'])
+        if isinstance(parameters, dict):
+            test.assertEqual(definition.field, parameters['field'])
+            test.assertEqual(definition.map_type, parameters['map_type'])
+            test.assertEqual(definition.value, parameters['value'])
 
-        for key in parameters['properties']:
-            test.assertIn(key, definition)
-            test.assertEqual(definition[key], parameters['properties'][key])
-            test.assertEqual(definition.properties[key], parameters['properties'][key])
-            test.assertEqual(definition.get(key), parameters['properties'][key])
+            if 'properties' in parameters:
+                for key in parameters['properties']:
+                    test.assertIn(key, definition)
+                    test.assertEqual(definition.properties[key], parameters['properties'][key])
 
-        test.assertIsNone(definition.get("NonExistentProperty"))
-        test.assertTrue(definition.get("NonExistentProperty", True))
+            test.assertIsNone(definition.get("NonExistentProperty"))
+            test.assertTrue(definition.get("NonExistentProperty", True))
+        else:
+            test.assertEqual(definition.field, parameters.field)
+            test.assertEqual(definition.map_type, parameters.map_type)
+            test.assertEqual(definition.value, parameters.value)
 
+            if 'properties' in parameters:
+                for key in parameters['properties']:
+                    test.assertIn(key, definition)
+                    test.assertEqual(definition.properties[key], parameters['properties'][key])
+
+            test.assertIsNone(definition.get("NonExistentProperty"))
+            test.assertTrue(definition.get("NonExistentProperty", True))
 
 if __name__ == '__main__':
     unittest.main()

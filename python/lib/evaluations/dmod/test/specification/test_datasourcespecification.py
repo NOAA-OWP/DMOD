@@ -2,19 +2,20 @@ import typing
 import unittest
 
 from ...evaluations.specification import model
-from ..common import TestConstruction
-from ..common import TestOuterConstruction
+from ..common import ConstructionTest
+from ..common import OuterConstructionTest
 
 from ..test_backendspecification import TestBackendSpecificationConstruction
 from ..test_locationspecification import TestLocationSpecificationConstruction
 from ..test_fieldmappingspecification import TestFieldMappingSpecificationConstruction
 from ..test_valueselector import TestValueSelectorConstruction
+from .test_unitdefinition import TestUnitDefinitionConstruction
 
-class TestDataSourceSpecificationConstruction(TestOuterConstruction):
+class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.TestCase):
     @classmethod
     def make_assertion_for_single_definition(
             cls,
-            test: TestConstruction,
+            test: typing.Union[ConstructionTest, unittest.TestCase],
             parameters: typing.Dict[str, typing.Any],
             definition: model.DataSourceSpecification
     ):
@@ -27,6 +28,11 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
                 test,
                 parameters["locations"],
                 definition.locations
+        )
+        TestUnitDefinitionConstruction.make_assertion_for_single_definition(
+                test,
+                parameters['unit'],
+                definition.unit
         )
         TestValueSelectorConstruction.make_assertions_for_multiple_definitions(
                 test,
@@ -50,6 +56,8 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
 
     def setUp(self) -> None:
         self.__full_object_parameters = {
+            "value_field": "sads",
+            "unit": "feet",
             "backend": model.BackendSpecification(
                     backend_type="file",
                     address="path/to/file",
@@ -90,11 +98,13 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
             ],
             "value_selectors": [
                 model.ValueSelector(
+                        name="array",
                         where="key",
                         origin="path/to/array",
                         prop1=5
                 ),
                 model.ValueSelector(
+                        name="site_no",
                         where="value:*/site_no",
                         path="/path/to/value",
                         associated_fields=[
@@ -114,6 +124,7 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
                         ]
                 ),
                 model.ValueSelector(
+                        name="name",
                         where="filename",
                         path="dunno",
                         datatype="datetime"
@@ -130,6 +141,12 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
         self.__full_object_parameter_list.append(self.__full_object_parameters)
         self.__full_object_parameter_list.append(
                 {
+                    "value_field": "x",
+                    "name": "y",
+                    "unit": model.UnitDefinition(
+                            path="path/to/value"
+                    ),
+                    "x_axis": "time",
                     "backend": model.BackendSpecification(
                             backend_type="service",
                             address="https://example.com",
@@ -173,11 +190,13 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
                     ],
                     "value_selectors": [
                         model.ValueSelector(
+                                name="example",
                                 where="kezfdgy",
                                 origin="path/tofdz/array",
                                 prop1=55
                         ),
                         model.ValueSelector(
+                                name="otherExample",
                                 where="filzdfgename",
                                 path="zfdunno",
                                 datatype="datetime"
@@ -201,6 +220,12 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
                             prop2=11,
                             prop3=True
                     ),
+                    "x_axis": "time",
+                    "name": "timmy",
+                    "value_field": "y",
+                    "unit": model.UnitDefinition(
+                            field="unit"
+                    ),
                     "locations": model.LocationSpecification(
                             identify=False,
                             from_field=None,
@@ -220,7 +245,8 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
                     "value_selectors": [
                         model.ValueSelector(
                                 where="filcxdfbgename",
-                                path="dundxfno"
+                                path="dundxfno",
+                                name="sdhfsdhfh"
                         )
                     ],
                     "properties": {
@@ -241,6 +267,12 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
                     },
                     prop1=6,
                     prop2=7
+            ),
+            "name": "partial_object_parameters",
+            "x_axis": "x",
+            "value_field": "y",
+            "unit": model.UnitDefinition(
+                    field="unit"
             ),
             "locations": {
                 "identify": True,
@@ -274,12 +306,14 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
                 model.ValueSelector(
                         where="key",
                         origin="path/to/array",
-                        prop1=5
+                        prop1=5,
+                        name="nameOfSelectedValue"
                 ),
                 {
+                    "name": "dsfsf",
                     "where": "value:*/site_no",
                     "path": "/path/to/value",
-                    "index": [
+                    "associated_fields": [
                         {
                             "name": "two",
                             "datatype": "int"
@@ -298,7 +332,8 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
                 model.ValueSelector(
                         where="filename",
                         path="dunno",
-                        datatype="datetime"
+                        datatype="datetime",
+                        name="filename"
                 )
             ],
             "properties": {
@@ -323,6 +358,12 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
                             "prop3": False
                         }
                     },
+                    "x_axis": "duration",
+                    "name": "George",
+                    "value_field": "x",
+                    "unit": model.UnitDefinition(
+                            path=["one", "two", "three"]
+                    ),
                     "locations": model.LocationSpecification(
                             identify=True,
                             ids=[
@@ -344,12 +385,14 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
                         model.ValueSelector(
                                 where="kezfdgy",
                                 origin="path/tofdz/array",
-                                prop1=55
+                                prop1=55,
+                                name="nameOfValue"
                         ),
                         dict(
                                 where="filzdfgename",
                                 path="zfdunno",
-                                datatype="datetime"
+                                datatype="datetime",
+                                name="nameOfValue"
                         )
                     ],
                     "field_mapping": [
@@ -384,6 +427,11 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
                             "prop3": True
                         }
                     },
+                    "name": "partial_object",
+                    "value_field": "x",
+                    "unit": model.UnitDefinition(
+                            field="unit"
+                    ),
                     "locations": {
                         "identify": False,
                         "from_field": None,
@@ -404,6 +452,7 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
                     ],
                     "value_selectors": [
                         dict(
+                                name="sdfhsdhfoi",
                                 where="filcxdfbgename",
                                 path="dundxfno"
                         )
@@ -417,6 +466,10 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
         )
 
         self.__params = {
+            "name": "params",
+            "value_field": "prediction",
+            "unit": "hr",
+            "x_axis": "time",
             "backend": {
                 "backend_type": "file",
                 "address": "path/to/file",
@@ -440,14 +493,16 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
             },
             "value_selectors": [
                 dict(
+                        name="keyValue",
                         where="key",
                         origin="path/to/array",
                         prop1=5
                 ),
                 dict(
+                        name="asdads",
                         where="value:*/site_no",
                         path="/path/to/value",
-                        index=[
+                        associated_fields=[
                             dict(
                                     name="two",
                                     datatype="int"
@@ -464,6 +519,7 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
                         ]
                 ),
                 dict(
+                        name="name",
                         where="filename",
                         path="dunno",
                         datatype="datetime"
@@ -508,6 +564,11 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
                             "prop3": False
                         }
                     },
+                    "name": "param_list_2",
+                    "value_field": "values",
+                    "unit": {
+                        "field": "m_unit"
+                    },
                     "locations": {
                         "identify": True,
                         "from_field": None,
@@ -541,11 +602,13 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
                     ],
                     "value_selectors": [
                         dict(
+                                name="asdasd",
                                 where="kezfdgy",
                                 origin="path/tofdz/array",
                                 prop1=55
                         ),
                         dict(
+                                name="sdfsdf",
                                 where="filzdfgename",
                                 path="zfdunno",
                                 datatype="datetime"
@@ -571,6 +634,11 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
                             "prop3": True
                         }
                     },
+                    "name": "param_list_3",
+                    "value_field": "x",
+                    "unit": {
+                        "path": ["one", "two", "three"]
+                    },
                     "locations": {
                         "identify": False,
                         "from_field": None,
@@ -591,6 +659,7 @@ class TestDataSourceSpecificationConstruction(TestOuterConstruction):
                     ],
                     "value_selectors": [
                         dict(
+                                name="sdfdsf",
                                 where="filcxdfbgename",
                                 path="dundxfno"
                         )

@@ -166,7 +166,7 @@ class FrameDataRetriever(dataretriever.DataRetriever):
 
                 column_names.add(selector.name)
 
-                for index in selector.index:
+                for index in selector.associated_fields:
                     if index.name not in document.keys():
                         raise KeyError(f"There is not a column named '{index.name}' in '{source}'")
 

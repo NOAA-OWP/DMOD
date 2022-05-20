@@ -2,35 +2,36 @@ import typing
 import unittest
 
 from ...evaluations.specification import model
-from ..common import TestConstruction
-from ..common import TestOuterConstruction
+from ..common import ConstructionTest
+from ..common import OuterConstructionTest
 
 from ..test_backendspecification import TestBackendSpecificationConstruction
 from ..test_valueselector import TestValueSelectorConstruction
 
-class TestCrosswalkSpecificationConstruction(TestOuterConstruction):
+
+class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.TestCase):
     @classmethod
     def make_assertion_for_single_definition(
             cls,
-            test: TestConstruction,
+            test: typing.Union[ConstructionTest, unittest.TestCase],
             parameters: typing.Dict[str, typing.Any],
             definition: model.CrosswalkSpecification
     ):
 
-        entity_path = parameters.get("entity_path")
+        origin = parameters.get("origin")
 
-        if entity_path is not None:
-            if isinstance(entity_path, bytes):
-                entity_path = entity_path.decode()
-            if isinstance(entity_path, str):
-                entity_path = entity_path.split("/")
+        if origin is not None:
+            if isinstance(origin, bytes):
+                origin = origin.decode()
+            if isinstance(origin, str):
+                origin = origin.split("/")
 
-            test.assertEqual(len(definition.entity_path), len(entity_path))
+            test.assertEqual(len(definition.entity_path), len(origin))
 
-            for value in entity_path:
+            for value in origin:
                 test.assertIn(value, definition.entity_path)
         else:
-            test.assertIsNone(definition.entity_path)
+            test.assertSequenceEqual(definition.entity_path, ["$"])
 
         TestBackendSpecificationConstruction.make_assertion_for_single_definition(
                 test,
@@ -38,17 +39,8 @@ class TestCrosswalkSpecificationConstruction(TestOuterConstruction):
                 definition.backend
         )
 
-        TestValueSelectorConstruction.make_assertion_for_single_definition(
-                test,
-                parameters=parameters['prediction_field'],
-                definition=definition.prediction_field
-        )
-
-        TestValueSelectorConstruction.make_assertion_for_single_definition(
-                test,
-                parameters=parameters['observation_field'],
-                definition=definition.fields
-        )
+        test.assertEqual(definition.prediction_field_name, parameters['prediction_field_name'])
+        test.assertEqual(definition.observation_field_name, parameters['observation_field_name'])
 
         for key in parameters.get('properties', dict()):
             test.assertIn(key, definition)
@@ -72,29 +64,21 @@ class TestCrosswalkSpecificationConstruction(TestOuterConstruction):
                     prop2=7
             ),
             "entity_path": "path/to/start",
-            "prediction_field": model.ValueSelector(
+            "prediction_field_name": "prediction_location",
+            "observation_field_name": "observation_location",
+            "field": model.ValueSelector(
+                    name="prediction_location",
                     where="key",
-                    path="path/to/key",
-                    origin="path/to/starting_point",
-                    datatype="datetime"
-            ),
-            "observation_field": model.ValueSelector(
-                    where="value",
-                    path=[
-                        "key",
-                        "path"
-                    ],
+                    path=["* where site_no"],
+                    origin="$",
+                    datatype="string",
                     associated_fields=[
                         model.AssociatedField(
-                                name="example_1",
-                                datatype="int"
-                        ),
-                        model.AssociatedField(
-                                name="example_2",
-                                datatype="datetime"
+                                name="observation_location",
+                                path="site_no",
+                                datatype="string"
                         )
-                    ],
-                    datatype="datetime"
+                    ]
             ),
             "properties": {
                 "prop1": 1,
@@ -118,23 +102,11 @@ class TestCrosswalkSpecificationConstruction(TestOuterConstruction):
                             prop1=8
                     ),
                     "entity_path": "padrth/tdo/stfgrtart",
-                    "prediction_field": model.ValueSelector(
-                            where="key",
-                            path=["path", "to", "key"],
-                            datatype="datetime"
-                    ),
-                    "observation_field": model.ValueSelector(
-                            where="vasdflue",
-                            path=[
-                                "path"
-                            ],
-                            associated_fields=[
-                                model.AssociatedField(
-                                        name="example_2",
-                                        datatype="datetime"
-                                )
-                            ],
-                            datatype="datetime"
+                    "prediction_field_name": "prediction_field",
+                    "observation_field_name": "observation_field",
+                    "field": model.ValueSelector(
+                            name="x",
+                            where="key"
                     ),
                     "properties": {
                         "prop1": 3,
@@ -155,17 +127,13 @@ class TestCrosswalkSpecificationConstruction(TestOuterConstruction):
                             prop3=True
                     ),
                     "entity_path": "",
-                    "prediction_field": model.ValueSelector(
-                            where="filename"
-                    ),
-                    "observation_field": model.ValueSelector(
-                            where="value",
-                            path=[
-                                "key",
-                                "path",
-                                "path"
-                            ]
-                    ),
+                    "prediction_field_name": "prediction_field",
+                    "observation_field_name": "observation_field",
+                    "field": {
+                        "name": "y",
+                        "where": "value",
+                        "path": ['x', 'y', 'z']
+                    },
                     "properties": {
                         "prop1": 7,
                         "proasp2": "t",
@@ -186,30 +154,12 @@ class TestCrosswalkSpecificationConstruction(TestOuterConstruction):
                     prop2=7
             ),
             "entity_path": "path/to/start",
-            "prediction_field": dict(
-                    where="key",
-                    path="path/to/key",
-                    origin="path/to/starting_point",
-                    datatype="datetime"
+            "prediction_field_name": "prediction_location",
+            "field": model.ValueSelector(
+                    name="z",
+                    where='one/two/three'
             ),
-            "observation_field": model.ValueSelector(
-                    where="value",
-                    path=[
-                        "key",
-                        "path"
-                    ],
-                    associated_fields=[
-                        model.AssociatedField(
-                                name="example_1",
-                                datatype="int"
-                        ),
-                        model.AssociatedField(
-                                name="example_2",
-                                datatype="datetime"
-                        )
-                    ],
-                    datatype="datetime"
-            ),
+            "observation_field_name": "observation_field",
             "properties": {
                 "prop1": 1,
                 "prop2": 2,
@@ -233,28 +183,16 @@ class TestCrosswalkSpecificationConstruction(TestOuterConstruction):
                         }
                     },
                     "entity_path": "padrth/tdo/stfgrtart",
-                    "prediction_field": dict(
-                            where="key",
-                            path=["path", "to", "key"],
-                            datatype="datetime"
-                    ),
-                    "observation_field": model.ValueSelector(
-                            where="vasdflue",
-                            path=[
-                                "path"
-                            ],
-                            associated_fields=[
-                                model.AssociatedField(
-                                        name="example_2",
-                                        datatype="datetime"
-                                )
-                            ],
-                            datatype="datetime"
-                    ),
+                    "prediction_field_name": "prediction_field",
+                    "observation_field_name": "observation_field",
                     "properties": {
                         "prop1": 3,
                         "prop2": 8,
                         "prop3": False
+                    },
+                    "field": {
+                        "name": "ham",
+                        "where": "sandwich"
                     }
                 }
         )
@@ -271,18 +209,13 @@ class TestCrosswalkSpecificationConstruction(TestOuterConstruction):
                             "prop3": True
                         }
                     },
+                    "field": model.ValueSelector(
+                            name="cobb",
+                            where="salad"
+                    ),
                     "entity_path": "",
-                    "prediction_field": dict(
-                            where="filename"
-                    ),
-                    "observation_field": model.ValueSelector(
-                            where="value",
-                            path=[
-                                "key",
-                                "path",
-                                "path"
-                            ]
-                    ),
+                    "prediction_field_name": "prediction_location",
+                    "observation_field_name": "observation_field",
                     "properties": {
                         "prop1": 7,
                         "proasp2": "t",
@@ -303,30 +236,17 @@ class TestCrosswalkSpecificationConstruction(TestOuterConstruction):
                     prop2=7
             ),
             "entity_path": "path/to/start",
-            "prediction_field": dict(
-                    where="key",
-                    path="path/to/key",
-                    origin="path/to/starting_point",
-                    datatype="datetime"
-            ),
-            "observation_field": dict(
+            "prediction_field_name": "prediction_field",
+            "field": dict(
+                    name="a",
                     where="value",
                     path=[
-                        "key",
-                        "path"
-                    ],
-                    index=[
-                        dict(
-                                name="example_1",
-                                datatype="int"
-                        ),
-                        dict(
-                                name="example_2",
-                                datatype="datetime"
-                        )
-                    ],
-                    datatype="datetime"
+                        "one",
+                        "two",
+                        "three"
+                    ]
             ),
+            "observation_field_name": "observation_field",
             "properties": {
                 "prop1": 1,
                 "prop2": 2,
@@ -349,25 +269,13 @@ class TestCrosswalkSpecificationConstruction(TestOuterConstruction):
                             "prop3": False
                         }
                     },
+                    "field": {
+                        "name": "afa",
+                        "where": "value"
+                    },
                     "entity_path": "padrth/tdo/stfgrtart",
-                    "prediction_field": dict(
-                            where="key",
-                            path=["path", "to", "key"],
-                            datatype="datetime"
-                    ),
-                    "observation_field": dict(
-                            where="vasdflue",
-                            path=[
-                                "path"
-                            ],
-                            index=[
-                                dict(
-                                        name="example_2",
-                                        datatype="datetime"
-                                )
-                            ],
-                            datatype="datetime"
-                    ),
+                    "prediction_field_name": "prediction",
+                    "observation_field_name": "observation",
                     "properties": {
                         "prop1": 3,
                         "prop2": 8,
@@ -388,18 +296,13 @@ class TestCrosswalkSpecificationConstruction(TestOuterConstruction):
                             "prop3": True
                         }
                     },
-                    "entity_path": "",
-                    "prediction_field": dict(
-                            where="filename"
-                    ),
-                    "observation_field": dict(
-                            where="value",
-                            path=[
-                                "key",
-                                "path",
-                                "path"
-                            ]
-                    ),
+                    "field": {
+                        "name": "stuff",
+                        "where": "key"
+                    },
+                    "origin": "",
+                    "prediction_field_name": "prediction",
+                    "observation_field_name": "observation",
                     "properties": {
                         "prop1": 7,
                         "proasp2": "t",

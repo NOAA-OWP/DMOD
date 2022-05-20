@@ -3,11 +3,11 @@ import unittest
 import typing
 
 from ..evaluations.specification import model
-from .common import TestConstruction
+from .common import ConstructionTest
 from .test_indexfield import TestIndexFieldConstruction
 
 
-class TestValueSelectorConstruction(TestConstruction):
+class TestValueSelectorConstruction(ConstructionTest, unittest.TestCase):
     def get_model_to_construct(cls) -> typing.Type[model.Specification]:
         return model.ValueSelector
 
@@ -30,7 +30,7 @@ class TestValueSelectorConstruction(TestConstruction):
             "origin": [
                 "path"
             ],
-            "index": [
+            "associated_fields": [
                 {
                     "name": "one",
                     "path": ["path", "to", "one"]
@@ -47,7 +47,7 @@ class TestValueSelectorConstruction(TestConstruction):
                 "where": "key",
                 "name": "Key Value",
                 "path": None,
-                "index": [
+                "associated_fields": [
                     {
                         "name": "one",
                         "path": "path/to/one"
@@ -77,7 +77,7 @@ class TestValueSelectorConstruction(TestConstruction):
                 "where": "value",
                 "path": "location/site_no",
                 "origin": "path/to/values",
-                "index": [
+                "associated_fields": [
                     {
                         "name": "two",
                         "datatype": "int"
@@ -104,62 +104,81 @@ class TestValueSelectorConstruction(TestConstruction):
     @classmethod
     def make_assertion_for_single_definition(
             cls,
-            test: TestConstruction,
-            parameters: typing.Dict[str, typing.Any],
+            test: typing.Union[ConstructionTest, unittest.TestCase],
+            parameters: typing.Union[typing.Dict[str, typing.Any], model.ValueSelector],
             definition: model.ValueSelector
     ):
-        test.assertEqual(definition.where, parameters['where'])
-        test.assertEqual(definition.name, parameters['name'])
+        if isinstance(parameters, dict):
+            test.assertEqual(parameters.get('where'), definition.where)
+            test.assertEqual(parameters.get("name"), definition.name)
 
-        path = parameters.get("path")
+            path = parameters.get("path")
 
-        if path is not None:
-            if isinstance(path, bytes):
-                path = path.decode()
-            if isinstance(path, str):
-                path = path.split("/")
+            if path is not None:
+                if isinstance(path, bytes):
+                    path = path.decode()
 
-            test.assertEqual(len(definition.path), len(path))
+                starts_at_root = False
 
-            for value in path:
-                test.assertIn(value, definition.path)
+                if isinstance(path, str):
+                    starts_at_root = path.startswith("/")
+                    path = path.split("/")
+
+                if starts_at_root:
+                    path.insert(0, "$")
+
+                path = [
+                    part
+                    for part in path
+                    if bool(part)
+                ]
+
+                test.assertEqual(len(definition.path), len(path))
+
+                for value in path:
+                    test.assertIn(value, definition.path)
+            else:
+                test.assertIsNone(definition.path)
+
+            origin = parameters.get("origin")
+
+            if origin is not None:
+                if isinstance(origin, bytes):
+                    origin = origin.decode()
+                if isinstance(origin, str):
+                    origin = origin.split("/")
+
+                test.assertEqual(len(definition.origin), len(origin))
+
+                for value in origin:
+                    test.assertIn(value, definition.origin)
+            else:
+                test.assertSequenceEqual(definition.origin, ["$"])
+
+            test.assertEqual(len(definition.associated_fields), len(parameters.get("associated_fields", list())))
+
+            if 'associated_fields' in parameters:
+                TestIndexFieldConstruction.make_assertions_for_multiple_definitions(
+                        test,
+                        definition.associated_fields,
+                        parameters['associated_fields']
+                )
+
+            properties = parameters.get("properties", dict())
+
+            for key in properties:
+                test.assertIn(key, definition)
+                test.assertEqual(definition[key], parameters['properties'][key])
+                test.assertEqual(definition.properties[key], parameters['properties'][key])
+                test.assertEqual(definition.get(key), parameters['properties'][key])
+
+            test.assertIsNone(definition.get("NonExistentProperty"))
+            test.assertTrue(definition.get("NonExistentProperty", True))
         else:
-            test.assertIsNone(definition.path)
-
-        origin = parameters.get("origin")
-
-        if origin is not None:
-            if isinstance(origin, bytes):
-                origin = origin.decode()
-            if isinstance(origin, str):
-                origin = origin.split("/")
-
-            test.assertEqual(len(definition.origin), len(origin))
-
-            for value in origin:
-                test.assertIn(value, definition.origin)
-        else:
-            test.assertIsNone(definition.origin)
-
-        test.assertEqual(len(definition.index), len(parameters.get("index", list())))
-
-        if 'index' in parameters:
-            TestIndexFieldConstruction.make_assertions_for_multiple_definitions(
-                    test,
-                    definition.index,
-                    parameters['index']
-            )
-
-        properties = parameters.get("properties", dict())
-
-        for key in properties:
-            test.assertIn(key, definition)
-            test.assertEqual(definition[key], parameters['properties'][key])
-            test.assertEqual(definition.properties[key], parameters['properties'][key])
-            test.assertEqual(definition.get(key), parameters['properties'][key])
-
-        test.assertIsNone(definition.get("NonExistentProperty"))
-        test.assertTrue(definition.get("NonExistentProperty", True))
+            test.assertEqual(parameters.name, definition.name)
+            test.assertEqual(parameters.origin, definition.origin)
+            test.assertEqual(parameters.path, definition.path)
+            test.assertEqual(parameters.where, definition.where)
 
 
 if __name__ == '__main__':

@@ -3,10 +3,10 @@ import unittest
 import typing
 
 from ..evaluations.specification import model
-from .common import TestConstruction
+from .common import ConstructionTest
 
 
-class TestMetricSpecificationConstruction(TestConstruction):
+class TestMetricSpecificationConstruction(ConstructionTest, unittest.TestCase):
     def get_model_to_construct(cls) -> typing.Type[model.Specification]:
         return model.MetricSpecification
 
@@ -61,7 +61,7 @@ class TestMetricSpecificationConstruction(TestConstruction):
     @classmethod
     def make_assertion_for_single_definition(
             cls,
-            test: TestConstruction,
+            test: typing.Union[ConstructionTest, unittest.TestCase],
             parameters: typing.Dict[str, typing.Any],
             definition: model.MetricSpecification
     ):
