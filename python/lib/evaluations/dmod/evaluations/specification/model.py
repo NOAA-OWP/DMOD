@@ -7,6 +7,8 @@ import logging
 import collections
 import math
 
+import collections.abc as abstract_collections
+
 from datetime import datetime
 from datetime import date
 from datetime import time
@@ -39,6 +41,31 @@ def get_specifications() -> typing.List[typing.Type]:
         for cls in Specification.__subclasses__()
         if not inspect.isabstract(cls)
     ]
+
+
+def is_a_value(o) -> bool:
+    """
+    Whether the passed object is a value and not some method or module or something
+
+    Args:
+        o:
+            The object to be tested
+    Returns:
+        Whether the passed object is a value and not some method or module or something
+    """
+    # This will exclude methods, code, stuff like __get__, __set__, __add__, async objects, etc
+    return not (
+        inspect.iscode(o)
+        or inspect.isdatadescriptor(o)
+        or inspect.ismethoddescriptor(o)
+        or inspect.ismemberdescriptor(o)
+        or inspect.ismodule(o)
+        or inspect.isgenerator(o)
+        or inspect.isgeneratorfunction(o)
+        or inspect.ismethod(o)
+        or inspect.isawaitable(o)
+        or inspect.isabstract(o)
+    )
 
 
 def value_matches_parameter_type(value, parameter: typing.Union[inspect.Parameter, typing.Type]) -> bool:
@@ -128,33 +155,45 @@ def create_class(cls, data, decoder: json.JSONDecoder = None):
     Returns:
         An instance of the given `cls`
     """
+    # If the object is already the intended class, you're done!
     if isinstance(data, cls):
         return data
 
+    # If the object is some sort of buffer, go ahead and read in the data for later interpretation
     if hasattr(data, "read"):
-        data: typing.Dict[str, typing.Any] = json.load(data, cls=decoder)
+        data = data.read()
 
+    # If the data is a series of bytes, convert that into a string for later interpretation
     if isinstance(data, bytes):
         data: str = data.decode()
 
+    # If the data is a string AND it looks like it can be valid json, try to convert it into a dictionary
     if isinstance(data, str):
-        data: typing.Dict[str, typing.Any] = json.loads(data, cls=decoder)
+        stripped_data = data.strip()
+        is_possible_json_object = stripped_data.startswith("{") and stripped_data.endswith("}")
+        is_possible_json_array = stripped_data.startswith("[") and stripped_data.endswith("]")
+        if is_possible_json_object or is_possible_json_array:
+            try:
+                data: typing.Dict[str, typing.Any] = json.loads(data, cls=decoder)
+            except json.JSONDecodeError:
+                # If the string can't be interpreted as JSON, try to interpret in another way later.
+                logging.error(
+                        "Tried to interpret string data as json, but it wasn't valid. "
+                        "Continuing with attempted parsing."
+                )
 
     # If data is a list of lists or objects, send each back to this function and return a list instead of a single value
-    if isinstance(data, typing.Sequence):
+    if not isinstance(data, str) and isinstance(data, typing.Sequence):
         return [
             create_class(cls, input_value, decoder)
             for input_value in data
+            if is_a_value(input_value)
         ]
 
-    if hasattr(data, "__dict__"):
-        return cls(
-            **data.__dict__
-        )
-    if hasattr(data, "__slots__"):
-        return cls(
-            **{key: getattr(data, key) for key in data.__slots__}
-        )
+    # If it doesn't have some sort of '__getitem__' or is a string, we can assume that this is a singular value
+    # and we can just send that as a parameter
+    if isinstance(data, str) or not hasattr(data, "__getitem__"):
+        return cls(data)
 
     constructor_signature: inspect.Signature = inspect.signature(cls)
 
@@ -204,7 +243,7 @@ def create_class(cls, data, decoder: json.JSONDecoder = None):
     raise ValueError(f"Type '{type(data)}' cannot be read as JSON")
 
 
-class Specification(abc.ABC):
+class   Specification(abc.ABC):
     """
     Instructions for how different aspects of an evaluation should work
     """
@@ -352,8 +391,10 @@ class UnitDefinition(Specification):
 
         if self.__field:
             data["field"] = self.__field
-        else:
+        elif self.__path:
             data['path'] = self.__path
+        elif self.__value:
+            data['value'] = self.__value
 
         return data
 
@@ -361,9 +402,9 @@ class UnitDefinition(Specification):
 
     def __init__(
             self,
+            value: typing.Union[str, bytes] = None,
             field: str = None,
             path: typing.Union[str, typing.Sequence[str]] = None,
-            value: typing.Union[str, bytes] = None,
             properties: typing.Dict[str, typing.Any] = None,
             **kwargs
     ):
@@ -417,7 +458,7 @@ class ThresholdDefinition(Specification):
         return {
             "name": self.__name,
             "field": self.__field,
-            "unit": self.__unit,
+            "unit": self.__unit.to_dict(),
             "weight": self.__weight,
             "properties": self.__properties
         }
@@ -429,7 +470,7 @@ class ThresholdDefinition(Specification):
             name: typing.Union[str, bytes],
             field: typing.Union[str, bytes, typing.Sequence[str]],
             weight: typing.Union[str, float],
-            unit: UnitDefinition,
+            unit: typing.Union[UnitDefinition, str, dict],
             properties: typing.Union[typing.Dict[str, typing.Any], str] = None,
             **kwargs
     ):
@@ -446,6 +487,12 @@ class ThresholdDefinition(Specification):
             self.__field = field
 
         self.__weight = weight
+
+        if isinstance(unit, str):
+            unit = UnitDefinition(value=unit)
+        elif isinstance(unit, dict):
+            unit = UnitDefinition.create(unit)
+
         self.__unit = unit
 
     @property
@@ -804,6 +851,13 @@ class ValueSelector(Specification):
         if origin_starts_at_root and origin[0] != '$':
             origin.insert(0, "$")
 
+        if origin:
+            origin = [
+                part
+                for part in origin
+                if bool(part)
+            ]
+
         path_starts_at_root = False
         if isinstance(path, str):
             path_starts_at_root = path.startswith("/")
@@ -815,6 +869,13 @@ class ValueSelector(Specification):
 
         if path_starts_at_root:
             path.insert(0, '$')
+
+        if path:
+            path = [
+                part
+                for part in path
+                if bool(part)
+            ]
 
         self.__where = where
         self.__origin = origin
@@ -846,7 +907,7 @@ class ValueSelector(Specification):
             if dtype is not None:
                 column_options['dtype'] = {self.__name: dtype}
 
-        for index in self.index:
+        for index in self.associated_fields:
             if index.datatype in ["datetime", "date"]:
                 if 'parse_dates' not in column_options:
                     column_options['parse_dates'] = list()
@@ -931,7 +992,7 @@ class ValueSelector(Specification):
         return self.__name
 
     @property
-    def index(self) -> typing.Sequence[AssociatedField]:
+    def associated_fields(self) -> typing.Sequence[AssociatedField]:
         """
         Additional values to retrieve with selected values
         """
@@ -1496,6 +1557,27 @@ class ThresholdSpecification(Specification):
         The weight of all defined thresholds
         """
         return sum([definition.weight for definition in self.__definitions])
+
+    def __contains__(self, definition_name) -> bool:
+        matching_definitions = [
+            definition
+            for definition in self.__definitions
+            if definition.name.lower() == definition_name.lower()
+        ]
+
+        if matching_definitions:
+            return True
+
+        matching_definitions = [
+            definition
+            for definition in self.__definitions
+            if definition.field[-1].lower() == definition_name.lower()
+        ]
+
+        if matching_definitions:
+            return True
+
+        return False
 
     def __getitem__(self, definition_name) -> typing.Optional[ThresholdDefinition]:
         matching_definitions = [

@@ -2,18 +2,19 @@ import typing
 import unittest
 
 from ..evaluations.specification import model
-from .common import TestConstruction
-from .common import TestOuterConstruction
+from .common import ConstructionTest
+from .common import OuterConstructionTest
 
 from .test_backendspecification import TestBackendSpecificationConstruction
 from .test_locationspecification import TestLocationSpecificationConstruction
 from .test_thresholddefinition import TestThresholdDefinitionConstruction
 
-class TestThresholdSpecificationConstruction(TestOuterConstruction):
+
+class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.TestCase):
     @classmethod
     def make_assertion_for_single_definition(
             cls,
-            test: TestConstruction,
+            test: typing.Union[ConstructionTest, unittest.TestCase],
             parameters: typing.Dict[str, typing.Any],
             definition: model.ThresholdSpecification
     ):
@@ -32,15 +33,6 @@ class TestThresholdSpecificationConstruction(TestOuterConstruction):
                 definition.definitions,
                 parameter_list=parameters['definitions']
         )
-
-        for key in parameters['properties']:
-            test.assertIn(key, definition)
-            test.assertEqual(definition[key], parameters['properties'][key])
-            test.assertEqual(definition.properties[key], parameters['properties'][key])
-            test.assertEqual(definition.get(key), parameters['properties'][key])
-
-        test.assertIsNone(definition.get("NonExistentProperty"))
-        test.assertTrue(definition.get("NonExistentProperty", True))
 
     def setUp(self) -> None:
         self.__full_object_parameters = {
@@ -69,6 +61,9 @@ class TestThresholdSpecificationConstruction(TestOuterConstruction):
                 model.ThresholdDefinition(
                         name="Test1",
                         field="test_field1",
+                        unit=model.UnitDefinition(
+                                value="miles"
+                        ),
                         weight=5,
                         properties={
                             "prop1": 6,
@@ -84,12 +79,18 @@ class TestThresholdSpecificationConstruction(TestOuterConstruction):
                             "prop1": 8,
                             "prop2": 9,
                             "prop3": False
-                        }
+                        },
+                        unit=model.UnitDefinition(
+                                value="inches"
+                        )
                 ),
                 model.ThresholdDefinition(
                         name="Test3",
                         weight=7,
                         field="test_field3",
+                        unit=model.UnitDefinition(
+                            value="years"
+                        ),
                         prop1=10,
                         prop2=11,
                         prop3=True
@@ -137,6 +138,9 @@ class TestThresholdSpecificationConstruction(TestOuterConstruction):
                     ),
                     "definitions": [
                         model.ThresholdDefinition(
+                                unit=model.UnitDefinition(
+                                        value="feet",
+                                ),
                                 name="Terdfst1",
                                 weight=2,
                                 field="test_field",
@@ -147,6 +151,9 @@ class TestThresholdSpecificationConstruction(TestOuterConstruction):
                                 }
                         ),
                         model.ThresholdDefinition(
+                                unit=model.UnitDefinition(
+                                        field="cheese"
+                                ),
                                 name="Test4",
                                 weight=8,
                                 field="test_field3",
@@ -193,7 +200,10 @@ class TestThresholdSpecificationConstruction(TestOuterConstruction):
                                     "prop3": True
                                 },
                                 prop1=4,
-                                prop2=3
+                                prop2=3,
+                                unit=model.UnitDefinition(
+                                        path="path/to/whatever"
+                                )
                         )
                     ],
                     "properties": {
@@ -235,6 +245,9 @@ class TestThresholdSpecificationConstruction(TestOuterConstruction):
                         "prop1": 6,
                         "prop2": 7,
                         "prop3": True
+                    },
+                    "unit": {
+                        "path": "path/from/x"
                     }
                 },
                 model.ThresholdDefinition(
@@ -245,7 +258,10 @@ class TestThresholdSpecificationConstruction(TestOuterConstruction):
                             "prop1": 8,
                             "prop2": 9,
                             "prop3": False
-                        }
+                        },
+                        unit=model.UnitDefinition(
+                                value="x"
+                        )
                 ),
                 model.ThresholdDefinition(
                         name="Test3",
@@ -253,7 +269,10 @@ class TestThresholdSpecificationConstruction(TestOuterConstruction):
                         field="test_field3",
                         prop1=10,
                         prop2=11,
-                        prop3=True
+                        prop3=True,
+                        unit=model.UnitDefinition(
+                                field="sdsdf"
+                        )
                 )
             ],
             "properties": {
@@ -304,7 +323,8 @@ class TestThresholdSpecificationConstruction(TestOuterConstruction):
                                 "prop1": 4,
                                 "prop2": 3,
                                 "prop3": True
-                            }
+                            },
+                            "unit": "acre"
                         },
                         {
                             "name": "Test4",
@@ -314,6 +334,9 @@ class TestThresholdSpecificationConstruction(TestOuterConstruction):
                                 "prop1": 10,
                                 "prop2": 12,
                                 "prop3": False
+                            },
+                            "unit": {
+                                "field": "unit"
                             }
                         }
                     ],
@@ -355,7 +378,8 @@ class TestThresholdSpecificationConstruction(TestOuterConstruction):
                                 field="test_field",
                                 prop1=4,
                                 prop2=3,
-                                prop3=True
+                                prop3=True,
+                                unit="mile"
                         )
                     ],
                     "properties": {
@@ -397,6 +421,9 @@ class TestThresholdSpecificationConstruction(TestOuterConstruction):
                         "prop1": 6,
                         "prop2": 7,
                         "prop3": True
+                    },
+                    "unit": {
+                        "path": "path/to/value"
                     }
                 },
                 {
@@ -407,6 +434,9 @@ class TestThresholdSpecificationConstruction(TestOuterConstruction):
                         "prop1": 8,
                         "prop2": 9,
                         "prop3": False
+                    },
+                    "unit": {
+                        "value": "seven"
                     }
                 },
                 {
@@ -417,7 +447,8 @@ class TestThresholdSpecificationConstruction(TestOuterConstruction):
                         "prop1": 10,
                         "prop2": 11,
                         "prop3": True
-                    }
+                    },
+                    "unit": "inch"
                 }
             ],
             "properties": {
@@ -470,7 +501,8 @@ class TestThresholdSpecificationConstruction(TestOuterConstruction):
                                 "prop1": 4,
                                 "prop2": 3,
                                 "prop3": True
-                            }
+                            },
+                            "unit": "five"
                         },
                         {
                             "name": "Test4",
@@ -480,6 +512,9 @@ class TestThresholdSpecificationConstruction(TestOuterConstruction):
                                 "prop1": 10,
                                 "prop2": 12,
                                 "prop3": False
+                            },
+                            "unit": {
+                                "field": "x"
                             }
                         }
                     ],
@@ -523,6 +558,9 @@ class TestThresholdSpecificationConstruction(TestOuterConstruction):
                                 "prop1": 4,
                                 "prop2": 3,
                                 "prop3": True
+                            },
+                            "unit": {
+                                "value": "millimeter"
                             }
                         }
                     ],

@@ -246,8 +246,76 @@ class TestModelConstruction(unittest.TestCase):
         self.assertIsNone(definition.get("prop4"))
         self.assertTrue(definition.get("prop4", True))
 
+    def test_unitdefinition(self):
+        definition: model.UnitDefinition = model.UnitDefinition.create("mile")
+
+        self.assertEqual("mile", definition.value)
+        self.assertIsNone(definition.path)
+        self.assertIsNone(definition.field)
+
+        definition = model.UnitDefinition.create(definition.to_dict())
+
+        self.assertEqual("mile", definition.value)
+        self.assertIsNone(definition.path)
+        self.assertIsNone(definition.field)
+
+        definition: model.UnitDefinition = model.UnitDefinition.create({"value": "mile"})
+
+        self.assertEqual("mile", definition.value)
+        self.assertIsNone(definition.path)
+        self.assertIsNone(definition.field)
+
+        definition = model.UnitDefinition.create(definition.to_dict())
+
+        self.assertEqual("mile", definition.value)
+        self.assertIsNone(definition.path)
+        self.assertIsNone(definition.field)
+
+        definition = model.UnitDefinition.create('{"path": "path/to/value"}')
+
+        self.assertSequenceEqual(["path", "to", "value"], definition.path)
+        self.assertIsNone(definition.value)
+        self.assertIsNone(definition.field)
+
+        definition = model.UnitDefinition.create(definition.to_dict())
+
+        self.assertSequenceEqual(["path", "to", "value"], definition.path)
+        self.assertIsNone(definition.value)
+        self.assertIsNone(definition.field)
+
+        byte_params = '{"path": "path/to/value"}'.encode()
+
+        definition = model.UnitDefinition.create(byte_params)
+
+        self.assertSequenceEqual(["path", "to", "value"], definition.path)
+        self.assertIsNone(definition.value)
+        self.assertIsNone(definition.field)
+
+        definition = model.UnitDefinition.create(definition.to_dict())
+
+        self.assertSequenceEqual(["path", "to", "value"], definition.path)
+        self.assertIsNone(definition.value)
+        self.assertIsNone(definition.field)
+
+        buffer = io.BytesIO()
+        buffer.write('{"field": "unit_field"}'.encode())
+        buffer.seek(0)
+
+        definition = model.UnitDefinition.create(buffer)
+
+        self.assertEqual("unit_field", definition.field)
+        self.assertIsNone(definition.path)
+        self.assertIsNone(definition.value)
+
+        definition = model.UnitDefinition.create(definition.to_dict())
+
+        self.assertEqual("unit_field", definition.field)
+        self.assertIsNone(definition.path)
+        self.assertIsNone(definition.value)
+
     def test_valueselector(self):
         params = {
+            "name": "example",
             "where": "value",
             "path": ["path", "to", "field"],
             "properties": {
@@ -259,7 +327,8 @@ class TestModelConstruction(unittest.TestCase):
 
         definition: model.ValueSelector = model.ValueSelector.create(params)
         self.assertEqual(definition.where, "value")
-        self.assertEqual(definition.origin, ["path", "to", "field"])
+        self.assertSequenceEqual(definition.origin, ["$"])
+        self.assertSequenceEqual(definition.path, ["path", "to", "field"])
         self.assertIn("prop1", definition)
         self.assertIn("prop2", definition)
         self.assertIn("prop3", definition)
@@ -279,7 +348,8 @@ class TestModelConstruction(unittest.TestCase):
 
         definition: model.ValueSelector = model.ValueSelector.create(text_params)
         self.assertEqual(definition.where, "value")
-        self.assertEqual(definition.origin, ["path", "to", "field"])
+        self.assertSequenceEqual(["$"], definition.origin)
+        self.assertSequenceEqual(definition.path, ["path", "to", "field"])
         self.assertIn("prop1", definition)
         self.assertIn("prop2", definition)
         self.assertIn("prop3", definition)
@@ -299,7 +369,8 @@ class TestModelConstruction(unittest.TestCase):
 
         definition: model.ValueSelector = model.ValueSelector.create(bytes_params)
         self.assertEqual(definition.where, "value")
-        self.assertEqual(definition.origin, ["path", "to", "field"])
+        self.assertSequenceEqual(definition.path, ["path", "to", "field"])
+        self.assertSequenceEqual(['$'], definition.origin)
         self.assertIn("prop1", definition)
         self.assertIn("prop2", definition)
         self.assertIn("prop3", definition)
@@ -321,7 +392,8 @@ class TestModelConstruction(unittest.TestCase):
 
         definition: model.ValueSelector = model.ValueSelector.create(buffer)
         self.assertEqual(definition.where, "value")
-        self.assertEqual(definition.origin, ["path", "to", "field"])
+        self.assertEqual(definition.path, ["path", "to", "field"])
+        self.assertSequenceEqual(["$"], definition.origin)
         self.assertIn("prop1", definition)
         self.assertIn("prop2", definition)
         self.assertIn("prop3", definition)
@@ -343,7 +415,8 @@ class TestModelConstruction(unittest.TestCase):
 
         definition: model.ValueSelector = model.ValueSelector.create(buffer)
         self.assertEqual(definition.where, "value")
-        self.assertEqual(definition.origin, ["path", "to", "field"])
+        self.assertSequenceEqual(definition.path, ["path", "to", "field"])
+        self.assertSequenceEqual(['$'], definition.origin)
         self.assertIn("prop1", definition)
         self.assertIn("prop2", definition)
         self.assertIn("prop3", definition)

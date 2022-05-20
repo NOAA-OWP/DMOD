@@ -2,35 +2,48 @@ import unittest
 import typing
 
 from ..evaluations.specification import model
-from .common import TestConstruction
+from .common import ConstructionTest
 
 
-class TestLocationSpecificationConstruction(TestConstruction):
+class TestLocationSpecificationConstruction(ConstructionTest, unittest.TestCase):
     @classmethod
     def make_assertion_for_single_definition(
             cls,
-            test: TestConstruction,
+            test: typing.Union[ConstructionTest, unittest.TestCase],
             parameters: typing.Dict[str, typing.Any],
             definition: model.LocationSpecification
     ):
-        test.assertEqual(definition.should_identify, parameters['identify'])
-        test.assertEqual(definition.from_field, parameters['from_field'])
-        test.assertEqual(definition.pattern, parameters['pattern'])
+        if isinstance(parameters, dict):
+            test.assertEqual(definition.should_identify, parameters.get('identify', False))
+            test.assertEqual(definition.from_field, parameters['from_field'])
 
-        if "ids" in parameters:
-            test.assertEqual(len(definition.ids), len(parameters['ids']))
+            if isinstance(parameters.get('pattern'), str):
+                test.assertEqual(len(definition.pattern), 1)
+                test.assertSequenceEqual(definition.pattern, [parameters['pattern']])
+            elif isinstance(parameters.get('pattern'), typing.Sequence):
+                test.assertEqual(definition.pattern, parameters['pattern'])
+                test.assertSequenceEqual(definition.pattern, parameters['pattern'])
+            else:
+                test.assertEqual(definition.pattern, parameters.get('pattern'))
 
-            for id in parameters['ids']:
-                test.assertIn(id, definition.ids)
+            if "ids" in parameters:
+                test.assertEqual(len(definition.ids), len(parameters['ids']))
 
-        for key in parameters['properties']:
-            test.assertIn(key, definition)
-            test.assertEqual(definition[key], parameters['properties'][key])
-            test.assertEqual(definition.properties[key], parameters['properties'][key])
-            test.assertEqual(definition.get(key), parameters['properties'][key])
+                for id in parameters['ids']:
+                    test.assertIn(id, definition.ids)
 
-        test.assertIsNone(definition.get("NonExistentProperty"))
-        test.assertTrue(definition.get("NonExistentProperty", True))
+            for key in parameters['properties']:
+                test.assertIn(key, definition)
+                test.assertEqual(definition[key], parameters['properties'][key])
+                test.assertEqual(definition.properties[key], parameters['properties'][key])
+                test.assertEqual(definition.get(key), parameters['properties'][key])
+
+            test.assertIsNone(definition.get("NonExistentProperty"))
+            test.assertTrue(definition.get("NonExistentProperty", True))
+        elif isinstance(parameters, model.LocationSpecification):
+            test.assertEqual(definition, parameters)
+        else:
+            raise TypeError(f"The passed parameters are not valid: {parameters}")
 
     def setUp(self) -> None:
         self.__params = {

@@ -2,10 +2,11 @@ import unittest
 import typing
 
 from ..evaluations.specification import model
-from .common import TestConstruction
+from .specification.test_unitdefinition import TestUnitDefinitionConstruction
+from .common import ConstructionTest
 
 
-class TestThresholdDefinitionConstruction(TestConstruction):
+class TestThresholdDefinitionConstruction(ConstructionTest, unittest.TestCase):
     def get_model_to_construct(cls) -> typing.Type[model.Specification]:
         return model.ThresholdDefinition
 
@@ -26,7 +27,8 @@ class TestThresholdDefinitionConstruction(TestConstruction):
                 "prop1": 6,
                 "prop2": 7,
                 "prop3": True
-            }
+            },
+            "unit": "foot"
         }
         self.__param_list: typing.Sequence[typing.Dict[str, typing.Any]] = [
             {
@@ -37,6 +39,9 @@ class TestThresholdDefinitionConstruction(TestConstruction):
                     "prop1": 6,
                     "prop2": 7,
                     "prop3": True
+                },
+                "unit": {
+                    "field": "stuff"
                 }
             },
             {
@@ -47,6 +52,9 @@ class TestThresholdDefinitionConstruction(TestConstruction):
                     "prop1": 8,
                     "prop2": 9,
                     "prop3": False
+                },
+                "unit": {
+                    "path": "path/to/value"
                 }
             },
             {
@@ -57,29 +65,47 @@ class TestThresholdDefinitionConstruction(TestConstruction):
                     "prop1": 10,
                     "prop2": 11,
                     "prop3": True
-                }
+                },
+                "unit": "stuff"
             }
         ]
 
     @classmethod
     def make_assertion_for_single_definition(
             cls,
-            test: TestConstruction,
+            test: typing.Union[ConstructionTest, unittest.TestCase],
             parameters: typing.Dict[str, typing.Any],
             definition: model.ThresholdDefinition
     ):
-        test.assertEqual(definition.name, parameters['name'])
-        test.assertEqual(definition.weight, parameters['weight'])
-        test.assertEqual(definition.field, parameters['field'])
+        if isinstance(parameters, dict):
+            test.assertEqual(definition.name, parameters['name'])
+            test.assertEqual(definition.weight, parameters['weight'])
 
-        for key in parameters['properties']:
-            test.assertIn(key, definition)
-            test.assertEqual(definition[key], parameters['properties'][key])
-            test.assertEqual(definition.properties[key], parameters['properties'][key])
-            test.assertEqual(definition.get(key), parameters['properties'][key])
+            if isinstance(parameters['field'], str):
+                test.assertSequenceEqual(definition.field, parameters['field'].split("/"))
+            elif isinstance(parameters['field'], bytes):
+                test.assertSequenceEqual(definition.field, parameters['field'].decode().split("/"))
+            else:
+                test.assertSequenceEqual(definition.field, parameters['field'])
 
-        test.assertIsNone(definition.get("NonExistentProperty"))
-        test.assertTrue(definition.get("NonExistentProperty", True))
+            for key in parameters['properties']:
+                test.assertIn(key, definition)
+                test.assertEqual(definition[key], parameters['properties'][key])
+                test.assertEqual(definition.properties[key], parameters['properties'][key])
+                test.assertEqual(definition.get(key), parameters['properties'][key])
+
+            test.assertIsNone(definition.get("NonExistentProperty"))
+            test.assertTrue(definition.get("NonExistentProperty", True))
+            TestUnitDefinitionConstruction.make_assertion_for_single_definition(
+                    test,
+                    parameters['unit'],
+                    definition.unit
+            )
+        elif isinstance(parameters, model.ThresholdDefinition):
+            test.assertEqual(definition, parameters)
+        else:
+            raise TypeError(f"The passed parameters are not valid")
+
 
 
 if __name__ == '__main__':

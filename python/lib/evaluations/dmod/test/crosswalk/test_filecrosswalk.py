@@ -36,7 +36,7 @@ class TestFileCrosswalk(unittest.TestCase):
         )
 
     def setUp(self) -> None:
-        self.__json_specification = TestFileCrosswalk.get_json_specification()
+        self.json_specification: specification.CrosswalkSpecification = TestFileCrosswalk.get_json_specification()
 
     @classmethod
     def make_assertions(
@@ -52,14 +52,14 @@ class TestFileCrosswalk(unittest.TestCase):
 
         for mapping in expected_mapping:
             search_results = data[
-                (data.predicted_location == mapping["predicted_location"])
-                & (data.observed_location == mapping["observed_location"])
+                (data[retriever.prediction_field_name] == mapping["predicted_location"])
+                & (data[retriever.observation_field_name] == mapping["observed_location"])
             ]
 
             test.assertFalse(search_results.empty)
 
     def test_inferred_json_crosswalk(self):
-        retriever = crosswalk.get_crosswalk(self.__json_specification)
+        retriever = crosswalk.get_crosswalk(self.json_specification)
         self.make_assertions(
                 self,
                 retriever,
@@ -80,7 +80,7 @@ class TestFileCrosswalk(unittest.TestCase):
         )
 
     def test_explicit_json_crosswalk(self):
-        retriever = crosswalk.disk.JSONRetriever(self.__json_specification)
+        retriever = crosswalk.disk.JSONRetriever(self.json_specification)
         self.make_assertions(
                 self,
                 retriever,

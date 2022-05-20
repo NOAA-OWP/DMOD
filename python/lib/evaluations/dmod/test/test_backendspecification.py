@@ -2,10 +2,10 @@ import unittest
 import typing
 
 from ..evaluations.specification import model
-from .common import TestConstruction
+from .common import ConstructionTest
 
 
-class TestBackendSpecificationConstruction(TestConstruction):
+class TestBackendSpecificationConstruction(ConstructionTest, unittest.TestCase):
     def setUp(self) -> None:
         self.__params = {
             "backend_type": "file",
@@ -66,22 +66,36 @@ class TestBackendSpecificationConstruction(TestConstruction):
     @classmethod
     def make_assertion_for_single_definition(
             cls,
-            test: TestConstruction,
-            parameters: typing.Dict[str, typing.Any],
+            test: typing.Union[ConstructionTest, unittest.TestCase],
+            parameters: typing.Union[typing.Dict[str, typing.Any], model.BackendSpecification],
             definition: model.BackendSpecification
     ):
-        test.assertEqual(definition.type, parameters['backend_type'])
-        test.assertEqual(definition.address, parameters['address'])
-        test.assertEqual(definition.format, parameters['data_format'])
+        if isinstance(parameters, model.BackendSpecification):
+            test.assertEqual(definition.type, parameters.type)
+            test.assertEqual(definition.address, parameters.address)
+            test.assertEqual(definition.format, parameters.format)
 
-        for key in parameters['properties']:
-            test.assertIn(key, definition)
-            test.assertEqual(definition[key], parameters['properties'][key])
-            test.assertEqual(definition.properties[key], parameters['properties'][key])
-            test.assertEqual(definition.get(key), parameters['properties'][key])
+            for key in parameters.properties:
+                test.assertIn(key, definition.properties)
+                test.assertEqual(definition[key], parameters[key])
+                test.assertEqual(definition.properties[key], parameters.properties[key])
+                test.assertEqual(definition.get(key), parameters.get(key))
 
-        test.assertIsNone(definition.get("NonExistentProperty"))
-        test.assertTrue(definition.get("NonExistentProperty", True))
+            test.assertIsNone(definition.get("NonExistentProperty"))
+            test.assertTrue(definition.get("NonExistentProperty", True))
+        else:
+            test.assertEqual(definition.type, parameters['backend_type'])
+            test.assertEqual(definition.address, parameters['address'])
+            test.assertEqual(definition.format, parameters['data_format'])
+
+            for key in parameters['properties']:
+                test.assertIn(key, definition)
+                test.assertEqual(definition[key], parameters['properties'][key])
+                test.assertEqual(definition.properties[key], parameters['properties'][key])
+                test.assertEqual(definition.get(key), parameters['properties'][key])
+
+            test.assertIsNone(definition.get("NonExistentProperty"))
+            test.assertTrue(definition.get("NonExistentProperty", True))
 
 
 if __name__ == '__main__':

@@ -103,7 +103,7 @@ class TestFrameRetrieving(unittest.TestCase):
         self.run_rdb_assertions(self, retriever, self.__rdb_threshold_specification)
 
     def test_direct_csv(self):
-        retriever = disk.JSONThresholdRetriever(self.__csv_threshold_specification)
+        retriever = disk.FrameThresholdRetriever(self.__csv_threshold_specification)
         self.run_csv_assertions(retriever)
 
     def test_implicit_csv(self):
@@ -127,9 +127,22 @@ class TestFrameRetrieving(unittest.TestCase):
         test_case.assertEqual(data.index.name, 'threshold_day')
 
         created_thresholds = threshold.get_thresholds(definition)
-        print("Definitions Generated")
 
+        test_case.assertEqual(len(data.site_no.unique()), len(created_thresholds))
 
+        for key, thresholds in created_thresholds.items():
+            test_case.assertIn(key, data.site_no.unique())
+            for threshold_name, group_data in data[data.site_no == key].groupby(['name']):
+                matching_thresholds = [
+                    thresh
+                    for thresh in thresholds
+                    if thresh.name == threshold_name
+                ]
+                test_case.assertEqual(len(matching_thresholds), 1)
+                matching_threshold = matching_thresholds[0]
+                test_case.assertIn(threshold_name, definition)
+                threshold_definition = definition[threshold_name]
+                test_case.assertEqual(threshold_definition.weight, matching_threshold.weight)
 
     def run_csv_assertions(self, retriever: threshold.ThresholdRetriever):
         data = retriever.get_data()
