@@ -17,7 +17,7 @@ class TestMetadata(unittest.TestCase):
         """
         found_metrics = metrics.get_all_metrics()
 
-        self.assertEqual(len(found_metrics), 12)
+        self.assertEqual(len(found_metrics), 13)
 
         self.assertIn(metrics.KlingGuptaEfficiency, found_metrics)
         self.assertIn(metrics.NormalizedNashSutcliffeEfficiency, found_metrics)
