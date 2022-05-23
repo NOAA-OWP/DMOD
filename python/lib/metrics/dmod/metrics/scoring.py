@@ -256,10 +256,11 @@ class Metric(
 
 
 class Score(object):
-    def __init__(self, metric: Metric, value: NUMBER, threshold: Threshold = None):
+    def __init__(self, metric: Metric, value: NUMBER, threshold: Threshold = None, sample_size: int = None):
         self.__metric = metric
         self.__value = value
         self.__threshold = threshold or Threshold.default()
+        self.__sample_size = sample_size or numpy.nan
 
     @property
     def value(self) -> NUMBER:
@@ -292,6 +293,13 @@ class Score(object):
         failed = difference < EPSILON
 
         return failed
+
+    @property
+    def sample_size(self):
+        return self.__sample_size
+
+    def __len__(self):
+        return self.__sample_size
 
     def __str__(self) -> str:
         return f"{self.metric} => ({self.threshold}: {self.scaled_value})"

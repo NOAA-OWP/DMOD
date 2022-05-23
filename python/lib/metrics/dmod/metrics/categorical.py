@@ -297,8 +297,6 @@ class TruthTable(object):
                 index=observations.index
         )
 
-        self.__pairs = matches
-
         # Derive the four cells of the truth table
         matches['hit'] = matches.apply(
                 lambda row: value_hit(row['observation_counts'], row['prediction_counts']),
@@ -317,8 +315,6 @@ class TruthTable(object):
                 axis=1
         )
 
-        self.__size = len(matches)
-
         # Store evaluated parameters so they don't have to be evaluated multiple times
         self.__observation_had_activity = series_has_activity(matches.observation_counts)
         self.__predictions_had_activity = series_has_activity(matches.prediction_counts)
@@ -328,12 +324,15 @@ class TruthTable(object):
         self.__false_positives = len(matches[matches.false_positive == True])
         self.__misses = len(matches[matches.miss == True])
 
+        self.__size = len(matches)
+
         self.__positives = self.__hits + self.__misses
         self.__negatives = self.__false_positives + self.__true_negatives
         self.__predicted_positives = self.__hits + self.__false_positives
         self.__predicted_negatives = self.__misses + self.__true_negatives
 
         self.__probability_of_detection = numpy.nan
+        self.__probability_of_false_detection = numpy.nan
         self.__false_alarm_ratio = numpy.nan
         self.__frequency_bias = numpy.nan
         self.__accuracy = numpy.nan
@@ -343,7 +342,7 @@ class TruthTable(object):
         self.__critical_success_index = numpy.nan
 
         # TODO: Change this to be a measure of information density
-        self.__usefull = self.__observation_had_activity or self.__predictions_had_activity
+        self.__useful = self.__observation_had_activity or self.__predictions_had_activity
 
     @categorical_metric(minimum=0.0)
     def hits(self) -> int:
@@ -411,6 +410,9 @@ class TruthTable(object):
         Returns:
             The probability that the model would correctly cross the threshold when the observation does
         """
+        if not self.is_useful:
+            return numpy.nan
+
         if not numpy.isnan(self.__probability_of_detection):
             return self.__probability_of_detection
 
@@ -436,6 +438,9 @@ class TruthTable(object):
         Returns:
             The probability that the predictions fit within the threshold when the observation doesn't
         """
+        if not self.is_useful:
+            return numpy.nan
+
         if not numpy.isnan(self.__false_alarm_ratio):
             return self.__false_alarm_ratio
 
@@ -451,6 +456,34 @@ class TruthTable(object):
 
         return self.__false_alarm_ratio
 
+    @categorical_metric(minimum=0.0, maximum=1.0, ideal=0.0, failure=1.0)
+    def probability_of_false_detection(self) -> float:
+        """
+        Calculates what fraction of the observed "no" events were incorrectly forecast as "yes"
+
+        This is only calculated once, on demand
+
+        Returns:
+            The fraction of the observed "no" events that were incorrectly forecasted as "yes"
+        """
+        if not self.is_useful:
+            return numpy.nan
+
+        if not numpy.isnan(self.__probability_of_false_detection):
+            return self.__probability_of_false_detection
+
+        top = self.__false_positives
+        bottom = self.__true_negatives + self.__false_positives
+
+        if bottom == 0 and top == bottom:
+            self.__probability_of_false_detection = 0.0
+        elif bottom == 0:
+            return numpy.nan
+        else:
+            self.__probability_of_false_detection = top / bottom
+
+        return self.__probability_of_false_detection
+
     @categorical_metric(minimum=0, maximum=math.inf, ideal=1.0)
     def frequency_bias(self) -> float:
         """
@@ -463,6 +496,9 @@ class TruthTable(object):
             the ratio between the number of times the predictions fit within the threshold and the number of
             times the observations fit within the threshold
         """
+        if not self.is_useful:
+            return numpy.nan
+
         if not numpy.isnan(self.__frequency_bias):
             return self.__frequency_bias
 
@@ -480,6 +516,9 @@ class TruthTable(object):
 
     @categorical_metric(minimum=0.0, maximum=1.0, ideal=1.0)
     def critical_success_index(self) -> float:
+        if not self.is_useful:
+            return numpy.nan
+
         if not numpy.isnan(self.__critical_success_index):
             return self.__critical_success_index
 
@@ -504,16 +543,19 @@ class TruthTable(object):
             The rate that the predictions made the right call when saying that a value fell
             within or without the threshold
         """
+        if not self.is_useful:
+            return numpy.nan
+
         if not numpy.isnan(self.__accuracy):
             return self.__accuracy
 
         top = self.__hits + self.__true_negatives
         bottom = self.__size
 
-        if top == bottom:
-            self.__accuracy = 1.0
         if bottom == 0:
             return numpy.nan
+        if top == bottom:
+            self.__accuracy = 1.0
         else:
             self.__accuracy = top / bottom
 
@@ -531,6 +573,9 @@ class TruthTable(object):
             How well did the predicted values accurately fit within the threshold, accounting for hits
             due to chance
         """
+        if not self.is_useful:
+            return numpy.nan
+
         if not numpy.isnan(self.__equitable_threat_score):
             return self.__equitable_threat_score
 
@@ -547,10 +592,10 @@ class TruthTable(object):
         top = self.__hits - random_hits
         bottom = self.__hits + self.__misses + self.__false_positives - random_hits
 
+        if 0 in (top, bottom):
+            return numpy.nan
         if top == bottom:
             self.__equitable_threat_score = 1.0
-        elif bottom == 0:
-            return numpy.nan
         else:
             self.__equitable_threat_score = top / bottom
 
@@ -567,6 +612,9 @@ class TruthTable(object):
         Returns:
             The accuracy of the forecast relative to that of random chance
         """
+        if not self.is_useful:
+            return numpy.nan
+
         if not numpy.isnan(self.__general_skill):
             return self.__general_skill
 
@@ -577,9 +625,7 @@ class TruthTable(object):
         bottom = (self.__hits + self.__misses) * (self.__misses + self.__true_negatives)
         bottom += (self.__hits + self.__false_positives) * (self.__false_positives + self.__true_negatives)
 
-        if top == bottom:
-            self.__general_skill = 1.0
-        elif bottom == 0:
+        if bottom == 0:
             return numpy.nan
         else:
             self.__general_skill = top / bottom
@@ -588,6 +634,9 @@ class TruthTable(object):
 
     @categorical_metric(minimum=0.0, maximum=1.0, ideal=1.0)
     def precision(self) -> float:
+        if not self.is_useful:
+            return numpy.nan
+
         if not numpy.isnan(self.__precision):
             return self.__precision
 
@@ -618,19 +667,9 @@ class TruthTable(object):
         return self.__threshold.weight
 
     @property
-    def pairs(self) -> pandas.DataFrame:
-        """
-        TODO: Determine if this is necessary or an unneccessary memory sink
-
-        Returns:
-            The data used to calculate the truth table statistics
-        """
-        return self.__pairs.copy()
-
-    @property
     def is_useful(self) -> bool:
         """
-        Tells whether or not there was any useful information in this table or not.
+        Tells whether there was any useful information in this table or not.
 
         The table could report an absolutely perfect probability of detection and false alarm ratio, but that doesn't
         tell you much if no data fit within the threshold
@@ -638,9 +677,9 @@ class TruthTable(object):
         The table is deemed useful if any sort of data was detected within the threshold
 
         Returns:
-            Whether or not there was any useful information caught in this table or not
+            Whether there was any useful information caught in this table or not
         """
-        return self.__usefull
+        return self.__useful
 
     @property
     def usefulness(self) -> float:
@@ -653,6 +692,9 @@ class TruthTable(object):
             The numerical degree to how useful this table is
         """
         return self.weight if self.is_useful else 0
+
+    def __len__(self):
+        return self.__size
 
 
 class TruthTables(object):
@@ -781,7 +823,8 @@ class TruthTables(object):
                 "series_weight": self.__weight,
                 "threshold": table.name,
                 "threshold_weight": table.weight,
-                "value": table.hits()
+                "value": table.hits(),
+                "sample_size": len(table)
             }
             for table in self.__tables.values()
         ]
@@ -798,7 +841,8 @@ class TruthTables(object):
                 "series_weight": self.__weight,
                 "threshold": table.name,
                 "threshold_weight": table.weight,
-                "value": table.misses()
+                "value": table.misses(),
+                "sample_size": len(table)
             }
             for table in self.__tables.values()
         ]
@@ -815,7 +859,8 @@ class TruthTables(object):
                 "series_weight": self.__weight,
                 "threshold": table.name,
                 "threshold_weight": table.weight,
-                "value": table.false_positives()
+                "value": table.false_positives(),
+                "sample_size": len(table)
             }
             for table in self.__tables.values()
         ]
@@ -832,7 +877,8 @@ class TruthTables(object):
                 "series_weight": self.__weight,
                 "threshold": table.name,
                 "threshold_weight": table.weight,
-                "value": table.true_negatives()
+                "value": table.true_negatives(),
+                "sample_size": len(table)
             }
             for table in self.__tables.values()
         ]
@@ -849,7 +895,8 @@ class TruthTables(object):
                 "series_weight": self.__weight,
                 "threshold": table.name,
                 "threshold_weight": table.weight,
-                "value": table.probability_of_detection()
+                "value": table.probability_of_detection(),
+                "sample_size": len(table)
             }
             for table in self.__tables.values()
         ]
@@ -861,17 +908,36 @@ class TruthTables(object):
         """
         A frame depicting the false alarm ratio for each truth table
         """
-        probabilities_of_false_detection = [
+        ratios_of_false_alarms = [
             {
                 "series_weight": self.__weight,
                 "threshold": table.name,
                 "threshold_weight": table.weight,
-                "value": table.false_alarm_ratio()
+                "value": table.false_alarm_ratio(),
+                "sample_size": len(table)
             }
             for table in self.__tables.values()
         ]
 
-        return pandas.DataFrame(probabilities_of_false_detection)
+        return pandas.DataFrame(ratios_of_false_alarms)
+
+    @property
+    def probability_of_false_detection(self) -> pandas.DataFrame:
+        """
+        A frame depicting the probability of false detection for each truth table
+        """
+        false_detection_probabilities = [
+            {
+                "series_weight": self.__weight,
+                "threshold": table.name,
+                "threshold_weight": table.weight,
+                "value": table.probability_of_false_detection(),
+                "sample_size": len(table)
+            }
+            for table in self.__tables.values()
+        ]
+
+        return pandas.DataFrame(false_detection_probabilities)
 
     @property
     def frequency_bias(self) -> pandas.DataFrame:
@@ -883,7 +949,8 @@ class TruthTables(object):
                 "series_weight": self.__weight,
                 "threshold": table.name,
                 "threshold_weight": table.weight,
-                "value": table.frequency_bias()
+                "value": table.frequency_bias(),
+                "sample_size": len(table)
             }
             for table in self.__tables.values()
         ]
@@ -900,7 +967,8 @@ class TruthTables(object):
                 "series_weight": self.__weight,
                 "threshold": table.name,
                 "threshold_weight": table.weight,
-                "value": table.accuracy()
+                "value": table.accuracy(),
+                "sample_size": len(table)
             }
             for table in self.__tables.values()
         ]
@@ -917,7 +985,8 @@ class TruthTables(object):
                 "series_weight": self.__weight,
                 "threshold": table.name,
                 "threshold_weight": table.weight,
-                "value": table.precision()
+                "value": table.precision(),
+                "sample_size": len(table)
             }
             for table in self.__tables.values()
         ]
@@ -934,7 +1003,8 @@ class TruthTables(object):
                 "series_weight": self.__weight,
                 "threshold": table.name,
                 "threshold_weight": table.weight,
-                "value": table.critical_success_index()
+                "value": table.critical_success_index(),
+                "sample_size": len(table)
             }
             for table in self.__tables.values()
         ]
@@ -951,7 +1021,8 @@ class TruthTables(object):
                 "series_weight": self.__weight,
                 "threshold": table.name,
                 "threshold_weight": table.weight,
-                "value": table.equitable_threat_score()
+                "value": table.equitable_threat_score(),
+                "sample_size": len(table)
             }
             for table in self.__tables.values()
         ]
@@ -968,7 +1039,8 @@ class TruthTables(object):
                 "series_weight": self.__weight,
                 "threshold": table.name,
                 "threshold_weight": table.weight,
-                "value": table.general_skill()
+                "value": table.general_skill(),
+                "sample_size": len(table)
             }
             for table in self.__tables.values()
         ]
@@ -990,7 +1062,8 @@ class TruthTables(object):
                             "threshold": table.name,
                             "threshold_weight": table.weight,
                             "metric": metric,
-                            "value": getattr(table, metric)()
+                            "value": getattr(table, metric)(),
+                            "sample_size": len(table)
                         }
                 )
 

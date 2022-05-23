@@ -145,10 +145,10 @@ class TestMetrics(unittest.TestCase):
 
         self.assertEqual(len(scores), len(self.thresholds))
         self.assertAlmostEqual(scores['All'].value, -1447200000000000.0, delta=EPSILON)
-        self.assertAlmostEqual(scores['Minor'].value, -211860000000000.0, delta=EPSILON)
-        self.assertAlmostEqual(scores['Moderate'].value, -52020000000000.0, delta=EPSILON)
-        self.assertAlmostEqual(scores['Major'].value, -99900000000000.0, delta=EPSILON)
-        self.assertEqual(scores['Record'].value, 0.0)
+        self.assertAlmostEqual(-58.85, scores['Minor'].value, delta=EPSILON)
+        self.assertAlmostEqual(-14.45, scores['Moderate'].value, delta=EPSILON)
+        self.assertAlmostEqual(-27.75, scores['Major'].value, delta=EPSILON)
+        self.assertAlmostEqual(0.0, scores['Record'].value, delta=EPSILON)
 
     def test_probability_of_detection(self):
         metric = metrics.ProbabilityOfDetection(5)
@@ -216,7 +216,7 @@ class TestMetrics(unittest.TestCase):
         )
 
         self.assertEqual(len(scores), len(self.thresholds))
-        self.assertAlmostEqual(scores['All'].value, 1, delta=EPSILON)
+        self.assertAlmostEqual(1, scores['All'].value, delta=EPSILON)
         self.assertAlmostEqual(scores['Minor'].value, 1, delta=EPSILON)
         self.assertAlmostEqual(scores['Moderate'].value, 1, delta=EPSILON)
         self.assertAlmostEqual(scores['Major'].value, 0.962962, delta=EPSILON)

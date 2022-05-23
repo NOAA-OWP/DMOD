@@ -283,7 +283,7 @@ class CategoricalMetric(scoring.Metric, abc.ABC):
         scores: typing.List[scoring.Score] = list()
 
         for row_number, row in self._get_values(tables):
-            score = scoring.Score(self, row['value'], tables[row['threshold']].threshold)
+            score = scoring.Score(self, row['value'], tables[row['threshold']].threshold, sample_size=row['sample_size'])
             scores.append(score)
 
         return scoring.Scores(self, scores)
@@ -336,7 +336,7 @@ class PearsonCorrelationCoefficient(scoring.Metric):
                 if result is not None and len(result) > 0:
                     result = result[0][1]
             scores.append(
-                scoring.Score(self, result, pearson_threshold)
+                scoring.Score(self, result, pearson_threshold, sample_size=len(filtered_pairs))
             )
 
         return scoring.Scores(self, scores)
@@ -429,7 +429,7 @@ class KlingGuptaEfficiency(scoring.Metric):
 
                 initial_result = math.sqrt((alpha - 1)**2 + (beta - 1)**2 + (gamma - 1)**2)
                 result = 1.0 - initial_result
-            scores.append(scoring.Score(self, result, kling_threshold))
+            scores.append(scoring.Score(self, result, kling_threshold, sample_size=len(filtered_pairs)))
 
         return scoring.Scores(self, scores)
 
@@ -470,19 +470,19 @@ class NormalizedNashSutcliffeEfficiency(scoring.Metric):
 
         for nnse_threshold in thresholds:
             normalized_nash_sutcliffe_efficiency = numpy.nan
-            thresholded_pairs = nnse_threshold(pairs)
+            filtered_pairs = nnse_threshold(pairs)
 
-            if not thresholded_pairs.empty:
-                observed_values: pandas.Series[numpy.float32] = thresholded_pairs[observed_value_label]
+            if not filtered_pairs.empty:
+                observed_values: pandas.Series[numpy.float32] = filtered_pairs[observed_value_label]
 
-                numerator = thresholded_pairs.apply(
+                numerator = filtered_pairs.apply(
                     lambda row: (row[observed_value_label] - row[predicted_value_label])**2,
                     axis=1
                 ).sum()
 
                 mean_observation = observed_values.mean()
 
-                denominator = thresholded_pairs.apply(
+                denominator = filtered_pairs.apply(
                     lambda row: (row[observed_value_label] - mean_observation)**2,
                     axis=1
                 ).sum()
@@ -493,9 +493,10 @@ class NormalizedNashSutcliffeEfficiency(scoring.Metric):
 
             scores.append(
                 scoring.Score(
-                    self,
-                    normalized_nash_sutcliffe_efficiency,
-                    nnse_threshold
+                        self,
+                        normalized_nash_sutcliffe_efficiency,
+                        nnse_threshold,
+                        sample_size=len(filtered_pairs)
                 )
             )
 
@@ -519,8 +520,9 @@ class VolumeError(scoring.Metric):
             weight: The relative significance of the metric
         """
         super().__init__(
-            weight=weight,
-            ideal_value=0
+                weight=weight,
+                ideal_value=0,
+                greater_is_better=False
         )
 
     def __call__(
@@ -542,7 +544,7 @@ class VolumeError(scoring.Metric):
                 area_under_observations = sklearn.metrics.auc(dates, filtered_pairs[observed_value_label])
                 area_under_predictions = sklearn.metrics.auc(dates, filtered_pairs[predicted_value_label])
                 difference = area_under_predictions - area_under_observations
-            scores.append(scoring.Score(self, difference, volume_threshold))
+            scores.append(scoring.Score(self, difference, volume_threshold, sample_size=len(filtered_pairs)))
 
         return scoring.Scores(self, scores)
 
@@ -574,6 +576,22 @@ class FalseAlarmRatio(CategoricalMetric):
     @classmethod
     def get_metadata(cls) -> categorical.CategoricalMetricMetadata:
         return categorical.TruthTable.get_metric_metadata("false_alarm_ratio")
+
+
+class ProbabilityOfFalseDetection(CategoricalMetric):
+    @classmethod
+    def get_descriptions(cls):
+        return "Sensitive to false alarms, but ignores misses. Can be artificially improved by issuing fewer 'yes' " \
+               "forecasts to reduce the number of false alarms. Not often reported for deterministic forecasts, " \
+               "but is an important component of the Relative Operating Characteristic (ROC) used widely for " \
+               "probabilistic forecasts."
+
+    def _get_values(self, tables: categorical.TruthTables) -> typing.Iterable[KEY_AND_ROW]:
+        return tables.probability_of_false_detection.iterrows()
+
+    @classmethod
+    def get_metadata(cls) -> categorical.CategoricalMetricMetadata:
+        return categorical.TruthTable.get_metric_metadata("probability_of_false_detection")
 
 
 class FrequencyBias(CategoricalMetric):
