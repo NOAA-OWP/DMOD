@@ -221,7 +221,7 @@ class CategoricalMetric(scoring.Metric, abc.ABC):
             upper_bound=self.get_metadata().maximum,
             ideal_value=self.get_metadata().ideal,
             failure=self.get_metadata().failure,
-            greater_is_better=not self.get_metadata().scale_is_reversed
+            greater_is_better=self.get_metadata().greater_is_better
         )
 
     def __call__(

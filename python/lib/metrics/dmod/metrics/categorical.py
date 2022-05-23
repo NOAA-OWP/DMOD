@@ -59,7 +59,8 @@ def categorical_metric(
         minimum: float = -math.inf,
         maximum: float = math.inf,
         ideal: float = None,
-        failure: float = None
+        failure: float = None,
+        greater_is_better: bool = None
 ):
     """
     Mixin used to attach several important attributes to categorical metrics used for interpretion after the fact.
@@ -81,6 +82,7 @@ def categorical_metric(
         maximum: The maximum possible value for the metric
         ideal: The desired value for the metric
         failure: A value indicating a total failure for the metric
+        greater_is_better: Indicates if a higher value is better than a lower value
 
     Returns:
         The updated metric function
@@ -106,7 +108,7 @@ def categorical_metric(
         setattr(function, 'upper_bounded', math.isfinite(maximum))
         setattr(function, 'partially_bounded', math.isfinite(minimum) ^ math.isfinite(maximum))
         setattr(function, 'bounded', math.isfinite(minimum) or math.isfinite(maximum))
-        setattr(function, 'scale_reversed', minimum > maximum)
+        setattr(function, 'greater_is_better', bool(greater_is_better) if greater_is_better is not None else True)
         return function
 
     return inner
@@ -122,8 +124,17 @@ class CategoricalMetricMetadata(object):
         minimum: The minimum possible value for the metric
         ideal: The desired value for the metric
         failure: A value indicating a failure condition for the metric
+        greater_is_better: Indicates if a higher value is better than a lower value
     """
-    def __init__(self, name: str, maximum: NUMBER, minimum: NUMBER, ideal: NUMBER, failure: NUMBER):
+    def __init__(
+            self,
+            name: str,
+            maximum: NUMBER,
+            minimum: NUMBER,
+            ideal: NUMBER,
+            failure: NUMBER,
+            greater_is_better: bool = None
+    ):
         """
         Constructor
 
@@ -133,12 +144,18 @@ class CategoricalMetricMetadata(object):
             minimum: The minimum value for the metric
             ideal: The desired value for the metric
             failure: A value indicating a failure condition for the metric
+            greater_is_better: Whether a greater value is better than a lower value
         """
         self.__name = name
         self.__maximum = maximum
         self.__minimum = minimum
         self.__ideal = ideal
         self.__failure = failure
+
+        if greater_is_better is None:
+            greater_is_better = True
+
+        self.__greater_is_better = bool(greater_is_better)
 
     @property
     def name(self) -> str:
@@ -213,12 +230,12 @@ class CategoricalMetricMetadata(object):
         return math.isfinite(self.__minimum) or math.isfinite(self.__maximum)
 
     @property
-    def scale_is_reversed(self) -> bool:
+    def greater_is_better(self) -> bool:
         """
         Returns:
-            Whether or not a smaller value is preferrable to a larger value
+            Whether a larger value is better than a smaller value
         """
-        return self.__minimum > self.__maximum
+        return self.__greater_is_better
 
 
 class TruthTable(object):
@@ -264,7 +281,8 @@ class TruthTable(object):
                 maximum=metric_function.maximum,
                 minimum=metric_function.minimum,
                 ideal=metric_function.ideal,
-                failure=metric_function.failure
+                failure=metric_function.failure,
+                greater_is_better=metric_function.greater_is_better
         )
 
     def __init__(self, observations: pandas.Series, predictions: pandas.Series, threshold: Threshold):
@@ -419,16 +437,17 @@ class TruthTable(object):
         top = self.__hits
         bottom = self.__positives
 
+        if bottom == 0:
+            return numpy.nan
+
         if top == bottom:
             self.__probability_of_detection = 1.0
-        elif bottom == 0:
-            return numpy.nan
         else:
             self.__probability_of_detection = top / bottom
 
         return self.__probability_of_detection
 
-    @categorical_metric(minimum=0.0, maximum=1.0, ideal=0.0, failure=1.0)
+    @categorical_metric(minimum=0.0, maximum=1.0, ideal=0.0, failure=1.0, greater_is_better=False)
     def false_alarm_ratio(self) -> float:
         """
         Calculates the chances that the predictions fit within the threshold when the observation doesn't
@@ -456,7 +475,7 @@ class TruthTable(object):
 
         return self.__false_alarm_ratio
 
-    @categorical_metric(minimum=0.0, maximum=1.0, ideal=0.0, failure=1.0)
+    @categorical_metric(minimum=0.0, maximum=1.0, ideal=0.0, failure=1.0, greater_is_better=False)
     def probability_of_false_detection(self) -> float:
         """
         Calculates what fraction of the observed "no" events were incorrectly forecast as "yes"
