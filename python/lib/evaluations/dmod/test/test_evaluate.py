@@ -539,11 +539,7 @@ class TestEvaluate(unittest.TestCase):
 
         self.assertEqual(len(evaluation_results), 2)
 
-        self.assertAlmostEqual(evaluation_results.grade, 63.626837, delta=EPSILON)
-        self.assertAlmostEqual(evaluation_results.mean, 13.3616359, delta=EPSILON)
-        self.assertAlmostEqual(evaluation_results.median, 13.3616359, delta=EPSILON)
-        self.assertAlmostEqual(evaluation_results.standard_deviation, 0.450631, delta=EPSILON)
-        self.assertAlmostEqual(evaluation_results.value, 26.72327187164, delta=EPSILON)
+        diagnostic_dictionary = json.dumps(evaluation_results.to_dict(), indent=4)
 
         expected_results = get_expected_evaluation_results()
 
@@ -596,6 +592,36 @@ class TestEvaluate(unittest.TestCase):
             self.assertEqual(len(matching_expected_results), 1)
 
         self.assertEqual(len(expected_results), 0)
+
+        expected_grade = 63.626837
+        fail_message = f"{expected_grade} != {evaluation_results.grade} " \
+                       f"({abs(expected_grade - evaluation_results.grade)} difference){os.linesep}" \
+                       f"{diagnostic_dictionary}"
+        self.assertAlmostEqual(expected_grade, evaluation_results.grade, delta=EPSILON, msg=fail_message)
+
+        expected_mean = 13.3616359
+        fail_message = f"{expected_mean} != {evaluation_results.mean} " \
+                       f"({abs(expected_mean - evaluation_results.mean)} difference){os.linesep}" \
+                       f"{diagnostic_dictionary}"
+        self.assertAlmostEqual(expected_mean, evaluation_results.mean, delta=EPSILON, msg=fail_message)
+
+        expected_median = 13.3616359
+        fail_message = f"{expected_median} != {evaluation_results.median} " \
+                       f"({abs(expected_median - evaluation_results.median)} difference){os.linesep}" \
+                       f"{diagnostic_dictionary}"
+        self.assertAlmostEqual(expected_median, evaluation_results.median, delta=EPSILON, msg=fail_message)
+
+        expected_std = 0.450631
+        fail_message = f"{expected_std} != {evaluation_results.standard_deviation} " \
+                       f"({abs(expected_std - evaluation_results.standard_deviation)} difference){os.linesep}" \
+                       f"{diagnostic_dictionary}"
+        self.assertAlmostEqual(expected_std, evaluation_results.standard_deviation, delta=EPSILON, msg=fail_message)
+
+        expected_value = 26.72327187164
+        fail_message = f"{expected_value} != {evaluation_results.value} " \
+                       f"({abs(expected_value - evaluation_results.value)} difference){os.linesep}" \
+                       f"{diagnostic_dictionary}"
+        self.assertAlmostEqual(expected_value, evaluation_results.value, delta=EPSILON, msg=fail_message)
 
 
 if __name__ == '__main__':
