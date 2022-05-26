@@ -22,7 +22,7 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
     expected_results = {
         ("0214655255", "cat-27"): {
             "maximum_value_per_threshold": 68,
-            "total": 12.9110046,
+            "total": 11.440416,
             "thresholds": {
                 "p50_va": [
                     {
@@ -169,8 +169,8 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                     {
                         "name": "False Alarm Ratio",
                         "failed": False,
-                        "value": 0.0,
-                        "scaled_value": 10.0,
+                        "value": numpy.nan,
+                        "scaled_value": numpy.nan,
                         "metric_weight": 10,
                         "threshold_weight": 2,
                         "threshold_name": "flood"
@@ -178,8 +178,8 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                     {
                         "name": "Probability Of Detection",
                         "failed": False,
-                        "value": 1.0,
-                        "scaled_value": 10.0,
+                        "value": numpy.nan,
+                        "scaled_value": numpy.nan,
                         "metric_weight": 10,
                         "threshold_weight": 2,
                         "threshold_name": "flood"
@@ -216,8 +216,8 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                     {
                         "name": "False Alarm Ratio",
                         "failed": False,
-                        "value": 0.0,
-                        "scaled_value": 10.0,
+                        "value": numpy.nan,
+                        "scaled_value": numpy.nan,
                         "metric_weight": 10,
                         "threshold_weight": 3,
                         "threshold_name": "action"
@@ -225,8 +225,8 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                     {
                         "name": "Probability Of Detection",
                         "failed": False,
-                        "value": 1.0,
-                        "scaled_value": 10.0,
+                        "value": numpy.nan,
+                        "scaled_value": numpy.nan,
                         "metric_weight": 10,
                         "threshold_weight": 3,
                         "threshold_name": "action"
@@ -263,7 +263,7 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
         },
         ("0214657975", "cat-52"): {
             "maximum_value_per_threshold": 68,
-            "total": 13.812267212945917,
+            "total": 12.341678,
             "thresholds": {
                 "p50_va": [
                     {
@@ -410,8 +410,8 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                     {
                         "name": "False Alarm Ratio",
                         "failed": False,
-                        "value": 0.0,
-                        "scaled_value": 10.0,
+                        "value": numpy.nan,
+                        "scaled_value": numpy.nan,
                         "metric_weight": 10,
                         "threshold_weight": 2,
                         "threshold_name": "flood"
@@ -419,8 +419,8 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                     {
                         "name": "Probability Of Detection",
                         "failed": False,
-                        "value": 1.0,
-                        "scaled_value": 10.0,
+                        "value": numpy.nan,
+                        "scaled_value": numpy.nan,
                         "metric_weight": 10,
                         "threshold_weight": 2,
                         "threshold_name": "flood"
@@ -457,8 +457,8 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                     {
                         "name": "False Alarm Ratio",
                         "failed": False,
-                        "value": 0.0,
-                        "scaled_value": 10.0,
+                        "value": numpy.nan,
+                        "scaled_value": numpy.nan,
                         "metric_weight": 10,
                         "threshold_weight": 3,
                         "threshold_name": "action"
@@ -466,8 +466,8 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                     {
                         "name": "Probability Of Detection",
                         "failed": False,
-                        "value": 1.0,
-                        "scaled_value": 10.0,
+                        "value": numpy.nan,
+                        "scaled_value": numpy.nan,
                         "metric_weight": 10,
                         "threshold_weight": 3,
                         "threshold_name": "action"
@@ -539,8 +539,6 @@ class TestEvaluate(unittest.TestCase):
 
         self.assertEqual(len(evaluation_results), 2)
 
-        diagnostic_dictionary = json.dumps(evaluation_results.to_dict(), indent=4)
-
         expected_results = get_expected_evaluation_results()
 
         for location_pair, results in evaluation_results:  # type: (str, str), scoring.MetricResults
@@ -593,34 +591,21 @@ class TestEvaluate(unittest.TestCase):
 
         self.assertEqual(len(expected_results), 0)
 
-        expected_grade = 63.626837
-        fail_message = f"{expected_grade} != {evaluation_results.grade} " \
-                       f"({abs(expected_grade - evaluation_results.grade)} difference){os.linesep}" \
-                       f"{diagnostic_dictionary}"
+        fail_message = f"{os.linesep}{json.dumps(evaluation_results.to_dict(), indent=4)}"
+
+        expected_grade = 74.31904
         self.assertAlmostEqual(expected_grade, evaluation_results.grade, delta=EPSILON, msg=fail_message)
 
-        expected_mean = 13.3616359
-        fail_message = f"{expected_mean} != {evaluation_results.mean} " \
-                       f"({abs(expected_mean - evaluation_results.mean)} difference){os.linesep}" \
-                       f"{diagnostic_dictionary}"
+        expected_mean = 11.89104
         self.assertAlmostEqual(expected_mean, evaluation_results.mean, delta=EPSILON, msg=fail_message)
 
-        expected_median = 13.3616359
-        fail_message = f"{expected_median} != {evaluation_results.median} " \
-                       f"({abs(expected_median - evaluation_results.median)} difference){os.linesep}" \
-                       f"{diagnostic_dictionary}"
+        expected_median = 11.89104
         self.assertAlmostEqual(expected_median, evaluation_results.median, delta=EPSILON, msg=fail_message)
 
         expected_std = 0.450631
-        fail_message = f"{expected_std} != {evaluation_results.standard_deviation} " \
-                       f"({abs(expected_std - evaluation_results.standard_deviation)} difference){os.linesep}" \
-                       f"{diagnostic_dictionary}"
         self.assertAlmostEqual(expected_std, evaluation_results.standard_deviation, delta=EPSILON, msg=fail_message)
 
-        expected_value = 26.72327187164
-        fail_message = f"{expected_value} != {evaluation_results.value} " \
-                       f"({abs(expected_value - evaluation_results.value)} difference){os.linesep}" \
-                       f"{diagnostic_dictionary}"
+        expected_value = 23.78209
         self.assertAlmostEqual(expected_value, evaluation_results.value, delta=EPSILON, msg=fail_message)
 
 

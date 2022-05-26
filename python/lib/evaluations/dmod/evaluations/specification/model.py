@@ -20,6 +20,7 @@ from dateutil.parser import parse as parse_date
 
 import dmod.metrics as metrics
 import dmod.metrics.metric as metric_functions
+import dmod.metrics.scoring as scoring
 
 from .. import util
 
@@ -1678,6 +1679,9 @@ class EvaluationSpecification(Specification):
 
     @property
     def scheme(self) -> SchemeSpecification:
+        """
+        The specification for what metrics to apply and how they relate to one another
+        """
         return self.__scheme
 
     @property
@@ -1837,7 +1841,8 @@ class EvaluationResults:
                         "metric": score.metric.name,
                         "weight": score.metric.weight,
                         "value": None if numpy.isnan(score.value) else score.value,
-                        "scaled_value": None if numpy.isnan(score.scaled_value) else score.scaled_value
+                        "scaled_value": None if numpy.isnan(score.scaled_value) else score.scaled_value,
+                        "sample_size": None if numpy.isnan(score.sample_size) else score.sample_size
                     }
 
                     threshold_results['scores'].append(score_data)
@@ -1875,23 +1880,108 @@ class EvaluationResults:
             evaluation_threshold.total_weight
             for evaluation_threshold in self._instructions.thresholds
         ])
+
         result_count = len(self._original_results)
 
         return float(result_count * total_threshold_weight)
 
     @property
-    def grade(self) -> float:
+    def max_effective_value(self) -> float:
+        if self.max_possible_value in (0, None, numpy.nan, math.nan):
+            return 0.0
+
+        # The difference between this and the max possible value is that the realistic value discounts scores where
+        # nothing happened so as not to penalize the model for correctly not really doing anything
+        max_realistic_value = 0
+
+        for metric_results in self._original_results.values():
+            for scores in metric_results.populated_thresholds.values():
+                for score in scores:
+                    max_realistic_value += score.metric.weight
+
+        return max_realistic_value
+
+    @property
+    def grade(self, as_percentage: bool = True) -> float:
         """
-        The total grade percentage result across all location pairings. Scales from 0.0 to 100.0
+        The total weighted grade percentage result across all location pairings. Scales from 0.0 to 100.0
         """
         if self.max_possible_value in (0, None, numpy.nan, math.nan):
             return 0.0
 
-        percentage = (self.value / self.max_possible_value) * 100.0
+        if as_percentage is None:
+            as_percentage = True
 
-        percentage = max(min(percentage, 100.0), 0)
+        weight_of_all_locations = sum([
+            result.weight
+            for result in self._original_results.values()
+        ])
+        """The total weight of all locations"""
 
-        return float(percentage)
+        target_calculated_grade = 0
+        """The calculated grade sum that indicates an absolutely perfect verification across all locations"""
+
+        total_calculated_grade = 0
+        """The sum of calculated grade values across all location results"""
+
+        for location_results in self._original_results.values():
+            location_percentage = location_results.weight / weight_of_all_locations
+            """
+            The percentage of how this set of values affects the whole
+            
+            If this location's weight is greater than another's, this location's grade will have a greater 
+            affect on the total
+            """
+
+            # Find the sum of all weights of the thresholds containing all metrics, multiply that value by the
+            # percentage that these results affect the whole, then add them to the target value
+            #
+            # Metric weights don't need to be considered here because they are already scaled against the
+            # threshold weights
+            target_calculated_grade += sum(
+                [threshold.weight for threshold in location_results.populated_thresholds]
+            ) * location_percentage
+
+            # Find the total of this location by summing the quotient of the sum of all scaled score values
+            # divided by the sum of the target score values, multiplied by the weight of its threshold
+            # across all thresholds
+            #
+            # If you have a threshold with a weight of 10 with a result of 0.78 and a threshold with a weight of 5
+            # with a result of 0.76, you end up with a sum of 11.1 with the value of the first threshold having a
+            # greater effect on the sum. This yields an effective grade of 11.1/15, or 0.74. That 0.74 is not recorded
+            # here because both components (11.1 and 15) are used later to compute weighted sums used to calculate a
+            # weighted score
+            #
+            #                     (     ∑j scaled value for score(j) in Threshold(i)                           )
+            #  scaled total = ∑i  (   -----------------------------------------------  *  Threshold(i) Weight  )
+            #  (for location)     (     ∑j    score(j) weight in Threshold(i)                                  )
+            #
+            scaled_total = sum([
+                (
+                        sum([score.scaled_value for score in scores])
+                        / sum([score.metric.weight for score in scores])
+                ) * threshold.weight
+                for threshold, scores in location_results.populated_thresholds.items()
+            ])
+            """The grade of the results for this location and this location only"""
+
+            # Scale the calculated grade for this location by the percentage that this location affects the whole
+            scaled_location_grade = scaled_total * location_percentage
+
+            # Add the scaled grade to the total for the later weighted sum
+            total_calculated_grade += scaled_location_grade
+
+        calculated_grade = total_calculated_grade / target_calculated_grade if target_calculated_grade > 0 else 0.0
+
+        if as_percentage:
+            # We now have the value calculated and the value we hoped to calculate. Dividing one from the other yields
+            # the total grade of the verification. Multiplying that by 100.0 yields the percentage
+            calculated_grade *= 100.0
+
+            # Ensure that the percentage calculated fits between the boundaries of the scale
+            calculated_grade = max(min(calculated_grade, 100.0), 0)
+
+        return float(calculated_grade)
 
     @property
     def mean(self) -> float:
