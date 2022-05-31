@@ -40,8 +40,13 @@ class SchedulerRequestMessage(AbstractInitRequest):
         try:
             model_request = ModelExecRequest.factory_init_correct_subtype_from_deserialized_json(json_obj['model_request'])
             if model_request is not None:
-                return cls(model_request=model_request, user_id=json_obj['user_id'], cpus=json_obj['cpus'],
-                           mem=json_obj['mem'], allocation_paradigm=json_obj['allocation'])
+                return cls(model_request=model_request,
+                           user_id=json_obj['user_id'],
+                           # This may be absent to indicate use the value from the backing model request
+                           cpus=json_obj['cpus'] if 'cpus' in json_obj else None,
+                           # This may be absent to indicate it should be marked "unset" and a default should be used
+                           mem=json_obj['mem'] if 'mem' in json_obj else None,
+                           allocation_paradigm=json_obj['allocation'])
             else:
                 return None
         except:
@@ -52,19 +57,14 @@ class SchedulerRequestMessage(AbstractInitRequest):
                  allocation_paradigm: Optional[str] = None):
         self.model_request = model_request
         self.user_id = user_id
-        # TODO come up with better way of determining this for the running system; for now, ensure a value is set
-        if cpus is None:
-            self.cpus_unset = True
-            self.cpus = 4
-        else:
-            self.cpus_unset = False
-            self.cpus = cpus
+        self._cpus = cpus
         if mem is None:
-            self.memory_unset = True
-            self.memory = 500000
+            self._memory_unset = True
+            self._memory = 500000
         else:
-            self.memory_unset = False
-            self.memory = mem
+            self._memory_unset = False
+            self._memory = mem
+
         if isinstance(allocation_paradigm, str) and allocation_paradigm.strip():
             self.allocation_paradigm: str = allocation_paradigm
         else:
@@ -79,6 +79,45 @@ class SchedulerRequestMessage(AbstractInitRequest):
                and self.allocation_paradigm == other.allocation_paradigm
 
     @property
+    def cpus(self) -> int:
+        """
+        The number of processors requested for the scheduling of this job.
+
+        If not overridden, this falls back to the analogous CPU count property of the underlying
+        ::class:`ModelExecRequest`.
+
+        Returns
+        -------
+        int
+            The number of processors requested for the scheduling of this job.
+        """
+        return self.model_request.cpu_count if self._cpus is None else self._cpus
+
+    @property
+    def memory(self) -> int:
+        """
+        The amount of memory, in bytes, requested for the scheduling of this job.
+
+        Returns
+        -------
+        int
+            The amount of memory, in bytes, requested for the scheduling of this job.
+        """
+        return self._memory
+
+    @property
+    def memory_unset(self) -> bool:
+        """
+        Whether a default amount for job scheduling memory amount was used, because no explicit amount was provided.
+
+        Returns
+        -------
+        bool
+            Whether a default amount for job scheduling memory amount was used, and no explicit amount was provided.
+        """
+        return self._memory_unset
+
+    @property
     def nested_event(self) -> MessageEventType:
         """
         The nested event type of the request this message is trying to have scheduled.
@@ -91,8 +130,15 @@ class SchedulerRequestMessage(AbstractInitRequest):
         return self.model_request.get_message_event_type()
 
     def to_dict(self) -> dict:
-        return {'model_request': self.model_request.to_dict(), 'user_id': self.user_id, 'cpus': self.cpus,
-                'mem': self.memory, 'allocation': self.allocation_paradigm}
+        serial = {'model_request': self.model_request.to_dict(), 'user_id': self.user_id,
+                  'allocation': self.allocation_paradigm}
+        # Don't include this in serial form if property value is sourced from underlying model request
+        if self._cpus is not None:
+            serial['cpus'] = self._cpus
+        # Only including memory value in serial form if it was explicitly set in the first place
+        if not self.memory_unset:
+            serial['mem'] = self.memory
+        return serial
 
 
 class SchedulerRequestResponse(Response):
