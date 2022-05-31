@@ -276,6 +276,31 @@ class TestMetrics(unittest.TestCase):
         self.assertAlmostEqual(scores['Major'].value, 1, delta=EPSILON)
         self.assertTrue(numpy.isnan(scores['Record'].value))
 
+    def test_lineartemporaltrendabsoluteerror(self):
+        metric = metrics.LinearTemporalTrendAbsoluteError(5)
+
+        scores = metric(
+            self.pairs,
+            OBSERVATION_VALUE_KEY,
+            MODEL_VALUE_KEY,
+            self.thresholds,
+            TRUTH_TABLES=self.truth_tables
+        )
+
+        self.assertEqual(len(scores), len(self.thresholds))
+
+        self.assertAlmostEqual(scores['All'].value, -0.000028666, delta=EPSILON)
+        self.assertAlmostEqual(scores['Minor'].value, -0.02156, delta=EPSILON)
+        self.assertAlmostEqual(scores['Moderate'].value, 0.0224, delta=EPSILON)
+        self.assertAlmostEqual(scores['Major'].value, -0.25714, delta=EPSILON)
+        self.assertTrue(numpy.isnan(scores['Record'].value))
+
+        self.assertAlmostEqual(scores['All'].scaled_value, 5, delta=EPSILON)
+        self.assertAlmostEqual(scores['Minor'].scaled_value, 5, delta=EPSILON)
+        self.assertAlmostEqual(scores['Moderate'].scaled_value, 4.88765, delta=EPSILON)
+        self.assertAlmostEqual(scores['Major'].scaled_value, 5, delta=EPSILON)
+        self.assertTrue(numpy.isnan(scores['Record'].scaled_value))
+
 
 def main():
     """

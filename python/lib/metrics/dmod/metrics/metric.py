@@ -16,9 +16,14 @@ import re
 import string
 import logging
 
+from datetime import datetime
+
 import numpy
 import pandas
 import sklearn.metrics
+import scipy.stats
+
+from pandas.api import types as pandas_types
 
 from . import scoring
 from . import threshold
@@ -111,12 +116,25 @@ def get_all_metrics() -> typing.Iterable[typing.Type[scoring.Metric]]:
     return collection
 
 
+def get_metric_options() -> typing.List[typing.Dict[str, str]]:
+    """
+    Returns:
+        A list of all metrics that may be used in a format that may be read by other apps and interpretted
+    """
+    metrics: typing.List[typing.Dict[str, str]] = list()
+
+    for metric in get_all_metrics():
+        metrics.append({
+            "name": metric.get_name(),
+            "description": metric.get_descriptions(),
+            "identifier": metric.get_identifier()
+        })
+
+    return metrics
+
+
 def get_metric(name: str, weight: float) -> scoring.Metric:
-    cleaned_up_name = WHITESPACE_PATTERN.sub("", name)
-    cleaned_up_name = cleaned_up_name.replace("_", "")
-    cleaned_up_name = cleaned_up_name.replace(chr(45), "")
-    cleaned_up_name = cleaned_up_name.replace(chr(8211), "")
-    cleaned_up_name = cleaned_up_name.lower()
+    cleaned_up_name = scoring.create_identifier(name)
 
     matching_metrics: typing.Sequence[typing.Type[scoring.Metric]] = [
         metric for metric in get_all_metrics() if metric.get_identifier() == cleaned_up_name
@@ -126,6 +144,40 @@ def get_metric(name: str, weight: float) -> scoring.Metric:
         raise KeyError(f"There are no metrics named '{name}'")
 
     return matching_metrics[0](weight)
+
+
+def series_to_numeric_sequence(
+    series: typing.Union[typing.Iterable, pandas.Series, pandas.Index, pandas.DataFrame]
+) -> typing.Sequence[NUMBER]:
+    """
+    Takes a set of values and converts them into a set of numbers that can be fed into function that requires their
+    values to be numeric. Useful for converting indices to series of numbers that are needed for functions.
+
+    Args:
+        series: The collection of values to convert
+
+    Returns:
+
+    """
+    if isinstance(series, pandas.DataFrame):
+        series = series.index.to_series()
+
+    sequence = list()
+
+    if len(series) == 0:
+        return sequence
+
+    if isinstance(series, pandas.Series):
+        series = pandas.Series(series)
+
+    if pandas_types.is_numeric_dtype(series):
+        return series.to_list()
+    elif pandas_types.is_datetime64_any_dtype(series):
+        return [date.timestamp() for date in series]
+    else:
+        sequence = [index for index in range(len(series))]
+
+    return sequence
 
 
 def find_truthtables_key(**kwargs) -> typing.Optional[str]:
@@ -285,6 +337,66 @@ class CategoricalMetric(scoring.Metric, abc.ABC):
         for row_number, row in self._get_values(tables):
             score = scoring.Score(self, row['value'], tables[row['threshold']].threshold, sample_size=row['sample_size'])
             scores.append(score)
+
+        return scoring.Scores(self, scores)
+
+
+class LinearTemporalTrendAbsoluteError(scoring.Metric):
+    @classmethod
+    def get_name(cls) -> str:
+        return "Linear Temporal Trend of Absolute Error"
+
+    @classmethod
+    def get_descriptions(cls) -> str:
+        return "A measure of how performance changes over time. A positive result means that the data generally " \
+               "worsened over time, 0 means it was consistently right or wrong, and a negative value indicates that " \
+               "values improved over time"
+
+    def __init__(self, weight: NUMBER):
+        """
+        Constructor
+
+        Args:
+            weight: The relative significance of the metric
+        """
+        # The lower bound is ACTUALLY -1.0, but it is set at 0 for scaling purposes. 0 is perfect, but negative
+        # values are better. When scaling, we want that perfect value to fully satisfy the weight, but we don't want
+        # to overstep, so those 'better' negative values are kept at the floor
+        super().__init__(
+            weight=weight,
+            lower_bound=0.0,
+            upper_bound=1,
+            ideal_value=0,
+            greater_is_better=False
+        )
+
+    def __call__(
+        self,
+        pairs: pandas.DataFrame,
+        observed_value_label: str,
+        predicted_value_label: str,
+        thresholds: typing.Sequence[threshold.Threshold] = None,
+        *args,
+        **kwargs
+    ) -> scoring.Scores:
+        if not thresholds:
+            thresholds = [threshold.Threshold.default()]
+
+        scores: typing.List[scoring.Score] = list()
+
+        for error_threshold in thresholds:
+            result = numpy.nan
+            filtered_pairs = error_threshold(pairs)
+
+            if len(filtered_pairs) > 1:
+                errors = abs(filtered_pairs[observed_value_label] - filtered_pairs[predicted_value_label])
+                index_values = series_to_numeric_sequence(filtered_pairs)
+                regression_line = scipy.stats.linregress(index_values, errors)
+                result = numpy.rad2deg(numpy.arctan(regression_line.slope)) / 90.0
+
+            scores.append(
+                scoring.Score(self, result, error_threshold, sample_size=len(filtered_pairs))
+            )
 
         return scoring.Scores(self, scores)
 
