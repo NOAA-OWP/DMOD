@@ -55,8 +55,8 @@ class SchedulerRequestMessage(AbstractInitRequest):
     # TODO: may need to generalize the underlying request to support, say, scheduling evaluation jobs
     def __init__(self, model_request: ModelExecRequest, user_id: str, cpus: Optional[int] = None, mem: Optional[int] = None,
                  allocation_paradigm: Optional[str] = None):
-        self.model_request = model_request
-        self.user_id = user_id
+        self._model_request = model_request
+        self._user_id = user_id
         self._cpus = cpus
         if mem is None:
             self._memory_unset = True
@@ -118,6 +118,18 @@ class SchedulerRequestMessage(AbstractInitRequest):
         return self._memory_unset
 
     @property
+    def model_request(self) -> ModelExecRequest:
+        """
+        The underlying request for a job to be scheduled.
+
+        Returns
+        -------
+        ModelExecRequest
+            The underlying request for a job to be scheduled.
+        """
+        return self._model_request
+
+    @property
     def nested_event(self) -> MessageEventType:
         """
         The nested event type of the request this message is trying to have scheduled.
@@ -128,6 +140,18 @@ class SchedulerRequestMessage(AbstractInitRequest):
             The nested event type of the request this message is trying to have scheduled.
         """
         return self.model_request.get_message_event_type()
+
+    @property
+    def user_id(self) -> str:
+        """
+        The associated user id for this scheduling request.
+
+        Returns
+        -------
+        str
+            The associated user id for this scheduling request.
+        """
+        return self._user_id
 
     def to_dict(self) -> dict:
         serial = {'model_request': self.model_request.to_dict(), 'user_id': self.user_id,
