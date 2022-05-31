@@ -8,7 +8,7 @@ from dmod.communication import DatasetManagementMessage, DatasetManagementRespon
     ManagementAction, WebSocketInterface
 from dmod.communication.dataset_management_message import DatasetQuery, QueryType
 from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
-from dmod.core.meta_data import DataCategory, DataDomain, DataRequirement, DiscreteRestriction
+from dmod.core.meta_data import DataCategory, DataDomain, DataRequirement, DiscreteRestriction, StandardDatasetIndex
 from dmod.core.serializable import ResultIndicator, BasicResultIndicator
 from dmod.core.exception import DmodRuntimeError
 from dmod.modeldata.data.object_store_dataset import Dataset, DatasetManager, ObjectStoreDataset, \
@@ -381,7 +381,7 @@ class ServiceManager(WebSocketInterface):
         """
         for i in range(len(job.model_request.output_formats)):
 
-            id_restrict = DiscreteRestriction(variable='id', values=[])
+            id_restrict = DiscreteRestriction(variable=StandardDatasetIndex.ELEMENT_ID, values=[])
 
             time_range = None
             for data_domain in [req.domain for req in job.data_requirements if req.category == DataCategory.FORCING]:
