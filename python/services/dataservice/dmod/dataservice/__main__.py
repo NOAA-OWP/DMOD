@@ -140,6 +140,7 @@ def main():
 
     # Setup other required async tasks
     service_manager.add_async_task(service_manager.manage_required_data_checks())
+    service_manager.add_async_task(service_manager.manage_data_provision())
 
     service_manager.run()
 
