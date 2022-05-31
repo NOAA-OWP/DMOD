@@ -142,9 +142,7 @@ class ServiceManager(WebSocketInterface):
         self._obj_store_data_mgr = None
         self._obj_store_access_key = None
         self._obj_store_secret_key = None
-        self._docker_s3fs_helper = DockerS3FSPluginHelper(service_manager=self,
-                                                          obj_store_access=self._obj_store_access_key,
-                                                          obj_store_secret=self._obj_store_secret_key, *args, **kwargs)
+        self._docker_s3fs_helper = None
 
     def _add_manager(self, manager: DatasetManager):
         """
@@ -637,6 +635,10 @@ class ServiceManager(WebSocketInterface):
 
         self._obj_store_access_key = access_key
         self._obj_store_secret_key = secret_key
+
+        self._docker_s3fs_helper = DockerS3FSPluginHelper(service_manager=self,
+                                                          obj_store_access=self._obj_store_access_key,
+                                                          obj_store_secret=self._obj_store_secret_key, *args, **kwargs)
 
     async def listener(self, websocket: WebSocketServerProtocol, path):
         """
