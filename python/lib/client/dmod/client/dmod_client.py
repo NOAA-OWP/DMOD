@@ -1,5 +1,6 @@
-from .request_clients import DatasetClient, DatasetExternalClient, DatasetInternalClient
+from .request_clients import DatasetClient, DatasetExternalClient, DatasetInternalClient, NgenRequestClient
 from .client_config import YamlClientConfig
+from datetime import datetime
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DiscreteRestriction
 from pathlib import Path
 from typing import List, Optional
@@ -10,6 +11,7 @@ class DmodClient:
     def __init__(self, client_config: YamlClientConfig, bypass_request_service: bool = False, *args, **kwargs):
         self._client_config = client_config
         self._dataset_client = None
+        self._ngen_client = None
         self._bypass_request_service = bypass_request_service
 
     @property
@@ -94,6 +96,12 @@ class DmodClient:
                 self._dataset_client = DatasetExternalClient(self.requests_endpoint_uri, self.requests_ssl_dir)
         return self._dataset_client
 
+    @property
+    def ngen_request_client(self) -> NgenRequestClient:
+        if self._ngen_client is None:
+            self._ngen_client = NgenRequestClient(self.requests_endpoint_uri, self.requests_ssl_dir)
+        return self._ngen_client
+
     async def delete_dataset(self, dataset_name: str, **kwargs):
         return await self.dataset_client.delete_dataset(dataset_name, **kwargs)
 
@@ -107,6 +115,14 @@ class DmodClient:
     @property
     def requests_ssl_dir(self) -> Path:
         return self.client_config.requests_ssl_dir
+
+    async def submit_ngen_request(self, start: datetime, end: datetime, hydrofabric_data_id: str, hydrofabric_uid: str,
+                                  cpu_count: int, realization_cfg_data_id: str, bmi_cfg_data_id: str,
+                                  partition_cfg_data_id: Optional[str] = None, cat_ids: Optional[List[str]] = None,
+                                  *args, **kwargs):
+        return await self.ngen_request_client.request_exec(start, end, hydrofabric_data_id, hydrofabric_uid,
+                                                           cpu_count, realization_cfg_data_id, bmi_cfg_data_id,
+                                                           partition_cfg_data_id, cat_ids)
 
     def print_config(self):
         print(self.client_config.print_config())
