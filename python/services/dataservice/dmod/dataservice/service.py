@@ -1,6 +1,9 @@
 import asyncio
 from dmod.communication import AbstractInitRequest
 import json
+import os
+from time import sleep as time_sleep
+from docker.types import Healthcheck, RestartPolicy, SecretReference, ServiceMode
 from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, \
     ManagementAction, WebSocketInterface
 from dmod.communication.dataset_management_message import DatasetQuery, QueryType
@@ -10,6 +13,7 @@ from dmod.core.serializable import ResultIndicator, BasicResultIndicator
 from dmod.core.exception import DmodRuntimeError
 from dmod.modeldata.data.object_store_dataset import Dataset, DatasetManager, ObjectStoreDataset, \
     ObjectStoreDatasetManager
+from dmod.scheduler import SimpleDockerUtil
 from dmod.scheduler.job import Job, JobExecStep, JobUtil
 from typing import Dict, List, Optional, Tuple, Type, TypeVar, Union
 from uuid import UUID, uuid4
@@ -20,6 +24,92 @@ import logging
 
 DATASET_MGR = TypeVar('DATASET_MGR', bound=DatasetManager)
 DATASET_TYPE = TypeVar('DATASET_TYPE', bound=Dataset)
+
+
+class DockerS3FSPluginHelper(SimpleDockerUtil):
+
+    DOCKER_SERVICE_NAME = 's3fs-volumes-initializer'
+
+    def __init__(self, service_manager: 'ServiceManager', obj_store_access: str, obj_store_secret: str, *args,
+                 **kwargs):
+        super(DockerS3FSPluginHelper, self).__init__(*args, **kwargs)
+        image_name = os.getenv('S3FS_VOL_IMAGE_NAME', '127.0.0.1:5000/s3fs-volume-helper')
+        image_tag = os.getenv('S3FS_VOL_IMAGE_TAG', 'latest')
+        self.image = '{}:{}'.format(image_name, image_tag)
+        self.networks = ['host']
+        self._service_manager = service_manager
+        self._obj_store_access = obj_store_access
+        self._obj_store_secret = obj_store_secret
+
+    def init_volumes(self, job: Job):
+        # Get the names of all the needed datasets for all workers
+        worker_required_datasets = set()
+        all_dataset = self._service_manager.get_known_datasets()
+        obj_store_dataset_names = [n for n in all_dataset if isinstance(all_dataset[n], ObjectStoreDataset)]
+        for worker_reqs in job.worker_data_requirements:
+            for fulfilled_by in [r.fulfilled_by for r in worker_reqs if r.fulfilled_by in obj_store_dataset_names]:
+                worker_required_datasets.add(fulfilled_by)
+
+        if len(worker_required_datasets) == 0:
+            return
+
+        secrets_objects = [self.docker_client.secrets.get('object_store_exec_user_name'),
+                           self.docker_client.secrets.get('object_store_exec_user_passwd')]
+        secrets = [SecretReference(secret_id=s.id, secret_name=s.name) for s in secrets_objects]
+
+        sentinel_basename = 's3fs_init_sentinel'
+        # Script written to have the sentinel have provided basename and be in /tmp directory
+        sentinel_file_name = '/tmp/{}'.format(sentinel_basename)
+
+        docker_cmd_args = ['--sentinel', sentinel_basename, '--service-mode']
+        docker_cmd_args.extend(worker_required_datasets)
+
+        service_name = '{}-{}'.format(self.DOCKER_SERVICE_NAME, job.job_id)
+
+        restart_policy = RestartPolicy(condition='none')
+
+        env_vars = ['S3FS_URL=http://localhost:9002/', 'PLUGIN_ALIAS=s3fs']
+        env_vars.append('S3FS_ACCESS_KEY={}'.format(self._obj_store_access))
+        env_vars.append('S3FS_SECRET_KEY={}'.format(self._obj_store_secret))
+
+        # Make sure to re-mount the Docker socket inside the helper service container that gets started
+        mounts = ['/var/run/docker.sock:/var/run/docker.sock:rw']
+
+        def to_nanoseconds(seconds: int):
+            return 1000000000 * seconds
+
+        # Remember that the time values are in nanoseconds, so multiply
+        healthcheck = Healthcheck(test=["CMD-SHELL", 'test -e {}'.format(sentinel_file_name)],
+                                  interval=to_nanoseconds(seconds=2),
+                                  timeout=to_nanoseconds(seconds=2),
+                                  retries=5,
+                                  start_period=to_nanoseconds(seconds=5))
+
+        try:
+            service = self.docker_client.services.create(image=self.image,
+                                                         mode=ServiceMode(mode='global'),
+                                                         args=docker_cmd_args,
+                                                         cap_add=['SYS_ADMIN'],
+                                                         env=env_vars,
+                                                         name=service_name,
+                                                         mounts=mounts,
+                                                         networks=self.networks,
+                                                         restart_policy=restart_policy,
+                                                         healthcheck=healthcheck,
+                                                         secrets=secrets)
+            time_sleep(5)
+            for tries in range(5):
+                service.reload()
+                if all([task['Status']['State'] == task['DesiredState'] for task in service.tasks()]):
+                    break
+                time_sleep(3)
+            service.remove()
+        except KeyError as e:
+            logging.error('Failure checking service status: {}'.format(str(e)))
+            service.remove()
+        except Exception as e:
+            logging.error(e)
+            raise e
 
 
 class ServiceManager(WebSocketInterface):
