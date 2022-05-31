@@ -142,6 +142,9 @@ class ServiceManager(WebSocketInterface):
         self._obj_store_data_mgr = None
         self._obj_store_access_key = None
         self._obj_store_secret_key = None
+        self._docker_s3fs_helper = DockerS3FSPluginHelper(service_manager=self,
+                                                          obj_store_access=self._obj_store_access_key,
+                                                          obj_store_secret=self._obj_store_secret_key, *args, **kwargs)
 
     def _add_manager(self, manager: DatasetManager):
         """
@@ -709,6 +712,34 @@ class ServiceManager(WebSocketInterface):
                 except:
                     # TODO: logging would be good, and perhaps maybe retries
                     pass
+            await asyncio.sleep(5)
+
+    async def manage_data_provision(self):
+        """
+        Task method to periodically associate and (when needed) generate required datasets with/for jobs.
+        """
+        logging.debug("Starting task loop for performing data provisioning for requested jobs.")
+        while True:
+            lock_id = str(uuid4())
+            while not self._job_util.lock_active_jobs(lock_id):
+                await asyncio.sleep(2)
+
+            for job in [j for j in self._job_util.get_all_active_jobs() if j.status_step == JobExecStep.AWAITING_DATA]:
+                logging.debug("Managing provisioning for job {} that is awaiting data.".format(job.job_id))
+
+                # Initialize dataset Docker volumes required for a job
+                try:
+                    logging.debug('Initializing any required S3FS dataset volumes for {}'.format(job.job_id))
+                    self._docker_s3fs_helper.init_volumes(job=job)
+                except Exception as e:
+                    job.status_step = JobExecStep.DATA_FAILURE
+                    self._job_util.save_job(job)
+                    continue
+
+                job.status_step = JobExecStep.AWAITING_SCHEDULING
+                self._job_util.save_job(job)
+
+            self._job_util.unlock_active_jobs(lock_id)
             await asyncio.sleep(5)
 
     async def perform_checks_for_job(self, job: Job) -> bool:
