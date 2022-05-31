@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import json
 from . import name as package_name
 from .dmod_client import YamlClientConfig, DmodClient
@@ -25,6 +26,47 @@ def _handle_config_command_args(parent_subparsers_container):
     command_parser.add_argument('action', choices=['print', 'validate'], help='Specify action to perform on the config')
 
 
+def _handle_exec_command_args(parent_subparsers_container):
+    """
+    Handle setup of arg parsing for 'exec' command, which allows for various workflow executions.
+
+    Parameters
+    ----------
+    parent_subparsers_container
+        The top-level parent container for subparsers of various commands, including the 'exec' command, to which
+        some numbers of nested subparser containers and parsers will be added.
+    """
+    # A parser for the 'dataset' command itself, underneath the parent 'command' subparsers container
+    command_parser = parent_subparsers_container.add_parser('exec')
+
+    # Subparser under the exec command's parser for handling the different workflows that might be run
+    workflow_subparsers = command_parser.add_subparsers(dest='workflow')
+    workflow_subparsers.required = True
+
+    # Nested parser for the 'ngen' action
+    parser_ngen = workflow_subparsers.add_parser('ngen')
+
+    parser_ngen.add_argument('--partition-config-data-id', dest='partition_cfg_data_id', default=None,
+                             help='Provide data_id for desired partition config dataset.')
+    parser_ngen.add_argument('--catchment-ids', dest='cat_ids', nargs='+', help='Specify catchment subset.')
+    date_format = DataDomain.get_datetime_str_format()
+    printable_date_format = 'YYYY-mm-dd HH:MM:SS'
+
+    def date_parser(date_time_str: str) -> datetime.datetime:
+        try:
+            return datetime.datetime.strptime(date_time_str, date_format)
+        except ValueError:
+            raise argparse.ArgumentTypeError("Not a valid date: {}".format(date_time_str))
+
+    parser_ngen.add_argument('start', type=date_parser, help='Model start date and time ({})'.format(printable_date_format))
+    parser_ngen.add_argument('end', type=date_parser, help='Model end date and time ({})'.format(printable_date_format))
+    parser_ngen.add_argument('hydrofabric_data_id', help='Identifier of dataset of required hydrofabric')
+    parser_ngen.add_argument('hydrofabric_uid', help='Unique identifier of required hydrofabric')
+    parser_ngen.add_argument('realization_cfg_data_id', help='Identifier of dataset of required realization config')
+    parser_ngen.add_argument('bmi_cfg_data_id', help='Identifier of dataset of required BMI init configs')
+    parser_ngen.add_argument('cpu_count', type=int, help='Provide the desired number of processes for the execution')
+
+
 def _handle_dataset_command_args(parent_subparsers_container):
     """
     Handle setup of arg parsing for 'dataset' command, which allows for various operations related to datasets.
@@ -37,9 +79,6 @@ def _handle_dataset_command_args(parent_subparsers_container):
     """
     # A parser for the 'dataset' command itself, underneath the parent 'command' subparsers container
     command_parser = parent_subparsers_container.add_parser('dataset')
-
-    command_parser.add_argument('--bypass-request-service', '-b', dest='bypass_reqsrv', action='store_true',
-                                default=False, help='Attempt to connect directly to the data-service')
 
     # Subparser under the dataset command's parser for handling the different actions that might be done relating to a
     # dataset (e.g., creation or uploading of data)
@@ -84,6 +123,8 @@ def _handle_args():
                         help='Set path to client configuration file',
                         dest='client_config',
                         default=None)
+    parser.add_argument('--bypass-request-service', '-b', dest='bypass_reqsrv', action='store_true', default=False,
+                        help='Attempt to connect directly to the applicable service')
     # Top-level subparsers container, splitting off a variety of handled commands for different behavior
     # e.g., 'dataset' to do things related to datasets, like creation
     subparsers = parser.add_subparsers(dest='command')
@@ -93,6 +134,8 @@ def _handle_args():
     _handle_dataset_command_args(parent_subparsers_container=subparsers)
     # Nested command parsers handling config actions
     _handle_config_command_args(parent_subparsers_container=subparsers)
+    # Nested command parsers handling exec actions
+    _handle_exec_command_args(parent_subparsers_container=subparsers)
 
     #parser.prog = package_name
     return parser.parse_args()
@@ -259,6 +302,16 @@ def execute_config_command(parsed_args, client: DmodClient):
         raise RuntimeError("Bad client command action '{}'".format(parsed_args.action))
 
 
+def execute_workflow_command(args, client: DmodClient):
+    async_loop = get_or_create_eventloop()
+    if args.workflow == 'ngen':
+        result = async_loop.run_until_complete(client.submit_ngen_request(**(vars(args))))
+        print(result)
+    else:
+        print("ERROR: Unsupported execution workflow {}".format(args.workflow))
+        exit(1)
+
+
 def main():
     args = _handle_args()
     client_config_path = find_client_config() if args.client_config is None else Path(args.client_config)
@@ -273,6 +326,8 @@ def main():
             execute_config_command(args, client)
         elif args.command == 'dataset':
             execute_dataset_command(args, client)
+        elif args.command == 'exec':
+            execute_workflow_command(args, client)
         else:
             raise ValueError("Unsupported command {}".format(args.command))
 
