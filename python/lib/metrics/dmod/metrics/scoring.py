@@ -67,6 +67,26 @@ def scale_value(metric: "Metric", raw_value: NUMBER) -> NUMBER:
     return raw_value
 
 
+def create_identifier(name: str) -> str:
+    """
+    Returns an identifier that may be compared against other strings for identification
+
+    This will convert "Pearson Correlation Coefficient" to "pearsoncorrelationcoefficient"
+
+    If a function tries to find a metric by name, it can compare and find the metric with values like
+    "pEArSoNcOrreLaTionC oeffIcIEnT" or "pearson correlation_coefficient"
+
+    Returns:
+        An identifier that may be compared against other strings for identification
+    """
+    identifier = WHITESPACE_PATTERN.sub("", name)
+    identifier = identifier.replace("_", "")
+    identifier = identifier.replace(chr(45), "")
+    identifier = identifier.replace(chr(8211), "")
+    identifier = identifier.lower()
+    return identifier
+
+
 class Metric(
     abc.ABC,
     typing.Callable[[pandas.DataFrame, str, str, typing.Optional[typing.Sequence[Threshold]], ARGS, KWARGS], "Scores"]
@@ -127,13 +147,7 @@ class Metric(
         Returns:
             An identifier that may be compared against other strings for identification
         """
-        identifier = cls.get_name()
-        identifier = WHITESPACE_PATTERN.sub("", identifier)
-        identifier = identifier.replace("_", "")
-        identifier = identifier.replace(chr(45), "")
-        identifier = identifier.replace(chr(8211), "")
-        identifier = identifier.lower()
-        return identifier
+        return create_identifier(cls.get_name())
 
     @property
     def name(self) -> str:
@@ -377,9 +391,8 @@ class MetricResults(object):
 
         for threshold, scores in self.__results.items():
             threshold_rows: typing.List[dict] = list()
-            threshold_value = None
 
-            threshold_value_is_sequence = isinstance(threshold_value, (pandas.Series, typing.Sequence))
+            threshold_value_is_sequence = isinstance(threshold.value, (pandas.Series, typing.Sequence))
             threshold_value_is_sequence &= not isinstance(threshold.value, str)
 
             threshold_value = threshold.value[0] if threshold_value_is_sequence else threshold.value
