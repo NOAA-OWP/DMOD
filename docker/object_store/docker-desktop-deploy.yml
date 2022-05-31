@@ -19,6 +19,9 @@ services:
         delay: 10s
         max_attempts: 10
         window: 60s
+      placement:
+        constraints:
+          - node.labels.minio1==true
     command: server /export1 --console-address ":9001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
@@ -50,6 +53,9 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
+      placement:
+        constraints:
+          - node.labels.object_store_proxy==true
 
 networks:
   mpi-net:
