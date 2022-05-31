@@ -67,9 +67,9 @@ networks:
 
 secrets:
   secret_key:
-    file: ../secrets/object_store/secret_key
+    file: ${DMOD_OBJECT_STORE_ADMIN_USER_PASSWD_SECRET_FILE:?}
   access_key:
-    file: ../secrets/object_store/access_key
+    file: ${DMOD_OBJECT_STORE_ADMIN_USER_NAME_SECRET_FILE:?}
   # Note that these need to be in environment, as other things also use them (or at least the values in the file)
   # However, our custom stack naming (i.e., with prefix) messes up just simply reusing the secret across stacks
   exec_user_passwd:
