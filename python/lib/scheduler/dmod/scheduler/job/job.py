@@ -57,7 +57,8 @@ class JobAllocationParadigm(Enum):
         The ``SINGLE_NODE`` value.
         """
         # Must hard code something, since get_from_name potentially has a nested call back to this
-        return cls.SINGLE_NODE
+        #return cls.SINGLE_NODE
+        return cls.ROUND_ROBIN
 
     @classmethod
     def get_from_name(cls, name: Optional[str], strict: bool = False):
