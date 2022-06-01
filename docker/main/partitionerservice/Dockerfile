@@ -8,7 +8,7 @@ ARG partitioner_service_package_name
 ARG partitioner_service_listener_port
 
 # Currently need Git installed to retrieve some package transitive dependencies
-RUN apk update && apk --no-cache upgrade && apk --no-cache add git libstdc++ openblas-dev proj-dev gdal-dev
+RUN apk update && apk --no-cache upgrade && apk --no-cache add git libstdc++ openblas-dev proj-dev gdal-dev geos-dev
 
 WORKDIR /code
 
