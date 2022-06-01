@@ -2,6 +2,85 @@
 
 DOCKER_DESKTOP_OS_NAME="Docker Desktop"
 
+docker_dev_check_volume_exists()
+{
+    # $1 is volume name
+    for v in $(docker volume ls -q); do
+        if [ "${1:?}" = "${v}" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+docker_dev_check_for_s3fs_volume_plugin()
+{
+    # $1 is the name of the plugin alias, which defaults to s3fs if left out
+    if [ $(docker plugin ls | grep ${1:-s3fs} | wc -l) -gt 0 ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+docker_dev_init_s3fs_volume_plugin()
+{
+    # $1 is the access key value
+    # $2 is the secret key value
+    # $3 is the endpoint URL
+    # $4 is the name of the plugin alias, which defaults to s3fs if left out
+    # $5 is the name of the plugin Docker image, which defaults to mochoa/s3fs-volume-plugin if left out
+
+    _S3FS_DOCKER_PLUGIN_NAME="${4:-s3fs}"
+
+    docker plugin install ${5:-mochoa/s3fs-volume-plugin} --alias ${_S3FS_DOCKER_PLUGIN_NAME} --grant-all-permissions --disable
+    docker plugin set s3fs AWSACCESSKEYID=${1:?}
+    docker plugin set s3fs AWSSECRETACCESSKEY=${2:?}
+    docker plugin set s3fs DEFAULT_S3FSOPTS="allow_other,uid=${DOCKER_CONTAINER_USER_ID:-1000},gid=${DOCKER_CONTAINER_GROUP_ID:-1000},url=${3:?},use_path_request_style"
+    docker plugin enable ${_S3FS_DOCKER_PLUGIN_NAME}
+}
+
+# $1 is the Stack service name
+# $2 (optional) is the service replica number (defaults to the first; i.e., '1')
+docker_dev_get_stack_service_task_name()
+{
+    echo "${1:?No service name given when requesting service task id}.${2:-1}"
+}
+
+# Output the id of a running Docker service task instance (i.e. something associated with a container)
+# $1 is the Docker Stack name
+# $2 is the Stack service name
+# $3 (optional) is the service replica number (defaults to the first; i.e., '1')
+docker_dev_get_stack_service_task_id()
+{
+    # Service task name is just <stack_name><service_name>.<replica_number>
+    docker stack ps --no-trunc \
+        ${1:?No stack name given when requesting service task id} \
+        -f desired-state=running \
+        -f name="$(docker_dev_get_stack_service_task_name ${@:2})" \
+        -q
+}
+
+# Get the id of the actual Docker container for a running service task instance
+# $1 is the Docker Stack name
+# $2 is the Stack service name
+# $3 (optional) is the service replica number (defaults to the first; i.e., '1')
+docker_dev_get_stack_service_task_container_name()
+{
+    # Container name is just <service_task_name>.<service_task_id>
+    echo "$(docker_dev_get_stack_service_task_name ${@:2}).$(docker_dev_get_stack_service_task_id ${@})"
+}
+
+# Get the id of the actual Docker container for a running service task instance
+# $1 is the Docker Stack name
+# $2 is the Stack service name
+# $3 (optional) is the service replica number (defaults to the first; i.e., '1')
+docker_dev_get_stack_service_task_container_id()
+{
+    docker ps -f name="$(docker_dev_get_stack_service_task_container_name ${@})" -q
+
+}
+
 docker_dev_init_swarm_network()
 {
     # 1 - network name
