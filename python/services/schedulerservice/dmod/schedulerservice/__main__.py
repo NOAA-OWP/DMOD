@@ -40,6 +40,23 @@ def _handle_args():
                         help='yaml file with a list of resources to use',
                         dest='resource_list_file',
                         default='./resources.yaml')
+    parser.add_argument('--pycharm-remote-debug',
+                        help='Activate Pycharm remote debugging support',
+                        dest='pycharm_debug',
+                        action='store_true')
+    parser.add_argument('--pycharm-remote-debug-egg',
+                        help='Set path to .egg file for Python remote debugger util',
+                        dest='remote_debug_egg_path',
+                        default='/pydevd-pycharm.egg')
+    parser.add_argument('--remote-debug-host',
+                        help='Set remote debug host to connect back to debugger',
+                        dest='remote_debug_host',
+                        default='host.docker.internal')
+    parser.add_argument('--remote-debug-port',
+                        help='Set remote debug port to connect back to debugger',
+                        dest='remote_debug_port',
+                        type=int,
+                        default=55872)
 
     parser.prog = package_name
     return parser.parse_args()
@@ -115,6 +132,24 @@ def main():
     #if args.dev:
     #   run_dev_stuff()
     #else: run_prod()
+
+    if args.pycharm_debug:
+        if args.remote_debug_egg_path == '':
+            print('Error: set to debug with Pycharm, but no path to remote debugger egg file provided')
+            exit(1)
+        if not Path(args.remote_debug_egg_path).exists():
+            print('Error: no file at given path to remote debugger egg file "{}"'.format(args.remote_debug_egg_path))
+            exit(1)
+        import sys
+        sys.path.append(args.remote_debug_egg_path)
+        import pydevd_pycharm
+        try:
+            pydevd_pycharm.settrace(args.remote_debug_host, port=args.remote_debug_port, stdoutToServer=True,
+                                    stderrToServer=True)
+        except Exception as error:
+            msg = 'Warning: could not set debugging trace to {} on {} due to {} - {}'
+            print(msg.format(args.remote_debug_host, args.remote_debug_port, error.__class__.__name__, str(error)))
+
     resource_list = read_resource_list(Path(args.resource_list_file))
 
     # Obtain Redis params
