@@ -1,3 +1,10 @@
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
+    datefmt="%H:%M:%S"
+)
+
 import argparse
 from . import name as package_name
 from .service import ServiceManager
@@ -139,7 +146,7 @@ def main():
     # Figure out Redis password, trying for a Docker secret first
     if args.redis_pass_secret is not None:
         redis_pass_secret_file = secrets_dir.joinpath(args.redis_pass_secret)
-        redis_pass = redis_pass_secret_file.read_text()
+        redis_pass = redis_pass_secret_file.read_text().strip()
     else:
         redis_pass = args.redis_pass
 
