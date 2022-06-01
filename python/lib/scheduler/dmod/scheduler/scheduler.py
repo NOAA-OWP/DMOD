@@ -163,11 +163,11 @@ class Launcher(SimpleDockerUtil):
         if serviceParams.env_var_map is not None and len(serviceParams.env_var_map) > 0:
             additional_kwargs['env'] = serviceParams.env_var_list
 
-        Healthcheck = docker.types.Healthcheck(test = ["CMD-SHELL", 'echo Hello'],
-                                               interval = 1000000 * 10000 * 1,
-                                               timeout = 1000000 * 10000 * 2,
-                                               retries = 2,
-                                               start_period = 1000000 * 10000)
+        healthcheck = docker.types.Healthcheck(test=["CMD-SHELL", 'echo Hello'],
+                                               interval=1000000 * 10000 * 1,
+                                               timeout=1000000 * 10000 * 2,
+                                               retries=2,
+                                               start_period=1000000 * 10000)
         # delay 5 minutes before restarting
         # restart = docker.types.RestartPolicy(condition='on-failure')
         restart = docker.types.RestartPolicy(condition='none')
@@ -176,18 +176,18 @@ class Launcher(SimpleDockerUtil):
             docker_cmd_args.append(str(idx))
 
         try:
-            service = client.services.create(image = image,
-                                         args = docker_cmd_args,
-                                         constraints = constraints,
-                                         hostname = hostname,
-                                         labels = serv_labels,
-                                         name = serv_name,
-                                         mounts = mounts,
-                                         networks = networks,
-                                         # user = user_id,
-                                         healthcheck = Healthcheck,
-                                         restart_policy=restart,
-                                         **additional_kwargs)
+            service = client.services.create(image=image,
+                                             args=docker_cmd_args,
+                                             constraints=constraints,
+                                             hostname=hostname,
+                                             labels=serv_labels,
+                                             name=serv_name,
+                                             mounts=mounts,
+                                             networks=networks,
+                                             # user = user_id,
+                                             healthcheck=healthcheck,
+                                             restart_policy=restart,
+                                             **additional_kwargs)
         except ReadTimeout:
             print("Connection to docker API timed out")
             raise
@@ -261,7 +261,7 @@ class Launcher(SimpleDockerUtil):
         if num_allocations > 0:
             for alloc_index in range(num_allocations):
                 cpu_count = job.allocations[alloc_index].cpu_count
-                host_str += job.allocation_service_names[alloc_index] + ':' + str(cpu_count) + "\n"
+                host_str += job.allocation_service_names[alloc_index] + ':' + str(cpu_count) + ","
 
         # Finally, strip any trailing newline
         host_str = host_str.rstrip()
@@ -393,17 +393,6 @@ class Launcher(SimpleDockerUtil):
             # Also do a sanity check here to ensure there is at least one forcing dataset
             self._ds_names_helper(job, worker_index, DataCategory.FORCING)
 
-            # $10 and beyond have colon-joined category+name strings (e.g., FORCING:aorc_csv_forcings_1) for Minio
-            #       object store datasets to mount
-            obj_store_dataset_strings: List[str] = self._get_required_obj_store_datasets_arg_strings(job, worker_index)
-
-            if len(obj_store_dataset_strings) > 0:
-                docker_cmd_args.extend(obj_store_dataset_strings)
-            # TODO (later): remove this once it is possible to have dataset types other than ObjectStoreDataset
-            else:
-                msg = "{} does not currently support starting jobs without any object store datasets."
-                raise RuntimeError(msg.format(self.__class__.__name__))
-
         return docker_cmd_args
 
     def _get_required_obj_store_datasets_arg_strings(self, job: 'Job', worker_index: int) -> List[str]:
@@ -435,7 +424,7 @@ class Launcher(SimpleDockerUtil):
                 msg = "Can't get object store arg strings and start job {} with unfulfilled data requirements"
                 raise RuntimeError(msg.format(str(job.job_id)))
             if self._is_object_store_dataset(dataset_name=requirement.fulfilled_by):
-                name_list.append('{}:{}'.format(requirement.category, requirement.fulfilled_by))
+                name_list.append('{}:{}'.format(requirement.category.name.lower(), requirement.fulfilled_by))
         return name_list
 
     def _is_object_store_dataset(self, dataset_name: str):
@@ -557,10 +546,15 @@ class Launcher(SimpleDockerUtil):
         ::attribute:`Job.allocation_service_names`
         """
         model = job.model_request.get_model_name()
+
+        if len([a for a in job.allocations if a.cpu_count <= 0]):
+            msg = "Cannot start job {}; found allocation without positive CPU count"
+            logging.error(msg)
+            return False, tuple(msg)
+
         #FIXME read all image/domain at init and select from internal cache (i.e. dict) or even push to redis for long term cache
 
         image_tag = "127.0.0.1:5000/ngen:latest"
-        mounts = []
 
         #TODO better align labels/defaults with serviceparam class
         #FIXME if the stack.namespace needs to align with the stack name, this isn't correct
@@ -587,6 +581,9 @@ class Launcher(SimpleDockerUtil):
             alloc = job.allocations[alloc_index]
             constraints_str = "node.hostname == {}".format(alloc.hostname)
             constraints = list(constraints_str.split("/"))
+            mounts = ['{0}:/dmod/datasets/{1}/{0}:rw'.format(r.fulfilled_by, r.category.name.lower()) for r in
+                      job.worker_data_requirements[alloc_index]]
+            #mounts.append('/local/model_as_a_service/docker_host_volumes/forcing_local:/dmod/datasets/forcing_local:rw')
 
             logging.info("Hostname: {}".format(alloc.hostname))
             #FIXME important that all label values are strings, otherwise docker service create hangs
@@ -596,8 +593,9 @@ class Launcher(SimpleDockerUtil):
             serv_name = job.allocation_service_names[alloc_index]
 
             # Create the docker service
-            service_params = DockerServiceParameters(image_tag, constraints, alloc.hostname, labels, serv_name, mounts,
-                                                     secrets=secrets)
+            service_params = DockerServiceParameters(image_tag=image_tag, constraints=constraints, labels=labels,
+                                                     hostname=job.allocation_service_names[alloc_index],
+                                                     serv_name=serv_name, mounts=mounts, secrets=secrets)
             #TODO check for proper service creation, return False if doesn't work
             service = self.create_service(serviceParams=service_params, idx=alloc_index,
                                           docker_cmd_args=self._generate_docker_cmd_args(job, alloc_index))
