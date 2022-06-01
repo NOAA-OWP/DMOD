@@ -149,7 +149,7 @@ class RequestService(WebSocketSessionsInterface):
                                                                                upstream_websocket=websocket)
                     await websocket.send(str(response))
                 elif event_type == MessageEventType.MODEL_EXEC_REQUEST:
-                    response = self._model_exec_request_handler.handle_request(request=req_message)
+                    response = await self._model_exec_request_handler.handle_request(request=req_message)
                     logging.debug('************************* Handled request response: {}'.format(str(response)))
                     await websocket.send(str(response))
 
