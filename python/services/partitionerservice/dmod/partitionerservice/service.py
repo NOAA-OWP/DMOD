@@ -9,7 +9,8 @@ from websockets import WebSocketServerProtocol
 from docker.errors import ContainerError
 from dmod.communication import AbstractInitRequest, DatasetManagementMessage, DatasetManagementResponse, \
     InvalidMessageResponse, PartitionRequest, PartitionResponse, ManagementAction, WebSocketInterface
-from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement, DiscreteRestriction
+from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement, DiscreteRestriction, \
+    StandardDatasetIndex
 from dmod.core.exception import DmodRuntimeError
 from dmod.externalrequests.maas_request_handlers import DataServiceClient
 from dmod.modeldata.hydrofabric import HydrofabricFilesManager
@@ -282,11 +283,11 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
             for variable, restriction in requirement.domain.discrete_restrictions.items():
                 if len(restriction.values) != 1:
                     continue
-                elif variable == 'data_id':
+                elif variable == StandardDatasetIndex.DATA_ID:
                     data_id = restriction.values[0]
                     if uid is not None:
                         return data_id, uid
-                elif variable == 'uid':
+                elif variable == StandardDatasetIndex.HYDROFABRIC_ID:
                     uid = restriction.values[0]
                     if data_id is not None:
                         return data_id, uid
