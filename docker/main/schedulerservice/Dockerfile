@@ -11,13 +11,11 @@ ARG scheduler_service_package_version_constraint
 
 WORKDIR /code
 
-COPY ./entrypoint.sh entrypoint.sh
-
 # Copy custom built packages from external sources image
 COPY --from=sources /DIST /DIST
 
 RUN apk update \
-    && apk add --no-cache openssl bash libffi-dev musl-dev libstdc++ git openblas-dev proj proj-dev proj-util gdal-dev  \
+    && apk add --no-cache openssl bash libffi-dev musl-dev libstdc++ git geos-dev openblas-dev proj proj-dev proj-util gdal-dev  \
     && rm -rf /var/cache/apk/* \
     && alias python=python3 \
     && pip3 install --no-cache-dir --upgrade pip \
@@ -32,6 +30,8 @@ RUN apk update \
     && rm -r /DIST \
     && mkdir -p ~/.ssh \
     && printf "Host *\n        ServerAliveInterval 300\n        ServerAliveCountMax 2\n" >> ~/.ssh/config
+
+COPY ./entrypoint.sh entrypoint.sh
 
 # TODO: when image tagging/versioning is improved, look at keeping this in a "debug" image only
 # Copy this to have access to debugging pydevd egg
