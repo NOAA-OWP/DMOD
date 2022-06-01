@@ -12,6 +12,23 @@ if [ -n "${VENV_DIR:-}" ]; then
     pip install --update -r /code/requirements.txt
 fi
 
+# Initiate args for service debugging parameters when appropriate
+if [ "$(echo "${PYCHARM_REMOTE_DEBUG_ACTIVE:-false}" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')" = "true" ]; then
+    _DEBUG_ARG="--pycharm-remote-debug"
+fi
+
+# Handle some things in any cases when there is debugging
+if [ -n "${_DEBUG_ARG:-}" ]; then
+    # Append these as well if appropriate, though defaults are coded (and they are somewhat agnostic to the debug setup)
+    if [ -n "${PYCHARM_REMOTE_DEBUG_SERVER_HOST:-}" ]; then
+        _DEBUG_ARG="${_DEBUG_ARG:-} --remote-debug-host ${PYCHARM_REMOTE_DEBUG_SERVER_HOST}"
+    fi
+
+    if [ -n "${PYCHARM_REMOTE_DEBUG_SERVER_PORT:-}" ]; then
+        _DEBUG_ARG="${_DEBUG_ARG:-} --remote-debug-port ${PYCHARM_REMOTE_DEBUG_SERVER_PORT}"
+    fi
+fi
+
 # If we find this directory, and if there are wheels in it, then install those
 if [ -d ${UPDATED_PACKAGES_DIR:=/updated_packages} ]; then
     if [ $(ls ${UPDATED_PACKAGES_DIR}/*.whl | wc -l) -gt 0 ]; then
@@ -25,4 +42,4 @@ if [ -d ${UPDATED_PACKAGES_DIR:=/updated_packages} ]; then
     fi
 fi
 
-python -m ${SERVICE_PACKAGE_NAME:?} ${@}
+python -m ${SERVICE_PACKAGE_NAME:?} ${_DEBUG_ARG:-} ${@}
