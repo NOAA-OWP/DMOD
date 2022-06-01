@@ -1,3 +1,10 @@
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
+    datefmt="%H:%M:%S"
+)
+
 import argparse
 from . import name as package_name
 from .service import ServiceManager
@@ -91,6 +98,7 @@ def main():
     args = _handle_args()
 
     if args.pycharm_debug:
+        logging.info("Preparing remote debugging connection for data service.")
         if args.remote_debug_egg_path == '':
             print('Error: set to debug with Pycharm, but no path to remote debugger egg file provided')
             exit(1)
@@ -106,6 +114,8 @@ def main():
         except Exception as error:
             msg = 'Warning: could not set debugging trace to {} on {} due to {} - {}'
             print(msg.format(args.remote_debug_host, args.remote_debug_port, error.__class__.__name__, str(error)))
+    else:
+        logging.info("Skipping data service remote debugging setup.")
 
     listen_host = gethostname() if args.host is None else args.host
     # Flip this here to be less confusing
@@ -116,7 +126,7 @@ def main():
     # Figure out Redis password, trying for a Docker secret first
     if args.redis_pass_secret is not None:
         redis_pass_secret_file = secrets_dir.joinpath(args.redis_pass_secret)
-        redis_pass = redis_pass_secret_file.read_text()
+        redis_pass = redis_pass_secret_file.read_text().strip()
     else:
         redis_pass = args.redis_pass
 
