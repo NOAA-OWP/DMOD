@@ -441,6 +441,28 @@ class Launcher(SimpleDockerUtil):
         # TODO (later): for now, when only this type is supported, assume always true, but need to fix this
         return True
 
+    def determine_image_for_job(self, job: 'Job') -> str:
+        """
+        Determine the correct Docker image to use for the given job.
+
+        Parameters
+        ----------
+        job : Job
+            The job of interest.
+
+        Returns
+        -------
+        str
+            String name, including tag, of the appropriate Docker image for this job.
+        """
+        if isinstance(job.model_request, NGENRequest):
+            return "127.0.0.1:5000/ngen:latest"
+        # For now, this is the only thing supported
+        else:
+            msg = "Unable to determine correct scheduler image for job {} with request of {} type"
+            raise DmodRuntimeError(msg.format(job.job_id, job.model_request.__class__.__name__))
+
+    # TODO: look at removing once a better way of handling image select is finished
     def load_image_and_mounts(self, name: str, version: str, domain: str) -> tuple:
         """ TODO make this a static method, pass in image_and_domain_list file path
         Read a list of image_name and domain_name from the yaml file: image_and_domain.yaml
@@ -549,9 +571,7 @@ class Launcher(SimpleDockerUtil):
             logging.error(msg)
             return False, tuple(msg)
 
-        #FIXME read all image/domain at init and select from internal cache (i.e. dict) or even push to redis for long term cache
-
-        image_tag = "127.0.0.1:5000/ngen:latest"
+        image_tag = self.determine_image_for_job(job)
 
         #TODO better align labels/defaults with serviceparam class
         #FIXME if the stack.namespace needs to align with the stack name, this isn't correct
