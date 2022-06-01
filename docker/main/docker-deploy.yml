@@ -28,6 +28,9 @@ services:
       - SERVICE_SSL_DIR=${DOCKER_SCHEDULER_CONTAINER_SERVICE_SSL_DIR:-/ssl/scheduler}
       - DOCKER_SECRET_REDIS_PASS=myredis_pass
       - REDIS_HOST=${DOCKER_REDIS_SERVICE_ALIAS:-myredis}
+      - PYCHARM_REMOTE_DEBUG_ACTIVE=${PYCHARM_REMOTE_DEBUG_SCHEDULER_SERVICE_ACTIVE:-false}
+      - PYCHARM_REMOTE_DEBUG_SERVER_HOST=${PYCHARM_REMOTE_DEBUG_SERVER_HOST:-host.docker.internal}
+      - PYCHARM_REMOTE_DEBUG_SERVER_PORT=${PYCHARM_REMOTE_DEBUG_SERVER_PORT_SCHEDULER_SERVICE:-55872}
       # This typically needs to be commented out; intended for development use (see related 'volume' config below)
       #- UPDATED_PACKAGES_DIR=${UPDATED_PACKAGES_CONTAINER_DIR:?Updated packages directory not set, make sure this should be active}
     #depends_on:
@@ -179,6 +182,9 @@ services:
       #- updated_packages:${UPDATED_PACKAGES_CONTAINER_DIR:?Check if updated packages directory should be used}
     environment:
       - SERVICE_PACKAGE_NAME=${PYTHON_PACKAGE_NAME_PARTITIONER_SERVICE:?}
+      - PYCHARM_REMOTE_DEBUG_ACTIVE=${PYCHARM_REMOTE_DEBUG_SCHEDULER_SERVICE_ACTIVE:-false}
+      - PYCHARM_REMOTE_DEBUG_SERVER_HOST=${PYCHARM_REMOTE_DEBUG_SERVER_HOST:-host.docker.internal}
+      - PYCHARM_REMOTE_DEBUG_SERVER_PORT=${PYCHARM_REMOTE_DEBUG_SERVER_PORT_PARTITIONER_SERVICE:-55873}
       # This typically needs to be commented out; intended for development use (see related 'volume' config below)
       #- UPDATED_PACKAGES_DIR=${UPDATED_PACKAGES_CONTAINER_DIR:?Updated packages directory not set, make sure this should be active}
     deploy:
