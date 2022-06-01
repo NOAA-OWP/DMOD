@@ -516,6 +516,8 @@ class DataDomain(Serializable):
             return self._extends_continuous_restriction(other)
         elif isinstance(other, DiscreteRestriction):
             return self._extends_discrete_restriction(other)
+        elif self.data_format != other.data_format:
+            return False
         else:
             for index in other.continuous_restrictions:
                 if not self._extends_continuous_restriction(other.continuous_restrictions[index]):
