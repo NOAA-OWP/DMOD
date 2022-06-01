@@ -172,9 +172,6 @@ class Launcher(SimpleDockerUtil):
         # restart = docker.types.RestartPolicy(condition='on-failure')
         restart = docker.types.RestartPolicy(condition='none')
 
-        if (idx == 0): #FIXME just always pass idx???
-            docker_cmd_args.append(str(idx))
-
         try:
             service = client.services.create(image=image,
                                              args=docker_cmd_args,
