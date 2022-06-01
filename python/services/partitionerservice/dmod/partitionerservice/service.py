@@ -261,6 +261,44 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
             msg = 'Could not successfully execute partitioner Docker container: {}'.format(str(e))
             raise RuntimeError(msg) from e
 
+    async def _find_partition_dataset(self, job: Job) -> DatasetManagementResponse:
+        """
+        Attempt to find an existing, expected partitioning dataset based on the job's data requirements.
+
+        When found, also update the applicable data requirements of the job, setting the ``fulfilled_by`` property to
+        the found dataset's name.
+
+        Parameters
+        ----------
+        job : Job
+            The job in question.
+
+        Returns
+        -------
+        DatasetManagementResponse
+            Response to search for existing, expected partition config dataset.
+        """
+        reqs = [r for r in job.data_requirements if r.domain.data_format == DataFormat.NGEN_PARTITION_CONFIG]
+        c_rests = [req.domain.continuous_restrictions[r] for req in reqs for r in req.domain.continuous_restrictions]
+        d_rests = [req.domain.discrete_restrictions[r] for req in reqs for r in req.domain.discrete_restrictions]
+        if len(reqs) == 0:
+            reason = 'No Data Requirements For DataFormat'
+            logging.info("Cannot query for satisfactory, existing partition dataset: {}".format(reason))
+            return DatasetManagementResponse(action=ManagementAction.SEARCH, success=False, reason=reason)
+
+        domain = DataDomain(data_format=DataFormat.NGEN_PARTITION_CONFIG, continuous_restrictions=c_rests,
+                            discrete_restrictions=d_rests)
+        request = DatasetManagementMessage(action=ManagementAction.SEARCH, category=DataCategory.CONFIG, domain=domain)
+        logging.info("Querying for existing, satisfactory partition dataset for job {}".format(job.job_id))
+        response: DatasetManagementResponse = await self._data_client.async_make_request(request)
+        if response.success:
+            logging.info("Existing partition dataset for {} found: {}".format(job.job_id, response.dataset_name))
+            for r in reqs:
+                r.fulfilled_by = response.dataset_name
+        else:
+            logging.info("No existing partition dataset for {} was found: ".format(job.job_id))
+        return response
+
     def _find_required_hydrofabric_details(self, job: Job) -> Tuple[Optional[str], Optional[str]]:
         """
         Find the given job's required hydrofabric's 'data_id' and unique id.
@@ -292,6 +330,62 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
                     if data_id is not None:
                         return data_id, uid
         return data_id, uid
+
+    async def _generate_partition_config_dataset(self, job: Job) -> bool:
+        """
+        Generate a new partition config dataset for the given job, returning whether this was done successfully.
+
+        Before actually creating a dataset, the function must obtain details on the dataset containing the hydrofabric
+        to be partitioned.  If it cannot, a ::class:`DmodRuntimeError` is raised.
+
+        After creating an empty dataset, a nested call is made to execute the container that runs the ngen partitioning
+        executable to create and save a partitioning config in the dataset.  If this is successful, a new
+        ::class:`DataRequirement` object is added to the parameter ::class:`Job` object to represent the job's need to
+        use this new dataset.
+
+        Parameters
+        ----------
+        job : Job
+            A job requiring a partition config dataset.
+
+        Returns
+        -------
+        bool
+            Whether the generation process was successful.
+        """
+        logging.info("Attempting to generate partition config dataset for {}".format(job.job_id))
+
+        err_msg = ' '.join(['{}', '{}'.format('for job {} awaiting partitioning.'.format(job.job_id))])
+
+        # Find the hydrofabric dataset required for partitioning
+        hy_data_id, hy_uid = self._find_required_hydrofabric_details(job)
+        if hy_data_id is None or hy_uid is None:
+            raise DmodRuntimeError(err_msg.format("Cannot get hydrofabric dataset details"))
+        hydrofabric_dataset_name = await self._async_find_hydrofabric_dataset_name(hy_data_id, hy_uid)
+        if hydrofabric_dataset_name is None:
+            raise DmodRuntimeError(err_msg.format("Cannot find hydrofabric dataset name"))
+
+        # Create a new partitioning dataset, and get back the name and data_id
+        part_dataset_name, part_dataset_data_id = await self._async_create_new_partitioning_dataset()
+        if part_dataset_name is None or part_dataset_data_id is None:
+            raise DmodRuntimeError(err_msg.format("Cannot create new partition config dataset"))
+
+        # Run the partitioning execution container
+        result, logs = self._execute_partitioner_container(num_partitions=job.cpu_count,
+                                                           hydrofabric_dataset_name=hydrofabric_dataset_name,
+                                                           partition_dataset_name=part_dataset_name)
+        if result:
+            logging.info("Partition config dataset generation for {} was successful".format(job.job_id))
+            # If good, save the partition dataset data_id as a data requirement for the job.
+            data_id_restrict = DiscreteRestriction(variable=StandardDatasetIndex.DATA_ID, values=[part_dataset_data_id])
+            domain = DataDomain(data_format=DataFormat.NGEN_PARTITION_CONFIG, discrete_restrictions=[data_id_restrict])
+            requirement = DataRequirement(domain=domain, is_input=True, category=DataCategory.CONFIG,
+                                          fulfilled_by=part_dataset_name)
+            job.data_requirements.append(requirement)
+        else:
+            logging.error("Partition config dataset generation for {} failed".format(job.job_id))
+
+        return result
 
     # def _read_and_serialize_partitioner_output(self, output_file: Path) -> dict:
     #     try:
