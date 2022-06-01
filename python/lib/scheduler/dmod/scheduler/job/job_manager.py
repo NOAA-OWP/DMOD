@@ -521,7 +521,7 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
         """
         logging.debug("Starting job management async task")
         while True:
-            logging.debug("Starting next iteration of job manager async task")
+            logging.info("Starting next iteration of job manager async task")
 
             # TODO: do this better
             lock_id = str(uuid.uuid4())
@@ -530,6 +530,13 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
 
             # Get collection of "active" jobs
             active_jobs: List[RequestedJob] = self.get_all_active_jobs()
+
+            for j in active_jobs:
+                if j.status_step.is_error:
+                    logging.error("Requested job {} has failed due to {}".format(j.job_id, j.status_step.name))
+                if j.status_step.completes_phase:
+                    active_jobs.remove(j)
+                    self.save_job(j)
 
             # TODO: something must transition MODEL_EXEC_RUNNING Jobs to MODEL_EXEC_COMPLETED (probably Monitor class)
             # TODO: something must transition OUTPUT_EXEC_RUNNING Jobs to OUTPUT_EXEC_COMPLETED (probably Monitor class)
@@ -567,7 +574,8 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
 
             # For each Job that is at the AWAITING_SCHEDULING, save updated state and pass to scheduler
             for job in [j for j in active_jobs if j.status_step == JobExecStep.AWAITING_SCHEDULING]:
-                if self.request_scheduling(job):
+                scheduling_result: Tuple[bool, tuple] = self.request_scheduling(job)
+                if scheduling_result[0]:
                     job.status_step = JobExecStep.SCHEDULED
                 else:
                     job.status_step = JobExecStep.FAILED
