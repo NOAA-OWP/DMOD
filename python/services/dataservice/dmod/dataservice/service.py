@@ -4,7 +4,8 @@ import json
 import os
 from time import sleep as time_sleep
 from docker.types import Healthcheck, RestartPolicy, SecretReference, ServiceMode
-from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, ManagementAction, WebSocketInterface
+from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, \
+    ManagementAction, WebSocketInterface
 from dmod.communication.dataset_management_message import DatasetQuery, QueryType
 from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
 from dmod.core.meta_data import DataCategory, DataDomain, DataRequirement, DiscreteRestriction, StandardDatasetIndex
@@ -317,41 +318,6 @@ class ServiceManager(WebSocketInterface):
         else:
             return DatasetManagementResponse(action=ManagementAction.ADD_DATA, success=False,
                                              dataset_name=dataset_name, reason="Failure Adding Data To Dataset")
-
-    async def _async_process_data_request(self, message: DatasetManagementMessage, websocket) -> DatasetManagementResponse:
-        # Check if the data request can actually be fulfilled
-        dataset_name = message.dataset_name
-        item_name = message.data_location
-        check_possible_result = await self._async_can_provide_data(dataset_name=dataset_name, data_item=item_name)
-        if not check_possible_result.success:
-            # This should mean this is specifically a response instance than we can directly return
-            return check_possible_result
-
-        chunk_size = 1024
-        manager = self.get_known_datasets()[dataset_name].manager
-        chunking_keys = manager.data_chunking_params
-        if chunking_keys is None:
-            raw_data = manager.get_data(dataset_name=dataset_name, item_name=item_name)
-            transmit = DataTransmitMessage(data=raw_data, series_uuid=uuid4(), is_last=True)
-            await websocket.send(str(transmit))
-            response = DataTransmitResponse.factory_init_from_deserialized_json(json.loads(await websocket.recv()))
-        else:
-            offset = 0
-            actual_length = chunk_size
-            while actual_length == chunk_size:
-                chunk_params = {chunking_keys[0]: offset, chunking_keys[1]: chunk_size}
-                raw_data = manager.get_data(dataset_name, item_name, **chunk_params)
-                offset += chunk_size
-                actual_length = len(raw_data)
-                transmit = DataTransmitMessage(data=raw_data, series_uuid=uuid4(), is_last=True)
-                await websocket.send(str(transmit))
-                raw_response = await websocket.recv()
-                json_response = json.loads(raw_response)
-                response = DataTransmitResponse.factory_init_from_deserialized_json(json_response)
-                if not response.success:
-                    break
-        return DatasetManagementResponse(success=response.success, message='' if response.success else response.message,
-                                         reason='All Data Transferred' if response.success else response.reason)
 
     async def _async_process_data_request(self, message: DatasetManagementMessage, websocket) -> DatasetManagementResponse:
         # Check if the data request can actually be fulfilled
@@ -859,16 +825,25 @@ class ServiceManager(WebSocketInterface):
         ``AWAITING_PARTITIONING`` step and any needed output datasets are created.  If not, the job is moved to the
         ``DATA_UNPROVIDEABLE`` step.
         """
+        logging.debug("Starting task loop for performing checks for required data for jobs.")
         while True:
+            lock_id = str(uuid4())
+            while not self._job_util.lock_active_jobs(lock_id):
+                await asyncio.sleep(2)
+
             for job in self._job_util.get_all_active_jobs():
                 if job.status_step != JobExecStep.AWAITING_DATA_CHECK:
                     continue
+
+                logging.debug("Checking if required data is available for job {}.".format(job.job_id))
                 # Check if all requirements for this job can be fulfilled, updating the job's status based on result
                 if await self.perform_checks_for_job(job):
+                    logging.info("All required data for {} is available.".format(job.job_id))
                     # Before moving to next successful step, also create output datasets and requirement entries
                     self._create_output_datasets(job)
                     job.status_step = JobExecStep.AWAITING_PARTITIONING
                 else:
+                    logging.error("Some or all required data for {} is unprovideable.".format(job.job_id))
                     job.status_step = JobExecStep.DATA_UNPROVIDEABLE
                 # Regardless, save the updated job state
                 try:
@@ -876,6 +851,7 @@ class ServiceManager(WebSocketInterface):
                 except:
                     # TODO: logging would be good, and perhaps maybe retries
                     pass
+            self._job_util.unlock_active_jobs(lock_id)
             await asyncio.sleep(5)
 
     async def manage_data_provision(self):
