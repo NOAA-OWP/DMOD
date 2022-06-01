@@ -13,7 +13,7 @@ if [ -n "${VENV_DIR:-}" ]; then
 fi
 
 # Install for debugging when appropriate
-if [ "$(echo "${PYCHARM_REMOTE_DEBUG_ACTIVE:-false}" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')" == "true" ]; then
+if [ "$(echo "${PYCHARM_REMOTE_DEBUG_ACTIVE:-false}" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')" = "true" ]; then
     _DEBUG_ARG="--pycharm-remote-debug"
 fi
 
