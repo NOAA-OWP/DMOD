@@ -446,41 +446,25 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
         """
         Task method to periodically generate partition configs for jobs that require them.
         """
+        logging.info("Starting partitioner service management loop for job partition generation.")
         while True:
-            for job in self._job_util.get_all_active_jobs():
-                if job.status_step != JobExecStep.AWAITING_PARTITIONING:
-                    continue
-                err_msg = ' '.join(['{}', '{}'.format('for job {} awaiting partitioning.'.format(job.job_id))])
+            lock_id = str(uuid4())
+            while not self._job_util.lock_active_jobs(lock_id):
+                await asyncio.sleep(2)
+
+            for job in [j for j in self._job_util.get_all_active_jobs() if
+                        j.status_step == JobExecStep.AWAITING_PARTITIONING]:
+                logging.info("Processing partitioning for active job {}".format(job.job_id))
                 try:
-                    # Find the hydrofabric dataset required for partitioning
-                    hy_data_id, hy_uid = self._find_required_hydrofabric_details(job)
-                    if hy_data_id is None or hy_uid is None:
-                        raise DmodRuntimeError(err_msg.format("Cannot get hydrofabric dataset details"))
-                    hydrofabric_dataset_name = await self._async_find_hydrofabric_dataset_name(hy_data_id, hy_uid)
-                    if hydrofabric_dataset_name is None:
-                        raise DmodRuntimeError(err_msg.format("Cannot find hydrofabric dataset name"))
-
-                    # Create a new partitioning dataset, and get back the name and data_id
-                    part_dataset_name, part_dataset_data_id = await self._async_create_new_partitioning_dataset()
-                    if part_dataset_name is None or part_dataset_data_id is None:
-                        raise DmodRuntimeError(err_msg.format("Cannot create new partition config dataset"))
-
-                    # Run the partitioning execution container
-                    result, logs = self._execute_partitioner_container(num_partitions=job.cpu_count,
-                                                                       hydrofabric_dataset_name=hydrofabric_dataset_name,
-                                                                       partition_dataset_name=part_dataset_name)
-                    if result:
-                        # If good, save the partition dataset data_id as a data requirement for the job.
-                        data_id_restriction = DiscreteRestriction(variable='data_id', values=[part_dataset_data_id])
-                        domain = DataDomain(data_format=DataFormat.NGEN_PARTITION_CONFIG, discrete_restrictions=[data_id_restriction])
-                        requirement = DataRequirement(domain=domain, is_input=True, category=DataCategory.CONFIG,
-                                                      fulfilled_by=part_dataset_name)
-                        job.data_requirements.append(requirement)
+                    # See if there is already an existing dataset to use for this
+                    part_dataset_search_result = await self._find_partition_dataset(job)
+                    # If either one was found, or we can create a new partition config dataset, move to allocations
+                    if part_dataset_search_result.success or (await self._generate_partition_config_dataset(job)):
                         job.status_step = JobExecStep.AWAITING_ALLOCATION
                     else:
                         job.status_step = JobExecStep.PARTITIONING_FAILED
                 except Exception as e:
-                    # TODO: (later) log something about the error here
+                    logging.error("Partition dataset generation for {} failed due to error - {}".format(job.job_id, e))
                     job.status_step = JobExecStep.PARTITIONING_FAILED
                 # Protect service task against problems with an individual save attempt
                 try:
@@ -488,6 +472,7 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
                 except:
                     # TODO: (later) logging would be good, and perhaps maybe retries
                     pass
+            self._job_util.unlock_active_jobs(lock_id)
             await asyncio.sleep(5)
 
 
