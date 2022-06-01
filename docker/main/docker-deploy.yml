@@ -50,7 +50,7 @@ services:
     deploy:
       placement:
         constraints:
-          - ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT_1:--node.role==manager}
+          - ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT_1:-node.role==manager}
           - ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
     secrets:
       - myredis_pass
@@ -157,7 +157,7 @@ services:
       #- REDIS_USER=
       - REDIS_HOST=${DOCKER_REDIS_SERVICE_ALIAS:-myredis}
       - DOCKER_SECRET_REDIS_PASS=myredis_pass
-      - PYCHARM_REMOTE_DEBUG_ACTIVE=${PYCHARM_REMOTE_DEBUG_REQUEST_SERVICE_ACTIVE:-false}
+      - PYCHARM_REMOTE_DEBUG_ACTIVE=${PYCHARM_REMOTE_DEBUG_DATA_SERVICE_ACTIVE:-false}
       - PYCHARM_REMOTE_DEBUG_SERVER_HOST=${PYCHARM_REMOTE_DEBUG_SERVER_HOST:-host.docker.internal}
       - PYCHARM_REMOTE_DEBUG_SERVER_PORT=${PYCHARM_REMOTE_DEBUG_SERVER_PORT_DATA_SERVICE:-55871}
       #- PYCHARM_REMOTE_DEBUG_VERSION=${PYCHARM_REMOTE_DEBUG_VERSION:-}
@@ -204,7 +204,7 @@ services:
                "--image-tag", "${DOCKER_PARTITIONER_IMAGE_TAG:-latest}",
                "--docker-registry", "${DOCKER_INTERNAL_REGISTRY}",
                "--data-service-host", "data-service",
-               "--data-service-port", "${DOCKER_DATASERVICE_CONTAINER_PORT:-3020}",
+               "--data-service-port", "${DOCKER_DATASERVICE_CONTAINER_PORT:-3015}",
                "--data-service-ssl-dir", "${DOCKER_DATASERVICE_CONTAINER_SERVICE_SSL_DIR:-/ssl/dataservice}",
                "--redis-pass-secret-name", "myredis_pass"]
 networks:
