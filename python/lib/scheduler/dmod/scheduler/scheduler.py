@@ -170,6 +170,10 @@ class Launcher(SimpleDockerUtil):
             additional_kwargs['secrets'] = serviceParams.secrets
         if serviceParams.env_var_map is not None and len(serviceParams.env_var_map) > 0:
             additional_kwargs['env'] = serviceParams.env_var_list
+        if serviceParams.user is not None:
+            additional_kwargs['user'] = serviceParams.user
+        if serviceParams.capabilities_to_add is not None and len(serviceParams.capabilities_to_add) > 0:
+            additional_kwargs['cap_add'] = serviceParams.capabilities_to_add
 
         healthcheck = docker.types.Healthcheck(test=["CMD-SHELL", 'echo Hello'],
                                                interval=1000000 * 10000 * 1,
@@ -189,7 +193,6 @@ class Launcher(SimpleDockerUtil):
                                              name=serv_name,
                                              mounts=mounts,
                                              networks=networks,
-                                             # user = user_id,
                                              healthcheck=healthcheck,
                                              restart_policy=restart,
                                              **additional_kwargs)
