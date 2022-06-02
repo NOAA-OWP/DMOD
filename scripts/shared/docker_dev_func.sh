@@ -122,6 +122,45 @@ docker_dev_init_swarm_network()
     fi
 }
 
+docker_dev_init_swarm_network_from_config()
+{
+    # 1 - network name
+    # 2 - config name
+    # 3 - driver
+    # 4 - VXLAN ID (optional)
+
+    # Sanity check args
+    if [ ${#} -lt 3 ]; then
+        >&2 echo "Error: cannot init swarm network from config without name, config, and driver args"
+        return 1
+    # This also checks to make sure last arg is a number (e.g., driver was omitted, but VXLAN ID was supplied)
+    elif [ ${3} -eq ${3} ] 2>/dev/null; then
+        >&2 echo "Error: driver arg (${3}) looks like integer (VXLAN ID); check that no args were omitted"
+        return 1
+    fi
+
+    if [ ${#} -eq 4 ]; then
+        if ! [ ${4} -eq ${4} ] 2>/dev/null; then
+            >&2 echo "Error: invalid VXLAN ID arg"
+            return 1
+        fi
+    fi
+
+    if [ $(docker network ls --filter name=${1} -q | wc -l) -eq 0 ]; then
+        if [ ${#} -eq 4 ]; then
+            docker network create \
+                        --driver "${3}" \
+                        --scope swarm \
+                        --attachable \
+                        --opt "com.docker.network.driver.${3}.vxlanid_list"="${4}" \
+                        --config-from "${2}" \
+                        ${1}
+        else
+            docker network create --driver "${3}" --scope swarm --attachable --config-from "${2}" ${1}
+        fi
+    fi
+}
+
 docker_dev_validate_compose_config()
 {
     if [ ! -e "${1:?}" ]; then
