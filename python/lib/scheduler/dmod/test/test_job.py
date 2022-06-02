@@ -62,6 +62,35 @@ class TestJob(unittest.TestCase):
             allocation_paradigm='single-node')
         self._example_jobs.append(RequestedJob(job_request=scheduler_request))
 
+        # Example 2 - NGENRequest based RequestedJob instance
+        cpu_count_ex_2 = 4
+        def create_time_range(begin, end, var=None) -> TimeRange:
+            serialized = {'begin': begin, 'end': end, 'datetime_pattern': '%Y-%m-%d %H:%M:%S',
+                          'subclass': TimeRange.__name__, 'variable': 'Time'}
+            return TimeRange.factory_init_from_deserialized_json(serialized)
+
+        time_range = create_time_range('2022-01-01 00:00:00', '2022-03-01 00:00:00')
+
+        self._model_requests_json.append({
+            'model': {
+                'name': 'ngen',
+                'cpu_count': cpu_count_ex_2,
+                'time_range': time_range.to_dict(),
+                'hydrofabric_data_id': '9876543210',
+                'hydrofabric_uid': '0123456789',
+                'bmi_config_data_id': '02468',
+                'config_data_id': '02468'
+            },
+            'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
+        })
+        scheduler_request = SchedulerRequestMessage(
+            model_request=NGENRequest.factory_init_from_deserialized_json(self._model_requests_json[2]),
+            user_id='someone',
+            cpus=cpu_count_ex_2,
+            mem=500000,
+            allocation_paradigm='single-node')
+        self._example_jobs.append(RequestedJob(job_request=scheduler_request))
+
     def tearDown(self) -> None:
         pass
 
@@ -137,3 +166,35 @@ class TestJob(unittest.TestCase):
         deserialized_job = Job.factory_init_from_deserialized_json(serialized_job)
         self.assertEqual(base_job, deserialized_job)
 
+    def test_factory_init_from_deserialized_json_2_a(self):
+        """
+        Basic test of example 2.
+        """
+        example_index = 2
+
+        base_job = self._example_jobs[example_index]
+        serialized_job = base_job.to_dict()
+        deserialized_job = Job.factory_init_from_deserialized_json(serialized_job)
+        self.assertEqual(base_job.__class__, deserialized_job.__class__)
+
+    def test_factory_init_from_deserialized_json_2_b(self):
+        """
+        Test that data requirement `fulfilled_by` is not lost during deserialization.
+        """
+        example_index = 2
+
+        base_job = self._example_jobs[example_index]
+
+        index_val = 0
+        for req in base_job.data_requirements:
+            req.fulfilled_by = 'imaginary-dataset-{}'.format(index_val)
+            index_val += 1
+
+        for f in [req.fulfilled_by for req in base_job.data_requirements]:
+            self.assertIsNotNone(f)
+
+        serialized_job = base_job.to_dict()
+        deserialized_job = Job.factory_init_from_deserialized_json(serialized_job)
+
+        for f in [req.fulfilled_by for req in deserialized_job.data_requirements]:
+            self.assertIsNotNone(f)
