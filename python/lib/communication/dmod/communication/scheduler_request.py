@@ -5,7 +5,7 @@ from typing import Optional
 
 class SchedulerRequestMessage(AbstractInitRequest):
 
-    _DEFAULT_ALLOCATION_PARADIGM = 'SINGLE_NODE'
+    _DEFAULT_ALLOCATION_PARADIGM = 'ROUND_ROBIN'
 
     event_type: MessageEventType = MessageEventType.SCHEDULER_REQUEST
     """ :class:`MessageEventType`: the event type for this message implementation """
