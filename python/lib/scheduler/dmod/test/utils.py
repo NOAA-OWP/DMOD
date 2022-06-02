@@ -109,9 +109,9 @@ def mock_job(model: str = 'nwm', cpus: int = 4, mem: int = 500000, strategy: str
 
 def mock_resources() -> List[Resource]:
     #return deepcopy(_mock_resources)
-    mock_resources_list: List[Resource] = list()
-    for res in _mock_resources:
-        mock_resources_list.append(Resource.factory_init_from_dict(res))
+    mock_resources_list: List[Resource] = [Resource.factory_init_from_dict(res) for res in _mock_resources]
+    if None in mock_resources_list:
+        raise RuntimeError("Found 'None' in deserialized mock resources")
     return mock_resources_list
 
 
@@ -169,7 +169,7 @@ class MockResourceManager(ResourceManager):
       cpus_allocated, mem_allocated, is_fully = resource.allocate(requested_cpus, requested_memory)
 
       if is_fully or (partial and cpus_allocated > 0 and (mem_allocated > 0 or requested_memory == 0)):
-          self.resources[resource_key] = resource.to_dict()
+          self.resources[resource_key] = resource
           allocation = ResourceAllocation(resource_id, resource.hostname, cpus_allocated, mem_allocated)
       else:
           resource.release(cpus_allocated, mem_allocated)
