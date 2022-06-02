@@ -86,42 +86,39 @@ docker_dev_init_swarm_network()
     # 1 - network name
     # 2 - subnet
     # 3 - gateway
-    # 4 - VXLAN ID (optional)
+    # 4 - driver
+    # 5 - VXLAN ID (optional)
 
     # Sanity check args
-    if [[ ${#} -lt 3 ]]; then
-        >&2 echo "Error: cannot init swarm network without name, subnet, and gateway args"
+    if [[ ${#} -lt 4 ]]; then
+        >&2 echo "Error: cannot init swarm network without name, subnet, gateway, and driver args"
         return 1
-    # This also checks to make sure last arg is a number (e.g., gateway was omitted, but VXLAN ID was supplied)
-    elif [ ${3} -eq ${3} ] 2>/dev/null; then
-        >&2 echo "Error: gateway arg (${3}) looks like integer (VXLAN ID); check that no args were omitted"
+    # This also checks to make sure last arg is a number (e.g., driver was omitted, but VXLAN ID was supplied)
+    elif [ ${4} -eq ${4} ] 2>/dev/null; then
+        >&2 echo "Error: driver arg (${4}) looks like integer (VXLAN ID); check that no args were omitted"
         return 1
     fi
 
-    local _VXLAN_ARGS=""
-
-    if [[ ${#} -eq 4 ]]; then
-        if ! [ ${4} -eq ${4} ] 2>/dev/null; then
+    if [[ ${#} -eq 5 ]]; then
+        if ! [ ${5} -eq ${5} ] 2>/dev/null; then
             >&2 echo "Error: invalid VXLAN ID arg"
             return 1
         fi
-        _VXLAN_ARGS="-o \"{\\\"com.docker.network.driver.overlay.vxlanid_list\\\": \\\"${4}\\\"}\""
     fi
 
     if [[ $(docker network ls --filter name=${1} -q | wc -l) -eq 0 ]]; then
-        if [[ ${#} -eq 4 ]]; then
+        if [[ ${#} -eq 5 ]]; then
             docker network create \
-                        --driver overlay \
+                        --driver "${4}" \
                         --scope swarm \
                         --attachable \
-                        --opt "{\"com.docker.network.driver.overlay.vxlanid_list\": \"${4}\"}" \
+                        --opt "com.docker.network.driver.${4}.vxlanid_list"="${5}" \
                         --subnet ${2} \
                         --gateway ${3} \
                         ${1}
         else
-            docker network create -d overlay --scope swarm --attachable --subnet ${2} --gateway ${3} ${1}
+            docker network create --driver "${4}" --scope swarm --attachable --subnet ${2} --gateway ${3} ${1}
         fi
-        #echo "docker network create -d overlay --scope swarm --attachable ${_VXLAN_ARGS} --subnet ${2} --gateway ${3} ${1}"
     fi
 }
 
