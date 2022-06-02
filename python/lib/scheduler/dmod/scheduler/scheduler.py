@@ -19,9 +19,9 @@ if TYPE_CHECKING:
 
 
 class DockerServiceParameters():
-    def __init__(self, image_tag: str = None, constraints: list = [], hostname: str = None, \
+    def __init__(self, image_tag: str = None, constraints: list = [], user: Optional[str] = None, hostname: str = None,
                  labels: dict = {}, serv_name: str = None, mounts: list = [], env_vars: Optional[Dict[str, str]] = None,
-                 secrets: List[SecretReference] = []):
+                 secrets: List[SecretReference] = [], cap_add: Optional[List[str]] = None):
         """
         Parameters
         ----------
@@ -29,6 +29,8 @@ class DockerServiceParameters():
             image parameter for client.services.create()
         constraints
             constraints parameter for client.services.create()
+        user
+            service user parameter for client.services.create()
         hostname
             hostname parameter for client.services.create()
         labels
@@ -41,6 +43,9 @@ class DockerServiceParameters():
             Optional map of environment variables to values (all as strings)
         secrets
             List of Docker ::class:`SecretReference` objects
+        cap_add
+            Optional list of kernel capabilities to add to the default set for the container, passed to
+            client.services.create()
         """
         self.image_tag = image_tag
         self.constraints = constraints
@@ -50,6 +55,8 @@ class DockerServiceParameters():
         self.mounts = mounts
         self.secrets = secrets
         self.env_var_map = env_vars
+        self.user = user
+        self.capabilities_to_add = cap_add
 
     @property
     def env_var_list(self) -> List[str]:
