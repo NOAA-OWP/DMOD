@@ -3,6 +3,7 @@ from dmod.scheduler.resources import Resource, ResourceAllocation, ResourceManag
 from dmod.communication import NWMRequest, NGENRequest, SchedulerRequestMessage
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement, DiscreteRestriction
 from uuid import uuid4
+from typing import List
 
 from copy import deepcopy
 import logging
@@ -100,14 +101,15 @@ def mock_job(model: str = 'nwm', cpus: int = 4, mem: int = 500000, strategy: str
     #mock_job.job_id = uuid4()
     allocs = []
     for i in range(1, allocations+1):
-        allocs.append( ResourceAllocation(i, 'hostname{}'.format(i), cpus, mem) )
+        allocs.append( ResourceAllocation(str(i), 'hostname{}'.format(i), cpus, mem) )
     mock_job.allocations = allocs
 
     return mock_job
 
-def mock_resources():
+
+def mock_resources() -> List[Resource]:
     #return deepcopy(_mock_resources)
-    mock_resources_list = list()
+    mock_resources_list: List[Resource] = list()
     for res in _mock_resources:
         mock_resources_list.append(Resource.factory_init_from_dict(res))
     return mock_resources_list
@@ -122,7 +124,8 @@ class MockResourceManager(ResourceManager):
     def __init__(self):
         #Let each test method explicity add its mock resources
         #self.set_resources(mock_resources())
-        self.resource_map = {'Node-0001':0, 'Node-0002':1, 'Node-0003':2}
+        self.resource_map = {'Node-0001': 0, 'Node-0002': 1, 'Node-0003': 2}
+        self.resources: List[Resource] = []
 
     def request_allocations(self, job):
         pass
@@ -130,10 +133,10 @@ class MockResourceManager(ResourceManager):
     def release_resources(self, allocated_resources):
         pass
 
-    def set_resources(self, resources):
+    def set_resources(self, resources: List[Resource]):
         self.resources = resources
 
-    def get_resources(self):
+    def get_resources(self) -> List[Resource]:
         """
             Get metadata of all managed resoures.
         """
@@ -148,14 +151,21 @@ class MockResourceManager(ResourceManager):
             yield resource['node_id']
 
     def allocate_resource(self, resource_id: str, requested_cpus: int,
-                          requested_memory:int =0, partial:bool =False):
+                          requested_memory: int = 0, partial: bool = False):
       """
-        Attemt to allocate the requested resources.
+      Attempt to allocate the requested resources.
       """
+      if resource_id not in self.resource_map:
+          raise RuntimeError('Bad resource id to {}: {}'.format(self.__class__.__name__, resource_id))
+
       resource_key = self.resource_map[resource_id]
       allocation = None
 
-      resource = self.resources[resource_key]
+      if resource_key > len(self.resources):
+          raise RuntimeError('Bad resource list index from mapping in {}: {}'.format(self.__class__.__name__, resource_key))
+
+      resource: Resource = self.resources[resource_key]
+      print('Class type is {}'.format(resource.__class__.__name__))
       cpus_allocated, mem_allocated, is_fully = resource.allocate(requested_cpus, requested_memory)
 
       if is_fully or (partial and cpus_allocated > 0 and (mem_allocated > 0 or requested_memory == 0)):
