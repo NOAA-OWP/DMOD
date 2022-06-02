@@ -1,4 +1,5 @@
 import unittest
+import json
 from ..communication.session import FullAuthSession
 
 
@@ -11,8 +12,10 @@ class TestFullAuthSession(unittest.TestCase):
         self.tested_serializeable_type = FullAuthSession
 
         # Example 0
-        self.request_strings.append(
-            '{"created": "2019-12-10 16:27:54.000000", "ip_address": "10.0.1.6", "last_accessed": "2019-12-10 16:27:54.000000", "session_id": 1, "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c", "user": "someone"}')
+        raw_json_str_0 = '{"session_id": 1, "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c", "created": "2019-12-10 16:27:54.000000", "ip_address": "10.0.1.6", "user": "someone", "last_accessed": "2019-12-10 16:27:54.000000"}'
+        raw_json_obj_0 = json.loads(raw_json_str_0)
+        sorted_json_str_0 = json.dumps(raw_json_obj_0, sort_keys=True)
+        self.request_strings.append(sorted_json_str_0)
         self.request_jsons.append({"session_id": 1,
                                             "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c",
                                             "created": "2019-12-10 16:27:54.000000", "ip_address": "10.0.1.6",
