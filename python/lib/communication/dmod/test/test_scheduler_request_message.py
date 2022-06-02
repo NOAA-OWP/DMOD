@@ -32,7 +32,7 @@ class TestSchedulerRequestMessage(unittest.TestCase):
                 {"model": {"nwm": {"config_data_id": "1", "data_requirements": [{"domain": {"data_format": "NWM_CONFIG",
                                                                                             "continuous": [],
                                                                                             "discrete": [
-                                                                                                {"variable": "data_id",
+                                                                                                {"variable": "DATA_ID",
                                                                                                  "values": ["1"]}]},
                                                                                  "is_input": True,
                                                                                  "category": "CONFIG"}]}},
