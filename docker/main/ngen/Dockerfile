@@ -112,7 +112,7 @@ FROM rockylinux:8.5 AS get_boost
 # Redeclaring inside this stage to get default from before first FROM
 ARG BOOST_VERSION
 
-RUN wget https://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION//./_}.tar.bz2/download -O boost_${BOOST_VERSION//./_}.tar.bz2 \
+RUN curl -L -o boost_${BOOST_VERSION//./_}.tar.bz2 https://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION//./_}.tar.bz2/download \
     && mkdir /boost \
     && mv boost_${BOOST_VERSION//./_}.tar.bz2 /boost/. \
     && cd /boost \
