@@ -271,14 +271,15 @@ exec_requested_actions()
     # First, handle network init if set to
     if [ "${DO_DOCKER_NETWORK:-false}" == "true" ]; then
         # First the mpi-net
-        docker_dev_init_swarm_network ${DOCKER_MPI_NET_NAME:=mpi-net} \
-                ${DOCKER_MPI_NET_SUBNET:?} \
-                ${DOCKER_MPI_NET_GATEWAY:?} \
+        docker_dev_init_swarm_network_from_config ${DOCKER_MPI_NET_NAME:=mpi-net} \
+                ${DOCKER_MPI_NET_NAME}-config \
+                ${DOCKER_MPI_NET_DRIVER:=macvlan} \
                 ${DOCKER_MPI_NET_VXLAN_ID:=4097}
         # Then the requests-net
         docker_dev_init_swarm_network ${DOCKER_REQUESTS_NET_NAME:=requests-net} \
                 ${DOCKER_REQUESTS_NET_SUBNET:?} \
-                ${DOCKER_REQUESTS_NET_GATEWAY:?}
+                ${DOCKER_REQUESTS_NET_GATEWAY:?} \
+                ${DOCKER_REQUESTS_NET_DRIVER:-overlay}
     fi
 
     if [ -n "${DO_CHECK_ACTION:-}" ]; then
