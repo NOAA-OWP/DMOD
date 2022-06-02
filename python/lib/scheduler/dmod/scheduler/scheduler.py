@@ -617,6 +617,11 @@ class Launcher(SimpleDockerUtil):
             service_params = DockerServiceParameters(image_tag=image_tag, constraints=constraints, labels=labels,
                                                      hostname=job.allocation_service_names[alloc_index],
                                                      serv_name=serv_name, mounts=mounts, secrets=secrets)
+            if model == 'ngen':
+                # For ngen jobs (at least for the moment), the container initially needs root as the user for sshd
+                service_params.user = 'root'
+                # Also adding this for ngen
+                service_params.capabilities_to_add = ['SYS_ADMIN']
             #TODO check for proper service creation, return False if doesn't work
             service = self.create_service(serviceParams=service_params, idx=alloc_index,
                                           docker_cmd_args=self._generate_docker_cmd_args(job, alloc_index))
