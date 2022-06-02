@@ -235,11 +235,12 @@ class Launcher(SimpleDockerUtil):
     @staticmethod
     def build_host_list(job: 'Job') -> str:
         """
-        Build a list of string arguments for passing to a started Docker service.
+        Build a comma-delimited string for the worker hosts argument to be passed when starting job Docker services.
 
-        Build a list of strings for Docker service arguments, consisting of the the container names and the allocated
-        CPUs on the associated hosts. Each container's name will correspond to the per-allocation service names,
-        accessible via the job's ::attribute:`Job.allocation_service_names` property.
+        Build a "list" (as a comma-delimited string) of the MPI host strings that must be passed when starting the
+        Docker worker node services for scheduling/executing a job.  These hosts strings each consist of that worker's
+        Docker service name (which is usable on the Docker networks to resolve the worker container) and the number of
+        CPUs for that worker.
 
         Parameters
         ----------
@@ -250,21 +251,16 @@ class Launcher(SimpleDockerUtil):
         Returns
         -------
         str
-            Container hosts argument string consisting of newline-separated substrings strings of the format
-            ``<host_name>:<num_cores>``.
+            Container hosts argument string, in the format ``<host_name>:<num_cores>[,<host_name>:<num_cores>]*``.
         """
         num_allocations = len(job.allocations) if job.allocations is not None else 0
-        host_str = ''
+        host_strs = []
 
         if num_allocations > 0:
-            for alloc_index in range(num_allocations):
-                cpu_count = job.allocations[alloc_index].cpu_count
-                host_str += job.allocation_service_names[alloc_index] + ':' + str(cpu_count) + ","
+            for idx in range(num_allocations):
+                host_strs.append('{}:{}'.format(job.allocation_service_names[idx], job.allocations[idx].cpu_count))
 
-        # Finally, strip any trailing newline
-        host_str = host_str.rstrip()
-
-        return host_str
+        return ','.join(host_strs)
 
     @classmethod
     def _ds_names_helper(cls, job: 'Job', worker_index: int, category: DataCategory,
