@@ -1,7 +1,6 @@
 import unittest
 from ..modeldata.data.dataset import Dataset
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DiscreteRestriction, TimeRange
-from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Union
 
@@ -55,7 +54,7 @@ class TestDataset(unittest.TestCase):
         pattern = TimeRange.get_datetime_str_format() if pattern is None else pattern
         begin = begin if isinstance(begin, datetime) else datetime.strptime(begin, pattern)
         end = begin + (timedelta(days=30) if length is None else length)
-        return TimeRange(begin=begin, end=end, variable='', datetime_pattern=pattern)
+        return TimeRange(begin=begin, end=end, datetime_pattern=pattern)
 
     def gen_dataset_name(self, ex_indx: int):
         return 'test-dataset-{}'.format(ex_indx)
