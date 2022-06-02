@@ -43,7 +43,7 @@ class JobAllocationParadigm(Enum):
     @classmethod
     def get_default_selection(cls):
         """
-        Get the default fallback value select to use in various situation, which is ``SINGLE_NODE``.
+        Get the default fallback value select to use in various situation, which is ``ROUND_ROBIN``.
 
         Note that it is highly recommended that this return a value that has a ::attribute:`name` consistent with the
         value returned by ::method:`SchedulerRequestMessage.default_allocation_paradigm_str`.  However, because
@@ -54,7 +54,7 @@ class JobAllocationParadigm(Enum):
 
         Returns
         -------
-        The ``SINGLE_NODE`` value.
+        The ``ROUND_ROBIN`` value.
         """
         # Must hard code something, since get_from_name potentially has a nested call back to this
         #return cls.SINGLE_NODE
