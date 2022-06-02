@@ -17,10 +17,10 @@ class TestNWMRequest(unittest.TestCase):
 
         # Example 0
         self.request_strings.append('{"model": {"nwm": {"config_data_id": "1", "data_requirements": [{"category": "CONFIG", "domain": {"continuous": [], "data_format": "NWM_CONFIG", "discrete": [{"values": ["1"], "variable": "DATA_ID"}]}, "is_input": true}]}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
-        self.request_jsons.append({'model': {"nwm": {"config_data_id": "1", "data_requirements": [{"domain": {
-            "data_format": "NWM_CONFIG", "continuous": [], "discrete": [{"variable": "DATA_ID", "values": ["1"]}]},
-                                                                                                   "is_input": True,
-                                                                                                   "category": "CONFIG"}]}},
+        self.request_jsons.append({'model': {"nwm": {"config_data_id": "1", "data_requirements": [{"category": "CONFIG",
+                                                                                                   "domain": {
+            "continuous": [], "data_format": "NWM_CONFIG", "discrete": [{"values": ["1"], "variable": "DATA_ID"}]},
+                                                                                                   "is_input": True}]}},
                                    'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'})
         self.request_objs.append(
             NWMRequest(session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
@@ -28,10 +28,10 @@ class TestNWMRequest(unittest.TestCase):
 
         # Example 1 - like example 0, but with the object initialized with the default 'parameters' value
         self.request_strings.append('{"model": {"nwm": {"config_data_id": "2", "data_requirements": [{"category": "CONFIG", "domain": {"continuous": [], "data_format": "NWM_CONFIG", "discrete": [{"values": ["2"], "variable": "DATA_ID"}]}, "is_input": true}]}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
-        self.request_jsons.append({'model': {"nwm": {"config_data_id": "2", "data_requirements": [{"domain": {
-            "data_format": "NWM_CONFIG", "continuous": [], "discrete": [{"variable": "DATA_ID", "values": ["2"]}]},
-                                                                                                   "is_input": True,
-                                                                                                   "category": "CONFIG"}]}},
+        self.request_jsons.append({'model': {"nwm": {"config_data_id": "2", "data_requirements": [{"category": "CONFIG",
+                                                                                                   "domain": {
+            "continuous": [], "data_format": "NWM_CONFIG", "discrete": [{"values": ["2"], "variable": "DATA_ID"}]},
+                                                                                                   "is_input": True}]}},
                                    'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'})
         self.request_objs.append(
             NWMRequest(session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
