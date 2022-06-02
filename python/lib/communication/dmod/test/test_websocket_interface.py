@@ -161,7 +161,7 @@ class TestWebSocketInterface(WebSocketInterfaceTestBase):
         })
 
         self.example_request_data.append(
-            {'action': 'LIST_ALL', 'category': None, 'read_only': False, 'pending_data': False,
+            {'action': 'LIST_ALL', 'read_only': False, 'pending_data': False,
              'session_secret': '409770e8cc4bfd10e276b98aff1d3817c8848e1747b3ad2e13f88ca45252e67e'})
 
         self._parse_return_offset = 42
