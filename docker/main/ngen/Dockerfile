@@ -107,17 +107,14 @@ USER ${USER}
 ################################################################################################################
 ################################################################################################################
 ##### Create intermediate Docker build stage for downloading Boost
-FROM rockylinux:8.5 AS get_boost
+FROM rockylinux:8.5 AS download_boost
 
 # Redeclaring inside this stage to get default from before first FROM
 ARG BOOST_VERSION
 
 RUN curl -L -o boost_${BOOST_VERSION//./_}.tar.bz2 https://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION//./_}.tar.bz2/download \
     && mkdir /boost \
-    && mv boost_${BOOST_VERSION//./_}.tar.bz2 /boost/. \
-    && cd /boost \
-    && tar -xjf boost_${BOOST_VERSION//./_}.tar.bz2 \
-    && rm boost_${BOOST_VERSION//./_}.tar.bz2
+    && mv boost_${BOOST_VERSION//./_}.tar.bz2 /boost/.
 
 ################################################################################################################
 ################################################################################################################
@@ -130,7 +127,7 @@ ARG WORKDIR
 ENV WORKDIR=${WORKDIR}
 ENV BOOST_ROOT=${WORKDIR}/boost
 
-COPY --from=get_boost /boost ${WORKDIR}/boost
+COPY --from=download_boost /boost ${WORKDIR}/boost
 
 ARG MPICH_VERSION
 ARG MIN_PYTHON
@@ -154,13 +151,15 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && alias pip='pip3' \
     && echo "alias pip='pip3'" >> /etc/profile \
     && alias python='python3'  \
-    && echo "alias python='python3'" >> /etc/profile
+    && echo "alias python='python3'" >> /etc/profile \
+    # Also set up boost here, since we copied the download but only just installed bzip2 to work with it \
+    && cd ${BOOST_ROOT} \
+    && tar -xjf boost_${BOOST_VERSION//./_}.tar.bz2 \
+    && rm boost_${BOOST_VERSION//./_}.tar.bz2
 
 ENV PATH=${PATH}:/usr/lib64/mpich/bin
 
 USER ${USER}
-
-WORKDIR ${WORKDIR}
 
 ################################################################################################################
 ################################################################################################################
@@ -169,8 +168,12 @@ FROM rocky-base as rocky_init_repo
 ARG REPO_URL
 ARG BRANCH
 ARG COMMIT
+ARG WORKDIR
 
-RUN git clone --single-branch --branch $BRANCH $REPO_URL \
+WORKDIR ${WORKDIR}
+
+RUN cd ${WORKDIR} \
+    && git clone --single-branch --branch $BRANCH $REPO_URL \
     && cd ./ngen \
     && if [ "x$COMMIT" != "x" ]; then git checkout $COMMIT; fi \
     && git submodule update --init test/googletest \
@@ -199,10 +202,10 @@ ARG BUILD_NOAH_OWP
 ARG BUILD_CFE
 ARG BUILD_TOPMODEL
 
-COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/.
+COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/ngen
 ENV BOOST_ROOT=${WORKDIR}/boost
 
-RUN cd ./ngen \
+RUN cd ${WORKDIR}/ngen \
     && echo "#!/bin/bash" > build_sub \
     && echo "cmake -B \$1/cmake_build -DCMAKE_BUILD_TYPE=${NGEN_BUILD_CONFIG_TYPE} -S \$1 && cmake --build \$1/cmake_build" >> build_sub \
     && chmod u+x build_sub \
