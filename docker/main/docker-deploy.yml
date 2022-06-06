@@ -136,11 +136,11 @@ services:
     networks:
       - requests-net
     deploy:
-      #mode: global
-      #placement:
-      #  constraints:
-      #    - ${DOCKER_REQUESTS_DEPLOY_CONSTRAINT_1:-node.role==manager}
-      #    - ${DOCKER_REQUESTS_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
+      mode: global
+      placement:
+        constraints:
+          - ${DOCKER_DATA_SERVICE_DEPLOY_CONSTRAINT_1:-node.role==manager}
+          - ${DOCKER_DATA_SERVICE_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
       replicas: 1
     secrets:
       - object_store_exec_user_name
