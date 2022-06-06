@@ -104,31 +104,31 @@ class JobExecStep(Enum):
     # TODO: come back and add another property for workflow ordering, separate from uid
     DEFAULT = (0, False, False)
     """ The default starting step. """
-    AWAITING_DATA_CHECK = (7, False, False)
+    AWAITING_DATA_CHECK = (1, False, False)
     """ The step indicating a check is needed for availability of required data . """
-    DATA_UNPROVIDEABLE = (-2, True, True, True)
+    DATA_UNPROVIDEABLE = (-1, True, True, True)
     """ The error step that occurs if/when it is determined that required data is missing and cannot be obtained. """
-    AWAITING_PARTITIONING = (8, False, False)
+    AWAITING_PARTITIONING = (2, False, False)
     """ The step indicating the job is waiting on a partitioning configuration to be created. """
-    PARTITIONING_FAILED = (-3, True, True, True)
+    PARTITIONING_FAILED = (-2, True, True, True)
     """ The error step that occurs if/when generating a partitioning config for a job fails. """
-    AWAITING_ALLOCATION = (1, False, False)
+    AWAITING_ALLOCATION = (3, False, False)
     """ The step after data is confirmed as available or obtainable, before resources have been allocated. """
-    AWAITING_DATA = (8, False, False)
+    AWAITING_DATA = (4, False, False)
     """ The step after job is allocated, when any necessary acquiring/processing/preprocessing of data is performed. """
     DATA_FAILURE = (-3, True, True, True)
     """ The step after unexpected error in obtaining or deriving required data that earlier was deemed provideable. """
-    AWAITING_SCHEDULING = (2, False, False)
+    AWAITING_SCHEDULING = (5, False, False)
     """ The step after a job has resources allocated and all required data is ready and available. """
-    SCHEDULED = (3, False, False)
+    SCHEDULED = (6, False, False)
     """ The step after a job has been scheduled. """
-    RUNNING = (4, False, False)
+    RUNNING = (7, False, False)
     """ The step after a scheduled job has started running. """
-    STOPPED = (5, True, False)
+    STOPPED = (8, True, False)
     """ The step that occurs if a running job is stopped deliberately. """
-    COMPLETED = (6, False, False, True)
+    COMPLETED = (9, False, False, True)
     """ The step after a running job is finished. """
-    FAILED = (-1, True, True, True)
+    FAILED = (-10, True, True, True)
     """ The step indicating failure happened that stopped a job after it entered the ``RUNNING`` step. """
 
     @classmethod
