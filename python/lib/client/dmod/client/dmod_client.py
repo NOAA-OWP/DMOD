@@ -115,6 +115,111 @@ class DmodClient:
     async def list_datasets(self, category: Optional[DataCategory] = None):
         return await self.dataset_client.list_datasets(category)
 
+    async def request_job_info(self, job_id: str, *args, **kwargs) -> dict:
+        """
+        Request the full state of the provided job, formatted as a JSON dictionary.
+
+        Parameters
+        ----------
+        job_id : str
+            The id of the job in question.
+        args
+            (Unused) variable positional args.
+        kwargs
+            (Unused) variable keyword args.
+
+        Returns
+        -------
+        dict
+            The full state of the provided job, formatted as a JSON dictionary.
+        """
+        # TODO: implement
+        raise NotImplementedError('{} function "request_job_info" not implemented yet'.format(self.__class__.__name__))
+
+    async def request_job_release(self, job_id: str, *args, **kwargs) -> bool:
+        """
+        Request the allocated resources for the provided job be released.
+
+        Parameters
+        ----------
+        job_id : str
+            The id of the job in question.
+        args
+            (Unused) variable positional args.
+        kwargs
+            (Unused) variable keyword args.
+
+        Returns
+        -------
+        bool
+            Whether there had been allocated resources for the job, all of which are now released.
+        """
+        # TODO: implement
+        raise NotImplementedError('{} function "request_job_release" not implemented yet'.format(self.__class__.__name__))
+
+    async def request_job_status(self, job_id: str, *args, **kwargs) -> str:
+        """
+        Request the status of the provided job, represented in string form.
+
+        Parameters
+        ----------
+        job_id : str
+            The id of the job in question.
+        args
+            (Unused) variable positional args.
+        kwargs
+            (Unused) variable keyword args.
+
+        Returns
+        -------
+        str
+            The status of the provided job, represented in string form.
+        """
+        # TODO: implement
+        raise NotImplementedError('{} function "request_job_status" not implemented yet'.format(self.__class__.__name__))
+
+    async def request_job_stop(self, job_id: str, *args, **kwargs) -> bool:
+        """
+        Request the provided job be stopped; i.e., transitioned to the ``STOPPED`` exec step.
+
+        Parameters
+        ----------
+        job_id : str
+            The id of the job in question.
+        args
+            (Unused) variable positional args.
+        kwargs
+            (Unused) variable keyword args.
+
+        Returns
+        -------
+        bool
+            Whether the job was stopped as requested.
+        """
+        # TODO: implement
+        raise NotImplementedError('{} function "request_job_stop" not implemented yet'.format(self.__class__.__name__))
+
+    async def request_jobs_list(self, jobs_list_active_only: bool, *args, **kwargs) -> List[str]:
+        """
+        Request a list of ids of existing jobs.
+
+        Parameters
+        ----------
+        jobs_list_active_only : bool
+            Whether to exclusively include jobs with "active" status values.
+        args
+            (Unused) variable positional args.
+        kwargs
+            (Unused) variable keyword args.
+
+        Returns
+        -------
+        List[str]
+            A list of ids of existing jobs.
+        """
+        # TODO: implement
+        raise NotImplementedError('{} function "request_jobs_list" not implemented yet'.format(self.__class__.__name__))
+
     @property
     def requests_endpoint_uri(self) -> str:
         return self.client_config.requests_endpoint_uri
