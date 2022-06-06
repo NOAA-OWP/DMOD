@@ -22,7 +22,7 @@ WORKDIR /code
 #RUN ln -s /usr/lib/x86_64-linux-musl/libc.so /lib/libc.musl-x86_64.so.1
 
 #RUN echo "http://dl-8.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
-RUN apk --no-cache --update-cache add git gcc gfortran python3 python3-dev py-pip build-base wget geos-dev gdal-dev freetype-dev libpng-dev openblas-dev
+RUN apk --no-cache --update-cache add git gcc gfortran python3 python3-dev py-pip build-base wget geos-dev gdal-dev freetype-dev libpng-dev openblas-dev proj proj-dev proj-util
 RUN ln -s /usr/include/locale.h /usr/include/xlocale.h
 
 # Copy custom built packages from external sources image
