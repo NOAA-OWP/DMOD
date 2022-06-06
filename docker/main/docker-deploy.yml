@@ -220,8 +220,8 @@ volumes:
   gui_static_volume:
   # This typically needs to be commented out; intended for development use (see related 'environment' and 'volume'
   # configs above for several services)
-  #updated_packages:
-  #  external: true
+  updated_packages:
+    external: true
 
 secrets:
   myredis_pass:
