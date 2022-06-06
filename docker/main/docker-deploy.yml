@@ -176,7 +176,7 @@ services:
   partitioner-service:
     image: "${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/partitioner-service:latest"
     networks:
-      - mpi-net
+      #- mpi-net
       - requests-net
     ports:
       - "${DOCKER_PARTITIONER_SERVICE_CONTAINER_PORT:-3014}:${DOCKER_PARTITIONER_SERVICE_CONTAINER_PORT:-3014}"
