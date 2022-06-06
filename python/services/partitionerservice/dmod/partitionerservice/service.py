@@ -19,7 +19,7 @@ from dmod.scheduler.job import Job, JobExecStep, JobUtil
 from uuid import uuid4
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
     datefmt="%H:%M:%S"
 )
