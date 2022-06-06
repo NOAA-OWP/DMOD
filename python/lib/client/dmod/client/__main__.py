@@ -11,6 +11,13 @@ from typing import List, Optional, Tuple
 DEFAULT_CLIENT_CONFIG_BASENAME = '.dmod_client_config.yml'
 
 
+class DmodCliArgumentError(ValueError):
+    """
+    Trivial, but distinct, error type for errors involving bad args to the DMOD CLI client.
+    """
+    pass
+
+
 def _handle_config_command_args(parent_subparsers_container):
     """
     Handle setup of arg parsing for 'config' command, which allows for various operations related to config.
@@ -36,7 +43,7 @@ def _handle_exec_command_args(parent_subparsers_container):
         The top-level parent container for subparsers of various commands, including the 'exec' command, to which
         some numbers of nested subparser containers and parsers will be added.
     """
-    # A parser for the 'dataset' command itself, underneath the parent 'command' subparsers container
+    # A parser for the 'exec' command itself, underneath the parent 'command' subparsers container
     command_parser = parent_subparsers_container.add_parser('exec')
 
     # Subparser under the exec command's parser for handling the different workflows that might be run
@@ -130,6 +137,45 @@ def _handle_dataset_command_args(parent_subparsers_container):
                              help='Specify the category of dataset to list')
 
 
+def _handle_jobs_command_args(parent_subparsers_container):
+    """
+    Handle setup of arg parsing for 'jobs' command, which allows for various query and control actions regarding jobs.
+
+    Parameters
+    ----------
+    parent_subparsers_container
+        The top-level parent container for subparsers of various commands, including the 'jobs' command, to which
+        some numbers of nested subparser containers and parsers will be added.
+    """
+    # A parser for the 'jobs' command itself, underneath the parent 'command' subparsers container
+    command_parser = parent_subparsers_container.add_parser('jobs')
+
+    # Subparser under the jobs command's parser for handling the different query or control that might be run
+    subcommand_subparsers = command_parser.add_subparsers(dest='subcommand')
+    subcommand_subparsers.required = True
+
+    # Nested parser for the 'list' action
+    parser_list_jobs = subcommand_subparsers.add_parser('list')
+    parser_list_jobs.add_argument('--active', dest='jobs_list_active_only', action='store_true',
+                                  help='List only jobs with "active" status')
+
+    # Nested parser for the 'info' action
+    parser_job_info = subcommand_subparsers.add_parser('info')
+    parser_job_info.add_argument('job_id', help='The id of the job for which to retrieve job state info')
+
+    # Nested parser for the 'release' action
+    parser_job_release = subcommand_subparsers.add_parser('release')
+    parser_job_release.add_argument('job_id', help='The id of the job for which to release resources')
+
+    # Nested parser for the 'status' action
+    parser_job_status = subcommand_subparsers.add_parser('status')
+    parser_job_status.add_argument('job_id', help='The id of the job for which to retrieve status')
+
+    # Nested parser for the 'stop' action
+    parser_job_stop = subcommand_subparsers.add_parser('stop')
+    parser_job_stop.add_argument('job_id', help='The id of the job to stop')
+
+
 def _handle_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter, prog='dmod.client')
     parser.add_argument('--client-config',
@@ -149,6 +195,8 @@ def _handle_args():
     _handle_config_command_args(parent_subparsers_container=subparsers)
     # Nested command parsers handling exec actions
     _handle_exec_command_args(parent_subparsers_container=subparsers)
+    # Nested command parsers handling jobs querying and control command actions
+    _handle_jobs_command_args(parent_subparsers_container=subparsers)
 
     #parser.prog = package_name
     return parser.parse_args()
@@ -368,6 +416,30 @@ def execute_config_command(parsed_args, client: DmodClient):
         raise RuntimeError("Bad client command action '{}'".format(parsed_args.action))
 
 
+def execute_jobs_command(args, client: DmodClient):
+    async_loop = get_or_create_eventloop()
+    try:
+        if args.subcommand == 'info':
+            result = async_loop.run_until_complete(client.request_job_info(**(vars(args))))
+        elif args.subcommand == 'list':
+            result = async_loop.run_until_complete(client.request_jobs_list(**(vars(args))))
+        elif args.subcommand == 'release':
+            result = async_loop.run_until_complete(client.request_job_release(**(vars(args))))
+        elif args.subcommand == 'status':
+            result = async_loop.run_until_complete(client.request_job_status(**(vars(args))))
+        elif args.subcommand == 'stop':
+            result = async_loop.run_until_complete(client.request_job_stop(**(vars(args))))
+        else:
+            raise DmodCliArgumentError()
+        print(result)
+    except DmodCliArgumentError as e:
+        print("ERROR: Unsupported jobs subcommand {}".format(args.subcommand))
+        exit(1)
+    except Exception as e:
+        print("ERROR: Encountered {} - {}".format(e.__class__.__name__, str(e)))
+        exit(1)
+
+
 def execute_workflow_command(args, client: DmodClient):
     async_loop = get_or_create_eventloop()
     if args.workflow == 'ngen':
@@ -394,6 +466,8 @@ def main():
             execute_dataset_command(args, client)
         elif args.command == 'exec':
             execute_workflow_command(args, client)
+        elif args.command == 'jobs':
+            execute_jobs_command(args, client)
         else:
             raise ValueError("Unsupported command {}".format(args.command))
 
