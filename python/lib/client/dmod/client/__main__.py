@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import json
+from dmod.core.execution import AllocationParadigm
 from . import name as package_name
 from .dmod_client import YamlClientConfig, DmodClient
 from dmod.communication.client import get_or_create_eventloop
@@ -55,6 +56,12 @@ def _handle_exec_command_args(parent_subparsers_container):
 
     parser_ngen.add_argument('--partition-config-data-id', dest='partition_cfg_data_id', default=None,
                              help='Provide data_id for desired partition config dataset.')
+    parser_ngen.add_argument('--allocation-paradigm',
+                             dest='allocation_paradigm',
+                             type=AllocationParadigm.get_from_name,
+                             choices=[val.name.lower() for val in AllocationParadigm],
+                             default=AllocationParadigm.get_default_selection(),
+                             help='Specify job resource allocation paradigm to use.')
     parser_ngen.add_argument('--catchment-ids', dest='cat_ids', nargs='+', help='Specify catchment subset.')
     date_format = DataDomain.get_datetime_str_format()
     printable_date_format = 'YYYY-mm-dd HH:MM:SS'
