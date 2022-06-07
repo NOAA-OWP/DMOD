@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
+from dmod.core.execution import AllocationParadigm
 from dmod.communication import InternalServiceClient, MaasRequestClient, ManagementAction, ModelExecRequestClient, \
     NGENRequest, NGENRequestResponse
 from dmod.communication.client import R
@@ -71,10 +72,12 @@ class NgenRequestClient(ModelExecRequestClient):
 
     async def request_exec(self, start: datetime, end: datetime, hydrofabric_data_id: str, hydrofabric_uid: str,
                            cpu_count: int, realization_cfg_data_id: str, bmi_cfg_data_id: str,
-                           partition_cfg_data_id: Optional[str] = None, cat_ids: Optional[List[str]] = None) -> NGENRequestResponse:
+                           partition_cfg_data_id: Optional[str] = None, cat_ids: Optional[List[str]] = None,
+                           allocation_paradigm: Optional[AllocationParadigm] = None) -> NGENRequestResponse:
         await self._async_acquire_session_info()
         request = NGENRequest(session_secret=self.session_secret,
                               cpu_count=cpu_count,
+                              allocation_paradigm=allocation_paradigm,
                               time_range=TimeRange(begin=start, end=end),
                               hydrofabric_uid=hydrofabric_uid,
                               hydrofabric_data_id=hydrofabric_data_id,
