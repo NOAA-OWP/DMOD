@@ -3,7 +3,8 @@ from abc import ABC, abstractmethod
 from asyncio import sleep
 from typing import Dict, List, Optional, Tuple, Union
 from uuid import UUID, uuid4 as random_uuid
-from .job import Job, AllocationParadigm, JobExecPhase, JobExecStep, JobStatus, RequestedJob
+from dmod.core.execution import AllocationParadigm
+from .job import Job, JobExecPhase, JobExecStep, JobStatus, RequestedJob
 from .job_util import JobUtil, RedisBackedJobUtil
 from ..resources.resource_allocation import ResourceAllocation
 from ..resources.resource_manager import ResourceManager
