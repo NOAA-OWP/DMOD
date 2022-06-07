@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 import logging
 
 
-class JobAllocationParadigm(Enum):
+class AllocationParadigm(Enum):
     """
     Representation of the ways ::class`ResourceAllocation` may be combined to fulfill a total required asset amount
     needed for the allocation of a job.
@@ -482,14 +482,14 @@ class Job(Serializable, ABC):
 
     @property
     @abstractmethod
-    def allocation_paradigm(self) -> JobAllocationParadigm:
+    def allocation_paradigm(self) -> AllocationParadigm:
         """
-        The ::class:`JobAllocationParadigm` type value that was used or should be used to make allocations.
+        The ::class:`AllocationParadigm` type value that was used or should be used to make allocations.
 
         Returns
         -------
-        JobAllocationParadigm
-            The ::class:`JobAllocationParadigm` type value that was used or should be used to make allocations.
+        AllocationParadigm
+            The ::class:`AllocationParadigm` type value that was used or should be used to make allocations.
         """
         pass
 
@@ -758,8 +758,8 @@ class JobImpl(Job):
 
     @classmethod
     def _parse_serialized_allocation_paradigm(cls, json_obj: dict, key: str):
-        paradigm = JobAllocationParadigm.get_from_name(name=json_obj[key], strict=True) if key in json_obj else None
-        if not isinstance(paradigm, JobAllocationParadigm):
+        paradigm = AllocationParadigm.get_from_name(name=json_obj[key], strict=True) if key in json_obj else None
+        if not isinstance(paradigm, AllocationParadigm):
             if paradigm is None:
                 type_name = 'None'
             else:
@@ -1020,14 +1020,14 @@ class JobImpl(Job):
             raise RuntimeError(msg)
 
     def __init__(self, cpu_count: int, memory_size: int, model_request: MaaSRequest,
-                 allocation_paradigm: Union[str, JobAllocationParadigm], alloc_priority: int = 0):
+                 allocation_paradigm: Union[str, AllocationParadigm], alloc_priority: int = 0):
         self._cpu_count = cpu_count
         self._memory_size = memory_size
         self._model_request = model_request
-        if isinstance(allocation_paradigm, JobAllocationParadigm):
+        if isinstance(allocation_paradigm, AllocationParadigm):
             self._allocation_paradigm = allocation_paradigm
         else:
-            self._allocation_paradigm = JobAllocationParadigm.get_from_name(name=allocation_paradigm)
+            self._allocation_paradigm = AllocationParadigm.get_from_name(name=allocation_paradigm)
         self._allocation_priority = alloc_priority
         self._job_uuid = uuid_func()
         self._rsa_key_pair = None
@@ -1071,9 +1071,9 @@ class JobImpl(Job):
         self._reset_last_updated()
 
     @property
-    def allocation_paradigm(self) -> JobAllocationParadigm:
+    def allocation_paradigm(self) -> AllocationParadigm:
         """
-        The ::class:`JobAllocationParadigm` type value that was used or should be used to make allocations.
+        The ::class:`AllocationParadigm` type value that was used or should be used to make allocations.
 
         For this type, the value is set as a private attribute during initialization, based on the value of the
         ::attribute:`SchedulerRequestMessage.allocation_paradigm` string property present within the provided
@@ -1081,8 +1081,8 @@ class JobImpl(Job):
 
         Returns
         -------
-        JobAllocationParadigm
-            The ::class:`JobAllocationParadigm` type value that was used or should be used to make allocations.
+        AllocationParadigm
+            The ::class:`AllocationParadigm` type value that was used or should be used to make allocations.
         """
         return self._allocation_paradigm
 
