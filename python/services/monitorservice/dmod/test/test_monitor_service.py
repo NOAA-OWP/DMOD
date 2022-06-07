@@ -1,9 +1,10 @@
 import unittest
 import uuid
 from typing import List, Optional, Tuple, Dict
+from dmod.core.execution import AllocationParadigm
 from ..monitorservice.service import Monitor, MonitorService, Job, JobStatus, MetadataMessage, MetadataPurpose,\
     MonitoredChange, MetadataResponse
-from dmod.scheduler.job import AllocationParadigm, JobExecPhase, JobImpl, JobExecStep
+from dmod.scheduler.job import JobExecPhase, JobImpl, JobExecStep
 
 
 class MockMonitor(Monitor):
