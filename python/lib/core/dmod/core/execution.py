@@ -22,16 +22,9 @@ class AllocationParadigm(Enum):
     SINGLE_NODE = 2
 
     @classmethod
-    def get_default_selection(cls):
+    def get_default_selection(cls) -> 'AllocationParadigm':
         """
         Get the default fallback value select to use in various situation, which is ``ROUND_ROBIN``.
-
-        Note that it is highly recommended that this return a value that has a ::attribute:`name` consistent with the
-        value returned by ::method:`SchedulerRequestMessage.default_allocation_paradigm_str`.  However, because
-        ::method:``get_from_name`` relies on this to provide a default when it is unable to interpret the provided arg,
-        this must return a value directly without any nested calls.  Additionally, ::class:`SchedulerRequestMessage`
-        cannot not import this type, as this would produce circular import issues.  As such, this consistency cannot
-        easily be enforced directly, but it should be easy to do so via unit testing.
 
         Returns
         -------
