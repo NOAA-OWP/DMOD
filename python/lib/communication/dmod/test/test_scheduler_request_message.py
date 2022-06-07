@@ -14,12 +14,12 @@ class TestSchedulerRequestMessage(unittest.TestCase):
         self.tested_serializeable_type = SchedulerRequestMessage
 
         # Example 0
-        raw_json_str_0 = '{"model_request": {"model": {"nwm": {"config_data_id": "1", "data_requirements": [{"domain": {"data_format": "NWM_CONFIG", "continuous": [], "discrete": [{"variable": "DATA_ID", "values": ["1"]}]}, "is_input": true, "category": "CONFIG"}]}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}, "user_id": "someone", "cpus": 4, "mem": 500000, "allocation": "single-node"}'
+        raw_json_str_0 = '{"model_request": {"model": {"nwm": {"allocation_paradigm": "ROUND_ROBIN", "config_data_id": "1", "cpu_count": 1, "data_requirements": [{"domain": {"data_format": "NWM_CONFIG", "continuous": [], "discrete": [{"variable": "DATA_ID", "values": ["1"]}]}, "is_input": true, "category": "CONFIG"}]}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}, "user_id": "someone", "cpus": 4, "mem": 500000, "allocation": "single-node"}'
         raw_json_obj_0 = json.loads(raw_json_str_0)
         sorted_json_str_0 = json.dumps(raw_json_obj_0, sort_keys=True)
         self.request_strings.append(sorted_json_str_0)
         self.request_jsons.append({"model_request": {
-            "model": {"nwm": {"config_data_id": "1", "data_requirements": [{"domain": {
+            "model": {"nwm": {"allocation_paradigm": "ROUND_ROBIN", "config_data_id": "1", "cpu_count": 1, "data_requirements": [{"domain": {
                 "data_format": "NWM_CONFIG", "continuous": [], "discrete": [{"variable": "DATA_ID", "values": ["1"]}]},
                 "is_input": True,
                 "category": "CONFIG"}]}},
@@ -29,7 +29,7 @@ class TestSchedulerRequestMessage(unittest.TestCase):
 
         self.request_objs.append(
             SchedulerRequestMessage(model_request=NWMRequest.factory_init_from_deserialized_json(
-                {"model": {"nwm": {"config_data_id": "1", "data_requirements": [{"domain": {"data_format": "NWM_CONFIG",
+                {"model": {"nwm": {"allocation_paradigm": "ROUND_ROBIN", "config_data_id": "1", "cpu_count": 1, "data_requirements": [{"domain": {"data_format": "NWM_CONFIG",
                                                                                             "continuous": [],
                                                                                             "discrete": [
                                                                                                 {"variable": "DATA_ID",
