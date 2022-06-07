@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from asyncio import sleep
 from typing import Dict, List, Optional, Tuple, Union
 from uuid import UUID, uuid4 as random_uuid
-from .job import Job, JobAllocationParadigm, JobExecPhase, JobExecStep, JobStatus, RequestedJob
+from .job import Job, AllocationParadigm, JobExecPhase, JobExecStep, JobStatus, RequestedJob
 from .job_util import JobUtil, RedisBackedJobUtil
 from ..resources.resource_allocation import ResourceAllocation
 from ..resources.resource_manager import ResourceManager
@@ -625,11 +625,11 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
         """
         if require_awaiting_status and job.status_step != JobExecStep.AWAITING_ALLOCATION:
             return False
-        if job.allocation_paradigm == JobAllocationParadigm.SINGLE_NODE:
+        if job.allocation_paradigm == AllocationParadigm.SINGLE_NODE:
             alloc = self._resource_manager.allocate_single_node(job.cpu_count, job.memory_size)
-        elif job.allocation_paradigm == JobAllocationParadigm.FILL_NODES:
+        elif job.allocation_paradigm == AllocationParadigm.FILL_NODES:
             alloc = self._resource_manager.allocate_fill_nodes(job.cpu_count, job.memory_size)
-        elif job.allocation_paradigm == JobAllocationParadigm.ROUND_ROBIN:
+        elif job.allocation_paradigm == AllocationParadigm.ROUND_ROBIN:
             alloc = self._resource_manager.allocate_round_robin(job.cpu_count, job.memory_size)
         else:
             alloc = [None]
