@@ -1,11 +1,10 @@
+from dmod.core.execution import AllocationParadigm
 from .maas_request import ModelExecRequest, ModelExecRequestResponse
 from .message import AbstractInitRequest, MessageEventType, Response
 from typing import Optional
 
 
 class SchedulerRequestMessage(AbstractInitRequest):
-
-    _DEFAULT_ALLOCATION_PARADIGM = 'ROUND_ROBIN'
 
     event_type: MessageEventType = MessageEventType.SCHEDULER_REQUEST
     """ :class:`MessageEventType`: the event type for this message implementation """
@@ -15,12 +14,18 @@ class SchedulerRequestMessage(AbstractInitRequest):
         """
         Get the default value for the allocation paradigm string.
 
+        This is based directly on ::method:`AllocationParadigm.get_default_selection`.
+
         Returns
         -------
         str
             The default value for the allocation paradigm string.
+
+        See Also
+        -------
+        AllocationParadigm.get_default_selection
         """
-        return cls._DEFAULT_ALLOCATION_PARADIGM
+        return AllocationParadigm.get_default_selection().name
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
