@@ -1,7 +1,8 @@
+from dmod.core.execution import AllocationParadigm
+from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DiscreteRestriction
 from .request_clients import DatasetClient, DatasetExternalClient, DatasetInternalClient, NgenRequestClient
 from .client_config import YamlClientConfig
 from datetime import datetime
-from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DiscreteRestriction
 from pathlib import Path
 from typing import List, Optional
 
@@ -231,10 +232,10 @@ class DmodClient:
     async def submit_ngen_request(self, start: datetime, end: datetime, hydrofabric_data_id: str, hydrofabric_uid: str,
                                   cpu_count: int, realization_cfg_data_id: str, bmi_cfg_data_id: str,
                                   partition_cfg_data_id: Optional[str] = None, cat_ids: Optional[List[str]] = None,
-                                  *args, **kwargs):
+                                  allocation_paradigm: Optional[AllocationParadigm] = None, *args, **kwargs):
         return await self.ngen_request_client.request_exec(start, end, hydrofabric_data_id, hydrofabric_uid,
                                                            cpu_count, realization_cfg_data_id, bmi_cfg_data_id,
-                                                           partition_cfg_data_id, cat_ids)
+                                                           partition_cfg_data_id, cat_ids, allocation_paradigm)
 
     def print_config(self):
         print(self.client_config.print_config())
