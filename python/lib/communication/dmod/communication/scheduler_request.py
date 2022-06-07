@@ -1,7 +1,7 @@
 from dmod.core.execution import AllocationParadigm
 from .maas_request import ModelExecRequest, ModelExecRequestResponse
 from .message import AbstractInitRequest, MessageEventType, Response
-from typing import Optional
+from typing import Optional, Union
 
 
 class SchedulerRequestMessage(AbstractInitRequest):
@@ -45,13 +45,14 @@ class SchedulerRequestMessage(AbstractInitRequest):
         try:
             model_request = ModelExecRequest.factory_init_correct_subtype_from_deserialized_json(json_obj['model_request'])
             if model_request is not None:
+                alloc_paradigm = json_obj['allocation_paradigm'] if 'allocation_paradigm' in json_obj else None
                 return cls(model_request=model_request,
                            user_id=json_obj['user_id'],
                            # This may be absent to indicate use the value from the backing model request
                            cpus=json_obj['cpus'] if 'cpus' in json_obj else None,
                            # This may be absent to indicate it should be marked "unset" and a default should be used
                            mem=json_obj['mem'] if 'mem' in json_obj else None,
-                           allocation_paradigm=json_obj['allocation'])
+                           allocation_paradigm=alloc_paradigm)
             else:
                 return None
         except:
@@ -59,7 +60,7 @@ class SchedulerRequestMessage(AbstractInitRequest):
 
     # TODO: may need to generalize the underlying request to support, say, scheduling evaluation jobs
     def __init__(self, model_request: ModelExecRequest, user_id: str, cpus: Optional[int] = None, mem: Optional[int] = None,
-                 allocation_paradigm: Optional[str] = None):
+                 allocation_paradigm: Optional[Union[str, AllocationParadigm]] = None):
         self._model_request = model_request
         self._user_id = user_id
         self._cpus = cpus
@@ -69,11 +70,10 @@ class SchedulerRequestMessage(AbstractInitRequest):
         else:
             self._memory_unset = False
             self._memory = mem
-
-        if isinstance(allocation_paradigm, str) and allocation_paradigm.strip():
-            self.allocation_paradigm: str = allocation_paradigm
+        if isinstance(allocation_paradigm, str):
+            self._allocation_paradigm = AllocationParadigm.get_from_name(allocation_paradigm)
         else:
-            self.allocation_paradigm: str = self.default_allocation_paradigm_str()
+            self._allocation_paradigm = allocation_paradigm
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ \
@@ -82,6 +82,21 @@ class SchedulerRequestMessage(AbstractInitRequest):
                and self.memory == other.memory \
                and self.user_id == other.user_id \
                and self.allocation_paradigm == other.allocation_paradigm
+
+    @property
+    def allocation_paradigm(self) -> AllocationParadigm:
+        """
+        The allocation paradigm requested for the job to be scheduled.
+
+        Returns
+        -------
+        AllocationParadigm
+            The allocation paradigm requested for the job to be scheduled.
+        """
+        if self._allocation_paradigm is None:
+            return self.model_request.allocation_paradigm
+        else:
+            return self._allocation_paradigm
 
     @property
     def cpus(self) -> int:
@@ -159,8 +174,9 @@ class SchedulerRequestMessage(AbstractInitRequest):
         return self._user_id
 
     def to_dict(self) -> dict:
-        serial = {'model_request': self.model_request.to_dict(), 'user_id': self.user_id,
-                  'allocation': self.allocation_paradigm}
+        serial = {'model_request': self.model_request.to_dict(), 'user_id': self.user_id}
+        if self._allocation_paradigm is not None:
+            serial['allocation_paradigm'] = self._allocation_paradigm.name
         # Don't include this in serial form if property value is sourced from underlying model request
         if self._cpus is not None:
             serial['cpus'] = self._cpus
