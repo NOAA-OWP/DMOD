@@ -1,5 +1,5 @@
 import unittest
-from ..scheduler.job.job import AllocationParadigm
+from dmod.scheduler.job.job import AllocationParadigm
 from dmod.communication import SchedulerRequestMessage
 
 
