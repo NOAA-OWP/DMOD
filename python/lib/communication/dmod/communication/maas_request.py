@@ -678,7 +678,9 @@ class NWMRequest(ModelExecRequest):
         {
             'model': {
                 'NWM': {
+                    'allocation_paradigm': '<allocation_paradigm_str>',
                     'config_data_id': '<config_dataset_data_id>',
+                    'cpu_count': <count>,
                     'data_requirements': [ ... (serialized DataRequirement objects) ... ]
                 }
             }
@@ -696,6 +698,8 @@ class NWMRequest(ModelExecRequest):
         """
         try:
             obj = cls(config_data_id=json_obj['model'][cls.model_name]['config_data_id'],
+                      cpu_count=json_obj['model'][cls.model_name]['cpu_count'],
+                      allocation_paradigm=json_obj['model'][cls.model_name]['allocation_paradigm'],
                       session_secret=json_obj['session-secret'])
 
             reqs = [DataRequirement.factory_init_from_deserialized_json(req_json) for req_json in
@@ -753,7 +757,9 @@ class NWMRequest(ModelExecRequest):
         {
             'model': {
                 'NWM': {
+                    'allocation_paradigm': '<allocation_paradigm_str>',
                     'config_data_id': '<config_dataset_data_id>',
+                    'cpu_count': <count>,
                     'data_requirements': [ ... (serialized DataRequirement objects) ... ]
                 }
             }
@@ -767,7 +773,9 @@ class NWMRequest(ModelExecRequest):
         """
         model = dict()
         model[self.get_model_name()] = dict()
+        model[self.get_model_name()]['allocation_paradigm'] = self.allocation_paradigm.name
         model[self.get_model_name()]['config_data_id'] = self.config_data_id
+        model[self.get_model_name()]['cpu_count'] = self.cpu_count
         model[self.get_model_name()]['data_requirements'] = [r.to_dict() for r in self.data_requirements]
         return {'model': model, 'session-secret': self.session_secret}
 
@@ -842,6 +850,7 @@ class NGENRequest(ModelExecRequest):
         try:
             return cls(time_range=TimeRange.factory_init_from_deserialized_json(json_obj['model']['time_range']),
                        cpu_count=json_obj['model']['cpu_count'],
+                       allocation_paradigm=json_obj['model']['allocation_paradigm'],
                        hydrofabric_uid=json_obj['model']['hydrofabric_uid'],
                        hydrofabric_data_id=json_obj['model']['hydrofabric_data_id'],
                        config_data_id=json_obj['model']['config_data_id'],
@@ -1188,6 +1197,7 @@ class NGENRequest(ModelExecRequest):
         {
             'model': {
                 'name': 'ngen',
+                'allocation_paradigm': <allocation_paradigm_str>,
                 'cpu_count': <cpu_count>,
                 'time_range': { <serialized_time_range_object> },
                 'hydrofabric_data_id': 'hy-data-id-val',
@@ -1210,6 +1220,7 @@ class NGENRequest(ModelExecRequest):
         """
         model = dict()
         model["name"] = self.get_model_name()
+        model["allocation_paradigm"] = self.allocation_paradigm.name
         model["cpu_count"] = self.cpu_count
         model["time_range"] = self.time_range.to_dict()
         model["hydrofabric_data_id"] = self.hydrofabric_data_id
