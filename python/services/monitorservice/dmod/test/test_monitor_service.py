@@ -3,7 +3,7 @@ import uuid
 from typing import List, Optional, Tuple, Dict
 from ..monitorservice.service import Monitor, MonitorService, Job, JobStatus, MetadataMessage, MetadataPurpose,\
     MonitoredChange, MetadataResponse
-from dmod.scheduler.job import JobAllocationParadigm, JobExecPhase, JobImpl, JobExecStep
+from dmod.scheduler.job import AllocationParadigm, JobExecPhase, JobImpl, JobExecStep
 
 
 class MockMonitor(Monitor):
@@ -86,7 +86,7 @@ class TestMonitorService(unittest.TestCase):
         self._jobs = []
         for i in range(3):
             self._jobs.append(JobImpl(cpu_count=4, memory_size=1000, model_request=None,
-                                      allocation_paradigm=JobAllocationParadigm.SINGLE_NODE))
+                                      allocation_paradigm=AllocationParadigm.SINGLE_NODE))
 
         self._second_meta_ex_job_id = '52204a2f-8924-48b4-abab-d289ac5aedf7'
 
