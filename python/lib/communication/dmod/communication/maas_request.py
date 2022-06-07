@@ -4,8 +4,9 @@ Lays out details describing how a request may be created and the different types
 @author: Chris Tubbs
 """
 
-from .message import AbstractInitRequest, MessageEventType, Response, InitRequestResponseReason
+from dmod.core.execution import AllocationParadigm
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DiscreteRestriction, DataRequirement, TimeRange
+from .message import AbstractInitRequest, MessageEventType, Response, InitRequestResponseReason
 from abc import ABC, abstractmethod
 from numbers import Number
 from typing import Dict, List, Optional, Set, Union
@@ -227,7 +228,8 @@ class ModelExecRequest(MaaSRequest, ABC):
         """
         return cls.model_name
 
-    def __init__(self, config_data_id: str, cpu_count: int = 1, *args, **kwargs):
+    def __init__(self, config_data_id: str, cpu_count: int = 1,
+                 allocation_paradigm: Optional[Union[str, AllocationParadigm]] = None,  *args, **kwargs):
         """
         Initialize model-exec-specific attributes and state of this request object common to all model exec requests.
 
@@ -239,6 +241,12 @@ class ModelExecRequest(MaaSRequest, ABC):
         super(ModelExecRequest, self).__init__(*args, **kwargs)
         self._config_data_id = config_data_id
         self._cpu_count = cpu_count
+        if allocation_paradigm is None:
+            self._allocation_paradigm = AllocationParadigm.get_default_selection()
+        elif isinstance(allocation_paradigm, str):
+            self._allocation_paradigm = AllocationParadigm.get_from_name(allocation_paradigm)
+        else:
+            self._allocation_paradigm = allocation_paradigm
 
     def __eq__(self, other):
         if not self._check_class_compatible_for_equality(other):
@@ -246,6 +254,8 @@ class ModelExecRequest(MaaSRequest, ABC):
         elif self.session_secret != other.session_secret:
             return False
         elif len(self.data_requirements) != len(other.data_requirements):
+            return False
+        elif self.allocation_paradigm != other.allocation_paradigm:
             return False
         #elif 0 < len([req for req in self.data_requirements if req not in set(other.data_requirements)]):
         #    return False
@@ -256,6 +266,18 @@ class ModelExecRequest(MaaSRequest, ABC):
                 if req not in other.data_requirements:
                     return False
             return True
+
+    @property
+    def allocation_paradigm(self) -> AllocationParadigm:
+        """
+        The allocation paradigm desired for use when allocating resources for this request.
+
+        Returns
+        -------
+        AllocationParadigm
+            The allocation paradigm desired for use with this request.
+        """
+        return self._allocation_paradigm
 
     @property
     def config_data_id(self) -> str:
