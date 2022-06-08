@@ -208,7 +208,7 @@ if [ -n "${SERVICE_MODE:-}" ]; then
     fi
 fi
 
-if [ -n "${DO_REMOVAL_ALL:-}" ]; then
+if [ -n "${DO_REMOVE_ALL:-}" ]; then
     remove_all_volumes
 fi
 
