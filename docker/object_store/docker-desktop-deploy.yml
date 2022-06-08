@@ -45,7 +45,7 @@ services:
       - requests-net
       - mpi-net
     volumes:
-      - ${DMOD_OBJECT_STORE_PROXY_CONFIG:-./nginx.conf}:/etc/nginx/nginx-docker-desktop.conf:ro
+      - ${DMOD_OBJECT_STORE_PROXY_CONFIG:-./nginx.conf}:/etc/nginx/nginx.conf:ro
     ports:
       - "${DMOD_OBJECT_STORE_PROXY_HOST_PORT:-9000}:9000"
     #depends_on:
