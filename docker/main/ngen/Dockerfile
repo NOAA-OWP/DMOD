@@ -274,7 +274,7 @@ ENV HYDRA_PROXY_RETRY_COUNT=5
 # Change permissions for entrypoint and make sure dataset volume mount parent directories exists
 RUN chmod +x ${WORKDIR}/entrypoint.sh \
     && for d in ${DATASET_DIRECTORIES}; do mkdir -p /dmod/datasets/${d}; done \
-    && for d in noah-owp-modular topmodel cfe; do if [ -d ngen/extern/${d}/cmake_build ]; then cp -L -l -p ngen/extern/${d}/cmake_build/*.so /dmod/shared_libs/.; fi; done
+    && for d in noah-owp-modular topmodel cfe; do if [ -d ${WORKDIR}/ngen/extern/${d}/cmake_build ]; then cp -a ${WORKDIR}/ngen/extern/${d}/cmake_build/*.so* /dmod/shared_libs/.; fi; done
 
 WORKDIR ${WORKDIR}
 ENV PATH=${WORKDIR}:$PATH
