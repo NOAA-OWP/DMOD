@@ -152,7 +152,7 @@ services:
       - SERVICE_SSL_DIR=${DOCKER_DATASERVICE_CONTAINER_SERVICE_SSL_DIR:-/ssl/dataservice}
       - USER_SECRET_NAME=object_store_exec_user_name
       - PASSWD_SECRET_NAME=object_store_exec_user_passwd
-      - OBJECT_STORE_HOST=${DMOD_DATA_SERVICE_OBJ_STORE_HOST:-minio_proxy}
+      - OBJECT_STORE_HOST=${DMOD_DATA_SERVICE_OBJ_STORE_HOST:-minio-proxy}
       #- REDIS_PORT=
       #- REDIS_USER=
       - REDIS_HOST=${DOCKER_REDIS_SERVICE_ALIAS:-myredis}

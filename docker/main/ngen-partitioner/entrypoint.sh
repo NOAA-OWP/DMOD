@@ -67,7 +67,7 @@ mount_object_store_dataset()
     _MOUNT_DIR="${2:?}"
     # TODO (later): this is a non-S3 implementation URL; add support for S3 directly also
     # This is based on the nginx proxy config (hopefully)
-    _URL="http://minio_proxy:9000/"
+    _URL="http://minio-proxy:9000/"
     s3fs ${_MOUNTED_DATASET_NAME} ${_MOUNT_DIR} -o passwd_file=${HOME}/.passwd-s3fs -o url=${_URL} -o use_path_request_style
 }
 
