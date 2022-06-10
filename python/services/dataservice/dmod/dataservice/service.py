@@ -712,8 +712,10 @@ class ServiceManager(WebSocketInterface):
 
     def init_object_store_dataset_manager(self, obj_store_host: str, access_key: str, secret_key: str, port: int = 9000,
                                           *args, **kwargs):
+        logging.info("Initializing object store dataset manager at {}:{}".format(obj_store_host, port))
         mgr = ObjectStoreDatasetManager(obj_store_host_str='{}:{}'.format(obj_store_host, port), access_key=access_key,
                                         secret_key=secret_key)
+        logging.info("Object store dataset manager initialized with {} existing datasets".format(len(mgr.datasets)))
         self._add_manager(mgr)
         self._obj_store_data_mgr = mgr
 
