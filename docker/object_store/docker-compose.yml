@@ -83,9 +83,9 @@ services:
       - source: exec_user_name
         target: exec_user_name
 
-  minio_proxy:
+  minio-proxy:
     image: nginx:1.21.1-alpine
-    hostname: minio_proxy
+    hostname: minio-proxy
     networks:
         #- minio_distributed
         - requests-net

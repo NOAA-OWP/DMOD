@@ -30,7 +30,7 @@ fi
 _OBJ_STORE_ARGS=""
 if [ "${USE_OBJ_STORE:-true}" == "true" ]; then
     _OBJ_STORE_ARGS="--object-store-user-secret-name ${USER_SECRET_NAME:?} --object-store-passwd-secret-name ${PASSWD_SECRET_NAME:?}"
-    _OBJ_STORE_ARGS="${_OBJ_STORE_ARGS} --object-store-host ${OBJECT_STORE_HOST:-minio_proxy}"
+    _OBJ_STORE_ARGS="${_OBJ_STORE_ARGS} --object-store-host ${OBJECT_STORE_HOST:-minio-proxy}"
     _OBJ_STORE_ARGS="${_OBJ_STORE_ARGS} --object-store-port ${OBJECT_STORE_PORT:-9000}"
 else
     _OBJ_STORE_ARGS="--no-object-store"

@@ -38,7 +38,7 @@ def _handle_args():
     parser.add_argument('--object-store-host',
                         help='Set hostname for connection to object store',
                         dest='obj_store_host',
-                        default='minio_proxy')
+                        default='minio-proxy')
     parser.add_argument('--object-store-port',
                         help='Set port for connection to object store',
                         dest='obj_store_port',
