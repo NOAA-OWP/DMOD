@@ -1,0 +1,3 @@
+worker_processes  ${NGINX_NUM_WORKER_PROC};
+
+thread_pool default threads=${NGINX_THREAD_POOL_SIZE} max_queue=${NGINX_THREAD_POOL_QUEUE_MAX}
