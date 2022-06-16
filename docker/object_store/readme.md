@@ -16,7 +16,7 @@ The basic steps for initially setting up the MinIO service in a development envi
 * [Initialize User Access via Helper Script](#run-helper-script-to-initialize-user-access)
 
 #### Note on Config File Names
-The `./scripts/control_stack.sh` script will attempt to detect when a system is running on Docker Desktop.  When this is the case, the script will prioritize deploying using a config named `docker-desktop-deploy.yml`, if such a file is available.  
+The `./scripts/control_stack.sh` script will attempt to detect when a system is running on Docker Desktop.  When this is the case, the script will prioritize deploying using a config named `docker-single-node.yml`, if such a file is available.  
 
 MinIO supports High Availability configurations using several nodes, and generally this is what is wanted in a DMOD deployment.  However, this can't be run on Docker Desktop, because a Docker Desktop Swarm can only support a single node.  As such, a separate deployment config was created to support working with the object store stack in Desktop development environments. 
 
