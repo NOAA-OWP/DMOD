@@ -4,13 +4,13 @@ services:
     image: minio/minio:latest
     hostname: minio1
     volumes:
-      - ${DMOD_OBJECT_STORE_HOST_DIR_1:?No host data directory 1 for object store storage provided}:/export1
+      - ${DMOD_OBJECT_STORE_SINGLE_NODE_HOST_DIR:?No host data directory for single-node object store storage provided}:/export
     expose:
       - 9000
       - 9001
     ports:
-      - ${DMOD_OBJECT_STORE_1_HOST_PORT:-9000}:9000
-      - ${DMOD_OBJECT_STORE_1_CONSOLE_HOST_PORT:-9001}:9001
+      - ${DMOD_OBJECT_STORE_SINGLE_NODE_HOST_PORT:-9000}:9000
+      - ${DMOD_OBJECT_STORE_SINGLE_NODE_CONSOLE_HOST_PORT:-9001}:9001
     networks:
       - mpi-net
       - requests-net
@@ -22,7 +22,7 @@ services:
       placement:
         constraints:
           - node.labels.minio1==true
-    command: server /export1 --console-address ":9001"
+    command: server /export --console-address ":9001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
       interval: 30s
