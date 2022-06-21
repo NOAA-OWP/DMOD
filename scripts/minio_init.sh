@@ -14,6 +14,7 @@ fi
 
 MC_COMMAND="mc"
 DEFAULT_ALIAS="dmod"
+DEFAULT_ADMIN_ALIAS="dmodadmin"
 DEFAULT_GROUP="dataset_users"
 DEFAULT_URL="http://localhost:${DMOD_OBJECT_STORE_1_HOST_PORT:-9000}"
 
@@ -24,43 +25,75 @@ MINIO_ROOT_USER_FILE="${PROJECT_ROOT}/docker/secrets/object_store/access_key"
 
 check_alias_exists()
 {
-    ${MC_COMMAND} alias ls ${ALIAS:?No alias set when verifying alias exists} > /dev/null 2>&1;
+    # $1 - alias name
+    ${MC_COMMAND} alias ls ${1:?No alias set when verifying alias exists} > /dev/null 2>&1;
 }
 
 create_alias()
 {
+    # $1 - alias name
+    # $2 - connection URL
+    # $3 - connection user
+    # $4 - connection password
+
+    ${MC_COMMAND} alias set \
+        ${1:?No alias name set when creating alias} \
+        ${2:?No connection url set when creating alias} \
+        ${3:?No user name set when creating alias ${1}} \
+        ${4:?No user passwd set when creating alias ${1}}
+}
+
+prep_connection_alias()
+{
     # Check whether flag was set to indicate the alias has already been created (and doesn't need to be reset)
     if [ -n "${ALIAS_EXISTS:-}" ] && [ -z "${RESET_CONN:-}" ]; then
-        # Make sure it is there
-        if check_alias_exists; then
-            echo "Using existing alias ${ALIAS}"
+        # In such cases, make sure the connection alias does actually exist
+        if check_alias_exists ${ALIAS:?No connection alias name set when checking for existence}; then
+            echo "INFO: Using existing connection alias ${ALIAS}"
         else
-            echo "Error: option set to expect existing alias ${ALIAS}, but it was not found; exiting." 1>&2
+            echo "ERROR: option set to expect existing connection alias ${ALIAS}, but it was not found; exiting." 1>&2
             exit 1
         fi
     else
         # If appropriate, remove an existing connection alias
         if [ -n "${RESET_CONN:-}" ]; then
-            if check_alias_exists; then
+            if check_alias_exists ${ALIAS:?No alias name set when trying to reset}; then
                 echo "Removing existing alias ${ALIAS}"
-                ${MC_COMMAND} alias rm ${ALIAS:?No alias set when creating alias}
+                ${MC_COMMAND} alias rm ${ALIAS}
             else
-                echo "Warning: option set to reset alias ${ALIAS}, but it did not already exist"
+                echo "WARN: option set to reset connection alias ${ALIAS}, but it did not already exist"
             fi
         fi
+        create_alias ${ALIAS} ${CONNECTION_URL} ${USER_NAME} ${USER_SECRET}
+    fi
+}
 
-        ${MC_COMMAND} alias set \
-            ${ALIAS:?No alias set when creating alias} \
-            ${CONNECTION_URL:?No connection url set when creating alias} \
-            ${MINIO_ROOT_USER:?No admin user name set when creating alias} \
-            ${MINIO_ROOT_PASSWORD:?No admin user passwd set when creating alias}
+prep_admin_alias()
+{
+    # If not set to create the admin alias, then just verify it exists
+    if [ -z "${CREATE_ADMIN_ALIAS:-}" ]; then
+        if check_alias_exists ${ADMIN_ALIAS:?No admin alias name set when checking for existence}; then
+            echo "INFO: Using existing admin alias ${ADMIN_ALIAS} for setup"
+        else
+            echo "ERROR: expected client admin alias ${ADMIN_ALIAS} does not exist." 1>&2
+            exit 1
+        fi
+    # If set to create (or re-create) the admin alias, then do so
+    else
+        # The option to create the admin alias implies an existing one should first be removed
+        if check_alias_exists ${ADMIN_ALIAS:?No admin alias name set when trying to create}; then
+            echo "INFO: Removing existing admin alias ${ADMIN_ALIAS}"
+            ${MC_COMMAND} alias rm ${ADMIN_ALIAS:?}
+        fi
+        # Once we are sure there is no previously existing (still), create the admin alias
+        create_alias ${ADMIN_ALIAS} ${CONNECTION_URL} ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}
     fi
 }
 
 create_user()
 {
     ${MC_COMMAND} admin user add \
-        ${ALIAS:?No alias set when adding USER} \
+        ${ADMIN_ALIAS:?No admin alias set when adding USER} \
         ${USER_NAME:?No user name given when adding USER} \
         ${USER_SECRET:?No user secret given when adding USER}
 }
@@ -68,16 +101,18 @@ create_user()
 create_group()
 {
     # Create group and add user to it assumes group doesn't exist
-    ${MC_COMMAND} admin group add ${ALIAS:?} ${GROUP_NAME:?} ${USER_NAME:?}
+    ${MC_COMMAND} admin group add ${ADMIN_ALIAS:?} ${GROUP_NAME:?} ${USER_NAME:?}
 
     # Add the necessary policy for the group
-    ${MC_COMMAND} admin policy set ${ALIAS} ${READ_WRITE_POLICY:-readwrite} group=${GROUP_NAME}
+    ${MC_COMMAND} admin policy set ${ADMIN_ALIAS} ${READ_WRITE_POLICY:-readwrite} group=${GROUP_NAME}
 }
 
 initial_setup()
 {
+    prep_admin_alias
+    prep_connection_alias
+
     # TODO: add logic/options for conditional processing if things exist already
-    create_alias
     create_user
     create_group
 
@@ -85,10 +120,11 @@ initial_setup()
 
 print_info()
 {
-    echo "Alias:        ${ALIAS}"
-    echo "Admin User:   ${MINIO_ROOT_USER}"
     echo "URL:          ${CONNECTION_URL:?}"
-    echo "User:         ${USER_NAME}"
+    echo "Admin Alias:  ${ADMIN_ALIAS}"
+    echo "Admin User:   ${MINIO_ROOT_USER}"
+    echo "Access Alias: ${ALIAS}"
+    echo "Access User:  ${USER_NAME}"
     echo "Group:        ${GROUP_NAME}"
 }
 
@@ -99,13 +135,28 @@ ${INFO:?}
 
 Usage:
     ${NAME:?} -h|-help|--help
-    ${NAME:?} [--alias|-a <name>] [--url|-u <url>]
+    ${NAME:?} [options]
 
 Options:
-    --alias|-a <name>   Specify the connection alias name for the mc CLI (default: ${DEFAULT_ALIAS}).
-    --alias-exists|-x   Specify that the alias should already exist and does not need to be created.
-    --reset-connection  Remove existing connection before performing typical setup.
-    --url|-u <name>     Specify connection URL (default: ${DEFAULT_URL})
+    --admin-alias|-A <name> Specify the admin connection alias for the 'mc' CLI
+                            (default: ${DEFAULT_ADMIN_ALIAS}).
+
+    --alias|-a <name>       Specify the connection alias name for the 'mc' CLI
+                            (default: ${DEFAULT_ALIAS}).
+
+    --create-admin-alias    Set that the 'mc' CLI admin alias must be created,
+                            or removed and recreated if it already exists.
+
+    --alias-exists|-x       Specify that the 'mc' CLI alias already exists (not
+                            expected by default) and doesn't need to be created.
+
+    --info                  Do no setup actions; only print the settings that
+                            would be used for setup.
+
+    --reset-alias           Remove existing 'mc' CLI alias before performing
+                            typical setup.
+
+    --url|-u <name>         Specify connection URL (default: ${DEFAULT_URL})
 "
     echo "${_O}" 2>&1
 }
@@ -118,12 +169,19 @@ while [ ${#} -gt 0 ]; do
             usage
             exit
             ;;
+        --admin-alias|-A)
+            ADMIN_ALIAS="${2}"
+            shift
+            ;;
         --alias|-a)
             ALIAS="${2}"
             shift
             ;;
         --alias-exists|-x)
             ALIAS_EXISTS='true'
+            ;;
+        --create-admin-alias)
+            CREATE_ADMIN_ALIAS='true'
             ;;
         --url|-u)
             CONNECTION_URL="${2}"
@@ -132,7 +190,7 @@ while [ ${#} -gt 0 ]; do
         --info)
             PRINT_INFO="true"
             ;;
-        --reset-connection)
+        --reset-alias)
             RESET_CONN="true"
             ;;
         *)
@@ -177,10 +235,15 @@ USER_SECRET="$(cat ${USER_PASS_SECRET_FILE})"
 if [ -z "${ALIAS:-}" ]; then
     ALIAS="${DEFAULT_ALIAS}"
 fi
-# Set the default for URL, but only if the alias is not expected to exist
-# (Better to have a failure happen otherwise, as we shouldn't expect to NEED it except to create the alias)
-if [ -z "${CONNECTION_URL:-}" ] && [ -z "${ALIAS_EXISTS:-}" ]; then
-    CONNECTION_URL="${DEFAULT_URL}"
+if [ -z "${ADMIN_ALIAS:-}" ]; then
+    ADMIN_ALIAS="${DEFAULT_ADMIN_ALIAS}"
+fi
+# Set the default for URL, but only if it isn't set AND at least one of the aliases is not expected to exist
+# (Better to have a failure happen otherwise, as we shouldn't expect to NEED it EXCEPT to create an alias)
+if [ -z "${CONNECTION_URL:-}" ]; then
+    if [ -z "${ALIAS_EXISTS:-}" ] || [ -n "${CREATE_ADMIN_ALIAS:-}" ]; then
+        CONNECTION_URL="${DEFAULT_URL}"
+    fi
 fi
 if [ -z "${GROUP_NAME:-}" ]; then
     GROUP_NAME="${DEFAULT_GROUP}"
