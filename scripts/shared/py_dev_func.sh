@@ -119,5 +119,7 @@ py_dev_activate_venv()
             >&2 echo "Error: given virtual env directory '${VENV_DIR}' does not match already activated venv '${VIRTUAL_ENV}'"
             return 1
         fi
+    else
+        VENV_WAS_ACTIVATED=1
     fi
 }
