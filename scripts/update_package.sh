@@ -193,11 +193,13 @@ while [ ${#} -gt 0 ]; do
     shift
 done
 
-# Look for a default venv to use if needed
-py_dev_detect_default_venv_directory
-
-# Bail here if a valid venv is not set
-[ -z "${VENV_DIR:-}" ] && echo "Error: no valid virtual env directory could be determined or was given" && exit 1
+# If a virtual environment isn't already activated, make sure a the variable for a venv directory gets set
+if [ -z "${VIRTUAL_ENV:-}" ]; then
+    # This function will try to detect a valid venv directory from defaults, unless one has already been set
+    py_dev_detect_default_venv_directory
+    # Bail if, at this point, a valid venv directory was neither provided nor detected
+    [ -z "${VENV_DIR:-}" ] && echo "Error: no valid virtual env directory could be determined or was given" && exit 1
+fi
 
 # Sanity check the requirements file exists and can be read if it is needed
 if [ -n "${DO_DEPS:-}" ]; then
@@ -220,7 +222,7 @@ elif [ -n "${DO_PRINT_DIRS:-}" ]; then
     exit ${?}
 fi
 
-# Take appropriate action to activate the virtual environment if needed
+# Take appropriate action to activate a virtual environment if needed
 py_dev_activate_venv
 
 # Trap to make sure we "clean up" script activity before exiting
