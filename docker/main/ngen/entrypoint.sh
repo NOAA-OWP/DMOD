@@ -107,7 +107,8 @@ exec_main_worker_ngen_run()
         ${NGEN_EXECUTABLE:?} ${HYDROFABRIC_DATASET_DIR}/catchment_data.geojson "" \
                 ${HYDROFABRIC_DATASET_DIR}/nexus_data.geojson "" \
                 ${REALIZATION_CONFIG_DATASET_DIR}/realization_config.json \
-                ${PARTITION_DATASET_DIR}/partition_config.json
+                ${PARTITION_DATASET_DIR}/partition_config.json \
+                --subdivided-hydrofabric
 
     #Capture the return value to use as service exit code
     NGEN_RETURN=$?
