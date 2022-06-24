@@ -136,6 +136,7 @@ services:
     image: ${DOCKER_INTERNAL_REGISTRY:?}/dmod-data-service
     hostname: data-service
     networks:
+      - mpi-net
       - requests-net
     deploy:
       placement:
