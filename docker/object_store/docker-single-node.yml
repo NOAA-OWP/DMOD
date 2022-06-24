@@ -9,7 +9,7 @@ services:
       - 9000
       - 9001
     ports:
-      - ${DMOD_OBJECT_STORE_SINGLE_NODE_HOST_PORT:-9000}:9000
+      - ${DMOD_OBJECT_STORE_SINGLE_NODE_HOST_PORT:-9002}:9000
       - ${DMOD_OBJECT_STORE_SINGLE_NODE_CONSOLE_HOST_PORT:-9001}:9001
     networks:
       - mpi-net
@@ -37,6 +37,30 @@ services:
         target: exec_user_passwd
       - source: exec_user_name
         target: exec_user_name
+  minio-proxy:
+    image: nginx:1.21.1-alpine
+    hostname: minio-proxy
+    networks:
+      #- minio_distributed
+      #- requests-net
+      - mpi-net
+    volumes:
+      - ${DMOD_OBJECT_STORE_PROXY_CONFIG:-./nginx.conf}:/etc/nginx/nginx.conf:ro
+      - ${DMOD_OBJECT_STORE_PROXY_TEMPLATES_DIR:?No nginx templates volume env var}:/etc/nginx/templates
+    environment:
+      - NGINX_NUM_WORKER_PROC=${DMOD_OBJECT_STORE_PROXY_NUM_WORKER_PROCS:-auto}
+      - NGINX_THREAD_POOL_SIZE=${DMOD_OBJECT_STORE_PROXY_THREAD_POOL_SIZE:-288}
+      - NGINX_THREAD_POOL_QUEUE_MAX=${DMOD_OBJECT_STORE_PROXY_THREAD_POOL_QUEUE_MAX:-65536}
+    ports:
+      - "${DMOD_OBJECT_STORE_PROXY_HOST_PORT:-9000}:9000"
+    #depends_on:
+    #  - minio1
+    deploy:
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.labels.object_store_proxy==true
 
 networks:
   mpi-net:
