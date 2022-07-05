@@ -14,7 +14,7 @@ class TestSchedulerRequestMessage(unittest.TestCase):
 
         # Example 0
         self.request_strings.append(
-            '{"model_request": {"model": {"nwm": {"version": 2.0, "output": "streamflow", "domain": "", "parameters": {}}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}, "user_id": "someone", "cpus": 4, "mem": 500000, "allocation": "single-node"}')
+            '{"allocation": "single-node", "cpus": 4, "mem": 500000, "model_request": {"model": {"nwm": {"domain": "", "output": "streamflow", "parameters": {}, "version": 2.0}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}, "user_id": "someone"}')
         self.request_jsons.append({"model_request": {
             "model": {"nwm": {"version": 2.0, "output": "streamflow", "domain":'', "parameters": {}}},
             "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}, "user_id": "someone",
