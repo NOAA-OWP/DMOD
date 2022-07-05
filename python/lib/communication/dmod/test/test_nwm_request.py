@@ -16,7 +16,7 @@ class TestNWMRequest(unittest.TestCase):
         # TODO: improve coverage through more examples
 
         # Example 0
-        self.request_strings.append('{"model": {"nwm": {"version": 2.0, "output": "streamflow", "domain": "", "parameters": {}}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
+        self.request_strings.append('{"model": {"nwm": {"domain": "", "output": "streamflow", "parameters": {}, "version": 2.0}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
         self.request_jsons.append({'model': {'nwm': {'version': 2.0, 'output': 'streamflow', 'parameters': {}, 'domain':''}}, 'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'})
         self.request_objs.append(
             NWMRequest(session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
@@ -26,7 +26,7 @@ class TestNWMRequest(unittest.TestCase):
                        parameters={}))
 
         # Example 1 - like example 0, but with the object initialized with the default 'parameters' value
-        self.request_strings.append('{"model": {"nwm": {"version": 2.0, "output": "streamflow", "domain": "", "parameters": {}}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
+        self.request_strings.append('{"model": {"nwm": {"domain": "", "output": "streamflow", "parameters": {}, "version": 2.0}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
         self.request_jsons.append({'model': {'nwm': {'version': 2.0, 'output': 'streamflow', 'parameters': {}, 'domain':''}}, 'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'})
         self.request_objs.append(
             NWMRequest(session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
