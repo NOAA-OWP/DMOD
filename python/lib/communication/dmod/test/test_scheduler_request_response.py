@@ -12,7 +12,7 @@ class TestSchedulerRequestResponse(unittest.TestCase):
         self.tested_serializeable_type = SchedulerRequestResponse
 
         # Example 0
-        self.request_strings.append('{"success": true, "reason": "Job Scheduled", "message": "", "data": {"job_id": 42}}')
+        self.request_strings.append('{"data": {"job_id": 42}, "message": "", "reason": "Job Scheduled", "success": true}')
         self.request_jsons.append({"success": True, "reason": "Job Scheduled", "message": "", "data": {"job_id": 42}})
         self.request_objs.append(
             SchedulerRequestResponse(success=True, reason="Job Scheduled", message="", data={"job_id": 42}))
