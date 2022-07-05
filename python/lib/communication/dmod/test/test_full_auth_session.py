@@ -12,7 +12,7 @@ class TestFullAuthSession(unittest.TestCase):
 
         # Example 0
         self.request_strings.append(
-            '{"session_id": 1, "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c", "created": "2019-12-10 16:27:54.000000", "ip_address": "10.0.1.6", "user": "someone", "last_accessed": "2019-12-10 16:27:54.000000"}')
+            '{"created": "2019-12-10 16:27:54.000000", "ip_address": "10.0.1.6", "last_accessed": "2019-12-10 16:27:54.000000", "session_id": 1, "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c", "user": "someone"}')
         self.request_jsons.append({"session_id": 1,
                                             "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c",
                                             "created": "2019-12-10 16:27:54.000000", "ip_address": "10.0.1.6",
