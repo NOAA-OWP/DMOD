@@ -24,6 +24,11 @@ NUMERIC_TRANSFORMER = typing.Callable[[NUMBER], NUMBER]
 NUMERIC_FILTER = typing.Callable[[NUMBER, NUMBER], bool]
 FRAME_FILTER = typing.Callable[[pandas.DataFrame], pandas.DataFrame]
 
+METRIC = typing.Callable[[pandas.DataFrame, pandas.DataFrame, typing.Sequence["Threshold"], ARGS, KWARGS], NUMBER]
+NUMERIC_OPERATOR = typing.Callable[[NUMBER, NUMBER, typing.Optional[NUMBER]], NUMBER]
+NUMERIC_TRANSFORMER = typing.Callable[[NUMBER], NUMBER]
+NUMERIC_FILTER = typing.Callable[[NUMBER, NUMBER], bool]
+FRAME_FILTER = typing.Callable[[pandas.DataFrame], pandas.DataFrame]
 
 EPSILON = 0.0001
 

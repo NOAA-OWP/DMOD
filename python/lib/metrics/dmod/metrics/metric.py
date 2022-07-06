@@ -105,7 +105,7 @@ def _get_subclasses(klazz: typing.Type[scoring.Metric]) -> typing.Sequence[typin
     return subclasses
 
 
-def get_all_metrics() -> typing.Iterable[typing.Type[scoring.Metric]]:
+def get_all_metrics() -> typing.Collection[typing.Type[scoring.Metric]]:
     """
     Returns:
         A collection of all fully implemented metrics
@@ -281,7 +281,7 @@ class CategoricalMetric(scoring.Metric, abc.ABC):
             pairs: pandas.DataFrame,
             observed_value_label: str,
             predicted_value_label: str,
-            thresholds: typing.Sequence[threshold.Threshold] = None,
+            thresholds: typing.Sequence[Threshold] = None,
             *args,
             **kwargs
     ) -> scoring.Scores:
@@ -430,7 +430,7 @@ class PearsonCorrelationCoefficient(scoring.Metric):
             pairs: pandas.DataFrame,
             observed_value_label: str,
             predicted_value_label: str,
-            thresholds: typing.Sequence[threshold.Threshold] = None,
+            thresholds: typing.Sequence[Threshold] = None,
             *args,
             **kwargs
     ) -> scoring.Scores:

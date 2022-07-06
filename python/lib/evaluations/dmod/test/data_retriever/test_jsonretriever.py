@@ -5,7 +5,10 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 
+import pandas
+
 from ...evaluations import specification
+from ...evaluations.retrieval import Retriever
 from ...evaluations import data_retriever
 from ...evaluations.data_retriever import disk
 
@@ -121,8 +124,8 @@ class TestJSONRetrieving(unittest.TestCase):
         retriever = data_retriever.get_datasource(self.__response_data_specification)
         TestJSONRetrieving.run_response_assertions(self, retriever)
 
-    def run_table_assertions(self, retriever: data_retriever.DataRetriever):
-        data = retriever.get_data()
+    def run_table_assertions(self, retriever: Retriever):
+        data = retriever.retrieve()
 
         locations = ("cat-52", "cat-27")
 
@@ -140,7 +143,7 @@ class TestJSONRetrieving(unittest.TestCase):
             self.assertEqual(subset.value_date.min(), earliest_date)
             self.assertEqual(len(subset), value_per_location)
 
-            for row_number, row in subset.iterrows():
+            for row_number, row in subset.iterrows():  # type: float, pandas.Series
                 expected_offset_value_date = earliest_date + (time_offset * row_number)
                 self.assertEqual(row.value_date, expected_offset_value_date)
 
@@ -148,9 +151,9 @@ class TestJSONRetrieving(unittest.TestCase):
     def run_response_assertions(
             cls,
             test: unittest.TestCase,
-            retriever: data_retriever.DataRetriever
+            retriever: Retriever
     ):
-        data = retriever.get_data()
+        data = retriever.retrieve()
 
         expected_locations = ("0214655255", "0214657975")
 

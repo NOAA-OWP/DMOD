@@ -1,13 +1,10 @@
 import os.path
 import unittest
 
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
-
 from ...evaluations import specification
 from ...evaluations import threshold
 from ...evaluations.threshold import disk
+from ...evaluations.retrieval import Retriever
 
 TEST_DOCUMENT_PATH = os.path.join(os.path.dirname(__file__), "thresholds.json")
 
@@ -58,8 +55,8 @@ class TestJSONRetrieving(unittest.TestCase):
         retriever = threshold.get_threshold_retriever(self.__threshold_specification)
         self.run_assertions(retriever)
 
-    def run_assertions(self, retriever: threshold.ThresholdRetriever):
-        data = retriever.get_data()
+    def run_assertions(self, retriever: Retriever):
+        data = retriever.retrieve()
 
         threshold_categories = [
             {

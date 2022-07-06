@@ -80,7 +80,7 @@ class TestFileCrosswalk(unittest.TestCase):
         )
 
     def test_explicit_json_crosswalk(self):
-        retriever = crosswalk.disk.JSONRetriever(self.json_specification)
+        retriever = crosswalk.disk.JSONCrosswalkRetriever(self.json_specification)
         self.make_assertions(
                 self,
                 retriever,

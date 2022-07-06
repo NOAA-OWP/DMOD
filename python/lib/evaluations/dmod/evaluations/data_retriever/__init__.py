@@ -1,40 +1,36 @@
-import pandas
-import typing
-import inspect
 import os
-
-from .. import specification
-
-from .dataretriever import DataRetriever
-
 
 __all__ = [
     os.path.splitext(package_file)[0]
     for package_file in os.listdir(os.path.dirname(__file__))
     if package_file != "__init__.py"
-       and package_file != 'dataretriever.py'
 ]
 
 from . import *
 
+import pandas
 
-def get_datasource(datasource_definition: specification.DataSourceSpecification) -> DataRetriever:
-    reader_map = {
-        subclass.get_format_name().lower(): subclass
-        for subclass in DataRetriever.__subclasses__()
-        if not inspect.isabstract(subclass)
-    }
+from .. import specification
+from .. import retrieval
+from .. import util
 
-    reader_format = datasource_definition.backend.format
-    reader_class = reader_map.get(reader_format)
 
-    if reader_class is None:
+def get_datasource(datasource_definition: specification.DataSourceSpecification) -> retrieval.Retriever:
+    reader_format = datasource_definition.backend.format.lower()
+
+    readers = [
+        cls for cls in util.get_subclasses(retrieval.Retriever)
+        if cls.get_purpose().lower() == 'input_data'
+           and cls.get_format().lower() == reader_format
+    ]
+
+    if not readers:
         raise KeyError(
                 f"There are not data retrievers that read '{reader_format}' data."
                 f"Check to make sure the correct format and spelling are given."
         )
 
-    return reader_class(datasource_definition)
+    return readers[0](datasource_definition)
 
 
 def read(datasource_definition: specification.DataSourceSpecification) -> pandas.DataFrame:
@@ -47,5 +43,5 @@ def read(datasource_definition: specification.DataSourceSpecification) -> pandas
         A DataFrame containing the data that complies with the specification
     """
     retriever = get_datasource(datasource_definition)
-    return retriever.get_data()
+    return retriever.retrieve()
 

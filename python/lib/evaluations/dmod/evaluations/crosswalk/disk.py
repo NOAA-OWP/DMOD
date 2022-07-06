@@ -1,21 +1,25 @@
 import typing
-import io
-import abc
 import json
 
 import pandas
 
 from .. import specification
-from .. import jsonquery
 
 from . import retriever
 from . import reader
 
+
 class FrameRetriever(retriever.CrosswalkRetriever):
+    """
+    Retrieves crosswalk data from tabulated formats, typically CSV
+    """
     pass
 
 
-class JSONRetriever(retriever.CrosswalkRetriever):
+class JSONCrosswalkRetriever(retriever.CrosswalkRetriever):
+    """
+    Retrieves crosswalk data from JSON formats
+    """
     @classmethod
     def get_type(cls) -> str:
         return "file"

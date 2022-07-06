@@ -1,4 +1,16 @@
+import os
+
+
+__all__ = [
+    os.path.splitext(package_file)[0]
+    for package_file in os.listdir(os.path.dirname(__file__))
+    if package_file != "__init__.py"
+]
+
+from . import *
+
 import typing
+
 from collections import defaultdict
 
 import pandas
@@ -6,21 +18,25 @@ import pandas
 from dmod.metrics.threshold import Threshold
 
 from .. import specification
-
-from .retriever import ThresholdRetriever
-
-from . import disk
-
-__RETRIEVER_MAPPING = {
-    "file": disk
-}
+from .. import retrieval
+from .. import util
 
 
-def get_threshold_retriever(threshold_definition: specification.ThresholdSpecification) -> ThresholdRetriever:
-    if threshold_definition.backend.type not in __RETRIEVER_MAPPING:
-        raise ValueError(f"'{threshold_definition.backend.type}' is not a valid type of threshold")
+def get_threshold_retriever(threshold_definition: specification.ThresholdSpecification) -> retrieval.Retriever:
+    threshold_format = threshold_definition.backend.format.lower()
 
-    return __RETRIEVER_MAPPING[threshold_definition.backend.type].get_datasource(threshold_definition)
+    possible_retrievers = [
+        cls for cls in util.get_subclasses(retrieval.Retriever)
+        if cls.get_purpose() == 'thresholds'
+           and cls.get_format().lower() == threshold_format
+    ]
+
+    if not possible_retrievers:
+        message = f"There are no threshold retrievers for '{threshold_format}' through " \
+                  f"'{threshold_definition.backend.type}'(s)"
+        raise ValueError(message)
+
+    return possible_retrievers[0](threshold_definition)
 
 
 def get_thresholds(threshold_definition: specification.ThresholdSpecification) -> typing.Dict[str, typing.Sequence[Threshold]]:
@@ -35,7 +51,7 @@ def get_thresholds(threshold_definition: specification.ThresholdSpecification) -
         A dictionary mapping locations to their thresholds
     """
     threshold_retriever = get_threshold_retriever(threshold_definition)
-    threshold_data: pandas.DataFrame = threshold_retriever.get_data()
+    threshold_data: pandas.DataFrame = threshold_retriever.retrieve()
 
     thresholds: typing.Dict[str, typing.List[Threshold]] = defaultdict(list)
 
@@ -73,5 +89,3 @@ def get_thresholds(threshold_definition: specification.ThresholdSpecification) -
         thresholds[identifiers[1]].append(new_threshold)
 
     return thresholds
-
-
