@@ -184,6 +184,11 @@ while [ ${#} -gt 0 ]; do
     shift
 done
 
+# Use this as a default
+if [ -z "${S3FS_URL:-}" ]; then
+    S3FS_URL="http://$(hostname):9000/"
+fi
+
 # Sanity checks
 
 # Shouldn't have trailing dataset name args if set to remove all (unless re-init)
