@@ -102,6 +102,31 @@ class SimpleDockerUtil:
         except:
             raise ConnectionError("Please check that the Docker Daemon is installed and running.")
 
+    def get_secret_reference(self, secret_name: str):
+        """
+        Initialize and return a new ::class:`SecretReference` object for the Docker secret of the given name.
+
+        Works by using the client API to obtain a ::class:`docker.models.Secret` object and using that to create and
+        return a new ::class:`SecretReference`.
+
+        Parameters
+        ----------
+        secret_name : str
+            The name of the secret of interest
+
+        Returns
+        -------
+
+        Raises
+        -------
+        ::class:`docker.errors.NotFound`
+            If the secret does not exist.
+        ::class:`docker.errors.APIError`
+            If the server returns an error.
+        """
+        secret_obj = self.docker_client.secrets.get(secret_name)
+        return SecretReference(secret_id=secret_obj.id, secret_name=secret_obj.name)
+
     def run_container(self, image: str, **kwargs):
         return self.docker_client.containers.run(image=image,
                                                  command=kwargs.pop('command', None),
