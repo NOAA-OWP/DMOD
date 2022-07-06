@@ -5,8 +5,11 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 
+import pandas
+
 from ...evaluations import specification
 from ...evaluations import data_retriever
+from ...evaluations.retrieval import Retriever
 from ...evaluations.data_retriever import disk
 
 TEST_FILE_PATH = os.path.join(os.path.dirname(__file__), "cat-\d\d.csv")
@@ -110,7 +113,6 @@ class TestCSVRetrieving(unittest.TestCase):
         self.__single_data_specification = TestCSVRetrieving.create_single_data_specification()
 
     def test_uninstantiated_single_table(self):
-        data_retriever
         retriever = disk.FrameDataRetriever(self.__single_data_specification)
         TestCSVRetrieving.run_single_assertions(self, retriever)
 
@@ -130,8 +132,8 @@ class TestCSVRetrieving(unittest.TestCase):
         retriever = data_retriever.get_datasource(self.__single_data_specification)
         TestCSVRetrieving.run_single_assertions(self, retriever)
 
-    def run_multiple_assertions(self, retriever: data_retriever.DataRetriever):
-        data = retriever.get_data()
+    def run_multiple_assertions(self, retriever: Retriever):
+        data = retriever.retrieve()
 
         locations = ("cat-52", "cat-27")
 
@@ -149,7 +151,7 @@ class TestCSVRetrieving(unittest.TestCase):
             self.assertEqual(subset.value_date.min(), earliest_date)
             self.assertEqual(len(subset), value_per_location)
 
-            for row_number, row in subset.iterrows():
+            for row_number, row in subset.iterrows():  # type: float, pandas.Series
                 expected_offset_value_date = earliest_date + (time_offset * row_number)
                 self.assertEqual(row.value_date, expected_offset_value_date)
 
@@ -157,9 +159,9 @@ class TestCSVRetrieving(unittest.TestCase):
     def run_single_assertions(
             cls,
             test: unittest.TestCase,
-            retriever: data_retriever.DataRetriever
+            retriever: Retriever
     ):
-        data = retriever.get_data()
+        data = retriever.retrieve()
 
         expected_locations = ("0214655255", "0214657975")
 

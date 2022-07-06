@@ -6,6 +6,7 @@ import inspect
 import pandas
 
 from .. import specification
+from .. import util
 
 from . import reader
 from .retriever import CrosswalkRetriever
@@ -22,21 +23,19 @@ from . import *
 
 
 def get_crosswalk(definition: specification.CrosswalkSpecification) -> CrosswalkRetriever:
-    crosswalk_map = {
-        (subclass.get_type().lower(), subclass.get_format().lower()): subclass
-        for subclass in CrosswalkRetriever.__subclasses__()
-        if not inspect.isabstract(subclass)
-    }
+    possible_crosswalks = [
+        cls for cls in util.get_subclasses(CrosswalkRetriever)
+        if cls.get_type().lower() == definition.backend.type.lower()
+           and cls.get_format().lower() == definition.backend.format.lower()
+    ]
 
-    crosswalk = crosswalk_map.get((definition.backend.type.lower(), definition.backend.format.lower()))
-
-    if crosswalk is None:
+    if not possible_crosswalks:
         raise TypeError(
                 f"'{definition.backend.format}' from '{definition.backend.type}' is not a "
                 f"supported type of crosswalk source."
         )
 
-    return crosswalk(definition)
+    return possible_crosswalks[0](definition)
 
 
 def get_data(definition: specification.CrosswalkSpecification) -> pandas.DataFrame:

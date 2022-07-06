@@ -32,16 +32,31 @@ logging.basicConfig(
 )
 
 
-def get_specifications() -> typing.List[typing.Type]:
+def get_specifications(base_specification: typing.Type = None) -> typing.List[typing.Type]:
     """
     Returns:
         All implemented specifications
     """
-    return [
+    if base_specification is None:
+        base_specification = Specification
+
+    subclasses = [
         cls
-        for cls in Specification.__subclasses__()
+        for cls in base_specification.__subclasses__()
         if not inspect.isabstract(cls)
     ]
+
+    abstract_subclasses = [
+        cls
+        for cls in base_specification.__subclasses__()
+        if inspect.isabstract(cls)
+    ]
+
+    for abstract_class in abstract_subclasses:
+        subclasses.extend(get_specifications(abstract_class))
+
+    return subclasses
+
 
 
 def is_a_value(o) -> bool:
@@ -127,7 +142,7 @@ def convert_value(value: typing.Any, parameter: typing.Union[inspect.Parameter, 
     if parameter_type is None:
         return value
 
-    if parameter_type in get_specifications():
+    if parameter_type in util.get_subclasses(Specification):
         return parameter_type.create(value)
     if isinstance(value, str) and util.value_is_number(value) and util.type_is_number(parameter_type):
         return float(value)
@@ -144,7 +159,7 @@ def convert_value(value: typing.Any, parameter: typing.Union[inspect.Parameter, 
     return value
 
 
-def create_class(cls, data, decoder: json.JSONDecoder = None):
+def create_class_instance(cls, data, decoder: json.JSONDecoder = None):
     """
     Dynamically creates a class based on the type of class and the given parameters
 
@@ -186,7 +201,7 @@ def create_class(cls, data, decoder: json.JSONDecoder = None):
     # If data is a list of lists or objects, send each back to this function and return a list instead of a single value
     if not isinstance(data, str) and isinstance(data, typing.Sequence):
         return [
-            create_class(cls, input_value, decoder)
+            create_class_instance(cls, input_value, decoder)
             for input_value in data
             if is_a_value(input_value)
         ]
@@ -244,7 +259,7 @@ def create_class(cls, data, decoder: json.JSONDecoder = None):
     raise ValueError(f"Type '{type(data)}' cannot be read as JSON")
 
 
-class   Specification(abc.ABC):
+class Specification(abc.ABC):
     """
     Instructions for how different aspects of an evaluation should work
     """
@@ -262,7 +277,7 @@ class   Specification(abc.ABC):
         Returns:
             An instance of the specified specification class
         """
-        instance = create_class(cls, data, decoder)
+        instance = create_class_instance(cls, data, decoder)
 
         messages = list()
 
@@ -599,6 +614,18 @@ class BackendSpecification(Specification):
             description += f"=> {self.__format}"
 
         return description
+
+
+class LoaderSpecification(Specification, abc.ABC):
+    """
+    Represents a class that uses a backend to load data
+    """
+    __slots__ = ['_backend']
+
+    @property
+    @abc.abstractmethod
+    def backend(self) -> BackendSpecification:
+        ...
 
 
 class FieldMappingSpecification(Specification):
@@ -1019,7 +1046,9 @@ class ThresholdApplicationRules(Specification):
     __slots__ = ['__threshold_field', '__observation_field', '__prediction_field']
 
     def validate(self) -> typing.Sequence[str]:
-        pass
+        messages = list()
+
+        return messages
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         pass
@@ -1181,7 +1210,7 @@ class LocationSpecification(Specification):
         return "Don't identify locations"
 
 
-class DataSourceSpecification(Specification):
+class DataSourceSpecification(LoaderSpecification):
     """
     Specification for where to get the actual data for evaluation
     """
@@ -1192,7 +1221,7 @@ class DataSourceSpecification(Specification):
         dictionary = {
             "name": self.__name,
             "value_selectors": [selector.to_dict() for selector in self.__value_selectors],
-            "backend": self.__backend.to_dict(),
+            "backend": self._backend.to_dict(),
             "locations": self.__locations.to_dict(),
             "field_mapping": [mapping.to_dict() for mapping in self.__field_mapping],
             "unit": self.__unit.to_dict(),
@@ -1204,7 +1233,7 @@ class DataSourceSpecification(Specification):
 
         return dictionary
 
-    __slots__ = ["__name", "__value_field", "__backend", "__locations", "__field_mapping", "__value_selectors", "__unit", "__x_axis"]
+    __slots__ = ["__name", "__value_field", "__locations", "__field_mapping", "__value_selectors", "__unit", "__x_axis"]
 
     def __init__(
             self,
@@ -1220,7 +1249,7 @@ class DataSourceSpecification(Specification):
             **kwargs
     ):
         super().__init__(properties, **kwargs)
-        self.__backend = backend
+        self._backend = backend
         self.__name = name if name else value_field
         self.__value_field = value_field
         self.__locations = locations if locations else LocationSpecification(identify=False)
@@ -1239,7 +1268,7 @@ class DataSourceSpecification(Specification):
 
     @property
     def backend(self) -> BackendSpecification:
-        return self.__backend
+        return self._backend
 
     @property
     def locations(self) -> LocationSpecification:
@@ -1292,10 +1321,10 @@ class DataSourceSpecification(Specification):
         return options
 
     def __str__(self) -> str:
-        return f"{self.__name} ({str(self.__backend)})"
+        return f"{self.__name} ({str(self._backend)})"
 
 
-class CrosswalkSpecification(Specification):
+class CrosswalkSpecification(LoaderSpecification):
     """
     Specifies how locations in the observations should be linked to locations in the predictions
     """
@@ -1304,7 +1333,7 @@ class CrosswalkSpecification(Specification):
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         dictionary = {
-            "backend": self.__backend.to_dict(),
+            "backend": self._backend.to_dict(),
             "entity_path": self.entity_path,
             "field": self.__field.to_dict(),
             "prediction_field_name": self.__prediction_field_name,
@@ -1316,7 +1345,7 @@ class CrosswalkSpecification(Specification):
 
         return dictionary
 
-    __slots__ = ['__backend', '__origin', "__field", '__prediction_field_name', '__observation_field_name']
+    __slots__ = ['__origin', "__field", '__prediction_field_name', '__observation_field_name']
 
     def __init__(
             self,
@@ -1332,7 +1361,7 @@ class CrosswalkSpecification(Specification):
         if origin is None:
             origin = "$"
 
-        self.__backend = backend
+        self._backend = backend
         self.__origin = origin.split(".") if isinstance(origin, str) else origin
         self.__field = field
         self.__observation_field_name = observation_field_name
@@ -1340,7 +1369,7 @@ class CrosswalkSpecification(Specification):
 
     @property
     def backend(self) -> BackendSpecification:
-        return self.__backend
+        return self._backend
 
     @property
     def field(self) -> ValueSelector:
@@ -1359,7 +1388,7 @@ class CrosswalkSpecification(Specification):
         return self.__origin
 
     def __str__(self) -> str:
-        return f"Crosswalk from: {self.__backend} with observed values from {self.__field}"
+        return f"Crosswalk from: {self._backend} with observed values from {self.__field}"
 
 
 class MetricSpecification(Specification):
@@ -1467,11 +1496,11 @@ class SchemeSpecification(Specification):
         return str(details)
 
 
-class ThresholdSpecification(Specification):
+class ThresholdSpecification(LoaderSpecification):
     def validate(self) -> typing.Sequence[str]:
         messages = list()
 
-        messages.extend(self.__backend.validate())
+        messages.extend(self._backend.validate())
         messages.extend(self.__locations.validate())
 
         if len(self.__definitions) == 0:
@@ -1484,7 +1513,7 @@ class ThresholdSpecification(Specification):
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         dictionary = {
-            "backend": self.__backend.to_dict(),
+            "backend": self._backend.to_dict(),
             "locations": self.__locations.to_dict(),
             "origin": self.__origin,
             "definitions": [definition.to_dict() for definition in self.__definitions],
@@ -1496,7 +1525,7 @@ class ThresholdSpecification(Specification):
 
         return dictionary
 
-    __slots__ = ["__backend", "__locations", "__definitions", "__origin", "__application_rules"]
+    __slots__ = ["__locations", "__definitions", "__origin", "__application_rules"]
 
     def __init__(
             self,
@@ -1510,7 +1539,7 @@ class ThresholdSpecification(Specification):
     ):
         super().__init__(properties, **kwargs)
 
-        self.__backend = backend
+        self._backend = backend
         self.__definitions = definitions
         self.__locations = locations
         self.__application_rules = application_rules
@@ -1534,7 +1563,7 @@ class ThresholdSpecification(Specification):
 
     @property
     def backend(self) -> BackendSpecification:
-        return self.__backend
+        return self._backend
 
     @property
     def definitions(self) -> typing.Sequence[ThresholdDefinition]:

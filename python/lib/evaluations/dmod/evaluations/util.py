@@ -29,6 +29,8 @@ RE_PATTERN = re.compile(r"(\{.+\}|\[.+\]|\(.+\)|(?<!\\)\.|\{|\}|\]|\[|\(|\)|\+|\
 MULTI_GLOB_PATTERN = re.compile(r"\*+")
 EXPLICIT_START_PATTERN = re.compile(r"^(~|\.)?/.*$")
 
+_CLASS_TYPE = typing.TypeVar('_CLASS_TYPE')
+
 
 def type_name_to_dtype(type_name: str) -> typing.Optional[typing.Type]:
     if type_name in ("string", "str", "word", "words"):
@@ -44,6 +46,33 @@ def type_name_to_dtype(type_name: str) -> typing.Optional[typing.Type]:
 
 def is_arraytype(obj) -> bool:
     return isinstance(obj, typing.Sequence) and not isinstance(obj, str)
+
+
+def get_subclasses(base: typing.Type[_CLASS_TYPE]) -> typing.List[typing.Type[_CLASS_TYPE]]:
+    """
+    Returns:
+        All implemented subclasses
+    """
+    subclasses = [
+        cls
+        for cls in base.__subclasses__()
+    ]
+
+    concrete_classes = [
+        subclass
+        for subclass in subclasses
+        if not inspect.isabstract(subclass)
+    ]
+
+    for subclass in subclasses:
+        concrete_classes.extend([
+            cls
+            for cls in get_subclasses(subclass)
+            if cls not in concrete_classes
+               and not inspect.isabstract(cls)
+        ])
+
+    return concrete_classes
 
 
 def value_is_number(value: typing.Any) -> bool:

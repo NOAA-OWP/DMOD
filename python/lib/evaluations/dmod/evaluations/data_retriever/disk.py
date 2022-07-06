@@ -9,23 +9,34 @@ from datetime import datetime
 import pandas
 
 from .. import specification
+from .. import retrieval
+
 from ..crosswalk import reader
-from .. import jsonquery
 from .. import util
 
-from . import dataretriever
 
-
-def get_datasource(datasource_definition: specification.DataSourceSpecification) -> dataretriever.DataRetriever:
+def get_datasource(datasource_definition: specification.DataSourceSpecification) -> retrieval.Retriever:
     return __FORMAT_MAPPING[datasource_definition.backend.format](datasource_definition)
 
 
-class JSONDataRetriever(dataretriever.DataRetriever):
+class JSONDataRetriever(retrieval.Retriever):
     @classmethod
-    def get_format_name(cls) -> str:
+    def get_purpose(cls) -> str:
+        """
+        Returns:
+            What type of data this retriever is supposed to get
+        """
+        return "input_data"
+
+    @property
+    def definition(self) -> specification.DataSourceSpecification:
+        return self._definition
+
+    @classmethod
+    def get_format(cls) -> str:
         return "json"
 
-    def get_data(self) -> pandas.DataFrame:
+    def retrieve(self, *args, **kwargs) -> pandas.DataFrame:
         documents = {
             str(source): util.data_to_dictionary(self.backend.read(source))
             for source in self.backend.sources
@@ -112,12 +123,24 @@ class JSONDataRetriever(dataretriever.DataRetriever):
         return combined_frame
 
 
-class FrameDataRetriever(dataretriever.DataRetriever):
+class FrameDataRetriever(retrieval.Retriever):
     @classmethod
-    def get_format_name(cls) -> str:
+    def get_purpose(cls) -> str:
+        """
+        Returns:
+            What type of data this retriever is supposed to get
+        """
+        return "input_data"
+
+    @property
+    def definition(self) -> specification.DataSourceSpecification:
+        return self._definition
+
+    @classmethod
+    def get_format(cls) -> str:
         return "csv"
 
-    def get_data(self) -> pandas.DataFrame:
+    def retrieve(self, *args, **kwargs) -> pandas.DataFrame:
         constructor_signature = inspect.signature(pandas.read_csv)
         provided_parameters = {
             key: value

@@ -17,7 +17,7 @@ class TestMetadata(unittest.TestCase):
         """
         found_metrics = metrics.get_all_metrics()
 
-        self.assertEqual(len(found_metrics), 13)
+        self.assertEqual(len(found_metrics), 14)
 
         self.assertIn(metrics.KlingGuptaEfficiency, found_metrics)
         self.assertIn(metrics.NormalizedNashSutcliffeEfficiency, found_metrics)
@@ -31,6 +31,8 @@ class TestMetadata(unittest.TestCase):
         self.assertIn(metrics.FalseAlarmRatio, found_metrics)
         self.assertIn(metrics.FrequencyBias, found_metrics)
         self.assertIn(metrics.GeneralSkill, found_metrics)
+        self.assertIn(metrics.ProbabilityOfFalseDetection, found_metrics)
+        self.assertIn(metrics.LinearTemporalTrendAbsoluteError, found_metrics)
 
     def test_kling_gupta_efficiency(self):
         """

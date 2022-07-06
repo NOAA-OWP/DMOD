@@ -4,6 +4,7 @@ import unittest
 import pandas
 
 from ...evaluations import specification
+from ...evaluations.retrieval import Retriever
 from ...evaluations import threshold
 from ...evaluations.threshold import disk
 
@@ -114,12 +115,12 @@ class TestFrameRetrieving(unittest.TestCase):
     def run_rdb_assertions(
             cls,
             test_case: unittest.TestCase,
-            retriever: threshold.ThresholdRetriever,
+            retriever: Retriever,
             definition: specification.ThresholdSpecification
     ):
         test_case.assertIsInstance(retriever, threshold.disk.RDBThresholdRetriever)
 
-        data: pandas.DataFrame = retriever.get_data()
+        data: pandas.DataFrame = retriever.retrieve()
 
         test_case.assertEqual(sorted([column for column in data.keys()]), ['name', 'site_no', 'value'])
         test_case.assertEqual(len(data.site_no.unique()), 2)
@@ -144,8 +145,8 @@ class TestFrameRetrieving(unittest.TestCase):
                 threshold_definition = definition[threshold_name]
                 test_case.assertEqual(threshold_definition.weight, matching_threshold.weight)
 
-    def run_csv_assertions(self, retriever: threshold.ThresholdRetriever):
-        data = retriever.get_data()
+    def run_csv_assertions(self, retriever: Retriever):
+        data = retriever.retrieve()
 
         threshold_categories = [
             {

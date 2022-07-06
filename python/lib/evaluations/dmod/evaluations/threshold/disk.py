@@ -11,18 +11,32 @@ import jsonpath_ng as jsonpath
 from jsonpath_ng.ext import parse as create_expression
 
 from .. import specification
-from .. import jsonquery
 from .. import util
-
-from . import retriever
-
-
-def get_datasource(datasource_definition: specification.DataSourceSpecification) -> retriever.ThresholdRetriever:
-    return __FORMAT_MAPPING[datasource_definition.backend.format](datasource_definition)
+from .. import retrieval
 
 
-class JSONThresholdRetriever(retriever.ThresholdRetriever):
-    def get_data(self) -> pandas.DataFrame:
+def get_datasource(threshold_specification: specification.ThresholdSpecification) -> retrieval.Retriever:
+    return __FORMAT_MAPPING[threshold_specification.backend.format](threshold_specification)
+
+
+class JSONThresholdRetriever(retrieval.Retriever):
+    @classmethod
+    def get_purpose(cls) -> str:
+        """
+        Returns:
+            What type of data this retriever is supposed to get
+        """
+        return "thresholds"
+
+    @classmethod
+    def get_format(cls) -> str:
+        return 'json'
+
+    @property
+    def definition(self) -> specification.ThresholdSpecification:
+        return self._definition
+
+    def retrieve(self, *args, **kwargs) -> pandas.DataFrame:
         documents = {
             source: util.data_to_dictionary(self.backend.read(source))
             for source in self.backend.sources
@@ -102,11 +116,27 @@ class JSONThresholdRetriever(retriever.ThresholdRetriever):
         return combined_frame
 
 
-class FrameThresholdRetriever(retriever.ThresholdRetriever):
+class FrameThresholdRetriever(retrieval.Retriever):
+    @classmethod
+    def get_purpose(cls) -> str:
+        """
+        Returns:
+            What type of data this retriever is supposed to get
+        """
+        return "thresholds"
+
+    @property
+    def definition(self) -> specification.ThresholdSpecification:
+        return self._definition
+
+    @classmethod
+    def get_format(cls) -> str:
+        return "csv"
+
     def load_frame(self, source: str, **kwargs) -> pandas.DataFrame:
         return pandas.read_csv(self.backend.read_stream(source), **kwargs)
 
-    def get_data(self) -> pandas.DataFrame:
+    def retrieve(self, *args, **kwargs) -> pandas.DataFrame:
         constructor_signature = inspect.signature(pandas.read_csv)
         provided_parameters = {
             key: value
@@ -219,6 +249,10 @@ class FrameThresholdRetriever(retriever.ThresholdRetriever):
 
 
 class RDBThresholdRetriever(FrameThresholdRetriever):
+    @classmethod
+    def get_format(cls) -> str:
+        return "rdb"
+
     def load_frame(self, source: str, **kwargs) -> pandas.DataFrame:
         with open(source) as threshold_file:
             lines = [
@@ -276,7 +310,7 @@ class RDBThresholdRetriever(FrameThresholdRetriever):
         return frame
 
 
-__FORMAT_MAPPING = {
+__FORMAT_MAPPING: typing.Dict[str, typing.Type[retrieval.Retriever]] = {
     "json": JSONThresholdRetriever,
     "csv": FrameThresholdRetriever,
     'rdb': RDBThresholdRetriever
