@@ -15,7 +15,7 @@ from dmod.modeldata.data.object_store_dataset import Dataset, DatasetManager, Ob
     ObjectStoreDatasetManager
 from dmod.scheduler import SimpleDockerUtil
 from dmod.scheduler.job import Job, JobExecStep, JobUtil
-from typing import Dict, List, Optional, Tuple, Type, TypeVar, Union
+from typing import Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
 from uuid import UUID, uuid4
 from websockets import WebSocketServerProtocol
 
@@ -27,63 +27,86 @@ DATASET_TYPE = TypeVar('DATASET_TYPE', bound=Dataset)
 
 
 class DockerS3FSPluginHelper(SimpleDockerUtil):
+    """
+    A utility to assist with creating Docker volumes for object store datasets.
+
+    The primary function for this type is ::method:`init_volumes`.  It creates a ``global`` Docker service that runs on
+    all Swarm nodes and creates any necessary object store dataset volumes on each node.
+    """
 
     DOCKER_SERVICE_NAME = 's3fs-volumes-initializer'
 
-    def __init__(self, service_manager: 'ServiceManager', obj_store_access: str, obj_store_secret: str, *args,
-                 **kwargs):
+    def __init__(self, service_manager: 'ServiceManager', obj_store_access: str, obj_store_secret: str,
+                 docker_image_name: str, docker_image_tag: str, docker_networks: List[str], obj_store_url: Optional[str],
+                 docker_plugin_alias: str = 's3fs', access_docker_secret_name: str = 'object_store_exec_user_name',
+                 secret_docker_secret_name: str = 'object_store_exec_user_passwd', *args, **kwargs):
         super(DockerS3FSPluginHelper, self).__init__(*args, **kwargs)
-        image_name = os.getenv('S3FS_VOL_IMAGE_NAME', '127.0.0.1:5000/s3fs-volume-helper')
-        image_tag = os.getenv('S3FS_VOL_IMAGE_TAG', 'latest')
-        self.image = '{}:{}'.format(image_name, image_tag)
-        self.networks = ['host']
+        self._image_name = docker_image_name
+        self._image_tag = docker_image_tag
+        self.image = '{}:{}'.format(self._image_name, self._image_tag)
+        self.networks = docker_networks
+        self._docker_plugin_alias = docker_plugin_alias
         self._service_manager = service_manager
+        self._obj_store_url = obj_store_url
         self._obj_store_access = obj_store_access
         self._obj_store_secret = obj_store_secret
 
-    def init_volumes(self, job: Job):
-        # Get the names of all the needed datasets for all workers
+        self._obj_store_docker_secret_names = [access_docker_secret_name, secret_docker_secret_name]
+
+        self._sentinel_file = None
+        self._service_heathcheck = None
+
+    def _get_worker_required_datasets(self, job: Job) -> Set[str]:
+        """
+        Get the names of all required datasets for all workers of this job.
+
+        Parameters
+        ----------
+        job : Job
+            A job object with allocated workers, for which the required datasets are needed.
+
+        Returns
+        -------
+        Set[str]
+            Set of the names of required datasets for all the given job's workers.
+        """
         worker_required_datasets = set()
         all_dataset = self._service_manager.get_known_datasets()
         obj_store_dataset_names = [n for n in all_dataset if isinstance(all_dataset[n], ObjectStoreDataset)]
         for worker_reqs in job.worker_data_requirements:
             for fulfilled_by in [r.fulfilled_by for r in worker_reqs if r.fulfilled_by in obj_store_dataset_names]:
                 worker_required_datasets.add(fulfilled_by)
+        return worker_required_datasets
 
+    def init_volumes(self, job: Job):
+        """
+        Primary function for this type, creating needed dataset volumes on all hosts through a global Swarm service.
+
+        Function creates a ``global`` Docker service using the appropriate image, where the image name and tag was
+        provided to the instance when it was created.  It is expected that this image contains a script that can expect
+        standardized args and environment variables, and initialize the appropriate Docker volumes for the needed
+        datasets on each host.
+
+        Parameters
+        ----------
+        job : Job
+            The job for which volumes should be created, where each such volume correspond to an object store dataset
+            required by one of the job's workers.
+        """
+        worker_required_datasets = self._get_worker_required_datasets(job)
         if len(worker_required_datasets) == 0:
             return
 
-        secrets_objects = [self.docker_client.secrets.get('object_store_exec_user_name'),
-                           self.docker_client.secrets.get('object_store_exec_user_passwd')]
-        secrets = [SecretReference(secret_id=s.id, secret_name=s.name) for s in secrets_objects]
+        secrets = [self.get_secret_reference(sn) for sn in self._obj_store_docker_secret_names]
 
-        sentinel_basename = 's3fs_init_sentinel'
-        # Script written to have the sentinel have provided basename and be in /tmp directory
-        sentinel_file_name = '/tmp/{}'.format(sentinel_basename)
-
-        docker_cmd_args = ['--sentinel', sentinel_basename, '--service-mode']
+        docker_cmd_args = ['--sentinel', self.sentinel_file, '--service-mode']
         docker_cmd_args.extend(worker_required_datasets)
 
-        service_name = '{}-{}'.format(self.DOCKER_SERVICE_NAME, job.job_id)
-
-        restart_policy = RestartPolicy(condition='none')
-
-        env_vars = ['S3FS_URL=http://localhost:9002/', 'PLUGIN_ALIAS=s3fs']
+        env_vars = ['PLUGIN_ALIAS={}'.format(self._docker_plugin_alias)]
+        if self._obj_store_url is not None:
+            env_vars.append('S3FS_URL={}'.format(self._obj_store_url))
         env_vars.append('S3FS_ACCESS_KEY={}'.format(self._obj_store_access))
         env_vars.append('S3FS_SECRET_KEY={}'.format(self._obj_store_secret))
-
-        # Make sure to re-mount the Docker socket inside the helper service container that gets started
-        mounts = ['/var/run/docker.sock:/var/run/docker.sock:rw']
-
-        def to_nanoseconds(seconds: int):
-            return 1000000000 * seconds
-
-        # Remember that the time values are in nanoseconds, so multiply
-        healthcheck = Healthcheck(test=["CMD-SHELL", 'test -e {}'.format(sentinel_file_name)],
-                                  interval=to_nanoseconds(seconds=2),
-                                  timeout=to_nanoseconds(seconds=2),
-                                  retries=5,
-                                  start_period=to_nanoseconds(seconds=5))
 
         try:
             service = self.docker_client.services.create(image=self.image,
@@ -91,11 +114,13 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
                                                          args=docker_cmd_args,
                                                          cap_add=['SYS_ADMIN'],
                                                          env=env_vars,
-                                                         name=service_name,
-                                                         mounts=mounts,
+                                                         name='{}-{}'.format(self.DOCKER_SERVICE_NAME, job.job_id),
+                                                         # Make sure to re-mount the Docker socket inside the helper
+                                                         # service container that gets started
+                                                         mounts=['/var/run/docker.sock:/var/run/docker.sock:rw'],
                                                          networks=self.networks,
-                                                         restart_policy=restart_policy,
-                                                         healthcheck=healthcheck,
+                                                         restart_policy=RestartPolicy(condition='none'),
+                                                         healthcheck=self.service_healthcheck,
                                                          secrets=secrets)
             time_sleep(5)
             for tries in range(5):
@@ -110,6 +135,55 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
         except Exception as e:
             logging.error(e)
             raise e
+
+    @property
+    def sentinel_file(self) -> str:
+        """
+        String form of file path to sentinel file used by entrypoint script.
+
+        Sentinel file is passed as an argument to entrypoint script.  It is also then used in the Docker healthcheck for
+        started service(s) created by ::method:`service_healthcheck`, expecting the script to have created the file to
+        indicate it is working.
+
+        At present the entrypoint is written to have the sentinel file be of a standard, fixed basename within the
+        ``/tmp/`` directory.
+
+        Returns
+        -------
+        str
+            String form of file path to sentinel file used by entrypoint script.
+
+        See Also
+        -------
+        service_healthcheck
+        """
+        if self._sentinel_file is None:
+            self._sentinel_file = '/tmp/{}'.format('s3fs_init_sentinel')
+        return self._sentinel_file
+
+    @property
+    def service_healthcheck(self):
+        """
+        The Docker healthcheck to use when creating services.
+
+        Returns
+        -------
+        Healthcheck
+            The Docker healthcheck to use when creating services.
+
+        See Also
+        -------
+        sentinel_file
+        """
+        # Remember that the time values are expected in nanoseconds, so ...
+        def to_nanoseconds(seconds: int):
+            return 1000000000 * seconds
+
+        return Healthcheck(test=["CMD-SHELL", 'test -e {}'.format(self.sentinel_file)],
+                           interval=to_nanoseconds(seconds=2),
+                           timeout=to_nanoseconds(seconds=2),
+                           retries=5,
+                           start_period=to_nanoseconds(seconds=5))
 
 
 class ServiceManager(WebSocketInterface):
@@ -712,9 +786,9 @@ class ServiceManager(WebSocketInterface):
 
     def init_object_store_dataset_manager(self, obj_store_host: str, access_key: str, secret_key: str, port: int = 9000,
                                           *args, **kwargs):
-        logging.info("Initializing object store dataset manager at {}:{}".format(obj_store_host, port))
-        mgr = ObjectStoreDatasetManager(obj_store_host_str='{}:{}'.format(obj_store_host, port), access_key=access_key,
-                                        secret_key=secret_key)
+        host_str = '{}:{}'.format(obj_store_host, port)
+        logging.info("Initializing object store dataset manager at {}".format(host_str))
+        mgr = ObjectStoreDatasetManager(obj_store_host_str=host_str, access_key=access_key, secret_key=secret_key)
         logging.info("Object store dataset manager initialized with {} existing datasets".format(len(mgr.datasets)))
         self._add_manager(mgr)
         self._obj_store_data_mgr = mgr
@@ -722,9 +796,25 @@ class ServiceManager(WebSocketInterface):
         self._obj_store_access_key = access_key
         self._obj_store_secret_key = secret_key
 
+        s3fs_helper_networks = ['host']
+
+        s3fs_url_proto = os.getenv('S3FS_URL_PROTOCOL', 'http')
+        s3fs_url_host = os.getenv('S3FS_URL_HOST')
+        s3fs_url_port = os.getenv('S3FS_URL_PORT', '9000')
+        if s3fs_url_host is not None:
+            s3fs_helper_url = '{}://{}:{}/'.format(s3fs_url_proto, s3fs_url_host, s3fs_url_port)
+        else:
+            s3fs_helper_url = None
+
         self._docker_s3fs_helper = DockerS3FSPluginHelper(service_manager=self,
                                                           obj_store_access=self._obj_store_access_key,
-                                                          obj_store_secret=self._obj_store_secret_key, *args, **kwargs)
+                                                          obj_store_secret=self._obj_store_secret_key,
+                                                          docker_image_name=os.getenv('S3FS_VOL_IMAGE_NAME', '127.0.0.1:5000/s3fs-volume-helper'),
+                                                          docker_image_tag=os.getenv('S3FS_VOL_IMAGE_TAG', 'latest'),
+                                                          docker_networks=s3fs_helper_networks,
+                                                          docker_plugin_alias=os.getenv('S3FS_PLUGIN_ALIAS', 's3fs'),
+                                                          obj_store_url=s3fs_helper_url,
+                                                          *args, **kwargs)
 
     async def listener(self, websocket: WebSocketServerProtocol, path):
         """
