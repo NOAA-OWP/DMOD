@@ -3,7 +3,9 @@ import typing
 import inspect
 import string
 import re
-import sys
+import logging
+import enum
+import os
 
 from datetime import datetime
 from datetime import timedelta
@@ -29,29 +31,121 @@ RE_PATTERN = re.compile(r"(\{.+\}|\[.+\]|\(.+\)|(?<!\\)\.|\{|\}|\]|\[|\(|\)|\+|\
 MULTI_GLOB_PATTERN = re.compile(r"\*+")
 EXPLICIT_START_PATTERN = re.compile(r"^(~|\.)?/.*$")
 
+_T = typing.TypeVar("_T")
+_V = typing.TypeVar("_V")
+
+
+def configure_logging() -> typing.NoReturn:
+    """
+    Forms a very basic logger
+    """
+    logging.basicConfig(
+        filename='evaluations.log',
+        level=logging.getLevelName(os.environ.get('EVALUATION_LOG_LEVEL', os.environ.get("DEFAULT_LOG_LEVEL", "DEBUG"))),
+        format=os.environ.get("LOG_FORMAT", "%(asctime)s,%(msecs)d %(levelname)s: %(message)s"),
+        datefmt=os.environ.get("LOG_DATEFMT", "%H:%M:%S")
+    )
+
+
+def each(collection: typing.Iterable[_T], func: typing.Callable[[_T], typing.NoReturn]):
+    """
+    Calls the passed in function on every item in the collection
+
+    Why use this instead of the builtin map function(s)? The builtin functions create generators rather than actually
+    performing the requested actions, meaning you have to iterate over the generated map, rather than the call just
+    running.
+
+        >>> def p(obj) -> typing.NoReturn:
+        >>>     print(obj)
+        >>>
+        >>> map(p, collection) # Doesn't actually do anything; just creates a collection and throws it away
+        >>> # Calls print on every element in the collection and assigns the results to the `results` collection
+        >>> results = [o for o in map(p, collection)]
+        >>> each(collection, p) # Just calls print on every element in the collection
+
+    Args:
+        collection: The items to use as arguments for each function
+        func: The function to call on each element
+    """
+    for element in collection:
+        func(element)
+
+
+class Verbosity(enum.IntEnum):
+    """
+    An enumeration detailing the density of information that may be transmitted, not to logs,
+    but through things like streams and communicators
+    """
+    QUIET = enum.auto()
+    """Emit very little information"""
+
+    NORMAL = enum.auto()
+    """Emit a baseline amount of information"""
+
+    LOUD = enum.auto()
+    """Emit a lot of detailed (often diagnostic) information"""
+
+    ALL = enum.auto()
+    """Emit everything, including raw data"""
+
+
 _CLASS_TYPE = typing.TypeVar('_CLASS_TYPE')
+"""A type that points directly to a class. The _CLASS_TYPE of `6`, for example, is `<class 'int'>`"""
 
 
 def type_name_to_dtype(type_name: str) -> typing.Optional[typing.Type]:
-    if type_name in ("string", "str", "word", "words"):
+    if not type_name:
+        return None
+
+    type_name = type_name.strip()
+    if type_name.lower() in ("string", "str", "word", "words"):
         return str
-    elif type_name in ["float"]:
+    elif type_name.lower() in ['bytes']:
+        return bytes
+    elif type_name.lower() in ["float"]:
         return numpy.float32
-    elif type_name in ['int', 'integer']:
+    elif type_name.lower() in ['int', 'integer']:
         return numpy.int32
-    elif type_name in numpy.sctypes:
+    elif type_name.lower() in numpy.sctypes:
+        # sctypes is a mapping from a name to several different types ('uint' => [uint8, uint16, uint32, uint64])
+        # To handle this, the middle item is selected. Pick the first and the type is too small.
+        # Pick the last and you most likely pick far too large. This is overcome by specificity
         return numpy.sctypes[type_name]
-    return None
+
+    # In a last ditch effort, flatten the list of sctypes and pick the type that matches the passed in name
+    np_types = dict()
+    for key, types in numpy.sctypes:
+        np_types.update({
+            numpy_type.__name__: numpy_type
+            for numpy_type in types
+        })
+
+    return np_types.get(type_name.lower())
 
 
 def is_arraytype(obj) -> bool:
-    return isinstance(obj, typing.Sequence) and not isinstance(obj, str)
+    """
+    Whether the passed object is an array of values, bytes and strings excluded
+
+    Args:
+        obj: The object to test
+
+    Returns:
+        Whether the passed object is an array of values
+    """
+    # bytes and str are both primitive types AND sequences, so we exclude those
+    return isinstance(obj, typing.Sequence) and not (isinstance(obj, str) or isinstance(obj, bytes))
 
 
 def get_subclasses(base: typing.Type[_CLASS_TYPE]) -> typing.List[typing.Type[_CLASS_TYPE]]:
     """
+    Gets a collection of all concrete subclasses of the given class
+
+    Args:
+        base: The base class to get subclasses from
+
     Returns:
-        All implemented subclasses
+        All implemented subclasses of a specified types
     """
     subclasses = [
         cls
@@ -487,21 +581,6 @@ def to_date_or_time(
         return value
 
     return None
-
-
-def get_local_subclasses(module, parent_class: typing.Type) -> typing.Sequence:
-    if not hasattr(parent_class, "__subclasses__"):
-        return list()
-
-    subclasses = [
-        member
-        for name, member in inspect.getmembers(module)
-        if inspect.isclass(member)
-            and not inspect.isabstract(member)
-           and member in parent_class.__subclasses__()
-    ]
-
-    return subclasses
 
 
 def data_to_dictionary(data: typing.Union[typing.IO, str, bytes, typing.Dict[str, typing.Any]]) -> dict:

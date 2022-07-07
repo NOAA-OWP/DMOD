@@ -170,9 +170,7 @@ class FrameDataRetriever(retrieval.Retriever):
         for source in self.backend.sources:
             document = pandas.read_csv(self.backend.read_stream(source), **provided_parameters)
 
-            column_names: typing.Set[str] = set()
-
-            index_names: typing.Set[str] = set()
+            column_names: typing.List[str] = list()
 
             variable_selectors = [
                 selector
@@ -187,14 +185,15 @@ class FrameDataRetriever(retrieval.Retriever):
                 if selector.name not in document.keys():
                     raise KeyError(f"There is not a column named '{selector.name}' in '{source}'")
 
-                column_names.add(selector.name)
+                if selector.name not in column_names:
+                    column_names.append(selector.name)
 
                 for index in selector.associated_fields:
                     if index.name not in document.keys():
                         raise KeyError(f"There is not a column named '{index.name}' in '{source}'")
 
-                    column_names.add(index.name)
-                    index_names.add(index.name)
+                    if index.name not in column_names:
+                        column_names.append(index.name)
 
             table: pandas.DataFrame = document[column_names]
 

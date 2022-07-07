@@ -37,6 +37,24 @@ class OutputWriter(abc.ABC):
         """
         ...
 
+    @classmethod
+    @abc.abstractmethod
+    def get_extension(cls) -> str:
+        """
+        Returns:
+            The extension that the data will be written to
+        """
+        ...
+
+    @classmethod
+    @abc.abstractmethod
+    def requires_destination_address_or_buffer(cls) -> bool:
+        """
+        Returns:
+            Whether the writer requires a string to tell it where to put data or a buffer within which to put it
+        """
+        ...
+
     @abc.abstractmethod
     def write(self, evaluation_results: specification.EvaluationResults, buffer: typing.IO = None, **kwargs):
         """
@@ -51,3 +69,22 @@ class OutputWriter(abc.ABC):
                 Optional args specific to the type of writer
         """
         pass
+
+    def clean(self, *args, **kwargs) -> typing.Sequence[str]:
+        """
+        Attempts to remove saved data
+
+        Args:
+            *args:
+            **kwargs:
+
+        Returns:
+            A collection of everything that was removed
+        """
+        cleaned_data = list()
+
+        if self.destination and os.path.exists(self.destination):
+            os.remove(self.destination)
+            cleaned_data.append(self.destination)
+
+        return cleaned_data

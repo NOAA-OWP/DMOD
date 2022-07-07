@@ -281,7 +281,7 @@ class CategoricalMetric(scoring.Metric, abc.ABC):
             pairs: pandas.DataFrame,
             observed_value_label: str,
             predicted_value_label: str,
-            thresholds: typing.Sequence[Threshold] = None,
+            thresholds: typing.Sequence[threshold.Threshold] = None,
             *args,
             **kwargs
     ) -> scoring.Scores:
@@ -319,8 +319,9 @@ class CategoricalMetric(scoring.Metric, abc.ABC):
             )
         else:
             logging.warning(
-                f"No truth tables were passed to '{inspect.stack()[0][3]}', so one is being constructed. "
-                f"Operations may be sped up by providing tables within the keyword arguments."
+                f"No truth tables were passed to '{self.__class__.__name__}.{inspect.stack()[0][3]}', "
+                f"so one is being constructed. Operations may be sped up by providing tables within the "
+                f"keyword arguments."
             )
             # No truth tables have been added and passed around, so create one
             tables: categorical.TruthTables = categorical.TruthTables(
@@ -430,7 +431,7 @@ class PearsonCorrelationCoefficient(scoring.Metric):
             pairs: pandas.DataFrame,
             observed_value_label: str,
             predicted_value_label: str,
-            thresholds: typing.Sequence[Threshold] = None,
+            thresholds: typing.Sequence[threshold.Threshold] = None,
             *args,
             **kwargs
     ) -> scoring.Scores:

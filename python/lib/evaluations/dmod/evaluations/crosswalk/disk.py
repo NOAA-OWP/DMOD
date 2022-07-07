@@ -30,7 +30,10 @@ class JSONCrosswalkRetriever(retriever.CrosswalkRetriever):
 
     def retrieve(self, *args, **kwargs) -> pandas.DataFrame:
         crosswalked_data = reader.select_values(self._document, self.field)
-        crosswalked_data.dropna(inplace=True)
+
+        if not (crosswalked_data is None or crosswalked_data.empty):
+            crosswalked_data.dropna(inplace=True)
+
         return crosswalked_data
 
     def __init__(self, definition: specification.CrosswalkSpecification):

@@ -1030,7 +1030,7 @@ class ValueSelector(Specification):
         description = f"{self.__name} => {self.__where}"
 
         if self.__path:
-            description += f": {self.__path.join(os.linesep)}"
+            description += f": {os.linesep.join(self.__path)}"
 
         if self.__associated_fields:
             description += f", indexed by [{','.join(self.__associated_fields)}]"

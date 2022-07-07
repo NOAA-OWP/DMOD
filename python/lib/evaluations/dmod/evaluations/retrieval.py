@@ -18,6 +18,7 @@ class Retriever(abc.ABC):
         Returns:
             What type of data this retriever is supposed to get
         """
+        ...
 
     @property
     @abc.abstractmethod

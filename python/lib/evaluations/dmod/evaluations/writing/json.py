@@ -6,15 +6,24 @@ import numpy
 import pandas
 
 import dmod.metrics.metric as metrics
-from dmod.metrics import Threshold
 
 from ..specification import EvaluationResults
 from .writer import OutputWriter
 
-from .. import util
-
 
 class JSONWriter(OutputWriter):
+    @classmethod
+    def requires_destination_address_or_buffer(cls) -> bool:
+        return True
+
+    @classmethod
+    def get_format_name(cls) -> str:
+        return "json"
+
+    @classmethod
+    def get_extension(cls) -> str:
+        return "json"
+
     def _results_to_dictionary(
             self,
             evaluation_results: EvaluationResults,
@@ -138,7 +147,3 @@ class JSONWriter(OutputWriter):
         finally:
             if buffer_was_created_here and buffer is not None:
                 buffer.close()
-
-
-def get_writer(writer_format: str, destination: typing.Union[str, pathlib.Path, typing.Sequence[str]] = None, **kwargs):
-    return JSONWriter(destination, **kwargs)

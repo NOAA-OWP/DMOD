@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css"
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js">
+</script>
+<script src="{% static 'evaluation_service/js/evaluation_listener.js' %}"></script>
+<script>
+    let socket = null;
+    let messageBox = null;
+
+    let messageConfig = {
+        mode: "javascript",
+        json: true,
+        readOnly: true,
+        indentUnit: 4
+    }
+
+    let digest = {
+        digest: []
+    };
+</script>
+{% endblock scripts %}
+{% block style %}
+    <style>
+        .CodeMirror {
+            border-top: 1px solid black;
+            border-bottom: 1px solid black;
+        }
+        
+        .session-details {
+            font-weight: normal;
+        }
+    </style>
+{% endblock style %}
+{% block bannercontent %}
+    <h1>Connected to: <span id="channel-name" class="session-details">{{ channel_name }}</span></h1>
+{% endblock bannercontent %}
+{% block content %}
+    <div id="content" class="pane">
+        <input type="hidden" id="channel-url" value="{{ channel_route }}">
+        <div id="channel-details">
+            <h4>Connection Time: <span id="connection-time" class="session-details"></span></h4>
+            <h4>Web Socket Address: <a href="{{ channel_route }}" id="websocket-url-anchor"></a></h4>
+            <h4>Channel Key: <span id="channel-key">{{ channel_key }}</span></h4>
+            <h4>Status: <span id="connection-status" class="session-details"></span></h4>
+            <button id="connect-button">Reconnect</button>
+        </div>
+        <div id="message-div" style="border: 1px solid black; padding: 15px">
+            <p id="message-details">
+                <span>Message Count: <span id="message-count" class="session-details">0</span></span>
+                <br>
+                <span>Last Updated: <span id="last-updated" class="session-details"></span></span>
+                <br>
+                <label for="record-messages">Record Messages</label>
+                <input type="checkbox" id="record-messages" checked>
+            </p>
+            <textarea id="message-box"></textarea>
+            <br>
+            <button id="clear-button">Clear Output</button>
+            <button id="clear-digest">Clear Digest</button>
+            <button id="get-digest">Get Digest</button>
+        </div>
+    </div>
+{% endblock content %}
