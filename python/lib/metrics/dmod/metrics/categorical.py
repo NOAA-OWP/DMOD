@@ -34,7 +34,7 @@ def series_has_activity(series: pandas.Series) -> bool:
 def value_hit(observation: float, prediction: float) -> bool:
     if isinstance(observation, float) and isinstance(prediction, float):
         return not numpy.isnan(observation) and not numpy.isnan(prediction)
-    return observation and prediction
+    return bool(observation) and bool(prediction)
 
 
 def value_missed(observation: float, prediction: float) -> bool:

@@ -34,11 +34,11 @@ class TestMeasurementUnits(unittest.TestCase):
         unitless_quantity = random.uniform(15, 29)
         conversion_factor = 35.314666212661
 
-        lower_case_quantity = measurement_units.converter.registry.Quantity(unitless_quantity, 'cms')
-        upper_case_quantity = measurement_units.converter.registry.Quantity(unitless_quantity, 'CMS')
+        lower_case_quantity = measurement_units._COMMON_CONVERTER.registry.Quantity(unitless_quantity, 'cms')
+        upper_case_quantity = measurement_units._COMMON_CONVERTER.registry.Quantity(unitless_quantity, 'CMS')
 
-        caret_less_quantity = measurement_units.converter.registry.Quantity(unitless_quantity, 'm3/s')
-        divisionless_quantity = measurement_units.converter.get_quantity(unitless_quantity, 'm3 s-1')
+        caret_less_quantity = measurement_units._COMMON_CONVERTER.registry.Quantity(unitless_quantity, 'm3/s')
+        divisionless_quantity = measurement_units._COMMON_CONVERTER.get_quantity(unitless_quantity, 'm3 s-1')
 
         self.assertEqual(lower_case_quantity.magnitude, upper_case_quantity.magnitude)
         self.assertEqual(caret_less_quantity.magnitude, upper_case_quantity.magnitude)
@@ -51,19 +51,19 @@ class TestMeasurementUnits(unittest.TestCase):
 
         self.assertEqual(
                 unitless_quantity,
-                measurement_units.converter.registry.convert(unitless_quantity, 'cms', 'm^3/s')
+                measurement_units._COMMON_CONVERTER.registry.convert(unitless_quantity, 'cms', 'm^3/s')
         )
         self.assertEqual(
                 unitless_quantity,
-                measurement_units.converter.registry.convert(unitless_quantity, 'CMS', 'm^3/s')
+                measurement_units._COMMON_CONVERTER.registry.convert(unitless_quantity, 'CMS', 'm^3/s')
         )
         self.assertEqual(
                 unitless_quantity,
-                measurement_units.converter.registry.convert(unitless_quantity, 'm3/s', 'm^3/s')
+                measurement_units._COMMON_CONVERTER.registry.convert(unitless_quantity, 'm3/s', 'm^3/s')
         )
         self.assertEqual(
                 unitless_quantity,
-                measurement_units.converter.convert(unitless_quantity, "m3 s-1", "m^3/s")
+                measurement_units._COMMON_CONVERTER.convert(unitless_quantity, "m3 s-1", "m^3/s")
         )
 
         self.assertEqual(unitless_quantity, measurement_units.convert(unitless_quantity, 'cms', 'm^3/s'))
@@ -72,10 +72,10 @@ class TestMeasurementUnits(unittest.TestCase):
         self.assertEqual(unitless_quantity, measurement_units.convert(unitless_quantity, 'm3 s-1', 'm^3/s'))
 
         manual_conversion = unitless_quantity * conversion_factor
-        converted_lower_case_quantity = measurement_units.converter.registry.convert(unitless_quantity, 'cms', 'ft^3/s')
-        converted_upper_case_quantity = measurement_units.converter.registry.convert(unitless_quantity, 'CMS', 'ft^3/s')
-        converted_caretless_quantity = measurement_units.converter.registry.convert(unitless_quantity, 'm3/s', 'ft^3/s')
-        converted_divisionless_quantity = measurement_units.converter.convert(unitless_quantity, "m3 s-1", "ft^3/s")
+        converted_lower_case_quantity = measurement_units._COMMON_CONVERTER.registry.convert(unitless_quantity, 'cms', 'ft^3/s')
+        converted_upper_case_quantity = measurement_units._COMMON_CONVERTER.registry.convert(unitless_quantity, 'CMS', 'ft^3/s')
+        converted_caretless_quantity = measurement_units._COMMON_CONVERTER.registry.convert(unitless_quantity, 'm3/s', 'ft^3/s')
+        converted_divisionless_quantity = measurement_units._COMMON_CONVERTER.convert(unitless_quantity, "m3 s-1", "ft^3/s")
 
         self.assertAlmostEqual(manual_conversion, converted_lower_case_quantity, delta=DELTA)
         self.assertAlmostEqual(manual_conversion, converted_upper_case_quantity, delta=DELTA)
@@ -90,11 +90,11 @@ class TestMeasurementUnits(unittest.TestCase):
         unitless_quantity = random.uniform(8, 23)
         conversion_factor = 1 / 35.314666212661
 
-        lower_case_quantity = measurement_units.converter.registry.Quantity(unitless_quantity, 'cfs')
-        upper_case_quantity = measurement_units.converter.registry.Quantity(unitless_quantity, 'CFS')
+        lower_case_quantity = measurement_units._COMMON_CONVERTER.registry.Quantity(unitless_quantity, 'cfs')
+        upper_case_quantity = measurement_units._COMMON_CONVERTER.registry.Quantity(unitless_quantity, 'CFS')
 
-        caret_less_quantity = measurement_units.converter.registry.Quantity(unitless_quantity, 'ft3/s')
-        divisionless_quantity = measurement_units.converter.get_quantity(unitless_quantity, 'ft3 s-1')
+        caret_less_quantity = measurement_units._COMMON_CONVERTER.registry.Quantity(unitless_quantity, 'ft3/s')
+        divisionless_quantity = measurement_units._COMMON_CONVERTER.get_quantity(unitless_quantity, 'ft3 s-1')
 
         self.assertEqual(lower_case_quantity.magnitude, upper_case_quantity.magnitude)
         self.assertEqual(caret_less_quantity.magnitude, upper_case_quantity.magnitude)
@@ -107,19 +107,19 @@ class TestMeasurementUnits(unittest.TestCase):
 
         self.assertEqual(
                 unitless_quantity,
-                measurement_units.converter.registry.convert(unitless_quantity, 'cfs', 'ft^3/s')
+                measurement_units._COMMON_CONVERTER.registry.convert(unitless_quantity, 'cfs', 'ft^3/s')
         )
         self.assertEqual(
                 unitless_quantity,
-                measurement_units.converter.registry.convert(unitless_quantity, 'CFS', 'ft^3/s')
+                measurement_units._COMMON_CONVERTER.registry.convert(unitless_quantity, 'CFS', 'ft^3/s')
         )
         self.assertEqual(
                 unitless_quantity,
-                measurement_units.converter.registry.convert(unitless_quantity, 'ft3/s', 'ft^3/s')
+                measurement_units._COMMON_CONVERTER.registry.convert(unitless_quantity, 'ft3/s', 'ft^3/s')
         )
         self.assertEqual(
                 unitless_quantity,
-                measurement_units.converter.convert(unitless_quantity, "ft3 s-1", "ft^3/s")
+                measurement_units._COMMON_CONVERTER.convert(unitless_quantity, "ft3 s-1", "ft^3/s")
         )
 
         self.assertEqual(unitless_quantity, measurement_units.convert(unitless_quantity, 'cfs', 'ft^3/s'))
@@ -128,10 +128,10 @@ class TestMeasurementUnits(unittest.TestCase):
         self.assertEqual(unitless_quantity, measurement_units.convert(unitless_quantity, 'ft3 s-1', 'ft^3/s'))
 
         manual_conversion = unitless_quantity * conversion_factor
-        converted_lower_case_quantity = measurement_units.converter.registry.convert(unitless_quantity, 'cfs', 'm^3/s')
-        converted_upper_case_quantity = measurement_units.converter.registry.convert(unitless_quantity, 'CFS', 'm^3/s')
-        converted_caretless_quantity = measurement_units.converter.registry.convert(unitless_quantity, 'ft3/s', 'm^3/s')
-        converted_divisionless_quantity = measurement_units.converter.convert(unitless_quantity, "ft3 s-1", "m^3/s")
+        converted_lower_case_quantity = measurement_units._COMMON_CONVERTER.registry.convert(unitless_quantity, 'cfs', 'm^3/s')
+        converted_upper_case_quantity = measurement_units._COMMON_CONVERTER.registry.convert(unitless_quantity, 'CFS', 'm^3/s')
+        converted_caretless_quantity = measurement_units._COMMON_CONVERTER.registry.convert(unitless_quantity, 'ft3/s', 'm^3/s')
+        converted_divisionless_quantity = measurement_units._COMMON_CONVERTER.convert(unitless_quantity, "ft3 s-1", "m^3/s")
 
         self.assertAlmostEqual(manual_conversion, converted_lower_case_quantity, delta=DELTA)
         self.assertAlmostEqual(manual_conversion, converted_upper_case_quantity, delta=DELTA)
@@ -150,8 +150,8 @@ class TestMeasurementUnits(unittest.TestCase):
         expected_cms = 424.752705
         expected_cfs = 15000
 
-        lower_case_quantity = measurement_units.converter.registry.Quantity(unitless_quantity, 'kcfs')
-        upper_case_quantity = measurement_units.converter.registry.Quantity(unitless_quantity, 'KCFS')
+        lower_case_quantity = measurement_units._COMMON_CONVERTER.registry.Quantity(unitless_quantity, 'kcfs')
+        upper_case_quantity = measurement_units._COMMON_CONVERTER.registry.Quantity(unitless_quantity, 'KCFS')
 
         self.assertEqual(lower_case_quantity.magnitude, upper_case_quantity.magnitude)
 
@@ -164,8 +164,8 @@ class TestMeasurementUnits(unittest.TestCase):
         self.assertAlmostEqual(expected_cfs, manual_cfs_conversion)
         self.assertAlmostEqual(expected_cms, manual_cms_conversion)
 
-        converted_cfs = measurement_units.converter.registry.convert(unitless_quantity, 'kcfs', 'ft^3/s')
-        converted_cms = measurement_units.converter.registry.convert(unitless_quantity, 'KCFS', 'm^3/s')
+        converted_cfs = measurement_units._COMMON_CONVERTER.registry.convert(unitless_quantity, 'kcfs', 'ft^3/s')
+        converted_cms = measurement_units._COMMON_CONVERTER.registry.convert(unitless_quantity, 'KCFS', 'm^3/s')
 
         self.assertAlmostEqual(manual_cfs_conversion, converted_cfs, delta=DELTA)
         self.assertAlmostEqual(manual_cms_conversion, converted_cms, delta=DELTA)

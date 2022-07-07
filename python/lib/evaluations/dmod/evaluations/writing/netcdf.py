@@ -1,8 +1,6 @@
+import os.path
 import pathlib
 import typing
-import inspect
-import io
-import importlib
 import sys
 
 import numpy
@@ -17,6 +15,14 @@ from .. import util
 
 
 class NetcdfWriter(writer.OutputWriter):
+    @classmethod
+    def requires_destination_address_or_buffer(cls) -> bool:
+        return True
+
+    @classmethod
+    def get_extension(cls) -> str:
+        return "nc"
+
     @classmethod
     def get_format_name(cls) -> str:
         return "netcdf"
@@ -153,20 +159,3 @@ class NetcdfWriter(writer.OutputWriter):
         finally:
             if responsible_for_buffer and buffer is not None and not buffer.closed:
                 buffer.close()
-
-
-def get_writer(writer_format: str, destination: typing.Union[str, pathlib.Path, typing.Sequence[str]] = None, **kwargs):
-    classes: typing.Sequence[typing.Type[writer.OutputWriter]] = util.get_local_subclasses(
-            sys.modules[__name__],
-            writer.OutputWriter
-    )
-
-    options = {
-        cls.get_format_name(): cls
-        for cls in classes
-    }
-
-    if writer_format not in options:
-        raise KeyError(f"{writer_format} is not an implemented output writer.")
-
-    return options[writer_format](destination, **kwargs)

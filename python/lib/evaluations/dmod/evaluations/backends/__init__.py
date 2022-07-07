@@ -1,7 +1,7 @@
-from .backend import Backend
-import inspect
+"""
+Module containing classes that handle common IO operations, such as loading input data
+"""
 import os
-from .. import specification
 
 
 __all__ = [
@@ -10,7 +10,14 @@ __all__ = [
     if package_file != "__init__.py"
        and package_file != 'backend.py'
 ]
+
 from . import *
+
+from .backend import Backend
+import inspect
+from .. import specification
+
+from .. import util
 
 
 def get_backend(backend_specification: specification.BackendSpecification, cache_limit: int = None) -> Backend:
@@ -26,8 +33,7 @@ def get_backend(backend_specification: specification.BackendSpecification, cache
     """
     backend_map = {
         subclass.get_backend_type().lower(): subclass
-        for subclass in Backend.__subclasses__()
-        if not inspect.isabstract(subclass)
+        for subclass in util.get_subclasses(Backend)
     }
 
     data_backend = backend_map.get(backend_specification.type.lower())

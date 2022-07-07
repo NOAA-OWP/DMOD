@@ -46,7 +46,6 @@ class TestFileCrosswalk(unittest.TestCase):
             expected_mapping: typing.List[typing.Dict[str, str]]
     ):
         data = retriever.retrieve()
-        print("Data Retrieved")
 
         test.assertEqual(len(data), len(expected_mapping))
 

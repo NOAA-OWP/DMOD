@@ -185,7 +185,7 @@ class TestCSVRetrieving(unittest.TestCase):
             present_days = subset.value_date.apply(lambda d: d.date()).unique()
             missing_days = list()
 
-            while current_date <= latest_date:
+            while current_date <= latest_date.date():
                 if current_date not in present_days:
                     missing_days.append(current_date)
                 else:

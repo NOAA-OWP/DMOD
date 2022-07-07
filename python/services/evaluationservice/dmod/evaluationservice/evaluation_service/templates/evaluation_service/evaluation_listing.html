@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block style %}
+<link rel="stylesheet" type="text/css" href="{% static 'evaluation_service/css/evaluation_listing.css' %}">
+{% endblock style %}
+
+{% block content %}
+<div id="content" class="pane">
+    <table id="accessible-evaluations" width="100%">
+        <thead>
+            <tr>
+                <th class="completion-column header-column">Completed</th>
+                <th class="failed-column header-column">Success</th>
+                <th class="connection-column header-column">Connect</th>
+                <th class="status-column header-column">Status</th>
+                <th class="name-column header-column">Name</th>
+                <th class="creation-column date-column header-column">Created At</th>
+                <th class="updated-column date-column header-column">Last Updated</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for evaluation in evaluations %}
+                <tr>
+                    <td class="completion-column boolean-column">
+                        <img src="{{ evaluation.completed_icon }}" alt="{{ evaluation.completed }}" width="25" height="25">
+                    </td>
+                    <td class="failed-column boolean-column">
+                        <img src="{{ evaluation.failed_icon }}" alt="{{ evaluation.failed }}" width="25" height="25">
+                    </td>
+                    <td class="connection-column">
+                        <a href="{{ evaluation.listen_url }}">Listen</a>
+                    </td>
+                    <td class="status-column">
+                        <a href="{{ evaluation.status_url }}">View</a>
+                    </td>
+                    <td class="name-column">
+                        {{ evaluation.name }}
+                    </td>
+                    <td class="creation-column date-column">
+                        {{ evaluation.created_at }}
+                    </td>
+                    <td class="updated-column date-column">
+                        {{ evaluation.last_updated }}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock content %}

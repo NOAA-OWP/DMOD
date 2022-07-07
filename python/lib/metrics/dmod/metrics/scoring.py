@@ -24,11 +24,6 @@ NUMERIC_TRANSFORMER = typing.Callable[[NUMBER], NUMBER]
 NUMERIC_FILTER = typing.Callable[[NUMBER, NUMBER], bool]
 FRAME_FILTER = typing.Callable[[pandas.DataFrame], pandas.DataFrame]
 
-METRIC = typing.Callable[[pandas.DataFrame, pandas.DataFrame, typing.Sequence["Threshold"], ARGS, KWARGS], NUMBER]
-NUMERIC_OPERATOR = typing.Callable[[NUMBER, NUMBER, typing.Optional[NUMBER]], NUMBER]
-NUMERIC_TRANSFORMER = typing.Callable[[NUMBER], NUMBER]
-NUMERIC_FILTER = typing.Callable[[NUMBER, NUMBER], bool]
-FRAME_FILTER = typing.Callable[[pandas.DataFrame], pandas.DataFrame]
 
 EPSILON = 0.0001
 
@@ -388,7 +383,7 @@ class MetricResults(object):
 
         self.__weight = weight or 1
 
-    def to_dataframe(self, include_metadata: bool = None) -> pandas.DataFrame:
+    def rows(self, include_metadata: bool = None) -> typing.List[typing.Dict[str, typing.Any]]:
         if include_metadata is None:
             include_metadata = False
 
@@ -397,10 +392,11 @@ class MetricResults(object):
         for threshold, scores in self.__results.items():
             threshold_rows: typing.List[dict] = list()
 
-            threshold_value_is_sequence = isinstance(threshold.value, (pandas.Series, typing.Sequence))
+            threshold_values = list(threshold.value) if isinstance(threshold.value, pandas.Series) else threshold.value
+            threshold_value_is_sequence = isinstance(threshold.value, typing.Sequence)
             threshold_value_is_sequence &= not isinstance(threshold.value, str)
 
-            threshold_value = threshold.value[0] if threshold_value_is_sequence else threshold.value
+            threshold_value = threshold_values[0] if threshold_value_is_sequence else threshold.value
 
             for score in scores:
                 row_values = dict()
@@ -421,7 +417,10 @@ class MetricResults(object):
                 threshold_rows.append(row_values)
 
             rows.extend(threshold_rows)
+        return rows
 
+    def to_dataframe(self, include_metadata: bool = None) -> pandas.DataFrame:
+        rows = self.rows(include_metadata)
         return pandas.DataFrame(rows)
 
     @property

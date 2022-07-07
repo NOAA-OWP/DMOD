@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block scripts %}
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css"
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.6/addon/edit/matchbrackets.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.6/addon/edit/closebrackets.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.6/addon/fold/foldcode.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.6/addon/fold/brace-fold.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.6/addon/fold/foldgutter.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{% static 'evaluation_service/js/ready_evaluation.js' %}"></script>
+<script>
+    let editor = null;
+
+    let editorConfig = {
+        mode: "javascript",
+        json: true,
+        indentUnit: 4,
+        lineNumbers: true,
+        allowDropFileTypes: ['application/json'],
+        viewportMargin: Infinity,
+        matchBrackets: true,
+        autoCloseBrackets: true,
+        foldGutter: true,
+        gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
+    }
+    const LAUNCH_URL = "{{ launch_url }}";
+</script>
+{% endblock scripts %}
+{% block style %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.6/addon/fold/foldgutter.min.css"
+          crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" type="text/css" href="{% static 'evaluation_service/css/ready_evaluation.css' %}">
+{% endblock style %}
+{% block bannercontent %}
+    <h1>Setup</h1>
+{% endblock bannercontent %}
+{% block content %}
+    <div id="content" class="pane">
+        <div id="launch-warning">
+            <p>
+                This page is for testing the evaluation service - use in production should be initiated via the
+                API, not here
+            </p>
+        </div>
+        <form method="POST" id="edit-div" target="_self">
+            {% csrf_token %}
+            <div id="editor-header">
+                <label for="evaluation_id">Evaluation ID:</label>
+                <input id="evaluation_id" name="evaluation_id" type="text" maxlength="100"
+                       minlength="10" pattern="{{ evaluation_id_pattern }}" style="width: 400px; margin-left: 10px;"
+                       value="{{ generated_evaluation_id }}" required>
+            </div>
+            <div id="editor-content">
+                <textarea id="instructions" name="instructions" required>{{ evaluation_template }}</textarea>
+            </div>
+            <div id="editor-footer">
+                <button type="submit" id="evaluation-submit">Start Evaluation</button>
+            </div>
+        </form>
+    </div>
+{% endblock content %}

@@ -1,12 +1,17 @@
-import json
+"""
+Defines Backends for loading data from a filesystem, generally straight from disk
+"""
 import typing
 import os
 import io
 import re
 import pathlib
+
 import pkg_resources
 import logging
 import h5py
+
+from deprecated import deprecated
 
 import pandas
 
@@ -14,13 +19,7 @@ from . import backend
 from .. import util
 from .. import specification
 
-
-logging.basicConfig(
-        filename='evaluation.log',
-        level=logging.getLevelName(os.environ.get('EVALUATION_LOG_LEVEL', os.environ.get("DEFAULT_LOG_LEVEL", "DEBUG"))),
-        format=os.environ.get("LOG_FORMAT", "%(asctime)s,%(msecs)d %(levelname)s: %(message)s"),
-        datefmt=os.environ.get("LOG_DATEFMT", "%H:%M:%S")
-)
+util.configure_logging()
 
 
 RE_PATTERN = re.compile(r"(\{.+\}|\[.+\]|\(.+\)|(?<!\\)\.|\{|\}|\]|\[|\(|\)|\+|\*|\\[a-zA-Z]|\?)+")
@@ -38,6 +37,16 @@ class FileBackend(backend.Backend):
         self._sources = util.get_matching_paths(self.address)
 
     def read(self, identifier: str, store_data: bool = None) -> bytes:
+        """
+        Loads data from either disk or from the cache
+
+        Args:
+            identifier: The identifier (such as a file name) for the data
+            store_data: Whether to save the data in the cache
+
+        Returns:
+            Raw byte data from the file
+        """
         if identifier not in self._sources:
             raise ValueError(f"'{identifier}' is not available within this backend")
 
@@ -54,7 +63,17 @@ class FileBackend(backend.Backend):
             return byte_data
 
     def read_stream(self, identifier: str, store_data: bool = None) -> typing.IO:
-        # TODO: This just shift data into a new buffer - find a way to return the original buffer instead
+        """
+        Retrieves data in the form of a stream
+
+        Args:
+            identifier: The identifier for the data (generally the path to the file)
+            store_data: Whether to store the retrieved data in the cache
+
+        Returns:
+            An IO stream containing the loaded data
+        """
+        # TODO: This just shifts data into a new buffer - find a way to return the original buffer instead
         if identifier not in self._sources:
             raise ValueError(f"'{identifier}' is not available within this backend")
 
@@ -73,6 +92,7 @@ class FileBackend(backend.Backend):
         stream.seek(0)
         return stream
 
+    @deprecated
     def write(
             self,
             destination: typing.Union[pathlib.Path, str, io.IOBase, typing.Sequence[str]],
@@ -98,6 +118,7 @@ class FileBackend(backend.Backend):
 
         return write_functions[data_format](destination, data, **kwargs)
 
+    @deprecated
     def write_to_hdf(
             self,
             destination: typing.Union[pathlib.Path, str, io.IOBase, typing.Sequence[str]],
@@ -128,6 +149,7 @@ class FileBackend(backend.Backend):
             generated_file.attrs['standard_deviation'] = data.standard_deviation
             generated_file.attrs['location_count'] = len(data)
 
+    @deprecated
     def write_to_markdown(
             self,
             destination: typing.Union[pathlib.Path, str, io.IOBase, typing.Sequence[str], typing.IO],
@@ -173,6 +195,7 @@ class FileBackend(backend.Backend):
             if buffer is not None and not buffer.closed and buffer_was_created_here:
                 buffer.close()
 
+    @deprecated
     def write_to_html(
             self,
             destination: typing.Union[pathlib.Path, str, io.IOBase, typing.Sequence[str]],

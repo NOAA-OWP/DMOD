@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Websocket Tester</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css"
+          crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js">
+    </script>
+  <script>
+
+        let socket = null;
+        let outputCode = null;
+        let inputCode = null;
+
+        function sendMessageClicked(event) {
+            event.preventDefault();
+            if (socket != null && (socket.readyState == WebSocket.CONNECTING || socket.readyState == WebSocket.CLOSING)) {
+                setTimeout(() => { console.log("Waiting for the web socket to change state..."); }, 5000);
+            }
+
+            if (socket == null || socket.readyState == WebSocket.CLOSED) {
+                connectToSocket(event);
+                setTimeout(() => { console.log("Waiting for the web socket to change state..."); }, 5000);
+            }
+
+            var eventName = $("#event-name").val();
+
+            if (!eventName) {
+                eventName = "echo";
+            }
+
+            eventName = eventName.toLowerCase();
+
+            message = {
+                event: eventName,
+                data: JSON.parse(inputCode.getValue())
+            };
+
+            var message = JSON.stringify(message);
+            socket.send(message);
+        };
+
+        function clearOutput(event) {
+            event.preventDefault();
+            outputCode.setValue("");
+        };
+
+        function connectToSocket(event) {
+            var websocket_url = $("#websocket-url").val();
+            try {
+                socket = new WebSocket(websocket_url);
+            } catch (error) {
+                outputCode.setValue(error.message);
+                return;
+            }
+            socket.onmessage = function (response) {
+                debugger;
+                var data = JSON.stringify(JSON.parse(response.data), null, 4);
+                var currentDate = new Date().toLocaleString();
+                var newMessage = outputCode.getValue();
+                newMessage += `\n//${Array(200).join("=")}\n\n// [${currentDate}]:\n\n${data}\n\n`
+                outputCode.setValue(newMessage);
+                outputCode.scrollIntoView(outputCode.lastLine());
+            };
+            socket.onerror = function(e) {
+                debugger;
+            }
+        };
+
+        function getDefaultSocketURL() {
+            return "ws://127.0.0.1:9431/ws/test/";
+        }
+
+      $(function(){
+        $("#websocket-url").val(getDefaultSocketURL());
+        var inputText = $("textarea#input-text")[0];
+        var outputText = $("textarea#output-text")[0];
+
+        let inputCodeConfig = {
+            mode: "javascript",
+            lineNumbers: true
+        };
+
+        inputCode = CodeMirror.fromTextArea(
+            inputText,
+            inputCodeConfig
+        );
+
+        inputCode.setValue('{\n    "args": ["one", "two", "three"]\n}')
+
+        let outputCodeConfig = {
+            mode: "javascript",
+            readOnly: true,
+            lineNumbers: true
+        }
+
+        outputCode = CodeMirror.fromTextArea(
+            outputText,
+            outputCodeConfig
+        );
+
+        $("#connect-button").click(function(event){
+            event.preventDefault();
+            connectToSocket(event);
+        });
+
+        $("#send-text-button").click(function(event){
+            event.preventDefault();
+            sendMessageClicked(event);
+        });
+
+        $("#clear-button").click(clearOutput);
+
+        setInterval(function(){
+            var indicator = $("#connection-status");
+
+            if (socket == null) {
+                indicator.css("color", "black");
+                indicator.text("Disconnected");
+            }
+            else if (socket.readyState == WebSocket.CLOSED) {
+                indicator.css("color", "red");
+                indicator.text("Closed");
+            }
+            else if (socket.readyState == WebSocket.CLOSING) {
+                indicator.css("color", "orange");
+                indicator.text("Closing");
+            }
+            else if (socket.readyState == WebSocket.CONNECTING) {
+                indicator.css("color", "blue");
+                indicator.text("Connecting");
+            }
+            else {
+                indicator.css("color", "green");
+                indicator.text("Ready");
+            }
+        }, 700);
+      });
+  </script>
+    <style>
+        .code-box {
+            border: 1px black solid;
+        }
+    </style>
+    <style>.CodeMirror {border-top: 1px solid black; border-bottom: 1px solid black;}</style>
+</head>
+<body>
+    <div>
+        <h3>Connect</h3>
+        <label for="websocket-url">Address:</label>
+        <input id="websocket-url" type="text" style="width: 500px">
+        <button id="connect-button">Connect</button>
+        <span id="connection-status">Disconnected</span>
+    </div>
+    <div>
+        <h3>Input</h3>
+        <div id="event-box" style="padding: 10px">
+            <label for="event-name">Event:</label>
+            <input id="event-name" type="text" width="150px" value="echo">
+        </div>
+        <textarea id="input-text" class="code-box"></textarea>
+        <br>
+        <button id="send-text-button" onclick="sendMessageClicked">Send Message</button>
+    </div>
+    <div>
+        <h3>Output</h3>
+        <textarea id="output-text" class="code-box"></textarea>
+        <br>
+        <button id="clear-button">Clear Output</button>
+    </div>
+</body>
+</html>
