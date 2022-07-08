@@ -51,6 +51,10 @@ if [ -n "${DOCKER_SECRET_REDIS_PASS:-}" ]; then
 elif [ -n "${REDIS_PASS:-}" ]; then
     _REDIS_ARGS="${_REDIS_ARGS} --redis-pass ${REDIS_PASS}"
 fi
+# Also potentially get a directory for filesystem-backed dataset configs
+if [ -n "${DMOD_FILESYSTEM_DATASET_CONFIG_DIR:-}" ]; then
+    _FILESYSTEM_DATASET_ARGS="--file-dataset-config-dir ${DMOD_FILESYSTEM_DATASET_CONFIG_DIR}"
+fi
 
 # If we find this directory, and if there are wheels in it, then install those
 if [ -d ${UPDATED_PACKAGES_DIR:=/updated_packages} ]; then
@@ -70,4 +74,5 @@ python -m ${SERVICE_PACKAGE_NAME:?} \
     --ssl-dir ${SERVICE_SSL_DIR:?} \
     ${_DEBUG_ARG:-} \
     ${_OBJ_STORE_ARGS} \
+    ${_FILESYSTEM_DATASET_ARGS:-} \
     ${_REDIS_ARGS}
