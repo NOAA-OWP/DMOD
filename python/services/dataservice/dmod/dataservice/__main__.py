@@ -35,6 +35,10 @@ def _handle_args():
                         help='Specify path for a particular SSL private key file to use',
                         dest='key_path',
                         default=None)
+    parser.add_argument('--file-dataset-config-dir',
+                        help='Path to directory containing serialized, filesystem-based Dataset objects',
+                        dest='file_dataset_config_dir',
+                        default=None)
     parser.add_argument('--object-store-host',
                         help='Set hostname for connection to object store',
                         dest='obj_store_host',
@@ -147,6 +151,8 @@ def main():
                                                           port=args.obj_store_port,
                                                           access_key=access_key_file.read_text().strip(),
                                                           secret_key=secret_key_file.read_text().strip())
+    if args.file_dataset_config_dir is not None:
+        service_manager.init_filesystem_dataset_manager(Path(args.file_dataset_config_dir))
 
     # Setup other required async tasks
     service_manager.add_async_task(service_manager.manage_required_data_checks())
