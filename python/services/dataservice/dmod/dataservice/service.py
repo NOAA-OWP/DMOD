@@ -3,7 +3,7 @@ from dmod.communication import AbstractInitRequest
 import json
 import os
 from time import sleep as time_sleep
-from docker.types import Healthcheck, RestartPolicy, SecretReference, ServiceMode
+from docker.types import Healthcheck, RestartPolicy, ServiceMode
 from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, \
     ManagementAction, WebSocketInterface
 from dmod.communication.dataset_management_message import DatasetQuery, QueryType
@@ -11,8 +11,7 @@ from dmod.communication.data_transmit_message import DataTransmitMessage, DataTr
 from dmod.core.meta_data import DataCategory, DataDomain, DataRequirement, DiscreteRestriction, StandardDatasetIndex
 from dmod.core.serializable import ResultIndicator, BasicResultIndicator
 from dmod.core.exception import DmodRuntimeError
-from dmod.modeldata.data.object_store_dataset import Dataset, DatasetManager, ObjectStoreDataset, \
-    ObjectStoreDatasetManager
+from dmod.modeldata.data.object_store_manager import Dataset, DatasetManager, DatasetType, ObjectStoreDatasetManager
 from dmod.scheduler import SimpleDockerUtil
 from dmod.scheduler.job import Job, JobExecStep, JobUtil
 from typing import Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
@@ -23,7 +22,6 @@ import logging
 
 
 DATASET_MGR = TypeVar('DATASET_MGR', bound=DatasetManager)
-DATASET_TYPE = TypeVar('DATASET_TYPE', bound=Dataset)
 
 
 class DockerS3FSPluginHelper(SimpleDockerUtil):
@@ -72,7 +70,7 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
         """
         worker_required_datasets = set()
         all_dataset = self._service_manager.get_known_datasets()
-        obj_store_dataset_names = [n for n in all_dataset if isinstance(all_dataset[n], ObjectStoreDataset)]
+        obj_store_dataset_names = [n for n in all_dataset if all_dataset[n].dataset_type == DatasetType.OBJECT_STORE]
         for worker_reqs in job.worker_data_requirements:
             for fulfilled_by in [r.fulfilled_by for r in worker_reqs if r.fulfilled_by in obj_store_dataset_names]:
                 worker_required_datasets.add(fulfilled_by)
@@ -209,7 +207,7 @@ class ServiceManager(WebSocketInterface):
     def __init__(self, job_util: JobUtil, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._job_util = job_util
-        self._all_data_managers: Dict[Type[DATASET_TYPE], DATASET_MGR] = {}
+        self._all_data_managers: Dict[DatasetType, DatasetManager] = {}
         """ Map of dataset class type (key), to service's dataset manager (value) for handling that dataset type. """
         self._managers_by_uuid: Dict[UUID, DatasetManager] = {}
         """ Map of dataset managers keyed by the UUID of each. """
@@ -517,7 +515,7 @@ class ServiceManager(WebSocketInterface):
                     break
 
             # TODO: (later) more intelligently determine type
-            mgr = self._all_data_managers[ObjectStoreDataset]
+            mgr = self._all_data_managers[DatasetType.OBJECT_STORE]
             dataset = mgr.create(name='job-{}-output-{}'.format(job.job_id, i),
                                  is_read_only=False,
                                  category=DataCategory.OUTPUT,
@@ -529,9 +527,9 @@ class ServiceManager(WebSocketInterface):
                                           category=DataCategory.OUTPUT, fulfilled_by=dataset.name)
             job.data_requirements.append(requirement)
 
-    def _determine_dataset_type(self, message: DatasetManagementMessage) -> Type[DATASET_TYPE]:
+    def _determine_dataset_type(self, message: DatasetManagementMessage) -> DatasetType:
         """
-        Determine the right kind of dataset for this situation.
+        Determine the right type of dataset for this situation.
 
         Parameters
         ----------
@@ -540,11 +538,12 @@ class ServiceManager(WebSocketInterface):
 
         Returns
         -------
-        Type[DATASET_TYPE]
-            The class for the right kind of dataset for this situation.
+        DatasetType
+            The appopriate ::class:`DatasetType` value for this situation.
         """
+        # TODO: figure out if this is actually still needed, and fix for filesystem type if so ...
         # TODO: (later) implement this correctly
-        return ObjectStoreDataset
+        return DatasetType.OBJECT_STORE
 
     def _process_dataset_create(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
         """
