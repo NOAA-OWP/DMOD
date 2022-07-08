@@ -662,6 +662,8 @@ class DataRequirement(Serializable):
     """ Serialization dictionary JSON key for ::attribute:`category` property value. """
     _KEY_DOMAIN = 'domain'
     """ Serialization dictionary JSON key for ::attribute:`domain_params` property value. """
+    _KEY_FULFILLED_ACCESS_AT = 'fulfilled_access_at'
+    """ Serialization dictionary JSON key for ::attribute:`fulfilled_access_at` property value. """
     _KEY_FULFILLED_BY = 'fulfilled_by'
     """ Serialization dictionary JSON key for ::attribute:`fulfilled_by` property value. """
     _KEY_IS_INPUT = 'is_input'
@@ -694,6 +696,8 @@ class DataRequirement(Serializable):
                 opt_kwargs_w_defaults['fulfilled_by'] = json_obj[cls._KEY_FULFILLED_BY]
             if cls._KEY_SIZE in json_obj:
                 opt_kwargs_w_defaults['size'] = json_obj[cls._KEY_SIZE]
+            if cls._KEY_FULFILLED_ACCESS_AT in json_obj:
+                opt_kwargs_w_defaults['fulfilled_access_at'] = json_obj[cls._KEY_FULFILLED_ACCESS_AT]
 
             return cls(domain=domain, is_input=is_input, category=category, **opt_kwargs_w_defaults)
         except:
@@ -707,12 +711,13 @@ class DataRequirement(Serializable):
         return hash('{}-{}-{}'.format(hash(self.domain), self.is_input, self.category))
 
     def __init__(self, domain: DataDomain, is_input: bool, category: DataCategory, size: Optional[int] = None,
-                 fulfilled_by: Optional[str] = None):
+                 fulfilled_by: Optional[str] = None, fulfilled_access_at: Optional[str] = None):
         self._domain = domain
         self._is_input = is_input
         self._category = category
         self._size = size
         self._fulfilled_by = fulfilled_by
+        self._fulfilled_access_at = fulfilled_access_at
 
     @property
     def category(self) -> DataCategory:
@@ -737,6 +742,23 @@ class DataRequirement(Serializable):
             The (restricted) domain of the data that is required.
         """
         return self._domain
+
+    @property
+    def fulfilled_access_at(self) -> Optional[str]:
+        """
+        The location at which the fulfilling dataset for this requirement is accessible, if the dataset known.
+
+        Returns
+        -------
+        Optional[str]
+            The location at which the fulfilling dataset for this requirement is accessible, if known, or ``None``
+            otherwise.
+        """
+        return self._fulfilled_access_at
+
+    @fulfilled_access_at.setter
+    def fulfilled_access_at(self, location: str):
+        self._fulfilled_access_at = location
 
     @property
     def fulfilled_by(self) -> Optional[str]:
@@ -788,4 +810,6 @@ class DataRequirement(Serializable):
             serial[self._KEY_SIZE] = self.size
         if self.fulfilled_by is not None:
             serial[self._KEY_FULFILLED_BY] = self.fulfilled_by
+        if self.fulfilled_access_at is not None:
+            serial[self._KEY_FULFILLED_ACCESS_AT] = self.fulfilled_access_at
         return serial
