@@ -152,13 +152,39 @@ class ObjectStoreDatasetManager(DatasetManager):
     """ The name of the file/object for serialized versions of datasets, within a dataset's bucket. """
 
     def __init__(self, obj_store_host_str: str, access_key: Optional[str] = None, secret_key: Optional[str] = None,
-                 datasets: Optional[Dict[str, Dataset]] = None):
-        super(ObjectStoreDatasetManager, self).__init__(datasets)
-        # TODO: add checks to ensure all datasets passed to this type are ObjectStoreDataset
+                 secure_connection: bool = False, *args, **kwargs):
+        """
+        Initialize by instantiating a Minio client and reloading any existing datasets in the object store.
+
+        Parameters
+        ----------
+        obj_store_host_str : str
+            A host connection string without protocol (e.g., ``http://``), in the format ``<hostname>:<port>``.
+        access_key : str
+            Minio object store access key to use when initializing client object.
+        secret_key : str
+            Minio object store secret key to use when initializing client object.
+        secure_connection : bool
+            Whether a secure connection to Minio must be used when initializing the Minio client object.
+
+        Keyword Params
+        ----------
+        datasets : Optional[Dict[str, Dataset]]
+            Optional map of already-known datasets, forwarded to call to superclass init function.
+        uuid : Optional[UUID]
+            Optional, pre-determined UUID (e.g. when deserializing), forwarded to call to superclass init function.
+        """
+        super(ObjectStoreDatasetManager, self).__init__(*args, **kwargs)
+        # TODO: add checks to ensure all datasets passed to this type are of supported type
         self._obj_store_host_str = obj_store_host_str
-        # TODO (later): may need to look at turning this back on
+        """ A host connection string without protocol (e.g., ``http://``), in the format ``<hostname>:<port>``. """
+        self._secure_connection: bool = secure_connection
+        """ Whether a secure connection to Minio must be used when initializing the Minio client object. """
+        # TODO (later): may need to look at forcing this to be True
+
         try:
-            self._client = Minio(endpoint=obj_store_host_str, access_key=access_key, secret_key=secret_key, secure=False)
+            self._client = Minio(endpoint=obj_store_host_str, access_key=access_key, secret_key=secret_key,
+                                 secure=secure_connection)
             # For any buckets that have the standard serialized object (i.e., were for datasets previously), reload them
             for bucket_name in self.list_buckets():
                 serialized_item = self._gen_dataset_serial_obj_name(bucket_name)
