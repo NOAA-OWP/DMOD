@@ -2,7 +2,7 @@ import git
 import json
 import os
 import unittest
-from ..modeldata.data.object_store_dataset import ObjectStoreDataset, ObjectStoreDatasetManager
+from ..modeldata.data.object_store_manager import Dataset, DatasetType, ObjectStoreDatasetManager
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DiscreteRestriction, TimeRange
 from pathlib import Path
 from typing import Optional, Set
@@ -62,8 +62,8 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
     def setUp(self) -> None:
         # TODO: this is suppose to actually connect through the proxy, but there are issues with that currently
         # TODO: bypassing proxy for now and going straight to minio1, but that will need to be fixed
-        #self._port = int(os.environ.get('DMOD_OBJECT_STORE_PROXY_HOST_PORT', 9000))
-        self._port = int(os.environ.get('DMOD_OBJECT_STORE_1_HOST_PORT', 9002))
+        self._port = int(os.environ.get('DMOD_OBJECT_STORE_PROXY_HOST_PORT', 9000))
+        #self._port = int(os.environ.get('DMOD_OBJECT_STORE_1_HOST_PORT', 9002))
         self._hostname = 'localhost'
 
         self._secrets_dir: Path = Path(self.find_git_root_dir()).joinpath("docker/secrets/")
@@ -82,12 +82,15 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
         time_range_1 = TimeRange.factory_init_from_deserialized_json(
             {'begin': '2022-01-01 00:00:00',
              'end': '2022-02-01 00:00:00',
-             'variable': '',
+             'variable': 'TIME',
              'subclass': 'TimeRange',
              'datetime_pattern': TimeRange.get_datetime_str_format()})
         domain_1 = DataDomain(data_format=DataFormat.AORC_CSV, continuous_restrictions=[time_range_1],
                               discrete_restrictions=[DiscreteRestriction("catchment_id", ['cat-1', 'cat-2', 'cat-3'])])
-        self.examples[1] = {'name': 'test-ds-1', 'category': DataCategory.CONFIG, 'domain': domain_1, 'is_read_only': False}
+        # Remember that this is not example serialized JSON, but a dict that gets expanded into parameters passed to
+        # the __init__ function for creating a manager
+        self.examples[1] = {'name': 'test-ds-1', 'category': DataCategory.CONFIG, 'domain': domain_1,
+                            'is_read_only': False}
 
     def tearDown(self) -> None:
         # Remove testing datasets slated to be cleaned up
@@ -250,7 +253,7 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
 
         data_dict = json.loads(self.manager.get_data(dataset_name, item_name=serial_file_name).decode())
 
-        self.assertEqual(dataset_name, data_dict[ObjectStoreDataset._KEY_NAME])
+        self.assertEqual(dataset_name, data_dict[Dataset._KEY_NAME])
 
     def test_list_files_1_a(self):
         """
@@ -301,7 +304,7 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
             self._datasets_to_cleanup.add(dataset_name)
 
         data_dict = json.loads(self.manager.get_data(dataset_name, item_name=serial_file_name).decode())
-        dataset = ObjectStoreDataset.factory_init_from_deserialized_json(data_dict)
+        dataset = Dataset.factory_init_from_deserialized_json(data_dict)
         expected_dataset = self.manager.datasets[dataset_name]
 
         self.assertEqual(expected_dataset, dataset)
@@ -343,7 +346,7 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
         serial_dataset_obj_name = self.manager._gen_dataset_serial_obj_name(dataset_name)
         response_obj = self.minio_client.get_object(bucket_name=dataset_name, object_name=serial_dataset_obj_name)
         response_data = json.loads(response_obj.data.decode())
-        deserialized_dataset = ObjectStoreDataset.factory_init_from_deserialized_json(response_data)
+        deserialized_dataset = Dataset.factory_init_from_deserialized_json(response_data)
         self.assertEqual(expected_dataset, deserialized_dataset)
 
     def test_persist_serialized_1_e(self):
@@ -446,7 +449,7 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
         if does_exist:
             self._datasets_to_cleanup.add(dataset_name)
 
-        self.assertIsInstance(self.manager.datasets[dataset_name], ObjectStoreDataset)
+        self.assertEqual(self.manager.datasets[dataset_name].dataset_type, DatasetType.OBJECT_STORE)
 
     def test_datasets_1_d(self):
         """
