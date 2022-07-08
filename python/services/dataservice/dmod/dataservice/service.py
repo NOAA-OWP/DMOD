@@ -679,15 +679,16 @@ class ServiceManager(WebSocketInterface):
             reason = 'Unsupported {} Query Type - {}'.format(DatasetQuery.__class__.__name__, query_type.name)
             return DatasetManagementResponse(action=message.management_action, success=False, reason=reason)
 
-    async def can_be_fulfilled(self, requirement: DataRequirement) -> Tuple[bool, Optional[str]]:
+    async def can_be_fulfilled(self, requirement: DataRequirement) -> Tuple[bool, Optional[Dataset]]:
         """
-        Determine whether the given requirement can be fulfilled, either directly or by deriving a new dataset.
+        Determine details of whether a data requirement can be fulfilled, either directly or by deriving a new dataset.
 
-        The returned tuple will return two items.  The first is whether the data requirements can be fulfilled given the
-        currently existing datasets.  The second is the name of the fulfilling dataset, if a fulfilling dataset already
-        exists.  If data among known datasets is sufficient to fulfill the requirements, but deriving a new dataset is
-        necessary (e.g., in a different format, or by combining data from multiple datasets), then the second value will
-        be ``None``.
+        The function will process and return a tuple of two items.  The first is whether the data requirement can be
+        fulfilled, given the currently existing datasets.  The second is either the fulfilling ::class:`Dataset`, if a
+        dataset already exists that completely fulfills the requirement, or ``None``.
+
+        Even if a single fulfilling dataset for the requirement does not already exist, it may still be possible for the
+        service to derive a new dataset that does fulfill the requirement.  In such cases, ``True, None`` is returned.
 
         Parameters
         ----------
@@ -696,12 +697,12 @@ class ServiceManager(WebSocketInterface):
 
         Returns
         -------
-        Tuple[bool, Optional[str]]
-            A tuple of whether the requirement can be fulfilled and, if one exists, the name of the fulfilling dataset.
+        Tuple[bool, Optional[Dataset]]
+            A tuple of whether the requirement can be fulfilled and, if one already exists, the fulfilling dataset.
         """
         fulfilling_dataset = await self._async_find_dataset_for_requirement(requirement)
         if isinstance(fulfilling_dataset, Dataset):
-            return True, fulfilling_dataset.name
+            return True, fulfilling_dataset
         else:
             return await self._async_can_dataset_be_derived(requirement), None
 
@@ -980,7 +981,8 @@ class ServiceManager(WebSocketInterface):
 
         Check whether all the requirements for the provided job can be fulfilled, such that the job can move on to the
         next successful step in the execution workflow.  As part of the check, also update the ::class:`DataRequirement`
-        objects with the name of the fulfilling dataset.
+        objects with the name of the fulfilling dataset and the location at which the dataset will be accessible to the
+        job.
 
         Parameters
         ----------
@@ -999,13 +1001,20 @@ class ServiceManager(WebSocketInterface):
         # TODO: (later) should we check whether any 'fulfilled_by' datasets exist, or handle this differently?
         try:
             for requirement in [req for req in job.data_requirements if req.fulfilled_by is None]:
-                can_fulfill, dataset_name = await self.can_be_fulfilled(requirement)
+                can_fulfill, dataset = await self.can_be_fulfilled(requirement)
 
                 if not can_fulfill:
                     logging.error("Cannot fulfill '{}' category data requirement".format(requirement.category.name))
                     return False
-                elif dataset_name is not None:
-                    requirement.fulfilled_by = dataset_name
+                elif dataset is not None:
+                    # TODO: (later) in the future, whether the job is running via Docker needs to be checked
+                    is_job_run_in_docker = True
+                    if is_job_run_in_docker:
+                        requirement.fulfilled_access_at = dataset.docker_mount
+                    else:
+                        msg = "Could not determine proper access location for dataset of type {} by non-Docker job {}."
+                        raise DmodRuntimeError(msg.format(dataset.__class__.__name__, job.job_id))
+                    requirement.fulfilled_by = dataset.name
             return True
         except Exception as e:
             msg = "Encountered {} checking if job {} data requirements could be fulfilled - {}"
