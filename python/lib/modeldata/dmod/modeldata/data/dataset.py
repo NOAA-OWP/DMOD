@@ -1,17 +1,62 @@
 from abc import ABC, abstractmethod
 from dmod.core.meta_data import ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction, \
     StandardDatasetIndex, TimeRange
+from dmod.core.exception import DmodRuntimeError
 from datetime import datetime, timedelta
 
 from dmod.core.serializable import Serializable, ResultIndicator
+from enum import Enum
 from numbers import Number
-from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Callable, Dict, FrozenSet, List, Optional, Set, Tuple, Type, Union
 from uuid import UUID, uuid4
 
 
-class Dataset(Serializable, ABC):
+class DatasetType(Enum):
+    UNKNOWN = (-1, False, lambda dataset: None)
+    OBJECT_STORE = (0, True, lambda dataset: dataset.name)
+    FILESYSTEM = (1, True, lambda dataset: dataset.access_location)
+
+    @classmethod
+    def get_for_name(cls, name_str: str) -> 'DatasetType':
+        cleaned_up_str = name_str.strip().upper()
+        for value in cls:
+            if value.name.upper() == cleaned_up_str:
+                return value
+        return DatasetType.UNKNOWN
+
+    def __init__(self, unique_id: int, is_file_based: bool, docker_mount_func: Callable[['Dataset'], str]):
+        self._unique_id = unique_id
+        self._is_file_based = is_file_based
+        self._docker_mount_func = docker_mount_func
+
+    @property
+    def docker_mount_func(self) -> Callable[['Dataset'], str]:
+        """
+        A callable that accepts a ::class:`Dataset` and can be used to get the appropriate Docker mount str for it.
+
+        Returns
+        -------
+        Callable[['Dataset'], str]
+            Callable that accepts a ::class:`Dataset` and can be used to get the appropriate Docker mount str for it.
+        """
+        return self._docker_mount_func
+
+    @property
+    def is_file_based(self) -> bool:
+        """
+        Whether this type of dataset is based on a filesystem or filesystem-like structure.
+
+        Returns
+        -------
+        bool
+            Whether this type of dataset is based on a filesystem or filesystem-like structure.
+        """
+        return self._is_file_based
+
+
+class Dataset(Serializable):
     """
-    Abstraction representation of a grouped collection of data and its metadata.
+    Rrepresentation of the descriptive metadata for a grouped collection of data.
     """
 
     _SERIAL_DATETIME_STR_FORMAT = '%Y-%m-%d %H:%M:%S'
@@ -27,36 +72,8 @@ class Dataset(Serializable, ABC):
     _KEY_LAST_UPDATE = 'last_updated'
     _KEY_MANAGER_UUID = 'manager_uuid'
     _KEY_NAME = 'name'
+    _KEY_TYPE = 'type'
     _KEY_UUID = 'uuid'
-
-    @classmethod
-    @abstractmethod
-    def additional_init_param_deserialized(cls, json_obj: dict) -> Dict[str, Any]:
-        """
-        Deserialize any other params needed for this type's init function, returning in a map for ``kwargs`` use.
-
-        The main ::method:`factory_init_from_deserialized_json` class method for the base ::class:`Dataset` type handles
-        a large amount of the work for deserialization.  However, subtypes could have additional params they require
-        in their ::method:`__init__`.  This function should do this deserialization work for any subtype, and return a
-        deserialized dictionary.  The keys should be the names of the relevant ::method:`__init__` parameters.
-
-        In the event a type's ::method:`__init__` method takes no additional params beyond the base type, its
-        implementation of this function should return an empty dictionary.
-
-        Any types with an init that does not have one or more of the params of the base type's init should fully
-        override ::method:`factory_init_from_deserialized_json`.
-
-        Parameters
-        ----------
-        json_obj : dict
-            The serialized form of the object that is a subtype of ::class:`Dataset`.
-
-        Returns
-        -------
-        Dict[str, Any]
-            A dictionary of ``kwargs`` for those init params and values beyond what the base type uses.
-        """
-        pass
 
     # TODO: move this (and something more to better automatically handle Serializable subtypes) to Serializable directly
     @classmethod
@@ -69,14 +86,11 @@ class Dataset(Serializable, ABC):
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
         try:
-            if cls._KEY_MANAGER_UUID in json_obj:
-                manager_uuid = UUID(json_obj[cls._KEY_MANAGER_UUID])
-            else:
-                manager_uuid = None
-
+            manager_uuid = UUID(json_obj[cls._KEY_MANAGER_UUID]) if cls._KEY_MANAGER_UUID in json_obj else None
             return cls(name=json_obj[cls._KEY_NAME],
                        category=DataCategory.get_for_name(json_obj[cls._KEY_DATA_CATEGORY]),
                        data_domain=DataDomain.factory_init_from_deserialized_json(json_obj[cls._KEY_DATA_DOMAIN]),
+                       dataset_type=DatasetType.get_for_name(json_obj[cls._KEY_TYPE]),
                        access_location=json_obj[cls._KEY_ACCESS_LOCATION],
                        uuid=UUID(json_obj[cls._KEY_UUID]),
                        manager_uuid=manager_uuid,
@@ -85,28 +99,29 @@ class Dataset(Serializable, ABC):
                        derived_from=json_obj[cls._KEY_DERIVED_FROM] if cls._KEY_DERIVED_FROM in json_obj else None,
                        derivations=json_obj[cls._KEY_DERIVATIONS] if cls._KEY_DERIVATIONS in json_obj else [],
                        created_on=cls._date_parse_helper(json_obj, cls._KEY_CREATED_ON),
-                       last_updated=cls._date_parse_helper(json_obj, cls._KEY_LAST_UPDATE),
-                       **cls.additional_init_param_deserialized(json_obj))
+                       last_updated=cls._date_parse_helper(json_obj, cls._KEY_LAST_UPDATE))
         except Exception as e:
             return None
 
     def __eq__(self, other):
         return isinstance(other, Dataset) and self.name == other.name and self.category == other.category \
-               and self.data_domain == other.data_domain and self.access_location == other.access_location \
-               and self.is_read_only == other.is_read_only and self.created_on == other.created_on
+               and self.dataset_type == other.dataset_type and self.data_domain == other.data_domain \
+               and self.access_location == other.access_location and self.is_read_only == other.is_read_only \
+               and self.created_on == other.created_on
 
     def __hash__(self):
         return hash(','.join([self.__class__.__name__, self.name, self.category.name, str(hash(self.data_domain)),
                               self.access_location, str(self.is_read_only), str(hash(self.created_on))]))
 
-    def __init__(self, name: str, category: DataCategory, data_domain: DataDomain, access_location: str,
-                 uuid: Optional[UUID] = None, manager: Optional['DatasetManager'] = None,
+    def __init__(self, name: str, category: DataCategory, data_domain: DataDomain, dataset_type: DatasetType,
+                 access_location: str, uuid: Optional[UUID] = None, manager: Optional['DatasetManager'] = None,
                  manager_uuid: Optional[UUID] = None, is_read_only: bool = True, expires: Optional[datetime] = None,
                  derived_from: Optional[str] = None, derivations: Optional[List[str]] = None,
                  created_on: Optional[datetime] = None, last_updated: Optional[datetime] = None):
         self._name = name
         self._category = category
         self._data_domain = data_domain
+        self._dataset_type = dataset_type
         self._access_location = access_location
         self._uuid = uuid4() if uuid is None else uuid
         self._manager = manager
@@ -198,6 +213,10 @@ class Dataset(Serializable, ABC):
             The ::class:`DataFormat` type value for this instance.
         """
         return self.data_domain.data_format
+
+    @property
+    def dataset_type(self) -> DatasetType:
+        return self._dataset_type
 
     @property
     def derivations(self) -> List[str]:
@@ -418,6 +437,7 @@ class Dataset(Serializable, ABC):
         serial[self._KEY_NAME] = self.name
         serial[self._KEY_DATA_CATEGORY] = self.category.name
         serial[self._KEY_DATA_DOMAIN] = self.data_domain.to_dict()
+        serial[self._KEY_TYPE] = self.dataset_type.name
         # TODO: unit test this
         serial[self._KEY_ACCESS_LOCATION] = self.access_location
         serial[self._KEY_UUID] = str(self.uuid)
@@ -840,17 +860,17 @@ class DatasetManager(ABC):
 
     @property
     @abstractmethod
-    def supported_dataset_types(self) -> Set[Type[Dataset]]:
+    def supported_dataset_types(self) -> Set[DatasetType]:
         """
-        The set of ::class:`Dataset` subclass types that this instance supports.
+        The set of ::class:`DatasetType` values that this instance supports.
 
         Typically (but not necessarily always) this will be backed by a static or hard-coded value for the manager
         subtype.
 
         Returns
         -------
-        Set[Type[Dataset]]
-            The set of ::class:`Dataset` subclass types that this instance supports.
+        Set[DatasetType]
+            The set of ::class:`DatasetType` values that this instance supports.
         """
         pass
 
