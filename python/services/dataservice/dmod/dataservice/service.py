@@ -12,8 +12,10 @@ from dmod.core.meta_data import DataCategory, DataDomain, DataRequirement, Discr
 from dmod.core.serializable import ResultIndicator, BasicResultIndicator
 from dmod.core.exception import DmodRuntimeError
 from dmod.modeldata.data.object_store_manager import Dataset, DatasetManager, DatasetType, ObjectStoreDatasetManager
+from dmod.modeldata.data.filesystem_manager import FilesystemDatasetManager
 from dmod.scheduler import SimpleDockerUtil
 from dmod.scheduler.job import Job, JobExecStep, JobUtil
+from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
 from uuid import UUID, uuid4
 from websockets import WebSocketServerProtocol
@@ -215,6 +217,7 @@ class ServiceManager(WebSocketInterface):
         self._obj_store_access_key = None
         self._obj_store_secret_key = None
         self._docker_s3fs_helper = None
+        self._filesystem_data_mgr = None
 
     def _add_manager(self, manager: DatasetManager):
         """
@@ -783,6 +786,13 @@ class ServiceManager(WebSocketInterface):
         for uuid, manager in self._managers_by_uuid.items():
             datasets.update(manager.datasets)
         return datasets
+
+    def init_filesystem_dataset_manager(self, file_dataset_config_dir: Path):
+        logging.info("Initializing manager for {} type datasets".format(DatasetType.FILESYSTEM.name))
+        mgr = FilesystemDatasetManager(serialized_files_directory=file_dataset_config_dir)
+        logging.info("{} initialized with {} existing datasets".format(mgr.__class__.__name__, len(mgr.datasets)))
+        self._add_manager(mgr)
+        self._filesystem_data_mgr = mgr
 
     def init_object_store_dataset_manager(self, obj_store_host: str, access_key: str, secret_key: str, port: int = 9000,
                                           *args, **kwargs):
