@@ -62,7 +62,7 @@ class ObjectStoreDatasetManager(DatasetManager):
             for bucket_name in self.list_buckets():
                 serialized_item = self._gen_dataset_serial_obj_name(bucket_name)
                 if serialized_item in [o.object_name for o in self._client.list_objects(bucket_name)]:
-                    self.reload(name=bucket_name, reload_item=serialized_item)
+                    self.reload(reload_from=bucket_name, serialized_item=serialized_item)
         except Exception as e:
             self._errors.append(e)
             # TODO: consider if we should not re-throw this (which would likely force us to ensure users checked this)
@@ -519,36 +519,43 @@ class ObjectStoreDatasetManager(DatasetManager):
         result = self._client.put_object(bucket_name=name, object_name=self._gen_dataset_serial_obj_name(name),
                                          data=io.BytesIO(bin_json_str), length=len(bin_json_str))
 
-    def reload(self, name: str, is_read_only: bool = False, reload_item: Optional[str] = None) -> ObjectStoreDataset:
+    def reload(self, reload_from: str, serialized_item: Optional[str] = None) -> Dataset:
         """
-        Create a new dataset object by reloading from an existing storage location.
+        Reload a ::class:`Dataset` object from a serialized copy at a specified location.
+
+        For this implementation, ``reload_from`` is the name of a bucket (and thus the name of the dataset itself) for
+        some previously saved dataset.  It should contain a special (object store) object in which the previous
+        ::class:`Dataset` object was serialized.  The name of this aforementioned special object can be either provided
+        or inferred from the provided bucket name.
 
         Parameters
         ----------
-        name : str
-            The name of the dataset.
-        is_read_only : bool
-            Whether the loaded dataset object should be read-only (default: ``False``).
-        reload_item : Optional[str]
-            Optional string for specifying name of the item to reload when it cannot be inferred from ``name``
-            (default: ``None``, which they generates a default based on the dataset name).
+        reload_from : str
+            Name of the dataset's object store bucket (also the dataset's name) containing the (object store) object
+            with the serialized state of the ::class:`Dataset` to reload.
+        serialized_item : Optional[str]
+            Optional string for specifying bucket object to reload if it should not be inferred from  ``reload_from``
+            (default: ``None``, which then generates a default based on the ``reload_from``/bucket name).
 
         Returns
         -------
         Dataset
             A new dataset object, loaded from a previously serialized dataset.
         """
-        if name in self.datasets:
-            raise RuntimeError("Cannot reload dataset with name {}: name already in use".format(name))
-        elif not self._client.bucket_exists(name):
-            raise RuntimeError("Expected bucket to exist when re-creating dataset {}".format(name))
-        # TODO: (later) add something for checking host part of access location if provided, and if that is not this host, its a problem
+        # For this type, the dataset name is equal to the bucket name ...
+        dataset_name = reload_from
 
-        if reload_item is None:
-            reload_item = self._gen_dataset_serial_obj_name(name)
+        # ...  so we can do this sanity check first
+        if dataset_name in self.datasets:
+            raise RuntimeError("Cannot reload dataset with name {}: name already in use".format(dataset_name))
+        elif not self._client.bucket_exists(reload_from):
+            raise RuntimeError("Expected bucket to exist when re-creating dataset {}".format(dataset_name))
+
+        if serialized_item is None:
+            serialized_item = self._gen_dataset_serial_obj_name(reload_from)
 
         try:
-            response_obj = self._client.get_object(bucket_name=name, object_name=reload_item)
+            response_obj = self._client.get_object(bucket_name=reload_from, object_name=serialized_item)
             response_data = json.loads(response_obj.data.decode())
         finally:
             response_obj.close()
@@ -560,7 +567,7 @@ class ObjectStoreDatasetManager(DatasetManager):
 
         dataset = Dataset.factory_init_from_deserialized_json(response_data)
         dataset.manager = self
-        self.datasets[name] = dataset
+        self.datasets[dataset_name] = dataset
         return dataset
 
     def remove_dataset(self, dataset_name: str, empty_first: bool = True) -> bool:
