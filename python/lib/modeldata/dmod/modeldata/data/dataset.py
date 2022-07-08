@@ -595,7 +595,7 @@ class DatasetManager(ABC):
     ::method:`transform` creates a new dataset from an existing one, but transforms the data to another format.
     """
 
-    def __init__(self, uuid: Optional[UUID] = None, datasets: Optional[Dict[str, Dataset]] = None):
+    def __init__(self, uuid: Optional[UUID] = None, datasets: Optional[Dict[str, Dataset]] = None, *args, **kwargs):
         self._uuid = uuid4() if uuid is None else uuid
         self._datasets = datasets if datasets is not None else dict()
         self._dataset_users: Dict[str, Set[UUID]] = dict()
@@ -859,27 +859,32 @@ class DatasetManager(ABC):
         -------
         List[str]
             A list of files in the dataset of the provided name, relative to dataset root.
+
+        Raises
+        -------
+        DmodRuntimeError
+            Implementations should raise this error if the dataset in question is of a ::class:`DatasetType` that is not
+            file-based.
         """
         pass
 
     @abstractmethod
-    def reload(self, name: str, is_read_only: bool = False, access_location: Optional[str] = None) -> Dataset:
+    def reload(self, reload_from: str, serialized_item: Optional[str] = None) -> Dataset:
         """
-        Create a new dataset object by reloading from an existing storage location.
+        Reload a ::class:`Dataset` object from a serialized copy at a specified location.
 
         Parameters
         ----------
-        name : str
-            The name of the dataset.
-        is_read_only : bool
-            Whether the loaded dataset object should be read-only (default: ``False``).
-        access_location : Optional[str]
-            Optional string for specifying access location when it cannot be inferred from ``name`` (default: ``None``).
+        reload_from : str
+            The location (in string form) where a serialized copy of the desired dataset can be found.
+        serialized_item : Optional[str]
+            Optional string for specifying the item to reload from when it cannot be inferred from ``reload_from``
+            (default: ``None``).
 
         Returns
         -------
         Dataset
-            A new dataset object, loaded from a previously stored dataset.
+            A new dataset object, loaded from a previously serialized dataset.
         """
         pass
 
