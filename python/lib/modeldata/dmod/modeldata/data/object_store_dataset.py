@@ -3,8 +3,8 @@ import json
 
 import minio.retention
 
-from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, TimeRange
-from .dataset import Dataset, DatasetManager
+from dmod.core.meta_data import DataCategory, DataDomain
+from .dataset import Dataset, DatasetManager, DatasetType
 from datetime import datetime, timedelta
 from minio import Minio
 from minio.api import ObjectWriteResult
@@ -146,7 +146,7 @@ class ObjectStoreDatasetManager(DatasetManager):
     Dataset manager implementation specifically for ::class:`ObjectStoreDataset` instances.
     """
 
-    _SUPPORTED_TYPES = {ObjectStoreDataset}
+    _SUPPORTED_TYPES = {DatasetType.OBJECT_STORE}
     """ Supported dataset types set, which is always ::class:`ObjectStoreDataset` for this manager subtype. """
     _SERIALIZED_OBJ_NAME_TEMPLATE = "{}_serialized.json"
     """ The name of the file/object for serialized versions of datasets, within a dataset's bucket. """
@@ -412,9 +412,9 @@ class ObjectStoreDatasetManager(DatasetManager):
             return False
 
     def create(self, name: str, category: DataCategory, domain: DataDomain, is_read_only: bool,
-               initial_data: Optional[str] = None) -> ObjectStoreDataset:
+               initial_data: Optional[str] = None) -> Dataset:
         """
-        Create a new ::class:`ObjectStoreDataset` instance and, if needed, backing object store bucket of the same name.
+        Create a new ::class:`Dataset` instance and, if needed, backing object store bucket of the same name.
 
         Parameters
         ----------
@@ -431,7 +431,7 @@ class ObjectStoreDatasetManager(DatasetManager):
 
         Returns
         -------
-        ObjectStoreDataset
+        Dataset
             A newly created dataset instance ready for use.
         """
         if name in self.datasets:
@@ -456,10 +456,10 @@ class ObjectStoreDatasetManager(DatasetManager):
             # TODO: really need a way to backpropogate this to provide information on failure
             raise e
         created_on = datetime.now()
-        access_loc = "{}{}{}".format(self._obj_store_host_str, ObjectStoreDataset._ACCESS_LOCATION_DELIMITER, name)
-        dataset = ObjectStoreDataset(name=name, category=category, data_domain=domain, manager=self,
-                                     access_location=access_loc, is_read_only=is_read_only, created_on=created_on,
-                                     last_updated=created_on)
+        access_loc = "{}://{}/{}".format('https' if self._secure_connection else 'http', self._obj_store_host_str, name)
+        dataset = Dataset(name=name, category=category, data_domain=domain, dataset_type=DatasetType.OBJECT_STORE,
+                          manager=self, access_location=access_loc, is_read_only=is_read_only, created_on=created_on,
+                          last_updated=created_on)
         self.datasets[name] = dataset
         if files_dir is not None:
             self._push_files(bucket_name=name, dir_path=files_dir, recursive=True)
@@ -662,8 +662,8 @@ class ObjectStoreDatasetManager(DatasetManager):
 
         Returns
         -------
-        ObjectStoreDataset
-            A new dataset object, loaded from a previously stored dataset.
+        Dataset
+            A new dataset object, loaded from a previously serialized dataset.
         """
         if name in self.datasets:
             raise RuntimeError("Cannot reload dataset with name {}: name already in use".format(name))
@@ -681,7 +681,11 @@ class ObjectStoreDatasetManager(DatasetManager):
             response_obj.close()
             response_obj.release_conn()
 
-        dataset = ObjectStoreDataset.factory_init_from_deserialized_json(response_data)
+        # If we can safely infer it, make sure the "type" key is set in cases when it is missing
+        if len(self.supported_dataset_types) == 1 and Dataset._KEY_TYPE not in response_data:
+            response_data[Dataset._KEY_TYPE] = list(self.supported_dataset_types)[0].name
+
+        dataset = Dataset.factory_init_from_deserialized_json(response_data)
         dataset.manager = self
         self.datasets[name] = dataset
         return dataset
@@ -721,16 +725,16 @@ class ObjectStoreDatasetManager(DatasetManager):
         return True
 
     @property
-    def supported_dataset_types(self) -> Set[Type[Dataset]]:
+    def supported_dataset_types(self) -> Set[DatasetType]:
         """
-        The set of ::class:`Dataset` subclass types that this instance supports.
+        The set of ::class:`DatasetType` values that this instance supports.
 
         Typically (but not necessarily always) this will be backed by a static or hard-coded value for the manager
         subtype.
 
         Returns
         -------
-        Set[Type[Dataset]]
-            The Set of ::class:`Dataset` subclass types that this instance supports.
+        Set[DatasetType]
+            The set of ::class:`DatasetType` values that this instance supports.
         """
         return self._SUPPORTED_TYPES
