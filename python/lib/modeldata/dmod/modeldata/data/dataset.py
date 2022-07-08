@@ -246,6 +246,31 @@ class Dataset(Serializable):
         return self._derived_from
 
     @property
+    def docker_mount(self) -> str:
+        """
+        The volume or bind mount location for this dataset, such that it can be mounted in a Docker container.
+
+        This is obtained using the callable ::attr:`DatasetType.docker_mount_func` from the instance's
+        ::attr:`dataset_type` property.
+
+        Returns
+        -------
+        str
+            The volume or bind mount location for this dataset, such that it can be mounted in a Docker container.
+
+        Raises
+        -------
+        DmodRuntimeError
+            Raised if the callable for determining this from the instance's ::class:`DatasetType` returns ``None``.
+        """
+        result = self.dataset_type.docker_mount_func(self)
+        if result is None:
+            msg = "Can't get Docker mount location for dataset {} of type {}"
+            raise DmodRuntimeError(msg.format(self.name, self.dataset_type.name))
+        else:
+            return result
+
+    @property
     def expires(self) -> Optional[datetime]:
         """
         The time after which a dataset may "expire" and be removed, or ``None`` if the dataset is not temporary.
