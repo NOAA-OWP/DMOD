@@ -639,7 +639,7 @@ class Launcher(SimpleDockerUtil):
             # Introduce a way to inject data access directly via env config, to potentially bypass things for testing
             bind_mount_from_env = getenv('DMOD_JOB_WORKER_HOST_MOUNT')
             if bind_mount_from_env is not None:
-                mounts.append('{}:/dmod/datasets/from_env:rw')
+                mounts.append('{}:/dmod/datasets/from_env:rw'.format(bind_mount_from_env))
 
             logging.info("Hostname: {}".format(alloc.hostname))
             #FIXME important that all label values are strings, otherwise docker service create hangs
