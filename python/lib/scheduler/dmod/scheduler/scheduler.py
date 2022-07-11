@@ -5,6 +5,7 @@ from requests.exceptions import ReadTimeout
 from dmod.communication import MessageEventType, NGENRequest, NWMRequest
 from dmod.core.exception import DmodRuntimeError
 from dmod.core.meta_data import DataCategory, DataFormat
+from os import getenv
 import docker
 from docker.types import Mount, SecretReference
 import yaml
@@ -635,6 +636,10 @@ class Launcher(SimpleDockerUtil):
             mounts = [pattern.format(r.fulfilled_access_at, r.category.name.lower(), r.fulfilled_by) for r in
                       job.worker_data_requirements[alloc_index] if r.fulfilled_access_at is not None]
             #mounts.append('/local/model_as_a_service/docker_host_volumes/forcing_local:/dmod/datasets/forcing_local:rw')
+            # Introduce a way to inject data access directly via env config, to potentially bypass things for testing
+            bind_mount_from_env = getenv('DMOD_JOB_WORKER_HOST_MOUNT')
+            if bind_mount_from_env is not None:
+                mounts.append('{}:/dmod/datasets/from_env:rw')
 
             logging.info("Hostname: {}".format(alloc.hostname))
             #FIXME important that all label values are strings, otherwise docker service create hangs
