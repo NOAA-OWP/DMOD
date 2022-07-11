@@ -67,6 +67,7 @@ class Dataset(Serializable):
     _KEY_DATA_DOMAIN = 'data_domain'
     _KEY_DERIVED_FROM = 'derived_from'
     _KEY_DERIVATIONS = 'derivations'
+    _KEY_DESCRIPTION = 'description'
     _KEY_EXPIRES = 'expires'
     _KEY_IS_READ_ONLY = 'is_read_only'
     _KEY_LAST_UPDATE = 'last_updated'
@@ -92,6 +93,7 @@ class Dataset(Serializable):
                        data_domain=DataDomain.factory_init_from_deserialized_json(json_obj[cls._KEY_DATA_DOMAIN]),
                        dataset_type=DatasetType.get_for_name(json_obj[cls._KEY_TYPE]),
                        access_location=json_obj[cls._KEY_ACCESS_LOCATION],
+                       description=json_obj.get(cls._KEY_DESCRIPTION, None),
                        uuid=UUID(json_obj[cls._KEY_UUID]),
                        manager_uuid=manager_uuid,
                        is_read_only=json_obj[cls._KEY_IS_READ_ONLY],
@@ -115,7 +117,7 @@ class Dataset(Serializable):
 
     def __init__(self, name: str, category: DataCategory, data_domain: DataDomain, dataset_type: DatasetType,
                  access_location: str, uuid: Optional[UUID] = None, manager: Optional['DatasetManager'] = None,
-                 manager_uuid: Optional[UUID] = None, is_read_only: bool = True, expires: Optional[datetime] = None,
+                 manager_uuid: Optional[UUID] = None, is_read_only: bool = True, description: Optional[str] = None, expires: Optional[datetime] = None,
                  derived_from: Optional[str] = None, derivations: Optional[List[str]] = None,
                  created_on: Optional[datetime] = None, last_updated: Optional[datetime] = None):
         self._name = name
@@ -126,6 +128,7 @@ class Dataset(Serializable):
         self._uuid = uuid4() if uuid is None else uuid
         self._manager = manager
         self._manager_uuid = manager.uuid if manager is not None else manager_uuid
+        self._description = description
         self._is_read_only = is_read_only
         self._expires = expires if expires is None else expires.replace(microsecond=0)
         self._derived_from = derived_from
@@ -244,6 +247,22 @@ class Dataset(Serializable):
             have been derived.
         """
         return self._derived_from
+
+    @property
+    def description(self) -> Optional[str]:
+        """
+        An optional string description of this dataset.
+
+        Returns
+        -------
+        Optional[str]
+            An optional string description of this dataset.
+        """
+        return self._description
+
+    @description.setter
+    def description(self, desc: Optional[str]):
+        self._description = desc
 
     @property
     def docker_mount(self) -> str:
@@ -475,6 +494,8 @@ class Dataset(Serializable):
             serial[self._KEY_DERIVED_FROM] = self.derived_from
         if len(self.derivations) > 0:
             serial[self._KEY_DERIVATIONS] = self.derivations
+        if self.description is not None:
+            serial[self._KEY_DESCRIPTION] = self.description
         if self.created_on is not None:
             serial[self._KEY_CREATED_ON] = self.created_on.strftime(self.get_datetime_str_format())
         if self.last_updated is not None:
