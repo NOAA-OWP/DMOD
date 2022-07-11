@@ -618,20 +618,22 @@ class Launcher(SimpleDockerUtil):
 
         service_per_allocation = []
 
+        # TODO: might want to adjust this in the future to be lazy in case not always needed
         # Get the Docker Secrets for object store data access
         # TODO (later): might need to expand to use different users for different situations (create JobType?)
         # Note that client gets docker.models.secrets.Secret objects, but service creation requires
         #   docker.types.SecretReference objects, so have to do a little manipulation
-        secrets_objects = [self.docker_client.secrets.get('object_store_exec_user_name'),
-                           self.docker_client.secrets.get('object_store_exec_user_passwd')]
-        secrets = [docker.types.SecretReference(secret_id=s.id, secret_name=s.name) for s in secrets_objects]
+        secrets = [self.get_secret_reference(secret_name) for secret_name in
+                   ['object_store_exec_user_name', 'object_store_exec_user_passwd']]
 
         for alloc_index in range(num_allocations):
             alloc = job.allocations[alloc_index]
             constraints_str = "node.hostname == {}".format(alloc.hostname)
             constraints = list(constraints_str.split("/"))
-            mounts = ['{0}:/dmod/datasets/{1}/{0}:rw'.format(r.fulfilled_by, r.category.name.lower()) for r in
-                      job.worker_data_requirements[alloc_index]]
+
+            pattern = '{}:/dmod/datasets/{}/{}:rw'
+            mounts = [pattern.format(r.fulfilled_access_at, r.category.name.lower(), r.fulfilled_by) for r in
+                      job.worker_data_requirements[alloc_index] if r.fulfilled_access_at is not None]
             #mounts.append('/local/model_as_a_service/docker_host_volumes/forcing_local:/dmod/datasets/forcing_local:rw')
 
             logging.info("Hostname: {}".format(alloc.hostname))
