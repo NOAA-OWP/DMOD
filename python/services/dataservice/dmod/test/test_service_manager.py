@@ -143,6 +143,7 @@ class TestServiceManager(unittest.TestCase):
                     "mem": 500000,
                     "model_request": {
                         "model": {
+                            "allocation_paradigm": "SINGLE_NODE",
                             "bmi_config_data_id": "simple-bmi-cfe-1",
                             "config_data_id": "huc01-simple-config-1",
                             "cpu_count": cpu_count_ex_0,
@@ -201,6 +202,7 @@ class TestServiceManager(unittest.TestCase):
                     "mem": 500000,
                     "model_request": {
                         "model": {
+                            "allocation_paradigm": "SINGLE_NODE",
                             "bmi_config_data_id": "simple-bmi-cfe-1",
                             "cpu_count": cpu_count_ex_1,
                             "config_data_id": "huc01-simple-config-1",
@@ -265,6 +267,7 @@ class TestServiceManager(unittest.TestCase):
                     "mem": 500000,
                     "model_request": {
                         "model": {
+                            "allocation_paradigm": "SINGLE_NODE",
                             "bmi_config_data_id": "simple-bmi-cfe-1",
                             "config_data_id": "huc01-simple-config-1",
                             "cpu_count": cpu_count_ex_2,
@@ -328,6 +331,7 @@ class TestServiceManager(unittest.TestCase):
                     "mem": 500000,
                     "model_request": {
                         "model": {
+                            "allocation_paradigm": "SINGLE_NODE",
                             "bmi_config_data_id": "simple-bmi-cfe-1",
                             "config_data_id": "huc01-simple-config-1",
                             "cpu_count": cpu_count_ex_3,
@@ -397,6 +401,7 @@ class TestServiceManager(unittest.TestCase):
                     "mem": 500000,
                     "model_request": {
                         "model": {
+                            "allocation_paradigm": "SINGLE_NODE",
                             "bmi_config_data_id": "simple-bmi-cfe-1",
                             "config_data_id": "huc01-simple-config-1",
                             "cpu_count": cpu_count_ex_4,
@@ -551,6 +556,7 @@ class TestServiceManager(unittest.TestCase):
                     "mem": 500000,
                     "model_request": {
                         "model": {
+                            "allocation_paradigm": "SINGLE_NODE",
                             "bmi_config_data_id": "simple-bmi-cfe-1",
                             "config_data_id": "huc01-simple-config-1",
                             "cpu_count": cpu_count_ex_5,
