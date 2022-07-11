@@ -17,6 +17,10 @@ class MockDataset(Dataset):
     def additional_init_param_deserialized(cls, json_obj: dict) -> Dict[str, Any]:
         return dict()
 
+    @property
+    def docker_mount(self) -> str:
+        return self.name
+
 
 class MockKnownDatasetsServiceManager(ServiceManager):
     """
@@ -130,6 +134,7 @@ class TestServiceManager(unittest.TestCase):
                             ]
                         },
                         "fulfilled_by": "huc01-forcings-demo-1",
+                        "fulfilled_access_at": "huc01-forcings-demo-1",
                         "is_input": True
                     }
                 ],
@@ -189,6 +194,7 @@ class TestServiceManager(unittest.TestCase):
                             ]
                         },
                         "fulfilled_by": "simple-bmi-cfe-1",
+                        "fulfilled_access_at": "simple-bmi-cfe-1",
                         "is_input": True
                     }
                 ],
@@ -254,6 +260,7 @@ class TestServiceManager(unittest.TestCase):
                             ]
                         },
                         "fulfilled_by": "huc01-hydrofabric-2021-10-28-part-8",
+                        "fulfilled_access_at": "huc01-hydrofabric-2021-10-28-part-8",
                         "is_input": True
                     }
                 ],
@@ -447,6 +454,7 @@ class TestServiceManager(unittest.TestCase):
                             ]
                         },
                         "fulfilled_by": "simple-bmi-cfe-1",
+                        "fulfilled_access_at": "simple-bmi-cfe-1",
                         "is_input": True
                     },
                     {
@@ -470,6 +478,7 @@ class TestServiceManager(unittest.TestCase):
                             ]
                         },
                         "fulfilled_by": "huc01-forcings-demo-1",
+                        "fulfilled_access_at": "huc01-forcings-demo-1",
                         "is_input": True
                     },
                     {
@@ -493,6 +502,7 @@ class TestServiceManager(unittest.TestCase):
                             ]
                         },
                         "fulfilled_by": "huc01-hydrofabric-2021-10-28-part-8",
+                        "fulfilled_access_at": "huc01-hydrofabric-2021-10-28-part-8",
                         "is_input": True
                     },
                     {
@@ -579,6 +589,158 @@ class TestServiceManager(unittest.TestCase):
             }
         self.example_jobs.append(RequestedJob.factory_init_from_deserialized_json(ex_json_5))
 
+        # Example 6 - requiring all 5 sample datasets, but without fulfillment properties set before deserialization
+        cpu_count_ex_6 = 8
+        ex_json_6 = \
+            {
+                "allocation_paradigm": "SINGLE_NODE",
+                "allocation_priority": 0,
+                "cpu_count": cpu_count_ex_6,
+                "data_requirements": [
+                    {
+                        "category": "CONFIG",
+                        "domain": {
+                            "continuous": [],
+                            "data_format": "BMI_CONFIG",
+                            "discrete": [
+                                {
+                                    "values": [
+                                        "simple-bmi-cfe-1"
+                                    ],
+                                    "variable": "DATA_ID"
+                                }
+                            ]
+                        },
+                        "is_input": True
+                    },
+                    {
+                        "category": "FORCING",
+                        "domain": {
+                            "continuous": [
+                                {
+                                    "begin": "2012-05-01 00:00:00",
+                                    "datetime_pattern": "%Y-%m-%d %H:%M:%S",
+                                    "end": "2012-06-01 00:00:00",
+                                    "subclass": "TimeRange",
+                                    "variable": "TIME"
+                                }
+                            ],
+                            "data_format": "AORC_CSV",
+                            "discrete": [
+                                {
+                                    "values": [],
+                                    "variable": "CATCHMENT_ID"
+                                }
+                            ]
+                        },
+                        "is_input": True
+                    },
+                    {
+                        "category": "HYDROFABRIC",
+                        "domain": {
+                            "continuous": [],
+                            "data_format": "NGEN_GEOJSON_HYDROFABRIC",
+                            "discrete": [
+                                {
+                                    "values": [
+                                        "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81"
+                                    ],
+                                    "variable": "HYDROFABRIC_ID"
+                                },
+                                {
+                                    "values": [
+                                        "huc01-hydrofabric-2021-10-28-part-8"
+                                    ],
+                                    "variable": "DATA_ID"
+                                }
+                            ]
+                        },
+                        "is_input": True
+                    },
+                    {
+                        "category": "CONFIG",
+                        "domain": {
+                            "continuous": [],
+                            "data_format": "NGEN_PARTITION_CONFIG",
+                            "discrete": [
+                                {
+                                    "values": [
+                                        "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81"
+                                    ],
+                                    "variable": "HYDROFABRIC_ID"
+                                },
+                                {
+                                    "values": [
+                                        8
+                                    ],
+                                    "variable": "LENGTH"
+                                }
+                            ]
+                        },
+                        "is_input": True
+                    },
+                    {
+                        "category": "CONFIG",
+                        "domain": {
+                            "continuous": [
+                                {
+                                    "begin": "2012-05-01 00:00:00",
+                                    "datetime_pattern": "%Y-%m-%d %H:%M:%S",
+                                    "end": "2012-06-01 00:00:00",
+                                    "subclass": "TimeRange",
+                                    "variable": "TIME"
+                                }
+                            ],
+                            "data_format": "NGEN_REALIZATION_CONFIG",
+                            "discrete": [
+                                {
+                                    "values": [],
+                                    "variable": "CATCHMENT_ID"
+                                },
+                                {
+                                    "values": [
+                                        "huc01-simple-config-1"
+                                    ],
+                                    "variable": "DATA_ID"
+                                }
+                            ]
+                        },
+                        "is_input": True
+                    }
+                ],
+                "job_class": "RequestedJob",
+                "job_id": "57d251f5-ab45-4e9f-8776-081d36e10c8f",
+                "last_updated": "2022-05-12 12:48:19",
+                "memory_size": 500000,
+                "originating_request": {
+                    "allocation": "SINGLE_NODE",
+                    "cpus": 4,
+                    "mem": 500000,
+                    "model_request": {
+                        "model": {
+                            "allocation_paradigm": "SINGLE_NODE",
+                            "bmi_config_data_id": "simple-bmi-cfe-1",
+                            "config_data_id": "huc01-simple-config-1",
+                            "cpu_count": cpu_count_ex_5,
+                            "hydrofabric_data_id": "huc01-hydrofabric-2021-10-28-part-8",
+                            "hydrofabric_uid": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81",
+                            "name": "ngen",
+                            "time_range": {
+                                "begin": "2012-05-01 00:00:00",
+                                "datetime_pattern": "%Y-%m-%d %H:%M:%S",
+                                "end": "2012-06-01 00:00:00",
+                                "subclass": "TimeRange",
+                                "variable": "TIME"
+                            }
+                        },
+                        "session-secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
+                    },
+                    "user_id": "someone"
+                },
+                "status": "MODEL_EXEC:AWAITING_DATA_CHECK"
+            }
+        self.example_jobs.append(RequestedJob.factory_init_from_deserialized_json(ex_json_6))
+
     @property
     def ssl_certs_dir(self):
         if self._ssl_certs_dir is None:
@@ -649,3 +811,22 @@ class TestServiceManager(unittest.TestCase):
         result = self.loop.run_until_complete(self.manager.perform_checks_for_job(job))
 
         self.assertTrue(result)
+
+    def test_perform_checks_for_job_6_a(self):
+        """ Test whether check for fulfilling job requirements for example 6 (requires all datasets, no preset fulfills). """
+        ex_num = 6
+
+        job = self.example_jobs[ex_num]
+        result = self.loop.run_until_complete(self.manager.perform_checks_for_job(job))
+
+        self.assertTrue(result)
+
+    def test_can_be_fulfilled_6_a(self):
+        """ Test whether check for can fulfilling first job requirement for example 6 (requires all datasets, no preset fulfills). """
+        ex_num = 6
+        requirement_index = 0
+
+        job = self.example_jobs[ex_num]
+        result = self.loop.run_until_complete(self.manager.can_be_fulfilled(job.data_requirements[requirement_index]))
+
+        self.assertTrue(result[0])
