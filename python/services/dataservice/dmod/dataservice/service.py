@@ -104,7 +104,7 @@ class ServiceManager(WebSocketInterface):
         Returns
         -------
         DatasetManagementResponse
-            A response indicating the success of the search and, if successful, the
+            A response indicating the success of the search and, if successful, the name of the dataset.
         """
         requirements = [DataRequirement(domain=message.data_domain, is_input=True, category=message.data_category)]
         dataset = await self._async_find_dataset_for_requirements(requirements)
