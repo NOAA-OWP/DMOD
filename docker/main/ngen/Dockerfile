@@ -230,6 +230,10 @@ RUN cd ${WORKDIR}/ngen \
     && cmake --build cmake_build -j ${BUILD_PARALLEL_JOBS} \
     #Run the tests, if they fail, the image build fails \
     && cmake_build/test/test_unit \
+    # C++ functionality isn't separate, so always build the test_bmi_cpp shared lib (also needed for test_bmi_multi) \
+    && ./build_sub extern/test_bmi_cpp \
+    && cmake_build/test/test_bmi_cpp \
+    # For the external language BMI integrations, conditionally build the test packages/libraries and run tests \
     &&  if [ "${NGEN_ACTIVATE_C}" == "ON" ]; then \
             ./build_sub extern/test_bmi_c; \
             cmake_build/test/test_bmi_c; \
