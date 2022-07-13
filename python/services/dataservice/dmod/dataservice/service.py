@@ -98,7 +98,7 @@ class ServiceManager(WebSocketInterface):
 
         Parameters
         ----------
-        message : DatasetManagementResponse
+        message : DatasetManagementMessage
             A data management message with the ``SEARCH`` :class:`ManagementAction` set.
 
         Returns
