@@ -525,9 +525,18 @@ class ServiceManager(WebSocketInterface):
                                  domain=DataDomain(data_format=job.model_request.output_formats[i],
                                                    continuous_restrictions=None if time_range is None else [time_range],
                                                    discrete_restrictions=[id_restrict]))
+            # TODO: (later) in the future, whether the job is running via Docker needs to be checked
+            # TODO: also, whatever is done here needs to align with what is done within perform_checks_for_job, when
+            #  setting the fulfilled_access_at for the DataRequirement
+            is_job_run_in_docker = True
+            if is_job_run_in_docker:
+                output_access_at = dataset.docker_mount
+            else:
+                msg = "Could not determine proper access location for new output dataset of type {} by non-Docker job {}."
+                raise DmodRuntimeError(msg.format(dataset.__class__.__name__, job.job_id))
             # Create a data requirement for the job, fulfilled by the new dataset
-            requirement = DataRequirement(domain=dataset.data_domain, is_input=False,
-                                          category=DataCategory.OUTPUT, fulfilled_by=dataset.name)
+            requirement = DataRequirement(domain=dataset.data_domain, is_input=False, category=DataCategory.OUTPUT,
+                                          fulfilled_by=dataset.name, fulfilled_access_at=output_access_at)
             job.data_requirements.append(requirement)
 
     def _determine_dataset_type(self, message: DatasetManagementMessage) -> DatasetType:
@@ -1018,6 +1027,8 @@ class ServiceManager(WebSocketInterface):
                     return False
                 elif dataset is not None:
                     # TODO: (later) in the future, whether the job is running via Docker needs to be checked
+                    # TODO: also, whatever is done here needs to align with what is done within _create_output_dataset,
+                    #  when creating the output data DataRequirement
                     is_job_run_in_docker = True
                     if is_job_run_in_docker:
                         requirement.fulfilled_access_at = dataset.docker_mount
