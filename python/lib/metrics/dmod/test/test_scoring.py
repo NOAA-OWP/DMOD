@@ -95,6 +95,19 @@ def get_thresholds(weights: typing.Dict[str, float] = None) -> typing.Sequence[T
 
 
 class TestScoring(unittest.TestCase):
+    def setUp(self) -> None:
+        self.observations = get_observations()
+        self.model_data = get_model_data()
+        self.thresholds = get_thresholds()
+        self.truth_tables = dict()
+
+        for name, data in self.model_data.items():
+            self.truth_tables[name] = metrics.categorical.TruthTables(
+                self.observations[OBSERVATION_VALUE_KEY],
+                data[MODEL_VALUE_KEY],
+                self.thresholds
+            )
+
     def test_uniform_metrics_and_thresholds(self):
         """
         Test what happens when all metrics are run for all thresholds with the same weights
@@ -103,8 +116,6 @@ class TestScoring(unittest.TestCase):
         This means that it will ALWAYS have a PoD of 1 and will have higher non-categorical results than 'Model 1'
         since 'Model 1' doesn't reflect behavior, just the crossing of thresholds
         """
-
-        thresholds: typing.Sequence[Threshold] = get_thresholds()
 
         metric_functions: typing.List[scoring.Metric] = [
             metrics.PearsonCorrelationCoefficient(1),
@@ -121,18 +132,16 @@ class TestScoring(unittest.TestCase):
 
         scheme: scoring.ScoringScheme = scoring.ScoringScheme(metric_functions)
 
-        observations = get_observations()
-        model_data = get_model_data()
-
         metric_results: typing.Dict[str, scoring.MetricResults] = dict()
 
-        for name, data in model_data.items():
-            pairs = observations.join(data).dropna(subset=[MODEL_VALUE_KEY])
+        for name, data in self.model_data.items():
+            pairs = self.observations.join(data).dropna(subset=[MODEL_VALUE_KEY])
             results = scheme.score(
                 pairs=pairs,
                 observed_value_label=OBSERVATION_VALUE_KEY,
                 predicted_value_label=MODEL_VALUE_KEY,
-                thresholds=thresholds
+                thresholds=self.thresholds,
+                truth_tables=self.truth_tables[name]
             )
             metric_results[name] = results
 
