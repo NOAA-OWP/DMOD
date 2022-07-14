@@ -25,18 +25,14 @@ import scipy.stats
 
 from pandas.api import types as pandas_types
 
+import common
 from . import scoring
 from . import threshold
 from . import categorical
 from .threshold import Threshold
 
 
-logging.basicConfig(
-    filename='metrics.log',
-    level=logging.getLevelName(os.environ.get('METRIC_LOG_LEVEL', os.environ.get("DEFAULT_LOG_LEVEL", "DEBUG"))),
-    format=os.environ.get("LOG_FORMAT", "%(asctime)s,%(msecs)d %(levelname)s: %(message)s"),
-    datefmt=os.environ.get("LOG_DATEFMT", "%H:%M:%S")
-)
+common.configure_logging()
 
 NUMBER = typing.Union[int, float]
 DEFAULT_TRUTH_TABLES_KEY = "TRUTH_TABLES"
@@ -277,13 +273,13 @@ class CategoricalMetric(scoring.Metric, abc.ABC):
         )
 
     def __call__(
-            self,
-            pairs: pandas.DataFrame,
-            observed_value_label: str,
-            predicted_value_label: str,
-            thresholds: typing.Sequence[threshold.Threshold] = None,
-            *args,
-            **kwargs
+        self,
+        pairs: pandas.DataFrame,
+        observed_value_label: str,
+        predicted_value_label: str,
+        thresholds: typing.Sequence[threshold.Threshold] = None,
+        *args,
+        **kwargs
     ) -> scoring.Scores:
         """
         Run the metric
@@ -333,11 +329,10 @@ class CategoricalMetric(scoring.Metric, abc.ABC):
         if len(tables) == 0:
             raise ValueError("No truth tables were available to perform categorical metrics on")
 
-        scores: typing.List[scoring.Score] = list()
-
-        for row_number, row in self._get_values(tables):
-            score = scoring.Score(self, row['value'], tables[row['threshold']].threshold, sample_size=row['sample_size'])
-            scores.append(score)
+        scores: typing.List[scoring.Score] = [
+            scoring.Score(self, row['value'], tables[row['threshold']].threshold, sample_size=row['sample_size'])
+            for row_number, row in self._get_values(tables)
+        ]
 
         return scoring.Scores(self, scores)
 
@@ -427,13 +422,13 @@ class PearsonCorrelationCoefficient(scoring.Metric):
         )
 
     def __call__(
-            self,
-            pairs: pandas.DataFrame,
-            observed_value_label: str,
-            predicted_value_label: str,
-            thresholds: typing.Sequence[threshold.Threshold] = None,
-            *args,
-            **kwargs
+        self,
+        pairs: pandas.DataFrame,
+        observed_value_label: str,
+        predicted_value_label: str,
+        thresholds: typing.Sequence[threshold.Threshold] = None,
+        *args,
+        **kwargs
     ) -> scoring.Scores:
         if not thresholds:
             thresholds = [threshold.Threshold.default()]
@@ -480,16 +475,16 @@ class KlingGuptaEfficiency(scoring.Metric):
         )
 
     def __call__(
-            self,
-            pairs: pandas.DataFrame,
-            observed_value_label: str,
-            predicted_value_label: str,
-            thresholds: typing.Sequence[Threshold] = None,
-            alpha_scale: float = None,
-            beta_scale: float = None,
-            gamma_scale: float = None,
-            *args,
-            **kwargs
+        self,
+        pairs: pandas.DataFrame,
+        observed_value_label: str,
+        predicted_value_label: str,
+        thresholds: typing.Sequence[Threshold] = None,
+        alpha_scale: float = None,
+        beta_scale: float = None,
+        gamma_scale: float = None,
+        *args,
+        **kwargs
     ) -> scoring.Scores:
         if alpha_scale is None or numpy.isnan(alpha_scale):
             alpha_scale = 1
@@ -571,13 +566,13 @@ class NormalizedNashSutcliffeEfficiency(scoring.Metric):
         )
 
     def __call__(
-            self,
-            pairs: pandas.DataFrame,
-            observed_value_label: str,
-            predicted_value_label: str,
-            thresholds: typing.Sequence[Threshold] = None,
-            *args,
-            **kwargs
+        self,
+        pairs: pandas.DataFrame,
+        observed_value_label: str,
+        predicted_value_label: str,
+        thresholds: typing.Sequence[Threshold] = None,
+        *args,
+        **kwargs
     ) -> scoring.Scores:
         scores: typing.List[scoring.Score] = list()
 
@@ -586,30 +581,21 @@ class NormalizedNashSutcliffeEfficiency(scoring.Metric):
             filtered_pairs = nnse_threshold(pairs)
 
             if not filtered_pairs.empty:
-                observed_values: pandas.Series[numpy.float32] = filtered_pairs[observed_value_label]
+                mean_observation = filtered_pairs[observed_value_label].mean()
 
-                numerator = filtered_pairs.apply(
-                    lambda row: (row[observed_value_label] - row[predicted_value_label])**2,
-                    axis=1
-                ).sum()
+                numerator = (filtered_pairs[observed_value_label].sub(filtered_pairs[predicted_value_label])**2).sum()
+                denominator = (filtered_pairs[observed_value_label].sub(mean_observation)**2).sum()
 
-                mean_observation = observed_values.mean()
-
-                denominator = filtered_pairs.apply(
-                    lambda row: (row[observed_value_label] - mean_observation)**2,
-                    axis=1
-                ).sum()
-
-                nash_suttcliffe_efficiency = numerator / denominator
+                nash_suttcliffe_efficiency = 1 - (numerator / denominator)
 
                 normalized_nash_sutcliffe_efficiency = 1 / (2 - nash_suttcliffe_efficiency)
 
             scores.append(
                 scoring.Score(
-                        self,
-                        normalized_nash_sutcliffe_efficiency,
-                        nnse_threshold,
-                        sample_size=len(filtered_pairs)
+                    self,
+                    normalized_nash_sutcliffe_efficiency,
+                    nnse_threshold,
+                    sample_size=len(filtered_pairs)
                 )
             )
 
@@ -633,19 +619,19 @@ class VolumeError(scoring.Metric):
             weight: The relative significance of the metric
         """
         super().__init__(
-                weight=weight,
-                ideal_value=0,
-                greater_is_better=False
+            weight=weight,
+            ideal_value=0,
+            greater_is_better=False
         )
 
     def __call__(
-            self,
-            pairs: pandas.DataFrame,
-            observed_value_label: str,
-            predicted_value_label: str,
-            thresholds: typing.Sequence[Threshold] = None,
-            *args,
-            **kwargs
+        self,
+        pairs: pandas.DataFrame,
+        observed_value_label: str,
+        predicted_value_label: str,
+        thresholds: typing.Sequence[Threshold] = None,
+        *args,
+        **kwargs
     ) -> scoring.Scores:
         scores: typing.List[scoring.Score] = list()
 

@@ -3,6 +3,8 @@ import os
 import json
 import typing
 
+from datetime import datetime
+
 import numpy
 
 import dmod.metrics.scoring as scoring
@@ -22,7 +24,7 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
     expected_results = {
         ("0214655255", "cat-27"): {
             "maximum_value_per_threshold": 68,
-            "total": 11.440416,
+            "total": 9.229883,
             "thresholds": {
                 "p50_va": [
                     {
@@ -55,8 +57,8 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                     {
                         "name": 'Normalized Nash-Sutcliffe Efficiency',
                         "failed": False,
-                        "value": 3.0870938,
-                        "scaled_value": 15.0,
+                        "value": 0.373682,
+                        "scaled_value": 5.60523,
                         "metric_weight": 15,
                         "threshold_weight": 1,
                         "threshold_name": "p50_va"
@@ -102,8 +104,8 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                     {
                         "name": 'Normalized Nash-Sutcliffe Efficiency',
                         "failed": False,
-                        "value": 3.087093818926885,
-                        "scaled_value": 15.0,
+                        "value": 0.373682,
+                        "scaled_value": 5.60523,
                         "metric_weight": 15,
                         "threshold_weight": 10,
                         "threshold_name": "p75_va"
@@ -149,8 +151,8 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                     {
                         "name": 'Normalized Nash-Sutcliffe Efficiency',
                         "failed": False,
-                        "value": 3.087093818926885,
-                        "scaled_value": 15.0,
+                        "value": 0.373682,
+                        "scaled_value": 5.60523,
                         "metric_weight": 15,
                         "threshold_weight": 5,
                         "threshold_name": "p80_va"
@@ -263,7 +265,7 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
         },
         ("0214657975", "cat-52"): {
             "maximum_value_per_threshold": 68,
-            "total": 12.341678,
+            "total": 12.018,
             "thresholds": {
                 "p50_va": [
                     {
@@ -296,8 +298,8 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                     {
                         "name": 'Normalized Nash-Sutcliffe Efficiency',
                         "failed": False,
-                        "value": 0.7156589678638015,
-                        "scaled_value": 10.734884517957022,
+                        "value": 0.623952,
+                        "scaled_value": 9.359285,
                         "metric_weight": 15,
                         "threshold_weight": 1,
                         "threshold_name": "p50_va"
@@ -343,8 +345,8 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                     {
                         "name": 'Normalized Nash-Sutcliffe Efficiency',
                         "failed": False,
-                        "value": 0.7156589678638015,
-                        "scaled_value": 10.734884517957022,
+                        "value": 0.623952,
+                        "scaled_value": 9.359285,
                         "metric_weight": 15,
                         "threshold_weight": 10,
                         "threshold_name": "p75_va"
@@ -390,8 +392,8 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                     {
                         "name": 'Normalized Nash-Sutcliffe Efficiency',
                         "failed": False,
-                        "value": 0.7156589678638015,
-                        "scaled_value": 10.734884517957022,
+                        "value": 0.623952,
+                        "scaled_value": 9.359285,
                         "metric_weight": 15,
                         "threshold_weight": 5,
                         "threshold_name": "p80_va"
@@ -593,19 +595,19 @@ class TestEvaluate(unittest.TestCase):
 
         fail_message = f"{os.linesep}{json.dumps(evaluation_results.to_dict(), indent=4)}"
 
-        expected_grade = 74.31904
+        expected_grade = 66.39966
         self.assertAlmostEqual(expected_grade, evaluation_results.grade, delta=EPSILON, msg=fail_message)
 
-        expected_mean = 11.89104
+        expected_mean = 10.6239458
         self.assertAlmostEqual(expected_mean, evaluation_results.mean, delta=EPSILON, msg=fail_message)
 
-        expected_median = 11.89104
+        expected_median = 10.6239458
         self.assertAlmostEqual(expected_median, evaluation_results.median, delta=EPSILON, msg=fail_message)
 
-        expected_std = 0.450631
+        expected_std = 1.39406
         self.assertAlmostEqual(expected_std, evaluation_results.standard_deviation, delta=EPSILON, msg=fail_message)
 
-        expected_value = 23.78209
+        expected_value = 21.24789
         self.assertAlmostEqual(expected_value, evaluation_results.value, delta=EPSILON, msg=fail_message)
 
 

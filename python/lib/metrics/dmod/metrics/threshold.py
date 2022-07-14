@@ -20,7 +20,6 @@ INDEX_TRANSFORMATION_FUNCTION = typing.Callable[[PANDAS_DATA, typing.Optional[st
 
 def value_is_indexible(value) -> bool:
     is_indexible = not isinstance(value, (str, bytes))
-    is_indexible &= isinstance(value, typing.Collection)
     is_indexible &= hasattr(value, "__getitem__")
 
     return is_indexible

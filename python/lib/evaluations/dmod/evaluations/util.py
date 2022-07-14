@@ -4,7 +4,7 @@ import inspect
 import string
 import re
 import logging
-import enum
+import logging.handlers
 import os
 
 from datetime import datetime
@@ -39,12 +39,59 @@ def configure_logging() -> typing.NoReturn:
     """
     Forms a very basic logger
     """
+    # Remove preexisting StreamHandlers - this will reduce the possibility of having multiple writes to stdout and
+    # make sure only the correct level is written to
+    preexisting_streamhandlers = [
+        handler
+        for handler in logging.getLogger().handlers
+        if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler)
+    ]
+
+    for stream_handler in preexisting_streamhandlers:
+        logging.getLogger().removeHandler(stream_handler)
+
+    level = logging.getLevelName(os.environ.get('EVALUATION_LOG_LEVEL', os.environ.get("DEFAULT_LOG_LEVEL", "INFO")))
+    log_format = os.environ.get("LOG_FORMAT", "[%(asctime)s] %(levelname)s: %(message)s")
+    date_format = os.environ.get("LOG_DATEFMT", "%Y-%m-%d %H:%M:%S%z")
+
     logging.basicConfig(
-        filename='evaluations.log',
-        level=logging.getLevelName(os.environ.get('EVALUATION_LOG_LEVEL', os.environ.get("DEFAULT_LOG_LEVEL", "DEBUG"))),
-        format=os.environ.get("LOG_FORMAT", "%(asctime)s,%(msecs)d %(levelname)s: %(message)s"),
-        datefmt=os.environ.get("LOG_DATEFMT", "%H:%M:%S")
+        format=log_format,
+        datefmt=date_format,
+        level=logging.DEBUG
     )
+
+    log_formatter = logging.Formatter(log_format)
+
+    file_handler = logging.handlers.TimedRotatingFileHandler("evaluations.log", when='D', backupCount=14)
+    file_handler.setLevel(level)
+    file_handler.setFormatter(log_formatter)
+    logging.getLogger().addHandler(file_handler)
+
+    stdout_handler = logging.StreamHandler()
+    stdout_handler.setLevel(level)
+    stdout_handler.setFormatter(log_formatter)
+    logging.getLogger().addHandler(stdout_handler)
+
+    udp_port = os.environ.get("UDP_LOG_PORT")
+
+    if udp_port:
+        udp_port = int(float(udp_port))
+        other_udp_handlers = [
+            handler
+            for handler in logging.getLogger().handlers
+            if isinstance(handler, logging.handlers.DatagramHandler)
+               and handler.port == udp_port
+        ]
+
+        if not other_udp_handlers:
+            udp_handler = logging.handlers.DatagramHandler(
+                host="127.0.0.1",
+                port=udp_port
+            )
+            udp_level = os.environ.get("UDP_LOG_LEVEL") or "DEBUG"
+            udp_handler.setLevel(logging.getLevelName(udp_level))
+            udp_handler.setFormatter(log_formatter)
+            logging.getLogger().addHandler(udp_handler)
 
 
 def each(collection: typing.Iterable[_T], func: typing.Callable[[_T], typing.NoReturn]):
@@ -69,24 +116,6 @@ def each(collection: typing.Iterable[_T], func: typing.Callable[[_T], typing.NoR
     """
     for element in collection:
         func(element)
-
-
-class Verbosity(enum.IntEnum):
-    """
-    An enumeration detailing the density of information that may be transmitted, not to logs,
-    but through things like streams and communicators
-    """
-    QUIET = enum.auto()
-    """Emit very little information"""
-
-    NORMAL = enum.auto()
-    """Emit a baseline amount of information"""
-
-    LOUD = enum.auto()
-    """Emit a lot of detailed (often diagnostic) information"""
-
-    ALL = enum.auto()
-    """Emit everything, including raw data"""
 
 
 _CLASS_TYPE = typing.TypeVar('_CLASS_TYPE')

@@ -4,6 +4,7 @@ import json
 
 import pandas
 
+from dmod.metrics.communication import Verbosity
 import dmod.metrics as metrics
 
 from . import util
@@ -12,8 +13,6 @@ from . import crosswalk
 from . import data_retriever
 from . import threshold
 from . import measurement_units
-
-from .util import Verbosity
 
 COMMUNICATORS = typing.Union[metrics.Communicator, typing.Sequence[metrics.Communicator]]
 
@@ -77,12 +76,12 @@ class Evaluator:
         self._predicted_xaxis: typing.Optional[str] = None
         self._verbosity = verbosity or Verbosity.QUIET
 
-        if communicators is None:
-            self._communicators: typing.Sequence[metrics.Communicator] = list()
-        elif isinstance(communicators, metrics.Communicator):
-            self._communicators: typing.Sequence[metrics.Communicator] = [communicators]
+        if isinstance(communicators, metrics.Communicators):
+            self._communicators: metrics.Communicators = communicators
+        elif isinstance(communicators, typing.Iterable) or isinstance(communicators, metrics.Communicator):
+            self._communicators: metrics.Communicators = metrics.Communicators(communicators)
         else:
-            self._communicators: typing.Sequence[metrics.Communicator] = communicators
+            self._communicators: metrics.Communicators = metrics.Communicators()
 
         self._set_field_names()
         self._converter = UnitConverter(self._predicted_value_field, "unit_prediction", "unit_observation")
@@ -177,9 +176,12 @@ class Evaluator:
                           f"{crosswalk_definition.prediction_field_name}) don't match previous " \
                           f"field names ({observed_location_label} and {predicted_location_label})"
                 mismatch_exception = ValueError(message)
-
-                if self._verbosity > Verbosity.NORMAL:
-                    util.each(self._communicators, lambda comm: comm.error(message, mismatch_exception, publish=True))
+                self._communicators.error(
+                    message,
+                    mismatch_exception,
+                    verbosity=Verbosity.NORMAL,
+                    publish=True
+                )
 
                 raise mismatch_exception
 
@@ -189,8 +191,12 @@ class Evaluator:
                           f"field name ({observed_location_label})"
                 mismatch_exception = ValueError(message)
 
-                if self._verbosity > Verbosity.NORMAL:
-                    util.each(self._communicators, lambda comm: comm.error(message, mismatch_exception, publish=True))
+                self._communicators.error(
+                    message,
+                    mismatch_exception,
+                    verbosity=Verbosity.NORMAL,
+                    publish=True
+                )
 
                 raise mismatch_exception
             elif predicted_is_mismatched:
@@ -199,8 +205,12 @@ class Evaluator:
                           f"field name ({predicted_location_label})"
                 mismatch_exception = ValueError(message)
 
-                if self._verbosity > Verbosity.NORMAL:
-                    util.each(self._communicators, lambda comm: comm.error(message, mismatch_exception, publish=True))
+                self._communicators.error(
+                    message,
+                    mismatch_exception,
+                    verbosity=Verbosity.NORMAL,
+                    publish=True
+                )
 
                 raise mismatch_exception
 
@@ -219,28 +229,33 @@ class Evaluator:
         """
         crosswalk_data = self.get_crosswalk()
 
-        if self._verbosity == Verbosity.ALL:
-            data = crosswalk_data.to_dict()
-            util.each(self._communicators, lambda communicator: communicator.write(reason="crosswalk", data=data))
+        if self._verbosity == Verbosity.ALL and self._communicators.send_all():
+            self._communicators.write(reason="crosswalk", data=crosswalk_data.to_dict(), verbosity=Verbosity.ALL)
 
         data_to_evaluate = self.get_data_to_evaluate(crosswalk_data)
         data_to_evaluate = self.normalize_values(data_to_evaluate)
 
-        if self._verbosity >= Verbosity.LOUD:
-            util.each(self._communicators, lambda communicator: communicator.info("Data to evaluate has been collected", publish=True))
+        self._communicators.info(
+            "Data to evaluate has been collected",
+            verbosity=Verbosity.LOUD,
+            publish=True
+        )
 
         thresholds = self.get_thresholds()
 
-        if self._verbosity >= Verbosity.LOUD:
-            util.each(self._communicators, lambda communicator: communicator.info("Thresholds have been collected", publish=True))
+        self._communicators.info(
+            "Thresholds have been collected",
+            verbosity=Verbosity.LOUD,
+            publish=True
+        )
 
         scores = self.score(data_to_evaluate, thresholds)
 
         evaluation_results = specification.EvaluationResults(self._instructions, scores)
 
-        if self._verbosity == Verbosity.ALL:
+        if self._verbosity == Verbosity.ALL and self._communicators.send_all():
             data = evaluation_results.to_dict()
-            util.each(self._communicators, lambda communicator: communicator.write(reason="evaluation_result", data=data))
+            self._communicators.write(reason="evaluation_result", data=data, verbosity=Verbosity.ALL)
 
         return evaluation_results
 
@@ -272,16 +287,17 @@ class Evaluator:
 
             util.each(
                 self._instructions.crosswalks,
-                lambda crosswalk: additional_information.append(f"No crosswalk data was found at {str(crosswalk)}")
+                lambda cross: additional_information.append(f"No crosswalk data was found at {str(cross)}")
             )
 
             missing_data_details = os.linesep + os.linesep.join(additional_information)
 
-            if self._verbosity > Verbosity.NORMAL:
-                util.each(
-                    self._communicators,
-                    lambda communicator: communicator.error(message + missing_data_details, missing_data_exception, publish=True)
-                )
+            self._communicators.error(
+                message + missing_data_details,
+                missing_data_exception,
+                verbosity=Verbosity.NORMAL,
+                publish=True
+            )
 
             raise missing_data_exception
 
@@ -299,11 +315,11 @@ class Evaluator:
         """
         observations: typing.Optional[pandas.DataFrame] = None
 
-        if self._verbosity >= Verbosity.LOUD:
-            util.each(
-                self._communicators,
-                lambda communicator: communicator.info("Loading evaluation input data", publish=True)
-            )
+        self._communicators.info(
+            "Loading evaluation input data",
+            verbosity=Verbosity.LOUD,
+            publish=True
+        )
 
         for observation_definition in self._instructions.observations:
             found_observations = data_retriever.read(observation_definition)
@@ -316,11 +332,11 @@ class Evaluator:
             else:
                 observations = pandas.concat([observations, found_observations])
 
-        if self._verbosity >= Verbosity.LOUD:
-            util.each(
-                self._communicators,
-                lambda communicator: communicator.info("Finished loading observation data", publish=True)
-            )
+        self._communicators.info(
+            "Finished loading observation data",
+            verbosity=Verbosity.LOUD,
+            publish=True
+        )
 
         predictions: typing.Optional[pandas.DataFrame] = None
 
@@ -335,11 +351,11 @@ class Evaluator:
             else:
                 predictions = pandas.concat([predictions, found_predictions])
 
-        if self._verbosity >= Verbosity.LOUD:
-            util.each(
-                self._communicators,
-                lambda communicator: communicator.info("Finished loading prediction data", publish=True)
-            )
+        self._communicators.info(
+            "Finished loading prediction data",
+            verbosity=Verbosity.LOUD,
+            publish=True
+        )
 
         data = observations.merge(right=crosswalk_data, on=self._observed_location_field)
         data = data.merge(
@@ -349,11 +365,11 @@ class Evaluator:
             suffixes=('_observation', '_prediction')
         )
 
-        if self._verbosity >= Verbosity.LOUD:
-            util.each(
-                self._communicators,
-                lambda communicator: communicator.info("Finished joining observation and prediction data", publish=True)
-            )
+        self._communicators.info(
+            "Finished joining observation and prediction data",
+            verbosity=Verbosity.LOUD,
+            publish=True
+        )
 
         thresholds_with_rules = [
             threshold_spec
@@ -403,11 +419,11 @@ class Evaluator:
 
             data = data.set_index(keys=index_fields, drop=True)
 
-        if thresholds_with_rules and self._verbosity >= Verbosity.LOUD:
-            util.each(
-                self._communicators,
-                lambda communicator: communicator.info("Finished applying special threshold rules to loaded values")
-            )
+        self._communicators.info(
+            "Finished applying special threshold rules to loaded values",
+            verbosity=Verbosity.LOUD,
+            publish=True
+        )
 
         return data
 
@@ -432,14 +448,11 @@ class Evaluator:
 
         data_to_evaluate["unit_prediction"] = data_to_evaluate["unit_observation"]
 
-        if self._verbosity >= Verbosity.LOUD:
-            util.each(
-                self._communicators,
-                lambda communicator: communicator.info(
-                    "Finished converting all data into a uniform measurement unit",
-                    publish=True
-                )
-            )
+        self._communicators.info(
+            "Finished converting all data into a uniform measurement unit",
+            verbosity=Verbosity.LOUD,
+            publish=True
+        )
 
         return data_to_evaluate
 
@@ -477,7 +490,7 @@ class Evaluator:
         Returns:
             A mapping between the locations being evaluated and the results of the metrics performed on them
         """
-        scheme = self._instructions.scheme.generate_scheme()
+        scheme = self._instructions.scheme.generate_scheme(self._communicators)
 
         groupby_columns = [
             self._observed_location_field,
@@ -490,11 +503,16 @@ class Evaluator:
             location_identifier = identifiers[0]
             location_thresholds = thresholds.get(location_identifier)
 
-            if self._verbosity >= Verbosity.LOUD:
-                util.each(
-                    self._communicators,
-                    lambda communicator: communicator.info(f"Creating truth tables for {str(identifiers)}", publish=True)
-                )
+            metadata = {
+                "observed_location": identifiers[0],
+                "predicted_location": identifiers[1],
+            }
+
+            self._communicators.info(
+                f"Creating truth tables for {str(identifiers)}",
+                verbosity=Verbosity.LOUD,
+                publish=True
+            )
 
             truth_tables = metrics.categorical.TruthTables(
                 group[self._observed_value_field],
@@ -502,11 +520,11 @@ class Evaluator:
                 location_thresholds
             )
 
-            if self._verbosity >= Verbosity.LOUD:
-                util.each(
-                    self._communicators,
-                    lambda communicator: communicator.info(f"Scoring {str(identifiers)}", publish=True)
-                )
+            self._communicators.info(
+                f"Scoring {str(identifiers)}",
+                verbosity=Verbosity.LOUD,
+                publish=True
+            )
 
             if location_thresholds:
                 location_scores = scheme.score(
@@ -514,6 +532,7 @@ class Evaluator:
                     self._observed_value_field,
                     self._predicted_value_field,
                     location_thresholds,
+                    metadata=metadata,
                     truth_tables=truth_tables
                 )
                 scores[identifiers] = location_scores
@@ -523,13 +542,14 @@ class Evaluator:
                         "predicted_location": identifiers[1],
                         "scores": location_scores.rows()
                     }
-                    util.each(self._communicators, lambda communicator: communicator.write(reason="scores", data=data))
+                    reason = "location_scores"
+                    self._communicators.write(reason=reason, data=data)
 
-        if self._verbosity >= Verbosity.LOUD:
-            util.each(
-                self._communicators,
-                lambda communicator: communicator.info("All locations have been evaluated", publish=True)
-            )
+        self._communicators.info(
+            "All locations have been evaluated",
+            verbosity=Verbosity.LOUD,
+            publish=True
+        )
 
         return scores
 

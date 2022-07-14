@@ -20,15 +20,7 @@ NUMBER = typing.Union[float, int]
 
 
 def series_has_activity(series: pandas.Series) -> bool:
-    if series.dtype in (int, float):
-        return series.count() > 0
-    return len(
-            [
-                val
-                for val in series
-                if bool(val)
-            ]
-    ) > 0
+    return series.any()
 
 
 def value_hit(observation: float, prediction: float) -> bool:
@@ -56,11 +48,11 @@ def value_was_a_false_positive(observation: float, prediction: float) -> bool:
 
 
 def categorical_metric(
-        minimum: float = -math.inf,
-        maximum: float = math.inf,
-        ideal: float = None,
-        failure: float = None,
-        greater_is_better: bool = None
+    minimum: float = -math.inf,
+    maximum: float = math.inf,
+    ideal: float = None,
+    failure: float = None,
+    greater_is_better: bool = None
 ):
     """
     Mixin used to attach several important attributes to categorical metrics used for interpretion after the fact.
@@ -127,13 +119,13 @@ class CategoricalMetricMetadata(object):
         greater_is_better: Indicates if a higher value is better than a lower value
     """
     def __init__(
-            self,
-            name: str,
-            maximum: NUMBER,
-            minimum: NUMBER,
-            ideal: NUMBER,
-            failure: NUMBER,
-            greater_is_better: bool = None
+        self,
+        name: str,
+        maximum: NUMBER,
+        minimum: NUMBER,
+        ideal: NUMBER,
+        failure: NUMBER,
+        greater_is_better: bool = None
     ):
         """
         Constructor
@@ -277,12 +269,12 @@ class TruthTable(object):
         clean_metric_name = metric_name.replace("_", " ").title()
 
         return CategoricalMetricMetadata(
-                name=clean_metric_name,
-                maximum=metric_function.maximum,
-                minimum=metric_function.minimum,
-                ideal=metric_function.ideal,
-                failure=metric_function.failure,
-                greater_is_better=metric_function.greater_is_better
+            name=clean_metric_name,
+            maximum=metric_function.maximum,
+            minimum=metric_function.minimum,
+            ideal=metric_function.ideal,
+            failure=metric_function.failure,
+            greater_is_better=metric_function.greater_is_better
         )
 
     def __init__(self, observations: pandas.Series, predictions: pandas.Series, threshold: Threshold):
@@ -296,56 +288,70 @@ class TruthTable(object):
         """
         self.__name = threshold.name or "Unknown"
         self.__threshold = threshold
-        """
-        Create a DataFrame with four columns:
-            * observation_counts: The value of the observation if it fits the threshold, nan Otherwise
-            * prediction_counts: The value of the prediction if it fits the threshold, nan otherwise
-            * observations: All passed observed values
-            * predictions: All passed simulated values
-        """
-        number_of_observed_hits = threshold(observations)
-        number_of_predicted_hits = threshold(predictions)
-        matches = pandas.DataFrame(
-                {
-                    "observation_counts": number_of_observed_hits,
-                    "prediction_counts": number_of_predicted_hits,
-                    "observations": observations,
-                    "predictions": predictions
-                },
-                index=observations.index
-        )
 
-        # Derive the four cells of the truth table
-        matches['hit'] = matches.apply(
-                lambda row: value_hit(row['observation_counts'], row['prediction_counts']),
-                axis=1
-        )
-        matches['true_negative'] = matches.apply(
-                lambda row: nothing_happened(row['observation_counts'], row['prediction_counts']),
-                axis=1
-        )
-        matches['false_positive'] = matches.apply(
-                lambda row: value_was_a_false_positive(row['observation_counts'], row['prediction_counts']),
-                axis=1
-        )
-        matches['miss'] = matches.apply(
-                lambda row: value_missed(row['observation_counts'], row['prediction_counts']),
-                axis=1
-        )
+        observed_values_that_matter = threshold(observations)
+        predicted_values_that_matter = threshold(predictions)
+
+        self.__observation_had_activity = observed_values_that_matter.any()
+        self.__predictions_had_activity = predicted_values_that_matter.any()
+
+        # Creates a contingency table matching:
+        #
+        #  Observations     False                   True
+        #  Predictions
+        #  False            True Negative           Miss                    Predicted Negatives
+        #  True             False Alarm             Hit                     Predicted Positives
+        #                   Observed Negatives      Observed Positives      Total
+        #
+        #   For Example:
+        #
+        #  Observations     False       True
+        #  Predictions
+        #  False            51          2       53
+        #  True             0           1       1
+        #                   51          3       54
+        # contingency_table[False] => 51, 0
+        # contingency_table[True] => 2, 1
+        #
+        #
+        # contingency_table[Observed Event][Predicted Event]
+        #
+        # hits: contingency_table[True][True]
+        # misses: contingency_table[True][False]
+        # true negatives: contingency_table[False][False]
+        # False Positives: contingency_table[False][True]
+        #
+        contingency_table = pandas.crosstab(predicted_values_that_matter.values, observed_values_that_matter.values)
 
         # Store evaluated parameters so they don't have to be evaluated multiple times
-        self.__observation_had_activity = series_has_activity(matches.observation_counts)
-        self.__predictions_had_activity = series_has_activity(matches.prediction_counts)
+        self.__hits = 0
+        self.__false_positives = 0
+        self.__true_negatives = 0
+        self.__misses = 0
 
-        self.__hits = len(matches[matches.hit == True])
-        self.__true_negatives = len(matches[matches.true_negative == True])
-        self.__false_positives = len(matches[matches.false_positive == True])
-        self.__misses = len(matches[matches.miss == True])
+        if True in contingency_table:
+            self.__hits = contingency_table[True][True] if True in contingency_table[True] else 0
+            self.__misses = contingency_table[True][False] if False in contingency_table[True] else 0
 
-        self.__size = len(matches)
+        if False in contingency_table:
+            self.__true_negatives = contingency_table[False][False] if False in contingency_table[False] else 0
+            self.__false_positives = contingency_table[False][True] if True in contingency_table[False] else 0
 
-        self.__positives = self.__hits + self.__misses
-        self.__negatives = self.__false_positives + self.__true_negatives
+        # Adds the values in each column together, then adds those numbers togethers.
+        #
+        # From the Example above:
+        #
+        #  Observations     False       True
+        #  Predictions
+        #  False            51          2
+        #  True             0           1
+        #
+        #  contingency_table.sum() => (False, 51), (True, 3)
+        #  contingency_table.sum().sum() => 54
+        self.__size = contingency_table.sum().sum()
+
+        self.__observed_positives = self.__hits + self.__misses
+        self.__observed_negatives = self.__false_positives + self.__true_negatives
         self.__predicted_positives = self.__hits + self.__false_positives
         self.__predicted_negatives = self.__misses + self.__true_negatives
 
@@ -435,7 +441,7 @@ class TruthTable(object):
             return self.__probability_of_detection
 
         top = self.__hits
-        bottom = self.__positives
+        bottom = self.__observed_positives
 
         if bottom == 0:
             return numpy.nan
@@ -721,12 +727,12 @@ class TruthTables(object):
     A collection of truth tables organized by threshold
     """
     def __init__(
-            self,
-            observations: pandas.Series = None,
-            predictions: pandas.Series = None,
-            thresholds: typing.Iterable[Threshold] = None,
-            tables: typing.Iterable[TruthTable] = None,
-            weight: float = None,
+        self,
+        observations: pandas.Series = None,
+        predictions: pandas.Series = None,
+        thresholds: typing.Iterable[Threshold] = None,
+        tables: typing.Iterable[TruthTable] = None,
+        weight: float = None,
     ):
         """
         Constructor
@@ -743,7 +749,7 @@ class TruthTables(object):
         """
         if weight is not None and weight <= 0:
             raise ValueError(
-                    f"If defined, the weight of this truth table must be greater than 0; the passed weight was {weight}"
+                f"If defined, the weight of this truth table must be greater than 0; the passed weight was {weight}"
             )
 
         self.__tables: typing.Dict[str, TruthTable] = dict()
@@ -768,10 +774,10 @@ class TruthTables(object):
         self.__usefullness = numpy.nan
 
     def create_table(
-            self,
-            observations: pandas.Series,
-            predictions: pandas.Series,
-            threshold: Threshold
+        self,
+        observations: pandas.Series,
+        predictions: pandas.Series,
+        threshold: Threshold
     ) -> "TruthTables":
         """
         Builds a new truth table and adds it to the collection of tables
@@ -813,7 +819,7 @@ class TruthTables(object):
         """
         if table.name in self.__tables:
             raise ValueError(
-                    f"There is already a truth table named '{table.name}' in this set of truth tables"
+                f"There is already a truth table named '{table.name}' in this set of truth tables"
             )
 
         self.__tables[table.name] = table
@@ -1076,14 +1082,14 @@ class TruthTables(object):
         for table in self.__tables.values():
             for metric in TruthTable.metrics():
                 metric_data.append(
-                        {
-                            "series_weight": self.__weight,
-                            "threshold": table.name,
-                            "threshold_weight": table.weight,
-                            "metric": metric,
-                            "value": getattr(table, metric)(),
-                            "sample_size": len(table)
-                        }
+                    {
+                        "series_weight": self.__weight,
+                        "threshold": table.name,
+                        "threshold_weight": table.weight,
+                        "metric": metric,
+                        "value": getattr(table, metric)(),
+                        "sample_size": len(table)
+                    }
                 )
 
         return pandas.DataFrame(metric_data)

@@ -2,13 +2,12 @@
 import os
 import typing
 import json
-import logging
 
 from time import sleep
 from datetime import datetime
 from argparse import ArgumentParser
 
-from dmod.evaluations.util import Verbosity
+from dmod.metrics import Verbosity
 
 from dmod.evaluations.evaluate import Evaluator
 
@@ -152,19 +151,20 @@ def evaluate(evaluation_id: str, definition_json: str, arguments: Arguments = No
 
     sleep(delay_seconds)
 
-    communicator = utilities.get_communicator(
+    communicators = utilities.get_communicators(
         communicator_id=evaluation_id,
+        verbosity=verbosity,
         host=redis_host,
         port=redis_port,
         password=redis_password
     )
 
-    print(f"Writing to {communicator}")
+    print(f"Writing to {communicators}")
 
     error_key = "::".join([utilities.redis_prefix(), evaluation_id, "ERRORS"])
     message_key = "::".join([utilities.redis_prefix(), evaluation_id, "MESSAGES"])
 
-    communicator.update(
+    communicators.update(
         created_at=utilities.now().strftime(utilities.datetime_format()),
         failed=False,
         complete=False,
@@ -176,27 +176,27 @@ def evaluate(evaluation_id: str, definition_json: str, arguments: Arguments = No
         definition = json.loads(definition_json)
     except Exception as exception:
         message = "The evaluation instructions could not be loaded"
-        communicator.error(message, exception, should_publish)
-        communicator.error(definition_json, None, should_publish)
-        communicator.update(failed=True)
-        communicator.sunset(60*3)
+        communicators.error(message, exception, publish=should_publish)
+        communicators.error(definition_json, None, publish=should_publish)
+        communicators.update(failed=True)
+        communicators.sunset(60*3)
         raise exception
 
     try:
-        evaluator = Evaluator(definition, communicators=communicator, verbosity=verbosity)
-        communicator.info(f"starting {evaluation_id}", publish=should_publish)
+        evaluator = Evaluator(definition, communicators=communicators, verbosity=verbosity)
+        communicators.info(f"starting {evaluation_id}", publish=should_publish)
         results = evaluator.evaluate()
-        communicator.info(f"Result: {results.grade}%", publish=should_publish)
-        communicator.info(f"{evaluation_id} complete; now writing results")
+        communicators.info(f"Result: {results.grade}%", publish=should_publish)
+        communicators.info(f"{evaluation_id} complete; now writing results")
         writing.write(evaluation_id=evaluation_id, results=results)
-        communicator.info(f"Data from {evaluation_id} was written.")
+        communicators.info(f"Data from {evaluation_id} was written.")
     except Exception as e:
-        communicator.error(f"{e.__class__.__name__}: {e}", e, should_publish)
-        communicator.update(failed=True)
-        communicator.sunset(60*3)
+        communicators.error(f"{e.__class__.__name__}: {e}", e, publish=should_publish)
+        communicators.update(failed=True)
+        communicators.sunset(60*3)
     finally:
-        communicator.update(complete=True)
-        communicator.info(f"{evaluation_id} is complete", should_publish)
+        communicators.update(complete=True)
+        communicators.info(f"{evaluation_id} is complete", publish=should_publish)
 
 
 def main(arguments: Arguments = None):
