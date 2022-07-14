@@ -128,10 +128,10 @@ class TestMetrics(unittest.TestCase):
         )
 
         self.assertEqual(len(scores), len(self.thresholds))
-        self.assertAlmostEqual(scores['All'].value, 4.665143, delta=EPSILON)
-        self.assertAlmostEqual(scores['Minor'].value, 0.6664911, delta=EPSILON)
-        self.assertAlmostEqual(scores['Moderate'].value, 1.0693, delta=EPSILON)
-        self.assertAlmostEqual(scores['Major'].value, -0.008583, delta=EPSILON)
+        self.assertAlmostEqual(scores['All'].value, 0.358983, delta=EPSILON)
+        self.assertAlmostEqual(scores['Minor'].value, 0.6668423, delta=EPSILON)
+        self.assertAlmostEqual(scores['Moderate'].value,  0.484302, delta=EPSILON)
+        self.assertAlmostEqual(scores['Major'].value, 0.008368, delta=EPSILON)
         self.assertTrue(numpy.isnan(scores['Record'].value))
 
     def test_volume_error(self):

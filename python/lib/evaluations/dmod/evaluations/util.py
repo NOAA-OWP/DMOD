@@ -57,7 +57,7 @@ def configure_logging() -> typing.NoReturn:
     logging.basicConfig(
         format=log_format,
         datefmt=date_format,
-        level=logging.DEBUG
+        level=min(level, logging.DEBUG) if 'UDP_LOG_PORT' in os.environ else level
     )
 
     log_formatter = logging.Formatter(log_format)
