@@ -13,6 +13,8 @@ import pandas
 import numpy
 
 from .threshold import Threshold
+from .communication import Verbosity
+from .communication import Communicators
 
 ARGS = typing.Optional[typing.Sequence]
 KWARGS = typing.Optional[typing.Dict[str, typing.Any]]
@@ -257,6 +259,7 @@ class Metric(
         observed_value_label: str,
         predicted_value_label: str,
         thresholds: typing.Sequence[Threshold] = None,
+        communicators: Communicators = None,
         *args,
         **kwargs
     ) -> "Scores":
@@ -306,7 +309,7 @@ class Score(object):
 
         failed = difference < EPSILON
 
-        return failed
+        return bool(failed)
 
     @property
     def sample_size(self):
@@ -343,7 +346,24 @@ class Scores(abstract_collections.Sized, abstract_collections.Iterable):
         if len(self.__results) == 0:
             raise ValueError("There are no scores to total")
 
-        return sum([score.scaled_value for score in self.__results])
+        return sum([score.scaled_value for score in self.__results.values()])
+
+    def to_dict(self) -> dict:
+        score_representation = {
+            "total": self.total,
+            "scores": dict()
+        }
+
+        for threshold, score in self.__results.items():  # type: Threshold, Score
+            score_representation['scores'][str(threshold)] = {
+                "value": score.value,
+                "scaled_value": score.scaled_value,
+                "sample_size": score.sample_size,
+                "failed": score.failed,
+                "weight": score.threshold.weight
+            }
+
+        return score_representation
 
     def __getitem__(self, key: typing.Union[str, Threshold]) -> Score:
         if isinstance(key, Threshold):
@@ -496,6 +516,7 @@ class MetricResults(object):
                 threshold_factor = threshold_score / max_per_threshold
                 threshold_score = threshold.weight * threshold_factor
             count += 1
+
             total_score = self.__aggregator(total_score, threshold_score, count)
 
         return total_score
@@ -549,10 +570,12 @@ class ScoringScheme(object):
     def __init__(
         self,
         metrics: typing.Sequence[Metric] = None,
-        aggregator: NUMERIC_OPERATOR = None
+        aggregator: NUMERIC_OPERATOR = None,
+        communicators: Communicators = None
     ):
         self.__aggregator = aggregator or ScoringScheme.get_default_aggregator()
         self.__metrics = metrics or list()
+        self.__communicators = communicators or Communicators()
 
     def score(
         self,
@@ -561,6 +584,7 @@ class ScoringScheme(object):
         predicted_value_label: str,
         thresholds: typing.Sequence[Threshold] = None,
         weight: NUMBER = None,
+        metadata: dict = None,
         *args,
         **kwargs
     ) -> MetricResults:
@@ -573,7 +597,8 @@ class ScoringScheme(object):
 
         results = MetricResults(aggregator=self.__aggregator, weight=weight)
 
-        for metric in self.__metrics:
+        for metric in self.__metrics:  # type: Metric
+            self.__communicators.info(f"Calling {metric.name}", verbosity=Verbosity.LOUD, publish=True)
             scores = metric(
                 pairs=pairs,
                 observed_value_label=observed_value_label,
@@ -583,5 +608,19 @@ class ScoringScheme(object):
                 **kwargs
             )
             results.add_scores(scores)
+
+            if self.__communicators.send_all():
+                message = {
+                    "metric": scores.metric.name,
+                    "description": scores.metric.get_descriptions(),
+                    "weight": scores.metric.weight,
+                    "total": scores.total,
+                    "scores": scores.to_dict()
+                }
+
+                if metadata:
+                    message['metadata'] = metadata
+
+                self.__communicators.write(reason="metric", data=message, verbosity=Verbosity.ALL)
 
         return results

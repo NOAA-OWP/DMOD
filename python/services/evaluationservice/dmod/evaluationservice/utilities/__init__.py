@@ -7,7 +7,12 @@ from .communication import get_evaluation_pointers
 from .communication import get_evaluation_key
 
 from dmod.metrics import Communicator
+from dmod.metrics import Communicators
 
 
 def get_communicator(communicator_id: str, **kwargs) -> Communicator:
     return RedisCommunicator(communicator_id=communicator_id, **kwargs)
+
+
+def get_communicators(communicator_id: str, **kwargs) -> Communicators:
+    return Communicators(get_communicator(communicator_id, **kwargs))

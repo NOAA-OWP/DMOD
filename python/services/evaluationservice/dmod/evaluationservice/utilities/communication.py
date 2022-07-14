@@ -281,15 +281,32 @@ class RedisCommunicator(communication.Communicator):
             self.error(message, exception)
             raise exception
 
-    def error(self, message: str, exception: Exception = None, publish: bool = None):
+    def error(
+        self,
+        message: str,
+        exception: Exception = None,
+        verbosity: communication.Verbosity = None,
+        publish: bool = None
+    ):
         """
         Publishes an error to the communicator's set of error messages
 
         Args:
             message: The error message
             exception: An exception that caused the error
+            verbosity: The significance of the message. If given, the message will only be recorded if the
+                        vebosity matches or exceeds the communicator's verbosity
             publish: Whether to write the message to the channel
         """
+        if exception:
+            formatted_exception = traceback.format_exc()
+            logging.error(formatted_exception)
+        else:
+            logging.error(message)
+
+        if verbosity and self._verbosity < verbosity:
+            return
+
         if self.__include_timestamp:
             timestamp = common.now()
             message = f"[{timestamp}] {message}"
@@ -299,13 +316,7 @@ class RedisCommunicator(communication.Communicator):
         if publish:
             self.write(reason="error", data={"error": message})
 
-        if exception:
-            formatted_exception = traceback.format_exc()
-            logging.error(formatted_exception)
-        else:
-            logging.error(message)
-
-    def info(self, message: str, publish: bool = None):
+    def info(self, message: str, verbosity: communication.Verbosity = None, publish: bool = None):
         """
         Publishes a message to the communicator's set of basic information.
 
@@ -323,8 +334,13 @@ class RedisCommunicator(communication.Communicator):
 
         Args:
             message: The message to record
+            verbosity: The significance of the message. If given, the message will only be recorded if the
+                        vebosity matches or exceeds the communicator's verbosity
             publish: Whether the message should be published to the channel
         """
+        if verbosity and self._verbosity < verbosity:
+            return
+
         if self.__include_timestamp:
             timestamp = common.now()
             message = f"[{timestamp}] {message}"
@@ -429,6 +445,7 @@ class RedisCommunicator(communication.Communicator):
     def __init__(
         self,
         communicator_id: str,
+        verbosity: communication.Verbosity = None,
         host: str = None,
         port: int = None,
         password: str = None,
@@ -439,7 +456,12 @@ class RedisCommunicator(communication.Communicator):
         timestamp_format: str = None,
         **kwargs
     ):
-        super().__init__(communicator_id=communicator_id, on_receive=on_receive, handlers=handlers, **kwargs)
+        super().__init__(
+            communicator_id=communicator_id,
+            verbosity=verbosity,
+            on_receive=on_receive,
+            handlers=handlers, **kwargs
+        )
         self.__core_key = make_key(redis_prefix(), communicator_id)
         self.__channel_name = get_channel_key(communicator_id)
         print("Publishing to " + self.__channel_name)

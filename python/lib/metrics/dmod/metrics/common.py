@@ -4,8 +4,70 @@ Provides common functionality and constants that may be used across multiple fil
 
 import os
 import typing
+import logging
+import logging.handlers
+import logging.config
 
 import pandas
+
+
+def configure_logging() -> typing.NoReturn:
+    """
+    Forms a very basic logger
+    """
+    # Remove preexisting StreamHandlers - this will reduce the possibility of having multiple writes to stdout and
+    # make sure only the correct level is written to
+    preexisting_streamhandlers = [
+        handler
+        for handler in logging.getLogger().handlers
+        if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler)
+    ]
+
+    for stream_handler in preexisting_streamhandlers:
+        logging.getLogger().removeHandler(stream_handler)
+
+    level = logging.getLevelName(os.environ.get('METRIC_LOG_LEVEL', os.environ.get("DEFAULT_LOG_LEVEL", "INFO")))
+    log_format = os.environ.get("LOG_FORMAT", "[%(asctime)s] %(levelname)s: %(message)s")
+    date_format = os.environ.get("LOG_DATEFMT", "%Y-%m-%d %H:%M:%S%z")
+
+    logging.basicConfig(
+        format=log_format,
+        datefmt=date_format,
+        level=logging.DEBUG
+    )
+
+    log_formatter = logging.Formatter(log_format)
+
+    file_handler = logging.handlers.TimedRotatingFileHandler("metrics.log", when='D', backupCount=14)
+    file_handler.setLevel(level)
+    file_handler.setFormatter(log_formatter)
+    logging.getLogger().addHandler(file_handler)
+
+    stdout_handler = logging.StreamHandler()
+    stdout_handler.setLevel(level)
+    stdout_handler.setFormatter(log_formatter)
+    logging.getLogger().addHandler(stdout_handler)
+
+    udp_port = os.environ.get("UDP_LOG_PORT")
+
+    if udp_port:
+        udp_port = int(float(udp_port))
+        other_udp_handlers = [
+            handler
+            for handler in logging.getLogger().handlers
+            if isinstance(handler, logging.handlers.DatagramHandler)
+               and handler.port == udp_port
+        ]
+
+        if not other_udp_handlers:
+            udp_handler = logging.handlers.DatagramHandler(
+                host="127.0.0.1",
+                port=udp_port
+            )
+            udp_level = os.environ.get("UDP_LOG_LEVEL") or "DEBUG"
+            udp_handler.setLevel(logging.getLevelName(udp_level))
+            udp_handler.setFormatter(log_formatter)
+            logging.getLogger().addHandler(udp_handler)
 
 
 EPSILON = float(os.environ.get('METRIC_EPSILON')) if os.environ.get("METRIC_EPSILON") else 0.0001

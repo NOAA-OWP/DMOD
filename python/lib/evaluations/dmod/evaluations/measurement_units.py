@@ -4,6 +4,7 @@ import pint.registry
 
 _T = typing.TypeVar("_T")
 
+
 class UnitConverter:
     """
     A wrapper for a pint conversion registry containing common, yet abnormal units
