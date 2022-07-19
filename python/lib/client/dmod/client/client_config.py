@@ -94,7 +94,8 @@ class YamlClientConfig(ClientConfig):
 
     @property
     def dataservice_endpoint_uri(self) -> Optional[str]:
-        if self._dataservice_endpoint_uri is None and self.dataservice_hostname is not None:
+        if self._dataservice_endpoint_uri is None and self.dataservice_hostname is not None \
+                and self.dataservice_port is not None:
             self._dataservice_endpoint_uri = self.generate_endpoint_uri(self.dataservice_hostname, self.dataservice_port)
         return self._dataservice_endpoint_uri
 
