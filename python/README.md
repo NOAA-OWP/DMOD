@@ -1,0 +1,7 @@
+[//]: # (TODO: create sections and/or dedicated documents for these items)
+[//]: # (- Library Package)
+[//]: # (- Service Packages)
+[//]: # (- GUI)
+[//]: # (- How this relates to stacks)
+[//]: # (- Overview of the packages (break down in detail within package README\))
+[//]: # (- Why they've been split up)
