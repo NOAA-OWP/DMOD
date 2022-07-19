@@ -24,9 +24,8 @@ guidance below.
 
 ## Changing the code-base
 
-Generally speaking, you should fork this repository, make changes in your
-own fork, and then submit a pull request. All new code should have associated
-unit tests that validate implemented features and the presence or lack of defects.
-Additionally, the code should follow any stylistic and architectural guidelines
-prescribed by the project. In the absence of such guidelines, mimic the styles
-and patterns in the existing code-base.
+Generally speaking, code changes required creation of a personal fork of this repository, committing those changes to the fork, and then submitting a pull request.  See the document on [Git usage](doc/GIT_USAGE.md) for more details.
+
+New Python code should have associated unit tests whenever possible that validate implemented features and the presence or lack of defects.
+
+[//]: # (TODO: add section/document on code style)
