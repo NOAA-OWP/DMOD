@@ -1,65 +1,58 @@
 # Distributed Model on Demand
 
-**Description**:  Put a meaningful, short, plain-language description of what
-this project is trying to accomplish and why it matters.
-Describe the problem(s) this project solves.
-Describe how this software can improve the lives of its audience.
+DMOD is a utility to facilitate running scientific models and other similar HPC application tasks.  Its primary purpose is to automate both the management of the necessary compute infrastructure and the performance of variety of execution workflows (e.g., a simple model test execution, evaluating a specific model configuration, etc.).  It also provides other tools for making certain model development and experiment tasks easier.
 
-Other things to include:
+As of summer 2022, the project is in an early Alpha stage. Infrastructure and workflows have been initially developed with the [OWP Next Generation Water Resources Modeling Framework](https://github.com/NOAA-OWP/ngen) in mind, though the intent is to work toward a generalized design.
 
-  - **Technology stack**: [Docker](https://www.docker.com) | [Python](https://www.python.org) | [Redis](https://redis.io) 
-  - **Status**: Working towards generalized runs at the container level using static inputs, check the [CHANGELOG](CHANGELOG.md) for more info.
+[//]: # (TODO: create sections and/or dedicated documents for these items)
+[//]: # (- Architecture Overview)
+[//]: # (- Services and Stacks)
+[//]: # (- Code Organization)
+[//]: # (- Workflows)
+[//]: # (- Technology Stack)
 
-
-**System Overview**
-![](https://raw.githubusercontent.com/noaa-owp/DMOD/master/doc/DMOD_system_overview.png)
+[//]: # (**System Overview**)
+[//]: # (![](https://raw.githubusercontent.com/noaa-owp/DMOD/master/doc/DMOD_system_overview.png\))
 
 
 ## Dependencies
+The primary dependencies for this project are Docker, Python, and some specific Python packages.
 
-Describe any dependencies that must be installed for this software to work.
-This includes programming languages, databases or other storage mechanisms, build tools, frameworks, and so forth.
-If specific versions of other software are required, or known not to work, call that out.
+More detailed information can be found on the [Dependencies](doc/DEPENDENCIES.md) page.
 
 ## Installation
 
-Detailed instructions on how to install, configure, and get the project running.
-This should be frequently tested to ensure reliability. Alternatively, link to
-a separate [INSTALL](INSTALL.md) document.
+The basic process is:
+- Install project [dependencies](doc/DEPENDENCIES.md)
+  - Optionally, setup and use a [dedicated Python virtual environment](#using-a-virtual-environment) (highly recommended)
+- Create a [customized local config](#local-configuration)
+- Set up the [required SSL certificates](#local-ssl-certs)
+- Build and install necessary [internal Python packages](#python-packages-and-dependencies) into Python environment, typically using the [provided helper script](#using-update_packagesh-for-dependencies-and-internal-packages)
+- [Build Docker images](#docker-images)
 
-## Configuration
+See the [INSTALL](INSTALL.md) document for more information.
 
-If the software is configurable, describe it in detail, either here or in other documentation to which you link.
+[//]: # (TODO: add this section, and probably a dedicated document)
+[//]: # (## Configuration)
 
-## Usage
+[//]: # (TODO: add this section, and also a dedicated document)
+[//]: # (## Usage)
 
-Show users how to use the software.
-Be specific.
-Use appropriate formatting when showing code snippets.
+[//]: # (TODO: add this section, and also a dedicated document)
+[//]: # (## Testing)
 
-## How to test the software
 
-If the software includes automated tests, detail how to run those tests.
+[//]: # (TODO: add this section, and probably a dedicated document)
+[//]: # (## Getting help)
 
-## Known issues
+[//]: # (Instruct users how to get help with this software; this might include links to an issue tracker, wiki, mailing list, etc.)
 
-Document any known significant shortcomings with the software.
+[//]: # (**Example**)
 
-## Getting help
-
-Instruct users how to get help with this software; this might include links to an issue tracker, wiki, mailing list, etc.
-
-**Example**
-
-If you have questions, concerns, bug reports, etc, please file an issue in this repository's Issue Tracker.
+[//]: # (If you have questions, concerns, bug reports, etc, please file an issue in this repository's Issue Tracker.)
 
 ## Getting involved
-
-This section should detail why people should get involved and describe key areas you are
-currently focusing on; e.g., trying to get feedback on features, fixing certain bugs, building
-important pieces, etc.
-
-General instructions on _how_ to contribute should be stated with a link to [CONTRIBUTING](CONTRIBUTING.md).
+See the [CONTRIBUTING](CONTRIBUTING.md) document for details.
 
 
 ----
