@@ -58,7 +58,7 @@ class DmodClient:
         return self.client_config.requests_ssl_dir
 
     def print_config(self):
-        print(self.client_config.config_file.read_text())
+        print(self.client_config.print_config())
 
     async def upload_to_dataset(self, dataset_name: str, paths: List[Path]) -> bool:
         """
