@@ -199,8 +199,6 @@ def main():
         print("ERROR: {}".format(error))
         exit(1)
 
-    blah = ''
-
 
 if __name__ == '__main__':
     main()
