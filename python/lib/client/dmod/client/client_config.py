@@ -45,6 +45,9 @@ class ClientConfig(ABC):
 
 
 class YamlClientConfig(ClientConfig):
+    """
+    A subtype of ::class:`ClientConfig` backed by configuration details loaded from a YAML file.
+    """
 
     @classmethod
     def generate_endpoint_uri(cls, hostname: str, port: int):
@@ -59,10 +62,26 @@ class YamlClientConfig(ClientConfig):
             raise RuntimeError("Non-existing {} SSL directory configured ({})".format(service_key, dir_path))
 
     def __init__(self, client_config_file: Path, *args, **kwargs):
+        """
+        Initialize this instance.
+
+        Parameters
+        ----------
+        client_config_file : Path
+            The path to the backing YAML configuration file that must be loaded.
+        args
+            Ordered args to pass to the superclass init function.
+        kwargs
+            Keyword args to pass to the superclass init function.
+        """
         super(ClientConfig, self).__init__(*args, **kwargs)
         self._config_file = client_config_file
+
+        self._backing_config = None
+        """ A backing config that must be loaded from the given file before other properties are accessible. """
         with self._config_file.open() as file:
             self._backing_config = yaml.safe_load(file)
+
         self._requests_endpoint_uri = self.generate_endpoint_uri(self.requests_hostname, self.requests_port)
         self._requests_ssl_dir = self.get_service_ssl_dir(self._backing_config, self._CONFIG_KEY_REQUEST_SERVICE)
 
