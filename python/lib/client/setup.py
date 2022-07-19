@@ -11,7 +11,7 @@ exec(open('dmod/client/_version.py').read())
 setup(
     name='dmod-client',
     version=__version__,
-    description='Client interface package for components of the National Water Model as a Service architecture',
+    description='Client interface package for components of the DMOD architecture',
     long_description=long_description,
     author='',
     author_email='',
