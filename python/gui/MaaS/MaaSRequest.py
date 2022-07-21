@@ -4,10 +4,10 @@ Lays out details describing how a request may be created and the different types
 @author: Chris Tubbs
 """
 
-from dmod.communication import MaaSRequest
+from dmod.communication import ExternalRequest
 
 
-class XYZRequest(MaaSRequest):
+class XYZRequest(ExternalRequest):
     """
     Represents requests that may be made to the XYZ model
     """
@@ -49,7 +49,7 @@ class XYZRequest(MaaSRequest):
                                          session_secret=session_secret)
 
 
-class YetAnotherRequest(MaaSRequest):
+class YetAnotherRequest(ExternalRequest):
     """
     Represents requests that may be made for the YetAnother model
     """

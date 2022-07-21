@@ -11,8 +11,8 @@ from pathlib import Path
 
 from django.http import HttpRequest
 
-from dmod.communication import MaaSRequest
-from dmod.communication import MaaSRequestResponse
+from dmod.communication import ExternalRequest
+from dmod.communication import ExternalRequestResponse
 from dmod.communication import ModelExecRequestClient
 
 from . import utilities
@@ -78,7 +78,7 @@ class JobRequestClient(ModelExecRequestClient):
             logger.info("Session Info Return: {}".format(tmp))
             return tmp
 
-    def _init_maas_job_request(self) -> MaaSRequest:
+    def _init_maas_job_request(self) -> ExternalRequest:
         """
         Set or reset the :attr:`form_proc` field and return its :attr:`RequestFormProcessor`.`maas_request` property.
 
@@ -106,7 +106,7 @@ class JobRequestClient(ModelExecRequestClient):
                 is_request_valid, request_validation_error = self._run_validation(message=maas_job_request)
                 if is_request_valid:
                     try:
-                        response_obj: MaaSRequestResponse = asyncio.get_event_loop().run_until_complete(
+                        response_obj: ExternalRequestResponse = asyncio.get_event_loop().run_until_complete(
                             self.async_make_request(maas_job_request))
                         print('***************** Response: ' + str(response_obj))
                         # Try to get a new session if session is expired (and we hadn't already gotten a new session)

@@ -4,7 +4,7 @@ from typing import Union
 
 from django.http import HttpRequest
 
-from dmod.communication import MaaSRequest
+from dmod.communication import ExternalRequest
 from dmod.communication import get_request
 
 from .processor import BaseProcessor
@@ -17,7 +17,7 @@ FRIENDLY_NAME = "Next Generation Water Model Processor"
 
 
 class Processor(BaseProcessor):
-    def process_request(self, request: Union[HttpRequest, RequestWrapper]) -> MaaSRequest:
+    def process_request(self, request: Union[HttpRequest, RequestWrapper]) -> ExternalRequest:
         configuration = configuration_generator.get_configuration('ngen', request)
         return get_request(model="ngen", parameters=configuration)
 

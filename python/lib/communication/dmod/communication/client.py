@@ -11,7 +11,7 @@ from dmod.core.serializable import Serializable
 
 import websockets
 
-from .maas_request import MaaSRequest, MaaSRequestResponse, ModelExecRequest, ModelExecRequestResponse, NWMRequest, \
+from .maas_request import ExternalRequest, ExternalRequestResponse, ModelExecRequest, ModelExecRequestResponse, NWMRequest, \
     NGENRequest
 from .message import AbstractInitRequest, Message, Response, InitRequestResponseReason
 from .partition_request import PartitionRequest, PartitionResponse
@@ -28,8 +28,8 @@ logger = logging.getLogger("gui_log")
 M = TypeVar("M", bound=AbstractInitRequest)
 R = TypeVar("R", bound=Response)
 
-MAAS_M = TypeVar("MAAS_M", bound=MaaSRequest)
-MAAS_R = TypeVar("MAAS_R", bound=MaaSRequestResponse)
+MAAS_M = TypeVar("MAAS_M", bound=ExternalRequest)
+MAAS_R = TypeVar("MAAS_R", bound=ExternalRequestResponse)
 
 MOD_EX_M = TypeVar("MOD_EX_M", bound=ModelExecRequest)
 MOD_EX_R = TypeVar("MOD_EX_R", bound=ModelExecRequestResponse)
@@ -404,7 +404,7 @@ class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
         Parameters
         ----------
         message
-            The message to validate, which will be either a ``MaaSRequest``  or a ``MaaSRequestResponse`` subtype.
+            The message to validate, which will be either a ``ExternalRequest``  or a ``ExternalRequestResponse`` subtype.
 
         Returns
         -------
@@ -428,7 +428,7 @@ class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
         elif isinstance(message, Serializable):
             return message.__class__.factory_init_from_deserialized_json(message.to_dict()) == message, None
         else:
-            raise RuntimeError('Unsupported MaaSRequest subtype: ' + str(message.__class__))
+            raise RuntimeError('Unsupported ExternalRequest subtype: ' + str(message.__class__))
 
     def __init__(self, endpoint_uri: str, ssl_directory: Path, *args, **kwargs):
         super().__init__(endpoint_uri=endpoint_uri, ssl_directory=ssl_directory)

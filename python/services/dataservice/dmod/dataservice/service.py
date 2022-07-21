@@ -192,7 +192,7 @@ class ServiceManager(WebSocketInterface):
     """
 
     _PARSEABLE_REQUEST_TYPES = [DatasetManagementMessage]
-    """ Parseable request types, which are all authenticated ::class:`MaaSRequest` subtypes for this implementation. """
+    """ Parseable request types, which are all authenticated ::class:`ExternalRequest` subtypes for this implementation. """
 
     @classmethod
     def get_parseable_request_types(cls) -> List[Type[AbstractInitRequest]]:

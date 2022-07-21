@@ -6,7 +6,7 @@ from typing import List
 
 from django.http import HttpRequest
 
-from dmod.communication import MaaSRequest
+from dmod.communication import ExternalRequest
 
 from ..utilities import RequestWrapper
 
@@ -19,7 +19,7 @@ class BaseProcessor(object):
         self._maas_secret = secret
 
     @abstractmethod
-    def process_request(self, request: Union[HttpRequest, RequestWrapper]) -> MaaSRequest:
+    def process_request(self, request: Union[HttpRequest, RequestWrapper]) -> ExternalRequest:
         pass
 
     @property
