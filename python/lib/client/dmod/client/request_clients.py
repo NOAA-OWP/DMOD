@@ -18,7 +18,7 @@ import websockets
 #logger = logging.getLogger("gui_log")
 
 
-class NgenRequestClient(ModelExecRequestClient):
+class NgenRequestClient(ModelExecRequestClient[NGENRequest, NGENRequestResponse]):
 
     # In particular needs - endpoint_uri: str, ssl_directory: Path
     def __init__(self, *args, **kwargs):
