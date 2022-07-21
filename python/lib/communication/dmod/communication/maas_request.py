@@ -158,6 +158,15 @@ class MaaSRequest(AbstractInitRequest, ABC):
         except:
             return False
 
+
+class DmodJobRequest(AbstractInitRequest, ABC):
+    """
+    The base class underlying all types of messages requesting execution of some kind of workflow job.
+    """
+
+    def __int__(self, *args, **kwargs):
+        super(DmodJobRequest, self).__int__(*args, **kwargs)
+
     @property
     @abstractmethod
     def data_requirements(self) -> List[DataRequirement]:
@@ -185,9 +194,9 @@ class MaaSRequest(AbstractInitRequest, ABC):
         pass
 
 
-class ModelExecRequest(MaaSRequest, ABC):
+class ModelExecRequest(MaaSRequest, DmodJobRequest, ABC):
     """
-    The base class underlying MaaS requests for model execution jobs.
+    An abstract extension of ::class:`DmodJobRequest` for requesting model execution jobs.
     """
 
     event_type: MessageEventType = MessageEventType.MODEL_EXEC_REQUEST
