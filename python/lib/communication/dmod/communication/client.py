@@ -25,6 +25,15 @@ import logging
 # TODO: refactor this to allow for implementation-specific overriding more easily
 logger = logging.getLogger("gui_log")
 
+M = TypeVar("M", bound=AbstractInitRequest)
+R = TypeVar("R", bound=Response)
+
+MAAS_M = TypeVar("MAAS_M", bound=MaaSRequest)
+MAAS_R = TypeVar("MAAS_R", bound=MaaSRequestResponse)
+
+MOD_EX_M = TypeVar("MOD_EX_M", bound=ModelExecRequest)
+MOD_EX_R = TypeVar("MOD_EX_R", bound=ModelExecRequestResponse)
+
 
 def get_or_create_eventloop() -> AbstractEventLoop:
     """
@@ -182,10 +191,6 @@ class WebSocketClient(ABC):
             endpoint_pem = self._ssl_directory.joinpath(self._cert_pem_file_basename)
             self.client_ssl_context.load_verify_locations(endpoint_pem)
         return self._client_ssl_context
-
-
-M = TypeVar("M", bound=AbstractInitRequest)
-R = TypeVar("R", bound=Response)
 
 
 class InternalServiceClient(WebSocketClient, Generic[M, R], ABC):
@@ -365,13 +370,6 @@ class SchedulerClient(InternalServiceClient[SchedulerRequestMessage, SchedulerRe
         async for message in self.connection:
             logging.debug('************* {} yielding result: {}'.format(self.__class__.__name__, str(message)))
             yield message
-
-
-MAAS_M = TypeVar("MAAS_M", bound=MaaSRequest)
-MAAS_R = TypeVar("MAAS_R", bound=MaaSRequestResponse)
-
-MOD_EX_M = TypeVar("MOD_EX_M", bound=ModelExecRequest)
-MOD_EX_R = TypeVar("MOD_EX_R", bound=ModelExecRequestResponse)
 
 
 class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
