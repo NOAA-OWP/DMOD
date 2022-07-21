@@ -370,6 +370,9 @@ class SchedulerClient(InternalServiceClient[SchedulerRequestMessage, SchedulerRe
 MAAS_M = TypeVar("MAAS_M", bound=MaaSRequest)
 MAAS_R = TypeVar("MAAS_R", bound=MaaSRequestResponse)
 
+MOD_EX_M = TypeVar("MOD_EX_M", bound=ModelExecRequest)
+MOD_EX_R = TypeVar("MOD_EX_R", bound=ModelExecRequestResponse)
+
 
 class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
 
@@ -629,12 +632,12 @@ class DataServiceClient(InternalServiceClient[DatasetManagementMessage, DatasetM
         return DatasetManagementResponse
 
 
-class ModelExecRequestClient(MaasRequestClient[ModelExecRequest, ModelExecRequestResponse], ABC):
+class ModelExecRequestClient(MaasRequestClient[MOD_EX_M, MOD_EX_R], ABC):
 
     def __init__(self, endpoint_uri: str, ssl_directory: Path):
         super().__init__(endpoint_uri=endpoint_uri, ssl_directory=ssl_directory)
 
-    def _update_after_valid_response(self, response: ModelExecRequestResponse):
+    def _update_after_valid_response(self, response: MOD_EX_R):
         """
         Perform any required internal updates immediately after a request gets back a successful, valid response.
 
