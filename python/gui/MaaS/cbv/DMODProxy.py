@@ -12,7 +12,7 @@ import logging
 logger = logging.getLogger("gui_log")
 
 from dmod.communication import Distribution, get_available_models, get_available_outputs, get_request, get_parameters, \
-    NWMRequestJsonValidator, NWMRequest, MaaSRequest, MaaSRequestResponse, ModelExecRequestClient, Scalar, MessageEventType
+    NWMRequestJsonValidator, NWMRequest, ExternalRequest, ExternalRequestResponse, ModelExecRequestClient, Scalar, MessageEventType
 from pathlib import Path
 from typing import List, Optional, Tuple, Type
 
@@ -72,15 +72,15 @@ class RequestFormProcessor(ABC):
 
     @property
     @abstractmethod
-    def maas_request(self) -> MaaSRequest:
+    def maas_request(self) -> ExternalRequest:
         """
-        Get the :obj:MaaSRequest instance (which could be a subclass of this type) represented by :attr:post_request,
+        Get the :obj:ExternalRequest instance (which could be a subclass of this type) represented by :attr:post_request,
         lazily instantiating the former if necessary.
 
         Returns
         -------
-        :obj:MaaSRequest
-            the :obj:MaaSRequest instance represented by :attr:post_request
+        :obj:ExternalRequest
+            the :obj:ExternalRequest instance represented by :attr:post_request
         """
         pass
 
@@ -184,15 +184,15 @@ class ModelExecRequestFormProcessor(RequestFormProcessor):
                 self._parameters[parameter.replace(self.model + "_", "")] = scalar
 
     @property
-    def maas_request(self) -> MaaSRequest:
+    def maas_request(self) -> ExternalRequest:
         """
-        Get the :obj:MaaSRequest instance (which could be a subclass of this type) represented by :attr:post_request,
+        Get the :obj:ExternalRequest instance (which could be a subclass of this type) represented by :attr:post_request,
         lazily instantiating the former if necessary.
 
         Returns
         -------
-        :obj:MaaSRequest
-            the :obj:MaaSRequest instance represented by :attr:post_request
+        :obj:ExternalRequest
+            the :obj:ExternalRequest instance represented by :attr:post_request
         """
         if self._maas_request is None:
             if len(self.errors) == 0:
@@ -258,7 +258,7 @@ class PostFormRequestClient(ModelExecRequestClient):
     def _init_maas_job_request(self):
         pass
 
-    def generate_request(self, form_proc_class: Type[RequestFormProcessor]) -> MaaSRequest:
+    def generate_request(self, form_proc_class: Type[RequestFormProcessor]) -> ExternalRequest:
         self.form_proc = form_proc_class(post_request=self.http_request, maas_secret=self.session_secret)
         return self.form_proc.maas_request
 
@@ -294,7 +294,7 @@ class DMODMixin:
         return self._maas_endpoint_uri
 
     def forward_request(self, request: HttpRequest, event_type: MessageEventType) -> Tuple[
-        PostFormRequestClient, dict, Optional[MaaSRequestResponse]]:
+        PostFormRequestClient, dict, Optional[ExternalRequestResponse]]:
         """
         Reformat and forward the MaaS request.
 
@@ -308,7 +308,7 @@ class DMODMixin:
 
         Returns
         -------
-        Tuple[PostFormRequestClient, dict, Optional[MaaSRequestResponse]]
+        Tuple[PostFormRequestClient, dict, Optional[ExternalRequestResponse]]
             PostFormRequestClient configured from posted form in request, the session data as a dictionary, and the
             response the client received for the request, if any.
         """

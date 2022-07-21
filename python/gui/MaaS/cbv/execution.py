@@ -15,7 +15,7 @@ from django.http import JsonResponse
 
 from rest_framework.views import APIView
 
-from dmod.communication import MaaSRequestResponse
+from dmod.communication import ExternalRequestResponse
 
 from .. import processors
 from ..client import JobRequestClient
@@ -101,7 +101,7 @@ class Execute(APIView):
         force_new_session = request.POST.get("force_new_session", False)
 
         # Issue the request
-        response: MaaSRequestResponse = client.make_maas_request(request, force_new_session)
+        response: ExternalRequestResponse = client.make_maas_request(request, force_new_session)
 
         # Throw an error if the request could not be successfully issued
         if response is None:

@@ -75,7 +75,7 @@ class SchedulerHandler(WebSocketInterface):
                 update_message.digest, response.digest))
 
     _PARSEABLE_REQUEST_TYPES = [SchedulerRequestMessage]
-    """ Parseable request types, which are all authenticated ::class:`MaaSRequest` subtypes for this implementation. """
+    """ Parseable request types, which are all authenticated ::class:`ExternalRequest` subtypes for this implementation. """
 
     @classmethod
     def get_parseable_request_types(cls) -> List[Type[AbstractInitRequest]]:

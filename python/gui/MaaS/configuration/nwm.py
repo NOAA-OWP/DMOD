@@ -3,7 +3,7 @@ import logging
 import re
 
 import dmod.communication as communication
-from dmod.communication import MaaSRequest
+from dmod.communication import ExternalRequest
 
 from .. import utilities
 
@@ -48,7 +48,7 @@ def form_editor_payload(request_arguments: dict) -> dict:
         output_types.append(output_definition)
 
     # Create a mapping between each distribution type and a friendly representation of it
-    for distribution_type in communication.MaaSRequest.get_distribution_types():
+    for distribution_type in communication.ExternalRequest.get_distribution_types():
         type_definition = dict()
         type_definition['name'] = utilities.humanize(distribution_type)
         type_definition['value'] = distribution_type
@@ -60,7 +60,7 @@ def form_editor_payload(request_arguments: dict) -> dict:
         'distribution_types': distribution_types,
         'parameters': [
             {"value": parameter, "name": utilities.humanize(parameter)}
-            for parameter in MaaSRequest.get_parameters()
+            for parameter in ExternalRequest.get_parameters()
         ]
     }
 

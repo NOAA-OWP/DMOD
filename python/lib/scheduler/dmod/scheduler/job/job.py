@@ -3,7 +3,7 @@ from datetime import datetime
 from numbers import Number
 
 from dmod.core.execution import AllocationParadigm
-from dmod.communication import MaaSRequest, ModelExecRequest, NGENRequest, SchedulerRequestMessage
+from dmod.communication import ExternalRequest, ModelExecRequest, NGENRequest, SchedulerRequestMessage
 from dmod.core.serializable import Serializable
 from dmod.core.meta_data import DataRequirement
 from dmod.modeldata.hydrofabric import PartitionConfig
@@ -554,13 +554,13 @@ class Job(Serializable, ABC):
     # TODO: do we need to account for jobs for anything other than model exec?
     @property
     @abstractmethod
-    def model_request(self) -> MaaSRequest:
+    def model_request(self) -> ExternalRequest:
         """
         Get the underlying configuration for the model execution that is being requested.
 
         Returns
         -------
-        MaaSRequest
+        ExternalRequest
             The underlying configuration for the model execution that is being requested.
         """
         pass
@@ -945,7 +945,7 @@ class JobImpl(Job):
             msg = "Failed parsing parameter value `{}` to UUID object: {}".format(str(serialized_value), str(e))
             raise RuntimeError(msg)
 
-    def __init__(self, cpu_count: int, memory_size: int, model_request: MaaSRequest,
+    def __init__(self, cpu_count: int, memory_size: int, model_request: ExternalRequest,
                  allocation_paradigm: Union[str, AllocationParadigm], alloc_priority: int = 0):
         self._cpu_count = cpu_count
         self._memory_size = memory_size
@@ -1146,13 +1146,13 @@ class JobImpl(Job):
         return self._last_updated
 
     @property
-    def model_request(self) -> MaaSRequest:
+    def model_request(self) -> ExternalRequest:
         """
         Get the underlying configuration for the model execution that is being requested.
 
         Returns
         -------
-        MaaSRequest
+        ExternalRequest
             The underlying configuration for the model execution that is being requested.
         """
         return self._model_request
@@ -1359,13 +1359,13 @@ class RequestedJob(JobImpl):
         self.data_requirements = self.model_request.data_requirements
 
     @property
-    def model_request(self) -> MaaSRequest:
+    def model_request(self) -> ExternalRequest:
         """
         Get the underlying configuration for the model execution that is being requested.
 
         Returns
         -------
-        MaaSRequest
+        ExternalRequest
             The underlying configuration for the model execution that is being requested.
         """
         return self.originating_request.model_request

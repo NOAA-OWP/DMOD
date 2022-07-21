@@ -1,6 +1,6 @@
 from .message import AbstractInitRequest, MessageEventType, Response
 from dmod.core.serializable import Serializable
-from .maas_request import MaaSRequest, MaaSRequestResponse
+from .maas_request import ExternalRequest, ExternalRequestResponse
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement
 from numbers import Number
 from enum import Enum
@@ -528,7 +528,7 @@ class DatasetManagementResponse(Response):
         return self.data[self._DATA_KEY_IS_AWAITING]
 
 
-class MaaSDatasetManagementMessage(DatasetManagementMessage, MaaSRequest):
+class MaaSDatasetManagementMessage(DatasetManagementMessage, ExternalRequest):
     """
     A publicly initiated, and thus session authenticated, extension of ::class:`DatasetManagementMessage`.
 
@@ -648,7 +648,7 @@ class MaaSDatasetManagementMessage(DatasetManagementMessage, MaaSRequest):
         return serial
 
 
-class MaaSDatasetManagementResponse(MaaSRequestResponse, DatasetManagementResponse):
+class MaaSDatasetManagementResponse(ExternalRequestResponse, DatasetManagementResponse):
     """
     Analog of ::class:`DatasetManagementResponse`, but for the ::class:`MaaSDatasetManagementMessage` message type.
     """

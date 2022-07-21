@@ -92,7 +92,7 @@ class Distribution(object):
         return self.__str__()
 
 
-class MaaSRequest(AbstractInitRequest, ABC):
+class ExternalRequest(AbstractInitRequest, ABC):
     """
     The base class underlying all types of externally-initiated (and, therefore, authenticated) MaaS system requests.
     """
@@ -122,7 +122,7 @@ class MaaSRequest(AbstractInitRequest, ABC):
         session_secret : str
             The session secret for the right session when communicating with the MaaS request handler
         """
-        super(MaaSRequest, self).__init__(*args, **kwargs)
+        super(ExternalRequest, self).__init__(*args, **kwargs)
         self.session_secret = session_secret
 
     def _check_class_compatible_for_equality(self, other) -> bool:
@@ -194,7 +194,7 @@ class DmodJobRequest(AbstractInitRequest, ABC):
         pass
 
 
-class ModelExecRequest(MaaSRequest, DmodJobRequest, ABC):
+class ModelExecRequest(ExternalRequest, DmodJobRequest, ABC):
     """
     An abstract extension of ::class:`DmodJobRequest` for requesting model execution jobs.
     """
@@ -314,16 +314,16 @@ class ModelExecRequest(MaaSRequest, DmodJobRequest, ABC):
         return self._cpu_count
 
 
-class MaaSRequestResponse(Response, ABC):
+class ExternalRequestResponse(Response, ABC):
 
-    response_to_type = MaaSRequest
+    response_to_type = ExternalRequest
     """ The type of :class:`AbstractInitRequest` for which this type is the response"""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
 
-class ModelExecRequestResponse(MaaSRequestResponse, ABC):
+class ModelExecRequestResponse(ExternalRequestResponse, ABC):
 
     _data_dict_key_job_id = 'job_id'
     _data_dict_key_output_data_id = 'output_data_id'

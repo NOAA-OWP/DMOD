@@ -2,7 +2,7 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from dmod.access import Authorizer
-from dmod.communication import AbstractRequestHandler, DataServiceClient, FullAuthSession, MaaSRequest, \
+from dmod.communication import AbstractRequestHandler, DataServiceClient, FullAuthSession, ExternalRequest, \
     InitRequestResponseReason, InternalServiceClient, PartitionRequest, PartitionResponse, PartitionerServiceClient, \
     Session, SessionManager
 from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage, MaaSDatasetManagementResponse, \
@@ -20,10 +20,10 @@ logging.basicConfig(
 
 class MaaSRequestHandler(AbstractRequestHandler, ABC):
     """
-    Abstraction of general handler for ::class:`MaaSRequest` instances.
+    Abstraction of general handler for ::class:`ExternalRequest` instances.
 
     General handler type for externally initiated requests that, by implication, will require authorization in order to
-    be handled.  The exception is auth requests themselves.  Such requests are modeled by the ::class:`MaaSRequest`
+    be handled.  The exception is auth requests themselves.  Such requests are modeled by the ::class:`ExternalRequest`
     type.
     """
 
@@ -36,7 +36,7 @@ class MaaSRequestHandler(AbstractRequestHandler, ABC):
         self._service_ssl_dir = service_ssl_dir
         self._service_url = None
 
-    async def _is_authorized(self, request: MaaSRequest, session: FullAuthSession) -> bool:
+    async def _is_authorized(self, request: ExternalRequest, session: FullAuthSession) -> bool:
         """
         Get whether this session is authorized for submitting the given request.
 
@@ -45,7 +45,7 @@ class MaaSRequestHandler(AbstractRequestHandler, ABC):
 
         Parameters
         ----------
-        request : MaaSRequest
+        request : ExternalRequest
             The request to be considered.
         session : FullAuthSession
             The session for which to check permission.
@@ -64,7 +64,7 @@ class MaaSRequestHandler(AbstractRequestHandler, ABC):
         return True
 
     @abstractmethod
-    async def determine_required_access_types(self, request: MaaSRequest, user) -> tuple:
+    async def determine_required_access_types(self, request: ExternalRequest, user) -> tuple:
         """
         Determine what access is required for this request from this user to be accepted.
 
@@ -82,7 +82,7 @@ class MaaSRequestHandler(AbstractRequestHandler, ABC):
         """
         pass
 
-    async def get_authorized_session(self, request: MaaSRequest) -> Tuple[
+    async def get_authorized_session(self, request: ExternalRequest) -> Tuple[
         Optional[Session], bool, Optional[InitRequestResponseReason], Optional[str]]:
         """
         Get the request's session and whether it is authorized to make such a request.
@@ -98,7 +98,7 @@ class MaaSRequestHandler(AbstractRequestHandler, ABC):
 
         Parameters
         ----------
-        request : MaaSRequest
+        request : ExternalRequest
             The request for which to get the session and authorization information.
 
         Returns
