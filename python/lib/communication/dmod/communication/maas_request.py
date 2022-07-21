@@ -122,6 +122,7 @@ class MaaSRequest(AbstractInitRequest, ABC):
         session_secret : str
             The session secret for the right session when communicating with the MaaS request handler
         """
+        super(MaaSRequest, self).__init__(*args, **kwargs)
         self.session_secret = session_secret
 
     def _check_class_compatible_for_equality(self, other) -> bool:

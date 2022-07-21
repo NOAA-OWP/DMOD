@@ -75,6 +75,9 @@ class Message(Serializable, ABC):
         """
         return cls.event_type
 
+    def __init__(self, *args, **kwargs):
+        pass
+
 
 class AbstractInitRequest(Message, ABC):
     """
@@ -86,6 +89,9 @@ class AbstractInitRequest(Message, ABC):
     serial send-reply nature of the particular interaction involved, and that instances of this type start such
     interactions.
     """
+
+    def __int__(self, *args, **kwargs):
+        super(AbstractInitRequest, self).__int__(*args, **kwargs)
 
 
 class Response(ResultIndicator, Message, ABC):
