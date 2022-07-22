@@ -28,8 +28,8 @@ logger = logging.getLogger("gui_log")
 M = TypeVar("M", bound=AbstractInitRequest)
 R = TypeVar("R", bound=Response)
 
-MAAS_M = TypeVar("MAAS_M", bound=ExternalRequest)
-MAAS_R = TypeVar("MAAS_R", bound=ExternalRequestResponse)
+EXTERN_REQ_M = TypeVar("EXTERN_REQ_M", bound=ExternalRequest)
+EXTERN_REQ_R = TypeVar("EXTERN_REQ_R", bound=ExternalRequestResponse)
 
 MOD_EX_M = TypeVar("MOD_EX_M", bound=ModelExecRequest)
 MOD_EX_R = TypeVar("MOD_EX_R", bound=ModelExecRequestResponse)
@@ -371,11 +371,10 @@ class SchedulerClient(InternalServiceClient[SchedulerRequestMessage, SchedulerRe
             logging.debug('************* {} yielding result: {}'.format(self.__class__.__name__, str(message)))
             yield message
 
-
-class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
+class MaasRequestClient(WebSocketClient, Generic[EXTERN_REQ_M, EXTERN_REQ_R], ABC):
 
     @staticmethod
-    def _request_failed_due_to_expired_session(response_obj: MAAS_R):
+    def _request_failed_due_to_expired_session(response_obj: EXTERN_REQ_R):
         """
         Test if request failed due to an expired session.
 
@@ -397,7 +396,7 @@ class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
         return response_obj is not None and not response_obj.success and is_expired
 
     @classmethod
-    def _run_validation(cls, message: Union[MAAS_M, MAAS_R]):
+    def _run_validation(cls, message: Union[EXTERN_REQ_M, EXTERN_REQ_R]):
         """
         Run validation for the given message object using the appropriate validator subtype.
 
@@ -486,7 +485,7 @@ class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
             return False
 
     @abstractmethod
-    def _update_after_valid_response(self, response: MAAS_R):
+    def _update_after_valid_response(self, response: EXTERN_REQ_R):
         """
         Perform any required internal updates immediately after a request gets back a successful, valid response.
 
@@ -503,7 +502,7 @@ class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
         pass
 
     # TODO: this can probably be taken out, as the superclass implementation should suffice
-    async def async_make_request(self, request: MAAS_M) -> MAAS_R:
+    async def async_make_request(self, request: EXTERN_REQ_M) -> EXTERN_REQ_R:
         async with websockets.connect(self.endpoint_uri, ssl=self.client_ssl_context) as websocket:
             await websocket.send(request.to_json())
             response = await websocket.recv()
@@ -552,7 +551,7 @@ class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
     def is_new_session(self):
         return self._is_new_session
 
-    def make_maas_request(self, maas_request: MAAS_M, force_new_session: bool = False):
+    def make_maas_request(self, maas_request: EXTERN_REQ_M, force_new_session: bool = False):
         request_type_str = maas_request.__class__.__name__
         logger.debug("client Making {} type request".format(request_type_str))
         self._acquire_session_info(force_new=force_new_session)
@@ -566,7 +565,7 @@ class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
                 is_request_valid, request_validation_error = self._run_validation(message=maas_request)
                 if is_request_valid:
                     try:
-                        response_obj: MAAS_R = get_or_create_eventloop().run_until_complete(
+                        response_obj: EXTERN_REQ_R = get_or_create_eventloop().run_until_complete(
                             self.async_make_request(maas_request))
                         print('***************** Response: ' + str(response_obj))
                         # Try to get a new session if session is expired (and we hadn't already gotten a new session)
@@ -612,7 +611,7 @@ class MaasRequestClient(WebSocketClient, Generic[MAAS_M, MAAS_R], ABC):
     def session_secret(self):
         return self._session_secret
 
-    def validate_maas_request_response(self, maas_request_response: MAAS_R):
+    def validate_maas_request_response(self, maas_request_response: EXTERN_REQ_R):
         return self._run_validation(message=maas_request_response)[0]
 
     @property
