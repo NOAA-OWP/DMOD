@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from dmod.core.execution import AllocationParadigm
-from dmod.communication import InternalServiceClient, MaasRequestClient, ManagementAction, ModelExecRequestClient, \
+from dmod.communication import InternalServiceClient, ExternalRequestClient, ManagementAction, ModelExecRequestClient, \
     NGENRequest, NGENRequestResponse
 from dmod.communication.client import R
 from dmod.communication.dataset_management_message import DatasetManagementMessage, DatasetManagementResponse, \
@@ -310,7 +310,7 @@ class DatasetInternalClient(DatasetClient, InternalServiceClient[DatasetManageme
 
 
 class DatasetExternalClient(DatasetClient,
-                            MaasRequestClient[MaaSDatasetManagementMessage, MaaSDatasetManagementResponse]):
+                            ExternalRequestClient[MaaSDatasetManagementMessage, MaaSDatasetManagementResponse]):
     """
     Client for authenticated communication sessions via ::class:`MaaSDatasetManagementMessage` instances.
     """
