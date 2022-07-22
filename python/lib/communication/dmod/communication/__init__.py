@@ -1,5 +1,5 @@
 from ._version import __version__
-from .client import DataServiceClient, InternalServiceClient, ModelExecRequestClient, MaasRequestClient, \
+from .client import DataServiceClient, InternalServiceClient, ModelExecRequestClient, ExternalRequestClient, \
     PartitionerServiceClient, SchedulerClient
 from .maas_request import get_available_models, get_available_outputs, get_distribution_types, get_parameters, \
     get_request, Distribution, ExternalRequest, ExternalRequestResponse, ModelExecRequest, ModelExecRequestResponse, \

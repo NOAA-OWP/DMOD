@@ -371,7 +371,8 @@ class SchedulerClient(InternalServiceClient[SchedulerRequestMessage, SchedulerRe
             logging.debug('************* {} yielding result: {}'.format(self.__class__.__name__, str(message)))
             yield message
 
-class MaasRequestClient(WebSocketClient, Generic[EXTERN_REQ_M, EXTERN_REQ_R], ABC):
+
+class ExternalRequestClient(WebSocketClient, Generic[EXTERN_REQ_M, EXTERN_REQ_R], ABC):
 
     @staticmethod
     def _request_failed_due_to_expired_session(response_obj: EXTERN_REQ_R):
@@ -629,7 +630,7 @@ class DataServiceClient(InternalServiceClient[DatasetManagementMessage, DatasetM
         return DatasetManagementResponse
 
 
-class ModelExecRequestClient(MaasRequestClient[MOD_EX_M, MOD_EX_R], ABC):
+class ModelExecRequestClient(ExternalRequestClient[MOD_EX_M, MOD_EX_R], ABC):
 
     def __init__(self, endpoint_uri: str, ssl_directory: Path):
         super().__init__(endpoint_uri=endpoint_uri, ssl_directory=ssl_directory)
@@ -662,7 +663,7 @@ class PartitionerServiceClient(InternalServiceClient[PartitionRequest, Partition
     A client for interacting with the partitioner service.
 
     Because it is for the partitioner service, and this service is internal to the system and not publicly exposed, this
-    does not need to be a (public) ::class:`MaasRequestClient` based type.
+    does not need to be a (public) ::class:`ExternalRequestClient` based type.
     """
 
     @classmethod
