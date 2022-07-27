@@ -808,7 +808,7 @@ class NGENRequest(ModelExecRequest):
                        hydrofabric_data_id=json_obj['model']['hydrofabric_data_id'],
                        config_data_id=json_obj['model']['config_data_id'],
                        bmi_cfg_data_id=json_obj['model']['bmi_config_data_id'],
-                       catchments=json_obj['catchments'] if 'catchments' in json_obj else None,
+                       catchments=json_obj['model']['catchments'] if 'catchments' in json_obj['model'] else None,
                        session_secret=json_obj['session-secret'])
         except Exception as e:
             return None
