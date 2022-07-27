@@ -186,7 +186,7 @@ class DatasetManagementMessage(AbstractInitRequest):
     _SERIAL_KEY_IS_READ_ONLY = 'read_only'
 
     @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict, **kwargs) -> Optional['DatasetManagementMessage']:
+    def factory_init_from_deserialized_json(cls, json_obj: dict) -> Optional['DatasetManagementMessage']:
         """
         Inflate serialized representation back to a full object, if serial representation is valid.
 
@@ -201,17 +201,21 @@ class DatasetManagementMessage(AbstractInitRequest):
             The inflated ::class:`DatasetManagementMessage`, or ``None`` if the serialized form was invalid.
         """
         try:
-            deserialized_class = kwargs['deserialized_class'] if 'deserialized_class' in kwargs else cls
+            # Grab the class to deserialize, popping it from the json obj (it was temp injected by a subclass) if there
+            deserialized_class = json_obj.pop('deserialized_class', cls)
+
+            # Similarly, get/pop any temporarily injected kwargs values to pass to deserialized_class's init function
+            deserialized_class_kwargs = json_obj.pop('deserialized_class_kwargs', dict())
 
             action = ManagementAction.get_for_name(json_obj[cls._SERIAL_KEY_ACTION])
             if json_obj[cls._SERIAL_KEY_ACTION] != action.name:
                 raise RuntimeError("Unparseable serialized {} value: {}".format(ManagementAction.__name__,
                                                                                 json_obj[cls._SERIAL_KEY_ACTION]))
 
-            dataset_name = json_obj[cls._SERIAL_KEY_DATASET_NAME] if cls._SERIAL_KEY_DATASET_NAME in json_obj else None
-            category = DataCategory.get_for_name(json_obj[cls._SERIAL_KEY_CATEGORY]) if cls._SERIAL_KEY_CATEGORY in json_obj else None
-            data_loc = json_obj[cls._SERIAL_KEY_DATA_LOCATION] if cls._SERIAL_KEY_DATA_LOCATION in json_obj else None
-            raw_data = json_obj[cls._SERIAL_KEY_DATA] if cls._SERIAL_KEY_DATA in json_obj else None
+            dataset_name = json_obj.get(cls._SERIAL_KEY_DATASET_NAME)
+            category_str = json_obj.get(cls._SERIAL_KEY_CATEGORY)
+            category = None if category_str is None else DataCategory.get_for_name(category_str)
+            data_loc = json_obj.get(cls._SERIAL_KEY_DATA_LOCATION)
             #page = json_obj[cls._SERIAL_KEY_PAGE] if cls._SERIAL_KEY_PAGE in json_obj else None
             if cls._SERIAL_KEY_QUERY in json_obj:
                 query = DatasetQuery.factory_init_from_deserialized_json(json_obj[cls._SERIAL_KEY_QUERY])
@@ -224,9 +228,9 @@ class DatasetManagementMessage(AbstractInitRequest):
 
             return deserialized_class(action=action, dataset_name=dataset_name, category=category,
                                       is_read_only_dataset=json_obj[cls._SERIAL_KEY_IS_READ_ONLY], domain=domain,
-                                      data_location=data_loc, is_pending_data=json_obj[cls._SERIAL_KEY_IS_PENDING_DATA],
-                                      raw_data=raw_data, #page=page,
-                                      query=query, **kwargs)
+                                      data_location=data_loc,
+                                      is_pending_data=json_obj.get(cls._SERIAL_KEY_IS_PENDING_DATA), #page=page,
+                                      query=query, **deserialized_class_kwargs)
         except Exception as e:
             return None
 
@@ -299,7 +303,7 @@ class DatasetManagementMessage(AbstractInitRequest):
         self._dataset_name = dataset_name
         self._is_read_only_dataset = is_read_only_dataset
         self._category = category
-        self._domain = None
+        self._domain = domain
         self._data = data
         self._data_location = data_location
         self._query = query
@@ -411,7 +415,7 @@ class DatasetManagementMessage(AbstractInitRequest):
         if self.dataset_name is not None:
             serial[self._SERIAL_KEY_DATASET_NAME] = self.dataset_name
         if self.data_category is not None:
-            serial[self._SERIAL_KEY_CATEGORY] = self.data_category
+            serial[self._SERIAL_KEY_CATEGORY] = self.data_category.name
         if self.data is not None:
             serial[self._SERIAL_KEY_DATA] = self.data
         if self.data_location is not None:
@@ -588,11 +592,18 @@ class MaaSDatasetManagementMessage(DatasetManagementMessage, MaaSRequest):
         return MaaSDatasetManagementResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
     @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict, **kwargs) -> Optional['MaaSDatasetManagementMessage']:
+    def factory_init_from_deserialized_json(cls, json_obj: dict) -> Optional['MaaSDatasetManagementMessage']:
         try:
-            deserialized_class = kwargs['deserialized_class'] if 'deserialized_class' in kwargs else cls
-            return super().factory_init_from_deserialized_json(json_obj=json_obj, deserialized_class=deserialized_class,
-                                                               session_secret=json_obj[cls._SERIAL_KEY_SESSION_SECRET])
+            # Inject this if necessary before passing to supertype
+            if 'deserialized_class' not in json_obj:
+                json_obj['deserialized_class'] = cls
+            # Also inject things that will be used as additional kwargs to the eventual class init
+            if 'deserialized_class_kwargs' not in json_obj:
+                json_obj['deserialized_class_kwargs'] = dict()
+            if 'session_secret' not in json_obj['deserialized_class_kwargs']:
+                json_obj['deserialized_class_kwargs']['session_secret'] = json_obj[cls._SERIAL_KEY_SESSION_SECRET]
+
+            return super().factory_init_from_deserialized_json(json_obj=json_obj)
         except Exception as e:
             return None
 
