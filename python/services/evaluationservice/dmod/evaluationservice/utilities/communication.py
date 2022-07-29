@@ -13,9 +13,9 @@ import dmod.metrics.communication as communication
 
 from . import common
 
-import service.logging
+from .. import service
 
-from service import application_values
+from ..service import application_values
 
 
 MESSAGE_HANDLERS = typing.Union[communication.MESSAGE_HANDLER, typing.Sequence[communication.MESSAGE_HANDLER]]
@@ -287,9 +287,9 @@ class RedisCommunicator(communication.Communicator):
         """
         if exception:
             formatted_exception = traceback.format_exc()
-            service.logging.error(formatted_exception)
+            service.error(formatted_exception)
         else:
-            service.logging.error(message)
+            service.error(message)
 
         if verbosity and self._verbosity < verbosity:
             return
@@ -333,7 +333,7 @@ class RedisCommunicator(communication.Communicator):
             message = f"[{timestamp}] {message}"
 
         self.__connection.rpush(self.__info_key, message)
-        service.logging.info(message)
+        service.info(message)
 
         if publish:
             self.write(reason="info", data={"info": message})
