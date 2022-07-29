@@ -14,5 +14,6 @@ urlpatterns = [
     re_path(r'launch$', views.LaunchEvaluation.as_view(), name="Launch"),
     re_path(r'build$', views.ReadyEvaluation.as_view(), name="Build"),
     re_path(r'^$', views.EvaluationList.as_view(), name="EvaluationList"),
-    re_path(r'clean$', views.Clean.as_view(), name="Clean")
+    re_path(r'clean$', views.Clean.as_view(), name="Clean"),
+    re_path(f'output/(?P<evaluation_name>{CHANNEL_NAME_PATTERN})/?$', views.helpers.GetOutput.as_view(), name="Output")
 ]

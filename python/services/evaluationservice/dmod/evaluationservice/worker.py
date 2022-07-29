@@ -4,7 +4,6 @@ import typing
 import json
 
 from time import sleep
-from datetime import datetime
 from argparse import ArgumentParser
 
 from dmod.metrics import Verbosity
@@ -14,7 +13,7 @@ from dmod.evaluations.evaluate import Evaluator
 import utilities
 import writing
 
-utilities.configure_logging()
+from service.application_values import COMMON_DATETIME_FORMAT
 
 
 class Arguments(object):
@@ -27,6 +26,7 @@ class Arguments(object):
         self.__redis_password: typing.Optional[str] = None
         self.__verbosity: typing.Optional[Verbosity] = None
         self.__start_delay: int = 0
+        self.__format: typing.Optional[str] = None
         self.__parse_command_line(*args)
 
     @property
@@ -60,6 +60,10 @@ class Arguments(object):
     @property
     def verbosity(self):
         return self.__verbosity
+
+    @property
+    def format(self):
+        return self.__format
 
     def __parse_command_line(self, *args):
         parser = ArgumentParser("Launches the worker script that starts and tracks an evaluation")
@@ -118,6 +122,12 @@ class Arguments(object):
             choices=["QUIET", "NORMAL", "LOUD", "ALL"]
         )
 
+        parser.add_argument(
+            "--format",
+            help="The format that output should be written as",
+            dest="format"
+        )
+
         # Parse the list of args if one is passed instead of args passed to the script
         if args:
             parameters = parser.parse_args(args)
@@ -132,9 +142,10 @@ class Arguments(object):
         self.__evaluation_name = parameters.name
         self.__verbosity = Verbosity[verbosity]
         self.__start_delay = int(parameters.delay) if parameters.delay else 0
+        self.__format = parameters.format
 
 
-def evaluate(evaluation_id: str, definition_json: str, arguments: Arguments = None):
+def evaluate(evaluation_id: str, definition_json: str, arguments: Arguments = None) -> dict:
     evaluation_id = evaluation_id.replace(" ", "_")
 
     redis_host = arguments.redis_host if arguments else None
@@ -159,13 +170,11 @@ def evaluate(evaluation_id: str, definition_json: str, arguments: Arguments = No
         password=redis_password
     )
 
-    print(f"Writing to {communicators}")
-
-    error_key = "::".join([utilities.redis_prefix(), evaluation_id, "ERRORS"])
-    message_key = "::".join([utilities.redis_prefix(), evaluation_id, "MESSAGES"])
+    error_key = utilities.key_separator().join([utilities.redis_prefix(), evaluation_id, "ERRORS"])
+    message_key = utilities.key_separator().join([utilities.redis_prefix(), evaluation_id, "MESSAGES"])
 
     communicators.update(
-        created_at=utilities.now().strftime(utilities.datetime_format()),
+        created_at=utilities.now().strftime(COMMON_DATETIME_FORMAT),
         failed=False,
         complete=False,
         error_key=error_key,
@@ -182,13 +191,17 @@ def evaluate(evaluation_id: str, definition_json: str, arguments: Arguments = No
         communicators.sunset(60*3)
         raise exception
 
+    write_results = {
+        "success": False
+    }
+
     try:
         evaluator = Evaluator(definition, communicators=communicators, verbosity=verbosity)
         communicators.info(f"starting {evaluation_id}", publish=should_publish)
         results = evaluator.evaluate()
-        communicators.info(f"Result: {results.grade}%", publish=should_publish)
+        communicators.info("Result: {:.2f}%".format(results.grade), publish=should_publish)
         communicators.info(f"{evaluation_id} complete; now writing results")
-        writing.write(evaluation_id=evaluation_id, results=results)
+        write_results = writing.write(evaluation_id=evaluation_id, results=results, output_format=arguments.format)
         communicators.info(f"Data from {evaluation_id} was written.")
     except Exception as e:
         communicators.error(f"{e.__class__.__name__}: {e}", e, publish=should_publish)
@@ -197,6 +210,8 @@ def evaluate(evaluation_id: str, definition_json: str, arguments: Arguments = No
     finally:
         communicators.update(complete=True)
         communicators.info(f"{evaluation_id} is complete", publish=should_publish)
+
+    return write_results
 
 
 def main(arguments: Arguments = None):
@@ -217,7 +232,7 @@ def main(arguments: Arguments = None):
     else:
         name = ""
 
-    name += f"_{datetime.now().strftime('%Y-%m-%d_%H%M')}"
+    name += f"_{utilities.now().strftime('%Y-%m-%d_%H%M')}"
     name = name.replace(" ", "_")
     evaluate(name, instructions, arguments)
 

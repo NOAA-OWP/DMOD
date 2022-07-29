@@ -1,3 +1,4 @@
+import io
 import os
 
 __all__ = [
@@ -12,6 +13,7 @@ from . import *
 import typing
 import inspect
 import pathlib
+import zipfile
 
 from . import writer
 
@@ -68,3 +70,12 @@ def clean(
 ) -> typing.Sequence[str]:
     output_writer = get_writer(writer_format, destination, **kwargs)
     return output_writer.clean(**kwargs)
+
+
+def get_written_output(
+    writer_format: str,
+    destination: typing.Union[str, pathlib.Path, typing.Sequence[str]],
+    **kwargs
+) -> writer.OutputData:
+    output_writer = get_writer(writer_format, destination, **kwargs)
+    return output_writer.retrieve_written_output(**kwargs)

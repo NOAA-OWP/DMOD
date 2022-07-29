@@ -43,10 +43,8 @@ class EvaluationList(View):
         for key in keys:
             evaluation: typing.Dict[str, typing.Any] = dict()
 
-            evaluation_name = key.decode().replace(utilities.redis_prefix(), "")
-
-            while evaluation_name.startswith(":"):
-                evaluation_name = evaluation_name[1:]
+            evaluation_name: str = key.decode().replace(utilities.redis_prefix(), "")
+            evaluation_name = evaluation_name.strip(utilities.key_separator())
 
             identifier = evaluation_name
 

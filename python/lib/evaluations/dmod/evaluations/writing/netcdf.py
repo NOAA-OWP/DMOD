@@ -10,11 +10,57 @@ import xarray
 import dmod.metrics.metric as metric_functions
 
 from . import writer
+from .writer import OutputData
 from .. import specification
-from .. import util
+
+
+class NetcdfOutput(writer.OutputData):
+    def get_extension(self) -> str:
+        if len(self) > 1:
+            return ".zip"
+        return ".nc"
+
+    def get_content_type(self) -> str:
+        if len(self) > 1:
+            return "application/zip"
+        return "application/x-netcdf"
+
+    def get_bytes(self, index: int = None) -> bytes:
+        data = self.get(index)
+        return data.to_netcdf()
+
+    def next_bytes(self) -> bytes:
+        data = self.next()
+        return data.to_netcdf()
+
+    def get(self, index: int = None) -> xarray.Dataset:
+        if index is not None and index >= len(self):
+            raise IndexError(f"Cannot retrieve output at index {index}. There are only {len(self)} items to read.")
+
+        if index is None:
+            index = self._current_index
+
+        return xarray.load_dataset(self._destinations[index])
+
+    def next(self) -> xarray.Dataset:
+        if len(self) == 0:
+            raise IndexError("There are no datasets to load")
+        if self._current_index >= len(self):
+            self._current_index = 0
+
+        dataset = xarray.load_dataset(self._destinations[self._current_index])
+        self._current_index += 1
+        return dataset
 
 
 class NetcdfWriter(writer.OutputWriter):
+    def retrieve_written_output(self, **kwargs) -> OutputData:
+        if self.destination is None:
+            raise ValueError("Cannot retrieve data that wasn't written to the given destination")
+
+        output_generator = NetcdfOutput(self, **kwargs)
+        return output_generator
+
     @classmethod
     def requires_destination_address_or_buffer(cls) -> bool:
         return True
