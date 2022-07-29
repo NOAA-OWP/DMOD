@@ -9,7 +9,6 @@ import typing
 import json
 import traceback
 import inspect
-import functools
 
 from datetime import datetime
 
@@ -121,7 +120,7 @@ def make_message_serializable(message: typing.Union[dict, str, bytes, typing.Sup
     return message
 
 
-@functools.cache
+
 def valid_log_levels() -> typing.Collection[str]:
     """
     Returns:
@@ -137,7 +136,7 @@ def valid_log_levels() -> typing.Collection[str]:
     ]
 
 
-@functools.cache
+
 def available_logging_handlers() -> typing.Mapping[str, typing.Type[logging.Handler]]:
     """
     Returns:
@@ -185,7 +184,7 @@ def available_logging_handlers() -> typing.Mapping[str, typing.Type[logging.Hand
     return mapped_handlers
 
 
-@functools.cache
+
 def get_socket_log_level() -> str:
     """
     Returns:
@@ -203,7 +202,7 @@ def get_socket_log_level() -> str:
     return socket_log_level.upper()
 
 
-@functools.cache
+
 def get_log_level() -> str:
     """
     Returns:
@@ -221,7 +220,7 @@ def get_log_level() -> str:
     return 'DEBUG' if application_values.in_debug_mode() else 'INFO'
 
 
-@functools.cache
+
 def get_evaluation_service_logging_filename() -> str:
     evaluation_service_log_filename = os.environ.get(
         'APPLICATION_LOG_PATH',
@@ -234,7 +233,7 @@ def get_evaluation_service_logging_filename() -> str:
     return evaluation_service_log_filename
 
 
-@functools.cache
+
 def get_socket_log_filename() -> str:
     socket_log_filename = os.environ.get(
         "EVALUATION_SOCKET_LOG_PATH",
@@ -247,7 +246,7 @@ def get_socket_log_filename() -> str:
     return socket_log_filename
 
 
-@functools.cache
+
 def get_maximum_log_size() -> int:
     maximum_log_size = os.environ.get("MAXIMUM_LOG_SIZE", "5").upper()
 
@@ -290,7 +289,7 @@ def get_maximum_log_size() -> int:
     return maximum_log_size
 
 
-@functools.cache
+
 def get_maximum_log_backups() -> int:
     maximum_backups = os.environ.get("MAXIMUM_LOGFILE_BACKUPS", "5")
     return int(float(maximum_backups))
