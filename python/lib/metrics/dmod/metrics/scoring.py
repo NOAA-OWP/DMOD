@@ -346,11 +346,29 @@ class Scores(abstract_collections.Sized, abstract_collections.Iterable):
         if len(self.__results) == 0:
             raise ValueError("There are no scores to total")
 
-        return sum([score.scaled_value for score in self.__results.values()])
+        return sum([
+            score.scaled_value
+            for score in self.__results.values()
+            if not numpy.isnan(score.sample_size)
+               and score.sample_size > 0
+               and not numpy.isnan(score.scaled_value)
+        ])
+
+    @property
+    def performance(self) -> float:
+        valid_scores = [
+            score
+            for score in self
+            if not numpy.isnan(score.sample_size)
+               and score.sample_size > 0
+        ]
+        max_possible = sum([score.scaled_value for score in valid_scores])
+        return self.total / max_possible if max_possible else numpy.nan
 
     def to_dict(self) -> dict:
         score_representation = {
             "total": self.total,
+            "grade": "{:.2f}%".format(self.performance) if not numpy.isnan(self.performance) else None,
             "scores": dict()
         }
 

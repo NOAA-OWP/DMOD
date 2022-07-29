@@ -20,7 +20,8 @@
         mode: "javascript",
         json: true,
         readOnly: true,
-        indentUnit: 4
+        indentUnit: 4,
+        viewportMargin: Infinity,
     }
 
     let digest = {
@@ -39,6 +40,7 @@
             font-weight: normal;
         }
     </style>
+    <link rel="stylesheet" type="text/css" href="{% static 'evaluation_service/css/evaluation_listener.css' %}">
 {% endblock style %}
 {% block bannercontent %}
     <h1>Connected to: <span id="channel-name" class="session-details">{{ channel_name }}</span></h1>
@@ -62,11 +64,14 @@
                 <label for="record-messages">Record Messages</label>
                 <input type="checkbox" id="record-messages" checked>
             </p>
-            <textarea id="message-box"></textarea>
-            <br>
-            <button id="clear-button">Clear Output</button>
-            <button id="clear-digest">Clear Digest</button>
-            <button id="get-digest">Get Digest</button>
+            <div id="message-area">
+                <textarea id="message-box"></textarea>
+            </div>
+            <div id="action-buttons">
+                <button id="clear-button">Clear Output</button>
+                <button id="clear-digest">Clear Digest</button>
+                <button id="get-digest">Get Digest</button>
+            </div>
         </div>
     </div>
 {% endblock content %}

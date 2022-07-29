@@ -15,6 +15,7 @@ from pathlib import Path
 # Import application specific values rather than defining them here so that they may be accessed outside of
 # the server
 from .application_values import *
+from .logging import *
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -98,7 +99,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = CURRENT_TIMEZONE
 
 USE_I18N = True
 

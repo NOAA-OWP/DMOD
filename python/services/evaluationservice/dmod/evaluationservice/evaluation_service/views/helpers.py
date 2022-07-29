@@ -1,9 +1,14 @@
+import io
+import zipfile
+from wsgiref.util import FileWrapper
 from django.views.generic import View
 
 from django.http import HttpResponse
 from django.http import HttpRequest
 from django.http import JsonResponse
 from django.http import HttpResponseBadRequest
+
+import dmod.evaluations.util as evaluation_utilities
 
 import utilities
 
@@ -76,3 +81,18 @@ class Clean(View):
 
         return response
 
+
+class GetOutput(View):
+    def get(self, request: HttpRequest, evaluation_name: str):
+        args = {
+            key.lower(): value
+            for key, value in request.GET.items()
+        }
+        output_format = args.get("output_format")
+        written_data = writing.get_output(evaluation_id=evaluation_name, output_format=output_format)
+        file = FileWrapper(io.BytesIO(written_data.get_raw_data()))
+        filename = evaluation_utilities.clean_name(evaluation_name) + "." + written_data.get_extension()
+
+        response = HttpResponse(content=file, content_type=written_data.get_content_type())
+        response['Content-Disposition'] = f'attachment; filename={filename}'
+        return response

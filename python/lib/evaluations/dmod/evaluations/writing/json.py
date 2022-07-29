@@ -1,5 +1,4 @@
 import json
-import pathlib
 import typing
 
 import numpy
@@ -9,9 +8,57 @@ import dmod.metrics.metric as metrics
 
 from ..specification import EvaluationResults
 from .writer import OutputWriter
+from .writer import OutputData
+
+
+class JSONOutput(OutputData):
+    def get_extension(self) -> str:
+        if len(self) > 1:
+            return "zip"
+        return "json"
+
+    def get_content_type(self) -> str:
+        if len(self) > 1:
+            return "application/zip"
+        return "application/json"
+
+    def get_bytes(self, index: int = None) -> bytes:
+        data = self.get(index)
+        return json.dumps(data, indent=4).encode()
+
+    def next_bytes(self) -> bytes:
+        data = self.next()
+        return json.dumps(data, indent=4).encode()
+
+    def get(self, index: int = None) -> dict:
+        if index is None or index >= len(self):
+            raise IndexError(f"Cannot retrieve output at index {index}. There are only {len(self)} items to read.")
+
+        if index is None:
+            index = self._current_index
+
+        with open(self._destinations[index], 'r') as data_file:
+            return json.load(data_file)
+
+    def next(self) -> dict:
+        if self._current_index < len(self._destinations):
+            with open(self._destinations[self._current_index], 'rb') as output_file:
+                data = json.load(output_file)
+
+            self._current_index += 1
+            return data
+        else:
+            raise StopIteration()
 
 
 class JSONWriter(OutputWriter):
+    def retrieve_written_output(self, **kwargs) -> OutputData:
+        if self.destination is None:
+            raise ValueError("Cannot retrieve data that wasn't written to the given destination")
+
+        output_generator = JSONOutput(self, **kwargs)
+        return output_generator
+
     @classmethod
     def requires_destination_address_or_buffer(cls) -> bool:
         return True

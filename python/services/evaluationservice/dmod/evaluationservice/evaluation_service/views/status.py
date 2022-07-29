@@ -27,8 +27,8 @@ class EvaluationStatus(View):
         key = name.replace(" ", "_")
         if not name.startswith(utilities.redis_prefix()):
             prefix = utilities.redis_prefix()
-            if not prefix.endswith("::"):
-                prefix += "::"
+            if not prefix.endswith(utilities.key_separator()):
+                prefix += utilities.key_separator()
             key = prefix + name
 
         key = key.lower()

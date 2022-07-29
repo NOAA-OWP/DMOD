@@ -48,6 +48,7 @@ class LaunchEvaluation(APIView):
             }
             response = JsonResponse(data, json_dumps_params={"indent": 4})
 
+        """
         worker_arguments = worker.Arguments(
             "-t",
             "--verbosity",
@@ -58,12 +59,25 @@ class LaunchEvaluation(APIView):
             evaluation_id,
             instructions
         )
+        """
+
+        launch_parameters = {
+            "purpose": "launch",
+            "evaluation_id": evaluation_id,
+            "verbosity": OUTPUT_VERBOSITY,
+            "start_delay": START_DELAY,
+            "instructions": instructions
+        }
+        connection = utilities.get_redis_connection()
+        connection.publish("evaluation_jobs", json.dumps(launch_parameters))
+        """
         django_rq.get_queue(application_values.EVALUATION_QUEUE_NAME).enqueue(
             worker.evaluate,
             evaluation_id,
             instructions,
             worker_arguments
         )
+        """
         return response
 
 

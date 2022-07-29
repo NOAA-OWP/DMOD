@@ -61,7 +61,7 @@ def get_parameters_from_redis(configuration_key: str) -> typing.Dict[str, typing
 def get_destination_parameters(evaluation_id: str, output_format: str = None, **kwargs) -> typing.Dict[str, typing.Any]:
     environment_variables = output_environment_variables()
 
-    should_use_environment_variables = environment_variables.get("USE_ENVIRONMENT", False)
+    should_use_environment_variables = utilities.is_true(environment_variables.get("USE_ENVIRONMENT", False))
     redis_configuration_key = environment_variables.get("REDIS_OUTPUT_KEY", None)
 
     parameters = dict()
@@ -108,7 +108,7 @@ def get_destination_parameters(evaluation_id: str, output_format: str = None, **
     return parameters
 
 
-def write(evaluation_id: str, results: specification.EvaluationResults, output_format: str = None, **kwargs):
+def write(evaluation_id: str, results: specification.EvaluationResults, output_format: str = None, **kwargs) -> dict:
     destination_parameters = get_destination_parameters(
         evaluation_id=evaluation_id,
         output_format=output_format,
@@ -117,6 +117,17 @@ def write(evaluation_id: str, results: specification.EvaluationResults, output_f
     )
     writer = writing.get_writer(**destination_parameters)
     writer.write(evaluation_results=results, **destination_parameters)
+    return destination_parameters
+
+
+def get_output(evaluation_id: str, output_format: str = None, **kwargs) -> writing.writer.OutputData:
+    destination_parameters = get_destination_parameters(
+        evaluation_id=evaluation_id,
+        output_format=output_format,
+        writer_format=output_format,
+        **kwargs
+    )
+    return writing.get_written_output(**destination_parameters)
 
 
 def clean(evaluation_id: str, output_format: str = None, **kwargs):

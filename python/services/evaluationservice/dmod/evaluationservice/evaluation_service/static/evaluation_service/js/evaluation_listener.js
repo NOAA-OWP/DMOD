@@ -125,6 +125,11 @@ $(function(){
         messageConfig
     );
 
+    var area = document.querySelector("#message-area");
+    var height = area.offsetHeight;
+
+    messageBox.setSize(null, height);
+
     $("#connect-button").click(connectToSocket);
     $("#clear-digest").click(clearDigest);
     $("#get-digest").click(getDigest)

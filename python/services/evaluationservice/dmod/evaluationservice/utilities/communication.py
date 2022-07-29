@@ -2,7 +2,6 @@
 import typing
 import os
 import json
-import logging
 import traceback
 
 from time import sleep
@@ -14,24 +13,12 @@ import dmod.metrics.communication as communication
 
 from . import common
 
-from service import application_values
+import service.logging
 
-common.configure_logging()
+from service import application_values
 
 
 MESSAGE_HANDLERS = typing.Union[communication.MESSAGE_HANDLER, typing.Sequence[communication.MESSAGE_HANDLER]]
-
-
-def key_separator() -> str:
-    """
-    The separator to use when forming redis keys
-
-    The separator MUST be a valid URL character due to messaging requirements, otherwise the value would be '::'
-
-    Returns:
-        The character(s) to use as delimiters when forming redis keys
-    """
-    return "--"
 
 
 def make_key(*args) -> str:
@@ -53,12 +40,12 @@ def make_key(*args) -> str:
             parts.extend(
                 [
                     str(part).strip()
-                    for part in str(arg).strip().strip("::").split(key_separator())
+                    for part in str(arg).strip().strip(common.key_separator()).split(common.key_separator())
                     if part and str(part).strip()
                 ]
             )
 
-    return key_separator().join(parts)
+    return common.key_separator().join(parts)
 
 
 def redis_prefix() -> str:
@@ -81,7 +68,7 @@ def get_channel_key(evaluation_id: str) -> str:
     """
     evaluation_id = get_evaluation_key(evaluation_id)
 
-    if not evaluation_id.endswith(key_separator() + "COMMUNICATION"):
+    if not evaluation_id.endswith(common.key_separator() + "COMMUNICATION"):
         evaluation_id = make_key(evaluation_id, "COMMUNICATION")
 
     return evaluation_id
@@ -99,7 +86,7 @@ def get_evaluation_key(evaluation_id: str) -> str:
     Returns:
         The expected key for an evaluation
     """
-    args = evaluation_id.split(key_separator())
+    args = evaluation_id.split(common.key_separator())
 
     if args[0] != redis_prefix():
         args.insert(0, redis_prefix())
@@ -180,8 +167,8 @@ def get_evaluation_pointers(evaluation_id: str) -> typing.Dict[str, str]:
     Returns:
         A dictionary mapping the key in the evaluation record to the expected value of said key
     """
-    if key_separator() in evaluation_id:
-        args = evaluation_id.split(key_separator())
+    if common.key_separator() in evaluation_id:
+        args = evaluation_id.split(common.key_separator())
     else:
         args = [evaluation_id]
 
@@ -217,7 +204,7 @@ class RedisCommunicator(communication.Communicator):
         while not data_updated and try_count < get_maximum_retries():
             pipeline = self.__connection.pipeline()
             try:
-                kwargs['last_updated'] = common.now().strftime(common.datetime_format())
+                kwargs['last_updated'] = common.now().strftime(application_values.COMMON_DATETIME_FORMAT)
                 for key, value in kwargs.items():
                     if isinstance(value, bool):
                         safe_value = int(value)
@@ -300,9 +287,9 @@ class RedisCommunicator(communication.Communicator):
         """
         if exception:
             formatted_exception = traceback.format_exc()
-            logging.error(formatted_exception)
+            service.logging.error(formatted_exception)
         else:
-            logging.error(message)
+            service.logging.error(message)
 
         if verbosity and self._verbosity < verbosity:
             return
@@ -346,7 +333,7 @@ class RedisCommunicator(communication.Communicator):
             message = f"[{timestamp}] {message}"
 
         self.__connection.rpush(self.__info_key, message)
-        logging.info(message)
+        service.logging.info(message)
 
         if publish:
             self.write(reason="info", data={"info": message})
@@ -399,7 +386,7 @@ class RedisCommunicator(communication.Communicator):
 
         message = {
             "event": reason,
-            "time": common.now().strftime(common.datetime_format()),
+            "time": common.now().strftime(application_values.COMMON_DATETIME_FORMAT),
             "data": json.dumps(data, indent=4)
         }
 
@@ -476,7 +463,7 @@ class RedisCommunicator(communication.Communicator):
         self.__timeout = timeout or 0
         self.__has_sunset = False
         self.__include_timestamp = include_timestamp is None or include_timestamp
-        self.__timestamp_format = timestamp_format or common.datetime_format()
+        self.__timestamp_format = timestamp_format or application_values.COMMON_DATETIME_FORMAT
 
         if 'receive' in self._handlers:
             self.__publisher_and_subscriber = self.__connection.pubsub()
