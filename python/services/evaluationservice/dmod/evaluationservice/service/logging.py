@@ -11,14 +11,16 @@ import traceback
 import inspect
 import functools
 
+from datetime import datetime
+
+import numpy
+
 # Linters will say this isn't used, but it loads basic log handlers into the memory space for discovery
 #
 # If additional handlers are added, their package(s) need to be imported here for logging handler discoverability
 from logging import handlers
 
 from . import application_values
-
-from utilities import make_message_serializable
 
 MESSAGE = typing.Union[Exception, str, dict]
 
@@ -94,6 +96,29 @@ class ConfiguredLogger:
             level: The level that a message should be logged as
         """
         log(message=message, logger_name=self._logger_name, level=level)
+
+
+def make_message_serializable(message: typing.Union[dict, str, bytes, typing.SupportsFloat, datetime, typing.Iterable]):
+    if isinstance(message, dict):
+        for key, value in message.items():
+            message[key] = make_message_serializable(value)
+    elif isinstance(message, bytes):
+        return message.decode()
+    elif isinstance(message, typing.SupportsFloat):
+        if numpy.isneginf(message):
+            return "-Infinity"
+        if numpy.isposinf(message):
+            return "Infinity"
+        if numpy.isnan(message):
+            return "NaN"
+    elif isinstance(message, datetime):
+        return message.strftime(application_values.COMMON_DATETIME_FORMAT)
+    elif isinstance(message, Exception):
+        return os.linesep.join(traceback.format_exception_only(type(message), message))
+    elif not isinstance(message, str) and isinstance(message, typing.Iterable):
+        return [make_message_serializable(submessage) for submessage in message]
+
+    return message
 
 
 @functools.cache
