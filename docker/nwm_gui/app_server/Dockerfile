@@ -18,10 +18,10 @@ RUN pip install --upgrade --find-links=/DIST ${comms_package_name} \
     # After eventually installing all dist files like this, clean up ... \
     && rm -r /DIST
 
-# Move to a new directory at "/usr/wres-gui"
+# Move to a new directory at "/usr/maas_portal"
 WORKDIR /usr/maas_portal
 # Copy the requirements.txt file in the current directory for the application to the
-# working directory of the docker image (/usr/wres-gui)
+# working directory of the docker image (/usr/maas_portal)
 COPY ./python/gui/requirements.txt ./
 # Install all the python packages described in the requirements file
 RUN pip install -r requirements.txt
