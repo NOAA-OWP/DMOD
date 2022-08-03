@@ -835,8 +835,6 @@ class NGENRequest(ModelExecRequest):
 
         Parameters
         ----------
-        session_secret : str
-            The session secret used for checking authentication and authorization of this request.
         time_range : TimeRange
             A definition of the time range for the requested model execution.
         hydrofabric_uid : str
@@ -844,14 +842,19 @@ class NGENRequest(ModelExecRequest):
         hydrofabric_data_id : str
             A data identifier for the hydrofabric, for distinguishing between different hydrofabrics that cover the same
             set of catchments and nexuses (i.e., the same sets of catchment and nexus ids).
-        config_data_id : str
-            The config data id index, for identifying the particular configuration datasets applicable to this request.
         catchments : Optional[Union[Set[str], List[str]]]
             An optional collection of the catchment ids to narrow the geospatial domain, where the default of ``None``
             or an empty collection implies all catchments in the hydrofabric.
         bmi_cfg_data_id : Optional[str]
             The optioanl BMI init config ``data_id`` index, for identifying the particular BMI init config datasets
             applicable to this request.
+
+        Keyword Args
+        -----------
+        config_data_id : str
+            The config data id index, for identifying the particular configuration datasets applicable to this request.
+        session_secret : str
+            The session secret for the right session when communicating with the MaaS request handler
         """
         super().__init__(*args, **kwargs)
         self._time_range = time_range
