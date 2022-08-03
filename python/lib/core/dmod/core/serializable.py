@@ -224,7 +224,7 @@ class ResultIndicator(Serializable, ABC):
     reason : str
         A very short, high-level summary of the result.
     message : str
-        An option, more detailed explanation of the result, which by default is an empty string.
+        An optional, more detailed explanation of the result, which by default is an empty string.
 
     Attributes
     ----------
@@ -233,7 +233,7 @@ class ResultIndicator(Serializable, ABC):
     reason : str
         A very short, high-level summary of the result.
     message : str
-        An option, more detailed explanation of the result, which by default is an empty string.
+        An optional, more detailed explanation of the result, which by default is an empty string.
 
     """
 
@@ -244,7 +244,7 @@ class ResultIndicator(Serializable, ABC):
         self.reason: str = reason
         """ A very short, high-level summary of the result. """
         self.message: str = message
-        """ An option, more detailed explanation of the result, which by default is an empty string. """
+        """ An optional, more detailed explanation of the result, which by default is an empty string. """
 
     def to_dict(self) -> dict:
         return {'success': self.success, 'reason': self.reason, 'message': self.message}
