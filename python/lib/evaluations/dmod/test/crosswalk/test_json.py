@@ -1,10 +1,9 @@
 import os.path
 import unittest
 import typing
-import io
 
 from ...evaluations import specification
-from ...evaluations.crosswalk import reader
+from ...evaluations import reader
 from ...evaluations import util
 
 TEST_DOCUMENT_PATH = os.path.join(os.path.dirname(__file__), "crosswalk.json")

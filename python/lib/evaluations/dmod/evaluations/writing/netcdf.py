@@ -109,7 +109,7 @@ class NetcdfWriter(writer.OutputWriter):
             }
 
             scaled_result_attributes = {
-                "long_name": metric_function.get_name(),
+                "long_name": "Scaled " + metric_function.get_name(),
                 "description": metric_function.get_descriptions(),
                 "ideal_value": weight,
             }

@@ -146,7 +146,7 @@ class Communicator(abc.ABC):
         return self._verbosity
 
 
-class Communicators(abstract_collections.Mapping):
+class CommunicatorGroup(abstract_collections.Mapping):
     """
     A collection of Communicators clustered for group operations
     """

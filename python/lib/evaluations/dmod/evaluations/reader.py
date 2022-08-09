@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 import typing
 
-from datetime import datetime
-
 import pandas
 import jsonpath_ng as jsonpath
 
 
-from .. import specification
+from . import specification
 
 
 def select_values(document: dict, selector: specification.ValueSelector):

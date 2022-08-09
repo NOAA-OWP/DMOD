@@ -13,15 +13,10 @@ from django.http import HttpRequest
 from django.http import HttpResponseRedirect
 from django.http import JsonResponse
 
-import django_rq
-
 from rest_framework.views import APIView
 
 from datetime import datetime
 
-import worker
-
-from service import application_values
 import utilities
 
 

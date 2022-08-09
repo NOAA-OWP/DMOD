@@ -76,12 +76,12 @@ class Evaluator:
         self._predicted_xaxis: typing.Optional[str] = None
         self._verbosity = verbosity or Verbosity.QUIET
 
-        if isinstance(communicators, metrics.Communicators):
-            self._communicators: metrics.Communicators = communicators
+        if isinstance(communicators, metrics.CommunicatorGroup):
+            self._communicators: metrics.CommunicatorGroup = communicators
         elif isinstance(communicators, typing.Iterable) or isinstance(communicators, metrics.Communicator):
-            self._communicators: metrics.Communicators = metrics.Communicators(communicators)
+            self._communicators: metrics.CommunicatorGroup = metrics.CommunicatorGroup(communicators)
         else:
-            self._communicators: metrics.Communicators = metrics.Communicators()
+            self._communicators: metrics.CommunicatorGroup = metrics.CommunicatorGroup()
 
         self._set_field_names()
         self._converter = UnitConverter(self._predicted_value_field, "unit_prediction", "unit_observation")

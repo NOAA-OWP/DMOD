@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
-import typing
 import os
-import inspect
-
-import pandas
-
-from .. import specification
-from .. import util
-
-from . import reader
-from .retriever import CrosswalkRetriever
 
 
 __all__ = [
@@ -20,6 +10,13 @@ __all__ = [
 ]
 
 from . import *
+
+import pandas
+
+from .. import specification
+from .. import util
+
+from .retriever import CrosswalkRetriever
 
 
 def get_crosswalk(definition: specification.CrosswalkSpecification) -> CrosswalkRetriever:

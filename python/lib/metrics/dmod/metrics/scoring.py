@@ -14,7 +14,7 @@ import numpy
 
 from .threshold import Threshold
 from .communication import Verbosity
-from .communication import Communicators
+from .communication import CommunicatorGroup
 
 ARGS = typing.Optional[typing.Sequence]
 KWARGS = typing.Optional[typing.Dict[str, typing.Any]]
@@ -259,7 +259,7 @@ class Metric(
         observed_value_label: str,
         predicted_value_label: str,
         thresholds: typing.Sequence[Threshold] = None,
-        communicators: Communicators = None,
+        communicators: CommunicatorGroup = None,
         *args,
         **kwargs
     ) -> "Scores":
@@ -589,11 +589,11 @@ class ScoringScheme(object):
         self,
         metrics: typing.Sequence[Metric] = None,
         aggregator: NUMERIC_OPERATOR = None,
-        communicators: Communicators = None
+        communicators: CommunicatorGroup = None
     ):
         self.__aggregator = aggregator or ScoringScheme.get_default_aggregator()
         self.__metrics = metrics or list()
-        self.__communicators = communicators or Communicators()
+        self.__communicators = communicators or CommunicatorGroup()
 
     def score(
         self,

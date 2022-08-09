@@ -7,9 +7,9 @@ import signal
 
 from argparse import ArgumentParser
 
-from . import service
-from . import utilities
-from . import worker
+import service
+import utilities
+import worker
 
 
 def signal_handler(signum, frame):
