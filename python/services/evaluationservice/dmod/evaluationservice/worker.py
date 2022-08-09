@@ -10,10 +10,10 @@ from dmod.metrics import Verbosity
 
 from dmod.evaluations.evaluate import Evaluator
 
-import utilities
-import writing
+from dmod.evaluationservice import utilities
+from dmod.evaluationservice import writing
 
-from service.application_values import COMMON_DATETIME_FORMAT
+from dmod.evaluationservice.service.application_values import COMMON_DATETIME_FORMAT
 
 
 class Arguments(object):

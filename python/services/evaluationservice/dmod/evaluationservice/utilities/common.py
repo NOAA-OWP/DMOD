@@ -8,7 +8,7 @@ from datetime import datetime
 import dateutil
 import numpy
 
-from service.application_values import COMMON_DATETIME_FORMAT
+from dmod.evaluationservice.service.application_values import COMMON_DATETIME_FORMAT
 
 
 def is_true(value: str) -> bool:
