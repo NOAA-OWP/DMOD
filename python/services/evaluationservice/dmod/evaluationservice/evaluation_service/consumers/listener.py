@@ -29,13 +29,13 @@ def make_websocket_response(
     if logger is None:
         logger = LOGGER
 
-    logger.debug(f"Making websocket response for: {str(data)}")
-
     if data and isinstance(data, bytes):
         data = data.decode()
 
     data_might_be_json = data and isinstance(data, str)
-    data_might_be_json = data_might_be_json and (data[0] == "[" and data[-1] == "]" or data[0] == "{" and data[-1] == "}")
+    data_might_be_json = data_might_be_json and (
+            data[0] == "[" and data[-1] == "]" or data[0] == "{" and data[-1] == "}"
+    )
 
     if data_might_be_json:
         try:
@@ -97,7 +97,7 @@ def make_websocket_response(
             try:
                 data = json.loads(data)
             except Exception as loads_exception:
-                logger.warn(f"Could not deserialize data:{os.linesep}{str(loads_exception)}")
+                logger.error(f"Could not deserialize data", loads_exception)
 
     if event is None:
         event = ""

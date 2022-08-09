@@ -35,6 +35,10 @@ body {
     margin: 5px;
 }
 
+#message-area {
+    height: 100%;
+}
+
 #editor-header {
     border-bottom: 1px solid black;
     padding-bottom: 5px;
