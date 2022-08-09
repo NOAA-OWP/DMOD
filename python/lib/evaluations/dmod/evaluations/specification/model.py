@@ -1476,7 +1476,7 @@ class SchemeSpecification(Specification):
     def total_weight(self) -> float:
         return sum([metric.weight for metric in self.__metrics])
 
-    def generate_scheme(self, communicators: metrics.Communicators = None) -> metrics.ScoringScheme:
+    def generate_scheme(self, communicators: metrics.CommunicatorGroup = None) -> metrics.ScoringScheme:
         generated_metrics: typing.List[metrics.Metric] = [
             metric_functions.get_metric(metric.name, metric.weight)
             for metric in self.__metrics

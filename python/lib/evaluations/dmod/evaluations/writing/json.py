@@ -31,7 +31,7 @@ class JSONOutput(OutputData):
         return json.dumps(data, indent=4).encode()
 
     def get(self, index: int = None) -> dict:
-        if index is None or index >= len(self):
+        if index is not None and index >= len(self):
             raise IndexError(f"Cannot retrieve output at index {index}. There are only {len(self)} items to read.")
 
         if index is None:

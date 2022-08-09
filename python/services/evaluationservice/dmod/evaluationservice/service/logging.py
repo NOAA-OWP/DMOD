@@ -97,7 +97,18 @@ class ConfiguredLogger:
         log(message=message, logger_name=self._logger_name, level=level)
 
 
-def make_message_serializable(message: typing.Union[dict, str, bytes, typing.SupportsFloat, datetime, typing.Iterable]):
+def make_message_serializable(
+    message: typing.Union[dict, str, bytes, typing.SupportsFloat, datetime, typing.Iterable]
+) -> typing.Union[dict, str, typing.SupportsFloat, typing.Iterable]:
+    """
+    Take a message and ensure that all contained values may be converted into a format that is serializable
+
+    Args:
+        message: The data to log
+
+    Returns:
+        Data that may safely be serialized
+    """
     if isinstance(message, dict):
         for key, value in message.items():
             message[key] = make_message_serializable(value)
@@ -120,7 +131,6 @@ def make_message_serializable(message: typing.Union[dict, str, bytes, typing.Sup
     return message
 
 
-
 def valid_log_levels() -> typing.Collection[str]:
     """
     Returns:
@@ -134,7 +144,6 @@ def valid_log_levels() -> typing.Collection[str]:
         'DEBUG',
         'NOTSET'
     ]
-
 
 
 def available_logging_handlers() -> typing.Mapping[str, typing.Type[logging.Handler]]:
@@ -179,10 +188,8 @@ def available_logging_handlers() -> typing.Mapping[str, typing.Type[logging.Hand
         mapped_handlers[f"{found_handler.__module__}.{found_handler.__name__}"] = found_handler
         mapped_handlers[f"{found_handler.__name__}"] = found_handler
 
-
     # Return the full name of each found log handler
     return mapped_handlers
-
 
 
 def get_socket_log_level() -> str:
@@ -202,7 +209,6 @@ def get_socket_log_level() -> str:
     return socket_log_level.upper()
 
 
-
 def get_log_level() -> str:
     """
     Returns:
@@ -220,8 +226,15 @@ def get_log_level() -> str:
     return 'DEBUG' if application_values.in_debug_mode() else 'INFO'
 
 
-
 def get_evaluation_service_logging_filename() -> str:
+    """
+    Gets a suggested name for the core application log filename
+
+    Controlled by the optional `APPLICATION_LOG_PATH` environment variable
+
+    Returns:
+        Gets a suggested name for the core application log filename
+    """
     evaluation_service_log_filename = os.environ.get(
         'APPLICATION_LOG_PATH',
         os.path.join(application_values.BASE_DIRECTORY, f'{DEFAULT_LOGGER_NAME}.log')
@@ -233,8 +246,15 @@ def get_evaluation_service_logging_filename() -> str:
     return evaluation_service_log_filename
 
 
-
 def get_socket_log_filename() -> str:
+    """
+    Gets the name of the log file for sockets
+
+    Controlled via the optional `EVALUATION_SOCKET_LOG_PATH` environment variable
+
+    Returns:
+        The name of the log file for sockets
+    """
     socket_log_filename = os.environ.get(
         "EVALUATION_SOCKET_LOG_PATH",
         os.path.join(application_values.BASE_DIRECTORY, "EvaluationSockets.log")
@@ -246,9 +266,27 @@ def get_socket_log_filename() -> str:
     return socket_log_filename
 
 
-
 def get_maximum_log_size() -> int:
-    maximum_log_size = os.environ.get("MAXIMUM_LOG_SIZE", "5").upper()
+    """
+    Determines the maximum allowable size of a log file in terms of bytes.
+
+    Sizes may be described by giving a number in megabytes or a number with the unit.
+
+    Allowable inputs are:
+     * 5
+     * 5GB
+     * 5 MB
+     * 5KB
+
+    Logs may be sized in terms of KB, MB, or GB. The unit will default to MB if the size is given in terms of B or
+    anything over GB.
+
+    Controlled via the optional `MAXIMUM_LOG_SIZE` environment variable
+
+    Returns:
+        The maximum size of a log file in bytes
+    """
+    maximum_log_size = os.environ.get("MAXIMUM_LOG_SIZE", "5").upper().replace(" ", "")
 
     if maximum_log_size.endswith("B"):
         if maximum_log_size[-2] not in ("K", "M", "G"):
@@ -289,8 +327,15 @@ def get_maximum_log_size() -> int:
     return maximum_log_size
 
 
-
 def get_maximum_log_backups() -> int:
+    """
+    Get the maximum number of backed up logs to keep around before deletion
+
+    Controlled via the optional `MAXIMUM_LOGFILE_BACKUPS` environment variable
+
+    Returns:
+        The number of logs to keep
+    """
     maximum_backups = os.environ.get("MAXIMUM_LOGFILE_BACKUPS", "5")
     return int(float(maximum_backups))
 
@@ -303,6 +348,11 @@ def create_handler_configuration(
 ) -> dict:
     """
     Creates a configuration for a  handler based off of environment conditions and passed in arguments
+
+    Uses the following optional environment variables:
+        * `DEFAULT_LOG_HANDLER`: The class to use as a log handler if none was passed into this function
+        * `DEFAULT_LOGGING_HOST`: The address of the host to use when using remote logging
+        * `DEFAULT_LOGGING_PORT`: The port of the host to use when using remote logging
 
     Args:
         level: The minimum level of message that this handler will accept
@@ -419,17 +469,21 @@ DEFAULT_LOGGING_CONFIGURATION = {
             'handlers': [f'{DEFAULT_LOGGER_NAME}_Handler', 'stdout'],
             'level': get_log_level()
         },
-        "SOCKETS": {
+        DEFAULT_SOCKET_LOGGER_NAME: {
             'handlers': [f"{DEFAULT_SOCKET_LOGGER_NAME}_Handler"],
             'level': get_socket_log_level()
         }
     }
 }
+"""The log configuration to use if a log file path isn't passed"""
 
 
 def configure_logging():
     """
     Attaches the configured logging elements to the python logging module
+
+    Uses the optional `LOGGING_CONFIGURATION` environment variable to point to an actual file with
+    advanced configuration
     """
     if len(logging.getLogger().handlers) > 0:
         return
@@ -449,38 +503,45 @@ def log(message: MESSAGE, exception: Exception = None, logger_name: str = None, 
     Log a message to a logger
 
     Args:
-        message: Something to be logged. If it is some sort of object, it will be attempted to be converted to a loggable version
+        message: Something to be logged. If it is some sort of object, it will be attempted to be converted to a
+            loggable version
         exception: An optional exception to write detailed information about (like a stack trace)
         logger_name: The name of a logger to write to. Falls back to the default configured logger if none given
         level: The level at which the message should be logged
     """
-    configure_logging()
-
+    # If the message is an exception, format it so that it may be adequately printed
     if isinstance(message, Exception):
         message = os.linesep.join(traceback.format_exception_only(type(message), message))
 
+    # Make sure the passed data can be correctly converted to a string via json
     message = make_message_serializable(message)
+
+    # Convert the message into an easy to read json message
     message = json.dumps(message, indent=4)
 
+    # Add exception data to the log message if one was passed
     if exception is not None:
+        # Surround with whitespace to ensure that the error is easy to read and find
         exception_message = os.linesep
+
         if isinstance(exception, Exception):
             exception_message += os.linesep.join(traceback.format_exception_only(type(exception), exception))
         elif isinstance(exception, dict):
             exception_message += json.dumps(make_message_serializable(exception), indent=4)
         elif isinstance(exception, bytes):
-            exception_message = exception.decode()
+            exception_message += exception.decode()
         else:
             exception_message += str(exception)
 
-        message += os.linesep
         message += exception_message
 
     if logger_name is None:
         logger_name = DEFAULT_LOGGER_NAME
 
-    if level is None:
+    if level is None and exception is None:
         level = logging.INFO
+    elif level is None:
+        level = logging.ERROR
     elif not isinstance(level, int):
         level = logging.getLevelName(str(level).upper())
         if not isinstance(level, str):
@@ -491,22 +552,60 @@ def log(message: MESSAGE, exception: Exception = None, logger_name: str = None, 
 
 
 def info(message: MESSAGE, logger_name: str = None):
+    """
+    Writes a simple `INFO` message to a log
+
+    Args:
+        message: The message to log
+        logger_name: The name of the logger to use. The default is used if none is passed
+    """
     log(message, logger_name, level=logging.INFO)
 
 
 def warn(message: MESSAGE, logger_name: str = None):
+    """
+    Logs a `WARNING` message to a log
+
+    Args:
+        message: The message to log
+        logger_name: The name of the logger to use. The default is used if none is passed
+    """
     log(message, logger_name, level=logging.WARNING)
 
 
 def error(message: MESSAGE, exception: Exception = None, logger_name: str = None):
+    """
+    Logs an `ERROR` message to a log
+
+    Args:
+        message: An error message or exception to write to a log
+        exception: An optional exception that caused the error
+        logger_name: The name of the logger to write to
+    """
     log(message=message, exception=exception, logger_name=logger_name, level=logging.ERROR)
 
 
 def debug(message: MESSAGE, logger_name: str = None):
+    """
+    Logs an `DEBUG` message to a log
+
+    Args:
+        message: A diagnostic message or exception to write to a log
+        logger_name: The name of the logger to write to
+    """
     log(message, logger_name, level=logging.DEBUG)
 
 
 def get_logger(logger_name: str = None) -> ConfiguredLogger:
+    """
+    Gets a logger proxy option by name
+
+    Args:
+        logger_name: The name of the logger to proxy
+
+    Returns:
+        A logger proxy object that calls functions within this module
+    """
     return ConfiguredLogger(logger_name)
 
 

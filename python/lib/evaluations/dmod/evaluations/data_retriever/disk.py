@@ -4,14 +4,12 @@ import os
 import re
 import inspect
 
-from datetime import datetime
-
 import pandas
 
 from .. import specification
 from .. import retrieval
 
-from ..crosswalk import reader
+from .. import reader
 from .. import util
 
 

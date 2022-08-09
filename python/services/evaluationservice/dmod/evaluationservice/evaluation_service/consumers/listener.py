@@ -56,13 +56,11 @@ def make_websocket_response(
         if 'data' in data and 'data' in data['data']:
             if isinstance(data['data'], str):
                 try:
-                    logger.debug(f"Trying to parse {str(data['data'])} as json data")
                     contained_data = json.loads(data['data'])
                 except Exception as loads_exception:
                     logger.error(f"'{str(data)}' didn't parse into a dict so we're using it raw", loads_exception)
                     contained_data = data['data']
             else:
-                logger.debug(f"Since '{data}' is not a string, it will just be operated on")
                 contained_data = data['data']
 
             use_inner_data = True
@@ -115,7 +113,6 @@ def make_websocket_response(
     }
 
     message = utilities.make_message_serializable(message)
-    logger.debug(f"Sending {str(message)}")
     return message
 
 
@@ -161,7 +158,6 @@ class ChannelConsumer(AsyncJsonWebsocketConsumer):
 
         self.publisher_and_subscriber = self.redis_connection.pubsub()
 
-        SOCKET_LOGGER.debug(f"[{str(self)}] Subscribing to the {self.connection_group_id} channel")
         self.publisher_and_subscriber.subscribe(
             **{
                 self.connection_group_id: self.receive_subscribed_message
@@ -184,11 +180,7 @@ class ChannelConsumer(AsyncJsonWebsocketConsumer):
 
     async def receive_json(self, data, **kwargs):
         """Receive JSON messages over socket."""
-        SOCKET_LOGGER.debug(f"[{str(self)}] JSON was received.")
-        resp = data
-
-        await self.send(json.dumps(resp, default=str))
-        SOCKET_LOGGER.debug(f"[{str(self)}] JSON Message forwarded")
+        await self.send(json.dumps(data, default=str))
 
     async def receive(self, text_data=None, **kwargs):
         message = f"[{str(self)}] This connection only forwards messages from a redis channel"
@@ -248,49 +240,38 @@ class ChannelConsumer(AsyncJsonWebsocketConsumer):
         await self.send(
             text_data=json.dumps(result) if not isinstance(result, (str, bytes)) else result
         )
-        SOCKET_LOGGER.debug(f"[{str(self)}] Data sent through the web socket")
 
     async def disconnect(self, close_code):
-        disconnecting_message = f"[{str(self)}]  Disconnecting from {self.connection_group_id}..."
-        SOCKET_LOGGER.debug(disconnecting_message)
-
         try:
-            SOCKET_LOGGER.debug(f"[{str(self)}]  Closing the listener")
             if self.listener and self.listener.is_alive():
                 self.listener.stop()
-            SOCKET_LOGGER.debug(f"[{str(self)}]  listener closed")
+            SOCKET_LOGGER.debug(f"{str(self)}:  listener closed")
         except Exception as disconnection_error:
-            message = f"[{str(self)}]  Listener thread could not be killed"
+            message = f"{str(self)}: Listener thread could not be killed"
             SOCKET_LOGGER.error(
                 message,
                 disconnection_error
             )
-            LOGGER.error(message, disconnection_error)
 
         try:
-            SOCKET_LOGGER.debug(f"[{str(self)}] Unsubscribing to the redis channel")
             if self.publisher_and_subscriber:
                 self.publisher_and_subscriber.unsubscribe()
-            SOCKET_LOGGER.debug(f"[{str(self)}] Redis Channel disconnected")
+            SOCKET_LOGGER.debug(f"{str(self)}: Redis Channel disconnected")
         except Exception as e:
-            print(f"[{str(self)}] Could not unsubscribe from redis channel")
-            print(f"[{str(self)}] {str(e)}")
+            SOCKET_LOGGER.error(message=f"{str(self)}: Could not unsubscribe from redis channel", exception=e)
 
         try:
-            print(f"[{str(self)}] Closing redis connection")
             if self.redis_connection:
                 self.redis_connection.close()
-            print(f"[{str(self)}] Redis connection closed")
+            SOCKET_LOGGER.debug(f"{str(self)}: Redis connection closed")
         except Exception as e:
-            print(f"[{str(self)}] Could not disconnect from redis")
-            print(f"[{str(self)}] {str(e)}")
+            SOCKET_LOGGER.error(f"{str(self)}: Could not disconnect from redis", e)
 
-        print(f"[{str(self)}] Discarding {self.connection_group_id} from the channel layer")
         await self.channel_layer.group_discard(
             self.connection_group_id,
             self.channel_name
         )
-        print(f"[{str(self)}] {self.connection_group_id} has been discarded from the channel layer")
+        SOCKET_LOGGER.debug(f"{str(self)}: {self.connection_group_id} has been discarded from the channel layer")
 
     def __str__(self):
         return f"[{self.__class__.__name__}] {self.channel_name} <=> {':'.join([str(entry) for entry in self.scope['client']])}"

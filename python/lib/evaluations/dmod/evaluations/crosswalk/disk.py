@@ -3,10 +3,10 @@ import json
 
 import pandas
 
+import reader
 from .. import specification
 
 from . import retriever
-from . import reader
 
 
 class FrameRetriever(retriever.CrosswalkRetriever):

@@ -1,33 +1,65 @@
 import os
 import typing
 import re
-import subprocess
 import pytz
 
 from pathlib import Path
 from datetime import datetime
 from datetime import timedelta
 
-import dateutil.tz
-
 
 def in_debug_mode() -> bool:
-    # SECURITY WARNING: don't run with debug turned on in production!
+    """
+    Check to see if the server should be running in debug mode rather than a production environment.
+
+    It is ok to show additional diagnositic information in debug mode, but not production.
+
+    SECURITY WARNING: do not run with debug turned on in production! Diagnostic messages can be used to view
+    system environment variables and stack traces.
+
+    Uses the optional `DEBUG` and `DMOD_EVAL_SERVICE_DEBUG` environment variables, equating to
+    `DEBUG or DMOD_EVAL_SERVICE_DEBUG`
+
+    Returns:
+        Whether the server should run in debug mode
+    """
+    # Check to see if the global DEBUG value is True
     debug_value = os.environ.get("DEBUG", False)
+
+    # The global DEBUG value is the law of the land; if it says it's in debug mode, it's in debug mode
+    if str(debug_value).lower() in ("yes", "y", "1", 'true', 'on', 'debug'):
+        return True
+
+    # If the DMOD isn't currently running in debug mode, check to see if the evaluation service itself should be
+    # running in debug on its own
+    debug_value = os.environ.get("DMOD_EVAL_SERVICE_DEBUG", False)
 
     return str(debug_value).lower() in ("yes", "y", "1", 'true', 'on', 'debug')
 
 
 def get_redis_password() -> typing.Optional[str]:
+    """
+    Attempts to find a password to the core redis instance, first by checking for a secrets file, then by checking
+    an environment variable.
+
+    The optional environment variables that control this are `REDIS_PASSWORD_FILE` for the secret or `REDIS_PASS`
+    for the password on its own.
+
+    Returns:
+        The optional password to the core redis service
+    """
     password_filename = os.environ.get("REDIS_PASSWORD_FILE", "/run/secrets/myredis_pass")
 
+    # If a password file has been identified, try to get a password from that
     if os.path.exists(password_filename):
         try:
             with open(password_filename, 'r') as redis_password_file:
                 content = redis_password_file.read().rstrip()
+                # Only go with the password from the file if there WAS a password in the file
                 if len(content) >= 1:
                     return content
         except:
+            # Data couldn't be read? Move on to attempting to read it from the environment variable
             pass
 
     # Fall back to env if no secrets file, further falling back to default if no env value
@@ -102,42 +134,64 @@ def get_full_localtimezone():
 
 
 DEBUG = in_debug_mode()
+"""Whether the service is in a non-production, development state"""
 
 BASE_DIRECTORY = Path(__file__).resolve().parent.parent
+"""The path to the base directory of the service"""
 
 APPLICATION_NAME = os.environ.get("APPLICATION_NAME", "Evaluation Service")
+"""The name of the service"""
 
 COMMON_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S%z"
+"""The default format for datetime strings"""
+
 CURRENT_TIMEZONE = get_full_localtimezone()
+"""The timezone for the service"""
 
 EVALUATION_QUEUE_NAME = os.environ.get("EVALUATION_QUEUE_NAME", "evaluation_jobs")
+"""The name for the redis queue through which to communicate jobs through"""
+
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+"""The host of the core redis service"""
+
 REDIS_PORT = int(os.environ.get("REDIS_PORT")) if "REDIS_PORT" in os.environ else 6379
+"""The port of the core redis service"""
+
 REDIS_PASSWORD = get_redis_password()
+"""The password to the cored redis service"""
 
 RQ_HOST = os.environ.get("RQ_HOST", REDIS_HOST)
+"""The host of the redis service used for launching jobs"""
+
 RQ_PORT = int(os.environ.get("RQ_PORT")) if "RQ_PORT" in os.environ else REDIS_PORT
+"""The port of the redis service used for launching jobs"""
 
 CHANNEL_HOST = os.environ.get("CHANNEL_HOST", REDIS_HOST)
+"""The host of the redis service used for communicating job information"""
+
 CHANNEL_PORT = int(os.environ.get("CHANNEL_PORT")) if "CHANNEL_PORT" in os.environ else REDIS_PORT
+"""The port of the redis service used for communicating job information"""
+
 CHANNEL_NAME_PATTERN = r'[\w\-_\.]+'
+"""The pattern that redis channel names may follow"""
 
 RQ_QUEUES = {
     'default': {
         'HOST': RQ_HOST,
         'PORT': RQ_PORT,
-        'PASSWORD': os.environ.get("RQ_PASSWORD", None),
+        'PASSWORD': os.environ.get("RQ_PASSWORD") or REDIS_PASSWORD,
         'DB': 0,
         'DEFAULT_TIMEOUT': 99999,
     },
     EVALUATION_QUEUE_NAME: {
         'HOST': RQ_HOST,
         "PORT": RQ_PORT,
-        "PASSWORD": os.environ.get("RQ_PASSWORD"),
+        "PASSWORD": os.environ.get("RQ_PASSWORD") or REDIS_PASSWORD,
         "DB": 0,
         "DEFAULT_TIMEOUT": 99999
     }
 }
+"""Default configuration for if RQ is used (RQ credentials will be used regardless)"""
 
 CHANNEL_LAYERS = {
     'default': {
