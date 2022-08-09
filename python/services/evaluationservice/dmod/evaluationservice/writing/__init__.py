@@ -5,7 +5,7 @@ import os
 import dmod.evaluations.specification as specification
 import dmod.evaluations.writing as writing
 
-import utilities
+from dmod.evaluationservice import utilities
 
 
 def default_format() -> str:
