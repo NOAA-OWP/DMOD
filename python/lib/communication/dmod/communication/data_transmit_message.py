@@ -91,7 +91,7 @@ class DataTransmitResponse(Response):
     _KEY_SERIES_UUID = response_to_type._KEY_SERIES_UUID
 
     @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
+    def factory_init_from_deserialized_json(cls, json_obj: dict) -> 'DataTransmitResponse':
         """
         Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
 
