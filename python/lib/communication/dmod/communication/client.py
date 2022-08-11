@@ -792,27 +792,6 @@ class ExternalRequestClient(ExternalClient, WebSocketClient, Generic[EXTERN_REQ_
             response = await websocket.recv()
             return request.__class__.factory_init_correct_response_subtype(json_obj=json.loads(response))
 
-    # TODO: ...
-    async def authenticate_over_websocket(self, cached_session_file: Optional[Path] = None):
-        async with websockets.connect(self.endpoint_uri, ssl=self.client_ssl_context) as websocket:
-            #async with websockets.connect(self.maas_endpoint_uri) as websocket:
-            # return await EditView._authenticate_over_websocket(websocket)
-            # Right now, it doesn't matter as long as it is valid
-            # TODO: Fix this to not be ... fixed ...
-            json_as_dict = {'username': 'someone', 'user_secret': 'something'}
-            # TODO: validate before sending
-            await websocket.send(json.dumps(json_as_dict))
-            response_txt = await websocket.recv()
-            try:
-                if cached_session_file is not None and not cached_session_file.is_dir() \
-                        and cached_session_file.parent.is_dir():
-                    cached_session_file.write_text(response_txt)
-            except Exception as e:
-                # TODO: consider logging something here, but for now just handle so a bad save file doesn't tank us
-                pass
-            #print('*************** Auth response: ' + json.dumps(response_txt))
-            return self.parse_session_auth_text(response_txt)
-
     @property
     def errors(self):
         return self._errors
