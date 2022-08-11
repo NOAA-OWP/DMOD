@@ -55,6 +55,77 @@ def get_or_create_eventloop() -> AbstractEventLoop:
         raise
 
 
+class AbstractClient(ABC):
+    """
+    Abstract client capable of securely communicating with a server at some endpoint.
+
+    Abstract client with an interface for securely sending data to a server at some endpoint.  The interface function
+    for this behavior supports optionally waiting for and returning a raw response.  Alternatively, the type provides an
+    interface for receiving a response from the server independently.
+    """
+    def __init__(self, endpoint_uri: str, *args, **kwargs):
+        """
+        Initialize this instance.
+
+        Parameters
+        ----------
+        endpoint_uri: str
+            The endpoint for the client to connect to when opening a connection.
+        args
+            Other unused positional parameters.
+        kwargs
+            Other unused keyword parameters.
+        """
+        super().__init__(*args, **kwargs)
+
+        self.endpoint_uri = endpoint_uri
+        """str: The endpoint for the client to connect to when opening a connection."""
+
+    @abstractmethod
+    async def async_send(self, data: Union[str, bytearray, bytes], await_response: bool = False) -> Optional[str]:
+        """
+        Send data to server, either returning immediately after or optionally waiting for and returning the response.
+
+        Parameters
+        ----------
+        data: Union[str, bytearray, bytes]
+            The data to send.
+        await_response: bool
+            Whether the method should also await a response on from the server connection and return it.
+
+        Returns
+        -------
+        Optional[str]
+            The server's response to the sent data, if one should be awaited; or ``None``
+        """
+        pass
+
+    @abstractmethod
+    async def async_recv(self) -> str:
+        """
+        Receive data from server.
+
+        Returns
+        -------
+        str
+            The data received from the server, as a string.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def client_ssl_context(self) -> ssl.SSLContext:
+        """
+        Get the client SSL context property.
+
+        Returns
+        -------
+        ssl.SSLContext
+            The client SSL context for secure connections.
+        """
+        pass
+
+
 class WebSocketClient(ABC):
     """
 
