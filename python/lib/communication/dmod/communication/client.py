@@ -686,7 +686,7 @@ class SchedulerClient(InternalServiceClient[SchedulerRequestMessage, SchedulerRe
             yield message
 
 
-class ExternalRequestClient(WebSocketClient, Generic[EXTERN_REQ_M, EXTERN_REQ_R], ABC):
+class ExternalRequestClient(ExternalClient, WebSocketClient, Generic[EXTERN_REQ_M, EXTERN_REQ_R], ABC):
 
     @staticmethod
     def _request_failed_due_to_expired_session(response_obj: EXTERN_REQ_R):
@@ -759,60 +759,14 @@ class ExternalRequestClient(WebSocketClient, Generic[EXTERN_REQ_M, EXTERN_REQ_R]
             The client connection endpoint for opening new websocket connections, required for superclass init.
         ssl_directory : Path
             The directory of the SSL certificate files for the client SSL context.
+        session_file : Optional[Path]
+            Optional path to file for a serialized session, both for loading from and saving to.
         """
         super().__init__(*args, **kwargs)
-
-        # TODO: get full session implementation if possible
-        self._session_id, self._session_secret, self._session_created, self._is_new_session = None, None, None, None
 
         self._errors = None
         self._warnings = None
         self._info = None
-
-    def _acquire_new_session(self):
-        try:
-            return get_or_create_eventloop().run_until_complete(self._async_acquire_new_session())
-        except Exception as e:
-            logger.info("Expecting exception to follow")
-            logger.exception("Failed _acquire_session_info")
-            return False
-
-    @abstractmethod
-    def _acquire_session_info(self, use_current_values: bool = True, force_new: bool = False):
-        """
-        Attempt to set the session information properties needed to submit a maas job request.
-
-        Parameters
-        ----------
-        use_current_values
-            Whether to use currently held attribute values for session details, if already not None (disregarded if
-            ``force_new`` is ``True``).
-        force_new
-            Whether to force acquiring a new session, regardless of data available is available on an existing session.
-
-        Returns
-        -------
-        bool
-            whether session details were acquired and set successfully
-        """
-        pass
-
-    async def _async_acquire_new_session(self, cached_session_file: Optional[Path] = None):
-        try:
-            logger.info("Connection to request handler web socket")
-            auth_details = await self.authenticate_over_websocket(cached_session_file=cached_session_file)
-            logger.info("auth_details returned")
-            self._session_id, self._session_secret, self._session_created = auth_details
-            self._is_new_session = True
-            return True
-        except ConnectionResetError as e:
-            logger.info("Expecting exception to follow")
-            logger.exception("Failed _acquire_session_info")
-            return False
-        except Exception as e:
-            logger.info("Expecting exception to follow")
-            logger.exception("Failed _acquire_session_info")
-            return False
 
     @abstractmethod
     def _update_after_valid_response(self, response: EXTERN_REQ_R):
@@ -837,14 +791,6 @@ class ExternalRequestClient(WebSocketClient, Generic[EXTERN_REQ_M, EXTERN_REQ_R]
             await websocket.send(request.to_json())
             response = await websocket.recv()
             return request.__class__.factory_init_correct_response_subtype(json_obj=json.loads(response))
-
-    def parse_session_auth_text(self, auth_text: str):
-        auth_response = json.loads(auth_text)
-        # TODO: consider making sure this parses to a SessionInitResponse
-        maas_session_id = auth_response['data']['session_id']
-        maas_session_secret = auth_response['data']['session_secret']
-        maas_session_created = auth_response['data']['created']
-        return maas_session_id, maas_session_secret, maas_session_created
 
     # TODO: ...
     async def authenticate_over_websocket(self, cached_session_file: Optional[Path] = None):
@@ -928,18 +874,6 @@ class ExternalRequestClient(WebSocketClient, Generic[EXTERN_REQ_M, EXTERN_REQ_R]
             logger.info("client Unable to aquire session details")
             self.errors.append("Unable to acquire session details or authenticate new session for request")
         return None
-
-    @property
-    def session_created(self):
-        return self._session_created
-
-    @property
-    def session_id(self):
-        return self._session_id
-
-    @property
-    def session_secret(self):
-        return self._session_secret
 
     def validate_maas_request_response(self, maas_request_response: EXTERN_REQ_R):
         return self._run_validation(message=maas_request_response)[0]
