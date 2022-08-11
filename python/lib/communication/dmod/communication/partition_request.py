@@ -1,7 +1,7 @@
 from uuid import uuid4
 from numbers import Number
 from typing import Optional, Union, Dict
-from .maas_request import AbstractInitRequest, MessageEventType, Response
+from .maas_request import AbstractInitRequest, ExternalRequest, MessageEventType, Response
 
 
 # TODO: create separate "external" subtype if support for authenticated, session-based requests becomes necessary
@@ -13,8 +13,6 @@ class PartitionRequest(AbstractInitRequest):
     event_type = MessageEventType.PARTITION_REQUEST
     _KEY_NUM_PARTS = 'partition_count'
     _KEY_NUM_CATS = 'catchment_count'
-    # TODO: move this to separate type in the future for external use
-    #_KEY_SECRET = 'session_secret'
     _KEY_UUID = 'uuid'
     _KEY_HYDROFABRIC_UID = 'hydrofabric_uid'
     _KEY_HYDROFABRIC_DATA_ID = 'hydrofabric_data_id'
@@ -201,3 +199,29 @@ class PartitionResponse(Response):
         serial = super(PartitionResponse, self).to_dict()
         serial['class_name'] = self.__class__.__name__
         return serial
+
+
+class PartitionExternalRequest(PartitionRequest, ExternalRequest):
+
+    _KEY_SECRET = 'session_secret'
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict, **kwargs):
+        try:
+            kwargs['session_secret'] = json_obj[cls._KEY_SECRET]
+            return super(PartitionExternalRequest, cls).factory_init_from_deserialized_json(json_obj, **kwargs)
+        except:
+            return None
+
+    def __init__(self, *args, **kwargs):
+        super(PartitionExternalRequest, self).__init__(*args, **kwargs)
+
+    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
+        serial = super(PartitionExternalRequest, self).to_dict()
+        serial[self._KEY_SECRET] = self.session_secret
+        return serial
+
+
+class PartitionExternalResponse(PartitionResponse):
+
+    response_to_type = PartitionExternalRequest
