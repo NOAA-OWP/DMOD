@@ -21,16 +21,16 @@ class PartitionRequest(AbstractInitRequest):
     _KEY_HYDROFABRIC_DESC = 'hydrofabric_description'
 
     @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
+    def factory_init_from_deserialized_json(cls, json_obj: dict, **kwargs):
         hy_data_id = json_obj[cls._KEY_HYDROFABRIC_DATA_ID] if cls._KEY_HYDROFABRIC_DATA_ID in json_obj else None
 
         try:
-            return PartitionRequest(hydrofabric_uid=json_obj[cls._KEY_HYDROFABRIC_UID],
-                                    hydrofabric_data_id=hy_data_id,
-                                    num_partitions=json_obj[cls._KEY_NUM_PARTS],
-                                    #session_secret=json_obj[cls._KEY_SECRET],
-                                    description=json_obj[cls._KEY_HYDROFABRIC_DESC] if cls._KEY_HYDROFABRIC_DESC in json_obj else None,
-                                    uuid=json_obj[cls._KEY_UUID])
+            return cls(hydrofabric_uid=json_obj[cls._KEY_HYDROFABRIC_UID],
+                       hydrofabric_data_id=hy_data_id,
+                       num_partitions=json_obj[cls._KEY_NUM_PARTS],
+                       description=json_obj.get(cls._KEY_HYDROFABRIC_DESC),
+                       uuid=json_obj[cls._KEY_UUID],
+                       **kwargs)
         except:
             return None
 
@@ -50,7 +50,7 @@ class PartitionRequest(AbstractInitRequest):
         return PartitionResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
     def __init__(self, num_partitions: int, hydrofabric_uid: str, hydrofabric_data_id: Optional[str] = None,
-                 uuid: Optional[str] = None, description: Optional[str] = None):
+                 uuid: Optional[str] = None, description: Optional[str] = None, *args, **kwargs):
         """
         Initialize the request.
 
@@ -67,7 +67,7 @@ class PartitionRequest(AbstractInitRequest):
         description : Optional[str]
             An optional description or name for the hydrofabric.
         """
-        super(PartitionRequest, self).__init__()
+        super(PartitionRequest, self).__init__(*args, **kwargs)
         self._hydrofabric_uid = hydrofabric_uid
         self._hydrofabric_data_id = hydrofabric_data_id
         self._num_partitions = num_partitions
@@ -122,6 +122,7 @@ class PartitionRequest(AbstractInitRequest):
 
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
         serialized = {
+            'class_name': self.__class__.__name__,
             self._KEY_HYDROFABRIC_UID: self.hydrofabric_uid,
             self._KEY_NUM_PARTS: self.num_partitions,
             #self._KEY_SECRET: self.session_secret,
@@ -195,3 +196,8 @@ class PartitionResponse(Response):
             The name of the dataset where the partitioning config is saved when requests are successful.
         """
         return self.data[self._DATA_KEY_DATASET_NAME]
+
+    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
+        serial = super(PartitionResponse, self).to_dict()
+        serial['class_name'] = self.__class__.__name__
+        return serial
