@@ -443,8 +443,23 @@ class ExternalRequestClient(WebSocketClient, Generic[EXTERN_REQ_M, EXTERN_REQ_R]
         else:
             raise RuntimeError('Unsupported ExternalRequest subtype: ' + str(message.__class__))
 
-    def __init__(self, endpoint_uri: str, ssl_directory: Path, *args, **kwargs):
-        super().__init__(endpoint_uri=endpoint_uri, ssl_directory=ssl_directory)
+    def __init__(self, *args, **kwargs):
+        """
+        Initialize instance.
+
+        Parameters
+        ----------
+        args
+        kwargs
+
+        Other Parameters
+        ----------
+        endpoint_uri : str
+            The client connection endpoint for opening new websocket connections, required for superclass init.
+        ssl_directory : Path
+            The directory of the SSL certificate files for the client SSL context.
+        """
+        super().__init__(*args, **kwargs)
 
         # TODO: get full session implementation if possible
         self._session_id, self._session_secret, self._session_created, self._is_new_session = None, None, None, None
