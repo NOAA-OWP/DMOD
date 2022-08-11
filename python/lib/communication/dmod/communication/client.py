@@ -126,9 +126,26 @@ class AbstractClient(ABC):
         pass
 
 
-class WebSocketClient(ABC):
+class WebSocketClient(AbstractClient, ABC):
     """
+    Abstract subtype of ::class:`AbstractClient` that specifically works over websocket connections.
 
+    An abstract websocket-based implementation of ::class:`AbstractClient`.  Instances are also async context managers
+    for runtime contexts that handle websocket connections, with the manager function returning the instance itself.
+
+    A new runtime context will check whether there is an open websocket connection already and open a connection if not.
+    In all cases, it maintains an instance attribute that is a counter of the number of active usages of the connection
+    (i.e., the number of separate, active contexts).  When the context is exited, the instance's active usage counter is
+    reduced by one and, if that context represents the last active use of the connection, the connection object is
+    closed and then has its reference removed.
+
+    The ::method:`async_send` function can be used without already being in an active context (i.e., it will enter a new
+    context for the scope of the function).  The same is not true of ::method:`async_recv`.  As such, very simple
+    synchronous communication can be performed just with calls to ::method:`async_send`.  Anything more complicated -
+    e.g., longer running websocket async communication - requires something in an outer scope to first enter a context.
+
+    However, within in an open context, calls to ::method:`async_send` and ::method:`async_recv` can be used as needed
+    to support arbitrarily communication over the websocket.
     """
 
     @classmethod
@@ -142,11 +159,22 @@ class WebSocketClient(ABC):
                 path = '/' + path
         return '{}://{}:{}{}'.format(proto, host.strip(), str(port).strip(), path)
 
-    def __init__(self, endpoint_uri: str, ssl_directory: Path, *args, **kwargs):
-        super().__init__()
+    def __init__(self, ssl_directory: Path, *args, **kwargs):
+        """
+        Initialize this instance.
 
-        self.endpoint_uri = endpoint_uri
-        """str: The endpoint for the client to connect to to open new websocket connections."""
+        Parameters
+        ----------
+        ssl_directory
+        args
+        kwargs
+
+        Other Parameters
+        ----------
+        endpoint_uri : str
+            The endpoint for the client to connect to when opening a connection, for superclass init.
+        """
+        super().__init__(*args, **kwargs)
 
         self._ssl_directory = ssl_directory
         """Path: The parent directory of the cert PEM file used for the client SSL context."""
@@ -208,21 +236,22 @@ class WebSocketClient(ABC):
 
     async def async_send(self, data: Union[str, bytearray], await_response: bool = False):
         """
-            Send data to websocket, by default returning immediately after, but optionally waiting for and returning the
-            response.
+        Send data to websocket, by default returning immediately, but optionally receiving and returning response.
 
-            Parameters
-            ----------
-            data
-                string or byte array
+        The function will cause the runtime context to be entered, opening a connection if needed.  In such cases,
+        the connection will also be closed at the conclusion of this function.
 
-            await_response
-                whether the method should also await a response on the websocket connection and return it
+        Parameters
+        ----------
+        data: Optional[str]
+            The data to send.
+        await_response
+            Whether the method should also await a response on the websocket connection and return it.
 
-            Returns
-            -------
-            response
-                the request response if one should be awaited, or None
+        Returns
+        -------
+        Optional[str]
+            The response to the sent data, if one should be awaited; otherwise ``None``.
         """
         async with self as websocket:
             #TODO ensure correct type for data???
