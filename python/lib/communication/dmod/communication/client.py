@@ -176,6 +176,19 @@ class WebSocketClient(ABC):
         """
         pass
 
+    async def async_recv(self) -> Union[str, bytes]:
+        """
+        Receive data over the websocket connection.
+
+        Method assumes it is already within a runtime context that has established the connection.
+
+        Returns
+        -------
+        Union[str, bytes]
+            The data received over the connection.
+        """
+        return await self.connection.recv()
+
     @property
     def client_ssl_context(self) -> ssl.SSLContext:
         """
