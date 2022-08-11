@@ -814,14 +814,12 @@ class ExternalRequestClient(ExternalClient, WebSocketClient, Generic[EXTERN_REQ_
             return self.parse_session_auth_text(response_txt)
 
     @property
-    @abstractmethod
     def errors(self):
-        pass
+        return self._errors
 
     @property
-    @abstractmethod
     def info(self):
-        pass
+        return self._info
 
     @property
     def is_new_session(self):
@@ -879,9 +877,8 @@ class ExternalRequestClient(ExternalClient, WebSocketClient, Generic[EXTERN_REQ_
         return self._run_validation(message=maas_request_response)[0]
 
     @property
-    @abstractmethod
     def warnings(self):
-        pass
+        return self._warnings
 
 
 class DataServiceClient(InternalServiceClient[DatasetManagementMessage, DatasetManagementResponse]):
