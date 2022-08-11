@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from dmod.core.execution import AllocationParadigm
-from dmod.communication import InternalServiceClient, ExternalRequestClient, ManagementAction, ModelExecRequestClient, \
+from dmod.communication import DataServiceClient, ExternalRequestClient, ManagementAction, ModelExecRequestClient, \
     NGENRequest, NGENRequestResponse
 from dmod.communication.client import R
 from dmod.communication.dataset_management_message import DatasetManagementMessage, DatasetManagementResponse, \
@@ -214,7 +214,7 @@ class DatasetClient(ABC):
         pass
 
 
-class DatasetInternalClient(DatasetClient, InternalServiceClient[DatasetManagementMessage, DatasetManagementResponse]):
+class DatasetInternalClient(DatasetClient, DataServiceClient):
 
     @classmethod
     def get_response_subtype(cls) -> Type[R]:
