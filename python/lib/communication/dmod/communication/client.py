@@ -139,13 +139,10 @@ class WebSocketClient(AbstractClient, ABC):
     reduced by one and, if that context represents the last active use of the connection, the connection object is
     closed and then has its reference removed.
 
-    The ::method:`async_send` function can be used without already being in an active context (i.e., it will enter a new
-    context for the scope of the function).  The same is not true of ::method:`async_recv`.  As such, very simple
-    synchronous communication can be performed just with calls to ::method:`async_send`.  Anything more complicated -
-    e.g., longer running websocket async communication - requires something in an outer scope to first enter a context.
-
-    However, within in an open context, calls to ::method:`async_send` and ::method:`async_recv` can be used as needed
-    to support arbitrarily communication over the websocket.
+    The ::method:`async_send` and ::method:`async_recv` functions can be used without already being in an active context
+    (i.e., they will enter a new context for the scope of the function). However, within in an already open context,
+    calls to ::method:`async_send` and ::method:`async_recv` can be used as needed to support arbitrarily communication
+    over the websocket.
     """
 
     @classmethod
@@ -280,14 +277,13 @@ class WebSocketClient(AbstractClient, ABC):
         """
         Receive data over the websocket connection.
 
-        Method assumes it is already within a runtime context that has established the connection.
-
         Returns
         -------
         Union[str, bytes]
             The data received over the connection.
         """
-        return await self.connection.recv()
+        with self as websocket:
+            return await websocket.connection.recv()
 
     @property
     def client_ssl_context(self) -> ssl.SSLContext:
