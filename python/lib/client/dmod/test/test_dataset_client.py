@@ -16,6 +16,18 @@ class SimpleMockDatasetClient(DatasetClient):
         """ Mock implementation, always returning ``False``. """
         return False
 
+    async def delete_dataset(self, name: str, **kwargs) -> bool:
+        """ Mock implementation, always returning ``False``. """
+        return False
+
+    async def download_dataset(self, dataset_name: str, dest_dir: Path) -> bool:
+        """ Mock implementation, always returning ``False``. """
+        return False
+
+    async def download_from_dataset(self, dataset_name: str, item_name: str, dest: Path) -> bool:
+        """ Mock implementation, always returning ``False``. """
+        return False
+
     async def list_datasets(self, category: Optional[DataCategory] = None) -> List[str]:
         """ Mock implementation, always returning an empty list. """
         return []
