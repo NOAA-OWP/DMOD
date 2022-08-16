@@ -1,0 +1,152 @@
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+#base-content-wrapper {
+    display: flex;
+    height: auto;
+    flex: 1 1 auto;
+    flex-direction: column;
+}
+
+.CodeMirror {
+    border: 1px solid gray;
+    height: auto;
+}
+
+#launch-warning {
+    background-color: yellow;
+    border: 2px solid black;
+    box-shadow: -6px 6px 4px gray;
+    padding: 10px;
+    margin-bottom: 20px;
+}
+
+.error-box {
+    background-color: #ffc6c6;
+    border: 2px solid black;
+    box-shadow: -6px 6px 4px gray;
+    padding: 10px;
+    margin-bottom: 20px;
+    display: grid;
+}
+
+#acknowledge-error-icon {
+    height: 20px;
+    justify-self: end;
+    grid-column: 2;
+    cursor: pointer;
+}
+
+.tab {
+    border: 1px solid black;
+    padding: 15px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+#content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.tab > div {
+    padding: 5px;
+    margin: 5px;
+}
+
+.tab-header {
+    border-bottom: 1px solid black;
+    padding-bottom: 5px;
+    display: flex;
+    align-items: center;
+}
+
+#page-modal {
+    height: 100vh;
+    width: 100vw;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 9999999;
+    background-color: rgba(209, 209, 228, 0.6);
+    display: none;
+}
+
+.tab-content {
+    height: 100%;
+}
+
+/* Style the buttons inside the tab */
+button {
+  background-color: #ECECEC;
+  float: left;
+  border: 1px solid lightgray;
+  outline: none;
+  cursor: pointer;
+  padding: 14px 16px;
+  transition: 0.3s;
+  font-size: 17px;
+}
+
+/* Change background color of buttons on hover */
+button:hover {
+  background-color: #ddd;
+}
+
+#message-content {
+    display: flex;
+    flex-direction: column;
+}
+
+#message-area {
+    height: 100%;
+}
+
+#save-contents {
+    display: grid;
+}
+
+#save-header {
+
+}
+
+.popup {
+    display: none;
+    background: white;
+    height: fit-content;
+    width: fit-content;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: -5px 5px 10px;
+    border: 1px solid lightgray;
+}
+
+.popup-actions > button {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.popup-contents {
+    padding: 15px;
+}
+
+.popup-header {
+    background-color: #33ade0;
+    color: white;
+    padding: 15px;
+}
+
+#digest-event-selectors {
+    padding: 10px;
+    vertical-align: middle;
+}
+
+#digest-event-selectors input, #digest-event-selectors label {
+    vertical-align: middle;
+}

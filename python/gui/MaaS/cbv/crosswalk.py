@@ -62,10 +62,3 @@ class Crosswalk(APIView):
                 return JsonResponse(data)
         except: 
             return JsonResponse({})
-
-
-class CrosswalkNames(APIView):
-    def get(self, request: HttpRequest) -> JsonResponse:
-        return JsonResponse(data={
-            "crosswalk_names": list(CROSSWALK.keys())
-        })

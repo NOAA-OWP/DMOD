@@ -140,6 +140,7 @@ def run_job(
     purpose = launch_parameters.get("purpose").lower()
 
     if purpose == 'launch':
+        service.info(f"Launching an evaluation for {launch_parameters['evaluation_id']}...")
         arguments = JobArguments(
             evaluation_id=launch_parameters['evaluation_id'],
             instructions=launch_parameters['instructions'],
@@ -150,6 +151,7 @@ def run_job(
             worker.evaluate,
             kwds=arguments.kwargs
         )
+        service.info(f"Evaluation for {launch_parameters['evaluation_id']} has been launched.")
     elif purpose in ("close", "kill", "terminate"):
         service.info("Exit message received. Closing the runner.")
         exit(0)
@@ -173,7 +175,7 @@ def listen(
 
     job_limit = job_limit or int(float(os.environ.get("MAXIMUM_RUNNING_JOBS", os.cpu_count())))
 
-    service.info("Listening for evaluation jobs...")
+    service.info(f"Listening for evaluation jobs on '{channel}'...")
     already_listening = False
     while True:
         if already_listening:

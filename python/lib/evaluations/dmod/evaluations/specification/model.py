@@ -1033,7 +1033,7 @@ class ValueSelector(Specification):
             description += f": {os.linesep.join(self.__path)}"
 
         if self.__associated_fields:
-            description += f", indexed by [{','.join(self.__associated_fields)}]"
+            description += f", indexed by [{','.join([str(field) for field in self.__associated_fields])}]"
 
         return description
 
@@ -1388,7 +1388,7 @@ class CrosswalkSpecification(LoaderSpecification):
         return self.__origin
 
     def __str__(self) -> str:
-        return f"Crosswalk from: {self._backend} with observed values from {self.__field}"
+        return f"Crosswalk from: {str(self._backend)} with observed values from {str(self.__field)}"
 
 
 class MetricSpecification(Specification):

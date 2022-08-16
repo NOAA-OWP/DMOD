@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block scripts %}
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css"
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.6/addon/edit/matchbrackets.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.6/addon/edit/closebrackets.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.6/addon/fold/foldcode.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.6/addon/fold/brace-fold.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.6/addon/fold/foldgutter.min.js"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{% static 'evaluation_service/js/ready_evaluation_async.js' %}"></script>
+<script>
+    let socket = null;
+    let previousState = {};
+
+    let editorConfig = {
+        mode: "javascript",
+        json: true,
+        indentUnit: 4,
+        lineNumbers: true,
+        allowDropFileTypes: ['application/json'],
+        viewportMargin: Infinity,
+        matchBrackets: true,
+        autoCloseBrackets: true,
+        foldGutter: true,
+        gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
+    }
+
+    let messageConfig = {
+        mode: "javascript",
+        json: true,
+        readOnly: true,
+        indentUnit: 4,
+        viewportMargin: Infinity,
+    };
+
+    let codeViews = [
+        {
+            "name": "editor",
+            "tab": "edit-div",
+            "container": "editor-content",
+            "view": null,
+            "config": {
+                mode: "javascript",
+                json: true,
+                indentUnit: 4,
+                lineNumbers: true,
+                allowDropFileTypes: ['application/json'],
+                viewportMargin: Infinity,
+                matchBrackets: true,
+                autoCloseBrackets: true,
+                foldGutter: true,
+                gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
+            },
+            "textarea": "#instructions"
+        },
+        {
+            "name": "messages",
+            "tab": "message-div",
+            "container": "message-area",
+            "view": null,
+            "config": {
+                mode: "javascript",
+                json: true,
+                readOnly: true,
+                indentUnit: 4,
+                viewportMargin: Infinity,
+            },
+            "textarea": "#messages"
+        }
+    ];
+
+    const LAUNCH_URL = "{{ launch_url }}";
+
+    let digest = {
+        digest: []
+    };
+</script>
+{% endblock scripts %}
+{% block style %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.6/addon/fold/foldgutter.min.css"
+          crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" type="text/css" href="{% static 'evaluation_service/css/ready_evaluation_async.css' %}">
+{% endblock style %}
+{% block bannercontent %}
+    <h1>Setup</h1>
+{% endblock bannercontent %}
+{% block content %}
+    <div id="content" class="pane">
+        <div id="launch-warning">
+            <p>
+                This page is for testing the evaluation service - use in production should be initiated directly via the
+                API, not here
+            </p>
+        </div>
+        <div id="general-error-box" class="error-box">
+            <p id="error-message"></p>
+            <img id="acknowledge-error-icon" src="{% static 'evaluation_service/img/error.png' %}"
+                 alt="I am aware of this error" onclick="updateError(null)">
+        </div>
+        <div id="tabs">
+            <button class="tablinks" onclick="switchTabs(event, 'edit-div')">Instructions</button>
+            <button class="tablinks" onclick="switchTabs(event, 'message-div')">Messages</button>
+        </div>
+        <div id="edit-div" class="tab">
+            <div id="editor-header" class="tab-header">
+                <label for="evaluation_id">Evaluation ID:</label>
+                <input id="evaluation_id" name="evaluation_id" type="text" maxlength="100"
+                       minlength="10" pattern="{{ evaluation_id_pattern }}" style="width: 400px; margin-left: 10px;"
+                       onchange="syncNameChange(event)"
+                       value="{{ generated_evaluation_id }}" required>
+            </div>
+            <div id="editor-content" class="tab-content codeview-container">
+                <textarea id="instructions" name="instructions" required>{{ evaluation_template }}</textarea>
+            </div>
+            <div id="editor-footer" class="tab-footer">
+                <button id="evaluation-submit">Start Evaluation</button>
+                <button id="evaluation-save" onclick="showPopup(event, 'save-dialog')">Save</button>
+            </div>
+        </div>
+        <div id="message-div" class="tab">
+            <div id="message-header" class="tab-header">
+                <h3>Responses</h3>
+            </div>
+            <div id="message-content" class="tab-content">
+                <p id="message-details">
+                    <span>Message Count: <span id="message-count" class="session-details">0</span></span>
+                    <br>
+                    <span>Last Updated: <span id="last-updated" class="session-details"></span></span>
+                    <br>
+                    <label for="record-messages">Record Messages</label>
+                    <input type="checkbox" id="record-messages" checked>
+                </p>
+                <div id="message-area" class="codeview-container">
+                    <textarea id="messages"></textarea>
+                </div>
+            </div>
+            <div id="message-footer" class="tab-footer">
+                <button id="clear-button">Clear Output</button>
+                <button id="clear-digest">Clear Digest</button>
+                <button id="get-digest" onclick="showDigestPopup(event)">Get Digest</button>
+            </div>
+        </div>
+        <div id="page-modal">
+            <div id="save-dialog" class="popup">
+                <div id="save-header" class="popup-header">
+                    <b>Save Evaluation Definition</b>
+                </div>
+                <div class="popup-contents">
+                    <div id="save-errors" class="error-box">
+                        <p id="save-error-message"></p>
+                    </div>
+                    <div id="save-fields" class="popup-fields" style="display: grid">
+                        <label for="author" style="grid-column: 1; grid-row: 1">Author:</label>
+                        <input type="text" placeholder="Your name..." style="grid-column: 2; grid-row: 1"
+                               id="author" minlength="10" maxlength="255" required>
+                        <br>
+
+                        <label for="evaluation_name" style="grid-column: 1; grid-row: 2">Configuration Name:</label>
+                        <input name="evaluation_name" style="grid-column: 2; grid-row: 2" id="evaluation_name"
+                               type="text" minlength="5" maxlength="255" required>
+                        <br>
+                        <label for="description" style="grid-column: 1; grid-row: 3">Description:</label><br>
+                        <textarea id="description" style="grid-column: 1 / span 2; grid-row: 4; resize: none"
+                                  cols="80" rows="10"
+                                  placeholder="Enter a description for what your evaluation intends to measure">
+
+                        </textarea>
+                    </div>
+                    <div id="save-actions" class="popup-actions">
+                        <button id="save-definition" onclick="saveDefinition(event)">Save</button>
+                        <button id="close-save-popup-button" onclick="closePopups(event)">Close</button>
+                    </div>
+                </div>
+            </div>
+            <div id="connecting-modal" class="popup">
+                <div id="connecting-header" class="popup-header">
+                    <b>Connecting</b>
+                </div>
+                <div id="connecting-errors" class="error-box">
+                    <p id="connecting-error-message"></p>
+                </div>
+                <div id="connecting-fields" class="popup-fields">
+                    <p>Connecting to server. Please wait.</p>
+                </div>
+            </div>
+            <div id="digest-modal" class="popup">
+                <div id="digest-header" class="popup-header">
+                    <b>Get Digest</b>
+                </div>
+                <div class="popup-contents">
+                    <div id="digest-errors" class="error-box">
+                        <p id="digest-error-message"></p>
+                    </div>
+                    <div id="digest-fields" class="popup-fields">
+                        <span id="digest-explanation" class="popup-field-explanation">
+                            Select what events to save
+                        </span>
+                        <div id="digest-event-selectors">
+                        </div>
+                    </div>
+                    <div id="digest-actions" class="popup-actions">
+                        <button id="download-digest-button" onclick="getDigest(event)">Download</button>
+                        <button id="close-digest-popup-button" onclick="closePopups(event)">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock content %}

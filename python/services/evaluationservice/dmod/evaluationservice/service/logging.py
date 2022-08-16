@@ -23,7 +23,7 @@ from . import application_values
 
 MESSAGE = typing.Union[Exception, str, dict]
 
-DEFAULT_LOGGER_NAME = os.environ.get("DEFAULT_EVALUATION_LOGGER", application_values.APPLICATION_NAME.replace(" ", ""))
+DEFAULT_LOGGER_NAME = os.environ.get("DEFAULT_EVALUATION_LOGGER", application_values.APPLICATION_NAME.replace(" ", "_"))
 """
 The name of the default logger to use when configuring the logging system
 """
@@ -32,6 +32,10 @@ DEFAULT_SOCKET_LOGGER_NAME = os.environ.get("DEFAULT_SOCKET_LOGGER_NAME", "Socke
 """
 The name of the default logger intended for use by web sockets
 """
+
+# Set the default logging variable to None so that Django doesn't try to 'help'
+LOGGING_CONFIG = None
+LOGGING = None
 
 
 class ConfiguredLogger:

@@ -14,6 +14,6 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=['redis', 'dmod-evaluations'],
+    install_requires=['redis', 'dmod-evaluations', 'channels', 'channels-redis'],
     packages=find_namespace_packages(exclude=('tests', 'test', 'deprecated', 'conf', 'schemas', 'ssl', 'src'))
 )
