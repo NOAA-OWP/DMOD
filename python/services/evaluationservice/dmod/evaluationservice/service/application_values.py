@@ -141,10 +141,25 @@ DEBUG = in_debug_mode()
 BASE_DIRECTORY = Path(__file__).resolve().parent.parent
 """The path to the base directory of the service"""
 
+BASE_DIR = BASE_DIRECTORY
+"""The expected Django variable for the base directory"""
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/3.1/howto/static-files/
+
+STATIC_URL = os.environ.get("EVALUATION_STATIC_URL", '/static/')
+"""The URL to direct requests for static resources to"""
+
+STATIC_ROOT = os.path.join(BASE_DIR, "static/")
+"""The relative file path to where static files live"""
+
+STATIC_RESOURCES_PATH = os.path.join(STATIC_ROOT, "resources")
+"""The path to static resources that are not code, stylesheets, images, or other standard media"""
+
 APPLICATION_NAME = os.environ.get("APPLICATION_NAME", "Evaluation Service")
 """The name of the service"""
 
-COMMON_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S%z"
+COMMON_DATETIME_FORMAT = "%Y-%m-%d %I:%M:%S %p %Z"
 """The default format for datetime strings"""
 
 CURRENT_TIMEZONE = get_full_localtimezone()
@@ -206,7 +221,18 @@ CHANNEL_LAYERS = {
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIRECTORY / 'db.sqlite3',
+        'ENGINE': os.environ.get('SQL_ENGINE', 'django.db.backends.sqlite3'),
+        'NAME': os.environ.get('SQL_DATABASE', os.path.join(BASE_DIRECTORY, 'db.sqlite3')),
+        'USER': os.environ.get('SQL_USER', 'user'),
+        'PASSWORD': os.environ.get('SQL_PASSWORD', 'password'),
+        'HOST': os.environ.get('SQL_HOST', 'localhost'),
+        'PORT': os.environ.get('SQL_PORT', '5432'),
     }
 }
+"""Configuration for the default database for Django"""
+
+START_DELAY = os.environ.get('EVALUATION_START_DELAY', '5')
+"""The amount of seconds that an evaluation should wait before launching"""
+
+OUTPUT_VERBOSITY = os.environ.get("EVALUATION_OUTPUT_VERBOSITY", "ALL")
+"""The amount of data that should flow through an evaluation's channel for cross process communication"""

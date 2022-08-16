@@ -2,6 +2,7 @@ import typing
 import os
 import traceback
 import logging
+import json
 
 from datetime import datetime
 
@@ -27,7 +28,9 @@ def is_true(value: str) -> bool:
         value = value.decode()
 
     if not isinstance(value, str):
-        logging.warning("A non-string value was passed to dmod.evaluation_service.utilities.common.is_true")
+        logging.warning(
+            f"A non-string value ({str(value)}) was passed to dmod.evaluation_service.utilities.common.is_true"
+        )
         return bool(value)
 
     return str(value).lower() in ("yes", "y", "1", 'true', 'on')
@@ -46,7 +49,36 @@ def key_separator() -> str:
 
 
 def application_prefix() -> str:
+    """
+    Returns:
+        The key prefix for this application in redis
+    """
     return f"MAAS{key_separator()}EVALUATION"
+
+
+def string_might_be_json(possible_json: str) -> bool:
+    """
+    Checks to see if a string might be a valid JSON document.
+
+    This just detects if it's worth attempting to parse a string as json, not that a string IS json
+
+    Args:
+        possible_json: A string that might be a json document
+
+    Returns:
+        If it's worth attempting to parse a string as JSON
+    """
+    might_be_json = possible_json is not None
+    might_be_json = might_be_json and isinstance(possible_json, str)
+    might_be_json = might_be_json and len(possible_json) > 2
+
+    if might_be_json:
+        is_object = possible_json.startswith("{") and possible_json.endswith("}")
+        is_array = possible_json.startswith("[") and possible_json.endswith("]")
+
+        might_be_json = is_object or is_array
+
+    return might_be_json
 
 
 def now(local: bool = True) -> datetime:
@@ -85,5 +117,11 @@ def make_message_serializable(message: typing.Union[dict, str, bytes, typing.Sup
         return os.linesep.join(traceback.format_exception_only(type(message), message))
     elif not isinstance(message, str) and isinstance(message, typing.Iterable):
         return [make_message_serializable(submessage) for submessage in message]
+    elif isinstance(message, str) and len(message) > 2 and (message[0] in ("[", "{") and message[-1] in ("}", "]")):
+        try:
+            possible_json = json.loads(message)
+            return make_message_serializable(possible_json)
+        except:
+            pass
 
     return message
