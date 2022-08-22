@@ -38,10 +38,3 @@ body {
 #message-area {
     height: 100%;
 }
-
-#editor-header {
-    border-bottom: 1px solid black;
-    padding-bottom: 5px;
-    display: flex;
-    align-items: center;
-}

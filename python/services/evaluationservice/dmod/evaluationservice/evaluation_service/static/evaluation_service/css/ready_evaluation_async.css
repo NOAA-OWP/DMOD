@@ -150,3 +150,50 @@ button:hover {
 #digest-event-selectors input, #digest-event-selectors label {
     vertical-align: middle;
 }
+
+#search-button {
+    margin-left: 5px;
+    padding: 0px 6px;
+}
+
+#search-table {
+    border: 1px solid gray;
+    border-collapse: collapse;
+}
+
+#search-table tr, #search-table td, #search-table th {
+    border: 1px solid gray;
+}
+
+#search-table-body td {
+    padding: 5px;
+}
+
+#search-header-row {
+    background-color: #33ade0;
+    color: white;
+}
+
+#search-table-body tr:nth-child(even) {
+    background-color: #f1f1f1;
+}
+
+#search-table-body tr.definition-selected {
+    background-color: #ceebf7;
+    font-style: italic;
+}
+
+#search-table-body tr:hover {
+    background: #ffffbb;
+    cursor: pointer;
+}
+
+#search-filter-row input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#search-table .filter-wrapper {
+    display: inline-block;
+    width: 100%;
+}

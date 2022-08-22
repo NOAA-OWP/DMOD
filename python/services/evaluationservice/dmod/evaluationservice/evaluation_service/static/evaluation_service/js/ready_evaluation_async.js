@@ -111,7 +111,7 @@ function submit_evaluation(event) {
         }
     };
 
-    socket.send(JSON.stringify(arguments));
+    socket.send(JSON.stringify(arguments), getJSONReplacer(), getExpectedIndentSpaces());
 
     if (!editorData.view.getOption("readonly")) {
         editorData.view.setOption("readonly", true);
@@ -165,6 +165,24 @@ function getWebSocketURL() {
     return websocket_url;
 }
 
+function registerEvent(eventName, handler, callCount) {
+    if (callCount == null || typeof(callCount) != 'number') {
+        callCount = 1;
+    }
+
+    var registration = {
+        "count": callCount,
+        "handle": handler
+    }
+
+    if (eventName in eventHandlers) {
+        eventHandlers[eventName].push(registration);
+    }
+    else {
+        eventHandlers[eventName] = [registration];
+    }
+}
+
 function connectToSocket(event) {
     if (event) {
         event.preventDefault();
@@ -184,6 +202,12 @@ function connectToSocket(event) {
     };
     socket.onmessage = function (response) {
         var raw_data = JSON.parse(response.data);
+        var event = "";
+
+        if ("event" in raw_data) {
+            event = raw_data.event;
+        }
+
         var errored = raw_data.data
             && raw_data.data.message
             && (raw_data.event == "error" || raw_data.response_type == "error" || raw_data.type == "error");
@@ -212,6 +236,19 @@ function connectToSocket(event) {
             var updateCount = Number($("#message-count").text()) + 1;
             $("#message-count").text(updateCount);
         }
+
+        if (event in eventHandlers) {
+            var handlers = eventHandlers[event];
+            for (const handler of handlers) {
+                if (typeof(handler) == 'function') {
+                    handler(event, raw_data);
+                }
+                else {
+                    handler.count = handler.count - 1;
+                    handler.handle(event, raw_data);
+                }
+            }
+        }
     };
     socket.onerror = function(response) {
         updateError(response.data);
@@ -230,8 +267,188 @@ function saveDefinition(event) {
     if (event) {
         event.preventDefault();
     }
-    alert("saveDefinition has not been implemented, yet.")
-    closePopups(event);
+    var editView = getCodeView("editor");
+
+    if (editView == null) {
+        throw "An editor could not be found from which to get instructions from."
+    }
+
+    var parameters = {
+        "action": "save",
+        "action_parameters": {
+            "author": $("#author").val(),
+            "name": $("#evaluation_name").val(),
+            "description": $("#description").val(),
+            "instructions": editView.view.getValue()
+        }
+    }
+
+    payload = JSON.stringify(parameters, getJSONReplacer(), getExpectedIndentSpaces());
+    socket.send(payload);
+    // Instead of closing the popup, tell it to close this popup and open a waiting popup. That popup should leave
+    // when the next save event comes through.
+    waitForEvent("save", `Waiting to complete saving '${parameters.action_parameters.name}'`)
+}
+
+function waitForEvent(eventName, why) {
+    $("#waiting-for").text(why);
+    showPopup(null, "waiting-popup");
+    registerEvent(
+        eventName,
+        (data) => {
+            closePopups();
+            switchTabs("message-div");
+        }
+    );
+}
+
+function filterDefinitions(event) {
+    var has_filter = false;
+    var search_arguments = {};
+    // #1
+    //implement the search where it will ask the server for definitions and register an action to render them
+    var author = $("#search-by-author").val();
+
+    if (author) {
+        search_arguments.author = author.trim();
+        has_filter = true;
+    }
+
+    var name = $("#search-by-name").val();
+
+    if (name) {
+        search_arguments.name = name.trim();
+        has_filter = true;
+    }
+
+    var description = $("#search-by-description").val();
+
+    if (description) {
+        search_arguments.description = description;
+        has_filter = true;
+    }
+
+    var payload = {
+        "action": "search"
+    };
+
+    if (has_filter) {
+        payload.action_parameters = search_arguments;
+    }
+
+    socket.send(JSON.stringify(payload), getJSONReplacer(), getExpectedIndentSpaces());
+}
+
+function renderDefinitions(event, data) {
+    // #2
+    //implement the rendering of definitions within the table named 'search-table'
+
+    if (data.response_type == "error") {
+        $("#search-error-message").text(data.message);
+        $("#search-errors").show();
+        return;
+    }
+
+    $("#search-errors").hide();
+
+    var searchTableBody = document.getElementById("search-table-body");
+
+    while (searchTableBody.firstChild) {
+      searchTableBody.removeChild(searchTableBody.firstChild);
+    }
+
+    for (const definition of data.data) {
+        var row = document.createElement("tr");
+        row.id = `definition-${definition.identifier}`;
+        row.classList.add("search-row");
+        row.setAttribute("identifier", definition.identifier);
+        row.onclick = selectDefinition
+
+        var authorCell = document.createElement("td");
+        authorCell.id = `${definition.identifier}-author`;
+        authorCell.classList.add("author-cell");
+        authorCell.classList.add("search-cell");
+        authorCell.textContent = definition.author.trim();
+        authorCell.setAttribute("identifier", definition.identifier);
+
+        row.appendChild(authorCell);
+
+        var nameCell = document.createElement("td");
+        nameCell.id = `${definition.identifier}-name`;
+        nameCell.classList.add("name-cell");
+        nameCell.classList.add("search-cell");
+        nameCell.textContent = definition.name.trim();
+        nameCell.setAttribute("identifier", definition.identifier);
+
+        row.appendChild(nameCell);
+
+        var descriptionCell = document.createElement("td");
+        descriptionCell.id = `${definition.identifier}-description`;
+        descriptionCell.classList.add("description-cell");
+        descriptionCell.classList.add("search-cell");
+        descriptionCell.textContent = definition.description.trim();
+        descriptionCell.setAttribute("identifier", definition.identifier);
+
+        row.appendChild(descriptionCell);
+
+        var lastModifiedCell = document.createElement("td");
+        lastModifiedCell.id = `${definition.identifier}-last_modified`;
+        lastModifiedCell.classList.add("last_modified-cell");
+        lastModifiedCell.classList.add("search-cell");
+        lastModifiedCell.textContent = definition.last_modified.trim();
+        lastModifiedCell.setAttribute("identifier", definition.identifier);
+
+        row.appendChild(lastModifiedCell);
+
+        searchTableBody.appendChild(row);
+    }
+
+    // #4
+    //NOTE: This should clear any selections
+    $("#selected-definition").val(null);
+}
+
+function selectDefinition(event) {
+    // #3
+    //implement handler that will select the pk of the row that was clicked
+    $(".search-row").removeClass("definition-selected");
+    var identifier = event.target.getAttribute("identifier");
+
+    if (identifier == $("#selected-definition").val()){
+        $("#selected-definition").val(null);
+        document.getElementById("select-search-button").disabled = true;
+        return;
+    }
+    $("#selected-definition").val(identifier);
+
+    var row = event.target;
+
+    if (event.target.tagName == "TD") {
+        row = event.target.parentElement;
+    }
+
+    row.classList.add("definition-selected");
+    document.getElementById("select-search-button").disabled = false;
+}
+
+function selectPreexistingDefinition(event) {
+    // #5
+    //implement handler that will query the socket for the definition and register a handler to insert it into the editor
+    var identifier = $("#selected-definition").val();
+
+    if (identifier) {
+        request = {
+            "action": "get_saved_definition",
+            "action_parameters": {
+                "identifier": identifier
+            }
+        }
+        socket.send(JSON.stringify(request), getJSONReplacer(), getExpectedIndentSpaces());
+    }
+    else {
+        $("#search-errors").show();
+        $("#search-error-message").text("Cannot select a definition; there isn't one selected.")
+    }
 }
 
 function showPopup(event, popupID) {
@@ -243,6 +460,15 @@ function showPopup(event, popupID) {
 
     $("#page-modal").show();
     $("#" + popupID).show();
+}
+
+function showSearchPopup(event) {
+    if (event) {
+        event.preventDefault();
+    }
+
+    filterDefinitions(event);
+    showPopup(event, "search-popup");
 }
 
 function showDigestPopup(event) {
@@ -290,6 +516,56 @@ function showDigestPopup(event) {
     }
 }
 
+function loadPreexistingDefinition(event, responseData) {
+    debugger;
+
+    if (responseData.response_type == "error") {
+        // Record error to the popup
+        return;
+    }
+    var editorView = getCodeView("editor");
+
+    var definition = responseData.data.definition;
+
+    if (typeof(definition) == 'object') {
+        definition = JSON.stringify(definition, getJSONReplacer(), getExpectedIndentSpaces());
+    }
+
+    editorView.view.setValue(definition);
+    $("#evaluation_id").val(responseData.data.name.trim());
+    closePopups(null);
+    switchTabs(null, "edit-div");
+}
+
+function initializeFields() {
+    var editorView = getCodeView("editor");
+
+    var author = sessionStorage.getItem("author");
+
+    if (author) {
+        $("#author").val(author);
+    }
+
+    var code = sessionStorage.getItem("code");
+
+    if (code) {
+        editorView.view.setValue(code);
+    }
+
+    // Register handlers to save values to session on edit
+    editorView.view.on("change", (event) => {
+        var ev = getCodeView("editor");
+        sessionStorage.setItem("code", ev.view.getValue());
+    });
+
+    $("#author").on(
+        "change",
+        (event) => {
+            sessionStorage.setItem("author", $("#author").val());
+        }
+    );
+}
+
 $(function(){
     $(".error-box").hide();
     showPopup(null, "connecting-modal");
@@ -301,12 +577,25 @@ $(function(){
         );
     });
 
+    initializeFields();
     switchTabs(null, "edit-div");
 
     $("#evaluation-submit").click(submit_evaluation);
 
     // Connect to service
     connectToSocket();
+
+    // Register message handlers
+    registerEvent(
+        "search",
+        renderDefinitions,
+        -1
+    );
+    registerEvent(
+        "get_saved_definition",
+        loadPreexistingDefinition,
+        -1
+    );
 
     closePopups(null);
 });
