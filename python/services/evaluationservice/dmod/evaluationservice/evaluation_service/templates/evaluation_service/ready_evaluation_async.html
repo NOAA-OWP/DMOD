@@ -24,6 +24,11 @@
 <script>
     let socket = null;
     let previousState = {};
+    let eventHandlers = {
+        "save": [],
+        "error": [],
+        "info": []
+    };
 
     let editorConfig = {
         mode: "javascript",
@@ -111,8 +116,8 @@
                  alt="I am aware of this error" onclick="updateError(null)">
         </div>
         <div id="tabs">
-            <button class="tablinks" onclick="switchTabs(event, 'edit-div')">Instructions</button>
-            <button class="tablinks" onclick="switchTabs(event, 'message-div')">Messages</button>
+            <button id="instruction-tab-button" class="tablinks" onclick="switchTabs(event, 'edit-div')">Instructions</button>
+            <button id="messages-tab-button" class="tablinks" onclick="switchTabs(event, 'message-div')">Messages</button>
         </div>
         <div id="edit-div" class="tab">
             <div id="editor-header" class="tab-header">
@@ -121,6 +126,7 @@
                        minlength="10" pattern="{{ evaluation_id_pattern }}" style="width: 400px; margin-left: 10px;"
                        onchange="syncNameChange(event)"
                        value="{{ generated_evaluation_id }}" required>
+                <button id="search-button" onclick="showSearchPopup(event)">Search</button>
             </div>
             <div id="editor-content" class="tab-content codeview-container">
                 <textarea id="instructions" name="instructions" required>{{ evaluation_template }}</textarea>
@@ -170,7 +176,8 @@
 
                         <label for="evaluation_name" style="grid-column: 1; grid-row: 2">Configuration Name:</label>
                         <input name="evaluation_name" style="grid-column: 2; grid-row: 2" id="evaluation_name"
-                               type="text" minlength="5" maxlength="255" required>
+                               type="text" minlength="5" maxlength="255" required
+                               value="{{ generated_evaluation_id }}">
                         <br>
                         <label for="description" style="grid-column: 1; grid-row: 3">Description:</label><br>
                         <textarea id="description" style="grid-column: 1 / span 2; grid-row: 4; resize: none"
@@ -194,6 +201,70 @@
                 </div>
                 <div id="connecting-fields" class="popup-fields">
                     <p>Connecting to server. Please wait.</p>
+                </div>
+            </div>
+            <div id="waiting-popup" class="popup">
+                <div id="waiting-header" class="popup-header">
+                    <b>Waiting...</b>
+                </div>
+                <div class="popup-contents">
+                    <p id="waiting-for"></p>
+                </div>
+                <div id="waiting-actions" class="popup-actions">
+                    <button id="close-waiting-button" onclick="closePopups(event)">Close</button>
+                </div>
+            </div>
+            <div id="search-popup" class="popup">
+                <div id="search-header" class="popup-header">
+                    <b>Search</b>
+                </div>
+                <div class="popup-contents">
+                    <div class="error-box" id="search-errors">
+                        <p id="search-error-message"></p>
+                    </div>
+                    <div id="search-fields" class="popup-fields">
+                        <input type="hidden" value="" id="selected-definition">
+                        <table id="search-table" width="100%">
+                            <thead>
+                                <tr id="search-header-row">
+                                    <th>Author</th>
+                                    <th>Name</th>
+                                    <th>Description</th>
+                                    <th>Last Modified</th>
+                                </tr>
+                                <tr id="search-filter-row">
+                                    <td>
+                                        <div class="filter-wrapper">
+                                            <input type="text" id="search-by-author" placeholder="Author Name"
+                                                   onchange="filterDefinitions(event)">
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="filter-wrapper">
+                                            <input type="text" id="search-by-name" onchange="filterDefinitions(event)"
+                                                   placeholder="Definition Name">
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="filter-wrapper">
+                                            <input type="text" id="search-by-description"
+                                                   onchange="filterDefinitions(event)" placeholder="Description Phrase">
+                                        </div>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                            </thead>
+                            <tbody id="search-table-body">
+
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="search-actions" class="popup-actions">
+                    <button id="select-search-button" onclick="selectPreexistingDefinition(event)" disabled>
+                        Select
+                    </button>
+                    <button id="close-search-button" onclick="closePopups(event)">Close</button>
                 </div>
             </div>
             <div id="digest-modal" class="popup">

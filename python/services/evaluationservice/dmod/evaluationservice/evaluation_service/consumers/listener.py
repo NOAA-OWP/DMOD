@@ -3,23 +3,27 @@ import inspect
 import os
 import typing
 import json
+import asyncio
+import functools
 
 from urllib.parse import parse_qs
 
 from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.auth.models import User
+from django.db.models import QuerySet
 from asgiref.sync import async_to_sync
 
 import redis
 import redis.client as redis_client
 
-from channels.generic.websocket import AsyncJsonWebsocketConsumer
+from channels.generic.websocket import AsyncWebsocketConsumer
 
 import utilities
 
 from service.application_values import COMMON_DATETIME_FORMAT
 from service.application_values import START_DELAY
 from service.application_values import OUTPUT_VERBOSITY
+from service.application_values import EVALUATION_QUEUE_NAME
 
 from service import logging as common_logging
 from evaluation_service import models
@@ -27,6 +31,58 @@ from evaluation_service import models
 
 LOGGER = common_logging.get_logger()
 SOCKET_LOGGER = common_logging.get_logger(common_logging.DEFAULT_SOCKET_LOGGER_NAME)
+
+
+_T = typing.TypeVar("_T")
+
+
+def get_values_eagerly(function: typing.Callable[[typing.Any, ...], typing.Optional[QuerySet[_T]]], *args, **kwargs) -> typing.Optional[typing.Sequence[_T]]:
+    result: typing.Optional[QuerySet] = function(*args, **kwargs)
+
+    if result and isinstance(result, QuerySet):
+        return list(model for model in result)
+
+    return result
+
+
+async def communicate_with_database(function: typing.Callable[[typing.Any, ...], _T], *args, **kwargs) -> _T:
+    """
+    Use a function that has to use the Django database.
+
+    Async functions can't typically communicate with the django database due to a safeguard used for protecting data
+    in databases with a high volume of transactions. The general solution is to call a service that schedules the
+    function execution. Instead of contacting a service, this will call the function in another thread and await the
+    result.
+
+    Args:
+        function: The function to call
+        *args: Positional arguments to use in the function call
+        **kwargs: Keyword arguments to use in the function call
+
+    Returns:
+        The results of the function
+    """
+    prepared_function = functools.partial(get_values_eagerly, function, *args, **kwargs)
+    result = await asyncio.get_running_loop().run_in_executor(None, prepared_function)
+    return result
+
+
+def inner_data_is_wrapper(possible_wrapper: dict) -> bool:
+    """
+    Determines whether the passed dictionary is just a wrapper for a dictionary named 'data'
+
+    Args:
+        possible_wrapper: A possible dictionary that just contains another dictionary named 'data'
+
+    Returns:
+        Whether the passed dictionary is just a wrapper for a dictionary named 'data'
+    """
+    return possible_wrapper is not None \
+           and isinstance(possible_wrapper, dict) \
+           and 'data' in possible_wrapper \
+           and isinstance(possible_wrapper['data'], dict) \
+           and len(possible_wrapper['data']) == 1 \
+           and 'data' in possible_wrapper['data']
 
 
 def make_message(
@@ -50,9 +106,12 @@ def make_message(
     if logger is None:
         logger = LOGGER
 
+    # Not much can be done with bytes, so go ahead and convert data to a string
     if data and isinstance(data, bytes):
         data = data.decode()
 
+    # If the data might be a json string, try to parse it. If it doesn't parse, we'll just consider it as the
+    # basic payload to be communicated. An exception here is ok.
     if utilities.string_might_be_json(data):
         try:
             data = json.loads(data)
@@ -65,12 +124,18 @@ def make_message(
 
     message_time = utilities.now().strftime(COMMON_DATETIME_FORMAT)
 
+    # If the data is a dict, its contents can be rearranged to properly fit the message format to be sent
+    # (such as event data floating to the top instead of being buried below)
     if isinstance(data, dict):
         use_inner_data = False
+
+        # Make sure the contained data can actually be communicated
         data = utilities.make_message_serializable(data)
 
+        # If this dictionary has a 'data' member that ALSO has a 'data' member, promote the first data member and tell
+        # the logic to use the newly promoted inner-inner 'data' member for investigation
         if 'data' in data and 'data' in data['data']:
-            if isinstance(data['data'], str):
+            if utilities.string_might_be_json(data['data']):
                 try:
                     contained_data = json.loads(data.pop('data'))
                 except Exception as loads_exception:
@@ -83,26 +148,32 @@ def make_message(
         else:
             contained_data = data
 
+        # Check to see if 'event' has been defined within the passed data or the inner data
         if 'event' in contained_data and contained_data['event']:
             event = contained_data.pop('event')
         elif 'event' in data and data['event']:
             event = data.pop('event')
 
+        # Check to see if 'type' has been defined within the passed data or the inner data
         if 'type' in contained_data and contained_data['type']:
             response_type = contained_data.pop('type')
         elif 'type' in data and data['type']:
             response_type = data.pop('type')
 
+        # Check to see if 'response_type' has been defined within the passed data or inner data
         if 'response_type' in contained_data and contained_data['response_type']:
             response_type = contained_data.pop('response_type')
         elif 'response_type' in data and data['response_type']:
             response_type = data.pop('response_type')
 
+        # Check to see if 'time' has been defined within the passed data or inner data
         if 'time' in contained_data and contained_data['time']:
             message_time = contained_data.pop('time')
         elif 'time' in data and data['time']:
             message_time = data.pop('time')
 
+        # Now that important values have been pulled out of the top level 'data' dictionary,
+        # promote the inner level if its used
         data = contained_data['data'] if use_inner_data else contained_data
 
         # Try to convert data to json one last time
@@ -116,12 +187,31 @@ def make_message(
             "message": data
         }
 
+    # Event can't be null, so set it to something
     if event is None:
-        event = ""
+        event = "send_message"
 
+    # If no response type was given, go ahead and set it to something
     if not response_type:
         response_type = "send_message"
 
+    if isinstance(data, dict):
+        # While the data dictionary just looks like `{"data": {"data": {...}}}`, bring the actual data up a level
+        while isinstance(data.get("data"), dict) and len(data) == 1:
+            data = data.get('data')
+
+        # Again, promote inner 'data' instances if it just looks like the inner value is just another dict named 'data'
+        # Will convert:
+        #    data = {"val1": 1, "val2": 2, "data": {"data": [1, 2, 3]}}
+        # To
+        #    data = {"val1": 1, "val2": 2, "data": [1, 2, 3]}
+        # The following will not be changed:
+        #    data = {"val1": 1, "val2": 2, "data": {"data": [1, 2, 3], "other_data": 8}}
+        while inner_data_is_wrapper(data.get('data')):
+            data['data'] = data.get('data').get('data')
+
+    # Create a basic response detailing what event caused the message to be sent, the general gist of the message,
+    # when it was sent, and data as a basic payload to be communicated
     message = {
         "event": event,
         "type": response_type,
@@ -129,7 +219,9 @@ def make_message(
         "data": data
     }
 
+    # Make sure that only data that may be transmitted is within the message (i.e. nothing like binary data)
     message = utilities.make_message_serializable(message)
+
     return message
 
 
@@ -388,7 +480,7 @@ class ConcreteScope:
         return self.__scope.items()
 
 
-class LaunchConsumer(AsyncJsonWebsocketConsumer):
+class LaunchConsumer(AsyncWebsocketConsumer):
     """
     Web Socket consumer that forwards messages to and from redis PubSub
     """
@@ -404,51 +496,95 @@ class LaunchConsumer(AsyncJsonWebsocketConsumer):
 
     @property
     def scope_data(self) -> ConcreteScope:
+        """
+        Returns:
+            A scope object representing the consumer's internal scope dictionary
+        """
         if self.__scope is None:
             self.__scope = ConcreteScope(self.scope)
 
         return self.__scope
 
     def get_action_handlers(self) -> typing.Dict[str, typing.Callable[[typing.Dict[str, typing.Any]], typing.Coroutine]]:
+        """
+        Generates a mapping of names for socket actions to functions that bear a dictionary of their required
+        parameters mapped to human friendly strings of their expected data types
+
+        Returns:
+            A dictionary mapping the name of actions a client may request to the functions that handle them
+        """
+        def callable_requires_parameters(member) -> bool:
+            """
+            Checks to see if a passed member counts as an action handler
+
+            Args:
+                member: A member retrieved by calling `inspect.get_members`
+
+            Returns:
+                Whether the passed member is a callable with a  `required_parameters` map
+            """
+            return isinstance(member, typing.Callable) \
+                   and hasattr(member, 'required_parameters') \
+                   and isinstance(getattr(member, 'required_parameters'), dict)
+
         return {
-            "launch": self.launch,
-            "get_message_format": self.get_message_format,
-            "tell": self.tell,
-            "get_actions": self.get_actions,
-            "save": self.save
+            handler_name: handler
+            for handler_name, handler in inspect.getmembers(self, predicate=callable_requires_parameters)
         }
 
     def receive_subscribed_message(self, message):
-        if isinstance(message, dict) and "data" in message and "event" not in message:
+        """
+        Interprets and transforms messages sent along the redis channel.
+
+        Args:
+            message: A message that was published from redis
+        """
+        def is_message_wrapper(possible_wrapper) -> bool:
+            return isinstance(possible_wrapper, dict) \
+                   and not possible_wrapper.get("event") \
+                   and "data" in possible_wrapper
+
+        # The passed message may be a wrapper if it doesn't bear an event, but DOES have a 'data' member.
+        # If that's the case, use its data member instead
+        while is_message_wrapper(message):
             message = message['data']
 
-        if isinstance(message, (str, bytes)):
-            deserialized_message = json.loads(message)
+        # If it looks like the passed message might be a string or bytes representation of a dict, attempt to
+        # convert it to a dict
+        if isinstance(message, (str, bytes)) and utilities.string_might_be_json(message):
+            try:
+                deserialized_message = json.loads(message)
+            except:
+                # It couldn't be converted, so go ahead use the passed in value
+                deserialized_message = message
         else:
             deserialized_message = message
-
-        while not deserialized_message.get("event") and "data" in deserialized_message:
+            
+        while is_message_wrapper(deserialized_message):
+            # This is only considered a message wrapper if it is a dict; linters may think this could be a string,
+            # but it will always be a dict here
             deserialized_message = deserialized_message['data']
-
-        # This needs to crawl through a dict and make sure that none of its children are bytes
-        deserialized_message = utilities.make_message_serializable(deserialized_message)
-
-        response = make_websocket_message(
-            event="subscribed_message_received",
-            data=deserialized_message,
-            logger=SOCKET_LOGGER
-        )
 
         # The caller requires this function to be synchronous, whereas `send_message` is async;
         # we're stuck using async_to_sync here as a result
-        async_to_sync(self.send_message)(response)
+        async_send = async_to_sync(self.send_message)
+        async_send(deserialized_message, event="subscribed_message_received", logger=SOCKET_LOGGER)
 
     async def connect(self):
-        await self.accept()
+        """
+        Handler for when a client connects to this socket.
+        """
+        await super().accept()
         await self.send_message(event="connect", result=f"Connection accepted")
 
     @required_parameters(evaluation_name="string")
-    async def connect_to_channel(self, payload: typing.Dict[str, typing.Any] = None):
+    async def subscribe_to_channel(self, payload: typing.Dict[str, typing.Any] = None):
+        """
+        Subscribe to a redis channel
+
+        Args:
+            payload: The arguments sent through the socket
+        """
         if not self.subscribed_to_channel:
             self.channel_name = payload['evaluation_name']
             self.connection_group_id = utilities.get_channel_key(self.channel_name)
@@ -480,12 +616,8 @@ class LaunchConsumer(AsyncJsonWebsocketConsumer):
         else:
             await self.send_message(
                 event="connect_to_channel",
-                result=f"Already connected to redis channel named {self.connection_group_id}"
+                result=f"Already connected to a redis channel named {self.connection_group_id}"
             )
-
-    async def receive_json(self, data, **kwargs):
-        """Receive JSON messages over socket."""
-        await self.send(json.dumps(data, default=str))
 
     async def receive(self, text_data=None, **kwargs):
         """
@@ -553,20 +685,18 @@ class LaunchConsumer(AsyncJsonWebsocketConsumer):
             await self.send_error(message=exception, event=action)
             SOCKET_LOGGER.error(message=exception)
 
-    @required_parameters()
-    async def get_message_format(self, payload: typing.Dict[str, typing.Any] = None):
-        message_format = {
-            "action": "string",
-            "action_parameters": "object"
-        }
-
-        await self.send_message(event="message_format", result=message_format, logger=SOCKET_LOGGER)
-
     @required_parameters(evaluation_name="string", instructions="string")
     async def launch(self, payload: typing.Dict[str, typing.Any] = None):
+        """
+        Launch an evaluation
+
+        Args:
+            payload: Arguments passed along the socket
+        """
         evaluation_name: str = payload['evaluation_name']
         try:
-            await self.connect_to_channel(payload)
+            # First, make sure that a channel is subscribed to
+            await self.subscribe_to_channel(payload)
         except Exception as exception:
             message = f"Could not launch job; a redis channel named '{evaluation_name}' could not be connected to."
             SOCKET_LOGGER.error(
@@ -575,6 +705,7 @@ class LaunchConsumer(AsyncJsonWebsocketConsumer):
             )
             await self.send_error(event="launch", message=message)
 
+        # If a socket has been subscribed to, it's safe to launch the evaluation and listen
         if self.subscribed_to_channel:
             try:
                 instructions: str = payload['instructions']
@@ -594,7 +725,9 @@ class LaunchConsumer(AsyncJsonWebsocketConsumer):
                     "instructions": instructions
                 }
 
-                self.redis_connection.publish("evaluation_jobs", json.dumps(launch_parameters))
+                # Send the job parameters through the channel that actively listens for jobs
+                self.redis_connection.publish(EVALUATION_QUEUE_NAME, json.dumps(launch_parameters))
+
                 await self.send_message(result=data, event="launch", logger="logger")
                 await self.tell_channel(event="launch", data=f"{str(self)}: Job Launched")
             except Exception as error:
@@ -604,18 +737,79 @@ class LaunchConsumer(AsyncJsonWebsocketConsumer):
                 )
                 await self.send_error(error)
 
-    @required_parameters(message="string")
-    async def tell(self, payload: typing.Dict[str, typing.Any] = None):
-        await self.tell_channel(
-            event="tell",
-            data=payload['message']
-        )
+    @required_parameters()
+    async def search(self, payload: typing.Dict[str, typing.Any] = None):
+        try:
+            if payload is None:
+                payload = dict()
+
+            payload = {
+                key.lower(): value
+                for key, value in payload.items()
+            }
+
+            filter_arguments = dict()
+
+            if "author" in payload:
+                filter_arguments['author__icontains'] = payload['author']
+
+            if 'name' in payload:
+                filter_arguments['name__icontains'] = payload['name']
+
+            saved_definitions: QuerySet[models.EvaluationDefinition] = await communicate_with_database(
+                models.EvaluationDefinition.objects.filter,
+                **filter_arguments
+            )
+
+            definitions_to_return = list()
+
+            for saved_definition in saved_definitions:
+                definitions_to_return.append({
+                    "identifier": saved_definition.pk,
+                    "author": saved_definition.author,
+                    "name": saved_definition.name,
+                    "description": saved_definition.description,
+                    "last_modified": saved_definition.last_edited
+                })
+
+            await self.send_message(event="search", result=definitions_to_return)
+        except Exception as exception:
+            message = f"{str(self)}: Could not retrieve saved evaluation definitions"
+            SOCKET_LOGGER.error(message, exception)
+            await self.send_error(event="search", message=message)
+
+    @required_parameters(identifier="integer")
+    async def get_saved_definition(self, payload: typing.Dict[str, typing.Any] = None):
+        try:
+            identifier = int(float(payload['identifier']))
+            saved_definition: models.EvaluationDefinition = await communicate_with_database(
+                models.EvaluationDefinition.objects.get,
+                pk=identifier
+            )
+            payload = {
+                "name": saved_definition.name,
+                "definition": saved_definition.definition
+            }
+            await self.send_message(event="get_saved_definition", result=payload)
+        except Exception as exception:
+            message = f"{str(self)}: Could not retrieve evaluation definition with an identifier of " \
+                      f"'{str(payload['identifier'])}'"
+            SOCKET_LOGGER.error(message=message, exception=exception)
+            await self.send_error(message, event="get_saved_definition")
 
     @required_parameters()
     async def get_actions(self, payload: typing.Dict[str, typing.Any] = None):
+        """
+        Sends a detailed listing of all possible actions and their required parameters through the socket
+
+        Args:
+            payload: The arguments sent through the socket when asking to perform this action
+        """
         actions = list()
 
         for name, function in self.get_action_handlers().items():
+            # `function` will be a function like `(dict) => Coroutine`, where the function will have a dictionary
+            # mapping the name of required parameters for each handler to a human friendly description of its type
             descriptor = {
                 "action": name,
                 "action_parameters": {
@@ -628,26 +822,44 @@ class LaunchConsumer(AsyncJsonWebsocketConsumer):
 
     @required_parameters(name="string", description="string", author="string", instructions="string")
     async def save(self, payload: typing.Dict[str, typing.Any] = None):
+        """
+        Saves the configured evaluation for later use
+
+        Args:
+            payload: The arguments passed along the socket
+        """
         try:
+            # Retrieve the required parameters
             name = payload['name']
             description = payload['description']
             author = payload['author']
             instructions = payload['instructions']
-            definition, was_created = models.EvaluationDefinition.objects.get_or_create(
+
+            save_function = functools.partial(
+                models.EvaluationDefinition.objects.update_or_create,
                 name=name,
                 description=description,
                 author=author,
                 definition=instructions
             )
+
+            definition, was_created = await asyncio.get_running_loop().run_in_executor(
+                executor=None,
+                func=save_function,
+            )
+
+            # Prepare data to send back to the caller
             response_data = {
                 "evaluation_name": name,
                 "description": description,
                 "author": author,
-                "instructions": instructions,
                 "new_project": was_created
             }
+
+            # Send result information detailing what was saved and whether it was created
             await self.send_message(response_data, event="save")
         except Exception as error:
+            SOCKET_LOGGER.error(message=error)
             await self.send_error(error, event="save")
 
     async def tell_channel(self, event: str = None, data=None, log_data: bool = False):
@@ -681,6 +893,13 @@ class LaunchConsumer(AsyncJsonWebsocketConsumer):
         SOCKET_LOGGER.debug(f"[{str(self)}] Sent data to {self.connection_group_id}")
 
     async def send_message(self, result, **kwargs):
+        """
+        Formats a message in such a way that it is ready to send through a socket to a client
+
+        Args:
+            result: The data to send to a client
+            **kwargs:
+        """
         if isinstance(result, bytes):
             result = result.decode()
 
@@ -694,6 +913,15 @@ class LaunchConsumer(AsyncJsonWebsocketConsumer):
         await self.send(message)
 
     async def send_error(self, message: typing.Union[str, dict, Exception], event: str = None):
+        """
+        Send a message specifically formatted for errors through the socket
+
+        TODO: Determine whether or not this should end up going through `send_message`
+
+        Args:
+            message: Information about the error
+            event: The event within which the error occurred
+        """
         if not event:
             event = "error"
 
@@ -713,6 +941,12 @@ class LaunchConsumer(AsyncJsonWebsocketConsumer):
         await self.send(response)
 
     async def disconnect(self, close_code):
+        """
+        Handles the disconnection of the handler
+
+        Args:
+            close_code: A code used to detail the conditions upon which this handler was disconnected
+        """
         try:
             await self.send(make_websocket_message(event="disconnect", data="Disconnecting from server"))
         except Exception as error:
@@ -755,6 +989,27 @@ class LaunchConsumer(AsyncJsonWebsocketConsumer):
                f"{':'.join([str(entry) for entry in self.scope['client']])}"
 
     def __repr__(self):
+        """
+        Makes a helpful string representation used for object examination (repr(obj), not str(obj))
+
+        Should look something like:
+
+
+            '{
+                "class": "LaunchConsumer",
+
+                "channel_name": "evaluation_name",
+
+                "connection_group_id": "some--prefix--evaluation_name--suffix",
+
+                "redis_connection": "username@host:port",
+
+                "host": "server-address:port"
+            }'
+
+        Returns:
+            a helpful string representation used for object examination
+        """
         redis_connection_details = f"{self.redis_connection.connection.username}" \
                                    f"@{self.redis_connection.connection.host}" \
                                    f":{str(self.redis_connection.connection.port)}"
@@ -763,11 +1018,11 @@ class LaunchConsumer(AsyncJsonWebsocketConsumer):
             "channel_name": self.channel_name,
             "connection_group_id": self.connection_group_id,
             "redis_connection": redis_connection_details,
-            "host": ":".join([str(entry) for entry in self.scope['host']])
+            "host": self.scope_data.server
         }, indent=4)
 
 
-class ChannelConsumer(AsyncJsonWebsocketConsumer):
+class ChannelConsumer(AsyncWebsocketConsumer):
     """
     Web Socket consumer that forwards messages to and from redis PubSub
     """
@@ -835,10 +1090,6 @@ class ChannelConsumer(AsyncJsonWebsocketConsumer):
         connection_message = f"{str(self)}: Connection accepted. Connection Group is: {self.connection_group_id}"
         await self.tell_channel(event="Connect", data=connection_message, log_data=True)
         await self.send(make_websocket_message(event="connect", data=connection_message))
-
-    async def receive_json(self, data, **kwargs):
-        """Receive JSON messages over socket."""
-        await self.send(json.dumps(data, default=str))
 
     async def receive(self, text_data=None, **kwargs):
         """
