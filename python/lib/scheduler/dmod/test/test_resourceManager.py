@@ -140,6 +140,7 @@ class TestValidResources(TestResourceManagerBase):
     def tearDown(self) -> None:
         pass
 
+    @unittest.skip("Test no longer reflects design and behavior of SINGLE_NODE paradigm")
     def test_allocate_single_node_valid(self):
         """
             Test single node scheduling with valid resources for first node
@@ -155,6 +156,7 @@ class TestValidResources(TestResourceManagerBase):
         self.assertEqual(allocation[0].hostname, 'hostname1')
         self.assertEqual(allocation[0].pool_id, 'Node-0001')
 
+    @unittest.skip("Test no longer reflects design and behavior of SINGLE_NODE paradigm")
     def test_allocate_single_node_valid_a(self):
         """
             Test single node scheduling with valid resources which won't fit on first node
@@ -169,6 +171,7 @@ class TestValidResources(TestResourceManagerBase):
         self.assertEqual(allocation[0].hostname, 'hostname2')
         self.assertEqual(allocation[0].pool_id, 'Node-0002')
 
+    @unittest.skip("Test no longer reflects design and behavior of SINGLE_NODE paradigm")
     def test_allocate_single_node_unsatisfied(self):
         """
             Test single node scheduling with valid resources which cannot satisfy request
@@ -180,6 +183,7 @@ class TestValidResources(TestResourceManagerBase):
         self.assertEqual(len(test), 1)
         self.assertIsNone(test[0])
 
+    @unittest.skip("Test no longer reflects design and behavior of FILL_NODES paradigm")
     def test_allocate_fill_nodes_valid(self):
         """
             Test fill nodes scheduling with valid resources for first node
@@ -195,6 +199,7 @@ class TestValidResources(TestResourceManagerBase):
         self.assertEqual(allocation[0].hostname, 'hostname1')
         self.assertEqual(allocation[0].pool_id, 'Node-0001')
 
+    @unittest.skip("Test no longer reflects design and behavior of FILL_NODES paradigm")
     def test_allocate_fill_nodes_valid_a(self):
         """
             Test fill nodes scheduling with valid resources for two nodes
@@ -220,6 +225,7 @@ class TestValidResources(TestResourceManagerBase):
         self.assertEqual(allocation[1].hostname, 'hostname2')
         self.assertEqual(allocation[1].pool_id, 'Node-0002')
 
+    @unittest.skip("Test no longer reflects design and behavior of FILL_NODES paradigm")
     def test_allocate_fill_nodes_unsatisfied(self):
         """
             Test fill nodes scheduling with valid resources which cannot satisfy request
@@ -231,6 +237,7 @@ class TestValidResources(TestResourceManagerBase):
         self.assertEqual(len(allocation), 1)
         self.assertIsNone(allocation[0])
 
+    @unittest.skip("Test no longer reflects design and behavior of ROUND_ROBIN paradigm")
     def test_allocate_round_robin_valid(self):
         """
             Test round_robin scheduling with valid resources for first node
@@ -245,6 +252,7 @@ class TestValidResources(TestResourceManagerBase):
         self.assertEqual(allocation[0].hostname, 'hostname1')
         self.assertEqual(allocation[0].pool_id, 'Node-0001')
 
+    @unittest.skip("Test no longer reflects design and behavior of ROUND_ROBIN paradigm")
     def test_allocate_round_robin_valid_a(self):
         """
             Test round_robin scheduling with valid resources for two nodes
@@ -266,6 +274,7 @@ class TestValidResources(TestResourceManagerBase):
         self.assertEqual(allocation[1].hostname, 'hostname2')
         self.assertEqual(allocation[1].pool_id, 'Node-0002')
 
+    @unittest.skip("Test no longer reflects design and behavior of ROUND_ROBIN paradigm")
     def test_allocate_round_robin_valid_b(self):
         """
             Test round_robin scheduling with valid resources for multiple nodes
@@ -293,6 +302,7 @@ class TestValidResources(TestResourceManagerBase):
         self.assertEqual(allocation[2].hostname, 'hostname3')
         self.assertEqual(allocation[2].pool_id, 'Node-0003')
 
+    @unittest.skip("Test no longer reflects design and behavior of ROUND_ROBIN paradigm")
     def test_allocate_round_robin_unsatisfied(self):
         """
             Test round_robin scheduling with valid resources which cannot satisfy request
