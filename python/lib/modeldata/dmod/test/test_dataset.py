@@ -82,14 +82,14 @@ class TestDataset(unittest.TestCase):
         # Prep example 0
         indx_val = 0
         self.example_time_ranges.append(self.generate_testing_time_range(begin='2022-01-01 00:00:00'))
-        self.example_catchment_restrictions.append(DiscreteRestriction("catchment_id", ['cat-1', 'cat-2', 'cat-3']))
+        self.example_catchment_restrictions.append(DiscreteRestriction("CATCHMENT_ID", ['cat-1', 'cat-2', 'cat-3']))
         self.example_categories.append(DataCategory.FORCING)
         self.example_formats.append(DataFormat.AORC_CSV)
 
         # Prep example 1
         indx_val += 1
         self.example_time_ranges.append(self.generate_testing_time_range(begin='2022-01-01 00:00:00'))
-        self.example_catchment_restrictions.append(DiscreteRestriction("id", ['cat-1', 'cat-2', 'cat-3']))
+        self.example_catchment_restrictions.append(DiscreteRestriction("CATCHMENT_ID", ['cat-1', 'cat-2', 'cat-3']))
         self.example_categories.append(DataCategory.CONFIG)
         self.example_formats.append(DataFormat.NGEN_REALIZATION_CONFIG)
 
