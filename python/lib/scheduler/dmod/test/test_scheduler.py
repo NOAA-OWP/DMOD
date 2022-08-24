@@ -58,7 +58,7 @@ class TestLauncher(unittest.TestCase):
         """
         job = mock_job(allocations=2)
         hosts = self.launcher.build_host_list(job)
-        self.assertEqual(hosts, 'nwm-worker0_{}:4\nnwm-worker1_{}:4'.format(job.job_id,job.job_id) )
+        self.assertEqual(hosts, 'nwm-worker0_{}:4,nwm-worker1_{}:4'.format(job.job_id, job.job_id))
 
     def test_load_image_and_mounts(self):
         """
