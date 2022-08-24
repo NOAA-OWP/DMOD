@@ -28,7 +28,7 @@ class TestNGENRequest(unittest.TestCase):
         self.time_ranges.append(time_range)
         self.request_strings.append(
             '{"model": '
-                '{"bmi_config_data_id": "02468", "config_data_id": "02468", "hydrofabric_data_id": "9876543210", '
+                '{"bmi_config_data_id": "02468", "config_data_id": "02468", "cpu_count": 1, "hydrofabric_data_id": "9876543210", '
                 '"hydrofabric_uid": "0123456789", "name": "ngen", "time_range": ' + time_range.to_json() + '}, '
             '"session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
         self.request_jsons.append({
@@ -38,13 +38,14 @@ class TestNGENRequest(unittest.TestCase):
                 'hydrofabric_data_id': '9876543210',
                 'hydrofabric_uid': '0123456789',
                 'bmi_config_data_id': '02468',
+                'cpu_count': 1,
                 'config_data_id': '02468'
             },
             'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
         })
         self.request_objs.append(
             NGENRequest(session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
-                        time_range=time_range, 
+                        time_range=time_range,
                         hydrofabric_uid="0123456789",
                         hydrofabric_data_id='9876543210',
                         bmi_cfg_data_id='02468',
@@ -60,7 +61,7 @@ class TestNGENRequest(unittest.TestCase):
         self.request_strings.append(
             '{"model": '
                 '{"bmi_config_data_id": "02468", "catchments": ' + cat_ids_str + ', "config_data_id": "02468", '
-                '"hydrofabric_data_id": "9876543210", "hydrofabric_uid": "0123456789", "name": "ngen", "time_range": '
+                '"cpu_count": 12, "hydrofabric_data_id": "9876543210", "hydrofabric_uid": "0123456789", "name": "ngen", "time_range": '
                 + time_range.to_json() + '}, '
             '"session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
         self.request_jsons.append({
@@ -70,6 +71,7 @@ class TestNGENRequest(unittest.TestCase):
                 'hydrofabric_data_id': '9876543210',
                 'hydrofabric_uid': '0123456789',
                 'config_data_id': '02468',
+                'cpu_count': 12,
                 'bmi_config_data_id': '02468',
                 'catchments': cat_ids_list
             },
@@ -79,6 +81,7 @@ class TestNGENRequest(unittest.TestCase):
             NGENRequest(session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
                         time_range=time_range,
                         hydrofabric_uid="0123456789",
+                        cpu_count=12,
                         hydrofabric_data_id='9876543210',
                         config_data_id='02468',
                         bmi_cfg_data_id='02468',
