@@ -20,10 +20,10 @@ class TestDatasetManagementMessage(unittest.TestCase):
                                                   'dataset_name': 'my_dataset',
                                                   'data_domain': {
                                                       "data_format": "AORC_CSV", "continuous": [], "discrete": [
-                                                          {"variable": "catchment-id", "values": []}]
+                                                          {"variable": "CATCHMENT_ID", "values": []}]
                                                   },
                                                   'read_only': False, 'pending_data': False}
-        all_catchments_restriction = DiscreteRestriction(variable='catchment-id', values=[])
+        all_catchments_restriction = DiscreteRestriction(variable='CATCHMENT_ID', values=[])
         domain = DataDomain(data_format=DataFormat.AORC_CSV, discrete_restrictions=[all_catchments_restriction])
         msg_obj = DatasetManagementMessage(action=ManagementAction.CREATE, dataset_name='my_dataset', domain=domain,
                                            category=DataCategory.FORCING)
