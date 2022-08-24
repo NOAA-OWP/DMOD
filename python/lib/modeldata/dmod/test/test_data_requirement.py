@@ -6,7 +6,7 @@ class TestDataRequirement(unittest.TestCase):
 
     def setUp(self) -> None:
         example_domains = []
-        restriction = DiscreteRestriction(variable="catchment-id", values=['cat-1'])
+        restriction = DiscreteRestriction(variable="CATCHMENT_ID", values=['cat-1'])
         example_domains.append(DataDomain(data_format=DataFormat.AORC_CSV, discrete_restrictions=[restriction]))
 
         self.example_reqs = []
