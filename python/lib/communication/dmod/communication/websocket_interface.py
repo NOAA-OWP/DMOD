@@ -9,6 +9,7 @@ Currently, a WebSocketInterface implementing asyncio event handling acros SSL
 connections is provided, with an abstract listener method required by subclasses.
 
 """
+import typing
 
 from abc import ABC, abstractmethod
 import asyncio
@@ -90,7 +91,17 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
         except Exception as e:
             pass
 
-    def __init__(self, listen_host='', port=3012, ssl_dir=None, cert_pem=None, priv_key_pem=None, *args, **kwargs):
+    def __init__(
+        self,
+        listen_host: str = '',
+        port: typing.Union[str, int] = 3012,
+        ssl_dir: typing.Optional[Path] = None,
+        cert_pem: typing.Optional[Path] = None,
+        priv_key_pem: typing.Optional[Path] = None,
+        use_ssl: bool = True,
+        *args,
+        **kwargs
+    ):
         """
         Initialize this instance, starting its event loop and websocket server.
 
@@ -145,23 +156,37 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
         self._loop.set_exception_handler(self.handle_exception)
 
         self.ssl_dir = ssl_dir
+        self.ssl_context = None
 
-        # Set up server/listener ssl context
-        self.ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        if use_ssl:
+            # Set up server/listener ssl context
+            self.ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 
-        # Initialize SSL cert/privkey file paths as needed
-        if self.ssl_dir is None and (cert_pem is None or priv_key_pem is None):
-            current_dir = Path(__file__).resolve().parent
-            self.ssl_dir = current_dir.parent.joinpath('ssl')
-        if cert_pem is None:
-            cert_pem = ssl_dir.joinpath('certificate.pem')
-        if priv_key_pem is None:
-            priv_key_pem = ssl_dir.joinpath('privkey.pem')
+            # Initialize SSL cert/privkey file paths as needed
+            if self.ssl_dir is None and (cert_pem is None or priv_key_pem is None):
+                current_dir = Path(__file__).resolve().parent
+                self.ssl_dir = current_dir.parent.joinpath('ssl')
+            if cert_pem is None:
+                cert_pem = ssl_dir.joinpath('certificate.pem')
+            if priv_key_pem is None:
+                priv_key_pem = ssl_dir.joinpath('privkey.pem')
 
-        self.ssl_context.load_cert_chain(cert_pem, keyfile=priv_key_pem)
+            self.ssl_context.load_cert_chain(cert_pem, keyfile=priv_key_pem)
+        else:
+            logging.warning(
+                f"SSL is not enable for {self.__class__.__name__}; this service is insecure and not recommended "
+                f"for any use outside of development"
+            )
+
         # print(hostname)
         # Setup websocket server
-        self.server = websockets.serve(self.listener, self._listen_host, self._port, ssl=self.ssl_context, loop=self._loop)
+        self.server = websockets.serve(
+            self.listener,
+            self._listen_host,
+            self._port,
+            ssl=self.ssl_context,
+            loop=self._loop
+        )
         self._requested_tasks = []
         self._scheduled_tasks = []
 
@@ -193,11 +218,11 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
             self._scheduled_tasks.append(self.loop.create_task(coro))
         return next_index
 
-    async def deserialized_message(self, message_data: dict):
+    async def deserialized_message(self, message_data: dict, event_type: MessageEventType = None):
         # TODO: update the params for this
-        return self._deserialized_message(message_data=message_data)
+        return self._deserialized_message(message_data=message_data, event_type=event_type)
 
-    def _deserialized_message(self, message_data: dict):
+    def _deserialized_message(self, message_data: dict, event_type: MessageEventType = None):
         """
         Deserialize
 
@@ -212,6 +237,17 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
 
         """
         try:
+            if event_type:
+                possible_message_types = [
+                    message_type
+                    for message_type in self.get_parseable_request_types()
+                    if message_type.get_message_event_type() == event_type
+                ]
+                for possible_message_type in possible_message_types:
+                    message = possible_message_type.factory_init_from_deserialized_json(message_data)
+                    if isinstance(message, possible_message_type):
+                        return message
+
             for message_type in self.get_parseable_request_types():
                 message = message_type.factory_init_from_deserialized_json(message_data)
                 if isinstance(message, message_type):

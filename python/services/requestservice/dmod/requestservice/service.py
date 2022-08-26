@@ -3,12 +3,21 @@
 import asyncio
 import json
 import logging
-from typing import List, Type, Union
+from typing import List
+from typing import Type
+from typing import Union
 
 import websockets
+from dmod.communication import AbstractInitRequest
 from websockets import WebSocketServerProtocol
 
 from dmod.access import DummyAuthUtil, RedisBackendSessionManager
+from dmod.communication import InvalidMessageResponse, MessageEventType, WebSocketSessionsInterface, \
+    SchedulerClient, UnsupportedMessageTypeResponse
+from dmod.communication import PartitionRequest
+from dmod.communication import ModelExecRequest
+from dmod.communication import DatasetManagementMessage
+from dmod.communication import SessionInitMessage
 from dmod.communication import AbstractInitRequest, InvalidMessageResponse, MessageEventType, NGENRequest, NWMRequest, \
     PartitionRequest, WebSocketSessionsInterface, SessionInitMessage, SchedulerClient, UnsupportedMessageTypeResponse
 from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage
@@ -66,7 +75,9 @@ class RequestService(WebSocketSessionsInterface):
                  priv_key_pem=None,
                  scheduler_ssl_dir=None,
                  partitioner_ssl_dir=None,
-                 data_service_ssl_dir=None):
+                 data_service_ssl_dir=None,
+                **kwargs
+    ):
         super().__init__(listen_host=listen_host, port=port, ssl_dir=ssl_dir, cert_pem=cert_pem,
                          priv_key_pem=priv_key_pem)
         self._session_manager: RedisBackendSessionManager = RedisBackendSessionManager()
@@ -149,6 +160,7 @@ class RequestService(WebSocketSessionsInterface):
                                                                                upstream_websocket=websocket)
                     await websocket.send(str(response))
                 elif event_type == MessageEventType.MODEL_EXEC_REQUEST:
+                    response = self._model_exec_request_handler.handle_request(request=req_message)
                     response = await self._model_exec_request_handler.handle_request(request=req_message)
                     logging.debug('************************* Handled request response: {}'.format(str(response)))
                     await websocket.send(str(response))

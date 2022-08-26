@@ -135,6 +135,7 @@ def main():
     handler = RequestService(listen_host=args.host,
                              port=args.port,
                              ssl_dir=args.ssl_dir,
+                             use_ssl=False,
                              cert_pem=args.cert_path,
                              priv_key_pem=args.key_path,
                              scheduler_host=args.scheduler_host,
