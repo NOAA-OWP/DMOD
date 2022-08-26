@@ -53,6 +53,14 @@ services:
     #depends_on:
     #  - base
 
+  ngen-build-test:
+    image: ngen-build-test:latest
+    build:
+      context: ./ngen
+      target: rocky_ngen_build_testing
+      args:
+        DOCKER_INTERNAL_REGISTRY: ${DOCKER_INTERNAL_REGISTRY:?}
+
   ngen:
     image: ${DOCKER_INTERNAL_REGISTRY:?}/ngen:${NGEN_VERSION:-latest}
     build:

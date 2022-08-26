@@ -187,6 +187,14 @@ RUN cd ${WORKDIR} \
 
 ################################################################################################################
 ################################################################################################################
+FROM rocky-ngen-deps as rocky_ngen_build_testing
+
+COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/ngen
+ENV BOOST_ROOT=${WORKDIR}/boost
+WORKDIR ${WORKDIR}
+
+################################################################################################################
+################################################################################################################
 ##### Create intermediate Docker build stage for building framework in Rocky Linux environment
 FROM rocky-ngen-deps as rocky_build_ngen
 
