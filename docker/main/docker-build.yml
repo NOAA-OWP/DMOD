@@ -45,11 +45,13 @@ services:
   ngen-deps:
     image: ${DOCKER_INTERNAL_REGISTRY:?}/ngen-deps:latest
     build:
-      context: ./ngen/deps
+      #context: ./ngen/deps
+      context: ./ngen
+      target: rocky-ngen-deps
       args:
         DOCKER_INTERNAL_REGISTRY: ${DOCKER_INTERNAL_REGISTRY:?}
-    depends_on:
-      - base
+    #depends_on:
+    #  - base
 
   ngen:
     image: ${DOCKER_INTERNAL_REGISTRY:?}/ngen:${NGEN_VERSION:-latest}
