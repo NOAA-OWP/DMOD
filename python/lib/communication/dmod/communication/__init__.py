@@ -16,6 +16,7 @@ from .dataset_management_message import DatasetManagementMessage, DatasetManagem
 from .validator import SessionInitMessageJsonValidator, NWMRequestJsonValidator, MessageJsonValidator
 from .update_message import UpdateMessage, UpdateMessageResponse
 from .websocket_interface import EchoHandler, NoOpHandler, WebSocketInterface, WebSocketSessionsInterface
+from .decorated_interface import DecoratedWebSocketInterface, producer, consumer, initializer
 from .unsupported_message import UnsupportedMessageTypeResponse
 
 name = 'communication'

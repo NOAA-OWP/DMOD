@@ -10,15 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/2.2/ref/settings/
 """
 
-import os
-import re
-import logging
-from datetime import datetime
+from .application_values import *
+from .logging import *
 
-# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
-from pytz import reference
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = BASE_DIRECTORY
 
 
 # Quick-start development settings - unsuitable for production
@@ -26,20 +21,6 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get("SECRET_KEY",'cm_v*vc*8s048%f46*@t7)hb9rtaa@%)#b!s(+$4+iw^tjt=s6')
-
-# Since 'MAAS_PORTAL_DEBUG' will be a string, we have no guarrentee that it is a boolean.
-debug_setting = os.environ.get('MAAS_PORTAL_DEBUG', True)
-
-# This is a list of strings that might be considered as False
-false_options = ['false', '0', 'f', 'no']
-
-# If the debug setting came in as a string instead of a boolean, only set it as False if the input
-# could be considered as False
-if type(debug_setting) is not bool:
-    debug_setting = debug_setting.lower() not in false_options
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = debug_setting
 
 # Must be set in production!
 ALLOWED_HOSTS = ['*']
@@ -55,37 +36,22 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 # security.W007: Activate's the browser's XSS filtering to help prevent XSS attacks
 SECURE_BROWSER_XSS_FILTER = True
 
-# Only enable the following settings if this instance was run with the DEPLOYED variable
-deployed_setting = os.environ.get('DEPLOYED', False)
-
-if type(deployed_setting) is not bool:
-    deployed_setting = deployed_setting.lower() not in false_options
-
 # Whether to use a secure cookie for the session cookie. If this is set to True, the cookie will be marked as
 # “secure”, which means browsers may ensure that the cookie is only sent under an HTTPS connection.
 # Leaving this setting off isn’t a good idea because an attacker could capture an unencrypted session cookie with a
 # packet sniffer and use the cookie to hijack the user’s session.
-SESSION_COOKIE_SECURE = deployed_setting
+SESSION_COOKIE_SECURE = not DEBUG
 
 # Whether to use a secure cookie for the CSRF cookie. If this is set to True, the cookie will be marked as “secure”,
 # which means browsers may ensure that the cookie is only sent with an HTTPS connection.
-CSRF_COOKIE_SECURE = deployed_setting
-
-# Whether to use HttpOnly flag on the CSRF cookie. If this is set to True, client-side JavaScript will not be able
-# to access the CSRF cookie.
-# Designating the CSRF cookie as HttpOnly doesn’t offer any practical protection because CSRF is only to protect
-# against cross-domain attacks. If an attacker can read the cookie via JavaScript, they’re already on the same
-# domain as far as the browser knows, so they can do anything they like anyway. (XSS is a much bigger hole than CSRF.)
-#
-# Although the setting offers little practical benefit, it’s sometimes required by security auditors.
-CSRF_COOKIE_HTTPONLY = deployed_setting
+CSRF_COOKIE_SECURE = not DEBUG
 
 # Whether to store the CSRF token in the user’s session instead of in a cookie.
 # It requires the use of django.contrib.sessions.
 #
 # Storing the CSRF token in a cookie (Django’s default) is safe, but storing it in the session is common practice
 # in other web frameworks and therefore sometimes demanded by security auditors.
-CSRF_USE_SESSIONS = deployed_setting
+CSRF_USE_SESSIONS = not DEBUG
 
 # security.W019: Unless we start serving data in a frame, set to 'DENY'
 X_FRAME_OPTIONS = 'DENY'
@@ -135,21 +101,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'maas_experiment.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/2.2/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': os.environ.get('SQL_ENGINE', 'django.db.backends.sqlite3'),
-        'NAME': os.environ.get('SQL_DATABASE', os.path.join(BASE_DIR, 'db.sqlite3')),
-        'USER': os.environ.get('SQL_USER', 'user'),
-        'PASSWORD': os.environ.get('SQL_PASSWORD', 'password'),
-        'HOST': os.environ.get('SQL_HOST', 'localhost'),
-        'PORT': os.environ.get('SQL_PORT', '5432'),
-    }
-}
-
-
 # Password validation
 # https://docs.djangoproject.com/en/2.2/ref/settings/#auth-password-validators
 
@@ -174,7 +125,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = os.environ.get("MAAS_TIMEZONE", 'UTC')
+TIME_ZONE = CURRENT_TIMEZONE
 
 USE_I18N = True
 
@@ -188,126 +139,6 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "static/")
-
-"""
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'filters': {
-        'require_debug_false': {
-            '()': 'django.utils.log.RequireDebugFalse'
-        }
-    },
-    'handlers': {
-        'console': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler'
-        }
-    },
-    'loggers': {
-        'gui_log': {
-            'handlers': ['console', ],
-            'level': 'DEBUG'
-        }
-    }
-}
-"""
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'filters': {
-        'require_debug_false': {
-            '()': 'django.utils.log.RequireDebugFalse'
-        }
-    },
-    'formatters': {
-        'console': {
-            # exact format is not important, this is the minimum information
-            'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-        },
-    },
-    'handlers': {
-        'guilogFile': {
-            'level': 'DEBUG',
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': os.environ.get('APPLICATION_LOG_PATH', os.path.join(BASE_DIR, 'gui.log')),
-            'maxBytes': 1024*1024*50,  # 50MB
-            'backupCount': 5,
-            'formatter': 'console'
-        },
-        'stdout': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
-            'formatter': 'console'
-        }
-    },
-    'loggers': {
-        'gui_log': {
-            'handlers': ['guilogFile', 'stdout'],
-            'level': 'DEBUG'
-        }
-    }
-}
-
-
-CRITICAL_LEVEL = logging.CRITICAL
-"""Logging level used to indicate critical messages"""
-
-ERROR_LEVEL = logging.ERROR
-"""Logging level used to indicate errors"""
-
-WARNING_LEVEL = logging.WARNING
-"""Logging level used to indicate warnings"""
-
-INFO_LEVEL = logging.INFO
-"""Logging level used to indicate basic information"""
-
-DEBUG_LEVEL = logging.DEBUG
-"""Logging level used to indicate messages useful for debugging"""
-
-UNKNOWN_LEVEL = logging.NOTSET
-"""Logging level to use when a proper logging level is not found"""
-
-DEFAULT_MESSAGE_LEVEL = INFO_LEVEL
-"""The logging level used when none is given"""
-
-
-def log(message: str, level: int = DEFAULT_MESSAGE_LEVEL, logger_name: str = "gui_log"):
-    """
-    Logs the given message at the given level in the given log.
-
-    These are all available as module level variables
-
-    :param str message: The message to log
-    :param str level: The logging level to write as.
-    :param str logger_name: The name of the logger to write to
-    """
-
-    # We want to make sure that we're using a valid level; if it isn't in our approved list, we use the level
-    # equivalent to "uh...I dunno..." since we just want to write
-    if level is None or level not in [CRITICAL_LEVEL, ERROR_LEVEL, WARNING_LEVEL, INFO_LEVEL, DEBUG_LEVEL]:
-        level = UNKNOWN_LEVEL
-
-    # We want to log messages in the form of '[2019-06-04 12:27:14-0500] Something happened...',
-    # so we need to determine the time and append it to the message
-    timestamp = datetime.now(tz=reference.LocalTimezone()).strftime("%Y-%m-%d %I:%M:%S%z")
-    log_message = "[{}] {}".format(timestamp, message)
-
-    # Log the newly formatted message at the given level
-    logging.getLogger(logger_name).log(level, log_message)
-
-
-REQUIRED_ENVIRONMENT_VARIABLES = [
-    {
-        "name": "MAAS_ENDPOINT_HOST",
-        "purpose": "The default host address for MaaS"
-    },
-    {
-        "name": "MAAS_ENDPOINT_PORT",
-        "purpose": "The port for the default MaaS endpoint"
-    }
-]
 
 
 def ensure_required_environment_variables():
@@ -323,80 +154,13 @@ def ensure_required_environment_variables():
             for variable in missing_variables
         ]
 
-        log(
-            "The following required environment variales are missing:",
-            level=ERROR_LEVEL
-        )
+        error("The following required environment variales are missing:")
 
         for missing_variable in missing_variables:
-            log(
-                "{}: {}".format(missing_variable['name'], missing_variable['purpose']),
-                level=ERROR_LEVEL
-            )
-        raise ValueError("The following environment variables have not been set: [{}]".format(", ".join(missing_keys)))
+            error(f"{missing_variable['name']}: {missing_variable['purpose']}")
+
+        raise ValueError(f"The following environment variables have not been set: [{', '.join(missing_keys)}]")
 
 
 ensure_required_environment_variables()
-
-MAAS_ENDPOINTS = {
-    "default": {
-        "host": "wss://" + os.environ.get("MAAS_ENDPOINT_HOST"),
-        "port": os.environ.get("MAAS_ENDPOINT_PORT")
-    }
-}
-
-
-def load_maas_endpoints():
-    endpoint_hosts = [
-        {
-            "key": re.search(r"(?<=maas_endpoint__).+(?=__host)", key.lower()).group(),
-            "host": os.environ.get("MAAS_ENDPOINT_HOST")
-        }
-        for key in os.environ.keys()
-        if re.search("^maas_endpoint__.+__host$", key.lower())
-    ]
-
-    for host_config in endpoint_hosts:
-        port_key = "maas_endpoint__{}__port".format(host_config['key'])
-
-        possible_keys = [
-            key
-            for key in os.environ.keys()
-            if key.lower() == port_key
-        ]
-
-        if len(possible_keys) > 0:
-            port_key = possible_keys[0]
-        else:
-            log(
-                "No port was given for the '{}' MaaS endpoint; skipping it.".format(host_config['key']),
-                level=WARNING_LEVEL
-            )
-            continue
-
-        if re.search(r"^(?!wss).+://.+", host_config["host"]):
-            protocol = re.search(r"^.+(?=://)", host_config["host"]).group()
-            log(
-                "The protocol for the host URI for {} must be 'wss' for web sockets, not {}; skipping".format(
-                    host_config['key'],
-                    protocol
-                ),
-                level=WARNING_LEVEL
-            )
-            continue
-
-        if not host_config["host"].startswith("wss://"):
-            host_config["host"] = "wss://" + host_config["host"]
-
-        host_config['port'] = port_key
-
-        MAAS_ENDPOINTS[host_config["key"]] = host_config
-
-
-load_maas_endpoints()
-
-# Must be all caps to be accessible
-def GET_MAAS_ENDPOINT(host_type: str) -> str:
-    config = MAAS_ENDPOINTS.get(host_type, MAAS_ENDPOINTS.get("default"))
-    return config["host"] + ":" + config["port"]
 

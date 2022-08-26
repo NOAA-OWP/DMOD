@@ -17,6 +17,8 @@ from .message import AbstractInitRequest, Message, Response, InitRequestResponse
 from .partition_request import PartitionRequest, PartitionResponse
 from .dataset_management_message import DatasetManagementMessage, DatasetManagementResponse
 from .scheduler_request import SchedulerRequestMessage, SchedulerRequestResponse
+from .evaluation_request import EvaluationConnectionRequest
+from .evaluation_request import EvaluationConnectionRequestResponse
 from .validator import NWMRequestJsonValidator
 from .update_message import UpdateMessage, UpdateMessageResponse
 
@@ -916,3 +918,20 @@ class PartitionerServiceClient(InternalServiceClient[PartitionRequest, Partition
             The response subtype class appropriate for this client implementation.
         """
         return PartitionResponse
+
+
+class EvaluationServiceClient(InternalServiceClient[EvaluationConnectionRequest, EvaluationConnectionRequestResponse]):
+    """
+    A client for interacting with the evaluation service
+    """
+
+    @classmethod
+    def get_response_subtype(cls) -> Type[EvaluationConnectionRequestResponse]:
+        """
+        Return the response subtype class appropriate for this client implementation
+
+        Returns:
+        Type[EvaluationConnectionRequestResponse]
+            The response subtype class appropriate for this client implementation
+        """
+        return EvaluationConnectionRequestResponse
