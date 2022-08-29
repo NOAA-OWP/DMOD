@@ -720,15 +720,25 @@ class GeoJsonHydrofabricReader:
                 known_nexus_ids.add(nex_id)
                 to_cats = self.nexus_geodataframe.loc[nex_id]['toid']
                 # Handle the first one with conditional check separate, to optimize later ones
-                first_cat_id = to_cats.split(',')[0].strip()
-                if nex_id in nexus_receiving_cats and to_cats:
+                if isinstance(to_cats, str):
+                    first_cat_id = to_cats.split(',')[0].strip()
+                    the_rest = [cid.strip() for cid in to_cats.split(',')[1:]]
+                elif isinstance(to_cats, pd.Series):
+                    first_cat_id = to_cats[0].split(',')[0].strip()
+                    the_rest = [cid for cid in to_cats[1:]]
+                else:
+                    nexus_receiving_cats[nex_id] = set()
+                    continue
+
+                if nex_id in nexus_receiving_cats:
                     nexus_receiving_cats[nex_id].add(first_cat_id)
                 else:
                     nexus_receiving_cats[nex_id] = {first_cat_id}
                 known_catchment_ids.add(first_cat_id)
                 cat_from[first_cat_id] = nex_id
+
                 # Now add any remaining
-                for cat_id in to_cats[1:]:
+                for cat_id in the_rest:
                     clean_cat_id = cat_id.strip()
                     nexus_receiving_cats[nex_id].add(clean_cat_id)
                     known_catchment_ids.add(clean_cat_id)

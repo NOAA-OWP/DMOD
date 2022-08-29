@@ -121,12 +121,12 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
         Optional[str]
             The name of the hydrofabric dataset satisfying these restrictions, or ``None`` if one could not be found.
         """
-        data_request = DatasetManagementMessage(action=ManagementAction.SEARCH, category=DataCategory.HYDROFABRIC)
         # TODO: (later) need a way to select (or prioritize) data format from the partitioning request
         restrictions = [DiscreteRestriction(variable='data_id', values=[data_id]),
                         DiscreteRestriction(variable='uid', values=[uid])]
-        data_request.data_domain = DataDomain(data_format=DataFormat.NGEN_GEOJSON_HYDROFABRIC,
-                                              discrete_restrictions=restrictions)
+        domain = DataDomain(data_format=DataFormat.NGEN_GEOJSON_HYDROFABRIC, discrete_restrictions=restrictions)
+        data_request = DatasetManagementMessage(action=ManagementAction.SEARCH, category=DataCategory.HYDROFABRIC,
+                                                domain=domain)
         response: DatasetManagementResponse = await self._data_client.async_make_request(data_request)
         return response.dataset_name if response.success else None
 

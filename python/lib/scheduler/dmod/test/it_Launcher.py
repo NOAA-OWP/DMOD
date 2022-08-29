@@ -21,6 +21,7 @@ class IntegrationTestLauncher(unittest.TestCase):
         self.launcher.docker_client.close()
 
     @logTest(logging.DEBUG)
+    @unittest.skip
     def test_start_job_1_a(self) -> None:
         job = mock_job(model='ngen', allocations=1)
         success, services_tuple = self.launcher.start_job(job)
