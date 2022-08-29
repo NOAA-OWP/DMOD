@@ -108,7 +108,7 @@ class DatasetClient(ABC):
 
     def _parse_list_of_dataset_names_from_response(self, response: DatasetManagementResponse) -> List[str]:
         """
-        Parse an included list of dataset names from a received management response.
+        Parse an includes list of dataset names from a received management response.
 
         Note that an unsuccessful response, or a response (of the correct type) that does not explicitly include the
         expected data attribute with dataset names, will result in an empty list being returned.  However, an unexpected

@@ -2,9 +2,10 @@ from abc import ABC, abstractmethod
 from dmod.core.meta_data import ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction, TimeRange
 from datetime import datetime, timedelta
 
-from dmod.core.serializable import Serializable, ResultIndicator
+from dmod.core.serializable import Serializable
 from numbers import Number
-from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple, Type, Union
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Type, Union
 from uuid import UUID, uuid4
 
 
@@ -13,7 +14,7 @@ class Dataset(Serializable, ABC):
     Abstraction representation of a grouped collection of data and its metadata.
     """
 
-    _SERIAL_DATETIME_STR_FORMAT = '%Y-%m-%d %H:%M:%S'
+    _SERIAL_DATETIME_STR_FORMAT = '%Y-%m-%d %H:%M:%S %z'
 
     _KEY_ACCESS_LOCATION = 'access_location'
     _KEY_CREATED_ON = 'create_on'
@@ -60,10 +61,7 @@ class Dataset(Serializable, ABC):
     # TODO: move this (and something more to better automatically handle Serializable subtypes) to Serializable directly
     @classmethod
     def _date_parse_helper(cls, json_obj: dict, key: str) -> Optional[datetime]:
-        if key in json_obj:
-            return datetime.strptime(json_obj[key], cls.get_datetime_str_format())
-        else:
-            return None
+        return datetime.strptime(json_obj[key], cls.get_datetime_str_format()) if key in json_obj else None
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
@@ -73,30 +71,21 @@ class Dataset(Serializable, ABC):
             else:
                 manager_uuid = None
 
-            return cls(name=json_obj[cls._KEY_NAME],
-                       category=DataCategory.get_for_name(json_obj[cls._KEY_DATA_CATEGORY]),
-                       data_domain=DataDomain.factory_init_from_deserialized_json(json_obj[cls._KEY_DATA_DOMAIN]),
-                       access_location=json_obj[cls._KEY_ACCESS_LOCATION],
-                       uuid=UUID(json_obj[cls._KEY_UUID]),
-                       manager_uuid=manager_uuid,
-                       is_read_only=json_obj[cls._KEY_IS_READ_ONLY],
-                       expires=cls._date_parse_helper(json_obj, cls._KEY_EXPIRES),
-                       derived_from=json_obj[cls._KEY_DERIVED_FROM] if cls._KEY_DERIVED_FROM in json_obj else None,
-                       derivations=json_obj[cls._KEY_DERIVATIONS] if cls._KEY_DERIVATIONS in json_obj else [],
-                       created_on=cls._date_parse_helper(json_obj, cls._KEY_CREATED_ON),
-                       last_updated=cls._date_parse_helper(json_obj, cls._KEY_LAST_UPDATE),
-                       **cls.additional_init_param_deserialized(json_obj))
-        except Exception as e:
+            cls(name=json_obj[cls._KEY_NAME],
+                category=DataCategory.get_for_name(json_obj[cls._KEY_DATA_CATEGORY]),
+                data_domain=DataDomain.factory_init_from_deserialized_json(json_obj[cls._KEY_DATA_DOMAIN]),
+                access_location=json_obj[cls._KEY_ACCESS_LOCATION],
+                uuid=UUID(json_obj[cls._KEY_UUID]),
+                manager_uuid=manager_uuid,
+                is_read_only=json_obj[cls._KEY_IS_READ_ONLY],
+                expires=cls._date_parse_helper(json_obj, cls._KEY_EXPIRES),
+                derived_from=json_obj[cls._KEY_DERIVED_FROM] if cls._KEY_DERIVED_FROM in json_obj else None,
+                derivations=json_obj[cls._KEY_DERIVATIONS] if cls._KEY_DERIVATIONS in json_obj else None,
+                created_on=cls._date_parse_helper(json_obj, cls._KEY_CREATED_ON),
+                last_updated=cls._date_parse_helper(json_obj, cls._KEY_LAST_UPDATE),
+                **cls.additional_init_param_deserialized(json_obj))
+        except:
             return None
-
-    def __eq__(self, other):
-        return isinstance(other, Dataset) and self.name == other.name and self.category == other.category \
-               and self.data_domain == other.data_domain and self.access_location == other.access_location \
-               and self.is_read_only == other.is_read_only and self.created_on == other.created_on
-
-    def __hash__(self):
-        return hash(','.join([self.__class__.__name__, self.name, self.category.name, str(hash(self.data_domain)),
-                              self.access_location, str(self.is_read_only), str(hash(self.created_on))]))
 
     def __init__(self, name: str, category: DataCategory, data_domain: DataDomain, access_location: str,
                  uuid: Optional[UUID] = None, manager: Optional['DatasetManager'] = None,
@@ -111,11 +100,11 @@ class Dataset(Serializable, ABC):
         self._manager = manager
         self._manager_uuid = manager.uuid if manager is not None else manager_uuid
         self._is_read_only = is_read_only
-        self._expires = expires if expires is None else expires.replace(microsecond=0)
+        self._expires = expires
         self._derived_from = derived_from
         self._derivations = derivations if derivations is not None else list()
-        self._created_on = created_on if created_on is None else created_on.replace(microsecond=0)
-        self._last_updated = last_updated if last_updated is None else last_updated.replace(microsecond=0)
+        self._created_on = created_on
+        self._last_updated = last_updated
         # TODO: have manager handle the logic
         #retention_strategy
 
@@ -424,15 +413,14 @@ class Dataset(Serializable, ABC):
         if self.manager_uuid is not None:
             serial[self._KEY_MANAGER_UUID] = str(self.manager_uuid)
         if self.expires is not None:
-            serial[self._KEY_EXPIRES] = self.expires.strftime(self.get_datetime_str_format())
+            serial[self._KEY_EXPIRES] = self.expires
         if self.derived_from is not None:
             serial[self._KEY_DERIVED_FROM] = self.derived_from
-        if len(self.derivations) > 0:
-            serial[self._KEY_DERIVATIONS] = self.derivations
+        serial[self._KEY_DERIVATIONS] = self.derivations
         if self.created_on is not None:
-            serial[self._KEY_CREATED_ON] = self.created_on.strftime(self.get_datetime_str_format())
+            serial[self._KEY_CREATED_ON] = self.created_on
         if self.last_updated is not None:
-            serial[self._KEY_LAST_UPDATE] = self.last_updated.strftime(self.get_datetime_str_format())
+            serial[self._KEY_LAST_UPDATE] = self.last_updated
         return serial
 
 
@@ -554,14 +542,12 @@ class DatasetManager(ABC):
         self._datasets = datasets if datasets is not None else dict()
         self._dataset_users: Dict[str, Set[UUID]] = dict()
         """ Collection of dataset names each keyed to a set of UUIDs of each user using the corresponding dataset. """
-        self._errors = []
-        """ A property attribute to hold errors encountered during operations. """
 
     # TODO: implement functions and routines for scrubbing temporary datasets as needed
 
     @abstractmethod
     def add_data(self, dataset_name: str, dest: str, data: Optional[bytes] = None, source: Optional[str] = None,
-                 is_temp: bool = False, **kwargs) -> bool:
+                 **kwargs) -> bool:
         """
         Add data in some format to the dataset.
 
@@ -581,8 +567,6 @@ class DatasetManager(ABC):
         source : Optional[str]
             Optional string specifying a location from which to source the data to be added; either this or ``data``
             must be provided.
-        is_temp : bool
-            Indication of whether this item should be treated as temporary, as applicable to the implementation.
         kwargs
             Implementation-specific params for other ways to represent data and details of how it should be added.
 
@@ -591,10 +575,6 @@ class DatasetManager(ABC):
         bool
             Whether the data was added successfully.
         """
-        pass
-
-    @abstractmethod
-    def combine_partials_into_composite(self, dataset_name: str, item_name: str, combined_list: List[str]) -> bool:
         pass
 
     @abstractmethod
@@ -625,23 +605,6 @@ class DatasetManager(ABC):
         -------
         Dataset
             A newly created dataset instance ready for use.
-        """
-        pass
-
-    @abstractmethod
-    def delete(self, dataset: Dataset, **kwargs) -> bool:
-        """
-        Delete the supplied dataset, as long as it is managed by this manager.
-
-        Parameters
-        ----------
-        dataset
-        kwargs
-
-        Returns
-        -------
-        bool
-            Whether the delete was successful.
         """
         pass
 
@@ -677,20 +640,6 @@ class DatasetManager(ABC):
             The datasets known to and managed by this instance.
         """
         return self._datasets
-
-    @property
-    def errors(self) -> List[Union[str, Exception, ResultIndicator]]:
-        """
-        List of previously encountered errors, which may be strings, exceptions, or ::class:`ResultIndicator` objects.
-
-        Note that earlier error will have lower indices.
-
-        Returns
-        -------
-        List[Union[str, Exception, ResultIndicator]]
-            List of representational objects for previously encountered errors.
-        """
-        return self._errors
 
     # TODO: add back as abstract, then implement in subtypes
     #@abstractmethod
@@ -744,22 +693,6 @@ class DatasetManager(ABC):
             A return value of implementation-specific type.
         """
         pass
-
-    def get_dataset_users(self, dataset_name: str) -> FrozenSet[UUID]:
-        """
-        Get an immutable set of UUIDs for the linked users of a dataset.
-
-        Parameters
-        ----------
-        dataset_name : str
-            The name of the dataset of interest.
-
-        Returns
-        -------
-        FrozenSet[UUID]
-            Immutable set of UUIDs for the linked users of a dataset.
-        """
-        return frozenset(self._dataset_users[dataset_name]) if dataset_name in self._dataset_users else frozenset()
 
     def link_user(self, user: DatasetUser, dataset: Dataset) -> bool:
         """

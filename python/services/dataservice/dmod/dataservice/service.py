@@ -1,115 +1,19 @@
 import asyncio
 from dmod.communication import AbstractInitRequest
 import json
-import os
-from time import sleep as time_sleep
-from docker.types import Healthcheck, RestartPolicy, SecretReference, ServiceMode
-from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, \
-    ManagementAction, WebSocketInterface
-from dmod.communication.dataset_management_message import DatasetQuery, QueryType
-from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
-from dmod.core.meta_data import DataCategory, DataDomain, DataRequirement, DiscreteRestriction, StandardDatasetIndex
-from dmod.core.serializable import ResultIndicator, BasicResultIndicator
+from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, ManagementAction, WebSocketInterface
+from dmod.core.meta_data import DataCategory, DataDomain, DataRequirement, DiscreteRestriction
 from dmod.core.exception import DmodRuntimeError
 from dmod.modeldata.data.object_store_dataset import Dataset, DatasetManager, ObjectStoreDataset, \
     ObjectStoreDatasetManager
-from dmod.scheduler import SimpleDockerUtil
 from dmod.scheduler.job import Job, JobExecStep, JobUtil
-from typing import Dict, List, Optional, Tuple, Type, TypeVar, Union
-from uuid import UUID, uuid4
+from typing import Dict, List, Optional, Tuple, Type, TypeVar
+from uuid import UUID
 from websockets import WebSocketServerProtocol
-
-import logging
 
 
 DATASET_MGR = TypeVar('DATASET_MGR', bound=DatasetManager)
 DATASET_TYPE = TypeVar('DATASET_TYPE', bound=Dataset)
-
-
-class DockerS3FSPluginHelper(SimpleDockerUtil):
-
-    DOCKER_SERVICE_NAME = 's3fs-volumes-initializer'
-
-    def __init__(self, service_manager: 'ServiceManager', obj_store_access: str, obj_store_secret: str, *args,
-                 **kwargs):
-        super(DockerS3FSPluginHelper, self).__init__(*args, **kwargs)
-        image_name = os.getenv('S3FS_VOL_IMAGE_NAME', '127.0.0.1:5000/s3fs-volume-helper')
-        image_tag = os.getenv('S3FS_VOL_IMAGE_TAG', 'latest')
-        self.image = '{}:{}'.format(image_name, image_tag)
-        self.networks = ['host']
-        self._service_manager = service_manager
-        self._obj_store_access = obj_store_access
-        self._obj_store_secret = obj_store_secret
-
-    def init_volumes(self, job: Job):
-        # Get the names of all the needed datasets for all workers
-        worker_required_datasets = set()
-        all_dataset = self._service_manager.get_known_datasets()
-        obj_store_dataset_names = [n for n in all_dataset if isinstance(all_dataset[n], ObjectStoreDataset)]
-        for worker_reqs in job.worker_data_requirements:
-            for fulfilled_by in [r.fulfilled_by for r in worker_reqs if r.fulfilled_by in obj_store_dataset_names]:
-                worker_required_datasets.add(fulfilled_by)
-
-        if len(worker_required_datasets) == 0:
-            return
-
-        secrets_objects = [self.docker_client.secrets.get('object_store_exec_user_name'),
-                           self.docker_client.secrets.get('object_store_exec_user_passwd')]
-        secrets = [SecretReference(secret_id=s.id, secret_name=s.name) for s in secrets_objects]
-
-        sentinel_basename = 's3fs_init_sentinel'
-        # Script written to have the sentinel have provided basename and be in /tmp directory
-        sentinel_file_name = '/tmp/{}'.format(sentinel_basename)
-
-        docker_cmd_args = ['--sentinel', sentinel_basename, '--service-mode']
-        docker_cmd_args.extend(worker_required_datasets)
-
-        service_name = '{}-{}'.format(self.DOCKER_SERVICE_NAME, job.job_id)
-
-        restart_policy = RestartPolicy(condition='none')
-
-        env_vars = ['S3FS_URL=http://localhost:9002/', 'PLUGIN_ALIAS=s3fs']
-        env_vars.append('S3FS_ACCESS_KEY={}'.format(self._obj_store_access))
-        env_vars.append('S3FS_SECRET_KEY={}'.format(self._obj_store_secret))
-
-        # Make sure to re-mount the Docker socket inside the helper service container that gets started
-        mounts = ['/var/run/docker.sock:/var/run/docker.sock:rw']
-
-        def to_nanoseconds(seconds: int):
-            return 1000000000 * seconds
-
-        # Remember that the time values are in nanoseconds, so multiply
-        healthcheck = Healthcheck(test=["CMD-SHELL", 'test -e {}'.format(sentinel_file_name)],
-                                  interval=to_nanoseconds(seconds=2),
-                                  timeout=to_nanoseconds(seconds=2),
-                                  retries=5,
-                                  start_period=to_nanoseconds(seconds=5))
-
-        try:
-            service = self.docker_client.services.create(image=self.image,
-                                                         mode=ServiceMode(mode='global'),
-                                                         args=docker_cmd_args,
-                                                         cap_add=['SYS_ADMIN'],
-                                                         env=env_vars,
-                                                         name=service_name,
-                                                         mounts=mounts,
-                                                         networks=self.networks,
-                                                         restart_policy=restart_policy,
-                                                         healthcheck=healthcheck,
-                                                         secrets=secrets)
-            time_sleep(5)
-            for tries in range(5):
-                service.reload()
-                if all([task['Status']['State'] == task['DesiredState'] for task in service.tasks()]):
-                    break
-                time_sleep(3)
-            service.remove()
-        except KeyError as e:
-            logging.error('Failure checking service status: {}'.format(str(e)))
-            service.remove()
-        except Exception as e:
-            logging.error(e)
-            raise e
 
 
 class ServiceManager(WebSocketInterface):
@@ -142,7 +46,6 @@ class ServiceManager(WebSocketInterface):
         self._obj_store_data_mgr = None
         self._obj_store_access_key = None
         self._obj_store_secret_key = None
-        self._docker_s3fs_helper = None
 
     def _add_manager(self, manager: DatasetManager):
         """
@@ -183,16 +86,16 @@ class ServiceManager(WebSocketInterface):
         for dataset_type in manager.supported_dataset_types:
             self._all_data_managers[dataset_type] = manager
 
-    async def _async_can_dataset_be_derived(self, requirement: DataRequirement) -> bool:
+    async def _async_can_dataset_be_derived(self, requirements: List[DataRequirement]) -> bool:
         """
-        Asynchronously determine if a dataset can be derived from existing datasets to fulfill this requirement.
+        Asynchronously determine if a dataset can be derived from existing datasets to fulfill all these requirements.
 
         This function essentially just provides an async wrapper around the synchronous analog.
 
         Parameters
         ----------
-        requirement : DataRequirement
-            The requirement that needs to be fulfilled.
+        requirements : List[DataRequirement]
+            The requirements that needs to be fulfilled.
 
         Returns
         -------
@@ -203,35 +106,7 @@ class ServiceManager(WebSocketInterface):
         -------
         ::method:`can_dataset_be_derived`
         """
-        return self.can_dataset_be_derived(requirement)
-
-    async def _async_can_provide_data(self, dataset_name: str, data_item: str) -> ResultIndicator:
-        """
-        Check if the requested data can be provided by the service.
-
-        Check if the requested data can be provided by the service.  If so, return a ::class:`BasicResultIndicator`
-        that indicates success is ``True``.  If not, return a ::class:`DatasetManagementResponse` instance that includes
-        ``reason`` and ``message`` properties that provide inforamtion on why the requested data cannot be provided.
-
-        Parameters
-        ----------
-        message : DatasetManagementMessage
-            A ``REQUEST_DATA`` action management message.
-
-        Returns
-        -------
-        ResultIndicator
-            A ::class:`BasicResultIndicator` if possible, or a ::class:`DatasetManagementResponse` if not.
-        """
-        action = ManagementAction.REQUEST_DATA
-        if dataset_name not in self.get_known_datasets():
-            msg = "Data service does not recognized a dataset with name '{}'".format(dataset_name)
-            return DatasetManagementResponse(success=False, action=action, reason="Unknown Dataset", message=msg)
-        elif data_item not in self.get_known_datasets()[dataset_name].manager.list_files(dataset_name):
-            msg = "No file/item named '{}' exist within the '{}' dataset".format(data_item, dataset_name)
-            return DatasetManagementResponse(success=False, action=action, reason='Unknown Data Item', message=msg)
-        else:
-            return BasicResultIndicator(success=True, reason='Valid Dataset and Item')
+        return self.can_dataset_be_derived(requirements)
 
     async def _async_dataset_search(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
         """
@@ -247,8 +122,8 @@ class ServiceManager(WebSocketInterface):
         DatasetManagementResponse
             A response indicating the success of the search and, if successful, the name of the dataset.
         """
-        requirement = DataRequirement(domain=message.data_domain, is_input=True, category=message.data_category)
-        dataset = await self._async_find_dataset_for_requirement(requirement)
+        requirements = [DataRequirement(domain=message.data_domain, is_input=True, category=message.data_category)]
+        dataset = await self._async_find_dataset_for_requirements(requirements)
         if isinstance(dataset, Dataset):
             return DatasetManagementResponse(action=message.management_action, dataset_name=dataset.name, success=True,
                                              reason='Qualifying Dataset Found', data_id=str(dataset.uuid))
@@ -256,27 +131,27 @@ class ServiceManager(WebSocketInterface):
             return DatasetManagementResponse(action=message.management_action, success=False,
                                              reason='No Qualifying Dataset Found')
 
-    async def _async_find_dataset_for_requirement(self, requirement: DataRequirement) -> Optional[Dataset]:
+    async def _async_find_dataset_for_requirements(self, requirements: List[DataRequirement]) -> Optional[Dataset]:
         """
-        Asynchronously search for an existing dataset that will fulfill the given requirement.
+        Asynchronously search for an existing dataset that will fulfill all the given requirements.
 
         This function essentially just provides an async wrapper around the synchronous analog.
 
         Parameters
         ----------
-        requirement : DataRequirement
-            The data requirement that needs to be fulfilled.
+        requirements : List[DataRequirement]
+            The data requirements that needs to be fulfilled.
 
         Returns
         -------
         Optional[Dataset]
-            The (first) dataset fulfilling the given requirement, if one is found; otherwise ``None``.
+            The (first) dataset fulfilling the given requirements, if one is found; otherwise ``None``.
 
         See Also
         -------
-        ::method:`find_dataset_for_requirement`
+        ::method:`find_dataset_for_requirements`
         """
-        return self.find_dataset_for_requirement(requirement)
+        return self.find_dataset_for_requirements(requirements)
 
     async def _async_process_add_data(self, message: DatasetManagementMessage, mngr: DatasetManager) -> DatasetManagementResponse:
         """
@@ -300,41 +175,6 @@ class ServiceManager(WebSocketInterface):
         """
         return self._process_add_data(message, mngr)
 
-    async def _async_process_data_request(self, message: DatasetManagementMessage, websocket) -> DatasetManagementResponse:
-        # Check if the data request can actually be fulfilled
-        dataset_name = message.dataset_name
-        item_name = message.data_location
-        check_possible_result = await self._async_can_provide_data(dataset_name=dataset_name, data_item=item_name)
-        if not check_possible_result.success:
-            # This should mean this is specifically a response instance than we can directly return
-            return check_possible_result
-
-        chunk_size = 1024
-        manager = self.get_known_datasets()[dataset_name].manager
-        chunking_keys = manager.data_chunking_params
-        if chunking_keys is None:
-            raw_data = manager.get_data(dataset_name=dataset_name, item_name=item_name)
-            transmit = DataTransmitMessage(data=raw_data, series_uuid=uuid4(), is_last=True)
-            await websocket.send(str(transmit))
-            response = DataTransmitResponse.factory_init_from_deserialized_json(json.loads(await websocket.recv()))
-        else:
-            offset = 0
-            actual_length = chunk_size
-            while actual_length == chunk_size:
-                chunk_params = {chunking_keys[0]: offset, chunking_keys[1]: chunk_size}
-                raw_data = manager.get_data(dataset_name, item_name, **chunk_params)
-                offset += chunk_size
-                actual_length = len(raw_data)
-                transmit = DataTransmitMessage(data=raw_data, series_uuid=uuid4(), is_last=True)
-                await websocket.send(str(transmit))
-                raw_response = await websocket.recv()
-                json_response = json.loads(raw_response)
-                response = DataTransmitResponse.factory_init_from_deserialized_json(json_response)
-                if not response.success:
-                    break
-        return DatasetManagementResponse(success=response.success, message='' if response.success else response.message,
-                                         reason='All Data Transferred' if response.success else response.reason)
-
     async def _async_process_dataset_create(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
         """
         Async wrapper function for ::method:`_process_dataset_create`.
@@ -355,46 +195,6 @@ class ServiceManager(WebSocketInterface):
         """
         return self._process_dataset_create(message)
 
-    async def _async_process_dataset_delete(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
-        """
-        Async wrapper function for ::method:`_process_dataset_delete`.
-
-        Parameters
-        ----------
-        message : DatasetManagementMessage
-            The message that initiated the process of deleting a dataset
-
-        Returns
-        -------
-        DatasetManagementResponse
-            A generated response object to the incoming delete message, indicating whether deletion was successful.
-
-        See Also
-        -------
-        ::method:`_process_dataset_delete`
-        """
-        return self._process_dataset_delete(message)
-
-    async def _async_process_query(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
-        """
-        Async wrapper function for ::method:`_process_query`.
-
-        Parameters
-        ----------
-        message : DatasetManagementMessage
-            The message that initiated the process of querying a dataset
-
-        Returns
-        -------
-        DatasetManagementResponse
-            A generated response object to the incoming query message, which includes the query response.
-
-        See Also
-        -------
-        ::method:`_process_query`
-        """
-        return self._process_query(message)
-
     def _create_output_datasets(self, job: Job):
         """
         Create output datasets and associated requirements for this job, based on its ::method:`Job.output_formats`.
@@ -414,7 +214,7 @@ class ServiceManager(WebSocketInterface):
         """
         for i in range(len(job.model_request.output_formats)):
 
-            id_restrict = DiscreteRestriction(variable=StandardDatasetIndex.ELEMENT_ID, values=[])
+            id_restrict = DiscreteRestriction(variable='id', values=[])
 
             time_range = None
             for data_domain in [req.domain for req in job.data_requirements if req.category == DataCategory.FORCING]:
@@ -524,67 +324,9 @@ class ServiceManager(WebSocketInterface):
                                          data_id=str(dataset.uuid), dataset_name=dataset.name,
                                          is_awaiting=message.is_pending_data)
 
-    def _process_dataset_delete(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
+    async def can_be_fulfilled(self, requirements: List[DataRequirement]) -> Tuple[bool, Optional[str]]:
         """
-        As part of the communication protocol for the service, handle incoming messages that request dataset deletion.
-
-        Parameters
-        ----------
-        message : DatasetManagementMessage
-            The message that initiated the process of deleting an existing dataset
-
-        Returns
-        ----------
-        DatasetManagementResponse
-            A generated response object to the incoming delete message, indicating whether deletion was successful.
-        """
-        known_datasets = self.get_known_datasets()
-        if message.dataset_name not in known_datasets:
-            return DatasetManagementResponse(action=message.management_action, success=False,
-                                             reason="Dataset Does Not Exists", dataset_name=message.dataset_name)
-        dataset: Dataset = known_datasets[message.dataset_name]
-
-        # TODO: later look at doing something more related to if there are things using a dataset
-        #dataset_users = dataset.manager.get_dataset_users(dataset.name)
-
-        result = dataset.manager.delete(dataset=dataset)
-        reason = 'Dataset Deleted' if result else 'Dataset Delete Failed'
-        return DatasetManagementResponse(action=message.management_action, success=result, reason=reason,
-                                         dataset_name=dataset.name)
-
-    def _process_query(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
-        """
-        As part of the communication protocol for the service, handle incoming dataset query messages.
-
-        Parameters
-        ----------
-        message : DatasetManagementMessage
-            The message that initiated the process of querying a dataset
-
-        Returns
-        -------
-        DatasetManagementResponse
-            A generated response object to the incoming query message, which includes the query response.
-
-        See Also
-        -------
-        ::method:`_async_process_query`
-        """
-        query_type = message.query.query_type
-        if query_type == QueryType.LIST_FILES:
-            dataset_name = message.dataset_name
-            list_of_files = self.get_known_datasets()[dataset_name].manager.list_files(dataset_name)
-            return DatasetManagementResponse(action=message.management_action, success=True, dataset_name=dataset_name,
-                                             reason='Obtained {} Items List',
-                                             data={DatasetManagementResponse._DATA_KEY_QUERY_RESULTS: list_of_files})
-            # TODO: (later) add support for messages with other query types also
-        else:
-            reason = 'Unsupported {} Query Type - {}'.format(DatasetQuery.__class__.__name__, query_type.name)
-            return DatasetManagementResponse(action=message.management_action, success=False, reason=reason)
-
-    async def can_be_fulfilled(self, requirement: DataRequirement) -> Tuple[bool, Optional[str]]:
-        """
-        Determine whether the given requirement can be fulfilled, either directly or by deriving a new dataset.
+        Determine whether all the given requirements can be fulfilled, either directly or by deriving a new dataset.
 
         The returned tuple will return two items.  The first is whether the data requirements can be fulfilled given the
         currently existing datasets.  The second is the name of the fulfilling dataset, if a fulfilling dataset already
@@ -594,27 +336,27 @@ class ServiceManager(WebSocketInterface):
 
         Parameters
         ----------
-        requirement : DataRequirement
-            The data requirement in question that needs to be fulfilled.
+        requirements : List[DataRequirement]
+            The data requirements in question that need to be fulfilled.
 
         Returns
         -------
         Tuple[bool, Optional[str]]
-            A tuple of whether the requirement can be fulfilled and, if one exists, the name of the fulfilling dataset.
+            A tuple of whether the requirements can be fulfilled and, if one exists, the name of the fulfilling dataset.
         """
-        fulfilling_dataset = await self._async_find_dataset_for_requirement(requirement)
+        fulfilling_dataset = await self._async_find_dataset_for_requirements(requirements)
         if isinstance(fulfilling_dataset, Dataset):
             return True, fulfilling_dataset.name
         else:
-            return await self._async_can_dataset_be_derived(requirement), None
+            return await self._async_can_dataset_be_derived(requirements), None
 
-    def can_dataset_be_derived(self, requirement: DataRequirement) -> bool:
+    def can_dataset_be_derived(self, requirements: List[DataRequirement]) -> bool:
         """
         Determine if it is possible for a dataset to be derived from existing datasets to fulfill these requirements.
 
         Parameters
         ----------
-        requirement : DataRequirement
+        requirements : List[DataRequirement]
             The requirement that needs to be fulfilled.
 
         Returns
@@ -624,49 +366,25 @@ class ServiceManager(WebSocketInterface):
         """
         return False
 
-    def find_dataset_for_requirement(self, requirement: DataRequirement) -> Optional[Dataset]:
+    def find_dataset_for_requirements(self, requirements: List[DataRequirement]) -> Optional[Dataset]:
         """
-        Search for an existing dataset that will fulfill the given requirement.
+        Search for an existing dataset that will fulfill all the given requirements.
 
         Parameters
         ----------
-        requirement : DataRequirement
-            The data requirement that needs to be fulfilled.
+        requirements : List[DataRequirement]
+            The data requirements that needs to be fulfilled.
 
         Returns
         -------
         Optional[Dataset]
-            The (first) dataset fulfilling the given requirement, if one is found; otherwise ``None``.
+            The (first) dataset fulfilling all the given requirement, if one is found; otherwise ``None``.
         """
-        # Keep track of a few things for logging purposes
-        datasets_count_match_category = 0
-        datasets_count_match_format = 0
-
         for name, dataset in self.get_known_datasets().items():
-            # Skip anything with the wrong category
-            if dataset.category != requirement.category:
-                continue
-            else:
-                datasets_count_match_category += 1
-
-            # ... or a different format
-            if dataset.data_format != requirement.domain.data_format:
-                continue
-            else:
-                datasets_count_match_format += 1
-
-            if dataset.data_domain.contains(requirement.domain):
-                return dataset
-
-        if datasets_count_match_category == 0:
-            msg = "Could not fill requirement for '{}': no datasets for this category"
-            logging.error(msg.format(requirement.category.name))
-        elif datasets_count_match_format == 0:
-            msg = "Could not fill requirement with '{}' format domain: no datasets found this format"
-            logging.error(msg.format(requirement.domain.data_format.name))
-        else:
-            msg = "Could not find dataset meeting all restrictions of requirement: {}"
-            logging.error(msg.format(requirement.to_json()))
+            for requirement in requirements:
+                if dataset.category != requirement.category or not dataset.data_domain.contains(requirement.domain):
+                    break
+            return dataset
         return None
 
     def get_known_datasets(self) -> Dict[str, Dataset]:
@@ -695,56 +413,48 @@ class ServiceManager(WebSocketInterface):
         self._obj_store_access_key = access_key
         self._obj_store_secret_key = secret_key
 
-        self._docker_s3fs_helper = DockerS3FSPluginHelper(service_manager=self,
-                                                          obj_store_access=self._obj_store_access_key,
-                                                          obj_store_secret=self._obj_store_secret_key, *args, **kwargs)
-
     async def listener(self, websocket: WebSocketServerProtocol, path):
         """
         Process incoming messages over the websocket and respond appropriately.
         """
         try:
-
-            async for raw_message in websocket:
-                data = json.loads(raw_message)
-                inbound_message: DatasetManagementMessage = DatasetManagementMessage.factory_init_from_deserialized_json(data)
+            is_awaiting = True
+            # We may need to lazily load a dataset manager
+            dataset_manager = None
+            while is_awaiting:
+                message = await websocket.recv()
+                data = json.loads(message)
+                mgr_msg = DatasetManagementMessage.factory_init_from_deserialized_json(data)
 
                 # If we were not able to otherwise process the message into a response, then it is unsupported
-                if inbound_message is None:
+                if mgr_msg is None:
                     response = DatasetManagementResponse(action=ManagementAction.UNKNOWN, success=False,
                                                          reason="Unparseable Message Received")
-
-                elif inbound_message.management_action == ManagementAction.CREATE:
-                    response = await self._async_process_dataset_create(message=inbound_message)
-
-                elif inbound_message.management_action == ManagementAction.QUERY:
-                    response = await self._async_process_query(message=inbound_message)
-                elif inbound_message.management_action == ManagementAction.DELETE:
-                    response = await self._async_process_dataset_delete(message=inbound_message)
-                elif inbound_message.management_action == ManagementAction.LIST_ALL:
-                    dataset_names = list(self.get_known_datasets().keys())
-                    dataset_names.sort()
-                    response = DatasetManagementResponse(action=ManagementAction.LIST_ALL, success=True,
-                                                         reason='List Assembled', data={'datasets': dataset_names})
-                elif inbound_message.management_action == ManagementAction.SEARCH:
-                    response = await self._async_dataset_search(message=inbound_message)
-                # TODO: (later) properly handle additional incoming messages
+                elif mgr_msg.management_action == ManagementAction.CREATE:
+                    response = await self._async_process_dataset_create(message=mgr_msg)
+                elif mgr_msg.management_action == ManagementAction.ADD_DATA:
+                    # Lazily load the right manager when needed
+                    if dataset_manager is None:
+                        dataset_manager = self.get_known_datasets()[mgr_msg.dataset_name].manager
+                    response = await self._async_process_add_data(message, dataset_manager)
+                elif mgr_msg.management_action == ManagementAction.SEARCH:
+                    response = await self._async_dataset_search(message=mgr_msg)
                 else:
-                    msg = "Unsupported data management message action {}".format(inbound_message.management_action)
-                    response = DatasetManagementResponse(action=inbound_message.management_action, success=False,
+                    msg = "Unsupported data management message action {}".format(mgr_msg.management_action)
+                    response = DatasetManagementResponse(action=mgr_msg.management_action, success=False,
                                                          reason="Unsupported Action", message=msg)
                 await websocket.send(str(response))
+                is_awaiting = response.is_awaiting
 
         # TODO: handle logging
         # TODO: handle exceptions appropriately
         except TypeError as te:
-            logging.error("Problem with object types when processing received message", te)
+            #logging.error("Problem with object types when processing received message", te)
+            pass
         #except websockets.exceptions.ConnectionClosed:
-        #    logging.info("Connection Closed at Consumer")
-        except asyncio.CancelledError:
-            logging.error("Cancelling listener task")
-        except Exception as e:
-            logging.error("Encountered error: {}".format(str(e)))
+            #logging.info("Connection Closed at Consumer")
+        #except asyncio.CancelledError:
+        #    logging.info("Cancelling listener task")
 
     async def manage_required_data_checks(self):
         """
@@ -775,34 +485,6 @@ class ServiceManager(WebSocketInterface):
                     pass
             await asyncio.sleep(5)
 
-    async def manage_data_provision(self):
-        """
-        Task method to periodically associate and (when needed) generate required datasets with/for jobs.
-        """
-        logging.debug("Starting task loop for performing data provisioning for requested jobs.")
-        while True:
-            lock_id = str(uuid4())
-            while not self._job_util.lock_active_jobs(lock_id):
-                await asyncio.sleep(2)
-
-            for job in [j for j in self._job_util.get_all_active_jobs() if j.status_step == JobExecStep.AWAITING_DATA]:
-                logging.debug("Managing provisioning for job {} that is awaiting data.".format(job.job_id))
-
-                # Initialize dataset Docker volumes required for a job
-                try:
-                    logging.debug('Initializing any required S3FS dataset volumes for {}'.format(job.job_id))
-                    self._docker_s3fs_helper.init_volumes(job=job)
-                except Exception as e:
-                    job.status_step = JobExecStep.DATA_FAILURE
-                    self._job_util.save_job(job)
-                    continue
-
-                job.status_step = JobExecStep.AWAITING_SCHEDULING
-                self._job_util.save_job(job)
-
-            self._job_util.unlock_active_jobs(lock_id)
-            await asyncio.sleep(5)
-
     async def perform_checks_for_job(self, job: Job) -> bool:
         """
         Check whether all requirements for this job can be fulfilled, setting the fulfillment associations.
@@ -826,18 +508,11 @@ class ServiceManager(WebSocketInterface):
         ::method:`can_be_fulfilled`
         """
         # TODO: (later) should we check whether any 'fulfilled_by' datasets exist, or handle this differently?
-        try:
-            for requirement in [req for req in job.data_requirements if req.fulfilled_by is None]:
-                can_fulfill, dataset_name = await self.can_be_fulfilled(requirement)
-
-                if not can_fulfill:
-                    logging.error("Cannot fulfill '{}' category data requirement".format(requirement.category.name))
-                    return False
-                elif dataset_name is not None:
-                    requirement.fulfilled_by = dataset_name
-            return True
-        except Exception as e:
-            msg = "Encountered {} checking if job {} data requirements could be fulfilled - {}"
-            logging.error(msg.format(e.__class__.__name__, job.job_id, str(e)))
-            return False
+        for requirement in [req for req in job.data_requirements if req.fulfilled_by is None]:
+            can_fulfill, dataset_name = await self.can_be_fulfilled([requirement])
+            if not can_fulfill:
+                return False
+            elif dataset_name is not None:
+                requirement.fulfilled_by = dataset_name
+        return True
 

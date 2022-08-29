@@ -219,7 +219,7 @@ class ContinuousRestriction(Serializable):
         Parameters
         ----------
         truncated_json_obj : dict
-            The simplified JSON representation that can be used, with some intelligence, to derive an instance.
+            The simplified JSON representation that can be used, with some intelligence, to derived an instance.
         datetime_format : str
             An optional datetime format string to test ``begin`` and ``end`` for times (replaced with the default from
             ::method:`get_datetime_str_format` if not included or ``None``).
@@ -516,8 +516,6 @@ class DataDomain(Serializable):
             return self._extends_continuous_restriction(other)
         elif isinstance(other, DiscreteRestriction):
             return self._extends_discrete_restriction(other)
-        elif self.data_format != other.data_format:
-            return False
         else:
             for index in other.continuous_restrictions:
                 if not self._extends_continuous_restriction(other.continuous_restrictions[index]):

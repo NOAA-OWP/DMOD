@@ -142,7 +142,7 @@ services:
       - myredis_pass
     environment:
       - SERVICE_PACKAGE_NAME=${PYTHON_PACKAGE_NAME_DATA_SERVICE:-dmod.dataservice}
-      - LISTEN_PORT=${DOCKER_DATASERVICE_CONTAINER_PORT:-3015}
+      - LISTEN_PORT=${DOCKER_DATASERVICE_CONTAINER_PORT:-3020}
       - SERVICE_SSL_DIR=${DOCKER_DATASERVICE_CONTAINER_SERVICE_SSL_DIR:-/ssl/dataservice}
       - USER_SECRET_NAME=object_store_exec_user_name
       - PASSWD_SECRET_NAME=object_store_exec_user_passwd

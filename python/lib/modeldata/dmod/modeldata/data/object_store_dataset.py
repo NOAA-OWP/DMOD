@@ -1,16 +1,11 @@
 import io
-import json
-
-import minio.retention
-
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, TimeRange
 from .dataset import Dataset, DatasetManager
-from datetime import datetime, timedelta
+from datetime import datetime
 from minio import Minio
 from minio.api import ObjectWriteResult
-from minio.deleteobjects import DeleteObject
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Type
+from typing import Any, Dict, List, Optional, Set, Type
 from uuid import UUID
 
 
@@ -26,6 +21,8 @@ class ObjectStoreDataset(Dataset):
 
     _ACCESS_LOCATION_DELIMITER = "/"
     """ Delimiting separator for ::attribute:`access_location` value. """
+    _OBJECT_NAME_SEPARATOR = "___"
+    """ Separator for individual parts (e.g., corresponding to directories) of an object name. """
 
     @classmethod
     def additional_init_param_deserialized(cls, json_obj: dict) -> Dict[str, Any]:
@@ -146,6 +143,8 @@ class ObjectStoreDatasetManager(DatasetManager):
     Dataset manager implementation specifically for ::class:`ObjectStoreDataset` instances.
     """
 
+    _OBJECT_NAME_SEPARATOR = "___"
+    """ Separator for individual parts (e.g., corresponding to directories) of an object name. """
     _SUPPORTED_TYPES = {ObjectStoreDataset}
     """ Supported dataset types set, which is always ::class:`ObjectStoreDataset` for this manager subtype. """
     _SERIALIZED_OBJ_NAME_TEMPLATE = "{}_serialized.json"
@@ -157,17 +156,32 @@ class ObjectStoreDatasetManager(DatasetManager):
         # TODO: add checks to ensure all datasets passed to this type are ObjectStoreDataset
         self._obj_store_host_str = obj_store_host_str
         # TODO (later): may need to look at turning this back on
-        try:
-            self._client = Minio(endpoint=obj_store_host_str, access_key=access_key, secret_key=secret_key, secure=False)
-            # For any buckets that have the standard serialized object (i.e., were for datasets previously), reload them
-            for bucket_name in self.list_buckets():
-                serialized_item = self._gen_dataset_serial_obj_name(bucket_name)
-                if serialized_item in [o for o in self._client.list_objects(bucket_name)]:
-                    self.reload(name=bucket_name, reload_item=serialized_item)
-        except Exception as e:
-            self._errors.append(e)
-            # TODO: consider if we should not re-throw this (which would likely force us to ensure users checked this)
-            raise e
+        self._client = Minio(obj_store_host_str, access_key=access_key, secret_key=secret_key, secure=False)
+        # For any buckets that have the standard serialized object (i.e., were for datasets previously), reload them
+        for bucket_name in self.list_buckets():
+            self._load_from_existing_bucket(bucket_name)
+
+    def _decode_object_name_to_file_path(self, object_name: str) -> str:
+        """
+        Reverse the object name encoding of nested file names.
+
+        This essentially just decodes the encoding performed by ::method:`_push_file`.
+
+        Parameters
+        ----------
+        object_name : str
+            The name of the object storing some previously uploaded file data.
+
+        Returns
+        -------
+        str
+            The decoded file name that reflects any subdirectory structure.
+
+        See Also
+        -------
+        ::method:`_push_file`
+        """
+        return "/".join(object_name.split(self._OBJECT_NAME_SEPARATOR))
 
     def _gen_dataset_serial_obj_name(self, dataset_name: str) -> str:
         return self._SERIALIZED_OBJ_NAME_TEMPLATE.format(dataset_name)
@@ -390,13 +404,6 @@ class ObjectStoreDatasetManager(DatasetManager):
             # TODO: test
             return isinstance(result.object_name, str)
 
-    def combine_partials_into_composite(self, dataset_name: str, item_name: str, combined_list: List[str]) -> bool:
-        try:
-            self._client.compose_object(bucket_name=dataset_name, object_name=item_name, sources=combined_list)
-            return True
-        except Exception as e:
-            return False
-
     def create(self, name: str, category: DataCategory, domain: DataDomain, is_read_only: bool,
                initial_data: Optional[str] = None) -> ObjectStoreDataset:
         """
@@ -434,13 +441,7 @@ class ObjectStoreDatasetManager(DatasetManager):
             msg = "Attempting to create read-only dataset {} without supplying it with any initial data"
             raise RuntimeError(msg.format(name))
 
-        try:
-            self._client.make_bucket(name)
-        except Exception as e:
-            # TODO: may need to log something here
-            self.errors.append(e)
-            # TODO: really need a way to backpropogate this to provide information on failure
-            raise e
+        self._client.make_bucket(name)
         created_on = datetime.now()
         access_loc = "{}{}{}".format(self._obj_store_host_str, ObjectStoreDataset._ACCESS_LOCATION_DELIMITER, name)
         dataset = ObjectStoreDataset(name=name, category=category, data_domain=domain, manager=self,
@@ -451,87 +452,6 @@ class ObjectStoreDatasetManager(DatasetManager):
             self._push_files(bucket_name=name, dir_path=files_dir, recursive=True)
         self.persist_serialized(name)
         return dataset
-
-    @property
-    def data_chunking_params(self) -> Optional[Tuple[str, str]]:
-        """
-        The "offset" and "length" keywords than can be used with ::method:`get_data` to chunk results, when supported.
-
-        Returns
-        -------
-        Optional[Tuple[str, str]]
-            The "offset" and "length" keywords to chunk results, or ``None`` if chunking not supported.
-        """
-        return 'offset', 'length'
-
-    def delete(self, dataset: Dataset, **kwargs) -> bool:
-        """
-        Delete the supplied dataset, as long as it is managed by this manager.
-
-        Parameters
-        ----------
-        dataset
-        kwargs
-
-        Returns
-        -------
-        bool
-            Whether the delete was successful.
-        """
-        managed_dataset = self.datasets[dataset.name] if dataset.name in self.datasets else None
-        if dataset == managed_dataset:
-            # TODO: consider checking whether there are any dataset users
-            # Make sure the bucket is empty
-            for obj in self._client.list_objects(dataset.name):
-                self._client.remove_object(dataset.name, obj.object_name)
-            self._client.remove_bucket(dataset.name)
-            self.datasets.pop(dataset.name)
-            return True
-        else:
-            return False
-
-    # TODO: update to also make adjustments to the domain appropriately when data changes (deleting data also)
-    def delete_data(self, dataset_name: str, **kwargs) -> bool:
-        """
-        
-        Parameters
-        ----------
-        dataset_name : str
-            The name of the dataset.
-        kwargs
-            Keyword args (see below).
-        
-        Keyword Args
-        -------
-        item_names : List[str]
-            A list of the objects/files to be deleted from the dataset.
-        file_names : List[str]
-            An alias for ``file_names``, tried if it is not present.
-
-        Returns
-        -------
-        bool
-            Whether the delete was successful.
-        """
-        item_names = kwargs.get('item_names', kwargs.get('file_names', None))
-        if item_names is None:
-            return False
-        # Make sure all the files we are asked to delete are actually in the dataset bucket
-        elif 0 < len([fn for fn in item_names if fn not in self.list_files(dataset_name)]):
-            return False
-
-        errors = self._client.remove_objects(bucket_name=dataset_name,
-                                             delete_object_list=[DeleteObject(fn) for fn in item_names])
-        error_list = []
-        for error in errors:
-            # TODO: later on, probably need to log this somewhere
-            print("Error when deleting object", error)
-            error_list.append(errors)
-        if len(error_list) == 0:
-            return True
-        else:
-            self._errors.extend(error_list)
-            return False
 
     def list_buckets(self) -> List[str]:
         """
@@ -566,7 +486,7 @@ class ObjectStoreDatasetManager(DatasetManager):
         if dataset_name not in self.datasets:
             raise RuntimeError("Unrecognized dataset name {} given to request to list files".format(dataset_name))
         objects = self._client.list_objects(dataset_name, recursive=True)
-        return [obj.object_name for obj in objects]
+        return [self._decode_object_name_to_file_path(object_name=str(obj)) for obj in objects]
 
     def get_bucket_creation_times(self) -> Dict[str, datetime]:
         """
@@ -595,7 +515,7 @@ class ObjectStoreDatasetManager(DatasetManager):
         result = self._client.put_object(bucket_name=name, object_name=self._gen_dataset_serial_obj_name(name),
                                          data=io.BytesIO(bin_json_str), length=len(bin_json_str))
 
-    def reload(self, name: str, is_read_only: bool = False, reload_item: Optional[str] = None) -> ObjectStoreDataset:
+    def reload(self, name: str, is_read_only: bool = False, access_location: Optional[str] = None) -> ObjectStoreDataset:
         """
         Create a new dataset object by reloading from an existing storage location.
 
@@ -605,9 +525,8 @@ class ObjectStoreDatasetManager(DatasetManager):
             The name of the dataset.
         is_read_only : bool
             Whether the loaded dataset object should be read-only (default: ``False``).
-        reload_item : Optional[str]
-            Optional string for specifying name of the item to reload when it cannot be inferred from ``name``
-            (default: ``None``, which they generates a default based on the dataset name).
+        access_location : Optional[str]
+            Optional string for specifying access location when it cannot be inferred from ``name`` (default: ``None``).
 
         Returns
         -------
@@ -620,54 +539,16 @@ class ObjectStoreDatasetManager(DatasetManager):
             raise RuntimeError("Expected bucket to exist when re-creating dataset {}".format(name))
         # TODO: (later) add something for checking host part of access location if provided, and if that is not this host, its a problem
 
-        if reload_item is None:
-            reload_item = self._gen_dataset_serial_obj_name(name)
-
         try:
-            response_obj = self._client.get_object(bucket_name=name, object_name=reload_item)
-            response_data = json.loads(response_obj.data.decode())
+            response_obj = self._client.get_object(bucket_name=name, object_name=self._gen_dataset_serial_obj_name(name))
+            response_data = response_obj.data.decode()
         finally:
             response_obj.close()
             response_obj.release_conn()
 
         dataset = ObjectStoreDataset.factory_init_from_deserialized_json(response_data)
-        dataset.manager = self
         self.datasets[name] = dataset
         return dataset
-
-    def remove_dataset(self, dataset_name: str, empty_first: bool = True) -> bool:
-        """
-        Remove and existing dataset and its backing bucket.
-
-        To be removed, the backing bucket for a dataset must be empty.  By default, this method will remove all objects
-        from the bucket before proceeding.  However, if that is set to ``True``, then if any objects (other than the
-        dataset's serialized state file, needed for reloading it) are in the bucket, the dataset and backing bucket will
-        not be changed or removed.
-        
-        Parameters
-        ----------
-        dataset_name : str
-            The name of the dataset.
-        empty_first : bool
-            Whether to remove all objects from dataset bucket first, which is required for removal (default: ``True``).
-
-        Returns
-        -------
-
-        """
-        files = self.list_files(dataset_name)
-        serialize_dataset_file = self._gen_dataset_serial_obj_name(dataset_name)
-        # If set to not empty first, and anything other than the serialized dataset file is in the bucket, then bail
-        if not empty_first and len(files) > 0 and (len(files) > 1 or files[0] != serialize_dataset_file):
-            return False
-        # If set to empty first, then do so
-        if empty_first:
-            for obj in self._client.list_objects(dataset_name):
-                self._client.remove_object(dataset_name, obj.object_name)
-        # Once the bucket is empty, both it and the dataset can be removed
-        self._client.remove_bucket(dataset_name)
-        self.datasets.pop(dataset_name)
-        return True
 
     @property
     def supported_dataset_types(self) -> Set[Type[Dataset]]:

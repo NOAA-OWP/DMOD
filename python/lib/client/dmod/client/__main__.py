@@ -237,7 +237,7 @@ def execute_dataset_command(parsed_args, client: DmodClient):
             domain_file = Path(parsed_args.domain_file)
             domain = DataDomain.factory_init_from_deserialized_json(json.load(domain_file.open()))
             if domain is None:
-                raise RuntimeError("Could not deserialize data domain from file {}".format(domain_file))
+                raise RuntimeError("Could nod deserialize data domain from file {}".format(domain_file))
             key_args['domain'] = domain
         else:
             # Otherwise, start by processing any serialized restrictions provided on the command line
