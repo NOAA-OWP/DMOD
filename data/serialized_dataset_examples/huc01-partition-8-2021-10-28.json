@@ -1,0 +1,29 @@
+{
+  "access_location" : "minio1:9000/huc01-partition-8-2021-10-28",
+  "create_on" : "2022-04-25 14:10:12",
+  "data_category" : "CONFIG",
+  "type" : "OBJECT_STORE",
+  "data_domain" : {
+    "continuous" : [],
+    "data_format" : "NGEN_PARTITION_CONFIG",
+    "discrete" : [
+      {
+        "values": ["partition-config-n8-v1-huc01-hydrofabric-2021-10-28"],
+        "variable": "DATA_ID"
+      },
+      {
+        "values": ["72c2a0220aa7315b50e55b6c5b68f927ac1d9b81"],
+        "variable": "HYDROFABRIC_ID"
+      },
+      {
+        "values": [8],
+        "variable": "LENGTH"
+      }
+    ]
+  },
+  "is_read_only" : false,
+  "last_updated" : "2022-04-25 14:10:12",
+  "manager_uuid" : "ba51a053-70fa-41c2-86fc-8f819bd20c6f",
+  "name" : "huc01-partition-8-2021-10-28",
+  "uuid" : "9888e40f-6cac-4034-a698-6e9911b3ccbf"
+}

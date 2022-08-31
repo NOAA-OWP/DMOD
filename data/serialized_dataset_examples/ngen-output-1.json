@@ -1,0 +1,23 @@
+{
+   "access_location" : "minio1:9000/ngen-output-1",
+   "create_on" : "2022-04-25 14:10:12",
+   "data_category" : "OUTPUT",
+   "type" : "OBJECT_STORE",
+   "data_domain" : {
+      "continuous" : [],
+      "data_format" : "NGEN_OUTPUT",
+      "discrete" : [
+         {
+            "values" : [
+               "ngen-output-1"
+            ],
+            "variable" : "DATA_ID"
+         }
+      ]
+   },
+   "is_read_only" : false,
+   "last_updated" : "2022-04-25 14:10:12",
+   "manager_uuid" : "ba51a053-70fa-41c2-86fc-8f819bd20c6f",
+   "name" : "ngen-output-1",
+   "uuid" : "9888e40f-6cac-4034-a698-6e9911b3ccba"
+}
