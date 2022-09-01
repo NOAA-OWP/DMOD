@@ -697,9 +697,11 @@ class NWMRequest(ModelExecRequest):
         parameter could not be used to instantiated a new object.
         """
         try:
-            obj = cls(config_data_id=json_obj['model'][cls.model_name]['config_data_id'],
-                      cpu_count=json_obj['model'][cls.model_name]['cpu_count'],
-                      allocation_paradigm=json_obj['model'][cls.model_name]['allocation_paradigm'],
+            nwm_element = json_obj['model'][cls.model_name]
+            obj = cls(config_data_id=nwm_element['config_data_id'],
+                      cpu_count=json_obj.get('cpus', nwm_element.get('cpu_count')),
+                      allocation_paradigm=nwm_element.get('allocation_paradigm',
+                                                          AllocationParadigm.get_default_selection()),
                       session_secret=json_obj['session-secret'])
 
             reqs = [DataRequirement.factory_init_from_deserialized_json(req_json) for req_json in
@@ -708,7 +710,7 @@ class NWMRequest(ModelExecRequest):
             obj._data_requirements = reqs
 
             return obj
-        except:
+        except Exception as e:
             return None
 
     def __init__(self, *args, **kwargs):
