@@ -698,11 +698,15 @@ class NWMRequest(ModelExecRequest):
         """
         try:
             nwm_element = json_obj['model'][cls.model_name]
-            obj = cls(config_data_id=nwm_element['config_data_id'],
-                      cpu_count=json_obj.get('cpus', nwm_element.get('cpu_count')),
-                      allocation_paradigm=nwm_element.get('allocation_paradigm',
-                                                          AllocationParadigm.get_default_selection()),
-                      session_secret=json_obj['session-secret'])
+            additional_kwargs = dict()
+            if 'cpu_count' in nwm_element:
+                additional_kwargs['cpu_count'] = nwm_element['cpu_count']
+
+            if 'allocation_paradigm' in nwm_element:
+                additional_kwargs['allocation_paradigm'] = nwm_element['allocation_paradigm']
+
+            obj = cls(config_data_id=nwm_element['config_data_id'], session_secret=json_obj['session-secret'],
+                      **additional_kwargs)
 
             reqs = [DataRequirement.factory_init_from_deserialized_json(req_json) for req_json in
                     json_obj['model'][cls.model_name]['data_requirements']]
@@ -850,15 +854,23 @@ class NGENRequest(ModelExecRequest):
         ::method:`to_dict`
         """
         try:
+            optional_kwargs_w_defaults = dict()
+            if 'cpu_count' in json_obj['model']:
+                optional_kwargs_w_defaults['cpu_count'] = json_obj['model']['cpu_count']
+            if 'allocation_paradigm' in json_obj['model']:
+                optional_kwargs_w_defaults['allocation_paradigm'] = json_obj['model']['allocation_paradigm']
+            if 'catchments' in json_obj['model']:
+                optional_kwargs_w_defaults['catchments'] = json_obj['model']['catchments']
+            if 'partition_config_data_id' in json_obj['model']:
+                optional_kwargs_w_defaults['partition_config_data_id'] = json_obj['model']['partition_config_data_id']
+
             return cls(time_range=TimeRange.factory_init_from_deserialized_json(json_obj['model']['time_range']),
-                       cpu_count=json_obj['model']['cpu_count'],
-                       allocation_paradigm=json_obj['model']['allocation_paradigm'],
                        hydrofabric_uid=json_obj['model']['hydrofabric_uid'],
                        hydrofabric_data_id=json_obj['model']['hydrofabric_data_id'],
                        config_data_id=json_obj['model']['config_data_id'],
                        bmi_cfg_data_id=json_obj['model']['bmi_config_data_id'],
-                       catchments=json_obj['model']['catchments'] if 'catchments' in json_obj['model'] else None,
-                       session_secret=json_obj['session-secret'])
+                       session_secret=json_obj['session-secret'],
+                       **optional_kwargs_w_defaults)
         except Exception as e:
             return None
 
@@ -1206,6 +1218,7 @@ class NGENRequest(ModelExecRequest):
                 'hydrofabric_uid': 'hy-uid-val',
                 'config_data_id': 'config-data-id-val',
                 'bmi_config_data_id': 'bmi-config-data-id',
+                'partition_config_data_id': 'partition_config_data_id',
                 ['catchments': { <serialized_catchment_discrete_restriction_object> },]
                 'version': 4.0
             },
@@ -1231,6 +1244,8 @@ class NGENRequest(ModelExecRequest):
         model["bmi_config_data_id"] = self._bmi_config_data_id
         if self.catchments is not None:
             model['catchments'] = self.catchments
+        if self.partition_cfg_data_id is not None:
+            model['partition_config_data_id'] = self.partition_cfg_data_id
 
         return {'model': model, 'session-secret': self.session_secret}
 
