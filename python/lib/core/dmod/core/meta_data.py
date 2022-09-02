@@ -685,12 +685,17 @@ class DataRequirement(Serializable):
             A deserialized ::class:`DataRequirement` instance, or return ``None`` if the JSON is not valid.
         """
         try:
+            domain = DataDomain.factory_init_from_deserialized_json(json_obj[cls._KEY_DOMAIN])
             category = DataCategory.get_for_name(json_obj[cls._KEY_CATEGORY])
             is_input = json_obj[cls._KEY_IS_INPUT]
-            fulfilled_by = json_obj[cls._KEY_FULFILLED_BY] if cls._KEY_FULFILLED_BY in json_obj else None
-            size = json_obj[cls._KEY_SIZE] if cls._KEY_SIZE in json_obj else None
-            domain = DataDomain.factory_init_from_deserialized_json(json_obj[cls._KEY_DOMAIN])
-            return cls(domain=domain, is_input=is_input, category=category, size=size, fulfilled_by=fulfilled_by)
+
+            opt_kwargs_w_defaults = dict()
+            if cls._KEY_FULFILLED_BY in json_obj:
+                opt_kwargs_w_defaults['fulfilled_by'] = json_obj[cls._KEY_FULFILLED_BY]
+            if cls._KEY_SIZE in json_obj:
+                opt_kwargs_w_defaults['size'] = json_obj[cls._KEY_SIZE]
+
+            return cls(domain=domain, is_input=is_input, category=category, **opt_kwargs_w_defaults)
         except:
             return None
 
