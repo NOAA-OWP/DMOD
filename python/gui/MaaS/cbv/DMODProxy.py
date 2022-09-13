@@ -16,6 +16,8 @@ from dmod.communication import Distribution, get_available_models, get_available
 from pathlib import Path
 from typing import List, Optional, Tuple, Type
 
+GUI_STATIC_SSL_DIR = Path('/usr/maas_portal/ssl')
+
 
 class RequestFormProcessor(ABC):
 
@@ -209,7 +211,7 @@ class PostFormRequestClient(ModelExecRequestClient):
     def _bootstrap_ssl_dir(cls, ssl_dir: Optional[Path] = None):
         if ssl_dir is None:
             ssl_dir = Path(__file__).resolve().parent.parent.parent.joinpath('ssl')
-            ssl_dir = Path('/usr/maas_portal/ssl') #Fixme
+            ssl_dir = GUI_STATIC_SSL_DIR #Fixme
         return ssl_dir
 
     def __init__(self, endpoint_uri: str, http_request: HttpRequest, ssl_dir: Optional[Path] = None):
@@ -315,6 +317,7 @@ class DMODMixin:
         client = PostFormRequestClient(endpoint_uri=self.maas_endpoint_uri, http_request=request)
         if event_type == MessageEventType.MODEL_EXEC_REQUEST:
             form_processor_type = ModelExecRequestFormProcessor
+        # TODO: need a new type of form processor here (or 3 more, for management, uploading, and downloading)
         else:
             raise RuntimeError("{} got unsupported event type: {}".format(self.__class__.__name__, str(event_type)))
 
