@@ -625,6 +625,37 @@ class DatasetExternalClient(DatasetClient,
                     if not has_data:
                         return message_object
 
+    async def get_serialized_datasets(self, dataset_name: Optional[str] = None) -> Dict[str, dict]:
+        """
+        Get dataset objects in serialized form, either for all datasets or for the one with the provided name.
+
+        Parameters
+        ----------
+        dataset_name : Optional[str]
+            The name of a specific dataset to get serialized details of, if only one should be obtained.
+
+        Returns
+        -------
+        Dict[str, dict]
+            A dictionary, keyed by dataset name, of serialized dataset objects.
+        """
+        # TODO: may need to generalize this and add to super class
+        if dataset_name is None:
+            datasets = await self.list_datasets()
+        else:
+            datasets = [dataset_name]
+        serialized = dict()
+        action = ManagementAction.QUERY
+        query = DatasetQuery(query_type=QueryType.GET_SERIALIZED_FORM)
+        for d in datasets:
+            request = MaaSDatasetManagementMessage(action=action, query=query, dataset_name=d,
+                                                   session_secret=self.session_secret)
+            self.last_response: DatasetManagementResponse = await self.async_make_request(request)
+            if self.last_response.success:
+                serialized[d] = self.last_response.data['dataset']
+            # TODO: what to do if any are not successful
+        return serialized
+
     async def list_datasets(self, category: Optional[DataCategory] = None) -> List[str]:
         await self._async_acquire_session_info()
         action = ManagementAction.LIST_ALL if category is None else ManagementAction.SEARCH
