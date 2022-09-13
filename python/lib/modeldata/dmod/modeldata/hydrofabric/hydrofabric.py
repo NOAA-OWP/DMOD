@@ -705,17 +705,24 @@ class GeoJsonHydrofabricReader:
             cat_to = dict()
             cat_from = dict()
 
+            #known_cat_ids = self.catchment_geodataframe.index.unique().to_series(name='id')
+            #known_nexus_ids = self.nexus_geodataframe.index.to_series(name='id')
+            #known_nexus_ids = pd.concat([known_nexus_ids, self.catchment_geodataframe.loc[self.catchment_geodataframe['toid'].notnull()]['toid']])
+            #known_nexus_ids = known_nexus_ids.unique()
+
             for cat_id in self.catchment_geodataframe.index:
                 known_catchment_ids.add(cat_id)
                 # TODO: do we need to account for more than one downstream?
-                to_nex_id = self.catchment_geodataframe.loc[cat_id]['toid'].strip()
-                known_nexus_ids.add(to_nex_id)
-                cat_to[cat_id] = to_nex_id
-                if to_nex_id in nexus_contrib_cats:
-                    nexus_contrib_cats[to_nex_id].add(cat_id)
-                else:
-                    nexus_contrib_cats[to_nex_id] = {cat_id}
-                # TODO: do we need to account for contained/containing/conjoined?
+                to_nex_id = self.catchment_geodataframe.loc[cat_id]['toid']
+                if to_nex_id is not None:
+                    to_nex_id = to_nex_id.strip()
+                    known_nexus_ids.add(to_nex_id)
+                    cat_to[cat_id] = to_nex_id
+                    if to_nex_id in nexus_contrib_cats:
+                        nexus_contrib_cats[to_nex_id].add(cat_id)
+                    else:
+                        nexus_contrib_cats[to_nex_id] = {cat_id}
+                    # TODO: do we need to account for contained/containing/conjoined?
             for nex_id in self.nexus_geodataframe.index:
                 known_nexus_ids.add(nex_id)
                 to_cats = self.nexus_geodataframe.loc[nex_id]['toid']
