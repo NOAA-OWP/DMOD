@@ -657,6 +657,21 @@ class GeoJsonHydrofabricReader:
 
     def __init__(self, catchment_data: Union[str, Path, gpd.GeoDataFrame],
                  nexus_data: Union[str, Path, gpd.GeoDataFrame], cross_walk: Union[str, Path, pd.DataFrame]):
+        """
+        Initialize this instance.
+
+        Parameters
+        ----------
+        catchment_data : Union[str, Path, gpd.GeoDataFrame]
+            The catchment data as either an inflated dataframe object, a path to a geojson file containing a serialized
+            dataframe, or a string representation of the path to such a file.
+        nexus_data : Union[str, Path, gpd.GeoDataFrame]
+            The nexus data as either an inflated dataframe object, a path to a geojson file containing a serialized
+            dataframe, or a string representation of the path to such a file.
+        cross_walk : Union[str, Path, gpd.GeoDataFrame]
+            The crosswalk data, as either an inflated dataframe object, a path to a CSV or JSON file containing a
+            serialized dataframe, or a string representation of the path to such a file.
+        """
         if isinstance(catchment_data, gpd.GeoDataFrame):
             self.catchment_geodataframe = catchment_data
         else:
@@ -672,7 +687,12 @@ class GeoJsonHydrofabricReader:
         if isinstance(cross_walk, pd.DataFrame):
             self.crosswalk_dataframe = cross_walk
         else:
-            self.crosswalk_dataframe = pd.read_json(cross_walk, dtype=str)
+            # Make sure we convert to path so we can test file extension
+            cross_walk = Path(cross_walk) if isinstance(cross_walk, str) else cross_walk
+            if cross_walk.suffix == '.csv':
+                self.crosswalk_dataframe = pd.read_csv(cross_walk, dtype=str)
+            else:
+                self.crosswalk_dataframe = pd.read_json(cross_walk, dtype=str)
 
         self._hydrofabric_graph = None
         self._roots = None
