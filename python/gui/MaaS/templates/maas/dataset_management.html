@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OWP MaaS</title>
+    {% load static %}
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js">
+    </script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js">
+    </script>
+    <link rel="stylesheet" type="text/css" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/cupertino/jquery-ui.css">
+    <link rel="icon" type="image/gif" href="{% static 'maas/img/favicon.gif' %}">
+    <script>
+        function activate_model(model) {
+            $(".parameters").hide();
+            $("#" + model + "_parameters").show();
+        }
+
+        /*
+        {% for model, model_parameters in parameters.items %}
+        {% for parameter in model_parameters %}
+        function toggle_{{ model }}_{{ parameter.value }}() {
+            var selector = "#{{ model }}_{{ parameter.value }}_scalar_row, ";
+            selector = selector + "#{{ model }}_{{ parameter.value }}_distribution_row";
+
+            $(selector).toggle();
+        }
+
+        function enable_{{ model }}_{{ parameter.value }}_scalar() {
+            var scalarSelector = "#{{ model }}_{{ parameter.value }}_scalar";
+
+            var distributionSelector = "#{{ model }}_{{ parameter.value }}_distribution_min, ";
+            distributionSelector = distributionSelector + "#{{ model }}_{{ parameter.value }}_distribution_max, ";
+            distributionSelector = distributionSelector + "#{{ model }}_{{ parameter.value }}_distribution_type";
+
+            var distributionRowsSelector = "#{{ model }}_{{ parameter.value }}_distribution_type_row, ";
+            distributionRowsSelector = distributionRowsSelector + "#{{ model }}_{{ parameter.value }}_distribution_min_row, ";
+            distributionRowsSelector = distributionRowsSelector + "#{{ model }}_{{ parameter.value }}_distribution_max_row";
+
+            $(distributionSelector).attr('disabled', true);
+            $(distributionRowsSelector).addClass('disabled');
+            $(distributionRowsSelector).hide();
+
+            $(scalarSelector).removeAttr('disabled');
+        }
+
+        function enable_{{ model }}_{{ parameter.value }}_distribution() {
+            var scalarSelector = "#{{ model }}_{{ parameter.value }}_scalar";
+
+            var distributionSelector = "#{{ model }}_{{ parameter.value }}_distribution_min, ";
+            distributionSelector = distributionSelector + "#{{ model }}_{{ parameter.value }}_distribution_max, ";
+            distributionSelector = distributionSelector + "#{{ model }}_{{ parameter.value }}_distribution_type";
+
+            var distributionRowsSelector = "#{{ model }}_{{ parameter.value }}_distribution_type_row, ";
+            distributionRowsSelector = distributionRowsSelector + "#{{ model }}_{{ parameter.value }}_distribution_min_row, ";
+            distributionRowsSelector = distributionRowsSelector + "#{{ model }}_{{ parameter.value }}_distribution_max_row";
+
+            $(scalarSelector).attr('disabled', true);
+
+            $(distributionSelector).removeAttr('disabled');
+            $(distributionRowsSelector).removeClass('disabled');
+            $(distributionRowsSelector).show();
+        }
+        {% endfor %}
+        {% endfor %}
+        */
+    </script>
+    <style>
+        #header {
+            width: auto;
+            height: 40px;
+            background: #417690;
+            padding: 10px 40px;
+            line-height: 40px;
+            color: #ffc;
+            overflow: hidden;
+        }
+
+        #branding {
+            float: left;
+        }
+
+        #branding h1 {
+            color: #f5dd5d;
+            padding: 0px;
+            margin: 0 20px 0 0;
+            font-weight: 300;
+            font-size: 24px;
+        }
+
+        #container {
+            position: relative;
+            width: 100%;
+            min-width: 880px;
+            padding: 0;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-size: 14px;
+            font-family: Tahoma, Geneva, sans-serif;
+            color: #333;
+            background: #FFF;
+        }
+
+        #content {
+            padding: 20px 40px;
+        }
+
+        .message-list {
+            list-style-type: none;
+        }
+
+        #error-messages {
+            border: 1px solid black;
+            background-color: lightpink;
+        }
+
+        #warning-messages {
+            border: 1px solid black;
+            background-color: #FFC;
+        }
+
+        #info-messages {
+            border: 1px solid black;
+            background-color: palegreen;
+        }
+
+        #standard-vars {
+            line-height: 25px;
+            max-width: 300px;
+        }
+
+        .disabled {
+            color: gray;
+        }
+
+        /* Add a black background color to the top navigation */
+        .topnav {
+            background-color: #417690;
+            overflow: hidden;
+        }
+
+        /* Style the links inside the navigation bar */
+        .topnav a {
+            float: left;
+            color: #f5dd5d;
+            text-align: center;
+            padding: 14px 16px;
+            text-decoration: none;
+            font-size: 17px;
+        }
+
+    </style>
+</head>
+<body>
+<div id="container">
+    <div id="header">
+        <div id="branding">
+            <h1 id="site-name">Office of Water Prediction - Model as a Service</h1>
+        </div>
+    </div>
+
+    {% if errors %}
+    <div id="error-messages">
+        <ul id="error-list" class="message-list">
+            {% for error in errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if warnings %}
+    <div id="warning-messages">
+        <ul id="warning-list" class="message-list">
+            {% for warning in warnings %}
+            <li>{{ warning }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if info %}
+    <div id="info-messages">
+        <ul id="info-list" class="message-list">
+            {% for message in info %}
+            <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {# Cache jQuery scripts for UI scripting and styling #}
+    <div id="content">
+        <h2>Dataset Management</h2>
+        <div class="topnav">
+            <a class="active" href="#dataset-manage">Manage</a>
+            <a href="#dataset-create">Create</a>
+        </div>
+        <div id="dataset-create">
+            <h3>Create New Dataset:</h3>
+            <form action="." method="post" id="create-dataset-form">
+                {# Add the token to provide cross site request forgery protection #}
+                {% csrf_token %}
+                <div id="standard-vars">
+                    <label for="dataset-name">Dataset Name:</label>
+                    <input name="dataset-name" id="dataset-name" type="text" style="float: right; text-align: right;" >
+                    <br>
+
+                    <label for="dataset-category">Data Category:</label>
+                    <!-- TODO: adjust and rename function onchange -->
+                    <select name="dataset-category" id="dataset-category" style="float: right; text-align: right" onchange="activate_model(this.value)">
+                        {% for category in dataset_categories %}
+                        <option value="{{ category }}">{{ category }}</option>
+                        {% endfor %}
+                    </select>
+                    <br>
+
+                    <!-- TODO: adjust and rename function onchange -->
+                    <label for="dataset-format">Data Format:</label>
+                    <select name="dataset-format" id="dataset-format" style="float: right; text-align: right" onchange="activate_model(this.value)">
+                        {% for format in dataset_formats %}
+                        <option value="{{ format }}">{{ format }}</option>
+                        {% endfor %}
+                    </select>
+                    <br>
+
+                    <!--
+                    <label for='domains'>Domain:</label>
+                    <select name='domain' id="model" style="float: right; text-align: right">
+                        <option value="example-domain-A" selected="selected"></option>
+                        {% for domain in domains %}
+                        <option value="{{ domain }}">{{ domain }}</option>
+                        {% endfor %}
+                    </select>
+                    <br>
+                    <label for="version">Version:</label>
+                    <input name="version" id="version" type="number" value="1.0" min="0.0" step="0.1" style="float: right; text-align: right;" >
+                    <br>
+                    <label for="output">Output Variable:</label>
+                    <select style="float: right; text-align: right" name="output" id="output">
+                        {% for output in outputs %}
+                        <option value="{{ output.value }}">{{ output.name }}</option>
+                        {% endfor %}
+                    </select>
+                    -->
+                </div>
+                <br>
+                <!--
+                {% for model, model_parameters in parameters.items %}
+                <p>{{ parameter_list }}</p>
+                <div id="{{ model }}_parameters" class="parameters" style="display: none;">
+                    <label for="{{ model }}_parameters">Parameters:</label>
+                    <table id="{{ model }}-parameter-table" style="width: 20%; max-width: 400px;">
+                        {% for parameter in model_parameters %}
+                        <tr>
+                            <td>
+                                <input id="use_{{ parameter.value }}"
+                                       name="{{ model }}_{{ parameter.value }}" type="checkbox"
+                                       onclick="toggle_{{ model }}_{{ parameter.value }}()">
+                            </td>
+                            <td colspan="2">{{ parameter.name }}</td>
+                        </tr>
+                        <tr id="{{ model }}_{{ parameter.value }}_scalar_row" style="display: none;">
+                            <td></td>
+                            <td>
+                                <input type="radio" name="{{ model }}_{{ parameter.value }}_parameter_type"
+                                       id="{{ model }}_{{ parameter.value }}_scalar_button"
+                                       checked value="scalar"
+                                       onclick="enable_{{ model }}_{{ parameter.value }}_scalar()">
+                            </td>
+                            <td>
+                                <label for="{{ model }}_{{ parameter.value }}_scalar">Scalar Value:</label>
+                            </td>
+                            <td>
+                                <input style="text-align: right; width: 100%; float: right;" type="number"
+                                       name="{{ model }}_{{ parameter.value }}_scalar"
+                                       id="{{ model }}_{{ parameter.value }}_scalar">
+                            </td>
+                        </tr>
+                        <tr id="{{ model }}_{{ parameter.value }}_distribution_row" style="display: none;">
+                            <td></td>
+                            <td>
+                                <input type="radio" name="{{ model }}_{{ parameter.value }}_parameter_type"
+                                       id="{{ model }}_{{ parameter.value }}_distribution_button"
+                                       value="distribution"
+                                       onclick="enable_{{ model }}_{{ parameter.value }}_distribution()">
+                            </td>
+                            <td>
+                                Distribution Value:
+                            </td>
+                        </tr>
+                        <tr id="{{ model }}_{{ parameter.value }}_distribution_min_row" class="disabled"
+                            style="display: none;">
+                            <td></td>
+                            <td></td>
+                            <td>
+                                <label for="{{ model }}_{{ parameter.value }}_distribution_min">
+                                    Minimum:
+                                </label>
+                            </td>
+                            <td>
+                                <input style="text-align: right; width: 100%; float: right;" id="{{ model }}_{{ parameter.value }}_distribution_min"
+                                       name="{{ model }}_{{ parameter.value }}_distribution_min"
+                                       type="number" disabled>
+                            </td>
+                        </tr>
+                        <tr id="{{ model }}_{{ parameter.value }}_distribution_max_row" class="disabled"
+                            style="display: none;">
+                            <td></td>
+                            <td></td>
+                            <td>
+                                <label for="{{ model }}_{{ parameter.value }}_distribution_max">
+                                    Maximum:
+                                </label>
+                            </td>
+                            <td>
+                                <input style="text-align: right; width: 100%; float: right;" id="{{ model }}_{{ parameter.value }}_distribution_max"
+                                       name="{{ model }}_{{ parameter.value }}_distribution_max"
+                                       type="number" min="0.0" max="10.0" disabled>
+                            </td>
+                        </tr>
+                        <tr id="{{ model }}_{{ parameter.value }}_distribution_type_row" class="disabled"
+                            style="display: none;">
+                            <td></td>
+                            <td></td>
+                            <td>
+                                <label for="{{ model }}_{{ parameter.value }}_distribution_type">
+                                    Distribution Type:
+                                </label>
+                            </td>
+                            <td>
+                                <select style="text-align: right; width: 100%; float: right;"
+                                        id="{{ model }}_{{ parameter.value }}_distribution_type"
+                                        name="{{ model }}_{{ parameter.value }}_distribution_type" disabled>
+                                    <option value="" selected="selected"></option>
+
+                                    {% for distribution_type in distribution_types %}
+                                    <option value="{{ distribution_type.value }}">
+                                        {{ distribution_type.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+                {% endfor %}
+                -->
+                <input type="submit" value="Create" >
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>
