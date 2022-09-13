@@ -291,25 +291,28 @@ class DatasetRequestHandler(MaaSRequestHandler):
         session, is_authorized, reason, msg = await self.get_authorized_session(request)
         if not is_authorized:
             return MaaSDatasetManagementResponse(success=False, reason=reason.name, message=msg)
-        # In this case, we actually can pass the request as-is straight through (i.e., after confirming authorization)
-        async with self.service_client as client:
-            # Have to handle these two slightly differently, since multiple message will be going over the websocket
-            if request.management_action == ManagementAction.REQUEST_DATA:
-                await client.connection.send(str(request))
-                mgmt_response = await self._handle_data_download(client_websocket=kwargs['upstream_websocket'],
-                                                                 service_websocket=client.connection)
-            elif request.management_action == ManagementAction.ADD_DATA:
-                await client.connection.send(str(request))
-                mgmt_response = await self._handle_data_upload(client_websocket=kwargs['upstream_websocket'],
-                                                               service_websocket=client.connection)
-            else:
-                mgmt_response = await client.async_make_request(request)
-            logging.debug("************* {} received response:\n{}".format(self.__class__.__name__, str(mgmt_response)))
-        # Likewise, can just send back the response from the internal service client
-        return MaaSDatasetManagementResponse.factory_create(mgmt_response)
+        try:
+            # In this case, we actually can pass the request as-is straight through (i.e., after confirming authorization)
+            async with self.service_client as client:
+                # Have to handle these two slightly differently, since multiple message will be going over the websocket
+                if request.management_action == ManagementAction.REQUEST_DATA:
+                    await client.connection.send(str(request))
+                    mgmt_response = await self._handle_data_download(client_websocket=kwargs['upstream_websocket'],
+                                                                     service_websocket=client.connection)
+                elif request.management_action == ManagementAction.ADD_DATA:
+                    await client.connection.send(str(request))
+                    mgmt_response = await self._handle_data_upload(client_websocket=kwargs['upstream_websocket'],
+                                                                   service_websocket=client.connection)
+                else:
+                    mgmt_response = await client.async_make_request(request)
+                logging.debug("************* {} received response:\n{}".format(self.__class__.__name__, str(mgmt_response)))
+            # Likewise, can just send back the response from the internal service client
+            return MaaSDatasetManagementResponse.factory_create(mgmt_response)
+        except Exception as e:
+            raise e
 
     @property
     def service_client(self) -> DataServiceClient:
         if self._service_client is None:
-            self._service_client = DataServiceClient(self.service_url, self.service_ssl_dir)
+            self._service_client = DataServiceClient(endpoint_uri=self.service_url, ssl_directory=self.service_ssl_dir)
         return self._service_client
