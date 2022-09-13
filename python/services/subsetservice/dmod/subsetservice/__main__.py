@@ -164,16 +164,16 @@ def main():
     if not args.files_directory.is_dir():
         print("Error: given param '{}' for files directory is not an existing directory".format(args.files_directory))
 
-    catchment_geojson = args.files_directory.joinpath(args.catchment_data_file)
-    nexus_geojson = args.files_directory.joinpath(args.nexus_data_file)
-    crosswalk_json = args.files_directory.joinpath(args.crosswalk_file)
+    catchment_data_path = args.files_directory.joinpath(args.catchment_data_file)
+    nexus_data_path = args.files_directory.joinpath(args.nexus_data_file)
+    crosswalk_path = args.files_directory.joinpath(args.crosswalk_file)
 
-    subset_handler = SubsetHandler.factory_create_from_geojson(catchment_data=catchment_geojson,
-                                                               nexus_data=nexus_geojson,
-                                                               cross_walk=crosswalk_json)
+    subset_handler = SubsetHandler.factory_create_from_geojson(catchment_data=catchment_data_path,
+                                                               nexus_data=nexus_data_path,
+                                                               cross_walk=crosswalk_path)
 
     if args.partition_file or args.do_simple_subset or args.do_upstream_subset:
-        cli = Cli(catchment_geojson=catchment_geojson, nexus_geojson=nexus_geojson, crosswalk_json=crosswalk_json,
+        cli = Cli(catchment_geojson=catchment_data_path, nexus_geojson=nexus_data_path, crosswalk_json=crosswalk_path,
                   partition_file_str=args.partition_file, subset_handler=subset_handler)
         result = exec_cli_op(cli, args)
 
