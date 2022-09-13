@@ -754,7 +754,7 @@ class GeoJsonHydrofabricReader:
             hf = dict()
             # Start with all catchments as roots (for now, they are) and then remove later
             # Root nexuses we will add individually below
-            roots = set(known_catchment_ids)
+            #roots = set(known_catchment_ids)
 
             # Create the catchments first, just without any upstream/downstream connections
             for cat_id in known_catchment_ids:
@@ -771,29 +771,26 @@ class GeoJsonHydrofabricReader:
                 hf[nex_id] = Nexus(nexus_id=nex_id, hydro_location=HydroLocation(realized_nexus=nex_id),
                                    receiving_catchments=list(receiving), contributing_catchments=list(contributing))
                 # Add ids of nexuses without contributors to set of roots
-                if len(contributing) == 0:
-                    roots.add(nex_id)
+                #if len(contributing) == 0:
+                #    roots.add(nex_id)
             # Now go back and apply the right to/from relationships for catchments
             for cat_id, nex_id in cat_to.items():
                 hf[cat_id]._outflow = hf[nex_id]
             for cat_id, nex_id in cat_from.items():
                 hf[cat_id]._inflow = hf[nex_id]
                 # Remove any catchment ids from roots that have an upstream/inflow nexus
-                if cat_id in roots:
-                    roots.remove(cat_id)
+                #if cat_id in roots:
+                #    roots.remove(cat_id)
             # TODO: again, do we need to worry about contained/containing/conjoined?
             # Finally ...
             self._hydrofabric_graph = hf
-            self._roots = frozenset(roots)
+            #self._roots = frozenset(roots)
         return self._hydrofabric_graph
 
     @property
     def roots(self) -> FrozenSet[str]:
         """
-        Lazily get the ids of the root nodes of the graph.
-
-        Makes a call to the property method for ::attribute:`hydrofabric_graph` when necessary to create, lazily
-        initializing both properties.
+        Get the ids of the root nodes of the graph.
 
         Returns
         -------
@@ -805,8 +802,8 @@ class GeoJsonHydrofabricReader:
         ::attribute:`hydrofabric_graph`
         """
         if self._roots is None:
-            # Use to lazily instantiate this property also
-            graph = self.hydrofabric_graph
+            self._roots = frozenset(self.catchment_geodataframe.loc[
+                                        ~self.catchment_geodataframe.index.isin(self.nexus_geodataframe['toid'])].index)
         return self._roots
 
 
