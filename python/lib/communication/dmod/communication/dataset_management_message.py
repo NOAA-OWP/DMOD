@@ -16,6 +16,7 @@ class QueryType(Enum):
     GET_VALUES = 6
     GET_MIN_VALUE = 7
     GET_MAX_VALUE = 8
+    GET_SERIALIZED_FORM = 9
 
     @classmethod
     def get_for_name(cls, name_str: str) -> 'QueryType':
