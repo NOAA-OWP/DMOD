@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 from dmod.access import Authorizer
 from dmod.communication import FullAuthSession, InitRequestResponseReason, ModelExecRequest, ModelExecRequestResponse, \
@@ -8,7 +9,7 @@ from .maas_request_handlers import MaaSRequestHandler
 from typing import Optional
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.getLevelName(os.environ.get("DEFAULT_LOG_LEVEL", "INFO").upper()),
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
     datefmt="%H:%M:%S"
 )

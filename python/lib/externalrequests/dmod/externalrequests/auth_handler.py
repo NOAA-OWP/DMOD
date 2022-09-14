@@ -1,4 +1,5 @@
 import logging
+import os
 
 from dmod.access import Authenticator, Authorizer
 from dmod.communication import AbstractRequestHandler, FailedSessionInitInfo, Session, SessionInitFailureReason, \
@@ -6,7 +7,7 @@ from dmod.communication import AbstractRequestHandler, FailedSessionInitInfo, Se
 from typing import Optional
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.getLevelName(os.environ.get("DEFAULT_LOG_LEVEL", "INFO").upper()),
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
     datefmt="%H:%M:%S"
 )

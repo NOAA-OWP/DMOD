@@ -3,6 +3,7 @@ import datetime
 import json
 import ssl
 import traceback
+import typing
 from abc import ABC, abstractmethod
 from asyncio import AbstractEventLoop
 from pathlib import Path
@@ -390,7 +391,7 @@ class WebSocketClient(AbstractClient, ABC):
         self._cert_pem_file_basename: str = 'certificate.pem'
         """str: The basename of the certificate PEM file to use."""
 
-        self.connection = None
+        self.connection: typing.Optional[websockets.WebSocketClientProtocol] = None
         """Optional[websockets.client.Connect]: The open websocket connection, if set, for this client's context."""
 
         self._opening_connection = False
@@ -461,6 +462,16 @@ class WebSocketClient(AbstractClient, ABC):
             #TODO ensure correct type for data???
             await websocket.connection.send(data)
             return await websocket.connection.recv() if await_response else None
+
+    async def listen(self) -> typing.Union[str, bytes]:
+        """
+        Waits for a message through the websocket connection
+
+        Returns:
+            A string for data sent through the socket as a string and bytes for data sent as binary
+        """
+        async with self as websocket:
+            return await websocket.connection.recv()
 
     @abstractmethod
     async def async_make_request(self, message: Message) -> Response:

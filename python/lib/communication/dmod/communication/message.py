@@ -51,7 +51,9 @@ class InitRequestResponseReason(Enum):
     """The request was deemed authorized, and it was accepted by the receiver."""
     REJECTED = 5
     """The request was deemed authorized, but the receive rejected the request for other reasons."""
-    UNKNOWN = 6
+    UNNECESSARY = 6
+    """The request does not utilize session data"""
+    UNKNOWN = 7
     """The reason for the particular response is unknown or not well defined in the enum type."""
 
 
@@ -273,3 +275,19 @@ class InvalidMessageResponse(Response):
                          reason='Invalid Request Message',
                          message='Request message was not formatted as any known valid type',
                          data=data)
+
+
+class ErrorResponse(Response):
+    """
+    A response to inform a client of an error that has occured within a request
+    """
+    def __init__(self, message: str, http_code: int = None):
+        if not http_code:
+            http_code = 500
+
+        if not isinstance(http_code, int):
+            try:
+                http_code = int(float(http_code))
+            except:
+                http_code = str(http_code)
+        super().__init__(success=False, reason="Error", message=message, data={"http_code": http_code})
