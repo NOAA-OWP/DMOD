@@ -13,7 +13,7 @@ Max_Redis_Init = 5
 
 logging.basicConfig(
     filename='scheduler.log',
-    level=logging.DEBUG,
+    level=logging.getLevelName(os.environ.get("DEFAULT_LOG_LEVEL", "INFO").upper()),
     format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
     datefmt="%H:%M:%S")
 
