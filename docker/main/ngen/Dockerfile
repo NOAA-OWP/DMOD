@@ -29,11 +29,15 @@ ARG WORKDIR=/ngen
 ARG ROCKY_BASE_REQUIRED="sudo openssh openssh-server bash git"
 # The Rocky-Linux-based "ngen-deps" stage, rocky-ngen-deps
 # TODO: later look at separating build and run images again, and install static lib netcdf packages in run images
-ARG ROCKY_NGEN_DEPS_REQUIRED="mpich mpich-devel sudo gcc gcc-c++ make cmake tar git gcc-gfortran libgfortran \
+#ARG ROCKY_NGEN_DEPS_REQUIRED="mpich mpich-devel sudo gcc gcc-c++ make cmake tar git gcc-gfortran libgfortran \
+#    python39 python39-devel python39-pip python39-numpy \
+#    netcdf-cxx4-devel netcdf-cxx4-mpich-devel netcdf-fortran-devel netcdf-fortran-mpich-devel \
+#    hdf5 hdf5-devel hdf5-mpich hdf5-mpich-devel \
+#    bzip2 expat expat-devel flex bison udunits2 udunits2-devel"
+
+ARG ROCKY_NGEN_DEPS_REQUIRED="sudo gcc gcc-c++ make cmake tar git gcc-gfortran libgfortran \
     python39 python39-devel python39-pip python39-numpy \
-    netcdf-cxx4-devel netcdf-cxx4-mpich-devel netcdf-fortran-devel netcdf-fortran-mpich-devel \
-    hdf5 hdf5-devel hdf5-mpich hdf5-mpich-devel \
-    bzip2 expat expat-devel flex bison udunits2 udunits2-devel"
+    bzip2 expat expat-devel flex bison udunits2 udunits2-devel zlib-devel"
 # TODO: removed texinfo from list because it couldn't be found; make sure this doesn't lead to issues
 
 ARG BOOST_VERSION=1.72.0
