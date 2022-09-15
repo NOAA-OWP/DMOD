@@ -643,41 +643,53 @@ class LaunchConsumer(AsyncWebsocketConsumer):
             await self.send_message(event='receive', response_type="error", result=message, logger=SOCKET_LOGGER)
             return
 
-        if 'action' not in payload or not payload['action']:
-            message = f"{str(self)}: No action was received; expected action cannot be performed"
+        if payload is None:
+            message = f"No payload could be read from: '{text_data}'"
             SOCKET_LOGGER.error(message)
-            await self.send_message(event='receive', response_type="error", result=message, logger=SOCKET_LOGGER)
-            return
-
-        if payload['action'] not in self.get_action_handlers():
-            message = f"{str(self)}: '{payload['action']}' is an invalid function"
-            SOCKET_LOGGER.debug(message)
             await self.send_message(event="receive", response_type="error", result=message, logger=SOCKET_LOGGER)
             return
 
-        action = payload['action']
-        handler = self.get_action_handlers()[action]
-        action_parameters = payload.get('action_parameters')
-        if hasattr(handler, "required_parameters"):
-            parameters = getattr(handler, "required_parameters")  # type: dict[str, str]
-
-            if parameters and not action_parameters:
-                message = f"{str(self)}: '{action}' cannot be performed; no 'action_parameters' object was received"
+        try:
+            if not payload.get('action'):
+                message = f"{str(self)}: No action was received; expected action cannot be performed"
                 SOCKET_LOGGER.error(message)
-                await self.send_message(result=message, event="receive", response_type="error", logger=SOCKET_LOGGER)
+                await self.send_message(event='receive', response_type="error", result=message, logger=SOCKET_LOGGER)
                 return
 
-            missing_parameters = list()
-            for parameter_name, parameter_type in getattr(handler, "required_parameters").items():
-                if parameter_name not in action_parameters:
-                    missing_parameters.append(f"{parameter_name}: {parameter_type}")
-
-            if missing_parameters:
-                message = f"{str(self)}: '{action}' cannot be performed; " \
-                          f"the following required parameters are missing: {', '.join(missing_parameters)}"
-                SOCKET_LOGGER.error(message=message)
-                await self.send_message(result=message, event="receive", response_type="error", logger=SOCKET_LOGGER)
+            if payload['action'] not in self.get_action_handlers():
+                message = f"{str(self)}: '{payload['action']}' is an invalid function"
+                SOCKET_LOGGER.debug(message)
+                await self.send_message(event="receive", response_type="error", result=message, logger=SOCKET_LOGGER)
                 return
+
+            action = payload['action']
+            handler = self.get_action_handlers()[action]
+            action_parameters = payload.get('action_parameters')
+
+            if hasattr(handler, "required_parameters"):
+                parameters = getattr(handler, "required_parameters")  # type: dict[str, str]
+
+                if parameters and not action_parameters:
+                    message = f"{str(self)}: '{action}' cannot be performed; no 'action_parameters' object was received"
+                    SOCKET_LOGGER.error(message)
+                    await self.send_message(result=message, event="receive", response_type="error", logger=SOCKET_LOGGER)
+                    return
+
+                missing_parameters = list()
+                for parameter_name, parameter_type in getattr(handler, "required_parameters").items():
+                    if parameter_name not in action_parameters:
+                        missing_parameters.append(f"{parameter_name}: {parameter_type}")
+
+                if missing_parameters:
+                    message = f"{str(self)}: '{action}' cannot be performed; " \
+                              f"the following required parameters are missing: {', '.join(missing_parameters)}"
+                    SOCKET_LOGGER.error(message=message)
+                    await self.send_message(result=message, event="receive", response_type="error", logger=SOCKET_LOGGER)
+                    return
+        except Exception as exception:
+            await self.send_error(message=exception, event="receive")
+            SOCKET_LOGGER.error(message=exception)
+            return
 
         try:
             await handler(action_parameters)

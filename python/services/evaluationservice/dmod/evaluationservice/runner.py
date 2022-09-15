@@ -4,6 +4,7 @@ import os
 import multiprocessing
 import json
 import signal
+import traceback
 
 from argparse import ArgumentParser
 
@@ -141,9 +142,13 @@ def run_job(
 
     if purpose == 'launch':
         service.info(f"Launching an evaluation for {launch_parameters['evaluation_id']}...")
+        instructions = launch_parameters.get("instructions")
+
+        if isinstance(instructions, dict):
+            instructions = json.dumps(instructions, indent=4)
         arguments = JobArguments(
             evaluation_id=launch_parameters['evaluation_id'],
-            instructions=launch_parameters['instructions'],
+            instructions=instructions,
             verbosity=launch_parameters.get("verbosity"),
             start_delay=launch_parameters.get("start_delay")
         )
@@ -194,7 +199,7 @@ def listen(
                 for message in listener.listen():
                     run_job(message, worker_pool)
         except Exception as exception:
-            service.error("An error occured while listening for evaluation jobs", exception)
+            service.error(message="An error occured while listening for evaluation jobs", exception=exception)
 
 
 def main():

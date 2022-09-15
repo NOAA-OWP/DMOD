@@ -10,6 +10,7 @@ from dmod.metrics import Verbosity
 
 from dmod.evaluations.evaluate import Evaluator
 
+import service
 import utilities
 import writing
 
@@ -95,7 +96,6 @@ class Arguments(object):
 
         parser.add_argument(
             "instructions",
-            type=str,
             help="The instructions that define the evaluation"
         )
 
@@ -130,7 +130,15 @@ class Arguments(object):
 
         # Parse the list of args if one is passed instead of args passed to the script
         if args:
-            parameters = parser.parse_args(args)
+            args = [str(arg) for arg in args]
+            try:
+                parameters = parser.parse_args(args)
+            except Exception as exception:
+                message = "Could not parse passed arguments:" + os.linesep
+                for arg in args:
+                    message += f"    {type(arg)}: {str(arg)}{os.linesep}"
+                service.error(exception)
+                raise Exception(message) from exception
         else:
             parameters = parser.parse_args()
 

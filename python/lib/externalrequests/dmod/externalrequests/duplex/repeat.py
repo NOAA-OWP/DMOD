@@ -1,13 +1,11 @@
 import abc
 import typing
+import json
 
 from websockets import WebSocketClientProtocol
 from websockets import WebSocketServerProtocol
 
-import dmod.communication as communication
-
 from dmod.core import decorators
-from dmod.communication.message import InitRequestResponseReason
 
 from .handler import MessageHandlerMixin
 
@@ -37,4 +35,6 @@ class RepeatMixin(MessageHandlerMixin, abc.ABC):
         Returns:
             A response detailing the result of sending messages to the evaluation service
         """
+        if isinstance(message, dict):
+            message = json.dumps(message, indent=4)
         return await client.send(message)
