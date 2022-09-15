@@ -50,6 +50,12 @@ ARG NETCDF_CXX_VERSION=4.3.1
 ARG NETCDF_FORTRAN_VERSION=4.6.0
 ARG HD5_VERSION=1.10.9
 
+# Work around Fortran MPI issue
+ARG FCFLAGS="-w -fallow-argument-mismatch -O2"
+ARG FFLAGS="-w -fallow-argument-mismatch -O2"
+ARG MPICH_CONFIGURE_OPTIONS=""
+ARG MPICH_MAKE_OPTIONS
+
 ARG BUILD_PARALLEL_JOBS
 
 ARG NGEN_ACTIVATE_C="ON"
@@ -257,6 +263,25 @@ ARG MIN_PYTHON
 ARG MIN_NUMPY
 ARG ROCKY_NGEN_DEPS_REQUIRED
 
+ARG MPICH_CONFIGURE_OPTIONS
+ARG MPICH_MAKE_OPTIONS
+ARG HD5_VERSION
+ARG NETCDF_C_VERSION
+ARG NETCDF_CXX_VERSION
+ARG NETCDF_FORTRAN_VERSION
+
+ENV MPICH_CONFIGURE_OPTIONS=${MPICH_CONFIGURE_OPTIONS}
+ENV MPICH_MAKE_OPTIONS=${MPICH_MAKE_OPTIONS}
+ENV HD5_VERSION=${HD5_VERSION}
+ENV NETCDF_C_VERSION=${NETCDF_C_VERSION}
+ENV NETCDF_CXX_VERSION=${NETCDF_CXX_VERSION}
+ENV NETCDF_FORTRAN_VERSION=${NETCDF_FORTRAN_VERSION}
+
+COPY --from=download_mpich /tmp/mpich-${MPICH_VERSION}.tar.gz /tmp/ngen-deps/mpich-${MPICH_VERSION}.tar.gz
+COPY --from=download_hd5 /tmp/hdf5-${HD5_VERSION}.tar.gz /tmp/ngen-deps/hdf5-${HD5_VERSION}.tar.gz
+COPY --from=download_netcdf /tmp/netcdf-${NETCDF_C_VERSION}.tar.gz /tmp/ngen-deps/netcdf-${NETCDF_C_VERSION}.tar.gz
+COPY --from=download_netcdf_cxx /tmp/netcdf-cxx4-${NETCDF_CXX_VERSION}.tar.gz /tmp/ngen-deps/netcdf-cxx4-${NETCDF_CXX_VERSION}.tar.gz
+
 USER root
 
 ENV HYDRA_HOST_FILE=/etc/opt/hosts
@@ -265,9 +290,43 @@ ENV HYDRA_HOST_FILE=/etc/opt/hosts
 RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && touch ${HYDRA_HOST_FILE} \
     && chown ${USER}:${USER} ${HYDRA_HOST_FILE} \
-    # Install required dependency packages available as RPMs \
-    && dnf update -y \
-    && dnf install -y ${ROCKY_NGEN_DEPS_REQUIRED} \
+    ################### Build and install dependencies from source ################### \
+    ##### Prep temp build root directory \
+    && mkdir -p /tmp/ngen-deps \
+    ##### Build and install mpich \
+    && cd /tmp/ngen-deps \
+    && tar xfz mpich-${MPICH_VERSION}.tar.gz  \
+    && cd mpich-${MPICH_VERSION} \
+    && ./configure ${MPICH_CONFIGURE_OPTIONS} \
+    && make -j $(nproc) ${MPICH_MAKE_OPTIONS} && make install \
+    ##### Build and install HDF5 \
+    && cd /tmp/ngen-deps \
+    && tar -xzf hdf5-${HD5_VERSION}.tar.gz \
+    && cd hdf5-${HD5_VERSION} \
+    && ./configure --enable-parallel --prefix=/usr \
+    && make -j $(nproc) && make install \
+    ##### Build and install NetCDF C \
+    && cd /tmp/ngen-deps \
+    && mkdir netcdf \
+    && tar -xzf netcdf-${NETCDF_C_VERSION}.tar.gz -C netcdf --strip 1 \
+    && cd netcdf \
+    && LIBS=curl && ./configure --prefix=/usr \
+    && make -j $(nproc) && make install \
+    # TODO: if we run into any problem, might need to reactivate this \
+    #&& make check \
+    ##### Build and install NetCDF C++ \
+    && cd /tmp/ngen-deps \
+    && mkdir netcdf-cxx4 \
+    && tar -xzf netcdf-cxx4-${NETCDF_CXX_VERSION}.tar.gz -C netcdf-cxx4 --strip 1 \
+    && mkdir netcdf-cxx4/build \
+    && cd netcdf-cxx4/build \
+    && cmake .. \
+    && make \
+    # TODO: if we run into any problem, might need to reactivate this \
+    # && ctest \
+    && make install \
+    && export CXXFLAGS="-L /usr/lib: -lnetcdf_c++4 -lnetcdf \${CXX_FLAGS}" \
+    && echo "export CXXFLAGS=\"-L /usr/lib: -lnetcdf_c++4 -lnetcdf \${CXX_FLAGS}\"" >> /etc/profile \
     # Install required python dependency packages with Pip \
     && pip3 install numpy pandas pyyaml bmipy netCDF4 \
     # Make aliases for convenience \
