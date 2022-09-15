@@ -133,8 +133,116 @@ RUN curl -L -o boost_${BOOST_VERSION//./_}.tar.bz2 https://sourceforge.net/proje
 
 ################################################################################################################
 ################################################################################################################
+##### Create intermediate Docker build stage for downloading MPICH
+FROM rockylinux:8.5 AS download_mpich
+
+# Redeclaring inside this stage to get default from before first FROM
+ARG MPICH_VERSION
+
+RUN curl -o /tmp/mpich-${MPICH_VERSION}.tar.gz https://www.mpich.org/static/downloads/${MPICH_VERSION}/mpich-${MPICH_VERSION}.tar.gz
+
+
+################################################################################################################
+################################################################################################################
+##### Create intermediate Docker build stage for downloading MPICH
+FROM rockylinux:8.5 AS download_hd5
+
+# Redeclaring inside this stage to get default from before first FROM
+ARG HD5_VERSION
+
+RUN curl -o /tmp/hdf5-${HD5_VERSION}.tar.gz https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-${HD5_VERSION}/src/hdf5-${HD5_VERSION}.tar.gz
+
+################################################################################################################
+################################################################################################################
+##### Create intermediate Docker build stage for downloading netcdf
+FROM rocky-base AS download_netcdf
+
+# Redeclaring inside this stage to get default from before first FROM
+ARG NETCDF_C_VERSION
+
+RUN if [[ "${NETCDF_C_VERSION}" == "latest" ]]; then \
+            curl -s https://api.github.com/repos/Unidata/netcdf-c/releases/latest \
+                | grep "tarball_url" \
+                | cut -d '"' -f 4 \
+                | xargs curl -L -o /tmp/netcdf-${NETCDF_C_VERSION}.tar.gz ; \
+        else \
+            curl -s https://api.github.com/repos/Unidata/netcdf-c/releases \
+                | grep "tarball_url" \
+                | grep "${NETCDF_C_VERSION}" \
+                | cut -d '"' -f 4 \
+                | xargs curl -L -o /tmp/netcdf-${NETCDF_C_VERSION}.tar.gz ; \
+        #fi \
+        #&& mkdir /tmp/netcdf \
+        #&& tar -xzf /tmp/netcdf-${NETCDF_C_VERSION}.tar.gz -C /tmp/netcdf --strip 1 \
+        #&& rm /tmp/netcdf-${NETCDF_C_VERSION}.tar.gz
+        fi
+
+################################################################################################################
+################################################################################################################
+##### Create intermediate Docker build stage for downloading netcdf-fortran
+FROM rocky-base AS download_netcdf_fortran
+
+# Redeclaring inside this stage to get default from before first FROM
+ARG NETCDF_FORTRAN_VERSION
+
+RUN if [[ "${NETCDF_FORTRAN_VERSION}" == "latest" ]]; then \
+            curl -s https://api.github.com/repos/Unidata/netcdf-fortran/releases/latest \
+                | grep "tarball_url" \
+                | cut -d '"' -f 4 \
+                | xargs curl -L -o /tmp/netcdf-fortran-${NETCDF_FORTRAN_VERSION}.tar.gz ; \
+        else \
+            curl -s https://api.github.com/repos/Unidata/netcdf-fortran/releases \
+                | grep "tarball_url" \
+                | grep "${NETCDF_FORTRAN_VERSION}" \
+                | cut -d '"' -f 4 \
+                | xargs curl -L -o /tmp/netcdf-fortran-${NETCDF_FORTRAN_VERSION}.tar.gz ; \
+        #fi \
+        #&& mkdir /tmp/netcdf-fortran \
+        #&& tar -xzf /tmp/netcdf-fortran-${NETCDF_FORTRAN_VERSION}.tar.gz -C /tmp/netcdf-fortran --strip 1 \
+        #&& rm /tmp/netcdf-fortran-${NETCDF_FORTRAN_VERSION}.tar.gz
+        fi
+
+################################################################################################################
+################################################################################################################
+##### Create intermediate Docker build stage for downloading NetCDF C++
+FROM rocky-base AS download_netcdf_cxx
+
+# Redeclaring inside this stage to get default from before first FROM
+ARG NETCDF_CXX_VERSION
+
+RUN if [[ "${NETCDF_CXX_VERSION}" == "latest" ]]; then \
+            curl -s https://api.github.com/repos/Unidata/netcdf-cxx4/releases/latest \
+                | grep "tarball_url" \
+                | cut -d '"' -f 4 \
+                | xargs curl -L -o /tmp/netcdf-cxx4-${NETCDF_CXX_VERSION}.tar.gz ; \
+        else \
+            curl -s https://api.github.com/repos/Unidata/netcdf-cxx4/releases \
+                | grep "tarball_url" \
+                | grep "${NETCDF_CXX_VERSION}" \
+                | cut -d '"' -f 4 \
+                | xargs curl -L -o /tmp/netcdf-cxx4-${NETCDF_CXX_VERSION}.tar.gz ; \
+        #fi \
+        #&& mkdir /tmp/netcdf-cxx4 \
+        #&& tar -xzf /tmp/netcdf-cxx4-${NETCDF_CXX_VERSION}.tar.gz -C /tmp/netcdf-cxx4 --strip 1 \
+        #&& rm /tmp/netcdf-cxx4-${NETCDF_CXX_VERSION}.tar.gz
+        fi
+    # This URL might also work for the analogous version:
+    #   https://downloads.unidata.ucar.edu/netcdf-cxx/4.3.1/netcdf-cxx4-4.3.1.tar.gz
+################################################################################################################
+################################################################################################################
+##### Create intermediate Docker build stage for just prior to "ngen-deps" for installing RPM package deps
+FROM rocky-base as rocky-ngen-rpm-deps
+
+ARG ROCKY_NGEN_DEPS_REQUIRED
+
+USER root
+RUN dnf update -y && dnf install -y ${ROCKY_NGEN_DEPS_REQUIRED}
+USER ${USER}
+
+################################################################################################################
+################################################################################################################
 ##### Create intermediate Docker build stage for Rocky-Linux-based "ngen-deps"
-FROM rocky-base as rocky-ngen-deps
+FROM rocky-ngen-rpm-deps as rocky-ngen-deps
 
 ARG BOOST_VERSION
 ARG WORKDIR
