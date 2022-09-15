@@ -68,7 +68,15 @@ class RegisteredWebSocketInterface(WebSocketInterface, DynamicFunctionMixin, abc
                 self.register_event_handler(message_type, handler)
 
         # Run all recognized initialization functions
-        self._initialize(listen_host, port, ssl_dir, cert_pem, priv_key_pem, *args, **kwargs)
+        self._initialize(
+            listen_host=listen_host,
+            port=port,
+            ssl_dir=ssl_dir,
+            cert_pem=cert_pem,
+            priv_key_pem=priv_key_pem,
+            *args,
+            **kwargs
+        )
         self._assign_handlers()
 
     def _initialize(self, *args, **kwargs):
@@ -297,6 +305,10 @@ class RegisteredWebSocketInterface(WebSocketInterface, DynamicFunctionMixin, abc
                 # to a halt. Catch the error, inform the caller, and continue to attempt to handle messages
                 try:
                     data = json.loads(message)
+
+                    if data is None:
+                        continue
+
                     logging.info(f"Got payload: {data}")
                     request_message = await self.deserialize_message(message_data=data)
                     message_type = type(request_message)

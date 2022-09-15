@@ -1,4 +1,5 @@
-from . import MessageEventType, Response, WebSocketInterface
+from .message import MessageEventType, Response
+from .websocket_interface import WebSocketInterface
 from typing import Type
 
 

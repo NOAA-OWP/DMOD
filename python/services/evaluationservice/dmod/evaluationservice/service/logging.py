@@ -515,7 +515,7 @@ def log(message: MESSAGE, exception: Exception = None, logger_name: str = None, 
     """
     # If the message is an exception, format it so that it may be adequately printed
     if isinstance(message, Exception):
-        message = os.linesep.join(traceback.format_exception_only(type(message), message))
+        message = "".join(traceback.format_exception(type(message), message, tb=message.__traceback__))
 
     # Make sure the passed data can be correctly converted to a string via json
     message = make_message_serializable(message)
@@ -529,7 +529,13 @@ def log(message: MESSAGE, exception: Exception = None, logger_name: str = None, 
         exception_message = os.linesep
 
         if isinstance(exception, Exception):
-            exception_message += os.linesep.join(traceback.format_exception_only(type(exception), exception))
+            exception_message += os.linesep.join(
+                traceback.format_exception(
+                    type(exception),
+                    exception,
+                    tb=exception.__traceback__
+                )
+            )
         elif isinstance(exception, dict):
             exception_message += json.dumps(make_message_serializable(exception), indent=4)
         elif isinstance(exception, bytes):
