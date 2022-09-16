@@ -54,7 +54,7 @@ services:
     #  - base
 
   ngen-build-test:
-    image: ngen-build-test:latest
+    image: ${DOCKER_INTERNAL_REGISTRY:?}/ngen-build-test:${NGEN_VERSION:-latest}
     build:
       context: ./ngen
       target: rocky_ngen_build_testing
