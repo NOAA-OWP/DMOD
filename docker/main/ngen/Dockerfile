@@ -340,6 +340,7 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && rm boost_${BOOST_VERSION//./_}.tar.bz2
 
 ENV PATH=${PATH}:/usr/lib64/mpich/bin
+ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib:/usr/local/lib64
 
 USER ${USER}
 
@@ -367,7 +368,11 @@ FROM rocky-ngen-deps as rocky_ngen_build_testing
 
 COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/ngen
 ENV BOOST_ROOT=${WORKDIR}/boost
-WORKDIR ${WORKDIR}
+RUN cd ${WORKDIR}/ngen \
+    && echo "#!/bin/bash" > build_sub \
+    && echo "cmake -B \$1/cmake_build -DCMAKE_BUILD_TYPE=${NGEN_BUILD_CONFIG_TYPE} -S \$1 && cmake --build \$1/cmake_build" >> build_sub \
+    && chmod u+x build_sub
+WORKDIR ${WORKDIR}/ngen
 
 ################################################################################################################
 ################################################################################################################
@@ -419,6 +424,10 @@ RUN cd ${WORKDIR}/ngen \
             -DUDUNITS_ACTIVE:BOOL=${NGEN_UDUNITS_ACTIVE} \
             -DUDUNITS_QUIET:BOOL=${NGEN_UDUNITS_QUIET} \
             -DCMAKE_INSTALL_PREFIX=${WORKDIR} \
+            -DNETCDF_INCLUDE_DIR=/usr/include \
+            -DNETCDF_LIBRARY=/usr/lib/libnetcdf.so \
+            -DNETCDF_CXX_INCLUDE_DIR=/usr/local/include \
+            -DNETCDF_CXX_LIBRARY=/usr/local/lib64/libnetcdf-cxx4.so \
     && cmake --build cmake_build -j ${BUILD_PARALLEL_JOBS} \
     #Run the tests, if they fail, the image build fails \
     && cmake_build/test/test_unit \
