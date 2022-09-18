@@ -325,8 +325,6 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     # TODO: if we run into any problem, might need to reactivate this \
     # && ctest \
     && make install \
-    && export CXXFLAGS="-L /usr/lib: -lnetcdf_c++4 -lnetcdf \${CXX_FLAGS}" \
-    && echo "export CXXFLAGS=\"-L /usr/lib: -lnetcdf_c++4 -lnetcdf \${CXX_FLAGS}\"" >> /etc/profile \
     # Install required python dependency packages with Pip \
     && pip3 install numpy pandas pyyaml bmipy netCDF4 \
     # Make aliases for convenience \
@@ -359,6 +357,11 @@ RUN cd ${WORKDIR} \
     && git clone --single-branch --branch $BRANCH $REPO_URL \
     && cd ./ngen \
     && if [ "x$COMMIT" != "x" ]; then git checkout $COMMIT; fi \
+    && echo "#!/bin/bash" > build_sub \
+    && echo "cmake -B \$1/cmake_build -DCMAKE_BUILD_TYPE=${NGEN_BUILD_CONFIG_TYPE} -S \$1" >> build_sub \
+    && echo "cmake --build \$1/cmake_build" >> build_sub \
+    #&& echo "cd \$1/cmake_build && make install" >> build_sub \
+    && chmod u+x build_sub \
     && git submodule update --init test/googletest \
     && git submodule update --init
 
@@ -368,10 +371,6 @@ FROM rocky-ngen-deps as rocky_ngen_build_testing
 
 COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/ngen
 ENV BOOST_ROOT=${WORKDIR}/boost
-RUN cd ${WORKDIR}/ngen \
-    && echo "#!/bin/bash" > build_sub \
-    && echo "cmake -B \$1/cmake_build -DCMAKE_BUILD_TYPE=${NGEN_BUILD_CONFIG_TYPE} -S \$1 && cmake --build \$1/cmake_build" >> build_sub \
-    && chmod u+x build_sub
 WORKDIR ${WORKDIR}/ngen
 
 ################################################################################################################
@@ -402,9 +401,7 @@ COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/ngen
 ENV BOOST_ROOT=${WORKDIR}/boost
 
 RUN cd ${WORKDIR}/ngen \
-    && echo "#!/bin/bash" > build_sub \
-    && echo "cmake -B \$1/cmake_build -DCMAKE_BUILD_TYPE=${NGEN_BUILD_CONFIG_TYPE} -S \$1 && cmake --build \$1/cmake_build" >> build_sub \
-    && chmod u+x build_sub \
+    && sudo rm -rf /tmp/ngen-deps \
     && if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then pip3 install -r extern/test_bmi_py/requirements.txt; fi \
     &&  if [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ]; then \
                 ./build_sub extern/iso_c_fortran_bmi; \
