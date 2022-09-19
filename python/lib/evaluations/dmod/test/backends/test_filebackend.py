@@ -7,8 +7,11 @@ from ...evaluations import backends
 from ...evaluations.backends import file as file_backend
 from ...evaluations import specification
 
-TEST_DOCUMENT_PATH = os.path.join(os.path.dirname(__file__), "nexus_data.geojson")
-TEST_DOCUMENT_REGEX = os.path.join(os.path.dirname(__file__), ".+_data\.(geo)?json$")
+from ..common import get_resource_path
+from ..common import get_resource_directory
+
+TEST_DOCUMENT_PATH = str(get_resource_path("nexus_data.geojson"))
+TEST_DOCUMENT_REGEX = os.path.join(get_resource_directory(), ".+_data\.(geo)?json$")
 
 
 def is_geojson(data: typing.Union[str, bytes, typing.Dict[str, typing.Any]]) -> bool:
@@ -80,9 +83,9 @@ class TestFileBackend(unittest.TestCase):
                 self,
                 multi_backend,
                 [
-                    os.path.join(os.path.dirname(__file__), "nexus_data.geojson"),
-                    os.path.join(os.path.dirname(__file__), "catchment_data.geojson"),
-                    os.path.join(os.path.dirname(__file__), "flowpath_data.geojson")
+                    str(get_resource_path("nexus_data.geojson")),
+                    str(get_resource_path("catchment_data.geojson")),
+                    str(get_resource_path("flowpath_data.geojson"))
                 ]
         )
 
@@ -100,9 +103,9 @@ class TestFileBackend(unittest.TestCase):
                 self,
                 multi_backend,
                 [
-                    os.path.join(os.path.dirname(__file__), "nexus_data.geojson"),
-                    os.path.join(os.path.dirname(__file__), "catchment_data.geojson"),
-                    os.path.join(os.path.dirname(__file__), "flowpath_data.geojson")
+                    str(get_resource_path("nexus_data.geojson")),
+                    str(get_resource_path("catchment_data.geojson")),
+                    str(get_resource_path("flowpath_data.geojson"))
                 ]
         )
 

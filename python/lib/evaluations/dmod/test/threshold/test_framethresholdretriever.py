@@ -8,8 +8,12 @@ from ...evaluations.retrieval import Retriever
 from ...evaluations import threshold
 from ...evaluations.threshold import disk
 
-TEST_CSV_PATH = os.path.join(os.path.dirname(__file__), "thresholds.csv")
-TEST_RDB_PATH = os.path.join(os.path.dirname(__file__), "nwis_stat_thresholds.rdb")
+from ..common import get_resource_path
+
+#TEST_CSV_PATH = os.path.join(os.path.dirname(__file__), "thresholds.csv")
+#TEST_RDB_PATH = os.path.join(os.path.dirname(__file__), "nwis_stat_thresholds.rdb")
+TEST_CSV_PATH = str(get_resource_path("thresholds.csv"))
+TEST_RDB_PATH = str(get_resource_path("nwis_stat_thresholds.rdb"))
 
 
 class TestFrameRetrieving(unittest.TestCase):

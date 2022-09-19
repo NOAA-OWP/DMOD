@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import unittest
 
-from ..metrics import metric as metrics
+from ...metrics import metric as metrics
+from ...metrics.scoring import scale_value
 
-from ..metrics.scoring import scale_value
-from ..metrics.common import EPSILON
+from ...metrics.common import EPSILON
 
 
 class TestResultScaling(unittest.TestCase):

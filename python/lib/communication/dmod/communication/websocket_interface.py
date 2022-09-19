@@ -174,8 +174,8 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
             self.ssl_context.load_cert_chain(cert_pem, keyfile=priv_key_pem)
         else:
             logging.warning(
-                f"SSL is not enable for {self.__class__.__name__}; this service is insecure and not recommended "
-                f"for any use outside of development"
+                f"SSL is not enabled for {self.__class__.__name__}; this service is insecure and not recommended "
+                f"for any use outside of development or containers"
             )
 
         # print(hostname)

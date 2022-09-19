@@ -5,7 +5,9 @@ import unittest
 from ...evaluations import crosswalk
 from ...evaluations import specification
 
-TEST_DOCUMENT_PATH = os.path.join(os.path.dirname(__file__), "crosswalk.json")
+from ..common import get_resource_path
+
+TEST_DOCUMENT_PATH = str(get_resource_path("crosswalk.json"))
 
 
 class TestFileCrosswalk(unittest.TestCase):

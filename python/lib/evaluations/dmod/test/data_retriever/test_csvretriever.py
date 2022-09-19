@@ -12,8 +12,13 @@ from ...evaluations import data_retriever
 from ...evaluations.retrieval import Retriever
 from ...evaluations.data_retriever import disk
 
-TEST_FILE_PATH = os.path.join(os.path.dirname(__file__), "cat-\d\d.csv")
-TEST_OBSERVATION_PATH = os.path.join(os.path.dirname(__file__), "observations.csv")
+from ..common import get_resource_path
+from ..common import get_resource_directory
+
+#TEST_FILE_PATH = os.path.join(os.path.dirname(__file__), "cat-\d\d.csv")
+#TEST_OBSERVATION_PATH = os.path.join(os.path.dirname(__file__), "observations.csv")
+TEST_FILE_PATH = os.path.join(get_resource_directory(), "cat-\d\d.csv")
+TEST_OBSERVATION_PATH = str(get_resource_path("observations.csv"))
 
 
 class TestCSVRetrieving(unittest.TestCase):
