@@ -22,6 +22,9 @@ from dmod.communication import AbstractInitRequest, InvalidMessageResponse, Mess
     PartitionRequest, WebSocketSessionsInterface, SessionInitMessage, SchedulerClient, UnsupportedMessageTypeResponse
 from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage
 from dmod.externalrequests import AuthHandler, DatasetRequestHandler, ModelExecRequestHandler, PartitionRequestHandler
+from dmod.externalrequests import EvaluationRequestHandler
+
+from .alternate_service import EvaluationMessage
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -68,14 +71,17 @@ class RequestService(WebSocketSessionsInterface):
                  scheduler_port: Union[str, int] = 3013,
                  partitioner_host: str = 'partitioner-service',
                  data_service_host: str = 'data-service',
+                evaluation_service_host: str = 'evaluation-service',
                  partitioner_port: Union[str, int] = 3014,
                  data_service_port: Union[str, int] = 3015,
+                evaluation_service_port: Union[str, int] = 3016,
                  ssl_dir=None,
                  cert_pem=None,
                  priv_key_pem=None,
                  scheduler_ssl_dir=None,
                  partitioner_ssl_dir=None,
                  data_service_ssl_dir=None,
+                evaluation_service_ssl_dir=None,
                 **kwargs
     ):
         super().__init__(listen_host=listen_host, port=port, ssl_dir=ssl_dir, cert_pem=cert_pem,
@@ -92,6 +98,10 @@ class RequestService(WebSocketSessionsInterface):
         self.data_service_host = data_service_host
         self.data_service_port = int(data_service_port)
         self.data_service_ssl_dir = data_service_ssl_dir if data_service_ssl_dir is not None else self.ssl_dir
+
+        self.evaluation_service_host = evaluation_service_host
+        self.evaluation_service_port = int(evaluation_service_port)
+        self.evaluation_service_ssl_dir = evaluation_service_ssl_dir or self.ssl_dir
 
         # FIXME: implement real authenticator
         self.authenticator = DummyAuthUtil()
@@ -126,6 +136,12 @@ class RequestService(WebSocketSessionsInterface):
                                                            data_service_port=int(data_service_port),
                                                            data_service_ssl_dir=self.data_service_ssl_dir)
 
+        self._evaluation_service_handler = EvaluationRequestHandler(
+            service_host=evaluation_service_host,
+            service_port=evaluation_service_port,
+            ssl_directory=evaluation_service_ssl_dir
+        )
+
     @property
     def session_manager(self):
         return self._session_manager
@@ -143,7 +159,15 @@ class RequestService(WebSocketSessionsInterface):
                 req_message = await self.deserialized_message(message_data=data)
                 event_type = MessageEventType.INVALID if req_message is None else req_message.get_message_event_type()
 
-                if event_type == MessageEventType.INVALID:
+                if isinstance(req_message, EvaluationMessage):
+                    response = await self._evaluation_service_handler.handle_request(
+                        request=req_message,
+                        socket=websocket,
+                        path=path
+                    )
+                    logging.debug('************************* Handled request response: {}'.format(str(response)))
+                    await websocket.send(str(response))
+                elif event_type == MessageEventType.INVALID:
                     response = InvalidMessageResponse(data=req_message)
                     await websocket.send(str(response))
                 elif event_type == MessageEventType.SESSION_INIT:
@@ -160,7 +184,6 @@ class RequestService(WebSocketSessionsInterface):
                                                                                upstream_websocket=websocket)
                     await websocket.send(str(response))
                 elif event_type == MessageEventType.MODEL_EXEC_REQUEST:
-                    response = self._model_exec_request_handler.handle_request(request=req_message)
                     response = await self._model_exec_request_handler.handle_request(request=req_message)
                     logging.debug('************************* Handled request response: {}'.format(str(response)))
                     await websocket.send(str(response))
