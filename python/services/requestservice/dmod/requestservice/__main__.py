@@ -67,6 +67,19 @@ def _handle_args():
                         dest='partitioner_service_ssl_dir',
                         type=Path,
                         default=None)
+    parser.add_argument('--evaluation-service-host',
+                        help='Set the appropriate hostname for the evaluation service to connect with',
+                        dest='data_service_host',
+                        default='localhost')
+    parser.add_argument('--evaluation-service-port',
+                        help='Set the appropriate port value for the evaluation service to connect with',
+                        dest='data_service_port',
+                        default='3014')
+    parser.add_argument('--evaluation-service-ssl-dir',
+                        help='Set the ssl directory for evaluation service certs, '
+                             'if not the same as for the request handler',
+                        dest='data_service_ssl_dir',
+                        default=None)
     parser.add_argument('--pycharm-remote-debug',
                         help='Activate Pycharm remote debugging support',
                         dest='pycharm_debug',
@@ -147,6 +160,9 @@ def main():
                              partitioner_host=args.partitioner_service_host,
                              partitioner_port=args.partitioner_service_port,
                              partitioner_ssl_dir=args.partitioner_service_ssl_dir)
+                             scheduler_ssl_dir=Path(args.scheduler_ssl_dir),
+                             evaluation_service_host=args.evaluation_service_host,
+                             evaluation_service_port=args.evaluation_service_port)
     handler.run()
 
 
