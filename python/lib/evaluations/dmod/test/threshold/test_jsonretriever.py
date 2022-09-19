@@ -6,7 +6,9 @@ from ...evaluations import threshold
 from ...evaluations.threshold import disk
 from ...evaluations.retrieval import Retriever
 
-TEST_DOCUMENT_PATH = os.path.join(os.path.dirname(__file__), "thresholds.json")
+from ..common import get_resource_path
+
+TEST_DOCUMENT_PATH = str(get_resource_path("thresholds.json"))
 
 
 class TestJSONRetrieving(unittest.TestCase):

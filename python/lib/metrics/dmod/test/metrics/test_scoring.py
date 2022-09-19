@@ -5,9 +5,9 @@ import unittest
 
 import pandas
 
-from ..metrics.threshold import Threshold
-from ..metrics import scoring as scoring
-from ..metrics import metric as metrics
+from ...metrics.threshold import Threshold
+from ...metrics import scoring
+from ...metrics import metric as metrics
 
 TEST_DIRECTORY = os.path.dirname(__file__)
 

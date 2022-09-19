@@ -4,7 +4,7 @@ Unit tests to make sure that metric metadata can be read
 import unittest
 import math
 
-from ..metrics import metric as metrics
+from ...metrics import metric as metrics
 
 
 class TestMetadata(unittest.TestCase):

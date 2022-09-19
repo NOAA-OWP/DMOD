@@ -6,7 +6,9 @@ from ...evaluations import specification
 from ...evaluations import reader
 from ...evaluations import util
 
-TEST_DOCUMENT_PATH = os.path.join(os.path.dirname(__file__), "crosswalk.json")
+from ..common import get_resource_path
+
+TEST_DOCUMENT_PATH = str(get_resource_path("crosswalk.json"))
 
 
 class TestJSONReading(unittest.TestCase):

@@ -12,8 +12,11 @@ from ...evaluations.retrieval import Retriever
 from ...evaluations import data_retriever
 from ...evaluations.data_retriever import disk
 
-TEST_FILE_PATH = os.path.join(os.path.dirname(__file__), "cat-\d\d.json")
-TEST_RESPONSE_PATH = os.path.join(os.path.dirname(__file__), "observations.json")
+from ..common import get_resource_path
+from ..common import get_resource_directory
+
+TEST_FILE_PATH = str(os.path.join(get_resource_directory(), "cat-\d\d.json"))
+TEST_RESPONSE_PATH = str(get_resource_path("observations.json"))
 
 
 class TestJSONRetrieving(unittest.TestCase):

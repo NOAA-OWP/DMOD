@@ -223,7 +223,7 @@ class DuplexRequestHandler(DynamicFunctionMixin, BaseDuplexHandler, AbstractRequ
     """
     def __init__(
         self,
-        service_host: str,
+        service_host: str = 'localhost',
         service_port: int = None,
         ssl_directory: typing.Union[str, pathlib.Path] = None,
         websocket_protocol: str = None,
@@ -235,7 +235,7 @@ class DuplexRequestHandler(DynamicFunctionMixin, BaseDuplexHandler, AbstractRequ
         **kwargs
     ):
         self._default_required_access_type = None
-        self._service_host = service_host
+        self._service_host = service_host or 'localhost'
         self._service_port = service_port
         self._service_client = None
         self._path = kwargs.get("path", "/")
