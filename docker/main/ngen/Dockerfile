@@ -36,7 +36,7 @@ ARG ROCKY_BASE_REQUIRED="sudo openssh openssh-server bash git"
 #    bzip2 expat expat-devel flex bison udunits2 udunits2-devel"
 
 ARG ROCKY_NGEN_DEPS_REQUIRED="sudo gcc gcc-c++ make cmake tar git gcc-gfortran libgfortran \
-    python39 python39-devel python39-pip python39-numpy \
+    python39 python39-devel python39-pip \
     bzip2 expat expat-devel flex bison udunits2 udunits2-devel zlib-devel"
 # TODO: removed texinfo from list because it couldn't be found; make sure this doesn't lead to issues
 
@@ -236,19 +236,22 @@ RUN if [[ "${NETCDF_CXX_VERSION}" == "latest" ]]; then \
     #   https://downloads.unidata.ucar.edu/netcdf-cxx/4.3.1/netcdf-cxx4-4.3.1.tar.gz
 ################################################################################################################
 ################################################################################################################
-##### Create intermediate Docker build stage for just prior to "ngen-deps" for installing RPM package deps
-FROM rocky-base as rocky-ngen-rpm-deps
+##### Create intermediate Docker build stage for just prior to "ngen-deps" for installing packaged deps
+FROM rocky-base as rocky-ngen-packaged-deps
 
 ARG ROCKY_NGEN_DEPS_REQUIRED
 
+# Note that this includes numpy, which is needed for Python BMI support, regardless of BMI module 
 USER root
-RUN dnf update -y && dnf install -y ${ROCKY_NGEN_DEPS_REQUIRED}
+RUN dnf update -y && dnf install -y ${ROCKY_NGEN_DEPS_REQUIRED} \
+    && pip3 install --upgrade pip \
+    && if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then pip3 install numpy; fi
 USER ${USER}
 
 ################################################################################################################
 ################################################################################################################
 ##### Create intermediate Docker build stage for Rocky-Linux-based "ngen-deps"
-FROM rocky-ngen-rpm-deps as rocky-ngen-deps
+FROM rocky-ngen-packaged-deps as rocky-ngen-deps
 
 ARG BOOST_VERSION
 ARG WORKDIR
@@ -335,7 +338,8 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     # Also set up boost here, since we copied the download but only just installed bzip2 to work with it \
     && cd ${BOOST_ROOT} \
     && tar -xjf boost_${BOOST_VERSION//./_}.tar.bz2 \
-    && rm boost_${BOOST_VERSION//./_}.tar.bz2
+    && rm boost_${BOOST_VERSION//./_}.tar.bz2 \
+    && rm -rf /tmp/ngen-deps
 
 ENV PATH=${PATH}:/usr/lib64/mpich/bin
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib:/usr/local/lib64
@@ -401,7 +405,6 @@ COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/ngen
 ENV BOOST_ROOT=${WORKDIR}/boost
 
 RUN cd ${WORKDIR}/ngen \
-    && sudo rm -rf /tmp/ngen-deps \
     && if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then pip3 install -r extern/test_bmi_py/requirements.txt; fi \
     &&  if [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ]; then \
                 ./build_sub extern/iso_c_fortran_bmi; \
