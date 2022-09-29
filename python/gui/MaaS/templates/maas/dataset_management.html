@@ -16,6 +16,20 @@
             $("#" + model + "_parameters").show();
         }
 
+        /**
+         * Toggle what is displayed based on selection click in main nav bar for page.
+         *
+         * @param {string} selected_div_id - The id of the main-level div selected to be displayed.
+         */
+        function toggleNav(selected_div_id) {
+            const all_nav_divs = ["dataset-manage", "dataset-create"];
+            for (let i = 0; i <= all_nav_divs.length; i++) {
+                // TODO: consider a warning message for receiving an unexpected selection
+                let nav_div = document.getElementById(all_nav_divs[i]);
+                nav_div.style.display = (selected_div_id === all_nav_divs[i]) ? 'block' : 'none';
+            }
+        }
+
         /*
         {% for model, model_parameters in parameters.items %}
         {% for parameter in model_parameters %}
@@ -152,6 +166,14 @@
             font-size: 17px;
         }
 
+        #dataset-manage {
+            display: block;
+        }
+
+        #dataset-create {
+            display: none;
+        }
+
     </style>
 </head>
 <body>
@@ -196,8 +218,79 @@
     <div id="content">
         <h2>Dataset Management</h2>
         <div class="topnav">
-            <a class="active" href="#dataset-manage">Manage</a>
-            <a href="#dataset-create">Create</a>
+            <a class="active" href="javascript:void(0);" onclick="toggleNav('dataset-manage')">Manage</a>
+            <a href="javascript:void(0);" onclick="toggleNav('dataset-create')">Create</a>
+        </div>
+        <div id="dataset-manage">
+            <table class="datasets-table">
+                <thead>
+                    <tr>
+                        <th>Dataset</th>
+                        <th>Category</th>
+                        <th></th>
+                        <th></th>
+                        <!--
+                        <th>Type</th>
+                        <th>Data Format</th>
+                        <th>Created</th>
+                        <th>Last Updated</th>
+                        -->
+                    </tr>
+                </thead>
+                {% for dataset in datasets %}
+                <tr>
+                    <th>{{ dataset.name }}</th>
+                    <th>{{ dataset.data_category }}</th>
+                    <!-- TODO: add indicator for "is in use" -->
+                    <th><button id="{{ dataset.name }}-details-button" class="details-button">Details</button></th>
+                    <!-- TODO: add "upload data" button and modal display -->
+                    <!-- TODO: add "delete" button and modal display -->
+                    <!--
+                    <th>{{ dataset.type }}</th>
+                    <th>{{ dataset.data_domain.data_format }}</th>
+                    <th>{{ dataset.create_on }}</th>
+                    <th>{{ dataset.last_updated }}</th>
+                    -->
+                </tr>
+                {% endfor %}
+            </table>
+
+            {% for dataset in datasets %}
+            <div id="{{ dataset.name }}-details-modal" class="details-modal">
+
+                <!-- Modal content -->
+                <div class="details-modal-content">
+                    <span id="{{ dataset.name }}-details-modal-content-close" class="details-modal-content-close">&times;</span>
+                    <table class="datasets-details-table">
+                        <tr>
+                            <th class="details-col1">Name</th>
+                            <th class="details-col2">{{ dataset.name }}</th>
+                        </tr>
+                        <tr>
+                            <th class="details-col1">Category</th>
+                            <th class="details-col2">{{ dataset.data_category }}</th>
+                        </tr>
+                        <tr>
+                            <th class="details-col1">Type</th>
+                            <th class="details-col2">{{ dataset.type }}</th>
+                        </tr>
+                        <tr>
+                            <th class="details-col1">Format</th>
+                            <th class="details-col2">{{ dataset.data_format }}</th>
+                        </tr>
+                        <!-- TODO: add something for size -->
+                        <tr>
+                            <th class="details-col1">Created</th>
+                            <th class="details-col2">{{ dataset.create_on }}</th>
+                        </tr>
+                        <tr>
+                            <th class="details-col1">Last Updated</th>
+                            <th class="details-col2">{{ dataset.last_updated }}</th>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            {% endfor %}
         </div>
         <div id="dataset-create">
             <h3>Create New Dataset:</h3>
