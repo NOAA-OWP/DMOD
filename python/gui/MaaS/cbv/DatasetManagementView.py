@@ -82,12 +82,13 @@ class DatasetManagementView(View, DMODMixin):
 
         # Gather map of serialized datasets, keyed by dataset name
         serial_dataset_map = asyncio.get_event_loop().run_until_complete(self._get_datasets())
+        serial_dataset_list = [serial_dataset_map[d] for d in serial_dataset_map]
 
         dataset_categories = [c.name.title() for c in DataCategory]
         dataset_formats = [f.name for f in DataFormat]
 
         payload = {
-            'datasets': serial_dataset_map,
+            'datasets': serial_dataset_list,
             'dataset_categories': dataset_categories,
             'dataset_formats': dataset_formats,
             'errors': errors,
