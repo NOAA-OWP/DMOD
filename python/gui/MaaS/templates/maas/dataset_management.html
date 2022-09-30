@@ -369,12 +369,6 @@
                         <th>Actions</th>
                         <th></th>
                         <th></th>
-                        <!--
-                        <th>Type</th>
-                        <th>Data Format</th>
-                        <th>Created</th>
-                        <th>Last Updated</th>
-                        -->
                     </tr>
                 </thead>
                 {% for dataset in datasets %}
@@ -386,57 +380,9 @@
                     <th><button onclick="clickDownloadDataset('{{ dataset.name }}')">Download</button></th>
                     <th><button onclick="clickUploadDataset('{{ dataset.name }}')">Upload</button></th>
                     <th><button onclick="clickDeleteDataset('{{ dataset.name }}')">Delete</button></th>
-                    <!--
-                    <th><a href="javascript:void(0);" onclick="display_{{ dataset.name }}_details()">Details</a></th>
-                    -->
-                    <!-- TODO: add "upload data" button and modal display -->
-                    <!-- TODO: add "delete" button and modal display -->
-                    <!--
-                    <th>{{ dataset.type }}</th>
-                    <th>{{ dataset.data_domain.data_format }}</th>
-                    <th>{{ dataset.create_on }}</th>
-                    <th>{{ dataset.last_updated }}</th>
-                    -->
                 </tr>
                 {% endfor %}
             </table>
-
-            {% for dataset in datasets %}
-            <div id="{{ dataset.name }}-details-modal" class="details-modal">
-
-                <!-- Modal content -->
-                <div class="details-modal-content">
-                    <span id="{{ dataset.name }}-details-modal-content-close" class="details-modal-content-close">&times;</span>
-                    <table class="datasets-details-table">
-                        <tr>
-                            <th class="details-col1">Name</th>
-                            <th class="details-col2">{{ dataset.name }}</th>
-                        </tr>
-                        <tr>
-                            <th class="details-col1">Category</th>
-                            <th class="details-col2">{{ dataset.data_category }}</th>
-                        </tr>
-                        <tr>
-                            <th class="details-col1">Type</th>
-                            <th class="details-col2">{{ dataset.type }}</th>
-                        </tr>
-                        <tr>
-                            <th class="details-col1">Format</th>
-                            <th class="details-col2">{{ dataset.data_format }}</th>
-                        </tr>
-                        <!-- TODO: add something for size -->
-                        <tr>
-                            <th class="details-col1">Created</th>
-                            <th class="details-col2">{{ dataset.create_on }}</th>
-                        </tr>
-                        <tr>
-                            <th class="details-col1">Last Updated</th>
-                            <th class="details-col2">{{ dataset.last_updated }}</th>
-                        </tr>
-                    </table>
-                </div>
-            </div>
-            {% endfor %}
         </div>
         <div id="dataset-create">
             <h3>Create New Dataset:</h3>
