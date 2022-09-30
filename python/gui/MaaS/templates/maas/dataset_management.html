@@ -30,6 +30,125 @@
             }
         }
 
+        function buildDatasetDetailsEmptyDiv() {
+            let details_div = document.createElement('div');
+            details_div.id = 'details-div';
+            details_div.class = 'details-modal';
+            details_div.style.position = 'fixed';
+            details_div.style.zIndex = '1';
+            details_div.style.left = '25%';
+            details_div.style.top = '5%';
+            details_div.style.width = '50%';
+            details_div.style.height = '50%';
+            details_div.style.overflow = 'clip';
+            details_div.style.backgroundColor = '#B7B5B5FF';
+            details_div.style.border = '1px solid #888';
+            details_div.style.padding = '5px';
+            details_div.style.paddingTop = '0px';
+            details_div.style.margin = '15% auto';
+
+            let close_x = document.createElement('span');
+            close_x.style.padding = "0px";
+            close_x.style.cursor = "pointer";
+            close_x.style.fontWeight = "bold";
+            close_x.style.fontSize = "20px";
+            close_x.appendChild(document.createTextNode("\u00d7"));
+            close_x.onclick = function() { details_div.remove() };
+            details_div.appendChild(close_x);
+
+            let details_content_div = document.createElement('div');
+            details_content_div.style.height = '90%';
+            details_content_div.style.overflow = 'auto';
+
+            details_div.appendChild(details_content_div);
+
+            let parent_div = document.getElementById('dataset-manage');
+            parent_div.appendChild(details_div);
+            return details_content_div;
+        }
+
+        function buildDetailsTableRow() {
+            let row = document.createElement('tr');
+            // Skip the first arg, as this is the table itself
+            for (let i = 1; i < arguments.length; i++) {
+                let colCell = document.createElement('th');
+                if (i == 1) {
+                    colCell.style.textAlign = 'right';
+                    colCell.style.paddingRight = '8px';
+                    arguments[i] += ":";
+                }
+                else {
+                    colCell.style.textAlign = 'left';
+                    colCell.style.fontWeight = 'normal';
+                }
+                let cellText = document.createTextNode(arguments[i]);
+                colCell.appendChild(cellText);
+                row.appendChild(colCell);
+            }
+            arguments[0].appendChild(row);
+        }
+
+        function buildDatasetDetailsTable(dataset_name) {
+            {% for dataset in datasets %}
+                if (dataset_name == "{{ dataset.name }}") {
+                    //let cellText = document.createTextNode("testing text {{ dataset.name }} (type: {{ dataset.type }})");
+                    //return cellText;
+                    let table = document.createElement('table');
+                    table.class = 'datasets-details-table';
+                    buildDetailsTableRow(table, "Name", "{{ dataset.name }}")
+                    buildDetailsTableRow(table, "Category", "{{ dataset.data_category }}")
+                    buildDetailsTableRow(table, "Type", "{{ dataset.type }}")
+                    buildDetailsTableRow(table, "Format", "{{ dataset.data_domain.data_format }}")
+                    buildDetailsTableRow(table, "Read Only", "{{ dataset.is_read_only }}")
+                    buildDetailsTableRow(table, "Created", "{{ dataset.create_on }}")
+                    buildDetailsTableRow(table, "Last Updated", "{{ dataset.last_updated }}")
+
+                    // Put spacer row in to indicate the start of domain details
+                    let domain_header_row = document.createElement('tr');
+                    let colCell = document.createElement('th');
+                    colCell.colSpan = 2;
+                    colCell.style.textAlign = 'left';
+                    colCell.style.paddingTop = '20px';
+                    colCell.style.paddingLeft = '5%';
+                    colCell.style.fontStyle = 'italic';
+                    colCell.style.fontSize = '18px';
+                    colCell.appendChild(document.createTextNode("Data Domain"));
+                    domain_header_row.appendChild(colCell);
+                    table.appendChild(domain_header_row);
+
+                    // Then iteratively add domain details rows
+                    {% for cont_rest in dataset.data_domain.continuous %}
+                    buildDetailsTableRow(table, "{{ cont_rest.variable }}", "{{ cont_rest.begin }} to {{ cont_rest.end }}");
+                    {% endfor %}
+                    {% for disc_rest in dataset.data_domain.discrete %}
+                    buildDetailsTableRow(table, "{{ disc_rest.variable }}", "{{ disc_rest.values }}");
+                    {% endfor %}
+
+                    return table;
+                }
+            {% endfor %}
+        }
+
+        function displayDatasetDetails(name) {
+            let details_div = buildDatasetDetailsEmptyDiv();
+
+            let detailsTable = buildDatasetDetailsTable(name);
+            details_div.appendChild(detailsTable);
+            details_div.style.display = 'block';
+        }
+
+        function clickDownloadDataset(dataset_name) {
+            return false;
+        }
+
+        function clickUploadDataset(dataset_name) {
+            return false;
+        }
+
+        function clickDeleteDataset(dataset_name) {
+            return false;
+        }
+
         /*
         {% for model, model_parameters in parameters.items %}
         {% for parameter in model_parameters %}
@@ -170,6 +289,25 @@
             display: block;
         }
 
+        .datasets-table thead tr th {
+            padding-bottom: 5px;
+        }
+
+        .mgr-tbl-dataset-header {
+            text-align: left;
+        }
+
+        .mgr-tbl-category-header {
+            text-align: left;
+        }
+
+        .mgr-tbl-content th {
+            font-weight: normal;
+            text-align: left;
+            padding-right: 15px;
+            padding-bottom: 2px;
+        }
+
         #dataset-create {
             display: none;
         }
@@ -225,8 +363,10 @@
             <table class="datasets-table">
                 <thead>
                     <tr>
-                        <th>Dataset</th>
-                        <th>Category</th>
+                        <th class="mgr-tbl-dataset-header">Dataset Name</th>
+                        <th class="mgr-tbl-category-header">Category</th>
+                        <th></th>
+                        <th>Actions</th>
                         <th></th>
                         <th></th>
                         <!--
@@ -238,11 +378,17 @@
                     </tr>
                 </thead>
                 {% for dataset in datasets %}
-                <tr>
+                <tr class="mgr-tbl-content">
                     <th>{{ dataset.name }}</th>
                     <th>{{ dataset.data_category }}</th>
                     <!-- TODO: add indicator for "is in use" -->
-                    <th><button id="{{ dataset.name }}-details-button" class="details-button">Details</button></th>
+                    <th><a href="javascript:void(0);" onclick="displayDatasetDetails('{{ dataset.name }}')">Details</a></th>
+                    <th><button onclick="clickDownloadDataset('{{ dataset.name }}')">Download</button></th>
+                    <th><button onclick="clickUploadDataset('{{ dataset.name }}')">Upload</button></th>
+                    <th><button onclick="clickDeleteDataset('{{ dataset.name }}')">Delete</button></th>
+                    <!--
+                    <th><a href="javascript:void(0);" onclick="display_{{ dataset.name }}_details()">Details</a></th>
+                    -->
                     <!-- TODO: add "upload data" button and modal display -->
                     <!-- TODO: add "delete" button and modal display -->
                     <!--
