@@ -10,6 +10,10 @@ class DatasetApiView(AbstractDatasetView):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    def _delete_dataset(self, dataset_name: str) -> JsonResponse:
+        result = asyncio.get_event_loop().run_until_complete(self.dataset_client.delete_dataset(name=dataset_name))
+        return JsonResponse({"successful": result}, status=200)
+
     def _get_datasets_json(self) -> JsonResponse:
         serial_dataset_map = asyncio.get_event_loop().run_until_complete(self.get_datasets())
         return JsonResponse({"datasets": serial_dataset_map}, status=200)
@@ -24,6 +28,8 @@ class DatasetApiView(AbstractDatasetView):
             return self._get_datasets_json()
         elif request_type == 'dataset':
             return self._get_dataset_json(dataset_name=request.GET.get("name", None))
+        if request_type == 'delete':
+            return self._delete_dataset(dataset_name=request.GET.get("name", None))
 
         # TODO: finish
         return JsonResponse({}, status=400)
