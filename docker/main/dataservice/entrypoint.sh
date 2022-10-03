@@ -62,7 +62,7 @@ if [ -d ${UPDATED_PACKAGES_DIR:=/updated_packages} ]; then
         for srv in $(pip -qq freeze | grep dmod | awk -F= '{print $1}' | awk -F- '{print $2}'); do
             if [ $(ls ${UPDATED_PACKAGES_DIR} | grep dmod.${srv}- | wc -l) -eq 1 ]; then
                 pip uninstall -y --no-input $(pip -qq freeze | grep dmod.${srv} | awk -F= '{print $1}')
-                pip install $(ls ${UPDATED_PACKAGES_DIR}/*.whl | grep dmod.${srv}-)
+                pip install --no-deps $(ls ${UPDATED_PACKAGES_DIR}/*.whl | grep dmod.${srv}-)
             fi
         done
         #pip install ${UPDATED_PACKAGES_DIR}/*.whl
