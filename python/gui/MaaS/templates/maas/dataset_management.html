@@ -49,6 +49,7 @@
 
         function buildDatasetOverviewTableRow(serial_dataset) {
             let row = document.createElement('tr');
+            row.id = "datasets-overview-table-row-" + serial_dataset["name"];
             row.className = "mgr-tbl-content";
 
             let colCell = document.createElement('th');
@@ -303,7 +304,76 @@
         }
 
         function clickDeleteDataset(dataset_name) {
-            return false;
+            let parent_div = document.getElementById('dataset-manage')
+            let dialog_div = document.createElement('div');
+            parent_div.appendChild(dialog_div);
+            dialog_div.id = 'delete-dataset-dialog-div';
+            dialog_div.class = 'delete-dataset-modal';
+            dialog_div.style.position = 'fixed';
+            dialog_div.style.zIndex = '1';
+            dialog_div.style.left = '35%';
+            dialog_div.style.top = '5%';
+            dialog_div.style.width = '25%';
+            dialog_div.style.height = '25%';
+            dialog_div.style.overflow = 'clip';
+            dialog_div.style.backgroundColor = '#B7B5B5FF';
+            dialog_div.style.border = '1px solid #888';
+            dialog_div.style.padding = '15px';
+            //dialog_div.style.paddingTop = '0px';
+            dialog_div.style.margin = '15% auto';
+
+            let dialog_content_div = document.createElement('div');
+            dialog_content_div.style.height = '70%';
+            //dialog_content_div.style.overflow = 'fixed';
+            dialog_content_div.style.padding = '10px';
+            dialog_content_div.appendChild(document.createTextNode("This will permanently delete dataset: "));
+            dialog_content_div.appendChild(document.createElement('br'));
+            dialog_content_div.appendChild(document.createElement('br'));
+            let ds_name_text = document.createTextNode(dataset_name);
+            dialog_content_div.appendChild(ds_name_text);
+            dialog_content_div.appendChild(document.createElement('br'));
+            dialog_content_div.appendChild(document.createElement('br'));
+            dialog_content_div.appendChild(document.createTextNode("Proceed?"));
+            dialog_div.appendChild(dialog_content_div);
+
+            let dialog_buttons_div = document.createElement('div');
+            dialog_div.appendChild(dialog_buttons_div);
+            dialog_buttons_div.style.padding = '10px';
+            let cancel_button = document.createElement('button');
+            cancel_button.onclick = function() {dialog_div.remove(); };
+            cancel_button.textContent = "Cancel";
+            cancel_button.style.marginRight = '10px';
+            dialog_buttons_div.appendChild(cancel_button);
+
+            let confirm_button = document.createElement('button');
+            confirm_button.onclick = function() {
+                dialog_div.remove();
+                apiDeleteDataset(dataset_name);
+            };
+            confirm_button.textContent = "Confirm";
+            dialog_buttons_div.appendChild(confirm_button);
+        }
+
+        function apiDeleteDataset(dataset_name) {
+            $.ajax({
+                url: "/dataset-api",
+                type: 'get',
+                data: {"request_type": "delete", "name": dataset_name},
+                success: function(response) {
+                    if (response["successful"]) {
+                        // Remove the relevant row from the table
+                        let del_row = document.getElementById("datasets-overview-table-row-" + dataset_name);
+                        del_row.remove();
+                        return true;
+                    }
+                    alert('Failed to delete dataset ' + dataset_name);
+                    return false;
+                },
+                error: function(response) {
+                    alert('Failed to delete dataset ' + dataset_name);
+                    console.log(response);
+                }
+            });
         }
 
         /*
