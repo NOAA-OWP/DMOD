@@ -800,10 +800,8 @@ class ExternalRequestClient(ExternalClient, WebSocketClient, Generic[EXTERN_REQ_
 
     # TODO: this can probably be taken out, as the superclass implementation should suffice
     async def async_make_request(self, request: EXTERN_REQ_M) -> EXTERN_REQ_R:
-        async with websockets.connect(self.endpoint_uri, ssl=self.client_ssl_context) as websocket:
-            await websocket.send(request.to_json())
-            response = await websocket.recv()
-            return request.__class__.factory_init_correct_response_subtype(json_obj=json.loads(response))
+        response = await self.async_send(request.to_json(), await_response=True)
+        return request.__class__.factory_init_correct_response_subtype(json_obj=json.loads(response))
 
     @property
     def errors(self):
