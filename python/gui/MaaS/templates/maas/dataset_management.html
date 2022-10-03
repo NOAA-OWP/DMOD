@@ -17,6 +17,143 @@
         }
 
         /**
+         * Build ``thead`` for the management overview table summarizing datasets.
+         */
+        function buildDatasetsOverviewTableHeader() {
+            // Build the table header row
+            let thead = document.createElement('thead');
+            let header = document.createElement('tr');
+            thead.appendChild(header);
+
+            let colCell = document.createElement('th');
+            colCell.className = "mgr-tbl-dataset-header";
+            colCell.appendChild(document.createTextNode('Dataset Name'));
+            header.appendChild(colCell);
+
+            colCell = document.createElement('th');
+            colCell.className = "mgr-tbl-category-header";
+            colCell.appendChild(document.createTextNode('Category'));
+            header.appendChild(colCell);
+
+            header.appendChild(document.createElement('th'));
+
+            colCell = document.createElement('th');
+            colCell.appendChild(document.createTextNode('Actions'));
+            header.appendChild(colCell);
+
+            header.appendChild(document.createElement('th'));
+            header.appendChild(document.createElement('th'));
+
+            return thead;
+        }
+
+        function buildDatasetOverviewTableRow(serial_dataset) {
+            let row = document.createElement('tr');
+            row.className = "mgr-tbl-content";
+
+            let colCell = document.createElement('th');
+            colCell.appendChild(document.createTextNode(serial_dataset['name']));
+            row.appendChild(colCell);
+
+            colCell = document.createElement('th');
+            colCell.appendChild(document.createTextNode(serial_dataset['data_category']));
+            row.appendChild(colCell);
+
+            let helper_create_links = function create_links_func (is_a, text, ds_name, on_click) {
+                let cell = document.createElement('th');
+                let content;
+                if (is_a) {
+                    content = document.createElement('a')
+                    content.href = "javascript:void(0);";
+                }
+                else {
+                    content = document.createElement('button');
+                }
+                content.onclick = function() { on_click(ds_name); };
+                content.appendChild(document.createTextNode(text));
+                cell.appendChild(content);
+                row.appendChild(cell);
+            }
+
+            helper_create_links(true, "Details", serial_dataset['name'], displayDatasetDetails);
+            helper_create_links(true, "Download", serial_dataset['name'], clickDownloadDataset);
+            helper_create_links(true, "Upload Files", serial_dataset['name'], clickUploadDataset);
+            helper_create_links(true, "Delete", serial_dataset['name'], clickDeleteDataset);
+
+            return row;
+        }
+
+        function buildDatasetsOverviewTable() {
+            let table_id = 'dataset-manage-overview-table';
+            let parent_div = document.getElementById('dataset-manage');
+
+            // First find and remove any existing table, in case we are refreshing
+            let table = document.getElementById(table_id);
+            if (table != null) {
+                table.remove();
+            }
+
+            table = document.createElement('table');
+            parent_div.appendChild(table);
+            table.id = table_id;
+            table.className = 'datasets-table';
+
+            table.appendChild(buildDatasetsOverviewTableHeader());
+
+            $.ajax({
+                url: "/dataset-api",
+                type: 'get',
+                data: {"request_type": "datasets"},
+                success: function(response) {
+                    for (const ds_name in response["datasets"]) {
+                        table.appendChild(buildDatasetOverviewTableRow(response["datasets"][ds_name]));
+                    }
+                },
+                error: function(response) {
+                    alert('Received an error');
+                    console.log(response);
+                }
+            });
+        }
+
+        function initDatasetCreateForm() {
+            let category_select = document.getElementById("create-dataset-category");
+            category_select.selectedIndex = -1;
+            let format_select = document.getElementById("create-dataset-format");
+            format_select.selectedIndex = -1;
+        }
+
+        function initGuiViews() {
+            buildDatasetsOverviewTable();
+            initDatasetCreateForm();
+        }
+
+        function changeCreateDatasetFormatSelection(selection) {
+            let dy_div = document.getElementById("dataset-create-form-dynamic-vars-div");
+            for (let i = 0; i < dy_div.children.length; i++) {
+                dy_div.children[i].remove();
+            }
+            let addUploadSelection = false;
+            if (selection === "NETCDF_FORCING_CANONICAL") {
+                addUploadSelection = true;
+            }
+
+            if (addUploadSelection) {
+                let upload_select_label = document.createElement('label');
+                upload_select_label.appendChild(document.createTextNode('Data Files:'));
+                dy_div.appendChild(upload_select_label);
+                upload_select_label.htmlFor = 'create-dataset-upload';
+                let upload_select = document.createElement('input');
+                upload_select.type = 'file';
+                upload_select.name = 'create-dataset-upload';
+                upload_select.id = 'create-dataset-upload';
+                upload_select.style.float = 'right';
+                upload_select.style.textAlign = 'right';
+                dy_div.appendChild(upload_select);
+            }
+        }
+
+        /**
          * Toggle what is displayed based on selection click in main nav bar for page.
          *
          * @param {string} selected_div_id - The id of the main-level div selected to be displayed.
@@ -70,9 +207,12 @@
         function buildDetailsTableRow() {
             let row = document.createElement('tr');
             // Skip the first arg, as this is the table itself
+            let colCell;
+            let cellText;
             for (let i = 1; i < arguments.length; i++) {
-                let colCell = document.createElement('th');
+                colCell = document.createElement('th');
                 if (i == 1) {
+                    colCell.style.verticalAlign = 'top';
                     colCell.style.textAlign = 'right';
                     colCell.style.paddingRight = '8px';
                     arguments[i] += ":";
@@ -81,52 +221,69 @@
                     colCell.style.textAlign = 'left';
                     colCell.style.fontWeight = 'normal';
                 }
-                let cellText = document.createTextNode(arguments[i]);
+                cellText = document.createTextNode(arguments[i]);
                 colCell.appendChild(cellText);
                 row.appendChild(colCell);
             }
             arguments[0].appendChild(row);
         }
 
+        function ajaxBuildDatasetDetailsTable(dataset_json, table) {
+            buildDetailsTableRow(table, "Name", dataset_json["name"]);
+            buildDetailsTableRow(table, "Category", dataset_json["data_category"])
+            buildDetailsTableRow(table, "Type", dataset_json["type"]);
+            buildDetailsTableRow(table, "Format", dataset_json["data_domain"]["data_format"]);
+            buildDetailsTableRow(table, "Read Only", dataset_json["is_read_only"]);
+            buildDetailsTableRow(table, "Created", dataset_json["create_on"]);
+            buildDetailsTableRow(table, "Last Updated", dataset_json["last_updated"]);
+
+            // TODO: add something for dataset size
+            // TODO: add something for number of files.
+            // TODO: add something for indicating if data aligns properly with configured domain
+
+            // Put spacer row in to indicate the start of domain details
+            let domain_header_row = document.createElement('tr');
+            let colCell = document.createElement('th');
+            colCell.colSpan = 2;
+            colCell.style.textAlign = 'left';
+            colCell.style.paddingTop = '20px';
+            colCell.style.paddingLeft = '5%';
+            colCell.style.fontStyle = 'italic';
+            colCell.style.fontSize = '18px';
+            colCell.appendChild(document.createTextNode("Data Domain"));
+            domain_header_row.appendChild(colCell);
+            table.appendChild(domain_header_row);
+
+            // Then iteratively add domain details rows
+            let c_restrict;
+            for (let c_i = 0; c_i < dataset_json["data_domain"]["continuous"].length; c_i++) {
+                c_restrict = dataset_json["data_domain"]["continuous"][c_i];
+                buildDetailsTableRow(table, c_restrict["variable"], c_restrict["begin"] + " to " + c_restrict["end"]);
+            }
+            let d_restrict;
+            for (let d_i = 0; d_i < dataset_json["data_domain"]["discrete"].length; d_i++) {
+                d_restrict = dataset_json["data_domain"]["discrete"][d_i];
+                buildDetailsTableRow(table, d_restrict["variable"], d_restrict["values"]);
+            }
+        }
+
         function buildDatasetDetailsTable(dataset_name) {
-            {% for dataset in datasets %}
-                if (dataset_name == "{{ dataset.name }}") {
-                    //let cellText = document.createTextNode("testing text {{ dataset.name }} (type: {{ dataset.type }})");
-                    //return cellText;
-                    let table = document.createElement('table');
-                    table.class = 'datasets-details-table';
-                    buildDetailsTableRow(table, "Name", "{{ dataset.name }}")
-                    buildDetailsTableRow(table, "Category", "{{ dataset.data_category }}")
-                    buildDetailsTableRow(table, "Type", "{{ dataset.type }}")
-                    buildDetailsTableRow(table, "Format", "{{ dataset.data_domain.data_format }}")
-                    buildDetailsTableRow(table, "Read Only", "{{ dataset.is_read_only }}")
-                    buildDetailsTableRow(table, "Created", "{{ dataset.create_on }}")
-                    buildDetailsTableRow(table, "Last Updated", "{{ dataset.last_updated }}")
+            let table = document.createElement('table');
+            table.class = 'datasets-details-table';
 
-                    // Put spacer row in to indicate the start of domain details
-                    let domain_header_row = document.createElement('tr');
-                    let colCell = document.createElement('th');
-                    colCell.colSpan = 2;
-                    colCell.style.textAlign = 'left';
-                    colCell.style.paddingTop = '20px';
-                    colCell.style.paddingLeft = '5%';
-                    colCell.style.fontStyle = 'italic';
-                    colCell.style.fontSize = '18px';
-                    colCell.appendChild(document.createTextNode("Data Domain"));
-                    domain_header_row.appendChild(colCell);
-                    table.appendChild(domain_header_row);
-
-                    // Then iteratively add domain details rows
-                    {% for cont_rest in dataset.data_domain.continuous %}
-                    buildDetailsTableRow(table, "{{ cont_rest.variable }}", "{{ cont_rest.begin }} to {{ cont_rest.end }}");
-                    {% endfor %}
-                    {% for disc_rest in dataset.data_domain.discrete %}
-                    buildDetailsTableRow(table, "{{ disc_rest.variable }}", "{{ disc_rest.values }}");
-                    {% endfor %}
-
-                    return table;
+            $.ajax({
+                url: "/dataset-api",
+                type: 'get',
+                data: {"request_type": "dataset", "name": dataset_name},
+                success: function(response) {
+                    ajaxBuildDatasetDetailsTable(response["dataset"], table);
+                },
+                error: function(response) {
+                    alert('Received an error getting serialized ' + dataset_name + ' dataset');
+                    console.log(response);
                 }
-            {% endfor %}
+            });
+            return table;
         }
 
         function displayDatasetDetails(name) {
@@ -260,9 +417,14 @@
             background-color: palegreen;
         }
 
-        #standard-vars {
+        #dataset-create-form-universal-vars-div {
             line-height: 25px;
-            max-width: 300px;
+            max-width: 350px;
+        }
+
+        #dataset-create-form-dynamic-vars-div {
+            line-height: 25px;
+            max-width: 350px;
         }
 
         .disabled {
@@ -314,7 +476,7 @@
 
     </style>
 </head>
-<body>
+<body onload="initGuiViews()">
 <div id="container">
     <div id="header">
         <div id="branding">
@@ -360,43 +522,22 @@
             <a href="javascript:void(0);" onclick="toggleNav('dataset-create')">Create</a>
         </div>
         <div id="dataset-manage">
-            <table class="datasets-table">
-                <thead>
-                    <tr>
-                        <th class="mgr-tbl-dataset-header">Dataset Name</th>
-                        <th class="mgr-tbl-category-header">Category</th>
-                        <th></th>
-                        <th>Actions</th>
-                        <th></th>
-                        <th></th>
-                    </tr>
-                </thead>
-                {% for dataset in datasets %}
-                <tr class="mgr-tbl-content">
-                    <th>{{ dataset.name }}</th>
-                    <th>{{ dataset.data_category }}</th>
-                    <!-- TODO: add indicator for "is in use" -->
-                    <th><a href="javascript:void(0);" onclick="displayDatasetDetails('{{ dataset.name }}')">Details</a></th>
-                    <th><button onclick="clickDownloadDataset('{{ dataset.name }}')">Download</button></th>
-                    <th><button onclick="clickUploadDataset('{{ dataset.name }}')">Upload</button></th>
-                    <th><button onclick="clickDeleteDataset('{{ dataset.name }}')">Delete</button></th>
-                </tr>
-                {% endfor %}
-            </table>
         </div>
         <div id="dataset-create">
             <h3>Create New Dataset:</h3>
             <form action="." method="post" id="create-dataset-form">
                 {# Add the token to provide cross site request forgery protection #}
                 {% csrf_token %}
-                <div id="standard-vars">
-                    <label for="dataset-name">Dataset Name:</label>
-                    <input name="dataset-name" id="dataset-name" type="text" style="float: right; text-align: right;" >
+                <div id="dataset-create-form-universal-vars-div">
+                    <label for="create-dataset-name">Dataset Name:</label>
+                    <input name="create-dataset-name" id="create-dataset-name" type="text" style="float: right; text-align: right;" >
                     <br>
 
-                    <label for="dataset-category">Data Category:</label>
+                    <label for="create-dataset-category">Data Category:</label>
+                    <!-- TODO: eventually (much later) support selecting the dataset type (e.g., object store) -->
                     <!-- TODO: adjust and rename function onchange -->
-                    <select name="dataset-category" id="dataset-category" style="float: right; text-align: right" onchange="activate_model(this.value)">
+                    <!-- TODO: modify form for domain needs for different selections -->
+                    <select name="create-dataset-category" id="create-dataset-category" style="float: right; text-align: right">
                         {% for category in dataset_categories %}
                         <option value="{{ category }}">{{ category }}</option>
                         {% endfor %}
@@ -404,8 +545,8 @@
                     <br>
 
                     <!-- TODO: adjust and rename function onchange -->
-                    <label for="dataset-format">Data Format:</label>
-                    <select name="dataset-format" id="dataset-format" style="float: right; text-align: right" onchange="activate_model(this.value)">
+                    <label for="create-dataset-format">Data Format:</label>
+                    <select name="create-dataset-format" id="create-dataset-format" style="float: right; text-align: right" onchange="changeCreateDatasetFormatSelection(this.value)">
                         {% for format in dataset_formats %}
                         <option value="{{ format }}">{{ format }}</option>
                         {% endfor %}
@@ -433,6 +574,8 @@
                     -->
                 </div>
                 <br>
+                <div id="dataset-create-form-dynamic-vars-div">
+                </div>
                 <!--
                 {% for model, model_parameters in parameters.items %}
                 <p>{{ parameter_list }}</p>
