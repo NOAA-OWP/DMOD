@@ -684,7 +684,7 @@ class ServiceManager(WebSocketInterface):
             dataset_name = message.dataset_name
             list_of_files = self.get_known_datasets()[dataset_name].manager.list_files(dataset_name)
             return DatasetManagementResponse(action=message.management_action, success=True, dataset_name=dataset_name,
-                                             reason='Obtained {} Items List',
+                                             reason='Obtained {} Items List'.format(dataset_name),
                                              data={DatasetManagementResponse._DATA_KEY_QUERY_RESULTS: list_of_files})
         elif query_type == QueryType.GET_SERIALIZED_FORM:
             dataset_name = message.dataset_name
