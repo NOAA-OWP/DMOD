@@ -686,7 +686,13 @@ class ServiceManager(WebSocketInterface):
             return DatasetManagementResponse(action=message.management_action, success=True, dataset_name=dataset_name,
                                              reason='Obtained {} Items List',
                                              data={DatasetManagementResponse._DATA_KEY_QUERY_RESULTS: list_of_files})
-            # TODO: (later) add support for messages with other query types also
+        elif query_type == QueryType.GET_SERIALIZED_FORM:
+            dataset_name = message.dataset_name
+            serialized_form = self.get_known_datasets()[dataset_name].to_dict()
+            return DatasetManagementResponse(action=message.management_action, success=True, dataset_name=dataset_name,
+                                             reason='Obtained serialized {} dataset'.format(dataset_name),
+                                             data={DatasetManagementResponse._DATA_KEY_QUERY_RESULTS: serialized_form})
+        # TODO: (later) add support for messages with other query types also
         else:
             reason = 'Unsupported {} Query Type - {}'.format(DatasetQuery.__class__.__name__, query_type.name)
             return DatasetManagementResponse(action=message.management_action, success=False, reason=reason)
