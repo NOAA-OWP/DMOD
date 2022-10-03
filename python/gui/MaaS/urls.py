@@ -1,6 +1,7 @@
 from django.conf.urls import url
 from .cbv.EditView import EditView
 from .cbv.DatasetManagementView import DatasetManagementView
+from .cbv.DatasetApiView import DatasetApiView
 from .cbv.MapView import MapView, Fabrics, FabricNames, FabricTypes, ConnectedFeatures
 
 from .cbv.configuration import CreateConfiguration
@@ -14,6 +15,7 @@ urlpatterns = [
     # TODO: add this later
     #url(r'ngen$', NgenWorkflowView.as_view(), name="ngen-workflow"),
     url(r'datasets', DatasetManagementView.as_view(), name="dataset-management"),
+    url(r'dataset-api', DatasetApiView.as_view(), name="dataset-api"),
     url(r'map$', MapView.as_view(), name="map"),
     url(r'map/connections$', ConnectedFeatures.as_view(), name="connections"),
     url(r'fabric/names$', FabricNames.as_view(), name='fabric-names'),
