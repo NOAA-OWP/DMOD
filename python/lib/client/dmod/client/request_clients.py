@@ -643,18 +643,24 @@ class DatasetExternalClient(DatasetClient,
         if dataset_name is None:
             datasets = await self.list_datasets()
         else:
+            # TODO: improve how this is use so that it can be safely, efficiently put everywhere it **may** be needed
+            await self._async_acquire_session_info()
             datasets = [dataset_name]
         serialized = dict()
         action = ManagementAction.QUERY
         query = DatasetQuery(query_type=QueryType.GET_SERIALIZED_FORM)
-        for d in datasets:
-            request = MaaSDatasetManagementMessage(action=action, query=query, dataset_name=d,
-                                                   session_secret=self.session_secret)
-            self.last_response: DatasetManagementResponse = await self.async_make_request(request)
-            if self.last_response.success:
-                serialized[d] = self.last_response.data['dataset']
-            # TODO: what to do if any are not successful
-        return serialized
+        try:
+            for d in datasets:
+                request = MaaSDatasetManagementMessage(action=action, query=query, dataset_name=d,
+                                                       session_secret=self.session_secret)
+                self.last_response: DatasetManagementResponse = await self.async_make_request(request)
+                if self.last_response.success:
+                    serialized[d] = self.last_response.data[DatasetManagementResponse._DATA_KEY_QUERY_RESULTS]
+                # TODO: what to do if any are not successful
+            return serialized
+        except Exception as e:
+            logger.error(e)
+            raise e
 
     async def list_datasets(self, category: Optional[DataCategory] = None) -> List[str]:
         await self._async_acquire_session_info()
