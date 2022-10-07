@@ -1,25 +1,25 @@
-import abc
+"""
+Provides a handler that will send a message to the target service
+"""
 import typing
 import json
 
-from websockets import WebSocketClientProtocol
-from websockets import WebSocketServerProtocol
+from websockets import WebSocketCommonProtocol
 
 from dmod.core import decorators
 
-from .handler import MessageHandlerMixin
 
+class RepeatMixin:
+    """
+    Mixin that adds a function to send a message from the source to the target
+    """
 
-class RepeatMixin(MessageHandlerMixin, abc.ABC):
-    """
-    Mixin for ConsumerProducers that listen to a server connection and forward the message to 
-    """
-    @decorators.server_message_handler
     async def repeat(
         self,
-        message: typing.Union[str, bytes],
-        websocket: WebSocketServerProtocol = None,
-        client: WebSocketClientProtocol = None,
+        message: typing.Union[str, bytes, dict],
+        source: WebSocketCommonProtocol,
+        target: WebSocketCommonProtocol,
+        path: str,
         *args,
         **kwargs
     ) -> None:
@@ -28,13 +28,14 @@ class RepeatMixin(MessageHandlerMixin, abc.ABC):
 
         Args:
             message: A message sent through the server
-            websocket: The websocket that provided the initial request
-            client: The connection to forward the received message through
-            path: The path to the socket on the server
+            source: The websocket connection that produced the message
+            target: The websocket connection that should receive the message
+            path: The path to the source socket on the server
 
         Returns:
             A response detailing the result of sending messages to the evaluation service
         """
         if isinstance(message, dict):
             message = json.dumps(message, indent=4)
-        return await client.send(message)
+        await target.send(message)
+        return None

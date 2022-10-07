@@ -22,12 +22,11 @@ from ..message import ErrorResponse
 from ..message import MessageEventType
 from ..unsupported_message import UnsupportedMessageTypeResponse
 
-from .dynamic_function import DynamicFunctionMixin
 from .exceptions import RegistrationError
 from .aliases import *
 
 
-class RegisteredWebSocketInterface(WebSocketInterface, DynamicFunctionMixin, abc.ABC):
+class RegisteredWebSocketInterface(WebSocketInterface, abc.ABC):
     """
     A websocket interface implementation that routes logic through registered initializers, consumers, and producers
 
@@ -59,6 +58,7 @@ class RegisteredWebSocketInterface(WebSocketInterface, DynamicFunctionMixin, abc
             *args,
             **kwargs
         )
+        print(f"Launching {self.__class__.__name__}, listening to {listen_host}:{str(port)}...")
 
         self._event_handlers: typing.Dict[typing.Type[AbstractInitRequest], AbstractRequestHandler] = dict()
         """A mapping between a type of message and the function that is supposed to consume it"""
@@ -97,11 +97,16 @@ class RegisteredWebSocketInterface(WebSocketInterface, DynamicFunctionMixin, abc
             All member functions that need to be called at the end of the abstract class construction
         """
 
-        initialization_functions = self._get_dynamic_functions(decorators.INITIALIZER_ATTRIBUTE)
+        initialization_functions = decorators.find_functions_by_decorator(
+            self,
+            decorators.initializer
+        )
+
         initializers: typing.List[VARIABLE_CALLABLE] = list()
 
-        for initializer_name, initializer in initialization_functions.items():
+        for initializer in initialization_functions:
             if inspect.iscoroutinefunction(initializer):
+                initializer_name = getattr(initializer, "__name__", str(initializer))
                 raise RegistrationError(
                     f"{initializer_name} cannot be called for initialization; "
                     f"only synchronous functions are allowed here."
@@ -117,14 +122,15 @@ class RegisteredWebSocketInterface(WebSocketInterface, DynamicFunctionMixin, abc
         Returns:
             A dictionary of additional arguments that should be sent to handlers
         """
-        additional_parameter_functions: typing.Dict[str, ADDITIONAL_PARAMETER_PROVIDER] = self._get_dynamic_functions(
-            decorators.ADDITIONAL_PARAMETER_ATTRIBUTE
+        additional_parameter_functions = decorators.find_functions_by_decorator(
+            self,
+            decorators.additional_parameter
         )
 
         additional_parameters: typing.Dict[str, typing.Any] = dict()
 
         # Gather all parameters from identified functions
-        for provider_name, function in additional_parameter_functions.items():
+        for function in additional_parameter_functions:
             # If the calling function returned an awaitable, go ahead and wait on it
             if inspect.iscoroutinefunction(function):
                 generated_parameters = await function(self, socket)
@@ -141,6 +147,7 @@ class RegisteredWebSocketInterface(WebSocketInterface, DynamicFunctionMixin, abc
                     and len(generated_parameters) >= 2:
                 generated_parameters = {str(generated_parameters[0]): generated_parameters[1]}
             elif not isinstance(generated_parameters, typing.Mapping):
+                provider_name = getattr(function, "__name__", str(function))
                 raise ValueError(
                     f"[{self.__class__.__name__}] The '{provider_name}' function did not return a dictionary or "
                     f"key value pair; generated parameters may not be used for additional parameters for handled events"
@@ -211,7 +218,11 @@ class RegisteredWebSocketInterface(WebSocketInterface, DynamicFunctionMixin, abc
         Assign request handlers to their respective events
         """
         # Get every function that has been flagged as producing a handler
-        handlers = self._get_dynamic_functions(decorators.SOCKET_HANDLER_ATTRIBUTE, decorators.MESSAGE_TYPE_ATTRIBUTE)
+        handlers = decorators.find_functions_by_attributes(
+            self,
+            decorator_name=decorators.SOCKET_HANDLER_ATTRIBUTE,
+            required_attributes=decorators.MESSAGE_TYPE_ATTRIBUTE
+        )
 
         for handler_name, handler_generator in handlers.items():
             # Found functions must be asynchronous in order to operate on the required websockets
@@ -300,15 +311,28 @@ class RegisteredWebSocketInterface(WebSocketInterface, DynamicFunctionMixin, abc
         # Wrap the listening in a try block to correctly handle those situations
         try:
             await websocket.send("Connected to service")
+
+            # TODO: Should this be wrapped in a function so that it can easily recover if it doesn't exit via a closed connection?
             async for message in websocket:
                 # A bad handle for a request is not necessarily a situation where everything should come screeching
                 # to a halt. Catch the error, inform the caller, and continue to attempt to handle messages
                 try:
                     data = json.loads(message)
+                except json.decoder.JSONDecodeError as decoder_error:
+                    error_message = "Could not deserialize message: "
 
-                    if data is None:
-                        continue
+                    if len(message) < 400:
+                        error_message += f"'{str(message)}'"
+                    else:
+                        error_message += f"'{str(message[:400])}...'"
 
+                    logging.error(error_message)
+                    continue
+
+                if not data:
+                    continue
+
+                try:
                     logging.info(f"Got payload: {data}")
                     request_message = await self.deserialize_message(message_data=data)
                     message_type = type(request_message)
@@ -331,17 +355,20 @@ class RegisteredWebSocketInterface(WebSocketInterface, DynamicFunctionMixin, abc
                         await websocket.send(str(response))
                         continue
 
-                    keyword_arguments = {
-                        "client_ip": client_ip,
-                        "socket": websocket
-                    }
+                    keyword_arguments = dict()
 
                     # Assign parameters that may be found programmatically, possibly through mixins.
                     # Expect to see parameters like session data here.
                     additonal_parameters = await self._get_additional_arguments(websocket)
                     keyword_arguments.update(additonal_parameters)
 
-                    response = await handler.handle_request(request=request_message, **keyword_arguments)
+                    response = await handler.handle_request(
+                        request=request_message,
+                        source=websocket,
+                        path=path,
+                        client_ip=client_ip,
+                        **keyword_arguments
+                    )
                 except BaseException as error:
                     response = ErrorResponse(str(error))
                     logging.error(f"[{self.__class__.__name__}] {str(type(error))} occured ", exc_info=error)

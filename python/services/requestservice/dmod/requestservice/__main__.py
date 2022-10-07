@@ -159,8 +159,7 @@ def main():
                              data_service_ssl_dir=args.data_service_ssl_dir,
                              partitioner_host=args.partitioner_service_host,
                              partitioner_port=args.partitioner_service_port,
-                             partitioner_ssl_dir=args.partitioner_service_ssl_dir)
-                             scheduler_ssl_dir=Path(args.scheduler_ssl_dir),
+                             partitioner_ssl_dir=args.partitioner_service_ssl_dir,
                              evaluation_service_host=args.evaluation_service_host,
                              evaluation_service_port=args.evaluation_service_port)
     handler.run()
