@@ -8,24 +8,26 @@ import random
 import json
 
 from argparse import ArgumentParser
-from numbers import Number
-from typing import Dict
-from typing import Union
 
 from datetime import datetime
 
 import websockets
 from dmod.communication import Field
-from websockets import WebSocketServerProtocol
+from dmod.communication import Response
+from websockets import WebSocketCommonProtocol
 
-from dmod.communication import MessageEventType
 from dmod.externalrequests import duplex
 from dmod.externalrequests import AuthHandler
 from dmod.externalrequests import EvaluationRequestHandler
+from dmod.externalrequests import OpenEvaluationMessage
+from dmod.externalrequests import LaunchEvaluationMessage
 from dmod.core import decorators
 
 import dmod.communication as communication
 import dmod.access as access
+
+
+EVALUATION_SERVICE_NAME = os.environ.get("EVALUATION_SERVICE_NAME", "EvaluationService")
 
 
 class Arguments(object):
@@ -66,7 +68,7 @@ class Arguments(object):
         self.__port = int(float(parameters.port))
 
 
-class TestMessage(communication.RegisteredMessage):
+class TestMessage(communication.FieldedMessage):
     """
     A basic initialization message to receive for testing
     """
@@ -77,17 +79,8 @@ class TestMessage(communication.RegisteredMessage):
         ]
 
 
-class EmitMixin(duplex.MessageHandlerMixin, abc.ABC):
-    """
-    A mixin class for adding the 'emit_message' socket handler to a service
-    """
-    @decorators.producer_message_handler
-    async def emit_message(
-        self,
-        socket: WebSocketServerProtocol,
-        *args,
-        **kwargs
-    ) -> communication.Response:
+class Emitter(duplex.Producer):
+    async def __call__(self, *args, **kwargs) -> Response:
         """
         Sends random messages through a socket
 
@@ -118,7 +111,7 @@ class EmitMixin(duplex.MessageHandlerMixin, abc.ABC):
             # error or for an outside process to cancel this, both of which are desired behaviors of a 'producer'
             while True:
                 message = f"The secret code is: {secrets.token_urlsafe(8)}"
-                await socket.send(message)
+                await self.send_back_to_sources(message)
                 message_count += 1
 
                 # Since this provides its own messages, we want to wait a seemingly random amount of time to
@@ -137,7 +130,7 @@ class EmitMixin(duplex.MessageHandlerMixin, abc.ABC):
         if response_message is None:
             response_message = f"{message_count} messages were sent"
 
-        return self._get_response_class()(
+        return duplex.DuplexResponse(
             success=success,
             message=response_message,
             reason=reason,
@@ -148,15 +141,168 @@ class EmitMixin(duplex.MessageHandlerMixin, abc.ABC):
         )
 
 
-class EchoMixin(duplex.MessageHandlerMixin, abc.ABC):
+class EmitMixin:
     """
     A mixin class for adding the 'emit_message' socket handler to a service
     """
-    @decorators.server_message_handler
+    @decorators.initializer
+    def add_emitter(self, *args, **kwargs):
+        self.add_producer(Emitter)
+
+
+class EchoMessage(communication.FieldedMessage):
+    @classmethod
+    def _get_fields(cls) -> typing.Collection[Field]:
+        return [
+            communication.Field("message", data_type=str, required=True, description="The message to print")
+        ]
+
+
+class EvaluationInjector:
+    """
+    Mixin that adds a handler for evaluation requests
+    """
+    @decorators.initializer
+    def add_evaluation_handler(self, *args, **kwargs):
+        handler_kwargs = {key: value for key, value in kwargs.items()}
+        service_host = None
+
+        if "evaluation_url" in kwargs:
+            service_host = kwargs.get("evaluation_url")
+
+        if not service_host:
+            service_host = os.environ.get("EVALUATION_URL")
+
+        if not service_host:
+            raise communication.RegistrationError("No URL for the evaluation service can be found")
+
+        handler_kwargs["service_host"] = service_host
+
+        evaluation_port = None
+
+        if 'evaluation_port' in kwargs:
+            evaluation_port = kwargs.get("evaluation_port")
+
+        if not evaluation_port:
+            evaluation_port = os.environ.get("EVALUATION_PORT")
+
+        handler_kwargs['service_port'] = evaluation_port
+
+        path = None
+
+        if 'evaluation_path' in kwargs:
+            path = kwargs.get("evaluation_path")
+
+        if not path:
+            path = os.environ.get("EVALUATION_PATH")
+
+        handler_kwargs['path'] = path
+
+        handler = EvaluationRequestHandler(
+            target_service=EVALUATION_SERVICE_NAME,
+            **handler_kwargs
+        )
+
+        setattr(self, "_evaluation_handler", handler)
+
+    @decorators.socket_handler(**{decorators.MESSAGE_TYPE_ATTRIBUTE: OpenEvaluationMessage})
+    def connect_to_evaluation(self) -> duplex.DuplexRequestHandler:
+        """
+        Returns:
+            The handler object that handles `OpenEvaluationMessage`s
+        """
+        return getattr(self, "_evaluation_handler")
+
+    @decorators.socket_handler(**{decorators.MESSAGE_TYPE_ATTRIBUTE: LaunchEvaluationMessage})
+    def get_evaluation_launcher(self) -> duplex.DuplexRequestHandler:
+        """
+        Returns:
+            The handler object that handles `LaunchEvaluationMessage`s
+        """
+        return getattr(self, "_evaluation_handler")
+
+
+class EchoMixin:
+    """
+    A mixin class for adding the 'emit_message' socket handler to a service
+    """
+    @decorators.initializer
+    def add_echo(self, *args, **kwargs):
+        """
+        Adds the `echo` handlers to the `BaseDuplexHandler` this gets attached to
+
+        Args:
+            *args:
+            **kwargs:
+
+        Returns:
+
+        """
+        # Set this up to echo typed messages from the source
+        self.add_source_handler_route(
+            EchoMessage,
+            self.echo_typed_message
+        )
+
+        # Set this up to echo typed messages from the target
+        self.add_target_handler_route(
+            EchoMessage,
+            self.echo_typed_message
+        )
+
+        # Set this up to echo untyped messages from the source
+        self.add_source_message_handler(
+            "echo",
+            self.echo_message
+        )
+
+        # Set this up to echo untyped messages from the client
+        self.add_target_message_handler(
+            "echo",
+            self.echo_message
+        )
+
+    async def echo_typed_message(
+        self,
+        message: communication.FieldedMessage,
+        source: WebSocketCommonProtocol,
+        target: WebSocketCommonProtocol,
+        *args,
+        **kwargs
+    ):
+        """
+        Takes data from an explicitly typed echo message and prints it to stdout
+
+        Args:
+            message: The typed message to print
+            source: The socket where the message came from
+            target: The opposing socket
+            *args:
+            **kwargs:
+
+        Returns:
+
+        """
+        # Get the message variable
+        message_to_print = message['message']
+
+        print(message_to_print)
+
+        # Create a reply to send back to the source of the message to notify it that the data was printed
+        notification = {
+            "info": f"printed '{message_to_print}'"
+        }
+
+        # Package it up in a string for transmission
+        prepared_notification = json.dumps(notification, indent=4)
+        await source.send(prepared_notification)
+
     async def echo_message(
         self,
-        message: str,
-        socket: WebSocketServerProtocol,
+        message: typing.Union[str, bytes, dict],
+        source: WebSocketCommonProtocol,
+        target: WebSocketCommonProtocol,
+        path: str,
         *args,
         **kwargs
     ) -> None:
@@ -165,25 +311,55 @@ class EchoMixin(duplex.MessageHandlerMixin, abc.ABC):
 
         Args:
             message: The message sent over the socket
-            socket: The socket that receives the messages
+            source: The socket that receives the messages
+            target: The socket that is the target of the handler
+            path: The path to the source socket on the server
 
         Returns:
             A response reporting how successsful the overall operation was
         """
-        print(message)
-        notification = {
-            "info": f"printed '{message}'"
-        }
-        prepared_notification = json.dumps(notification)
-        await socket.send(prepared_notification)
+        # Determine if the message should actually be printed. Since this is an untyped message, this will be
+        # called for every generic message that comes through its source. To avoid unnecessary printing, 'shoud'
+        # print needs to be set
+        should_print = True
+
+        # Checking is easy on a dictionary because we just need to look for a value
+        if isinstance(message, dict):
+            try:
+                should_print = bool(message.get("should_print", should_print))
+                message = json.dumps(message, indent=4)
+            except:
+                message = str(message)
+        else:
+            # It's harder to check bytes or a string since it has to be deserialized. Attempt to deserialize the
+            # value, but just accept the error if that doesn't work. This will handle the case where plain text comes
+            # through
+            try:
+                data = json.loads(message)
+                if 'should_print' in data:
+                    should_print = bool(data.get('should_print'))
+            except:
+                pass
+
+        # Go ahead and print to stdout if there was no indication that we shouldn't
+        if should_print:
+            print(message)
+
+            # Create a reply to send back to the source of the message to notify it that the data was printed
+            notification = {
+                "info": f"printed '{message}'"
+            }
+
+            # Package it up in a string for transmission
+            prepared_notification = json.dumps(notification, indent=4)
+            await source.send(prepared_notification)
 
 
-class TestHandler(duplex.DuplexRequestHandler, EmitMixin, EchoMixin):
+class TestHandler(EmitMixin, EchoMixin, duplex.DuplexRequestHandler):
     """
     A connection handler that will read from a connection and display received data in stdout while sending
     messages back in semi random timing.
     """
-
     @classmethod
     def get_target_service(cls) -> str:
         """
@@ -193,21 +369,30 @@ class TestHandler(duplex.DuplexRequestHandler, EmitMixin, EchoMixin):
         return "Test Service"
 
 
-class EchoEmitMixin:
+class EchoEmitInjector:
     """
     Mixin that injects a TestHandler instance that launches from a TestMessage
     """
 
     @decorators.initializer
-    def initialize_echo_emit_handler(self, *args, **kwargs):
+    def initialize_echo_emit_handler(self, listen_host: str, port: typing.Union[str, int], *args, **kwargs):
         """
         Adds a handler object as a member variable that handles operations from `TestMessage`s
 
         Args:
+            listen_host: The host for the TestService
+            port: The port for the test service
             *args:
             **kwargs:
         """
-        self._test_handler = TestHandler(*args, **kwargs)
+        handler = TestHandler(
+            target_service="TestService",
+            service_host=listen_host,
+            service_port=port,
+            *args,
+            **kwargs
+        )
+        setattr(self, "_test_handler", handler)
 
     @decorators.socket_handler(**{decorators.MESSAGE_TYPE_ATTRIBUTE: TestMessage})
     def get_test_handler(self):
@@ -215,7 +400,7 @@ class EchoEmitMixin:
         Returns:
             The added `TestHandler`
         """
-        return self._test_handler
+        return getattr(self, "_test_handler")
 
 
 # TODO: See if DummyAuthorizationMixin should be used via composition rather than mixin
@@ -289,13 +474,17 @@ class SessionHandler(RedisSessionMixin, DummyAuthorizationMixin, duplex.DuplexRe
         return "Session"
 
 
-class SessionProviderMixin:
+class SessionInjector:
     """
     Mixin that injects a handler for session interactions
     """
     @decorators.initializer
     def initialize_session_handler(self, *args, **kwargs):
-        self._session_handler = SessionHandler(*args, **kwargs)
+        setattr(
+            self,
+            "_session_handler",
+            SessionHandler(target_service="Session", *args, **kwargs)
+        )
 
     @decorators.socket_handler(**{decorators.MESSAGE_TYPE_ATTRIBUTE: communication.SessionInitMessage})
     def get_session_handler(self):
@@ -303,7 +492,7 @@ class SessionProviderMixin:
         Returns:
             The handler used a request for initializing session is requested.
         """
-        return self._session_handler
+        return getattr(self, "_session_handler")
 
     @decorators.additional_parameter
     def get_session_parameter(self, *args, **kwargs):
@@ -317,75 +506,17 @@ class SessionProviderMixin:
         Returns:
             A dictionary mapping this class' session manager to the parameter named 'session_manager'
         """
+        session_handler: SessionHandler = getattr(self, "_session_handler")
         return {
-            "session_manager": self._session_handler.session_manager
+            "session_manager": session_handler.session_manager
         }
-
-
-class EvaluationMessage(communication.RegisteredMessage):
-    @classmethod
-    def _get_fields(cls) -> typing.Collection[Field]:
-        fields: typing.List[communication.Field] = list()
-        fields.append(
-            Field("evaluation_id", required=True)
-        )
-        return fields
-
-
-class EvaluationInjector:
-    """
-    Mixin that adds a handler for evaluation requests
-    """
-    @decorators.initializer
-    def add_evaluation_handler(self, *args, **kwargs):
-        handler_kwargs = {key: value for key, value in kwargs.items()}
-        service_host = None
-
-        if "evaluation_url" in kwargs:
-            service_host = kwargs.get("evaluation_url")
-
-        if not service_host:
-            service_host = os.environ.get("EVALUATION_URL")
-
-        if not service_host:
-            raise communication.RegistrationError("No URL for the evaluation service can be found")
-
-        handler_kwargs["service_host"] = service_host
-
-        evaluation_port = None
-
-        if 'evaluation_port' in kwargs:
-            evaluation_port = kwargs.get("evaluation_port")
-
-        if not evaluation_port:
-            evaluation_port = os.environ.get("EVALUATION_PORT")
-
-        handler_kwargs['service_port'] = evaluation_port
-
-        path = None
-
-        if 'evaluation_path' in kwargs:
-            path = kwargs.get("evaluation_path")
-
-        if not path:
-            path = os.environ.get("EVALUATION_PATH")
-
-        handler_kwargs['path'] = path
-
-        setattr(self, "_evaluation_handler", EvaluationRequestHandler(
-            **handler_kwargs
-        ))
-
-    @decorators.socket_handler(**{decorators.MESSAGE_TYPE_ATTRIBUTE: EvaluationMessage})
-    def get_evaluation_handler(self):
-        return getattr(self, "_evaluation_handler")
 
 
 class AlternateRequestService(
     communication.RegisteredWebSocketInterface,
-    EchoEmitMixin,
+    EchoEmitInjector,
     EvaluationInjector,
-    SessionProviderMixin
+    SessionInjector
 ):
     """
     An example interface used to demonstrate how to create a handler for a decorated interface

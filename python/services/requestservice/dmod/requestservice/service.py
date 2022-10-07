@@ -8,16 +8,9 @@ from typing import Type
 from typing import Union
 
 import websockets
-from dmod.communication import AbstractInitRequest
 from websockets import WebSocketServerProtocol
 
 from dmod.access import DummyAuthUtil, RedisBackendSessionManager
-from dmod.communication import InvalidMessageResponse, MessageEventType, WebSocketSessionsInterface, \
-    SchedulerClient, UnsupportedMessageTypeResponse
-from dmod.communication import PartitionRequest
-from dmod.communication import ModelExecRequest
-from dmod.communication import DatasetManagementMessage
-from dmod.communication import SessionInitMessage
 from dmod.communication import AbstractInitRequest, InvalidMessageResponse, MessageEventType, NGENRequest, NWMRequest, \
     PartitionRequest, WebSocketSessionsInterface, SessionInitMessage, SchedulerClient, UnsupportedMessageTypeResponse
 from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage
@@ -50,7 +43,14 @@ class RequestService(WebSocketSessionsInterface):
     server:
         websocket server
     """
-    _PARSEABLE_REQUEST_TYPES = [SessionInitMessage, NWMRequest, NGENRequest, MaaSDatasetManagementMessage, PartitionRequest]
+    _PARSEABLE_REQUEST_TYPES = [
+        SessionInitMessage,
+        NWMRequest,
+        NGENRequest,
+        MaaSDatasetManagementMessage,
+        PartitionRequest,
+        EvaluationMessage
+    ]
     """ Parseable request types, which are all authenticated ::class:`ExternalRequest` subtypes for this implementation. """
 
     @classmethod

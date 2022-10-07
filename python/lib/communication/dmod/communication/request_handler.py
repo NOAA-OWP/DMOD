@@ -15,7 +15,7 @@ class AbstractRequestHandler(ABC):
         request: AbstractInitRequest
             A ``AbstractInitRequest`` message instance to be handled
 
-        kwargs: dict
+        kwargs:
             A ``dict`` of other arguments appropriate for the particular implementation
 
         Returns
