@@ -692,6 +692,13 @@ class ServiceManager(WebSocketInterface):
             return DatasetManagementResponse(action=message.management_action, success=True, dataset_name=dataset_name,
                                              reason='Obtained serialized {} dataset'.format(dataset_name),
                                              data={DatasetManagementResponse._DATA_KEY_QUERY_RESULTS: serialized_form})
+        if query_type == QueryType.GET_DATASET_ITEMS:
+            dataset = self.get_known_datasets()[message.dataset_name]
+            mgr = dataset.manager
+            item_details: List[dict] = [mgr.get_file_stat(dataset.name, f) for f in mgr.list_files(dataset.name)]
+            return DatasetManagementResponse(action=message.management_action, success=True, dataset_name=dataset.name,
+                                             reason='Obtained file details for {} dataset'.format(dataset.name),
+                                             data={DatasetManagementResponse._DATA_KEY_QUERY_RESULTS: item_details})
         # TODO: (later) add support for messages with other query types also
         else:
             reason = 'Unsupported {} Query Type - {}'.format(DatasetQuery.__class__.__name__, query_type.name)
@@ -896,6 +903,14 @@ class ServiceManager(WebSocketInterface):
                         partial_indx = 0
                 elif inbound_message.management_action == ManagementAction.CREATE:
                     response = await self._async_process_dataset_create(message=inbound_message)
+                elif inbound_message.management_action == ManagementAction.REQUEST_DATA and inbound_message.blk_start is not None:
+                    manager = self.get_known_datasets()[inbound_message.dataset_name].manager
+                    raw_data = manager.get_data(dataset_name=inbound_message.dataset_name,
+                                                item_name=inbound_message.data_location,
+                                                offset=inbound_message.blk_start, length=inbound_message.blk_size)
+                    response = DatasetManagementResponse(success=raw_data is not None,
+                                                         action=inbound_message.management_action,
+                                                         data=raw_data, reason="Data Block Retrieve Complete")
                 elif inbound_message.management_action == ManagementAction.REQUEST_DATA:
                     response = await self._async_process_data_request(message=inbound_message, websocket=websocket)
                 elif inbound_message.management_action == ManagementAction.ADD_DATA:
