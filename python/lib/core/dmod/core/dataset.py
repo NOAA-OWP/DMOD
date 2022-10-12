@@ -819,7 +819,8 @@ class DatasetManager(ABC):
         pass
 
     @abstractmethod
-    def get_data(self, dataset_name: str, item_name: str, **kwargs) -> Union[bytes, Any]:
+    def get_data(self, dataset_name: str, item_name: str, offset: Optional[int] = None, length: Optional[int] = None,
+                 **kwargs) -> Union[bytes, Any]:
         """
         Get data from this dataset.
 
@@ -832,6 +833,10 @@ class DatasetManager(ABC):
             The dataset from which to get data.
         item_name : str
             The name of the object from which to get data.
+        offset : Optional[int]
+            Optional start byte position of object data.
+        length : Optional[int]
+            Optional number of bytes of object data from offset.
         kwargs
             Implementation-specific params for representing what data to get and how to get and deliver it.
 
@@ -880,6 +885,26 @@ class DatasetManager(ABC):
             self._dataset_users[dataset.name] = set()
         self._dataset_users[dataset.name].add(user.uuid)
         return True
+
+    @abstractmethod
+    def get_file_stat(self, dataset_name: str, file_name, **kwargs) -> Dict[str, Any]:
+        """
+        Get the meta information about the given file.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The name of the dataset containing the file of interest.
+        file_name : str
+            The name of the file of interest.
+        kwargs
+
+        Returns
+        -------
+        dict
+            Meta information about the given file, in dictionary form.
+        """
+        pass
 
     @abstractmethod
     def list_files(self, dataset_name: str, **kwargs) -> List[str]:
