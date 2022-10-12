@@ -9,13 +9,13 @@ from dmod.communication.dataset_management_message import DatasetManagementMessa
 from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
 from dmod.core.meta_data import DataCategory, DataDomain, TimeRange
 from pathlib import Path
-from typing import List, Optional, Tuple, Type, Union
+from typing import AnyStr, Dict, List, Optional, Tuple, Type, Union
 
 import json
 import websockets
 
-#import logging
-#logger = logging.getLogger("gui_log")
+import logging
+logger = logging.getLogger("client_log")
 
 
 class NgenRequestClient(ModelExecRequestClient[NGENRequest, NGENRequestResponse]):
@@ -90,6 +90,25 @@ class DatasetClient(ABC):
         pass
 
     @abstractmethod
+    async def download_item_block(self, dataset_name: str, item_name: str, blk_start: int, blk_size: int) -> AnyStr:
+        """
+        Download a block/chunk of a given size and start point from a specified dataset file.
+
+        Parameters
+        ----------
+        dataset_name
+        item_name
+        blk_start
+        blk_size
+
+        Returns
+        -------
+        AnyStr
+            The downloaded block/chunk.
+        """
+        pass
+
+    @abstractmethod
     async def download_dataset(self, dataset_name: str, dest_dir: Path) -> bool:
         """
         Download an entire dataset to a local directory.
@@ -128,6 +147,14 @@ class DatasetClient(ABC):
         -------
 
         """
+        pass
+
+    @abstractmethod
+    async def get_dataset_content_details(self, name: str, **kwargs) -> bool:
+        pass
+
+    @abstractmethod
+    async def get_item_size(self, dataset_name: str, item_name: str) -> int:
         pass
 
     @abstractmethod
@@ -174,6 +201,50 @@ class DatasetInternalClient(DatasetClient, DataServiceClient):
         request = DatasetManagementMessage(action=ManagementAction.DELETE, dataset_name=name)
         self.last_response = await self.async_make_request(request)
         return self.last_response is not None and self.last_response.success
+
+    async def get_dataset_content_details(self, name: str, **kwargs) -> dict:
+        # TODO: later add things like created and last updated perhaps
+        query = DatasetQuery(query_type=QueryType.GET_DATASET_ITEMS)
+        request = DatasetManagementMessage(action=ManagementAction.QUERY, query=query, dataset_name=name)
+        self.last_response: DatasetManagementResponse = await self.async_make_request(request)
+        if self.last_response.success:
+            return self.last_response.data
+        else:
+            return {}
+
+    async def get_item_size(self, dataset_name: str, item_name: str) -> int:
+        query = DatasetQuery(query_type=QueryType.GET_ITEM_SIZE, item_name=item_name)
+        request = DatasetManagementMessage(action=ManagementAction.QUERY, query=query, dataset_name=dataset_name,
+                                           data_location=item_name)
+        self.last_response: DatasetManagementResponse = await self.async_make_request(request)
+        if self.last_response.success:
+            return self.last_response.data
+        else:
+            return -1
+
+    async def download_item_block(self, dataset_name: str, item_name: str, blk_start: int, blk_size: int) -> AnyStr:
+        """
+        Download a block/chunk of a given size and start point from a specified dataset file.
+
+        Parameters
+        ----------
+        dataset_name
+        item_name
+        blk_start
+        blk_size
+
+        Returns
+        -------
+        AnyStr
+            The downloaded block/chunk.
+        """
+        request = DatasetManagementMessage(action=ManagementAction.REQUEST_DATA, dataset_name=dataset_name,
+                                           data_location=item_name, blk_start=blk_start, blk_size=blk_size)
+        self.last_response: DatasetManagementResponse = await self.async_make_request(request)
+        if self.last_response.success:
+            return self.last_response.data
+        else:
+            return ''
 
     async def download_dataset(self, dataset_name: str, dest_dir: Path) -> bool:
         """
@@ -459,6 +530,55 @@ class DatasetExternalClient(DatasetClient,
                                                dataset_name=name)
         self.last_response = await self.async_make_request(request)
         return self.last_response is not None and self.last_response.success
+
+    async def download_item_block(self, dataset_name: str, item_name: str, blk_start: int, blk_size: int) -> AnyStr:
+        """
+        Download a block/chunk of a given size and start point from a specified dataset file.
+
+        Parameters
+        ----------
+        dataset_name
+        item_name
+        blk_start
+        blk_size
+
+        Returns
+        -------
+        AnyStr
+            The downloaded block/chunk.
+        """
+        await self._async_acquire_session_info()
+        request = MaaSDatasetManagementMessage(action=ManagementAction.REQUEST_DATA, dataset_name=dataset_name,
+                                               session_secret=self.session_secret, data_location=item_name,
+                                               blk_start=blk_start, blk_size=blk_size)
+        self.last_response: DatasetManagementResponse = await self.async_make_request(request)
+        if self.last_response.success:
+            return self.last_response.data
+        else:
+            return ''
+
+    async def get_item_size(self, dataset_name: str, item_name: str) -> int:
+        await self._async_acquire_session_info()
+        query = DatasetQuery(query_type=QueryType.GET_ITEM_SIZE, item_name=item_name)
+        request = MaaSDatasetManagementMessage(action=ManagementAction.QUERY, query=query, dataset_name=dataset_name,
+                                               session_secret=self._session_secret, data_location=item_name)
+        self.last_response: DatasetManagementResponse = await self.async_make_request(request)
+        if self.last_response.success:
+            return self.last_response.data
+        else:
+            return -1
+
+    async def get_dataset_content_details(self, name: str, **kwargs) -> List:
+        # TODO: later add things like created and last updated perhaps
+        await self._async_acquire_session_info()
+        query = DatasetQuery(query_type=QueryType.GET_DATASET_ITEMS)
+        request = MaaSDatasetManagementMessage(session_secret=self.session_secret, action=ManagementAction.QUERY,
+                                               query=query, dataset_name=name)
+        self.last_response: DatasetManagementResponse = await self.async_make_request(request)
+        if self.last_response.success:
+            return self.last_response.data[DatasetManagementResponse._DATA_KEY_QUERY_RESULTS]
+        else:
+            return []
 
     async def download_dataset(self, dataset_name: str, dest_dir: Path) -> bool:
         await self._async_acquire_session_info()
