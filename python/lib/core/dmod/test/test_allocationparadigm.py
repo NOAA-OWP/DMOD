@@ -1,6 +1,6 @@
 import unittest
-from dmod.scheduler.job.job import AllocationParadigm
 from dmod.communication import SchedulerRequestMessage
+from ..core.execution import AllocationParadigm
 
 
 class TestJobAllocationParadigm(unittest.TestCase):
