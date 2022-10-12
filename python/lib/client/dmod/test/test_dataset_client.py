@@ -1,7 +1,7 @@
 import unittest
 from ..client.request_clients import DataCategory, DatasetClient, DatasetManagementResponse, MaaSDatasetManagementResponse
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, AnyStr
 
 
 class SimpleMockDatasetClient(DatasetClient):
@@ -27,6 +27,24 @@ class SimpleMockDatasetClient(DatasetClient):
     async def download_from_dataset(self, dataset_name: str, item_name: str, dest: Path) -> bool:
         """ Mock implementation, always returning ``False``. """
         return False
+
+    async def download_item_block(self, dataset_name: str, item_name: str, blk_start: int, blk_size: int) -> AnyStr:
+        """
+        Mock implementation, always returning empty string.
+        """
+        return ''
+
+    async def get_dataset_content_details(self, name: str, **kwargs) -> bool:
+        """
+        Mock implementation, always returning ``False``.
+        """
+        return False
+
+    async def get_item_size(self, dataset_name: str, item_name: str) -> int:
+        """
+        Mock implementation always returning ``1``.
+        """
+        return 1
 
     async def list_datasets(self, category: Optional[DataCategory] = None) -> List[str]:
         """ Mock implementation, always returning an empty list. """
