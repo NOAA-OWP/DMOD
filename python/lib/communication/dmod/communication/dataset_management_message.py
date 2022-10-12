@@ -17,6 +17,10 @@ class QueryType(Enum):
     GET_MIN_VALUE = 7
     GET_MAX_VALUE = 8
     GET_SERIALIZED_FORM = 9
+    GET_LAST_UPDATED = 10
+    GET_SIZE = 11
+    GET_ITEM_SIZE = 12
+    GET_DATASET_ITEMS = 13
 
     @classmethod
     def get_for_name(cls, name_str: str) -> 'QueryType':
@@ -43,26 +47,32 @@ class QueryType(Enum):
 class DatasetQuery(Serializable):
 
     _KEY_QUERY_TYPE = 'query_type'
+    _KEY_ITEM_NAME = 'item_name'
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict) -> Optional['DatasetQuery']:
         try:
-            return cls(query_type=QueryType.get_for_name(json_obj[cls._KEY_QUERY_TYPE]))
+            return cls(query_type=QueryType.get_for_name(json_obj[cls._KEY_QUERY_TYPE]),
+                       item_name=json_obj.get(cls._KEY_ITEM_NAME))
         except Exception as e:
             return None
 
     def __hash__(self):
-        return hash(self.query_type)
+        return hash('{}{}'.format(self.query_type.name, self.item_name if self.item_name is not None else ''))
 
     def __eq__(self, other):
-        return isinstance(other, DatasetQuery) and self.query_type == other.query_type
+        return isinstance(other, DatasetQuery) and self.query_type == other.query_type \
+               and self.item_name == other.item_name
 
-    def __init__(self, query_type: QueryType):
+    def __init__(self, query_type: QueryType, item_name: Optional[str] = None):
         self.query_type = query_type
+        self.item_name = item_name
 
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
         serial = dict()
         serial[self._KEY_QUERY_TYPE] = self.query_type.name
+        if self.item_name is not None:
+            serial[self._KEY_ITEM_NAME] = self.item_name
         return serial
 
 
