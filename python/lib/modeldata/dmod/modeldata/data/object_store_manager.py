@@ -61,8 +61,13 @@ class ObjectStoreDatasetManager(DatasetManager):
             # For any buckets that have the standard serialized object (i.e., were for datasets previously), reload them
             for bucket_name in self.list_buckets():
                 serialized_item = self._gen_dataset_serial_obj_name(bucket_name)
-                if serialized_item in [o.object_name for o in self._client.list_objects(bucket_name)]:
+                try:
                     self.reload(reload_from=bucket_name, serialized_item=serialized_item)
+                except minio.error.S3Error as e:
+                    # Continue with looping through buckets and initializing if we get this particular exception and
+                    # error code, but otherwise pass through the exception
+                    if e.code != "NoSuchKey":
+                        raise e
         except Exception as e:
             self._errors.append(e)
             # TODO: consider if we should not re-throw this (which would likely force us to ensure users checked this)
@@ -554,12 +559,14 @@ class ObjectStoreDatasetManager(DatasetManager):
         if serialized_item is None:
             serialized_item = self._gen_dataset_serial_obj_name(reload_from)
 
+        response_obj = None
         try:
             response_obj = self._client.get_object(bucket_name=reload_from, object_name=serialized_item)
             response_data = json.loads(response_obj.data.decode())
         finally:
-            response_obj.close()
-            response_obj.release_conn()
+            if response_obj is not None:
+                response_obj.close()
+                response_obj.release_conn()
 
         # If we can safely infer it, make sure the "type" key is set in cases when it is missing
         if len(self.supported_dataset_types) == 1 and Dataset._KEY_TYPE not in response_data:
