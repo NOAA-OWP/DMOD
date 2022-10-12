@@ -192,6 +192,8 @@ class DatasetManagementMessage(AbstractInitRequest):
     _SERIAL_KEY_CATEGORY = 'category'
     _SERIAL_KEY_DATA_DOMAIN = 'data_domain'
     _SERIAL_KEY_DATA_LOCATION = 'data_location'
+    _SERIAL_KEY_DATA_BLK_START = 'data_blk_start'
+    _SERIAL_KEY_DATA_BLK_SIZE = 'data_blk_size'
     _SERIAL_KEY_DATASET_NAME = 'dataset_name'
     _SERIAL_KEY_IS_PENDING_DATA = 'pending_data'
     _SERIAL_KEY_QUERY = 'query'
@@ -228,6 +230,8 @@ class DatasetManagementMessage(AbstractInitRequest):
             category_str = json_obj.get(cls._SERIAL_KEY_CATEGORY)
             category = None if category_str is None else DataCategory.get_for_name(category_str)
             data_loc = json_obj.get(cls._SERIAL_KEY_DATA_LOCATION)
+            data_blk_start = json_obj.get(cls._SERIAL_KEY_DATA_BLK_START)
+            data_blk_size = json_obj.get(cls._SERIAL_KEY_DATA_BLK_SIZE)
             #page = json_obj[cls._SERIAL_KEY_PAGE] if cls._SERIAL_KEY_PAGE in json_obj else None
             if cls._SERIAL_KEY_QUERY in json_obj:
                 query = DatasetQuery.factory_init_from_deserialized_json(json_obj[cls._SERIAL_KEY_QUERY])
@@ -240,7 +244,7 @@ class DatasetManagementMessage(AbstractInitRequest):
 
             return deserialized_class(action=action, dataset_name=dataset_name, category=category,
                                       is_read_only_dataset=json_obj[cls._SERIAL_KEY_IS_READ_ONLY], domain=domain,
-                                      data_location=data_loc,
+                                      data_location=data_loc, blk_start=data_blk_start, blk_size=data_blk_size,
                                       is_pending_data=json_obj.get(cls._SERIAL_KEY_IS_PENDING_DATA), #page=page,
                                       query=query, **deserialized_class_kwargs)
         except Exception as e:
@@ -272,8 +276,8 @@ class DatasetManagementMessage(AbstractInitRequest):
 
     def __init__(self, action: ManagementAction, dataset_name: Optional[str] = None, is_read_only_dataset: bool = False,
                  category: Optional[DataCategory] = None, domain: Optional[DataDomain] = None,
-                 data_location: Optional[str] = None, is_pending_data: bool = False,
-                 query: Optional[DatasetQuery] = None, *args, **kwargs):
+                 data_location: Optional[str] = None, blk_start: Optional[int] = None, blk_size: Optional[int] = None,
+                 is_pending_data: bool = False, query: Optional[DatasetQuery] = None, *args, **kwargs):
         """
         Initialize this instance.
 
@@ -289,6 +293,10 @@ class DatasetManagementMessage(AbstractInitRequest):
             The optional category of the involved dataset or datasets, when applicable; defaults to ``None``.
         data_location : Optional[str]
             Optional location/file/object/etc. for acted-upon data.
+        blk_start : Optional[int]
+            Optional starting point for when acting upon a block/chunk of data.
+        blk_size : Optional[int]
+            Optional block size for when acting upon a block/chunk of data.
         is_pending_data : bool
             Whether the sender has data pending transmission after this message (default: ``False``).
         query : Optional[DatasetQuery]
@@ -313,8 +321,18 @@ class DatasetManagementMessage(AbstractInitRequest):
         self._category = category
         self._domain = domain
         self._data_location = data_location
+        self._blk_start = blk_start
+        self._blk_size = blk_size
         self._query = query
         self._is_pending_data = is_pending_data
+
+    @property
+    def blk_size(self) -> Optional[int]:
+        return self._blk_size
+
+    @property
+    def blk_start(self) -> Optional[int]:
+        return self._blk_start
 
     @property
     def data_location(self) -> Optional[str]:
@@ -417,6 +435,10 @@ class DatasetManagementMessage(AbstractInitRequest):
             serial[self._SERIAL_KEY_CATEGORY] = self.data_category.name
         if self.data_location is not None:
             serial[self._SERIAL_KEY_DATA_LOCATION] = self.data_location
+        if self._blk_start is not None:
+            serial[self._SERIAL_KEY_DATA_BLK_START] = self._blk_start
+        if self._blk_size is not None:
+            serial[self._SERIAL_KEY_DATA_BLK_SIZE] = self._blk_size
         if self.data_domain is not None:
             serial[self._SERIAL_KEY_DATA_DOMAIN] = self.data_domain.to_dict()
         if self.query is not None:
@@ -613,6 +635,10 @@ class MaaSDatasetManagementMessage(DatasetManagementMessage, ExternalRequest):
         is_read_only_dataset : bool
         category : Optional[DataCategory]
         data_location : Optional[str]
+        blk_start : Optional[int]
+            Optional starting point for when acting upon a block/chunk of data.
+        blk_size : Optional[int]
+            Optional block size for when acting upon a block/chunk of data.
         is_pending_data : bool
         query : Optional[DataQuery]
         """
