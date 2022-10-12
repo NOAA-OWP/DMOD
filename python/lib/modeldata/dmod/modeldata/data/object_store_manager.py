@@ -10,7 +10,7 @@ from minio import Minio
 from minio.api import ObjectWriteResult
 from minio.deleteobjects import DeleteObject
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from uuid import UUID
 
 
@@ -423,7 +423,32 @@ class ObjectStoreDatasetManager(DatasetManager):
             self._errors.extend(error_list)
             return False
 
-    def get_data(self, dataset_name: str, item_name: str, **kwargs) -> bytes:
+    def get_file_stat(self, dataset_name: str, file_name, **kwargs) -> Dict[str, Any]:
+        """
+        Get the meta information about the given file.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The name of the dataset containing the file of interest.
+        file_name : str
+            The name of the file of interest.
+        kwargs
+
+        Returns
+        -------
+        dict
+            Meta information about the given file, in dictionary form.
+        """
+        obj_stat = self._client.stat_object(dataset_name, file_name)
+        as_dict = dict()
+        as_dict["name"] = obj_stat.object_name
+        as_dict["size"] = obj_stat.size
+        # TODO: get more of this if worth it
+        return as_dict
+
+    def get_data(self, dataset_name: str, item_name: str, offset: Optional[int] = None, length: Optional[int] = None,
+                 **kwargs) -> bytes:
         """
         Get data from this dataset.
 
@@ -437,15 +462,12 @@ class ObjectStoreDatasetManager(DatasetManager):
             The name of the dataset (i.e., bucket) from which to get data.
         item_name : str
             The name of the object from which to get data.
+        offset : Optional[int]
+            Optional start byte position of object data.
+        length : Optional[int]
+            Optional number of bytes of object data from offset.
         kwargs
             Implementation-specific params for representing what data to get and how to get and deliver it.
-
-        Keyword Args
-        -------
-        offset : int
-            Optional start byte position of object data.
-        length : int
-            Optional number of bytes of object data from offset.
 
         Returns
         -------
@@ -455,8 +477,10 @@ class ObjectStoreDatasetManager(DatasetManager):
         if item_name not in self.list_files(dataset_name):
             raise RuntimeError('Cannot get data for non-existing {} file in {} dataset'.format(item_name, dataset_name))
         optional_params = dict()
-        for key in [k for k in self.data_chunking_params if k in kwargs]:
-            optional_params[key] = kwargs[key]
+        if offset is not None:
+            optional_params['offset'] = offset
+        if length is not None:
+            optional_params['length'] = length
         response_object = self._client.get_object(bucket_name=dataset_name, object_name=item_name, **optional_params)
         return response_object.data
 
