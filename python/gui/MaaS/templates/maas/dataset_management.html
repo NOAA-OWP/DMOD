@@ -8,6 +8,12 @@
     </script>
     <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js">
     </script>
+    <script src="{% static 'maas/js/components/confirmDialog.js' %}">
+    </script>
+    <script src="{% static 'maas/js/components/createDatasetForm.js' %}">
+    </script>
+    <script src="{% static 'maas/js/components/datasetOverview.js' %}">
+    </script>
     <link rel="stylesheet" type="text/css" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/cupertino/jquery-ui.css">
     <link rel="icon" type="image/gif" href="{% static 'maas/img/favicon.gif' %}">
     <script>
@@ -16,99 +22,15 @@
             $("#" + model + "_parameters").show();
         }
 
-        /**
-         * Build ``thead`` for the management overview table summarizing datasets.
-         */
-        function buildDatasetsOverviewTableHeader() {
-            // Build the table header row
-            let thead = document.createElement('thead');
-            let header = document.createElement('tr');
-            thead.appendChild(header);
-
-            let colCell = document.createElement('th');
-            colCell.className = "mgr-tbl-dataset-header";
-            colCell.appendChild(document.createTextNode('Dataset Name'));
-            header.appendChild(colCell);
-
-            colCell = document.createElement('th');
-            colCell.className = "mgr-tbl-category-header";
-            colCell.appendChild(document.createTextNode('Category'));
-            header.appendChild(colCell);
-
-            header.appendChild(document.createElement('th'));
-
-            colCell = document.createElement('th');
-            colCell.appendChild(document.createTextNode('Actions'));
-            header.appendChild(colCell);
-
-            header.appendChild(document.createElement('th'));
-            header.appendChild(document.createElement('th'));
-
-            return thead;
-        }
-
-        function buildDatasetOverviewTableRow(serial_dataset) {
-            let row = document.createElement('tr');
-            row.id = "datasets-overview-table-row-" + serial_dataset["name"];
-            row.className = "mgr-tbl-content";
-
-            let colCell = document.createElement('th');
-            colCell.appendChild(document.createTextNode(serial_dataset['name']));
-            row.appendChild(colCell);
-
-            colCell = document.createElement('th');
-            colCell.appendChild(document.createTextNode(serial_dataset['data_category']));
-            row.appendChild(colCell);
-
-            let helper_create_links = function create_links_func (is_a, text, ds_name, on_click) {
-                let cell = document.createElement('th');
-                let content;
-                if (is_a) {
-                    content = document.createElement('a')
-                    content.href = "javascript:void(0);";
-                }
-                else {
-                    content = document.createElement('button');
-                }
-                content.onclick = function() { on_click(ds_name); };
-                content.appendChild(document.createTextNode(text));
-                cell.appendChild(content);
-                row.appendChild(cell);
-            }
-
-            helper_create_links(true, "Details", serial_dataset['name'], displayDatasetDetails);
-            helper_create_links(true, "Download", serial_dataset['name'], clickDownloadDataset);
-            helper_create_links(true, "Upload Files", serial_dataset['name'], clickUploadDataset);
-            helper_create_links(true, "Delete", serial_dataset['name'], clickDeleteDataset);
-
-            return row;
-        }
-
         function buildDatasetsOverviewTable() {
-            let table_id = 'dataset-manage-overview-table';
-            let parent_div = document.getElementById('dataset-manage');
-
-            // First find and remove any existing table, in case we are refreshing
-            let table = document.getElementById(table_id);
-            if (table != null) {
-                table.remove();
-            }
-
-            table = document.createElement('table');
-            parent_div.appendChild(table);
-            table.id = table_id;
-            table.className = 'datasets-table';
-
-            table.appendChild(buildDatasetsOverviewTableHeader());
-
             $.ajax({
                 url: "/dataset-api",
                 type: 'get',
                 data: {"request_type": "datasets"},
                 success: function(response) {
-                    for (const ds_name in response["datasets"]) {
-                        table.appendChild(buildDatasetOverviewTableRow(response["datasets"][ds_name]));
-                    }
+                    let tableComp = new DatasetOverviewTable('dataset-manage', 'datasets-table', displayDatasetDetails,
+                        displayDatasetFiles, clickDownloadDataset, clickUploadDataset, clickDeleteDataset);
+                    tableComp.buildTable(response);
                 },
                 error: function(response) {
                     alert('Received an error');
@@ -118,9 +40,9 @@
         }
 
         function initDatasetCreateForm() {
-            let category_select = document.getElementById("create-dataset-category");
+            let category_select = document.getElementById("dataset-create-form-input-category");
             category_select.selectedIndex = -1;
-            let format_select = document.getElementById("create-dataset-format");
+            let format_select = document.getElementById("dataset-create-form-input-format");
             format_select.selectedIndex = -1;
         }
 
@@ -130,7 +52,7 @@
         }
 
         function changeCreateDatasetFormatSelection(selection) {
-            let dy_div = document.getElementById("dataset-create-form-dynamic-vars-div");
+            let dy_div = document.getElementById("dataset-create-form-div-dynamic-inputs");
             for (let i = 0; i < dy_div.children.length; i++) {
                 dy_div.children[i].remove();
             }
@@ -229,6 +151,43 @@
             arguments[0].appendChild(row);
         }
 
+        function buildDatasetFilesEmptyDiv() {
+            let ds_files_div = document.createElement('div');
+            ds_files_div.id = 'ds-files-div';
+            ds_files_div.class = 'ds-files-modal';
+            ds_files_div.style.position = 'fixed';
+            ds_files_div.style.zIndex = '1';
+            ds_files_div.style.left = '25%';
+            ds_files_div.style.top = '5%';
+            ds_files_div.style.width = '50%';
+            ds_files_div.style.height = '50%';
+            ds_files_div.style.overflow = 'clip';
+            ds_files_div.style.backgroundColor = '#B7B5B5FF';
+            ds_files_div.style.border = '1px solid #888';
+            ds_files_div.style.padding = '5px';
+            ds_files_div.style.paddingTop = '0px';
+            ds_files_div.style.margin = '15% auto';
+
+            let close_x = document.createElement('span');
+            close_x.style.padding = "0px";
+            close_x.style.cursor = "pointer";
+            close_x.style.fontWeight = "bold";
+            close_x.style.fontSize = "20px";
+            close_x.appendChild(document.createTextNode("\u00d7"));
+            close_x.onclick = function() { ds_files_div.remove() };
+            ds_files_div.appendChild(close_x);
+
+            let ds_files_content_div = document.createElement('div');
+            ds_files_content_div.style.height = '90%';
+            ds_files_content_div.style.overflow = 'auto';
+
+            ds_files_div.appendChild(ds_files_content_div);
+
+            let parent_div = document.getElementById('dataset-manage');
+            parent_div.appendChild(ds_files_div);
+            return ds_files_content_div;
+        }
+
         function ajaxBuildDatasetDetailsTable(dataset_json, table) {
             buildDetailsTableRow(table, "Name", dataset_json["name"]);
             buildDetailsTableRow(table, "Category", dataset_json["data_category"])
@@ -268,6 +227,96 @@
             }
         }
 
+        function makeByteSizesReadable(bytes, decimal_places = 2) {
+            if (bytes <= 0) {
+                return "0 B";
+            }
+            let thresh = 1024;
+            let decimals = decimal_places < 0 ? 0 : decimal_places;
+            let units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            let level = Math.floor(Math.log(bytes) / Math.log(thresh))
+
+            return `${parseFloat((bytes / Math.pow(thresh, level)).toFixed(decimals))} ${units[level]}`
+        }
+
+        function clickDownloadDatasetFile(dataset_name, file_name) {
+            $.ajax({
+                url: "/dataset-api",
+                type: 'get',
+                data: {"request_type": "download_file", "dataset_name": dataset_name, "item_name": file_name},
+                success: function(response) {
+                    let x = 1;
+                },
+                error: function(response) {
+                    alert('Received an error downloading file ' + file_name + ' from dataset ' + dataset_name);
+                    console.log(response);
+                }
+            });
+        }
+
+        function ajaxBuildDatasetFilesTable(dataset_name, contents_json, table) {
+            let row, colCell, content;
+            row = document.createElement('tr');
+            row.className = 'dataset-files-table-header-row';
+            let thead = document.createElement('thead');
+            table.appendChild(thead);
+            thead.appendChild(row);
+            colCell = document.createElement('th');
+            colCell.appendChild(document.createTextNode('Filename'));
+            row.appendChild(colCell);
+            colCell = document.createElement('th');
+            colCell.appendChild(document.createTextNode('Size'));
+            row.appendChild(colCell);
+            colCell = document.createElement('th');
+            row.appendChild(colCell);
+            for (let i = 0; i < contents_json.length; i++) {
+                row = document.createElement('tr');
+                row.className = 'dataset-files-table-row';
+                colCell = document.createElement('th');
+                colCell.className = 'dataset-files-table-col-1';
+                colCell.appendChild(document.createTextNode(contents_json[i]["name"]));
+                row.appendChild(colCell);
+
+                colCell = document.createElement('th');
+                colCell.className = 'dataset-files-table-col-2';
+                colCell.style.textAlign = 'right';
+                colCell.appendChild(document.createTextNode(makeByteSizesReadable(contents_json[i]["size"])));
+                row.appendChild(colCell);
+
+                colCell = document.createElement('th');
+                content = document.createElement('a')
+                //content.href = "dataset-api?request_type=download_file&dataset_name=" + dataset_name + "&item_name=" + contents_json[i]["name"];
+                content.href = "javascript:void(0);";
+                content.onclick = function() { clickDownloadDatasetFile(dataset_name, contents_json[i]["name"]); };
+                content.appendChild(document.createTextNode("Download"));
+                colCell.appendChild(content);
+                row.appendChild(colCell);
+
+                // TODO: later have button to delete just this file
+
+                table.appendChild(row);
+            }
+        }
+
+        function buildDatasetFilesTable(dataset_name) {
+            let table = document.createElement('table');
+            table.class = 'dataset-files-table';
+
+            $.ajax({
+                url: "/dataset-api",
+                type: 'get',
+                data: {"request_type": "contents", "name": dataset_name},
+                success: function(response) {
+                    ajaxBuildDatasetFilesTable(dataset_name, response["contents"], table);
+                },
+                error: function(response) {
+                    alert('Received an error getting file contents of ' + dataset_name + ' dataset');
+                    console.log(response);
+                }
+            });
+            return table;
+        }
+
         function buildDatasetDetailsTable(dataset_name) {
             let table = document.createElement('table');
             table.class = 'datasets-details-table';
@@ -287,6 +336,13 @@
             return table;
         }
 
+        function displayDatasetFiles(name) {
+            let ds_files_div = buildDatasetFilesEmptyDiv();
+            let ds_files_table = buildDatasetFilesTable(name);
+            ds_files_div.appendChild(ds_files_table);
+            ds_files_div.style.display = 'block';
+        }
+
         function displayDatasetDetails(name) {
             let details_div = buildDatasetDetailsEmptyDiv();
 
@@ -296,62 +352,25 @@
         }
 
         function clickDownloadDataset(dataset_name) {
+            // TODO: consider modal popup until implemented.
             return false;
         }
 
         function clickUploadDataset(dataset_name) {
+            // TODO: consider modal popup until implemented.
             return false;
         }
 
         function clickDeleteDataset(dataset_name) {
-            let parent_div = document.getElementById('dataset-manage')
-            let dialog_div = document.createElement('div');
-            parent_div.appendChild(dialog_div);
-            dialog_div.id = 'delete-dataset-dialog-div';
-            dialog_div.class = 'delete-dataset-modal';
-            dialog_div.style.position = 'fixed';
-            dialog_div.style.zIndex = '1';
-            dialog_div.style.left = '35%';
-            dialog_div.style.top = '5%';
-            dialog_div.style.width = '25%';
-            dialog_div.style.height = '25%';
-            dialog_div.style.overflow = 'clip';
-            dialog_div.style.backgroundColor = '#B7B5B5FF';
-            dialog_div.style.border = '1px solid #888';
-            dialog_div.style.padding = '15px';
-            //dialog_div.style.paddingTop = '0px';
-            dialog_div.style.margin = '15% auto';
+            let component = new ConfirmDeleteDatasetDialog(dataset_name, 'dataset-manage', 'delete-dataset-dialog-div',
+                'delete-dataset-modal', null);
 
-            let dialog_content_div = document.createElement('div');
-            dialog_content_div.style.height = '70%';
-            //dialog_content_div.style.overflow = 'fixed';
-            dialog_content_div.style.padding = '10px';
-            dialog_content_div.appendChild(document.createTextNode("This will permanently delete dataset: "));
-            dialog_content_div.appendChild(document.createElement('br'));
-            dialog_content_div.appendChild(document.createElement('br'));
-            let ds_name_text = document.createTextNode(dataset_name);
-            dialog_content_div.appendChild(ds_name_text);
-            dialog_content_div.appendChild(document.createElement('br'));
-            dialog_content_div.appendChild(document.createElement('br'));
-            dialog_content_div.appendChild(document.createTextNode("Proceed?"));
-            dialog_div.appendChild(dialog_content_div);
-
-            let dialog_buttons_div = document.createElement('div');
-            dialog_div.appendChild(dialog_buttons_div);
-            dialog_buttons_div.style.padding = '10px';
-            let cancel_button = document.createElement('button');
-            cancel_button.onclick = function() {dialog_div.remove(); };
-            cancel_button.textContent = "Cancel";
-            cancel_button.style.marginRight = '10px';
-            dialog_buttons_div.appendChild(cancel_button);
-
-            let confirm_button = document.createElement('button');
-            confirm_button.onclick = function() {
-                dialog_div.remove();
+            component.onConfirmFunc = function () {
+                component.remove();
                 apiDeleteDataset(dataset_name);
             };
-            confirm_button.textContent = "Confirm";
-            dialog_buttons_div.appendChild(confirm_button);
+
+            component.append();
         }
 
         function apiDeleteDataset(dataset_name) {
@@ -374,6 +393,11 @@
                     console.log(response);
                 }
             });
+        }
+
+        function createFormSelectChange(formInput, selection) {
+            let component = new CreateDatasetForm('dataset-create');
+            component.dynamicInputUpdate(formInput, selection);
         }
 
         /*
@@ -487,12 +511,12 @@
             background-color: palegreen;
         }
 
-        #dataset-create-form-universal-vars-div {
+        #dataset-create-form-div-universal-inputs {
             line-height: 25px;
             max-width: 350px;
         }
 
-        #dataset-create-form-dynamic-vars-div {
+        #dataset-create-form-div-dynamic-inputs {
             line-height: 25px;
             max-width: 350px;
         }
@@ -523,6 +547,22 @@
 
         .datasets-table thead tr th {
             padding-bottom: 5px;
+        }
+
+        .dataset-files-table-header-row th{
+            text-align: center;
+            padding-top: 5px;
+        }
+
+        .dataset-files-table-row th {
+            font-weight: normal;
+            text-align: left;
+            padding-left: 30px;
+            padding-bottom: 2px;
+        }
+
+        .dataset-files-table-col-2 {
+            text-align: right;
         }
 
         .mgr-tbl-dataset-header {
@@ -595,19 +635,19 @@
         </div>
         <div id="dataset-create">
             <h3>Create New Dataset:</h3>
-            <form action="." method="post" id="create-dataset-form">
+            <form action="." method="post" id="dataset-create-form">
                 {# Add the token to provide cross site request forgery protection #}
                 {% csrf_token %}
-                <div id="dataset-create-form-universal-vars-div">
-                    <label for="create-dataset-name">Dataset Name:</label>
-                    <input name="create-dataset-name" id="create-dataset-name" type="text" style="float: right; text-align: right;" >
+                <div id="dataset-create-form-div-universal-inputs">
+                    <label for="dataset-create-form-input-name">Dataset Name:</label>
+                    <input name="dataset-create-form-input-name" id="dataset-create-form-input-name" type="text" style="float: right; text-align: right;" >
                     <br>
 
-                    <label for="create-dataset-category">Data Category:</label>
+                    <label for="dataset-create-form-input-category">Data Category:</label>
                     <!-- TODO: eventually (much later) support selecting the dataset type (e.g., object store) -->
                     <!-- TODO: adjust and rename function onchange -->
                     <!-- TODO: modify form for domain needs for different selections -->
-                    <select name="create-dataset-category" id="create-dataset-category" style="float: right; text-align: right">
+                    <select name="dataset-create-form-input-category" id="dataset-create-form-input-category" style="float: right; text-align: right">
                         {% for category in dataset_categories %}
                         <option value="{{ category }}">{{ category }}</option>
                         {% endfor %}
@@ -615,8 +655,8 @@
                     <br>
 
                     <!-- TODO: adjust and rename function onchange -->
-                    <label for="create-dataset-format">Data Format:</label>
-                    <select name="create-dataset-format" id="create-dataset-format" style="float: right; text-align: right" onchange="changeCreateDatasetFormatSelection(this.value)">
+                    <label for="dataset-create-form-input-format">Data Format:</label>
+                    <select name="dataset-create-form-input-format" id="dataset-create-form-input-format" style="float: right; text-align: right" onchange="createFormSelectChange(this, this.value)">
                         {% for format in dataset_formats %}
                         <option value="{{ format }}">{{ format }}</option>
                         {% endfor %}
@@ -644,7 +684,7 @@
                     -->
                 </div>
                 <br>
-                <div id="dataset-create-form-dynamic-vars-div">
+                <div id="dataset-create-form-div-dynamic-inputs">
                 </div>
                 <!--
                 {% for model, model_parameters in parameters.items %}
