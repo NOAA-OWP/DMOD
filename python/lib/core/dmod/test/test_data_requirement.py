@@ -1,5 +1,5 @@
 import unittest
-from dmod.core.meta_data import DataDomain, DataFormat, DataRequirement, DataCategory, DiscreteRestriction
+from ..core.meta_data import DataDomain, DataFormat, DataRequirement, DataCategory, DiscreteRestriction
 
 
 class TestDataRequirement(unittest.TestCase):
