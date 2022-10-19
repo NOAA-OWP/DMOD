@@ -4,7 +4,7 @@ import json
 import os
 from ..dataservice.service import ServiceManager
 from dmod.communication.client import get_or_create_eventloop
-from dmod.modeldata.data.dataset import Dataset
+from dmod.core.dataset import Dataset
 from dmod.scheduler.job import RequestedJob
 from pathlib import Path
 from typing import Any, Dict, List, Optional
