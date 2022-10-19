@@ -1,8 +1,8 @@
 import unittest
-from ..modeldata.data.dataset import Dataset, DatasetType
-from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DiscreteRestriction, TimeRange
+from ..core.dataset import Dataset, DatasetType
+from ..core.meta_data import DataCategory, DataDomain, DataFormat, DiscreteRestriction, TimeRange
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional, Union
+from typing import Optional, Union
 
 
 class TestDataset(unittest.TestCase):
