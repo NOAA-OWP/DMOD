@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from dmod.core.meta_data import ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction, \
+from .meta_data import ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction, \
     StandardDatasetIndex, TimeRange
-from dmod.core.exception import DmodRuntimeError
+from .exception import DmodRuntimeError
 from datetime import datetime, timedelta
 
-from dmod.core.serializable import Serializable, ResultIndicator
+from .serializable import Serializable, ResultIndicator
 from enum import Enum
 from numbers import Number
 from typing import Any, Callable, Dict, FrozenSet, List, Optional, Set, Tuple, Type, Union
