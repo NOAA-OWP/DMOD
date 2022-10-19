@@ -616,6 +616,26 @@ class DatasetManager(ABC):
     ::method:`transform` creates a new dataset from an existing one, but transforms the data to another format.
     """
 
+    _SERIALIZED_OBJ_NAME_TEMPLATE = "{}_serialized.json"
+    """ The name of the file/object for serialized versions of datasets, within a dataset's bucket. """
+
+    @classmethod
+    def get_serial_dataset_filename(cls, dataset_name: str) -> str:
+        """
+        Get the standard file basename for persisting the serialized state of a ::class:`Dataset` of the given name.
+
+        Parameters
+        ----------
+        dataset_name: str
+            The name of the dataset in question.
+
+        Returns
+        -------
+        str
+           The file basename for persisting the serialized state of a dataset with the given name.
+        """
+        return cls._SERIALIZED_OBJ_NAME_TEMPLATE.format(dataset_name)
+
     def __init__(self, uuid: Optional[UUID] = None, datasets: Optional[Dict[str, Dataset]] = None, *args, **kwargs):
         self._uuid = uuid4() if uuid is None else uuid
         self._datasets = datasets if datasets is not None else dict()
