@@ -4,7 +4,7 @@ import json
 import minio.retention
 
 from dmod.core.meta_data import DataCategory, DataDomain
-from .dataset import Dataset, DatasetManager, DatasetType
+from dmod.core.dataset import Dataset, DatasetManager, DatasetType
 from datetime import datetime, timedelta
 from minio import Minio
 from minio.api import ObjectWriteResult
@@ -21,8 +21,6 @@ class ObjectStoreDatasetManager(DatasetManager):
 
     _SUPPORTED_TYPES = {DatasetType.OBJECT_STORE}
     """ Supported dataset types set, which is always ::class:`ObjectStoreDataset` for this manager subtype. """
-    _SERIALIZED_OBJ_NAME_TEMPLATE = "{}_serialized.json"
-    """ The name of the file/object for serialized versions of datasets, within a dataset's bucket. """
 
     def __init__(self, obj_store_host_str: str, access_key: Optional[str] = None, secret_key: Optional[str] = None,
                  secure_connection: bool = False, *args, **kwargs):
