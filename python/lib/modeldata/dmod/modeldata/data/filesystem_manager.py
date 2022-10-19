@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from typing import Optional, List, Set, Union, Any, Tuple
 
-from .dataset import Dataset, DatasetManager, DatasetType
+from dmod.core.dataset import Dataset, DatasetManager, DatasetType
 from dmod.core.exception import DmodRuntimeError
 from dmod.core.meta_data import DataCategory, DataDomain
 
