@@ -39,7 +39,7 @@ class ResponseData(typing.MutableMapping):
 
     def __iadd__(self, count):
         self.message_count += 1
-        return self.message_count
+        return self
 
     def add(self, author: str, value: typing.Any):
         # If `result` is the first value in for `handler_name` in the response data, we can go ahead and add the value
@@ -55,7 +55,7 @@ class ResponseData(typing.MutableMapping):
             self.results[author] = combined_collection
         elif value is not None and isinstance(value, dict):
             if isinstance(self.results[author], dict):
-                merged_dictionary = common.merge_dictionaries(self.results[author], result)
+                merged_dictionary = common.merge_dictionaries(self.results[author], value)
                 self.results[author] = merged_dictionary
             else:
                 self.results[author] = [self.results[author], value]

@@ -34,9 +34,23 @@ SOCKET_LOGGER = common_logging.get_logger(common_logging.DEFAULT_SOCKET_LOGGER_N
 
 
 _T = typing.TypeVar("_T")
+LAZY_RETRIEVER = typing.Callable[[typing.Any, ...], typing.Optional[QuerySet[_T]]]
 
 
-def get_values_eagerly(function: typing.Callable[[typing.Any, ...], typing.Optional[QuerySet[_T]]], *args, **kwargs) -> typing.Optional[typing.Sequence[_T]]:
+def get_values_eagerly(function: LAZY_RETRIEVER, *args, **kwargs) -> typing.Optional[typing.Sequence[_T]]:
+    """
+    Loads all values from a function that retrieves a queryset
+
+    Django QuerySets are lazy, meaning that data is only retrieved when immediately referenced. All data must be
+    retrieved at once if Django ORM data is to be used in asynchronous functions.
+
+    MUST BE CALLED IF RETRIEVING DATA VIA THE DJANGO ORM.
+
+    :param function: A function that returns a queryset
+    :param args: Positional arguments passed to the function
+    :param kwargs: Keyword arguments passed to the function
+    :return: All values that would have been loaded through the lazy load
+    """
     result: typing.Optional[QuerySet] = function(*args, **kwargs)
 
     if result and isinstance(result, QuerySet):
@@ -238,7 +252,7 @@ def make_websocket_message(
         event: Why the message was sent
         response_type: What type of response this is
         data: The data to send
-        logger: A logger used to store diagnositic and error data if needed
+        logger: A logger used to store diagnostic and error data if needed
 
     Returns:
         A JSON string containing the data to be sent along the socket
