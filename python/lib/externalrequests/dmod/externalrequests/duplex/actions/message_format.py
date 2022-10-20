@@ -112,9 +112,9 @@ class ActionGet(HandlerProtocol):
             payload = json.loads(message)
             payload = payload.get("event") or payload.get("action")
         except:
-            payload = message
+            payload = message.decode() if isinstance(message, bytes) else message
 
-        if not isinstance(payload, str) and payload.upper() == ACTION_MESSAGE:
+        if not isinstance(payload, str) or payload.upper() != ACTION_MESSAGE:
             return
 
         accepted_actions = list()

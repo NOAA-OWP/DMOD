@@ -316,7 +316,7 @@ class EchoMixin:
             path: The path to the source socket on the server
 
         Returns:
-            A response reporting how successsful the overall operation was
+            A response reporting how successful the overall operation was
         """
         # Determine if the message should actually be printed. Since this is an untyped message, this will be
         # called for every generic message that comes through its source. To avoid unnecessary printing, 'shoud'

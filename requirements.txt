@@ -28,3 +28,4 @@ aiohttp==3.7.4
 channels
 channels-redis
 Pint
+django_rq
