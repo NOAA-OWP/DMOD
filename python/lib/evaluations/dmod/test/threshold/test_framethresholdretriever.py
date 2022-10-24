@@ -137,7 +137,7 @@ class TestFrameRetrieving(unittest.TestCase):
 
         for key, thresholds in created_thresholds.items():
             test_case.assertIn(key, data.site_no.unique())
-            for threshold_name, group_data in data[data.site_no == key].groupby(['name']):
+            for threshold_name, group_data in data[data.site_no == key].groupby('name'):
                 matching_thresholds = [
                     thresh
                     for thresh in thresholds
