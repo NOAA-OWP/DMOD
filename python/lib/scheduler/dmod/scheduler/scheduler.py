@@ -7,6 +7,7 @@ from dmod.core.exception import DmodRuntimeError
 from dmod.core.meta_data import DataCategory, DataFormat
 from os import getenv
 import docker
+from docker.models.services import Service as DockerService
 from docker.types import Mount, SecretReference
 import yaml
 from typing import Dict, List, Optional, TYPE_CHECKING, Tuple
@@ -160,7 +161,7 @@ class Launcher(SimpleDockerUtil):
         self.networks = ["mpi-net"]
 
     def create_service(self, serviceParams: DockerServiceParameters, idx: int, docker_cmd_args: List[str]) \
-        -> docker.from_env().services.create:
+        -> DockerService:
         """
         Create new service with Healthcheck, host, and other info
 
