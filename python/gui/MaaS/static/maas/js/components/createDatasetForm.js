@@ -9,8 +9,9 @@ class CreateDatasetForm {
 
     updateFormatChange(selection) {
         let dy_div = document.getElementById(this.dynamicVarsDivId);
-        //let initial_length = dy_div.childNodes.length;
-        dy_div.childNodes.forEach(child => child.remove());
+        while (dy_div.firstChild){
+            dy_div.removeChild(dy_div)
+        }
 
         let addUploadSelection = false;
         if (selection == "NETCDF_FORCING_CANONICAL") {
