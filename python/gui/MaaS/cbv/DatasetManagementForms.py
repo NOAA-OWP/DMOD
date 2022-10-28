@@ -4,6 +4,9 @@ from functools import partial
 
 from dmod.core.meta_data import DataCategory, DataFormat
 
+# typing imports
+from typing import Optional
+
 # form field type alias
 # correspond to `dmod.core.meta_data.StandardDatasetIndex``
 _Unknown = forms.CharField
@@ -29,6 +32,13 @@ class DatasetFormatForm(Enum):
     BMI_CONFIG = BMI_CONFIG
     NWM_OUTPUT = NWM_OUTPUT
     NWM_CONFIG = NWM_CONFIG
+
+    @staticmethod
+    def get_form_from_name(name: str) -> Optional[forms.Form]:
+        try:
+            return DatasetFormatForm[name].value
+        except KeyError:
+            return None
 
 
 class FormNameMixIn:
