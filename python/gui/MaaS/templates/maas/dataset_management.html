@@ -691,7 +691,7 @@
                     a little song and dance is required to get an input tag's label `for` property
                     to align properly.
                     {% endcomment %}
-                    <label for="{{ field.auto_id }}_{{format_form.form_name}}" class="{{ format_form.form_name }}">
+                    <label for="{{ field.auto_id }}_{{format_form.form_name}}" class="{{ format_form.form_name }}" style="display: none;">
                             {{ field.label }} 
                     </label>
                             {{ field }}
