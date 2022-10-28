@@ -675,8 +675,27 @@
                 {# Add the token to provide cross site request forgery protection #}
                 {% csrf_token %}
                 {{ form }}
+
+                {% comment %} 
+                Below are dynamic forms, meaning depending on the above form's input,
+                one of the below forms is shown. To accomplish this, each of the below forms are
+                wrapped in an element with a unique class. The class name is used _by_ the above
+                form's fields using event listeners to toggle on the correct form. When a form is
+                "toggled on", meaning its wrapper is displayed, a flag class is added to it's
+                wrapper class list.
+                {% endcomment %}
                 {% for format_form in dynamic_forms %}
-                {{format_form}}
+                    {% for field in format_form %}
+                    {% comment %}
+                    input field have id's of form: `id_{{field instance var name}}_{{form name}}.
+                    a little song and dance is required to get an input tag's label `for` property
+                    to align properly.
+                    {% endcomment %}
+                    <label for="{{ field.auto_id }}_{{format_form.form_name}}" class="{{ format_form.form_name }}">
+                            {{ field.label }} 
+                    </label>
+                            {{ field }}
+                    {% endfor %}
                 {% endfor %}
 
                 <!-- <div id="dataset-create-form-div-universal-inputs">
