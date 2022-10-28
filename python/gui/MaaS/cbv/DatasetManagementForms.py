@@ -11,9 +11,10 @@ from typing import Optional
 # correspond to `dmod.core.meta_data.StandardDatasetIndex``
 _Unknown = forms.CharField
 _Time = partial(
-    forms.DateTimeField, widget=forms.DateTimeInput(attrs={"type": "datetime-local"}),
+    forms.DateTimeField,
+    widget=forms.DateTimeInput(attrs={"type": "datetime-local"}),
     # TODO: this should be removed once we upgrade django versions >= 3.1 (tracked by #209)
-    input_formats=["%Y-%m-%dT%H:%M"]
+    input_formats=["%Y-%m-%dT%H:%M"],
 )
 _CatchmentId = forms.CharField
 _DataId = forms.CharField
@@ -23,8 +24,14 @@ _GlobalChecksum = forms.CharField
 _ElementId = forms.CharField
 
 
-
 class FormNameMixIn:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for visible in self.visible_fields():
+            # input field have id's of form: `id_{{field instance var name}}_{{form name}}
+            visible.field.widget.attrs["id"] = f"{visible.auto_id}_{self.form_name()}"
+            visible.field.widget.attrs["class"] = self.form_name()
+
     def form_name(self) -> str:
         """returns class name of form"""
         return type(self).__name__
@@ -107,6 +114,7 @@ class NWM_CONFIG(FormNameMixIn, forms.Form):
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
     data_id = _DataId
+
 
 class DatasetFormatForm(Enum):
     AORC_CSV = AORC_CSV
