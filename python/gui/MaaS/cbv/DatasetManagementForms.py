@@ -25,16 +25,18 @@ _ElementId = forms.CharField
 
 
 class FormNameMixIn:
+    def form_name(self) -> str:
+        """returns class name of form"""
+        return type(self).__name__
+
+class DynamicFormMixIn:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for visible in self.visible_fields():
             # input field have id's of form: `id_{{field instance var name}}_{{form name}}
             visible.field.widget.attrs["id"] = f"{visible.auto_id}_{self.form_name()}"
             visible.field.widget.attrs["class"] = self.form_name()
-
-    def form_name(self) -> str:
-        """returns class name of form"""
-        return type(self).__name__
+            visible.field.widget.attrs["style"] = "display: none;"
 
 
 class DatasetForm(FormNameMixIn, forms.Form):
@@ -44,11 +46,19 @@ class DatasetForm(FormNameMixIn, forms.Form):
         label="Dataset Category",
     )
     data_format = forms.ChoiceField(
-        choices=[(f.name, f.name) for f in DataFormat], label="Data Format"
+        choices=[(f.name, f.name) for f in DataFormat],
+        label="Data Format",
+        widget=forms.Select(
+            attrs={
+                "onchange": """(() => {
+                    console.log('it works')
+            })()"""
+            }
+        ),
     )
 
 
-class AORC_CSV(FormNameMixIn, forms.Form):
+class AORC_CSV(DynamicFormMixIn, FormNameMixIn, forms.Form):
     catchment_id = _CatchmentId()
     start_time = _Time(label="Start Datetime")
     end_time = _Time(
@@ -59,57 +69,57 @@ class AORC_CSV(FormNameMixIn, forms.Form):
     )
 
 
-class NETCDF_FORCING_CANONICAL(FormNameMixIn, forms.Form):
+class NETCDF_FORCING_CANONICAL(DynamicFormMixIn, FormNameMixIn, forms.Form):
     catchment_id = _CatchmentId
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
 
 
-class NETCDF_AORC_DEFAULT(FormNameMixIn, forms.Form):
+class NETCDF_AORC_DEFAULT(DynamicFormMixIn, FormNameMixIn, forms.Form):
     catchment_id = _CatchmentId
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
 
 
-class NGEN_OUTPUT(FormNameMixIn, forms.Form):
-    catchment_id = _CatchmentId
-    start_time = _Time(label="Start Datetime")
-    end_time = _Time(label="End Datetime")
-    data_id = _DataId
-
-
-class NGEN_REALIZATION_CONFIG(FormNameMixIn, forms.Form):
+class NGEN_OUTPUT(DynamicFormMixIn, FormNameMixIn, forms.Form):
     catchment_id = _CatchmentId
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
     data_id = _DataId
 
 
-class NGEN_GEOJSON_HYDROFABRIC(FormNameMixIn, forms.Form):
+class NGEN_REALIZATION_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
+    catchment_id = _CatchmentId
+    start_time = _Time(label="Start Datetime")
+    end_time = _Time(label="End Datetime")
+    data_id = _DataId
+
+
+class NGEN_GEOJSON_HYDROFABRIC(DynamicFormMixIn, FormNameMixIn, forms.Form):
     catchment_id = _CatchmentId
     hydrofabric_id = _HydrofabricId
     data_id = _DataId
 
 
-class NGEN_PARTITION_CONFIG(FormNameMixIn, forms.Form):
+class NGEN_PARTITION_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
     data_id = _DataId
     hydrofabric_id = _HydrofabricId
     length = _Length
 
 
-class BMI_CONFIG(FormNameMixIn, forms.Form):
+class BMI_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
     global_checksum = _GlobalChecksum
     data_id = _DataId
 
 
-class NWM_OUTPUT(FormNameMixIn, forms.Form):
+class NWM_OUTPUT(DynamicFormMixIn, FormNameMixIn, forms.Form):
     catchment_id = _CatchmentId
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
     data_id = _DataId
 
 
-class NWM_CONFIG(FormNameMixIn, forms.Form):
+class NWM_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
     element_id = _ElementId
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
