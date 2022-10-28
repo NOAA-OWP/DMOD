@@ -668,30 +668,35 @@
             <form action="." method="post" id="dataset-create-form">
                 {# Add the token to provide cross site request forgery protection #}
                 {% csrf_token %}
-                <div id="dataset-create-form-div-universal-inputs">
+                {{ form }}
+                {% for format_form in dynamic_forms %}
+                {{format_form}}
+                {% endfor %}
+
+                <!-- <div id="dataset-create-form-div-universal-inputs">
                     <label for="dataset-create-form-input-name">Dataset Name:</label>
                     <input name="dataset-create-form-input-name" id="dataset-create-form-input-name" type="text" style="float: right; text-align: right;" >
                     <br>
 
-                    <label for="dataset-create-form-input-category">Data Category:</label>
+                    <label for="dataset-create-form-input-category">Data Category:</label> -->
                     <!-- TODO: eventually (much later) support selecting the dataset type (e.g., object store) -->
                     <!-- TODO: adjust and rename function onchange -->
                     <!-- TODO: modify form for domain needs for different selections -->
-                    <select name="dataset-create-form-input-category" id="dataset-create-form-input-category" style="float: right; text-align: right">
+                    <!-- <select name="dataset-create-form-input-category" id="dataset-create-form-input-category" style="float: right; text-align: right">
                         {% for category in dataset_categories %}
                         <option value="{{ category }}">{{ category }}</option>
                         {% endfor %}
                     </select>
-                    <br>
+                    <br> -->
 
                     <!-- TODO: adjust and rename function onchange -->
-                    <label for="dataset-create-form-input-format">Data Format:</label>
+                    <!-- <label for="dataset-create-form-input-format">Data Format:</label>
                     <select name="dataset-create-form-input-format" id="dataset-create-form-input-format" style="float: right; text-align: right" onchange="createFormSelectChange(this, this.value)">
                         {% for format in dataset_formats %}
                         <option value="{{ format }}">{{ format }}</option>
                         {% endfor %}
                     </select>
-                    <br>
+                    <br> -->
 
                     <!--
                     <label for='domains'>Domain:</label>
@@ -712,10 +717,10 @@
                         {% endfor %}
                     </select>
                     -->
-                </div>
-                <br>
+                <!-- </div> -->
+                <!-- <br> -->
                 <div id="dataset-create-form-div-dynamic-inputs">
-                </div>
+                <!-- </div> -->
                 <!--
                 {% for model, model_parameters in parameters.items %}
                 <p>{{ parameter_list }}</p>
