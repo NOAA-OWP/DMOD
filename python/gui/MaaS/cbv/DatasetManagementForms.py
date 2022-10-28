@@ -47,7 +47,7 @@ class DatasetForm(FormNameMixIn, forms.Form):
         label="Dataset Category",
     )
     data_format = forms.ChoiceField(
-        choices=[(f.name, f.name) for f in DataFormat],
+        choices=[("---", "---")] + [(f.name, f.name) for f in DataFormat],
         label="Data Format",
         widget=forms.Select(
             attrs={
