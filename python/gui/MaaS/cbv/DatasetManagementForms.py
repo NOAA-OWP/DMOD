@@ -11,7 +11,9 @@ from typing import Optional
 # correspond to `dmod.core.meta_data.StandardDatasetIndex``
 _Unknown = forms.CharField
 _Time = partial(
-    forms.DateTimeField, widget=forms.DateInput(attrs={"type": "datetime-local"})
+    forms.DateTimeField, widget=forms.DateTimeInput(attrs={"type": "datetime-local"}),
+    # TODO: this should be removed once we upgrade django versions >= 3.1 (tracked by #209)
+    input_formats=["%Y-%m-%dT%H:%M"]
 )
 _CatchmentId = forms.CharField
 _DataId = forms.CharField
