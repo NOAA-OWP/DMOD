@@ -51,9 +51,29 @@ class DatasetForm(FormNameMixIn, forms.Form):
         label="Data Format",
         widget=forms.Select(
             attrs={
-                "onchange": """(() => {
-                    console.log('it works')
-            })()"""
+                # when selection changes, unhide and enable the form fields and labels for the
+                # corresponding DataFormat. form fields and labels have an html class name of their
+                # DataFormat. i.e. <input type="datetime-local" class="NETCDF_AORC_DEFAULT" ... >
+                "onchange": """((name) => {
+                    // remove previously active fields, if any
+                    const active_fields = document.querySelectorAll('.active_field')
+                    active_fields.forEach(el => {
+
+                        // disable field, hide it, and remove flag class, 'active_field'
+                        el.setAttribute('disabled', true)
+                        el.style.display = 'none'
+                        el.classList.remove('active_field')
+                        })
+
+                    const els_with_class = document.querySelectorAll(`.${name}`)
+                    els_with_class.forEach(el => {
+
+                        // enable field, hide it, and remove flag class, 'active_field'
+                        el.removeAttribute('disabled')
+                        el.style.display = 'block'
+                        el.classList.add('active_field')
+                    })
+            })(this.value)"""
             }
         ),
     )
