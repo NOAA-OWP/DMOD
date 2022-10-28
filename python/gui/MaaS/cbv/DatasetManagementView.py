@@ -13,6 +13,7 @@ logger = logging.getLogger("gui_log")
 
 from .utils import extract_log_data
 from .AbstractDatasetView import AbstractDatasetView
+from .DatasetManagementForms import DatasetForm, DatasetFormatForm
 
 
 class DatasetManagementView(AbstractDatasetView):
@@ -69,7 +70,11 @@ class DatasetManagementView(AbstractDatasetView):
         dataset_categories = [c.name.title() for c in DataCategory]
         dataset_formats = [f.name for f in DataFormat]
 
+        form = DatasetForm()
+
         payload = {
+            'form': form,
+            'dynamic_forms': [f.value() for f in DatasetFormatForm],
             'datasets': serial_dataset_list,
             'dataset_categories': dataset_categories,
             'dataset_formats': dataset_formats,
