@@ -21,25 +21,6 @@ _GlobalChecksum = forms.CharField
 _ElementId = forms.CharField
 
 
-class DatasetFormatForm(Enum):
-    AORC_CSV = AORC_CSV
-    NETCDF_FORCING_CANONICAL = NETCDF_FORCING_CANONICAL
-    NETCDF_AORC_DEFAULT = NETCDF_AORC_DEFAULT
-    NGEN_OUTPUT = NGEN_OUTPUT
-    NGEN_REALIZATION_CONFIG = NGEN_REALIZATION_CONFIG
-    NGEN_GEOJSON_HYDROFABRIC = NGEN_GEOJSON_HYDROFABRIC
-    NGEN_PARTITION_CONFIG = NGEN_PARTITION_CONFIG
-    BMI_CONFIG = BMI_CONFIG
-    NWM_OUTPUT = NWM_OUTPUT
-    NWM_CONFIG = NWM_CONFIG
-
-    @staticmethod
-    def get_form_from_name(name: str) -> Optional[forms.Form]:
-        try:
-            return DatasetFormatForm[name].value
-        except KeyError:
-            return None
-
 
 class FormNameMixIn:
     def form_name(self) -> str:
@@ -124,3 +105,22 @@ class NWM_CONFIG(FormNameMixIn, forms.Form):
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
     data_id = _DataId
+
+class DatasetFormatForm(Enum):
+    AORC_CSV = AORC_CSV
+    NETCDF_FORCING_CANONICAL = NETCDF_FORCING_CANONICAL
+    NETCDF_AORC_DEFAULT = NETCDF_AORC_DEFAULT
+    NGEN_OUTPUT = NGEN_OUTPUT
+    NGEN_REALIZATION_CONFIG = NGEN_REALIZATION_CONFIG
+    NGEN_GEOJSON_HYDROFABRIC = NGEN_GEOJSON_HYDROFABRIC
+    NGEN_PARTITION_CONFIG = NGEN_PARTITION_CONFIG
+    BMI_CONFIG = BMI_CONFIG
+    NWM_OUTPUT = NWM_OUTPUT
+    NWM_CONFIG = NWM_CONFIG
+
+    @staticmethod
+    def get_form_from_name(name: str) -> Optional[forms.Form]:
+        try:
+            return DatasetFormatForm[name].value
+        except KeyError:
+            return None
