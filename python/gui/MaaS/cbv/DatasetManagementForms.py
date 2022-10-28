@@ -37,6 +37,7 @@ class DynamicFormMixIn:
             visible.field.widget.attrs["id"] = f"{visible.auto_id}_{self.form_name()}"
             visible.field.widget.attrs["class"] = self.form_name()
             visible.field.widget.attrs["style"] = "display: none;"
+            visible.field.widget.attrs["disabled"] = "true"
 
 
 class DatasetForm(FormNameMixIn, forms.Form):
