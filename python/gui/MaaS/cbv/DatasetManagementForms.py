@@ -91,60 +91,60 @@ class AORC_CSV(DynamicFormMixIn, FormNameMixIn, forms.Form):
 
 
 class NETCDF_FORCING_CANONICAL(DynamicFormMixIn, FormNameMixIn, forms.Form):
-    catchment_id = _CatchmentId
+    catchment_id = _CatchmentId()
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
 
 
 class NETCDF_AORC_DEFAULT(DynamicFormMixIn, FormNameMixIn, forms.Form):
-    catchment_id = _CatchmentId
+    catchment_id = _CatchmentId()
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
 
 
 class NGEN_OUTPUT(DynamicFormMixIn, FormNameMixIn, forms.Form):
-    catchment_id = _CatchmentId
+    catchment_id = _CatchmentId()
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
-    data_id = _DataId
+    data_id = _DataId()
 
 
 class NGEN_REALIZATION_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
-    catchment_id = _CatchmentId
+    catchment_id = _CatchmentId()
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
-    data_id = _DataId
+    data_id = _DataId()
 
 
 class NGEN_GEOJSON_HYDROFABRIC(DynamicFormMixIn, FormNameMixIn, forms.Form):
-    catchment_id = _CatchmentId
-    hydrofabric_id = _HydrofabricId
-    data_id = _DataId
+    catchment_id = _CatchmentId()
+    hydrofabric_id = _HydrofabricId()
+    data_id = _DataId()
 
 
 class NGEN_PARTITION_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
-    data_id = _DataId
+    data_id = _DataId()
     hydrofabric_id = _HydrofabricId
-    length = _Length
+    length = _Length()
 
 
 class BMI_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
-    global_checksum = _GlobalChecksum
-    data_id = _DataId
+    global_checksum = _GlobalChecksum()
+    data_id = _DataId()
 
 
 class NWM_OUTPUT(DynamicFormMixIn, FormNameMixIn, forms.Form):
-    catchment_id = _CatchmentId
+    catchment_id = _CatchmentId()
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
-    data_id = _DataId
+    data_id = _DataId()
 
 
 class NWM_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
-    element_id = _ElementId
+    element_id = _ElementId()
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
-    data_id = _DataId
+    data_id = _DataId()
 
 
 class DatasetFormatForm(Enum):
