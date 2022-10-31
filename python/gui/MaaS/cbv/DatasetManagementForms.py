@@ -54,6 +54,7 @@ class FormNameMixIn:
         """returns class name of form"""
         return type(self).__name__
 
+
 class DynamicFormMixIn:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -113,21 +114,21 @@ class AORC_CSV(DynamicFormMixIn, FormNameMixIn, forms.Form):
         # TODO: note that all datetimes are naive UTC time.
         # help_text="",
     )
-    file = forms.FileField()
+    file = _File()
 
 
 class NETCDF_FORCING_CANONICAL(DynamicFormMixIn, FormNameMixIn, forms.Form):
     catchment_id = _CatchmentId()
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
-    file = forms.FileField()
+    file = _File()
 
 
 class NETCDF_AORC_DEFAULT(DynamicFormMixIn, FormNameMixIn, forms.Form):
     catchment_id = _CatchmentId()
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
-    file = forms.FileField()
+    file = _File()
 
 
 class NGEN_OUTPUT(DynamicFormMixIn, FormNameMixIn, forms.Form):
@@ -135,7 +136,7 @@ class NGEN_OUTPUT(DynamicFormMixIn, FormNameMixIn, forms.Form):
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
     data_id = _DataId()
-    file = forms.FileField()
+    file = _File()
 
 
 class NGEN_REALIZATION_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
@@ -143,27 +144,27 @@ class NGEN_REALIZATION_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
     data_id = _DataId()
-    file = forms.FileField()
+    file = _File()
 
 
 class NGEN_GEOJSON_HYDROFABRIC(DynamicFormMixIn, FormNameMixIn, forms.Form):
     catchment_id = _CatchmentId()
     hydrofabric_id = _HydrofabricId()
     data_id = _DataId()
-    file = forms.FileField()
+    file = _File()
 
 
 class NGEN_PARTITION_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
     data_id = _DataId()
     hydrofabric_id = _HydrofabricId
     length = _Length()
-    file = forms.FileField()
+    file = _File()
 
 
 class BMI_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
     global_checksum = _GlobalChecksum()
     data_id = _DataId()
-    file = forms.FileField()
+    file = _File()
 
 
 class NWM_OUTPUT(DynamicFormMixIn, FormNameMixIn, forms.Form):
@@ -171,7 +172,7 @@ class NWM_OUTPUT(DynamicFormMixIn, FormNameMixIn, forms.Form):
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
     data_id = _DataId()
-    file = forms.FileField()
+    file = _File()
 
 
 class NWM_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
@@ -179,7 +180,7 @@ class NWM_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
     start_time = _Time(label="Start Datetime")
     end_time = _Time(label="End Datetime")
     data_id = _DataId()
-    file = forms.FileField()
+    file = _File()
 
 
 class DatasetFormatForm(Enum):
