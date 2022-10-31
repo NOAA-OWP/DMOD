@@ -15,6 +15,7 @@ PROJECT_ROOT = settings.BASE_DIR
 import json
 import re
 from pathlib import Path
+HYDROFABRICS_DIR = settings.STATIC_HYDROFABRICS_DIR
 from .. import datapane
 from .. import configuration
 
@@ -37,8 +38,11 @@ def _build_fabric_path(fabric, type=""):
         name = fabric
         resolution=''
 
-    logger.debug("fabric path:", fabric, name, resolution)
-    path = Path(PROJECT_ROOT, 'static', 'ngen', 'hydrofabric', name, resolution, type+'crosswalk.json')
+    #logger.debug("fabric path:", fabric, name, resolution)
+    #path = Path(PROJECT_ROOT, 'static', 'ngen', 'hydrofabric', name, resolution, type+'crosswalk.json')
+
+    #path = Path(HYDROFABRICS_DIR, name, resolution, type+'crosswalk.json')
+    path = Path(HYDROFABRICS_DIR, name, 'crosswalk.json')
     if (path == None):
         return JsonResponse({})
     return path
@@ -46,11 +50,11 @@ def _build_fabric_path(fabric, type=""):
 
 class Crosswalk(APIView):
     def get(self, request: HttpRequest, crosswalk: str = None) -> typing.Optional[JsonResponse]:
-        logger.debug("crosswalk path:", crosswalk)
+        #logger.debug("crosswalk path:", crosswalk)
         if crosswalk is None:
             return JsonResponse({})
 
-        logger.debug("crosswalk path:", crosswalk)
+        #logger.debug("crosswalk path:", crosswalk)
         path = _build_fabric_path(crosswalk)
 
         if path is None:
