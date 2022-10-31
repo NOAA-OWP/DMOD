@@ -78,6 +78,86 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
                 worker_required_datasets.add(fulfilled_by)
         return worker_required_datasets
 
+    def init_volume_create_service(self, dataset_names: Set[str], helper_service_name: str):
+        """
+        Initialize and execute a Docker service that creates S3FS-based volumes for appropriate datasets.
+
+        Function creates a ``global`` Docker service of the given name. The service containers initialize an associated
+        Docker volume for each object store dataset, using a custom S3FS storage driver. Because the service is
+        ``global``, it will run on each Swarm node, thereby creating the same set of desired volumes on each node.
+
+        The image used for the created service containers is determined from "name" and "tag" values provided to this
+        instance when it was initialized.  It is expected and assumed the image runs the appropriate entrypoint script
+        for initializing volumes as described above.
+
+        Parameters
+        ----------
+        dataset_names
+        helper_service_name
+        """
+        if any([d.dataset_type != DatasetType.OBJECT_STORE for n, d in self._service_manager.get_known_datasets().items()]):
+            types = ['{}:{}'.format(n, d.dataset_type.name) for n, d in self._service_manager.get_known_datasets().items()]
+            raise DmodRuntimeError('Attempting to pass non-object-store datasets to S3FS volume util: {}'.format(types))
+
+        if len(dataset_names) == 0:
+            return
+
+        secrets = [self.get_secret_reference(sn) for sn in self._obj_store_docker_secret_names]
+
+        docker_cmd_args = ['--sentinel', self.sentinel_file, '--service-mode']
+        docker_cmd_args.extend(dataset_names)
+
+        env_vars = ['PLUGIN_ALIAS={}'.format(self._docker_plugin_alias)]
+        if self._obj_store_url is not None:
+            env_vars.append('S3FS_URL={}'.format(self._obj_store_url))
+        env_vars.append('S3FS_ACCESS_KEY={}'.format(self._obj_store_access))
+        env_vars.append('S3FS_SECRET_KEY={}'.format(self._obj_store_secret))
+
+        # TODO: might need to add logic here to make sure there isn't an existing service with this name
+        # TODO: might also need to parameterize what happens if there is an existing service with this name
+
+        service = None
+
+        try:
+            service = self.docker_client.services.create(image=self.image,
+                                                         mode=ServiceMode(mode='global'),
+                                                         args=docker_cmd_args,
+                                                         cap_add=['SYS_ADMIN'],
+                                                         env=env_vars,
+                                                         name=helper_service_name,
+                                                         # Make sure to re-mount the Docker socket inside the helper
+                                                         # service container that gets started
+                                                         mounts=['/var/run/docker.sock:/var/run/docker.sock:rw'],
+                                                         networks=self.networks,
+                                                         restart_policy=RestartPolicy(condition='none'),
+                                                         healthcheck=self.service_healthcheck,
+                                                         secrets=secrets)
+            time_sleep(1)
+            service_running = False
+            for tries in range(120):
+                # Note that this just reloads the true state of the service from Docker (it's not a service restart)
+                service.reload()
+                if all([task['Status']['State'] == task['DesiredState'] for task in service.tasks()]):
+                    running_states = dict([(task['Id'], task['DesiredState']) for task in service.tasks()])
+                    service_running = True
+                    break
+                time_sleep(1)
+            if not service_running:
+                msg = 'Unable to get all service tasks to desired state for volume helper service {}'
+                raise RuntimeError(msg.format(helper_service_name))
+            while service_running:
+                time_sleep(5)
+                service_running = any([task['Status']['State'] == running_states[task['Id']] for task in service.tasks()])
+        except KeyError as e:
+            logging.error('Failure checking service status: {}'.format(str(e)))
+        except Exception as e:
+            # TODO: might need to expand the use of service.remove() to here (while also making sure an object exists)
+            logging.error(e)
+            raise e
+        finally:
+            if service is not None:
+                service.remove()
+
     def init_volumes(self, job: Job):
         """
         Primary function for this type, creating needed dataset volumes on all hosts through a global Swarm service.
@@ -94,47 +174,9 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
             required by one of the job's workers.
         """
         worker_required_datasets = self._get_worker_required_datasets(job)
-        if len(worker_required_datasets) == 0:
-            return
-
-        secrets = [self.get_secret_reference(sn) for sn in self._obj_store_docker_secret_names]
-
-        docker_cmd_args = ['--sentinel', self.sentinel_file, '--service-mode']
-        docker_cmd_args.extend(worker_required_datasets)
-
-        env_vars = ['PLUGIN_ALIAS={}'.format(self._docker_plugin_alias)]
-        if self._obj_store_url is not None:
-            env_vars.append('S3FS_URL={}'.format(self._obj_store_url))
-        env_vars.append('S3FS_ACCESS_KEY={}'.format(self._obj_store_access))
-        env_vars.append('S3FS_SECRET_KEY={}'.format(self._obj_store_secret))
-
-        try:
-            service = self.docker_client.services.create(image=self.image,
-                                                         mode=ServiceMode(mode='global'),
-                                                         args=docker_cmd_args,
-                                                         cap_add=['SYS_ADMIN'],
-                                                         env=env_vars,
-                                                         name='{}-{}'.format(self.DOCKER_SERVICE_NAME, job.job_id),
-                                                         # Make sure to re-mount the Docker socket inside the helper
-                                                         # service container that gets started
-                                                         mounts=['/var/run/docker.sock:/var/run/docker.sock:rw'],
-                                                         networks=self.networks,
-                                                         restart_policy=RestartPolicy(condition='none'),
-                                                         healthcheck=self.service_healthcheck,
-                                                         secrets=secrets)
-            time_sleep(5)
-            for tries in range(5):
-                service.reload()
-                if all([task['Status']['State'] == task['DesiredState'] for task in service.tasks()]):
-                    break
-                time_sleep(3)
-            service.remove()
-        except KeyError as e:
-            logging.error('Failure checking service status: {}'.format(str(e)))
-            service.remove()
-        except Exception as e:
-            logging.error(e)
-            raise e
+        if len(worker_required_datasets) > 0:
+            self.init_volume_create_service(dataset_names=worker_required_datasets,
+                                            helper_service_name='{}-{}'.format(self.DOCKER_SERVICE_NAME, job.job_id))
 
     @property
     def sentinel_file(self) -> str:
