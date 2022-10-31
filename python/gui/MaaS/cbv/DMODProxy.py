@@ -7,6 +7,9 @@ from abc import ABC, abstractmethod
 from django.http import HttpRequest, HttpResponse
 from django.views.generic.base import View
 from django.shortcuts import render
+from django.conf import settings
+
+DEFAULT_MAAS_URI = settings.DEFAULT_MAAS_ENDPOINT_URI
 
 import logging
 logger = logging.getLogger("gui_log")
@@ -16,7 +19,7 @@ from dmod.communication import Distribution, get_available_models, get_available
 from pathlib import Path
 from typing import List, Optional, Tuple, Type
 
-GUI_STATIC_SSL_DIR = Path('/usr/maas_portal/ssl')
+GUI_STATIC_SSL_DIR = Path(settings.GUI_SSL_DIR)
 
 
 class RequestFormProcessor(ABC):
@@ -291,8 +294,7 @@ class DMODMixin:
     @property
     def maas_endpoint_uri(self):
         if not hasattr(self, '_maas_endpoint_uri') or self._maas_endpoint_uri is None:
-            self._maas_endpoint_uri = 'wss://' + os.environ.get('MAAS_ENDPOINT_HOST') + ':'
-            self._maas_endpoint_uri += os.environ.get('MAAS_ENDPOINT_PORT')
+            self._maas_endpoint_uri = DEFAULT_MAAS_URI
         return self._maas_endpoint_uri
 
     def forward_request(self, request: HttpRequest, event_type: MessageEventType) -> Tuple[
