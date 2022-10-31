@@ -46,6 +46,16 @@ def get_subset_for_catchment_id():
     return flask.jsonify(subset.to_dict())
 
 
+@app.route('/subset/bounds', methods=['POST'])
+def get_subset_hydrofabric_for_bounds():
+    # min_x, min_y, max_x, max_y
+    record = json.loads(flask.request.data)
+    subset_handler = subset_handlers[record['fabric_name']]
+    features = subset_handler.get_geojson_for_bounds(record['feature_type'], record['min_x'], record['min_y'],
+                                                     record['max_x'], record['max_y'])
+    return flask.jsonify(features)
+
+
 # A route to get a subset the goes upstream from one or more catchments specified by their ids
 @app.route('/subset/upstream', methods=['POST'])
 def get_upstream_subset():
