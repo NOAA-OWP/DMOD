@@ -12,18 +12,22 @@ from django.views.generic.base import View
 from django.shortcuts import render
 from django.conf import settings
 from rest_framework.views import APIView
-PROJECT_ROOT = settings.BASE_DIR
+#PROJECT_ROOT = settings.BASE_DIR
+HYDROFABRICS_DIR = settings.STATIC_HYDROFABRICS_DIR
+SUBSET_SERVICE_URL = settings.SUBSET_SERVICE_URL
 import json
 from pathlib import Path
 from .. import datapane
 from .. import configuration
+import requests
 
 import logging
 logger = logging.getLogger("gui_log")
 
 _resolution_regex = re.compile("(.+) \((.+)\)")
 
-def _build_fabric_path(fabric, type):
+
+def _build_fabric_path(fabric, fabric_type):
     """
         build a qualified path from the hydrofabric name and type
     """
@@ -36,28 +40,46 @@ def _build_fabric_path(fabric, type):
         name = fabric
         resolution=''
     
-    path = Path(PROJECT_ROOT, 'static', 'ngen', 'hydrofabric', name, resolution, type+'_data.geojson')
+    #path = Path(HYDROFABRICS_DIR, name, resolution, fabric_type + '_data.geojson')
+    path = Path(HYDROFABRICS_DIR, name, fabric_type + '_data.geojson')
     return path
 
+
 class Fabrics(APIView):
+
+    def _get_geojson_in_bounds(self, fabric_name: str, feature_type:str, min_x: float, min_y: float, max_x: float,
+                               max_y: float) -> dict:
+        url_path = '{}/subset/bounds'.format(SUBSET_SERVICE_URL)
+        request_data = {'fabric_name': fabric_name, 'feature_type': feature_type, 'min_x': min_x, 'min_y': min_y,
+                        'max_x': max_x, 'max_y': max_y}
+        subset_response = requests.post(url=url_path, data=request_data)
+        return subset_response.json()
+
     def get(self, request: HttpRequest, fabric: str = None) -> typing.Optional[JsonResponse]:
         if fabric is None:
             fabric = 'example'
-        type = request.GET.get('fabric_type', 'catchment')
-        if not type:
-            type="catchment"
+
+        fabric_type = request.GET.get('fabric_type', 'catchment')
+        min_x = request.GET.get('min_x', None)
+        min_y = request.GET.get('min_y', None)
+        max_x = request.GET.get('max_x', None)
+        max_y = request.GET.get('max_y', None)
+
+        if not fabric_type:
+            fabric_type = "catchment"
         
-        path = _build_fabric_path(fabric, type)
+        path = _build_fabric_path(fabric, fabric_type)
 
         if path is None:
-            return None
-
-        with open(path) as fp:
-            data = json.load(fp)
-            return JsonResponse(data)
+            return JsonResponse(self._get_geojson_in_bounds(fabric_name=fabric, feature_type=fabric_type, min_x=min_x,
+                                                            min_y=min_y, max_x=max_x, max_y=max_y))
+        else:
+            with open(path) as fp:
+                data = json.load(fp)
+                return JsonResponse(data)
     
 class FabricNames(APIView):
-    _fabric_dir = Path(PROJECT_ROOT, 'static', 'ngen', 'hydrofabric')
+    _fabric_dir = Path(HYDROFABRICS_DIR)
     
     def get(self, request: HttpRequest) -> JsonResponse:
         names = []
@@ -92,6 +114,9 @@ class ConnectedFeatures(APIView):
 
 
 class MapView(View):
+
+    # TODO: update view/template to only do things for low enough zoom levels.
+    # TODO: update view/template to get features inside bounding box
 
     """
     A view used to render the map
