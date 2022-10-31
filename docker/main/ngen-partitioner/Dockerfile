@@ -1,6 +1,9 @@
 ARG DOCKER_INTERNAL_REGISTRY
 FROM ${DOCKER_INTERNAL_REGISTRY}/ngen-deps:latest
 
+ARG WORKDIR=/ngen
+WORKDIR ${WORKDIR}
+
 #Passing the ARG variables from compose via .env file will squash these defaults with empty strings
 #Seems like the work around is to replicate the default values in the build env, or to check for
 #empty and set to default as is shown commented out below.
