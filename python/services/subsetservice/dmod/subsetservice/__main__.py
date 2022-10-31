@@ -7,6 +7,13 @@ from typing import Optional
 from .cli import Cli
 from . import name as package_name
 
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
+    datefmt="%H:%M:%S"
+)
+
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
 
@@ -141,6 +148,23 @@ def _handle_args():
                         '-I',
                         help="When running CLI operation to create subdivided hydrofabric, only write files for this partition index.",
                         dest='partition_index')
+    parser.add_argument('--pycharm-remote-debug',
+                        help='Activate Pycharm remote debugging support',
+                        dest='pycharm_debug',
+                        action='store_true')
+    parser.add_argument('--pycharm-remote-debug-egg',
+                        help='Set path to .egg file for Python remote debugger util',
+                        dest='remote_debug_egg_path',
+                        default='/pydevd-pycharm.egg')
+    parser.add_argument('--remote-debug-host',
+                        help='Set remote debug host to connect back to debugger',
+                        dest='remote_debug_host',
+                        default='host.docker.internal')
+    parser.add_argument('--remote-debug-port',
+                        help='Set remote debug port to connect back to debugger',
+                        dest='remote_debug_port',
+                        type=int,
+                        default=55874)
     parser.prog = package_name
     return parser.parse_args()
 
@@ -156,6 +180,26 @@ def exec_cli_op(cli, args) -> bool:
 def main():
     global subset_handler
     args = _handle_args()
+
+    if args.pycharm_debug:
+        logging.info("Preparing remote debugging connection for subset service.")
+        if args.remote_debug_egg_path == '':
+            print('Error: set to debug with Pycharm, but no path to remote debugger egg file provided')
+            exit(1)
+        if not Path(args.remote_debug_egg_path).exists():
+            print('Error: no file at given path to remote debugger egg file "{}"'.format(args.remote_debug_egg_path))
+            exit(1)
+        import sys
+        sys.path.append(args.remote_debug_egg_path)
+        import pydevd_pycharm
+        try:
+            pydevd_pycharm.settrace(args.remote_debug_host, port=args.remote_debug_port, stdoutToServer=True,
+                                    stderrToServer=True)
+        except Exception as error:
+            msg = 'Warning: could not set debugging trace to {} on {} due to {} - {}'
+            print(msg.format(args.remote_debug_host, args.remote_debug_port, error.__class__.__name__, str(error)))
+    else:
+        logging.info("Skipping subset service remote debugging setup.")
 
     # TODO: put warning in about not trying multiple CLI operations at once
 
@@ -178,6 +222,7 @@ def main():
         result = exec_cli_op(cli, args)
 
     else:
+        logging.info("Starting app API service on port {}".format(args.port))
         app.run(host=args.host, port=args.port)
         result = True
 
