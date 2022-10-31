@@ -4,18 +4,28 @@ from functools import partial
 
 from dmod.core.meta_data import DataCategory, DataFormat
 
+from .js_utils import start_end_time_validation
+
 # typing imports
 from typing import Optional
 
 # form field type alias
 # correspond to `dmod.core.meta_data.StandardDatasetIndex``
+def _time(start_time_id: str, end_time_id: str):
+    return partial(
+        forms.DateTimeField,
+        widget=forms.DateTimeInput(
+            attrs={
+                "type": "datetime-local",
+                "onchange": start_end_time_validation(start_time_id, end_time_id),
+            }
+        ),
+        # TODO: this should be removed once we upgrade django versions >= 3.1 (tracked by #209)
+        input_formats=["%Y-%m-%dT%H:%M"],
+    )
+
+
 _Unknown = forms.CharField
-_Time = partial(
-    forms.DateTimeField,
-    widget=forms.DateTimeInput(attrs={"type": "datetime-local"}),
-    # TODO: this should be removed once we upgrade django versions >= 3.1 (tracked by #209)
-    input_formats=["%Y-%m-%dT%H:%M"],
-)
 _CatchmentId = forms.CharField
 _DataId = forms.CharField
 _HydrofabricId = forms.CharField
@@ -107,42 +117,61 @@ class DatasetForm(FormNameMixIn, forms.Form):
 
 class AORC_CSV(DynamicFormMixIn, FormNameMixIn, forms.Form):
     catchment_id = _CatchmentId()
-    start_time = _Time(label="Start Datetime")
-    end_time = _Time(
-        label="End Datetime",
-        # TODO: note if end times are inclusive.
-        # TODO: note that all datetimes are naive UTC time.
-        # help_text="",
+    start_time = _time("id_start_time_AORC_CSV", "id_end_time_AORC_CSV")(
+        label="Start Datetime"
     )
+    end_time = _time("id_start_time_AORC_CSV", "id_end_time_AORC_CSV")(
+        label="End Datetime"
+    )
+    # TODO: note if end times are inclusive.
+    # TODO: note that all datetimes are naive UTC time.
+    # help_text="",
+    # )
     file = _File()
 
 
 class NETCDF_FORCING_CANONICAL(DynamicFormMixIn, FormNameMixIn, forms.Form):
     catchment_id = _CatchmentId()
-    start_time = _Time(label="Start Datetime")
-    end_time = _Time(label="End Datetime")
+    start_time = _time(
+        "id_start_time_NETCDF_FORCING_CANONICAL", "id_end_time_NETCDF_FORCING_CANONICAL"
+    )(label="Start Datetime")
+    end_time = _time(
+        "id_start_time_NETCDF_FORCING_CANONICAL", "id_end_time_NETCDF_FORCING_CANONICAL"
+    )(label="End Datetime")
     file = _File()
 
 
 class NETCDF_AORC_DEFAULT(DynamicFormMixIn, FormNameMixIn, forms.Form):
     catchment_id = _CatchmentId()
-    start_time = _Time(label="Start Datetime")
-    end_time = _Time(label="End Datetime")
+    start_time = _time(
+        "id_start_time_NETCDF_AORC_DEFAULT", "id_end_time_NETCDF_AORC_DEFAULT"
+    )(label="Start Datetime")
+    end_time = _time(
+        "id_start_time_NETCDF_AORC_DEFAULT", "id_end_time_NETCDF_AORC_DEFAULT"
+    )(label="End Datetime")
     file = _File()
 
 
 class NGEN_OUTPUT(DynamicFormMixIn, FormNameMixIn, forms.Form):
     catchment_id = _CatchmentId()
-    start_time = _Time(label="Start Datetime")
-    end_time = _Time(label="End Datetime")
+    start_time = _time("id_start_time_NGEN_OUTPUT", "id_end_time_NGEN_OUTPUT")(
+        label="Start Datetime"
+    )
+    end_time = _time("id_start_time_NGEN_OUTPUT", "id_end_time_NGEN_OUTPUT")(
+        label="End Datetime"
+    )
     data_id = _DataId()
     file = _File()
 
 
 class NGEN_REALIZATION_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
     catchment_id = _CatchmentId()
-    start_time = _Time(label="Start Datetime")
-    end_time = _Time(label="End Datetime")
+    start_time = _time(
+        "id_start_time_NGEN_REALIZATION_CONFIG", "id_end_time_NGEN_REALIZATION_CONFIG"
+    )(label="Start Datetime")
+    end_time = _time(
+        "id_start_time_NGEN_REALIZATION_CONFIG", "id_end_time_NGEN_REALIZATION_CONFIG"
+    )(label="End Datetime")
     data_id = _DataId()
     file = _File()
 
@@ -169,16 +198,24 @@ class BMI_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
 
 class NWM_OUTPUT(DynamicFormMixIn, FormNameMixIn, forms.Form):
     catchment_id = _CatchmentId()
-    start_time = _Time(label="Start Datetime")
-    end_time = _Time(label="End Datetime")
+    start_time = _time("id_start_time_NWM_OUTPUT", "id_end_time_NWM_OUTPUT")(
+        label="Start Datetime"
+    )
+    end_time = _time("id_start_time_NWM_OUTPUT", "id_end_time_NWM_OUTPUT")(
+        label="End Datetime"
+    )
     data_id = _DataId()
     file = _File()
 
 
 class NWM_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
     element_id = _ElementId()
-    start_time = _Time(label="Start Datetime")
-    end_time = _Time(label="End Datetime")
+    start_time = _time("id_start_time_NWM_CONFIG", "id_end_time_NWM_CONFIG")(
+        label="Start Datetime"
+    )
+    end_time = _time("id_start_time_NWM_CONFIG", "id_end_time_NWM_CONFIG")(
+        label="End Datetime"
+    )
     data_id = _DataId()
     file = _File()
 
