@@ -1066,6 +1066,33 @@ class ServiceManager(WebSocketInterface):
             self._job_util.unlock_active_jobs(lock_id)
             await asyncio.sleep(5)
 
+    async def manage_hydrofabric_availability(self):
+        """
+        Async task method to make sure hydrofabric datasets are available to GUI.
+        """
+        logging.debug("Starting task loop for managing hydrofabric dataset availability")
+        while True:
+            # TODO: (later) also filter out any already-subdivided hydrofabric datasets
+            datasets = [d for n, d in self.get_known_datasets().items() if d.category == DataCategory.HYDROFABRIC]
+
+            if self._is_docker_swarm_active:
+                # TODO: (later) support doing this or similar for non-object-store datasets
+                obj_store_ds_names = set([d.name for d in datasets if d.dataset_type == DatasetType.OBJECT_STORE])
+                # TODO: (later) add something to make sure the volumes get removed if/when a dataset is deleted
+
+                # We may re-do even for volumes that already exist; this will ensure any new swarm nodes also get it
+                self._docker_s3fs_helper.init_volume_create_service(dataset_names=obj_store_ds_names,
+                                                                    helper_service_name='hydrofabric_avail_task')
+                # Right no others are supported, so warn
+                non_obj_store_names = [d.name for d in datasets if d.dataset_type != DatasetType.OBJECT_STORE]
+                if len(non_obj_store_names) > 0:
+                    msg = "Unexpected Hydrofabric datasets that cannot be made available to services: {}"
+                    logging.error(msg.format(non_obj_store_names))
+
+            # TODO: (later) support other availability paradigms
+
+            await asyncio.sleep(60)
+
     async def perform_checks_for_job(self, job: Job) -> bool:
         """
         Check whether all requirements for this job can be fulfilled, setting the fulfillment associations.
