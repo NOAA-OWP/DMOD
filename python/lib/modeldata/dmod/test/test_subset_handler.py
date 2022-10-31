@@ -4,6 +4,7 @@ from hypy import Catchment
 from pathlib import Path
 from typing import Dict, Optional, Union
 from ..modeldata.subset import SubsetHandler
+from ..modeldata.subset.subset_handler import GeoJsonBackedSubsetHandler
 
 
 class TestSubsetHandler(unittest.TestCase):
@@ -73,13 +74,13 @@ class TestSubsetHandler(unittest.TestCase):
         pass
 
     # Test that the function can initialize a new subset handler via the GeoJSON factory method
-    def test_factory_create_from_geojson_1_a(self):
+    def test_geojson_init_1_a(self):
         ex_ind = 1
         cf = str(self.hf_examples[ex_ind][self.CAT_KEY])
         nf = str(self.hf_examples[ex_ind][self.NEX_KEY])
         xf = str(self.hf_examples[ex_ind][self.CROSS_KEY])
 
-        handler = SubsetHandler.factory_create_from_geojson(catchment_data=cf, nexus_data=nf, cross_walk=xf)
+        handler = GeoJsonBackedSubsetHandler(catchment_data=cf, nexus_data=nf, cross_walk=xf)
         self.assertIsInstance(handler, SubsetHandler)
 
     # Test that catchment can be retrieved by id
@@ -91,7 +92,7 @@ class TestSubsetHandler(unittest.TestCase):
 
         ex_cat_id = 'cat-67'
 
-        handler = SubsetHandler.factory_create_from_geojson(catchment_data=cf, nexus_data=nf, cross_walk=xf)
+        handler = GeoJsonBackedSubsetHandler(catchment_data=cf, nexus_data=nf, cross_walk=xf)
         catchment = handler.get_catchment_by_id(ex_cat_id)
 
         self.assertIsInstance(catchment, Catchment)
@@ -105,7 +106,7 @@ class TestSubsetHandler(unittest.TestCase):
 
         ex_cat_id = 'cat-67'
 
-        handler = SubsetHandler.factory_create_from_geojson(catchment_data=cf, nexus_data=nf, cross_walk=xf)
+        handler = GeoJsonBackedSubsetHandler(catchment_data=cf, nexus_data=nf, cross_walk=xf)
         catchment = handler.get_catchment_by_id(ex_cat_id)
 
         self.assertEqual(catchment.id, ex_cat_id)
@@ -119,7 +120,7 @@ class TestSubsetHandler(unittest.TestCase):
 
         ex_cat_id = 'cat-27'
 
-        handler = SubsetHandler.factory_create_from_geojson(catchment_data=cf, nexus_data=nf, cross_walk=xf)
+        handler = GeoJsonBackedSubsetHandler(catchment_data=cf, nexus_data=nf, cross_walk=xf)
         catchment = handler.get_catchment_by_id(ex_cat_id)
 
         self.assertIsInstance(catchment, Catchment)
@@ -133,7 +134,7 @@ class TestSubsetHandler(unittest.TestCase):
 
         ex_cat_id = 'cat-27'
 
-        handler = SubsetHandler.factory_create_from_geojson(catchment_data=cf, nexus_data=nf, cross_walk=xf)
+        handler = GeoJsonBackedSubsetHandler(catchment_data=cf, nexus_data=nf, cross_walk=xf)
         catchment = handler.get_catchment_by_id(ex_cat_id)
 
         self.assertEqual(catchment.id, ex_cat_id)
