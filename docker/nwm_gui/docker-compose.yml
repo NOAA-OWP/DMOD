@@ -51,8 +51,12 @@ services:
       - MAAS_ENDPOINT_PORT=${DOCKER_REQUESTS_HOST_PORT:-3012}
       - MAAS_PORTAL_DEBUG_HOST=${PYCHARM_REMOTE_DEBUG_SERVER_HOST:-host.docker.internal}
       - MAAS_PORTAL_DEBUG_PORT=${PYCHARM_REMOTE_DEBUG_SERVER_PORT_GUI:-55875}
+      - GUI_SUBSET_SERVICE_API_URL=http://${DMOD_GUI_SUBSET_SERVICE_API_HOST:?}:${DOCKER_SUBSET_API_PORT:-5001}
       - PYCHARM_REMOTE_DEBUG_ACTIVE=${PYCHARM_REMOTE_DEBUG_GUI_ACTIVE:-false}
       - PYCHARM_REMOTE_DEBUG_VERSION=${PYCHARM_REMOTE_DEBUG_VERSION:-~=211.7628.24}
+      - DMOD_SU_NAME=dmod_db_admin
+      # TODO: this needs to be changed eventually
+      - DMOD_SU_EMAIL=robert.bartel@noaa.gov
       - SQL_ENGINE=django.db.backends.postgresql
       - SQL_DATABASE=${DMOD_GUI_POSTGRES_DB:-dmod_dev}
       - SQL_USER=${DMOD_GUI_POSTGRES_USER:?}
@@ -79,8 +83,8 @@ services:
     networks:
       - request-listener-net
     volumes:
-        #- ${DMOD_GUI_POSTGRES_DATA:?}:/var/lib/postgresql/data
-        - dmod_db_volume:/var/lib/postgresql/data
+        - ${DMOD_GUI_POSTGRES_DATA_VOLUME_HOST_DIR:?}:/var/lib/postgresql/data
+        #- dmod_db_volume:/var/lib/postgresql/data
     secrets:
         - postgres_password
     environment:
