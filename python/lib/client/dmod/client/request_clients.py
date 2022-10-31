@@ -8,6 +8,7 @@ from dmod.communication.dataset_management_message import DatasetManagementMessa
     MaaSDatasetManagementMessage, MaaSDatasetManagementResponse, QueryType, DatasetQuery
 from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
 from dmod.core.meta_data import DataCategory, DataDomain, TimeRange
+from dmod.core.dataset import Dataset
 from pathlib import Path
 from typing import AnyStr, Dict, List, Optional, Tuple, Type, Union
 
@@ -580,7 +581,7 @@ class DatasetExternalClient(DatasetClient,
         else:
             return []
 
-    async def download_dataset(self, dataset_name: str, dest_dir: Path) -> bool:
+    async def download_dataset(self, dataset_name: str, dest_dir: Path, overwrite: bool = False) -> bool:
         await self._async_acquire_session_info()
         try:
             dest_dir.mkdir(parents=True, exist_ok=True)
@@ -593,14 +594,18 @@ class DatasetExternalClient(DatasetClient,
         self.last_response: MaaSDatasetManagementResponse = await self.async_make_request(request)
         for item, dest in [(filename, dest_dir.joinpath(filename)) for filename in self.last_response.query_results]:
             dest.parent.mkdir(exist_ok=True)
-            success = success and await self.download_from_dataset(dataset_name=dataset_name, item_name=item, dest=dest)
+            success = success and await self.download_from_dataset(dataset_name=dataset_name, item_name=item, dest=dest,
+                                                                   overwrite=overwrite)
         return success
 
-    async def download_from_dataset(self, dataset_name: str, item_name: str, dest: Path) -> bool:
+    async def download_from_dataset(self, dataset_name: str, item_name: str, dest: Path, overwrite: bool = False) -> bool:
         await self._async_acquire_session_info()
-        if dest.exists():
-            return False
         try:
+            if dest.exists():
+                if overwrite:
+                    dest.unlink()
+                else:
+                    return False
             dest.parent.mkdir(parents=True, exist_ok=True)
         except:
             return False
@@ -624,6 +629,30 @@ class DatasetExternalClient(DatasetClient,
                     has_data, message_object = self._process_data_download_iteration(await websocket.recv())
                     if not has_data:
                         return message_object
+
+    async def get_datasets(self, dataset_name: Optional[str] = None) -> Dict[str, Dataset]:
+        """
+        Get datasets as ::class:`Dataset` objects, either for all datasets or for the one with the provided name.
+
+        Essentially, this is a convenience wrapper around ::method:`get_serialized_datasets` that inflates the
+        ::class:`Dataset`.
+
+        Parameters
+        ----------
+        dataset_name : Optional[str]
+            The name of a specific dataset to get serialized details of, if only one should be obtained.
+
+        Returns
+        -------
+        Dict[str, Dataset]
+            A dictionary, keyed by dataset name, of ::class:`Dataset` objects.
+
+        See Also
+        -------
+        get_serialized_datasets
+        """
+        serial_jsons: Dict[str, dict] = await self.get_serialized_datasets(dataset_name=dataset_name)
+        return dict([(k, Dataset.factory_init_from_deserialized_json(ds_json)) for k, ds_json in serial_jsons.items()])
 
     async def get_serialized_datasets(self, dataset_name: Optional[str] = None) -> Dict[str, dict]:
         """
