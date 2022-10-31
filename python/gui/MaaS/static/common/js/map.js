@@ -51,6 +51,10 @@ startup_scripts.push(
     function(){
         mymap = L.map('mapid').setView(centerLine, zoom);
 
+        mymap.on('zoomend', function() {
+            loadFabric('zoomend');
+        });
+
         L.tileLayer(mapUrl, {
                 maxZoom: maxZoom,
                 attribution: attribution,
@@ -413,7 +417,23 @@ function loadFabricTypes() {
     );
 }
 
+function isZoomCloseEnoughForFabricLookup() {
+    return mymap.getZoom() > 10;
+}
+
+
 function loadFabric(event) {
+    // TODO: test this out, both to see if it works and to see if it is the right amount
+    if (!isZoomCloseEnoughForFabricLookup()) {
+        return
+    }
+
+    var bounding_box = mymap.getBounds();
+    var min_x = bounding_box.getWest();
+    var min_y = bounding_box.getSouth();
+    var max_x = bounding_box.getEast();
+    var max_y = bounding_box.getNorth();
+
     var name = $("#fabric-selector").val();
     var type = $("#fabric-type-selector").val();
 
@@ -451,6 +471,28 @@ function loadFabric(event) {
 
         mymap.fitBounds(activeLayer.getBounds());
     }
+    if (activeLayer) {
+        Object.values(selectedLayers).forEach(layer => removeFeature(layer.feature.id));
+        activeLayer.remove();
+    }
+    var url = "fabric/" + name;
+    $.ajax(
+        {
+            url: url,
+            type: "GET",
+            data: {"fabric_name": name, "feature_type": type, "min_x": min_x, "min_y": min_y, "max_x": max_x, "max_y": max_y},
+            error: function(xhr, status, error) {
+                console.error(error);
+            },
+            success: function(result, status, xhr) {
+                if (result) {
+                    addDocument(result);
+                }
+            }
+        }
+    )
+    
+    /*
     var name_type = name+"|"+type;
     if (name && type &&  (name_type != activeLayerName || activeLayer == null)) {
         activeLayerName = name_type;
@@ -483,4 +525,5 @@ function loadFabric(event) {
             )
         }
     }
+    */
 }
