@@ -1,1 +1,2 @@
 from .ngen_request import NGENRequest, NGENRequestResponse
+from .ngen_calibration_request import NgenCalibrationRequest, NgenCalibrationResponse
