@@ -3,7 +3,8 @@ from .client import DataServiceClient, InternalServiceClient, ModelExecRequestCl
     PartitionerServiceClient, SchedulerClient
 from .maas_request import get_available_models, get_available_outputs, get_distribution_types, get_parameters, \
     get_request, Distribution, ExternalRequest, ExternalRequestResponse, ModelExecRequest, ModelExecRequestResponse, \
-    NWMRequest, NWMRequestResponse, Scalar, NGENRequest, NGENRequestResponse
+    NWMRequest, NWMRequestResponse, Scalar, NGENRequest, NGENRequestResponse, NgenCalibrationRequest, \
+    NgenCalibrationResponse
 from .message import AbstractInitRequest, MessageEventType, Message, Response, InvalidMessage, InvalidMessageResponse, \
     InitRequestResponseReason
 from .metadata_message import MetadataPurpose, MetadataMessage, MetadataResponse
