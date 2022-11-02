@@ -120,21 +120,22 @@ class RequestService(WebSocketSessionsInterface):
 
         self._model_exec_request_handler = ModelExecRequestHandler(session_manager=self._session_manager,
                                                                    authorizer=self.authorizer,
-                                                                   scheduler_host=scheduler_host,
-                                                                   scheduler_port=int(scheduler_port),
-                                                                   scheduler_ssl_dir=self.scheduler_client_ssl_dir)
+                                                                   service_host=scheduler_host,
+                                                                   service_port=int(scheduler_port),
+                                                                   service_ssl_dir=self.scheduler_client_ssl_dir)
+
 
         self._partition_request_handler = PartitionRequestHandler(session_manager=self._session_manager,
                                                                   authorizer=self.authorizer,
-                                                                  partition_service_host=partitioner_host,
-                                                                  partition_service_port=int(partitioner_port),
-                                                                  partition_service_ssl_dir=self.partitioner_ssl_dir)
+                                                                  service_host=partitioner_host,
+                                                                  service_port=int(partitioner_port),
+                                                                  service_ssl_dir=self.partitioner_ssl_dir)
 
         self._data_service_handler = DatasetRequestHandler(session_manager=self._session_manager,
                                                            authorizer=self.authorizer,
-                                                           data_service_host=data_service_host,
-                                                           data_service_port=int(data_service_port),
-                                                           data_service_ssl_dir=self.data_service_ssl_dir)
+                                                           service_host=data_service_host,
+                                                           service_port=int(data_service_port),
+                                                           service_ssl_dir=self.data_service_ssl_dir)
 
         self._evaluation_service_handler = EvaluationRequestHandler(
             service_host=evaluation_service_host,
