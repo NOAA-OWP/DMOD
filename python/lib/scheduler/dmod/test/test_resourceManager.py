@@ -1,6 +1,6 @@
 import unittest
 
-from . import EmptyResourceManager, MockResourceManager, mock_resources
+from .scheduler_test_utils import EmptyResourceManager, MockResourceManager, mock_resources
 
 class TestResourceManagerBase(unittest.TestCase):
 

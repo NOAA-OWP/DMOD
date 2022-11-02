@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 from typing import Iterable, List, Union, Optional
 from redis import WatchError
 import logging

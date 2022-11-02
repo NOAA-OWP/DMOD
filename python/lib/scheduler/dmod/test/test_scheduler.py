@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 from ..scheduler.scheduler import Launcher
-from . import mock_job
+from .scheduler_test_utils import mock_job
 
 
 class NoCheckDockerLauncher(Launcher):
