@@ -271,7 +271,7 @@ def main():
 
     running_cli = args.partition_file or args.do_simple_subset or args.do_upstream_subset
 
-    subdirs = [d for d in args.files_directory.blob('*') if d.is_dir()]
+    subdirs = [d for d in args.files_directory.glob('*') if d.is_dir()]
 
     if len(subdirs) == 0 and _is_hydrofabric_dir(directory=args.files_directory, cat_file_name=args.catchment_data_file,
                                                  nexus_file_name=args.nexus_data_file):
