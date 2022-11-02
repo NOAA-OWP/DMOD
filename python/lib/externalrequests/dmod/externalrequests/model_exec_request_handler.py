@@ -17,9 +17,24 @@ logging.basicConfig(
 
 class ModelExecRequestHandler(MaaSRequestHandler):
 
-    def __init__(self, session_manager: SessionManager, authorizer: Authorizer, scheduler_host: str,
-                 scheduler_port: int, scheduler_ssl_dir: Path):
-        super().__init__(session_manager, authorizer, scheduler_host, scheduler_port, scheduler_ssl_dir)
+    def __init__(self, *args, **kwargs):
+        """
+
+        Parameters
+        ----------
+        args
+        kwargs
+
+        Other Parameters
+        ----------
+        session_manager
+        authorizer
+        service_host
+        service_port
+        service_ssl_dir
+
+        """
+        super().__init__(*args, **kwargs)
 
         # TODO: implement properly
         self._default_required_access_type = None
