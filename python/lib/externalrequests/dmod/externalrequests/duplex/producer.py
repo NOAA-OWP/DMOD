@@ -41,7 +41,7 @@ class Producer(abc.ABC):
         ...
 
     @classmethod
-    def start(cls, sources: SOCKET_OR_SOCKETS, targets: SOCKET_OR_SOCKETS, *args, **kwargs) -> asyncio.Task[Response]:
+    def start(cls, sources: SOCKET_OR_SOCKETS, targets: SOCKET_OR_SOCKETS, *args, **kwargs) -> asyncio.Task:
         """
         Call the Producer with the given parameters and return a Task object for outside management
 
