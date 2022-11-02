@@ -212,9 +212,9 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         #self._handler = None
         self.handler = ModelExecRequestHandler(session_manager=self.session_manager,
                                                authorizer=self.success_authorizer,
-                                               scheduler_host=self.scheduler_host,
-                                               scheduler_port=self.scheduler_port,
-                                               scheduler_ssl_dir=self.scheduler_ssl_dir)
+                                               service_host=self.scheduler_host,
+                                               service_port=self.scheduler_port,
+                                               service_ssl_dir=self.scheduler_ssl_dir)
 
     def tearDown(self) -> None:
         pass
