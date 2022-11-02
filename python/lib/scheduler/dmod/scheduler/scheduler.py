@@ -9,6 +9,7 @@ from os import getenv
 import docker
 from docker.models.services import Service as DockerService
 from docker.types import Mount, SecretReference
+from docker.models.services import Service as DockerService
 import yaml
 from typing import Dict, List, Optional, TYPE_CHECKING, Tuple
 

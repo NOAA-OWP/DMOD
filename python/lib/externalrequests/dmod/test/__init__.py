@@ -1,1 +1,1 @@
-from ..test.utils import FailureTestingAuthUtil, SucceedTestAuthUtil, TestingSession, TestingSessionManager
+from ..test.externalrequests_test_utils import FailureTestingAuthUtil, SucceedTestAuthUtil, TestingSession, TestingSessionManager

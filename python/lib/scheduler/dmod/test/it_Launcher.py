@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 from ..scheduler.scheduler import Launcher
 from . import mock_job
-from .utils import logTest
+from .scheduler_test_utils import logTest
 import logging
 
 

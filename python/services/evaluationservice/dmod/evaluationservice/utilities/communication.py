@@ -13,9 +13,9 @@ import dmod.metrics.communication as communication
 
 from . import common
 
-import service
+from .. import service
 
-from service import application_values
+from ..service import application_values
 
 
 MESSAGE_HANDLERS = typing.Union[communication.MESSAGE_HANDLER, typing.Sequence[communication.MESSAGE_HANDLER]]

@@ -1,7 +1,7 @@
 import asyncio
 import unittest
 from dmod.communication import SessionInitFailureReason
-from . import FailureTestingAuthUtil, SucceedTestAuthUtil, TestingSessionManager, TestingSession
+from .externalrequests_test_utils import FailureTestingAuthUtil, SucceedTestAuthUtil, TestingSessionManager, TestingSession
 from ..externalrequests.auth_handler import AuthHandler, SessionInitMessage, SessionInitResponse
 
 
