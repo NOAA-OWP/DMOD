@@ -119,24 +119,46 @@ class ModelExecRequestHandler(MaaSRequestHandler):
         # FIXME: for now, just use the default type (which happens to be "everything")
         return self._default_required_access_type,
 
+    async def _preprocess_request(self, request: ModelExecRequest):
+        """
+        Execute any appropriate preprocessing steps for this request before passing it to the scheduler.
+
+        The default implementation does not perform any actions.
+
+        Parameters
+        ----------
+        request
+
+        Raises
+        -------
+        RuntimeError
+        """
+        pass
+
     async def handle_request(self, request: ModelExecRequest, **kwargs) -> ModelExecRequestResponse:
         """
-        Handle the given request for a new NWM job execution and return the resulting response.
+        Handle the given request for a new job execution and return the resulting response.
 
         Parameters
         ----------
         request: ModelExecRequest
-            A ``ModelExecRequest`` message instance with details of the job being requested.
+            A ::class:`ModelExecRequest` (or subclass) instance with details of the job being requested.
 
         Returns
         -------
         response: ModelExecRequestResponse
-            An appropriate ``NWMRequestResponse`` object.
+            An appropriate response object derived from ::class:`ModelExecRequestResponse`.
         """
         session, is_authorized, reason, msg = await self.get_authorized_session(request)
         if not is_authorized:
             return self._generate_request_response(exec_request=request, success=False, reason=reason.name, message=msg,
                                                    scheduler_response=None)
+
+        try:
+            await self._preprocess_request(request=request)
+        except RuntimeError as e:
+            return self._generate_request_response(exec_request=request, success=False, reason='Preprocessing Failure',
+                                                   message=str(e), scheduler_response=None)
 
         # The context manager manages a SINGLE connection to the scheduler server
         # Adhoc calls to the scheduler can be made for this connection via the scheduler_client
