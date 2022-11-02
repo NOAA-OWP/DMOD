@@ -70,6 +70,8 @@ ARG NGEN_UDUNITS_QUIET="ON"
 ARG BUILD_NOAH_OWP="true"
 ARG BUILD_CFE="true"
 ARG BUILD_TOPMODEL="true"
+ARG BUILD_PET="true"
+ARG BUILD_SLOTH="true"
 
 ################################################################################################################
 ################################################################################################################
@@ -367,7 +369,7 @@ RUN cd ${WORKDIR} \
     #&& echo "cd \$1/cmake_build && make install" >> build_sub \
     && chmod u+x build_sub \
     && git submodule update --init test/googletest \
-    && git submodule update --init
+    && git submodule update --init --recursive
 
 ################################################################################################################
 ################################################################################################################
@@ -400,6 +402,8 @@ ARG NGEN_UDUNITS_QUIET
 ARG BUILD_NOAH_OWP
 ARG BUILD_CFE
 ARG BUILD_TOPMODEL
+ARG BUILD_PET
+ARG BUILD_SLOTH
 
 COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/ngen
 ENV BOOST_ROOT=${WORKDIR}/boost
@@ -412,8 +416,10 @@ RUN cd ${WORKDIR}/ngen \
         fi \
     &&  if [ "${NGEN_ACTIVATE_C}" == "ON" ]; then \
                 if [ "${BUILD_CFE}" == "true" ] ; then ./build_sub extern/cfe; fi; \
+                if [ "${BUILD_PET}" == "true" ] ; then ./build_sub extern/evapotranspiration/evapotranspiration; fi; \
                 if [ "${BUILD_TOPMODEL}" == "true" ] ; then ./build_sub extern/topmodel; fi; \
         fi \
+    && if [ "${BUILD_SLOTH}" == "true" ] ; then ./build_sub extern/sloth; fi \
     && cmake -B cmake_build -S . \
             -DMPI_ACTIVE:BOOL=${NGEN_MPI_ACTIVE} \
             -DNETCDF_ACTIVE:BOOL=${NGEN_NETCDF_ACTIVE} \
@@ -479,7 +485,7 @@ ENV HYDRA_PROXY_RETRY_COUNT=5
 # Change permissions for entrypoint and make sure dataset volume mount parent directories exists
 RUN chmod +x ${WORKDIR}/entrypoint.sh \
     && for d in ${DATASET_DIRECTORIES}; do mkdir -p /dmod/datasets/${d}; done \
-    && for d in noah-owp-modular topmodel cfe; do if [ -d ${WORKDIR}/ngen/extern/${d}/cmake_build ]; then cp -a ${WORKDIR}/ngen/extern/${d}/cmake_build/*.so* /dmod/shared_libs/.; fi; done
+    && for d in noah-owp-modular topmodel cfe sloth 'evapotranspiration/evapotranspiration'; do if [ -d ${WORKDIR}/ngen/extern/${d}/cmake_build ]; then cp -a ${WORKDIR}/ngen/extern/${d}/cmake_build/*.so* /dmod/shared_libs/.; fi; done
 
 WORKDIR ${WORKDIR}
 ENV PATH=${WORKDIR}:$PATH
