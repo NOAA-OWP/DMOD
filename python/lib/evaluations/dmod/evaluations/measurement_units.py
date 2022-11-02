@@ -1,6 +1,7 @@
 import typing
 import numbers
 import pint.registry
+from pint.facets.plain import PlainQuantity
 
 _T = typing.TypeVar("_T")
 
@@ -51,14 +52,32 @@ class UnitConverter:
         
         return self.__registry.convert(value, from_unit, to_unit)
 
-    def get_quantity(self, value: _T, value_type: str) -> pint.Quantity[_T]:
+    def get_quantity(self, value: _T, value_type: str) -> pint.Quantity:
         """
         Converts a value into a specified Quantity object
 
+        >>> example = UnitConverter()
+        >>> quantity = example.get_quantity(5.48, 'ft3 s-1')
+        >>> similar_quantity = example.registry.Quantity(5.48, 'ft3/s')
+        >>> similar_quantity.magnitude == quantity.magnitude
+        True
+        >>> similar_quantity.units == quantity.units
+        True
+        >>> similar_quantity == quantity
+        True
+        >>> dissimilar_quantity = example.registry.Quantity(5.48, 'm3 s-1')
+        >>> dissimilar_quantity.magnitude == quantity.magnitude
+        False
+        >>> dissimilar_quantity.units == quantity.units
+        False
+        >>> dissimilar_quantity == quantity
+        False
+
         NOTE: Quantity objects may be used just like regular values, but with additional logic and functions.
+
         Args:
-            value:
-            value_type:
+            value: The amount in the Quantity
+            value_type: The unit of the Quantity
 
         Returns:
 
