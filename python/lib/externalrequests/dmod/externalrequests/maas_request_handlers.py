@@ -31,7 +31,7 @@ class MaaSRequestHandler(AbstractRequestHandler, ABC):
     """
 
     def __init__(self, session_manager: SessionManager, authorizer: Authorizer, service_host: str, service_port: int,
-                 service_ssl_dir: Path):
+                 service_ssl_dir: Path, *args, **kwargs):
         self._session_manager = session_manager
         self._authorizer = authorizer
         self._service_host = service_host
@@ -155,13 +155,23 @@ class MaaSRequestHandler(AbstractRequestHandler, ABC):
 
 class PartitionRequestHandler(MaaSRequestHandler):
 
-    def __init__(self, session_manager: SessionManager, authorizer: Authorizer, partition_service_host: str,
-                 partition_service_port: int, partition_service_ssl_dir: Path):
-        super(PartitionRequestHandler, self).__init__(session_manager=session_manager,
-                                                      authorizer=authorizer,
-                                                      service_host=partition_service_host,
-                                                      service_port=partition_service_port,
-                                                      service_ssl_dir=partition_service_ssl_dir)
+    def __init__(self, *args, **kwargs):
+        """
+
+        Parameters
+        ----------
+        args
+        kwargs
+
+        Other Parameters
+        ----------
+        session_manager
+        authorizer
+        service_host
+        service_port
+        service_ssl_dir
+        """
+        super(PartitionRequestHandler, self).__init__(*args, **kwargs)
 
         # TODO: implement properly
         self._default_required_access_type = None
@@ -209,13 +219,24 @@ class PartitionRequestHandler(MaaSRequestHandler):
 
 class DatasetRequestHandler(MaaSRequestHandler):
 
-    def __init__(self, session_manager: SessionManager, authorizer: Authorizer, data_service_host: str,
-                 data_service_port: int, data_service_ssl_dir: Path):
-        super(DatasetRequestHandler, self).__init__(session_manager=session_manager,
-                                                    authorizer=authorizer,
-                                                    service_host=data_service_host,
-                                                    service_port=data_service_port,
-                                                    service_ssl_dir=data_service_ssl_dir)
+    def __init__(self, *args, **kwargs):
+        """
+
+        Parameters
+        ----------
+        args
+        kwargs
+
+        Other Parameters
+        ----------
+        session_manager
+        authorizer
+        service_host
+        service_port
+        service_ssl_dir
+
+        """
+        super(DatasetRequestHandler, self).__init__(*args, **kwargs)
 
         # TODO: implement properly
         self._default_required_access_type = None
