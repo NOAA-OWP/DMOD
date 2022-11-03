@@ -843,7 +843,7 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
         path: str,
         *args,
         **kwargs
-    ) -> typing.List[asyncio.Task[Response]]:
+    ) -> typing.List[asyncio.Task]:
         """
         Starts running all functions that will produce their own messages
 
@@ -859,7 +859,7 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
         if not self._has_initialized:
             raise InitializationError(self)
 
-        running_producers: typing.List[asyncio.Task[Response]] = list()
+        running_producers: typing.List[asyncio.Task] = list()
 
         for producer in self.__producers:
             try:
