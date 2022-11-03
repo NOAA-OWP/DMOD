@@ -3,6 +3,7 @@ import typing
 import os
 import re
 import inspect
+import logging
 
 import pandas
 
@@ -166,7 +167,16 @@ class FrameDataRetriever(retrieval.Retriever):
         combined_table = None
 
         for source in self.backend.sources:
-            document = pandas.read_csv(self.backend.read_stream(source), **provided_parameters)
+            stream: typing.IO = self.backend.read_stream(source)
+            try:
+                document = pandas.read_csv(stream, **provided_parameters)
+            except Exception as e:
+                logging.error(f"Failed to read {source}", exc_info=e)
+                stream.seek(0)
+                first_line = stream.readline()
+                second_line = stream.readline()
+                logging.error(f"{os.linesep.join([first_line, second_line])}")
+                raise
 
             column_names: typing.List[str] = list()
 
