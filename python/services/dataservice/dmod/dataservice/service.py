@@ -213,13 +213,22 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
                                                          secrets=secrets)
             time_sleep(1)
             service_running = False
+            running_states = dict()
+            # TODO: still don't think this works exactly correctly, but should only be an issue when we create new vols
             for tries in range(120):
                 # Note that this just reloads the true state of the service from Docker (it's not a service restart)
                 service.reload()
-                if all([task['Status']['State'] == task['DesiredState'] for task in service.tasks()]):
-                    running_states = dict([(task['Id'], task['DesiredState']) for task in service.tasks()])
+                all_tasks = service.tasks()
+                # Keys: ['ID', 'Version', 'CreatedAt', 'UpdatedAt', 'Labels', 'Spec', 'ServiceID', 'NodeID', 'Status',
+                #        'DesiredState', 'NetworksAttachments']
+                for task in [t for t in all_tasks if t['ID'] not in running_states.keys()]:
+                    if task['Status']['State'] == task['DesiredState']:
+                        running_states[task['ID']] = task['DesiredState']
+
+                if len(running_states.keys()) == len(all_tasks):
                     service_running = True
                     break
+
                 time_sleep(1)
             if not service_running:
                 msg = 'Unable to get all service tasks to desired state for volume helper service {}'
