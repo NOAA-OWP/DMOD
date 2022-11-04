@@ -154,7 +154,7 @@ def ensure_required_environment_variables():
             for variable in missing_variables
         ]
 
-        error("The following required environment variales are missing:")
+        error("The following required environment variables are missing:")
 
         for missing_variable in missing_variables:
             error(f"{missing_variable['name']}: {missing_variable['purpose']}")

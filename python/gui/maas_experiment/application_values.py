@@ -236,7 +236,6 @@ def load_maas_endpoints() -> typing.Dict[str, typing.Dict[str, str]]:
 
     for host_config in endpoint_hosts:
         port_key = f"maas_endpoint__{host_config['key']}__port"
-        host = host_config['host']
         possible_keys = [
             key
             for key in os.environ.keys()
@@ -249,15 +248,15 @@ def load_maas_endpoints() -> typing.Dict[str, typing.Dict[str, str]]:
             logging.warning("No port was given for the '{}' MaaS endpoint; skipping it.".format(host_config['key']))
             continue
 
-        if has_non_socket_pattern.search(host):
-            protocol = protocol_pattern.search(host).group()
+        if has_non_socket_pattern.search(host_config["host"]):
+            protocol = protocol_pattern.search(host_config["host"]).group()
             logging.warning(
                 f"The protocol for the host URI for {host_config['key']} must be "
                 f"'wss' for web sockets, not {protocol}; skipping"
             )
             continue
 
-        if not host.startswith("wss://"):
+        if not host_config["host"].startswith("wss://"):
             host_config["host"] = "wss://" + host_config["host"]
 
         host_config['port'] = port_key

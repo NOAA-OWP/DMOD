@@ -51,10 +51,10 @@ class InitRequestResponseReason(Enum):
     """The request was deemed authorized, and it was accepted by the receiver."""
     REJECTED = 5
     """The request was deemed authorized, but the receive rejected the request for other reasons."""
-    UNNECESSARY = 6
-    """The request does not utilize session data"""
-    UNKNOWN = 7
+    UNKNOWN = 6
     """The reason for the particular response is unknown or not well defined in the enum type."""
+    UNNECESSARY = 7
+    """The request does not utilize session data"""
 
 
 class Message(Serializable, ABC):
