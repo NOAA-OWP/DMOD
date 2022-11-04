@@ -48,7 +48,7 @@ class EvaluationConnectionRequest(EvaluationRequest):
         return self._action_parameters
 
     @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
+    def factory_init_from_deserialized_json(cls, json_obj: dict) -> typing.Optional[EvaluationRequest]:
         """
         Create a request object from a passed in deserialized json document
 

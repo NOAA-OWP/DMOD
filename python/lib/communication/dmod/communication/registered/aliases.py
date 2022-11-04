@@ -1,14 +1,6 @@
 #!/usr/bin/env python3
 import typing
 
-from websockets import WebSocketServerProtocol
-from websockets import WebSocketClientProtocol
-
-from ..websocket_interface import WebSocketInterface
-from ..request_handler import AbstractRequestHandler
-
-from ..message import Message
-from ..message import Response
 from ..message import AbstractInitRequest
 
 
