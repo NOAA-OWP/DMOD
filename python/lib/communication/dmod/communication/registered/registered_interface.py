@@ -14,6 +14,7 @@ from dmod.core import decorators
 
 from ..websocket_interface import WebSocketInterface
 from ..websocket_interface import AbstractInitRequest
+from ..request_handler import AbstractRequestHandler
 from ..message import Message
 from ..message import Response
 from ..message import InvalidMessageResponse
