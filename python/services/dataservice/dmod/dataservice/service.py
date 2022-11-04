@@ -96,11 +96,6 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
         if len(dataset_names) == 0:
             return dataset_names
 
-        # Next, make sure we only create dataset volumes that don't already exist as needed
-        dataset_names = set(
-            [name for name, vol_exists in self.check_volumes_exist(dataset_names).items() if not vol_exists]
-        )
-
         # Return immediately if there are no outstanding dataset names that don't already have volumes
         if len(dataset_names) == 0:
             return dataset_names
@@ -122,40 +117,6 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
             raise DmodRuntimeError('Attempting to pass non-object-store datasets to S3FS volume util: {}'.format(types))
 
         return dataset_names
-
-    def check_volumes_exist(self, dataset_names: Set[str]) -> Dict[str, bool]:
-        """
-        Check if the S3FS volumes for the given datasets have already been created.
-
-        Parameters
-        ----------
-        dataset_names : Set[str]
-            A set of dataset names.
-
-        Returns
-        -------
-        Dict[str, bool]
-            A dict, keyed by dataset name, of whether the dataset's S3FS volume already exists.
-
-        Raises
-        -------
-        DmodRuntimeError
-            Raised if a volume exists for a dataset name but uses a different storage driver than expected.
-        """
-        existing_volumes = [v for v in self.docker_client.api.volumes()['Volumes'] if v['Name'] in dataset_names]
-
-        # Bail if there are any existing volumes with the wrong driver
-        invalid_drivers = [v for v in existing_volumes if v['Driver'] != self._docker_plugin_alias]
-        if len(invalid_drivers) > 0:
-            driver_details = ','.join(['{}:{}'.format(v['Name'], v['Driver']) for v in invalid_drivers])
-            msg = "Found {} existing non-{} volumes: {}"
-            raise DmodRuntimeError(msg.format(len(invalid_drivers), self._docker_plugin_alias, driver_details))
-
-        results = dict.fromkeys(dataset_names, False)
-        for vol in existing_volumes:
-            # assert vol['Name'] in results.keys()
-            results[vol['Name']] = True
-        return results
 
     def init_volume_create_service(self, dataset_names: Set[str], helper_service_name: str):
         """
@@ -218,24 +179,22 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
             for tries in range(120):
                 # Note that this just reloads the true state of the service from Docker (it's not a service restart)
                 service.reload()
-                all_tasks = service.tasks()
                 # Keys: ['ID', 'Version', 'CreatedAt', 'UpdatedAt', 'Labels', 'Spec', 'ServiceID', 'NodeID', 'Status',
-                #        'DesiredState', 'NetworksAttachments']
-                for task in [t for t in all_tasks if t['ID'] not in running_states.keys()]:
-                    if task['Status']['State'] == task['DesiredState']:
-                        running_states[task['ID']] = task['DesiredState']
-
-                if len(running_states.keys()) == len(all_tasks):
+                if all([t['Status']['State'] == t['DesiredState'] for t in service.tasks()]):
                     service_running = True
                     break
-
                 time_sleep(1)
             if not service_running:
                 msg = 'Unable to get all service tasks to desired state for volume helper service {}'
                 raise RuntimeError(msg.format(helper_service_name))
-            while service_running:
-                time_sleep(5)
-                service_running = any([task['Status']['State'] == running_states[task['Id']] for task in service.tasks()])
+            time_sleep(5)
+            service.reload()
+            for tries in range(10):
+                if any([t['Status']['State'] != 'COMPLETE' for t in service.tasks()]):
+                    time_sleep(2)
+                    service.reload()
+                else:
+                    break
         except KeyError as e:
             logging.error('Failure checking service status: {}'.format(str(e)))
         except Exception as e:
