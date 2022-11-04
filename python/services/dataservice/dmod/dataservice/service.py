@@ -78,6 +78,51 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
                 worker_required_datasets.add(fulfilled_by)
         return worker_required_datasets
 
+    def _pre_vol_service_ds_name_processing(self, dataset_names: Set[str]) -> Set[str]:
+        """
+        Run sanity checks and filtering of dataset names before creating service to create S3FS volumes for them.
+
+        Parameters
+        ----------
+        dataset_names
+
+        Returns
+        -------
+        Set[str]
+            The dataset names from the initial params that don't already have S3FS volumes, and thus for which volumes
+            should be created.
+        """
+        # Just immediately return if empty
+        if len(dataset_names) == 0:
+            return dataset_names
+
+        # Next, make sure we only create dataset volumes that don't already exist as needed
+        dataset_names = set(
+            [name for name, vol_exists in self.check_volumes_exist(dataset_names).items() if not vol_exists]
+        )
+
+        # Return immediately if there are no outstanding dataset names that don't already have volumes
+        if len(dataset_names) == 0:
+            return dataset_names
+
+        # Also, make sure these dataset names a valid for this kind of volume creation
+        known_datasets: Dict[str, Dataset] = self._service_manager.get_known_datasets()
+
+        # First, bail if any dataset names don't correspond to a known dataset
+        unrecognized = [ds_name for ds_name in dataset_names if ds_name not in known_datasets.keys()]
+        if len(unrecognized) > 0:
+            msg = "Can't create {} volumes for unrecognized dataset names: ({})"
+            raise DmodRuntimeError(msg.format(self._docker_plugin_alias, ','.join(unrecognized)))
+
+        # Also bail if any (outstanding) dataset names correspond to known dataset of type other than OBJECT_STORE
+        non_obj_store_dataset_names = [n for n, d in known_datasets.items() if
+                                       n in dataset_names and d.dataset_type != DatasetType.OBJECT_STORE]
+        if len(non_obj_store_dataset_names) > 0:
+            types = ['{}:{}'.format(n, known_datasets[n].dataset_type.name) for n in non_obj_store_dataset_names]
+            raise DmodRuntimeError('Attempting to pass non-object-store datasets to S3FS volume util: {}'.format(types))
+
+        return dataset_names
+
     def check_volumes_exist(self, dataset_names: Set[str]) -> Dict[str, bool]:
         """
         Check if the S3FS volumes for the given datasets have already been created.
@@ -129,10 +174,10 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
         dataset_names
         helper_service_name
         """
-        if any([d.dataset_type != DatasetType.OBJECT_STORE for n, d in self._service_manager.get_known_datasets().items()]):
-            types = ['{}:{}'.format(n, d.dataset_type.name) for n, d in self._service_manager.get_known_datasets().items()]
-            raise DmodRuntimeError('Attempting to pass non-object-store datasets to S3FS volume util: {}'.format(types))
+        # Run sanity checks and filter out names for which there are already S3FS driver volumes
+        dataset_names = self._pre_vol_service_ds_name_processing(dataset_names=dataset_names)
 
+        # Exit early if there are no actual names that need volumes created
         if len(dataset_names) == 0:
             return
 
