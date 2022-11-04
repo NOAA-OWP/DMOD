@@ -78,6 +78,40 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
                 worker_required_datasets.add(fulfilled_by)
         return worker_required_datasets
 
+    def check_volumes_exist(self, dataset_names: Set[str]) -> Dict[str, bool]:
+        """
+        Check if the S3FS volumes for the given datasets have already been created.
+
+        Parameters
+        ----------
+        dataset_names : Set[str]
+            A set of dataset names.
+
+        Returns
+        -------
+        Dict[str, bool]
+            A dict, keyed by dataset name, of whether the dataset's S3FS volume already exists.
+
+        Raises
+        -------
+        DmodRuntimeError
+            Raised if a volume exists for a dataset name but uses a different storage driver than expected.
+        """
+        existing_volumes = [v for v in self.docker_client.api.volumes()['Volumes'] if v['Name'] in dataset_names]
+
+        # Bail if there are any existing volumes with the wrong driver
+        invalid_drivers = [v for v in existing_volumes if v['Driver'] != self._docker_plugin_alias]
+        if len(invalid_drivers) > 0:
+            driver_details = ','.join(['{}:{}'.format(v['Name'], v['Driver']) for v in invalid_drivers])
+            msg = "Found {} existing non-{} volumes: {}"
+            raise DmodRuntimeError(msg.format(len(invalid_drivers), self._docker_plugin_alias, driver_details))
+
+        results = dict.fromkeys(dataset_names, False)
+        for vol in existing_volumes:
+            # assert vol['Name'] in results.keys()
+            results[vol['Name']] = True
+        return results
+
     def init_volume_create_service(self, dataset_names: Set[str], helper_service_name: str):
         """
         Initialize and execute a Docker service that creates S3FS-based volumes for appropriate datasets.
