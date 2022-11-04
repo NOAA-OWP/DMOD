@@ -212,6 +212,12 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
             self.init_volume_create_service(dataset_names=worker_required_datasets,
                                             helper_service_name='{}-{}'.format(self.DOCKER_SERVICE_NAME, job.job_id))
 
+    def remove_existing_service(self, service_name: str) -> bool:
+        for srv in self.docker_client.services.list():
+            if srv.name == service_name:
+                return srv.remove()
+        return False
+
     @property
     def sentinel_file(self) -> str:
         """
