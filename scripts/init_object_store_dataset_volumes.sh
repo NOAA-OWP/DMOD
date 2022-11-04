@@ -167,7 +167,7 @@ while [ ${#} -gt 0 ]; do
             DO_REMOVE_ALL='true'
             ;;
         --sentinel|-S)
-            SENTINEL="/tmp/${2:?}"
+            SENTINEL="${2:?}"
             shift
             ;;
         --service-mode)
