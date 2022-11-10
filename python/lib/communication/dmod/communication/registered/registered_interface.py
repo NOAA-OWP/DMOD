@@ -1,4 +1,3 @@
-import logging
 import typing
 import abc
 import logging
@@ -59,7 +58,7 @@ class RegisteredWebSocketInterface(WebSocketInterface, abc.ABC):
             *args,
             **kwargs
         )
-        print(f"Launching {self.__class__.__name__}, listening to {listen_host}:{str(port)}...")
+        logging.info(f"Launching {self.__class__.__name__}, listening to {listen_host}:{str(port)}...")
 
         self._event_handlers: typing.Dict[typing.Type[AbstractInitRequest], AbstractRequestHandler] = dict()
         """A mapping between a type of message and the function that is supposed to consume it"""
