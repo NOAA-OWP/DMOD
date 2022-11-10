@@ -45,6 +45,45 @@ to an asynchronous task
 """
 
 
+class CancelResults:
+    """
+    Typed results detailing whether a cancel operation was successful
+    """
+    def __init__(self, task_name: str, cancelled: bool, message: str = None):
+        """
+        Constructor
+
+        Args:
+            task_name: The name of the task
+            cancelled: Whether the task was cancelled successfully
+            message: Any accompanying message (usually with a failed cancel)
+        """
+        self.__task_name = task_name
+        self.__cancelled = cancelled
+        self.__message = message
+
+    @property
+    def task_name(self):
+        """
+        The name of the task
+        """
+        return self.__task_name
+
+    @property
+    def cancelled(self) -> bool:
+        """
+        Whether the task was cancelled successfully
+        """
+        return self.__cancelled
+
+    @property
+    def message(self) -> str:
+        """
+        Any accompanying message (usually with a failed cancel)
+        """
+        return self.__message
+
+
 async def wait_on_task(task: asyncio.Task, wait_seconds: int = None, maximum_times_to_poll: int = None) -> bool:
     """
     Wait for a task to finish
@@ -97,16 +136,22 @@ async def cancel_task(
     cancel_message: TASK_MESSAGE = None,
     incomplete_message: TASK_MESSAGE = None,
     cancel_failed_message: TASK_MESSAGE = None
-):
+) -> CancelResults:
     """
-    Attempt to cancel a specfic task
+    Attempt to cancel a specific task
 
     Args:
         task: The task to cancel
         cancel_message: A message or function to create a message to report when cancelling a task
         incomplete_message: A message or function to generate a message for when a task could not be properly canceled in time
         cancel_failed_message: A message to report in an exception if an error is encountered when cancelling a task
+
+    Returns:
+        A description of the success of the cancellation
     """
+    successfully_ended: bool = True
+    task_name: str = task.get_name()
+    message: typing.Optional[str] = None
 
     # Only try to cancel the task if it hasn't completed yet
     if not (task.done() or task.cancelled()):
@@ -142,6 +187,8 @@ async def cancel_task(
                     task_incomplete_message = incomplete_message
 
                 logging.error(task_incomplete_message)
+                successfully_ended = task.cancelled()
+                message = task_incomplete_message
         except BaseException as cancel_exception:
             if cancel_failed_message is None:
                 cancel_failed_message = f"Failed to cancel an incomplete task: " \
@@ -152,6 +199,10 @@ async def cancel_task(
                 cancel_failed_message = cancel_failed_message(task, cancel_exception)
 
             logging.error(cancel_failed_message, exc_info=cancel_exception)
+            successfully_ended = False
+            message = cancel_failed_message
+
+        return CancelResults(task_name, successfully_ended, message)
 
 
 async def cancel_tasks(
@@ -159,7 +210,7 @@ async def cancel_tasks(
     cancel_message: TASK_MESSAGE = None,
     incomplete_message: TASK_MESSAGE = None,
     cancel_failed_message: TASK_MESSAGE = None
-):
+) -> typing.Tuple[CancelResults, ...]:
     """
     Attempt to cancel all passed in tasks
 
@@ -169,7 +220,7 @@ async def cancel_tasks(
         incomplete_message: A message or function to generate a message for when a task could not be properly canceled in time
         cancel_failed_message: A message to report in an exception if an error is encountered when cancelling a task
     """
-    await asyncio.gather(*[
+    cancellation_tasks: typing.List[typing.Coroutine[typing.Any, typing.Any, CancelResults]] = [
         cancel_task(
             task,
             incomplete_message,
@@ -177,4 +228,6 @@ async def cancel_tasks(
             cancel_failed_message
         )
         for task in tasks
-    ])
+    ]
+    results: typing.Tuple[CancelResults, ...] = await asyncio.gather(*cancellation_tasks)
+    return results

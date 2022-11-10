@@ -148,7 +148,7 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
             for handler_name, handler in target_message_handlers.items():
                 self.add_target_message_handler(handler_name, handler)
         elif target_message_handlers is not None:
-            raise ValueError(
+            raise TypeError(
                 f"The collection of target message handlers received was invalid; "
                 f"expected a dictionary but received a {target_message_handlers.__class__.__name__} instead."
             )
@@ -163,7 +163,7 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
             for handler_name, handler in source_message_handlers.items():
                 self.add_source_message_handler(handler_name, handler)
         elif source_message_handlers is not None:
-            raise ValueError(
+            raise TypeError(
                 f"The collection of server message handlers received was invalid; "
                 f"expected a dictionary but received a {source_message_handlers.__class__.__name__} instead."
             )
@@ -179,7 +179,7 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
                 for handler in handlers:
                     self.add_source_handler_route(handler_type, handler)
         elif source_handler_routing is not None:
-            raise ValueError(
+            raise TypeError(
                 f"The collection of server message handlers received was invalid; "
                 f"expected a dictionary but received a {source_handler_routing.__class__.__name__} instead."
             )
@@ -195,7 +195,7 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
                 for handler in handlers:
                     self.add_target_handler_route(handler_type, handler)
         elif target_handler_routing is not None:
-            raise ValueError(
+            raise TypeError(
                 f"The collection of server message handlers received was invalid; "
                 f"expected a dictionary but received a {target_handler_routing.__class__.__name__} instead."
             )
@@ -208,7 +208,7 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
         if common.is_sequence_type(producers):
             self.__producers = [producer for producer in producers]
         elif producers is not None:
-            raise ValueError(
+            raise TypeError(
                 f"The collection of producers received was invalid; "
                 f"expected a list but received a {producers.__class__.__name__} instead."
             )
@@ -681,7 +681,7 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
         """
         # Make sure that the source is a websocket protocol and open so that messages may be correctly listened to
         if not isinstance(source, WebSocketCommonProtocol):
-            raise ValueError(
+            raise TypeError(
                 f"The websocket connection to the server passed to `listen_to_messages` is not unusable; "
                 f"a `WebSocketServerProtocol` was expected, but received "
                 f"{'Nothing' if source is None else source.__class__.__name__} instead"
@@ -699,7 +699,7 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
                 f"Any attempt to communicate with another service will fail. "
             )
         elif not isinstance(target, WebSocketCommonProtocol):
-            raise ValueError(
+            raise TypeError(
                 f"The websocket connection to the target passed to `listen_to_messages` is not usable; "
                 f"a `WebSocketCommonProtocol` was expected, but received "
                 f"{'Nothing' if target is None else target.__class__.__name__} instead"
@@ -730,6 +730,8 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
                 for handler in handlers:
                     try:
                         # TODO: Should these be added as tasks to run at the same time?
+                        #   If so, place the name and unawaited results into an intermediary dictionary and await the
+                        #   group once all have been assigned. Once awaited, attach THOSE to the response data.
                         result = await handler(payload, source, target, path, *args, **kwargs)
                         response_data.add(handler.__name__, result)
                     except UnicodeError:
