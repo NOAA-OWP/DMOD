@@ -69,6 +69,9 @@ services:
         REPO_URL: ${NGEN_REPO_URL?No NGen repo url configured}
         BRANCH: ${NGEN_BRANCH?No NGen branch configured}
         COMMIT: ${NGEN_COMMIT}
+        TROUTE_REPO_URL: ${TROUTE_REPO_URL?No t-route repo url configured}
+        TROUTE_BRANCH: ${TROUTE_BRANCH?No t-route branch configured}
+        TROUTE_COMMIT: ${TROUTE_COMMIT}
         BUILD_PARALLEL_JOBS: ${NGEN_BUILD_PARALLEL_JOBS:-2}
         DOCKER_INTERNAL_REGISTRY: ${DOCKER_INTERNAL_REGISTRY:?}
     depends_on:
