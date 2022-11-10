@@ -24,6 +24,10 @@ ARG BRANCH=master
 ARG COMMIT
 ARG WORKDIR=/ngen
 
+ARG TROUTE_REPO_URL=https://github.com/NOAA-OWP/t-route.git
+ARG TROUTE_BRANCH=ngen
+ARG TROUTE_COMMIT
+
 #### Default arguments for required dependencies needed during various build stages
 # The Rocky-Linux-based "base" stage, rocky-base
 ARG ROCKY_BASE_REQUIRED="sudo openssh openssh-server bash git"
@@ -286,6 +290,7 @@ COPY --from=download_mpich /tmp/mpich-${MPICH_VERSION}.tar.gz /tmp/ngen-deps/mpi
 COPY --from=download_hd5 /tmp/hdf5-${HD5_VERSION}.tar.gz /tmp/ngen-deps/hdf5-${HD5_VERSION}.tar.gz
 COPY --from=download_netcdf /tmp/netcdf-${NETCDF_C_VERSION}.tar.gz /tmp/ngen-deps/netcdf-${NETCDF_C_VERSION}.tar.gz
 COPY --from=download_netcdf_cxx /tmp/netcdf-cxx4-${NETCDF_CXX_VERSION}.tar.gz /tmp/ngen-deps/netcdf-cxx4-${NETCDF_CXX_VERSION}.tar.gz
+COPY --from=download_netcdf_fortran /tmp/netcdf-fortran-${NETCDF_FORTRAN_VERSION}.tar.gz /tmp/ngen-deps/netcdf-fortran-${NETCDF_FORTRAN_VERSION}.tar.gz
 
 USER root
 
@@ -310,6 +315,8 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && cd hdf5-${HD5_VERSION} \
     && ./configure --enable-parallel --prefix=/usr \
     && make -j $(nproc) && make install \
+&& echo "docker build break..."
+RUN echo "docker build continue..." \
     ##### Build and install NetCDF C \
     && cd /tmp/ngen-deps \
     && mkdir netcdf \
@@ -319,6 +326,16 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && make -j $(nproc) && make install \
     # TODO: if we run into any problem, might need to reactivate this \
     #&& make check \
+&& echo "docker build break..."
+RUN echo "docker build continue..." \
+    ##### Build and install NetCDF Fortran \
+    && cd /tmp/ngen-deps \
+    && mkdir netcdf-fortran \
+    && tar -xzf netcdf-fortran-${NETCDF_FORTRAN_VERSION}.tar.gz -C netcdf-fortran --strip 1 \
+    && cd netcdf-fortran \
+    && export NCDIR=/usr NFDIR=/usr \
+    && LD_LIBRARY_PATH=/usr/lib CPPFLAGS=-I/usr/include LDFLAGS=-L/usr/lib ./configure --prefix=/usr \
+    && make -j $(nproc) && make install \
     ##### Build and install NetCDF C++ \
     && cd /tmp/ngen-deps \
     && mkdir netcdf-cxx4 \
@@ -331,7 +348,9 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     # && ctest \
     && make install \
     # Install required python dependency packages with Pip \
-    && pip3 install numpy pandas pyyaml bmipy netCDF4 \
+    && pip3 install numpy pandas pyyaml bmipy netCDF4 wheel packaging \
+    && HDF5_DIR=/usr pip3 install --install-option="\'--hdf5 \${HDF5_DIR}\'" --install-option="\'--jobs=$(nproc) \'"  --no-build-isolation tables \
+    && sleep 5 \
     # Make aliases for convenience \
     && alias pip='pip3' \
     && echo "alias pip='pip3'" >> /etc/profile \
@@ -347,6 +366,23 @@ ENV PATH=${PATH}:/usr/lib64/mpich/bin
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib:/usr/local/lib64
 
 USER ${USER}
+
+################################################################################################################
+################################################################################################################
+##### Create intermediate Docker build stage for building t-route in Rocky Linux environment
+FROM rocky-base as rocky_init_troute_repo
+ARG TROUTE_REPO_URL
+ARG TROUTE_BRANCH
+ARG TROUTE_COMMIT
+ARG WORKDIR
+
+WORKDIR ${WORKDIR}
+
+RUN cd ${WORKDIR} \
+    && git clone --single-branch --branch $TROUTE_BRANCH $TROUTE_REPO_URL \
+    && cd ./t-route \
+    && if [ "x$TROUTE_COMMIT" != "x" ]; then git checkout $TROUTE_COMMIT; fi \
+    && git submodule update --init
 
 ################################################################################################################
 ################################################################################################################
@@ -381,6 +417,42 @@ WORKDIR ${WORKDIR}/ngen
 
 ################################################################################################################
 ################################################################################################################
+##### Create intermediate Docker build stage for building t-route in Rocky Linux environment
+FROM rocky-ngen-deps as rocky_build_troute
+
+ARG REPO_URL
+ARG BRANCH
+ARG COMMIT
+ARG BUILD_PARALLEL_JOBS
+
+COPY --chown=${USER} --from=rocky_init_troute_repo ${WORKDIR}/t-route ${WORKDIR}/t-route
+
+#    && python(){ /usr/bin/python3 \$@; } && export -f python \
+RUN cd ${WORKDIR}/t-route \
+    && mkdir wheels \
+    && pip3 install -r ./requirements.txt \
+    && pip3 install wheel deprecated dask \
+&& echo "docker build break..."
+RUN echo "docker build continue..." \
+    && cd ${WORKDIR}/t-route \
+    && cd ./src/python_routing_v02 \
+    && sudo ln -s /usr/bin/python3 /usr/bin/python \
+    && ./compiler.sh \
+    && sudo rm /usr/bin/python \
+    && python3 setup.py bdist_wheel \
+    && cp dist/*.whl ${WORKDIR}/t-route/wheels/ \
+    && cd ../python_framework_v02 \
+    && python3 setup.py bdist_wheel \
+    && cp dist/*.whl ${WORKDIR}/t-route/wheels/ \
+    && cd ../nwm_routing \
+    && python3 setup.py bdist_wheel \
+    && cp dist/*.whl ${WORKDIR}/t-route/wheels/ \
+    && cd ../ngen_routing \
+    && python3 setup.py bdist_wheel \
+    && cp dist/*.whl ${WORKDIR}/t-route/wheels/
+
+################################################################################################################
+################################################################################################################
 ##### Create intermediate Docker build stage for building framework in Rocky Linux environment
 FROM rocky-ngen-deps as rocky_build_ngen
 
@@ -406,10 +478,17 @@ ARG BUILD_PET
 ARG BUILD_SLOTH
 
 COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/ngen
+COPY --chown=${USER} --from=rocky_build_troute ${WORKDIR}/t-route/wheels /tmp/t-route-wheels
+COPY --chown=${USER} --from=rocky_build_troute ${WORKDIR}/t-route/requirements.txt /tmp/t-route-requirements.txt
 ENV BOOST_ROOT=${WORKDIR}/boost
 
 RUN cd ${WORKDIR}/ngen \
-    && if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then pip3 install -r extern/test_bmi_py/requirements.txt; fi \
+    && if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
+        pip3 install -r extern/test_bmi_py/requirements.txt; \
+        if [ "${NGEN_ROUTING_ACTIVE}" == "ON" ] ; then \
+            pip3 install /tmp/t-route-wheels/*.whl; pip3 install -r /tmp/t-route-requirements.txt; \
+            fi; \
+        fi \
     &&  if [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ]; then \
                 ./build_sub extern/iso_c_fortran_bmi; \
                 if [ "${BUILD_NOAH_OWP}" == "true" ] ; then ./build_sub extern/noah-owp-modular; fi; \
@@ -434,25 +513,31 @@ RUN cd ${WORKDIR}/ngen \
             -DNETCDF_LIBRARY=/usr/lib/libnetcdf.so \
             -DNETCDF_CXX_INCLUDE_DIR=/usr/local/include \
             -DNETCDF_CXX_LIBRARY=/usr/local/lib64/libnetcdf-cxx4.so \
-    && cmake --build cmake_build -j ${BUILD_PARALLEL_JOBS} \
+    && cmake --build cmake_build --target ngen -j ${BUILD_PARALLEL_JOBS} \
     #Run the tests, if they fail, the image build fails \
+    && cmake --build cmake_build --target test_unit -j ${BUILD_PARALLEL_JOBS} \
     && cmake_build/test/test_unit \
     # C++ functionality isn't separate, so always build the test_bmi_cpp shared lib (also needed for test_bmi_multi) \
     && ./build_sub extern/test_bmi_cpp \
+    && cmake --build cmake_build --target test_bmi_cpp \
     && cmake_build/test/test_bmi_cpp \
     # For the external language BMI integrations, conditionally build the test packages/libraries and run tests \
     &&  if [ "${NGEN_ACTIVATE_C}" == "ON" ]; then \
             ./build_sub extern/test_bmi_c; \
+            cmake --build cmake_build --target test_bmi_c; \
             cmake_build/test/test_bmi_c; \
         fi \
     &&  if [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ]; then \
             ./build_sub extern/test_bmi_fortran; \
+            cmake --build cmake_build --target test_bmi_fortran; \
             cmake_build/test/test_bmi_fortran; \
         fi \
     &&  if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
+            cmake --build cmake_build --target test_bmi_python; \
             cmake_build/test/test_bmi_python; \
         fi \
     &&  if [ "${NGEN_ACTIVATE_C}" == "ON" ] && [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ] && [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
+            cmake --build cmake_build --target test_bmi_multi; \
             cmake_build/test/test_bmi_multi; \
         fi
 
