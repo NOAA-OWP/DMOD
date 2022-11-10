@@ -315,8 +315,6 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && cd hdf5-${HD5_VERSION} \
     && ./configure --enable-parallel --prefix=/usr \
     && make -j $(nproc) && make install \
-&& echo "docker build break..."
-RUN echo "docker build continue..." \
     ##### Build and install NetCDF C \
     && cd /tmp/ngen-deps \
     && mkdir netcdf \
@@ -326,8 +324,6 @@ RUN echo "docker build continue..." \
     && make -j $(nproc) && make install \
     # TODO: if we run into any problem, might need to reactivate this \
     #&& make check \
-&& echo "docker build break..."
-RUN echo "docker build continue..." \
     ##### Build and install NetCDF Fortran \
     && cd /tmp/ngen-deps \
     && mkdir netcdf-fortran \
@@ -350,7 +346,6 @@ RUN echo "docker build continue..." \
     # Install required python dependency packages with Pip \
     && pip3 install numpy pandas pyyaml bmipy netCDF4 wheel packaging \
     && HDF5_DIR=/usr pip3 install --install-option="\'--hdf5 \${HDF5_DIR}\'" --install-option="\'--jobs=$(nproc) \'"  --no-build-isolation tables \
-    && sleep 5 \
     # Make aliases for convenience \
     && alias pip='pip3' \
     && echo "alias pip='pip3'" >> /etc/profile \
@@ -432,8 +427,6 @@ RUN cd ${WORKDIR}/t-route \
     && mkdir wheels \
     && pip3 install -r ./requirements.txt \
     && pip3 install wheel deprecated dask \
-&& echo "docker build break..."
-RUN echo "docker build continue..." \
     && cd ${WORKDIR}/t-route \
     && cd ./src/python_routing_v02 \
     && sudo ln -s /usr/bin/python3 /usr/bin/python \
