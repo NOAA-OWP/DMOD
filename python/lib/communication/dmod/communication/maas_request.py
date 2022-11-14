@@ -1364,3 +1364,7 @@ def get_request(model: str, config_data_id: str, session_secret: str = '', *args
         raise ValueError(err_msg.format(model, get_available_models()))
 
     return get_available_models()[model](config_data_id=config_data_id, session_secret=session_secret, *args, **kwargs)
+
+
+class NGENCalibrationRequest(NGENRequest):
+    model_name: str = "ngen_cal"
