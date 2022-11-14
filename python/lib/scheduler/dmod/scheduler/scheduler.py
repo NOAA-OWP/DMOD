@@ -2,7 +2,7 @@
 
 import logging
 from requests.exceptions import ReadTimeout
-from dmod.communication import MessageEventType, NGENRequest, NWMRequest
+from dmod.communication import MessageEventType, NGENRequest,  NGENCalibrationRequest, NWMRequest
 from dmod.core.exception import DmodRuntimeError
 from dmod.core.meta_data import DataCategory, DataFormat
 from os import getenv
@@ -489,6 +489,9 @@ class Launcher(SimpleDockerUtil):
         str
             String name, including tag, of the appropriate Docker image for this job.
         """
+        if isinstance(job.model_request, NGENCalibrationRequest):
+            return "127.0.0.1:5000/ngen_cal:latest"
+
         if isinstance(job.model_request, NGENRequest):
             return "127.0.0.1:5000/ngen:latest"
         # For now, this is the only thing supported
