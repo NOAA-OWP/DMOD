@@ -201,6 +201,10 @@
             // TODO: add something for number of files.
             // TODO: add something for indicating if data aligns properly with configured domain
 
+            let hiddenIFrame = document.createElement('iframe');
+            hiddenIFrame.id = "hidden_download_iframe";
+            hiddenIFrame.style.display = "None";
+
             // Put spacer row in to indicate the start of domain details
             let domain_header_row = document.createElement('tr');
             let colCell = document.createElement('th');
@@ -352,7 +356,26 @@
         }
 
         function clickDownloadDataset(dataset_name) {
-            // TODO: consider modal popup until implemented.
+            // TODO: if possible, add indicator that files are being gathered, removed once actual download link setup begins
+            $.ajax({
+                url: "/dataset-api",
+                type: 'get',
+                data: {"request_type": "download_dataset", "dataset_name": dataset_name},
+                success: function(response) {
+                    let url = "/download_dataset/" + response["zip_file"];
+                    let a = document.createElement('a');
+                    a.href = url;
+                    a.download = response["zip_file"];
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                },
+                error: function(response) {
+                    alert('Received an error downloading ' + dataset_name + ' dataset');
+                    console.log(response);
+                }
+            });
+
             return false;
         }
 
