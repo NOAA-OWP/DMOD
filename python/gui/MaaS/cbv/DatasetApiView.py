@@ -157,17 +157,17 @@ class DatasetApiView(AbstractDatasetView):
     def _get_download(self, request, *args, **kwargs):
         dataset_name = request.GET.get("dataset_name", None)
         item_name = request.GET.get("item_name", None)
-        chunk_size = 8192
+        local_dir = self._cache_dataset_downloads(dataset_name=dataset_name, files={item_name}).resolve(strict=True)
+        download_subdir = DOWNLOADS_DIR.joinpath(dataset_name)
+        if not DOWNLOADS_DIR.is_dir():
+            DOWNLOADS_DIR.mkdir(parents=True)
+        elif download_subdir.is_dir():
+            self._cleanup_dir(download_subdir)
+        elif download_subdir.exists():
+            download_subdir.unlink()
+        local_dir.rename(download_subdir)
 
-        custom_filelike = DatasetFileWebsocketFilelike(self.dataset_client, dataset_name, item_name)
-
-        response = StreamingHttpResponse(
-            FileWrapper(custom_filelike, chunk_size),
-            content_type="application/octet-stream"
-        )
-        response['Content-Length'] = asyncio.get_event_loop().run_until_complete(self.dataset_client.get_item_size(dataset_name, item_name))
-        response['Content-Disposition'] = "attachment; filename=%s" % item_name
-        return response
+        return JsonResponse({"dataset": dataset_name}, status=200)
 
     def get(self, request, *args, **kwargs):
         request_type = request.GET.get("request_type", None)
