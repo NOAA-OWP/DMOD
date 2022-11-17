@@ -26,6 +26,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY",'cm_v*vc*8s048%f46*@t7)hb9rtaa@%)#b!s(+
 ALLOWED_HOSTS = ['*']
 
 # The default is false; if it's not true, it will leave a user logged in indefinitely
+# TODO: get browser sessions working correctly
 #SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 # This is the absolute age; navigating won't necessarily tell the system that anything is happening
@@ -40,10 +41,12 @@ SECURE_BROWSER_XSS_FILTER = True
 # “secure”, which means browsers may ensure that the cookie is only sent under an HTTPS connection.
 # Leaving this setting off isn’t a good idea because an attacker could capture an unencrypted session cookie with a
 # packet sniffer and use the cookie to hijack the user’s session.
+# TODO: get browser sessions (and cookies) working correctly
 #SESSION_COOKIE_SECURE = not DEBUG
 
 # Whether to use a secure cookie for the CSRF cookie. If this is set to True, the cookie will be marked as “secure”,
 # which means browsers may ensure that the cookie is only sent with an HTTPS connection.
+# TODO: get CSRF security working correctly
 #CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = False
 
@@ -52,9 +55,9 @@ CSRF_COOKIE_SECURE = False
 #
 # Storing the CSRF token in a cookie (Django’s default) is safe, but storing it in the session is common practice
 # in other web frameworks and therefore sometimes demanded by security auditors.
+# TODO: get CSRF security working correctly
 #CSRF_USE_SESSIONS = not DEBUG
 CSRF_USE_SESSIONS = False
-
 # A list of trusted origins for unsafe requests (e.g. POST).
 CSRF_TRUSTED_ORIGINS = [url.strip() for url in os.environ.get('DMOD_GUI_CSRF_TRUSTED_ORIGINS', '').split(',') if url]
 
@@ -148,10 +151,28 @@ STATIC_ROOT = os.path.join(BASE_DIR, "static/")
 NGEN_STATIC_ROOT = os.path.join(STATIC_ROOT, "ngen/")
 HYDROFABRIC_ROOT = os.path.join(NGEN_STATIC_ROOT, "hydrofabric/")
 
+DATA_CACHE_DIR = os.path.join(STATIC_ROOT, "cache/")
+DATA_DOWNLOADS_DIR = os.path.join(DATA_CACHE_DIR, "downloads/")
+DATA_UPLOADS_DIR = os.path.join(DATA_CACHE_DIR, "uploads/")
+SECRETS_ROOT = '/run/secrets/'
+
 SUBSET_SERVICE_URL = os.environ.get('GUI_SUBSET_SERVICE_API_URL')
 
 GUI_SSL_DIR = os.path.join(BASE_DIR, 'ssl')
 DEFAULT_MAAS_ENDPOINT_URI = 'wss://' + os.environ.get('MAAS_ENDPOINT_HOST') + ':' + os.environ.get('MAAS_ENDPOINT_PORT')
+
+MINIO_HOSTNAME = os.environ.get("OBJECT_STORE_HOSTNAME")
+MINIO_PORT = os.environ.get("OBJECT_STORE_PORT")
+MINIO_HOST_STRING = "{}:{}".format(MINIO_HOSTNAME, MINIO_PORT)
+
+MINIO_ACCESS_DOCKER_SECRET_NAME = 'object_store_exec_user_name'
+MINIO_SECRET_DOCKER_SECRET_NAME: str = 'object_store_exec_user_passwd'
+
+MINIO_ACCESS_FILE = os.path.join(SECRETS_ROOT, MINIO_ACCESS_DOCKER_SECRET_NAME)
+MINIO_SECRET_FILE = os.path.join(SECRETS_ROOT, MINIO_SECRET_DOCKER_SECRET_NAME)
+
+# TODO adjust this to be configurable
+MINIO_SECURE_CONNECT = False
 
 """
 LOGGING = {
@@ -272,7 +293,6 @@ REQUIRED_ENVIRONMENT_VARIABLES = [
         "purpose": "The port for the default MaaS endpoint"
     }
 ]
-
 
 def ensure_required_environment_variables():
     missing_variables = [
