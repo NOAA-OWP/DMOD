@@ -65,12 +65,13 @@ ARG BUILD_PARALLEL_JOBS
 ARG NGEN_ACTIVATE_C="ON"
 ARG NGEN_ACTIVATE_FORTRAN="ON"
 ARG NGEN_ACTIVATE_PYTHON="ON"
-ARG NGEN_MPI_ACTIVE="ON"
 ARG NGEN_NETCDF_ACTIVE="ON"
 ARG NGEN_ROUTING_ACTIVE="ON"
 ARG NGEN_UDUNITS_ACTIVE="ON"
 ARG NGEN_UDUNITS_QUIET="ON"
 
+ARG BUILD_NGEN_SERIAL="true"
+ARG BUILD_NGEN_PARALLEL="true"
 ARG BUILD_NOAH_OWP="true"
 ARG BUILD_CFE="true"
 ARG BUILD_TOPMODEL="true"
@@ -391,16 +392,21 @@ ARG WORKDIR
 WORKDIR ${WORKDIR}
 
 RUN cd ${WORKDIR} \
-    && git clone --single-branch --branch $BRANCH $REPO_URL \
-    && cd ./ngen \
-    && if [ "x$COMMIT" != "x" ]; then git checkout $COMMIT; fi \
+    && if [ "x$COMMIT" != "x" ]; then \
+        git clone --single-branch --branch $BRANCH $REPO_URL \
+        && cd ./ngen \
+        && git checkout $COMMIT; \
+    else \
+        git clone --depth 1 --branch $BRANCH $REPO_URL \
+        && cd ./ngen ; \
+    fi \
     && echo "#!/bin/bash" > build_sub \
     && echo "cmake -B \$1/cmake_build -DCMAKE_BUILD_TYPE=${NGEN_BUILD_CONFIG_TYPE} -S \$1" >> build_sub \
     && echo "cmake --build \$1/cmake_build" >> build_sub \
     #&& echo "cd \$1/cmake_build && make install" >> build_sub \
     && chmod u+x build_sub \
-    && git submodule update --init test/googletest \
-    && git submodule update --init --recursive
+    && git submodule update --init --depth 1 test/googletest \
+    && git submodule update --init --recursive --depth 1
 
 ################################################################################################################
 ################################################################################################################
@@ -458,12 +464,13 @@ ARG NGEN_BUILD_CONFIG_TYPE
 ARG NGEN_ACTIVATE_C
 ARG NGEN_ACTIVATE_FORTRAN
 ARG NGEN_ACTIVATE_PYTHON
-ARG NGEN_MPI_ACTIVE
 ARG NGEN_NETCDF_ACTIVE
 ARG NGEN_ROUTING_ACTIVE
 ARG NGEN_UDUNITS_ACTIVE
 ARG NGEN_UDUNITS_QUIET
 
+ARG BUILD_NGEN_SERIAL
+ARG BUILD_NGEN_PARALLEL
 ARG BUILD_NOAH_OWP
 ARG BUILD_CFE
 ARG BUILD_TOPMODEL
@@ -492,47 +499,74 @@ RUN cd ${WORKDIR}/ngen \
                 if [ "${BUILD_TOPMODEL}" == "true" ] ; then ./build_sub extern/topmodel; fi; \
         fi \
     && if [ "${BUILD_SLOTH}" == "true" ] ; then ./build_sub extern/sloth; fi \
-    && cmake -B cmake_build -S . \
-            -DMPI_ACTIVE:BOOL=${NGEN_MPI_ACTIVE} \
-            -DNETCDF_ACTIVE:BOOL=${NGEN_NETCDF_ACTIVE} \
-            -DBMI_C_LIB_ACTIVE:BOOL=${NGEN_ACTIVATE_C} \
-            -DBMI_FORTRAN_ACTIVE:BOOL=${NGEN_ACTIVATE_FORTRAN} \
-            -DNGEN_ACTIVATE_PYTHON:BOOL=${NGEN_ACTIVATE_PYTHON} \
-            -DNGEN_ACTIVATE_ROUTING:BOOL=${NGEN_ROUTING_ACTIVE} \
-            -DUDUNITS_ACTIVE:BOOL=${NGEN_UDUNITS_ACTIVE} \
-            -DUDUNITS_QUIET:BOOL=${NGEN_UDUNITS_QUIET} \
-            -DCMAKE_INSTALL_PREFIX=${WORKDIR} \
-            -DNETCDF_INCLUDE_DIR=/usr/include \
-            -DNETCDF_LIBRARY=/usr/lib/libnetcdf.so \
-            -DNETCDF_CXX_INCLUDE_DIR=/usr/local/include \
-            -DNETCDF_CXX_LIBRARY=/usr/local/lib64/libnetcdf-cxx4.so \
-    && cmake --build cmake_build --target ngen -j ${BUILD_PARALLEL_JOBS} \
-    #Run the tests, if they fail, the image build fails \
-    && cmake --build cmake_build --target test_unit -j ${BUILD_PARALLEL_JOBS} \
-    && cmake_build/test/test_unit \
-    # C++ functionality isn't separate, so always build the test_bmi_cpp shared lib (also needed for test_bmi_multi) \
-    && ./build_sub extern/test_bmi_cpp \
-    && cmake --build cmake_build --target test_bmi_cpp \
-    && cmake_build/test/test_bmi_cpp \
-    # For the external language BMI integrations, conditionally build the test packages/libraries and run tests \
-    &&  if [ "${NGEN_ACTIVATE_C}" == "ON" ]; then \
-            ./build_sub extern/test_bmi_c; \
-            cmake --build cmake_build --target test_bmi_c; \
-            cmake_build/test/test_bmi_c; \
-        fi \
-    &&  if [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ]; then \
-            ./build_sub extern/test_bmi_fortran; \
-            cmake --build cmake_build --target test_bmi_fortran; \
-            cmake_build/test/test_bmi_fortran; \
-        fi \
-    &&  if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
-            cmake --build cmake_build --target test_bmi_python; \
-            cmake_build/test/test_bmi_python; \
-        fi \
-    &&  if [ "${NGEN_ACTIVATE_C}" == "ON" ] && [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ] && [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
-            cmake --build cmake_build --target test_bmi_multi; \
-            cmake_build/test/test_bmi_multi; \
-        fi
+    && if [ "${BUILD_NGEN_SERIAL}" == "true" ]; then \
+        cmake -B cmake_build_serial -S . \
+        -DMPI_ACTIVE:BOOL=OFF \
+        -DNETCDF_ACTIVE:BOOL=${NGEN_NETCDF_ACTIVE} \
+        -DBMI_C_LIB_ACTIVE:BOOL=${NGEN_ACTIVATE_C} \
+        -DBMI_FORTRAN_ACTIVE:BOOL=${NGEN_ACTIVATE_FORTRAN} \
+        -DNGEN_ACTIVATE_PYTHON:BOOL=${NGEN_ACTIVATE_PYTHON} \
+        -DNGEN_ACTIVATE_ROUTING:BOOL=${NGEN_ROUTING_ACTIVE} \
+        -DUDUNITS_ACTIVE:BOOL=${NGEN_UDUNITS_ACTIVE} \
+        -DUDUNITS_QUIET:BOOL=${NGEN_UDUNITS_QUIET} \
+        -DCMAKE_INSTALL_PREFIX=${WORKDIR} \
+        -DNETCDF_INCLUDE_DIR=/usr/include \
+        -DNETCDF_LIBRARY=/usr/lib/libnetcdf.so \
+        -DNETCDF_CXX_INCLUDE_DIR=/usr/local/include \
+        -DNETCDF_CXX_LIBRARY=/usr/local/lib64/libnetcdf-cxx4.so ; \
+    fi \
+    && if [ "${BUILD_NGEN_PARALLEL}" == "true" ]; then \
+        cmake -B cmake_build_parallel -S . \
+        -DMPI_ACTIVE:BOOL=ON \
+        -DNETCDF_ACTIVE:BOOL=${NGEN_NETCDF_ACTIVE} \
+        -DBMI_C_LIB_ACTIVE:BOOL=${NGEN_ACTIVATE_C} \
+        -DBMI_FORTRAN_ACTIVE:BOOL=${NGEN_ACTIVATE_FORTRAN} \
+        -DNGEN_ACTIVATE_PYTHON:BOOL=${NGEN_ACTIVATE_PYTHON} \
+        -DNGEN_ACTIVATE_ROUTING:BOOL=${NGEN_ROUTING_ACTIVE} \
+        -DUDUNITS_ACTIVE:BOOL=${NGEN_UDUNITS_ACTIVE} \
+        -DUDUNITS_QUIET:BOOL=${NGEN_UDUNITS_QUIET} \
+        -DCMAKE_INSTALL_PREFIX=${WORKDIR} \
+        -DNETCDF_INCLUDE_DIR=/usr/include \
+        -DNETCDF_LIBRARY=/usr/lib/libnetcdf.so \
+        -DNETCDF_CXX_INCLUDE_DIR=/usr/local/include \
+        -DNETCDF_CXX_LIBRARY=/usr/local/lib64/libnetcdf-cxx4.so ; \
+    fi \
+    && ln -s $(if [ "${BUILD_NGEN_PARALLEL}" == "true" ]; then echo "cmake_build_parallel"; else echo "cmake_build_serial"; fi) cmake_build \
+    && for BUILD_DIR in $(if [ "${BUILD_NGEN_PARALLEL}" == "true" ]; then echo "cmake_build_parallel"; fi) $(if [ "${BUILD_NGEN_SERIAL}" == "true" ]; then echo "cmake_build_serial"; fi) ; do \
+        cmake --build $BUILD_DIR --target ngen -j ${BUILD_PARALLEL_JOBS} \
+        #Run the tests, if they fail, the image build fails \
+        && cmake --build $BUILD_DIR --target test_unit -j ${BUILD_PARALLEL_JOBS} \
+        && $BUILD_DIR/test/test_unit \
+        # C++ functionality isn't separate, so always build the test_bmi_cpp shared lib (also needed for test_bmi_multi) \
+        && ./build_sub extern/test_bmi_cpp \
+        && cmake --build $BUILD_DIR --target test_bmi_cpp \
+        && $BUILD_DIR/test/test_bmi_cpp \
+        # For the external language BMI integrations, conditionally build the test packages/libraries and run tests \
+        &&  if [ "${NGEN_ACTIVATE_C}" == "ON" ]; then \
+                ./build_sub extern/test_bmi_c; \
+                cmake --build $BUILD_DIR --target test_bmi_c; \
+                $BUILD_DIR/test/test_bmi_c; \
+            fi \
+        &&  if [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ]; then \
+                ./build_sub extern/test_bmi_fortran; \
+                cmake --build $BUILD_DIR --target test_bmi_fortran; \
+                $BUILD_DIR/test/test_bmi_fortran; \
+            fi \
+        &&  if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
+                cmake --build $BUILD_DIR --target test_bmi_python; \
+                $BUILD_DIR/test/test_bmi_python; \
+            fi \
+        &&  if [ "${NGEN_ACTIVATE_C}" == "ON" ] && [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ] && [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
+                cmake --build $BUILD_DIR --target test_bmi_multi; \
+                $BUILD_DIR/test/test_bmi_multi; \
+            fi \
+    done \
+    && sudo mkdir -p /dmod/bin && (sudo cp -p cmake_build_parallel/ngen /dmod/bin/ngen-parallel || sudo cp -p cmake_build_serial/ngen /dmod/bin/ngen-serial) \
+    && pushd /dmod/bin \
+    && sudo ln -s $(if [ "${BUILD_NGEN_PARALLEL}" == "true" ]; then echo "ngen-parallel"; else echo "ngen-serial"; fi) ngen \
+    && popd \
+    && rm -Rf cmake_build* \
+    && mkdir cmake_build && ln -s /dmod/bin/ngen cmake_build/ngen 
 
 ################################################################################################################
 ################################################################################################################
