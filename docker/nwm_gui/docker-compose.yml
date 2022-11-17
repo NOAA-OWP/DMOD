@@ -43,6 +43,8 @@ services:
     restart: on-failure
     secrets:
         - postgres_password
+        - object_store_exec_user_name
+        - object_store_exec_user_passwd
     environment:
       #- VENV_DIR=${DOCKER_GUI_CONTAINER_VENV_DIR:-}
       #- CERT_PATH # used by dispatch.py
@@ -66,6 +68,8 @@ services:
       - DMOD_SU_EMAIL=none@noaa.gov
       - DATABASE=postgres
       - DOCKER_SECRET_POSTGRES_PASS=postgres_password
+      - OBJECT_STORE_HOSTNAME=${EXTERNAL_OBJECT_STORE_HOSTNAME:?}
+      - OBJECT_STORE_PORT=${EXTERNAL_OBJECT_STORE_PORT:?}
       - DMOD_GUI_CSRF_TRUSTED_ORIGINS=${DMOD_GUI_CSRF_TRUSTED_ORIGINS:?No CSRF trusted origins configured (provide '' at least)}
     volumes:
       - ${DMOD_APP_STATIC:?}:/usr/maas_portal/static
@@ -110,6 +114,10 @@ networks:
 secrets:
   postgres_password:
     file: ../secrets/postgres_password.txt
+  object_store_exec_user_passwd:
+    file: ${DMOD_OBJECT_STORE_EXEC_USER_PASSWD_SECRET_FILE:?}
+  object_store_exec_user_name:
+    file: ${DMOD_OBJECT_STORE_EXEC_USER_NAME_SECRET_FILE:?}
 # Define persistent volumes that may be shared and persisted between containers
 volumes:
     dmod_db_volume:
