@@ -72,6 +72,7 @@ ARG NGEN_UDUNITS_QUIET="ON"
 
 ARG BUILD_NGEN_SERIAL="true"
 ARG BUILD_NGEN_PARALLEL="true"
+ARG BUILD_PARTITIONER="false"
 ARG BUILD_NOAH_OWP="true"
 ARG BUILD_CFE="true"
 ARG BUILD_TOPMODEL="true"
@@ -471,6 +472,7 @@ ARG NGEN_UDUNITS_QUIET
 
 ARG BUILD_NGEN_SERIAL
 ARG BUILD_NGEN_PARALLEL
+ARG BUILD_PARTITIONER
 ARG BUILD_NOAH_OWP
 ARG BUILD_CFE
 ARG BUILD_TOPMODEL
@@ -532,6 +534,10 @@ RUN cd ${WORKDIR}/ngen \
         -DNETCDF_CXX_LIBRARY=/usr/local/lib64/libnetcdf-cxx4.so ; \
     fi \
     && ln -s $(if [ "${BUILD_NGEN_PARALLEL}" == "true" ]; then echo "cmake_build_parallel"; else echo "cmake_build_serial"; fi) cmake_build \
+    &&  if [ "${BUILD_NGEN_PARTITIONER}" == "true" ]; then \
+            cmake --build cmake_build --target partitionGenerator; \
+            $BUILD_DIR/test/test_bmi_python; \
+        fi \
     && for BUILD_DIR in $(if [ "${BUILD_NGEN_PARALLEL}" == "true" ]; then echo "cmake_build_parallel"; fi) $(if [ "${BUILD_NGEN_SERIAL}" == "true" ]; then echo "cmake_build_serial"; fi) ; do \
         cmake --build $BUILD_DIR --target ngen -j ${BUILD_PARALLEL_JOBS} \
         #Run the tests, if they fail, the image build fails \
@@ -561,12 +567,7 @@ RUN cd ${WORKDIR}/ngen \
                 $BUILD_DIR/test/test_bmi_multi; \
             fi \
     done \
-    && sudo mkdir -p /dmod/bin && (sudo cp -p cmake_build_parallel/ngen /dmod/bin/ngen-parallel || sudo cp -p cmake_build_serial/ngen /dmod/bin/ngen-serial) \
-    && pushd /dmod/bin \
-    && sudo ln -s $(if [ "${BUILD_NGEN_PARALLEL}" == "true" ]; then echo "ngen-parallel"; else echo "ngen-serial"; fi) ngen \
-    && popd \
-    && rm -Rf cmake_build* \
-    && mkdir cmake_build && ln -s /dmod/bin/ngen cmake_build/ngen 
+    && find cmake_build* -type f -name "*" ! \( -name "*.so" -o -name "ngen" -o -name "partitionGenerator" \) -exec rm {} + 
 
 ################################################################################################################
 ################################################################################################################
@@ -587,7 +588,8 @@ RUN rm -rf ${BOOST_ROOT} && echo "export PATH=${PATH}" >> /etc/profile \
     && sed -i "s/#ClientAliveCountMax.*/ClientAliveCountMax 5/" /etc/ssh/sshd_config \
     && rm /var/run/nologin  \
     && mkdir -p /dmod/datasets && chown ${USER} /dmod/datasets \
-    && mkdir -p /dmod/shared_libs && chown ${USER} /dmod/shared_libs
+    && mkdir -p /dmod/shared_libs && chown ${USER} /dmod/shared_libs \
+    && mkdir -p /dmod/bin && chown ${USER} /dmod/bin 
 USER ${USER}
 
 COPY --chown=${USER} entrypoint.sh ${WORKDIR}
@@ -597,7 +599,17 @@ ENV HYDRA_PROXY_RETRY_COUNT=5
 # Change permissions for entrypoint and make sure dataset volume mount parent directories exists
 RUN chmod +x ${WORKDIR}/entrypoint.sh \
     && for d in ${DATASET_DIRECTORIES}; do mkdir -p /dmod/datasets/${d}; done \
-    && for d in noah-owp-modular topmodel cfe sloth 'evapotranspiration/evapotranspiration'; do if [ -d ${WORKDIR}/ngen/extern/${d}/cmake_build ]; then cp -a ${WORKDIR}/ngen/extern/${d}/cmake_build/*.so* /dmod/shared_libs/.; fi; done
+    && for d in noah-owp-modular topmodel cfe sloth 'evapotranspiration/evapotranspiration'; do \
+        if [ -d ${WORKDIR}/ngen/extern/${d}/cmake_build ]; then \
+            cp -a ${WORKDIR}/ngen/extern/${d}/cmake_build/*.so* /dmod/shared_libs/.; \
+        fi; \
+    done \
+    && ( cp -a ${WORKDIR}/ngen/cmake_build_parallel/ngen /dmod/bin/ngen-parallel || true ) \
+    && ( cp -a ${WORKDIR}/ngen/cmake_build_serial/ngen /dmod/bin/ngen-serial || true ) \
+    && ( cp -a ${WORKDIR}/ngen/cmake_build/partitionGenerator /dmod/bin/partitionGenerator || true ) \
+    && pushd /dmod/bin \
+    && ( ( stat ngen-parallel && ln -s ngen-parallel ngen ) || ( stat ngen-serial && ln -s ngen-serial ngen ) ) \
+    && popd 
 
 WORKDIR ${WORKDIR}
 ENV PATH=${WORKDIR}:$PATH
