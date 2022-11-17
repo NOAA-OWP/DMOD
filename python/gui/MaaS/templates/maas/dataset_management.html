@@ -249,7 +249,13 @@
                 type: 'get',
                 data: {"request_type": "download_file", "dataset_name": dataset_name, "item_name": file_name},
                 success: function(response) {
-                    let x = 1;
+                    let url = "/download_dataset_file/" + dataset_name + "/" + file_name;
+                    let a = document.createElement('a');
+                    a.href = url;
+                    a.download = file_name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
                 },
                 error: function(response) {
                     alert('Received an error downloading file ' + file_name + ' from dataset ' + dataset_name);
@@ -369,6 +375,7 @@
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
+                    // TODO: also perhaps put callback here to clean up things on server side
                 },
                 error: function(response) {
                     alert('Received an error downloading ' + dataset_name + ' dataset');
