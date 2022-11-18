@@ -91,14 +91,8 @@ class DatasetApiView(AbstractDatasetView):
         #dataset_json = returned_json[dataset_name]
         # TODO: maybe check to make sure dataset exists?
         local_copy_dir = CACHE_DIR.joinpath(dataset_name)
-        if files is None and local_copy_dir.is_dir():
+        if local_copy_dir.is_dir():
             self._cleanup_dir(local_copy_dir)
-        elif local_copy_dir.is_dir():
-            for p in [local_copy_dir.joinpath(f) for f in files]:
-                if p.is_dir():
-                    self._cleanup_dir(p)
-                else:
-                    p.unlink(missing_ok=True)
         elif local_copy_dir.exists():
             local_copy_dir.unlink()
         local_copy_dir.mkdir(parents=True)
