@@ -88,7 +88,8 @@ class DatasetOverviewTableRow {
         this._createLinks(true, "Details", this.datasetName, this.detailsOnClickFunc);
         this._createLinks(true, "Files", this.datasetName, this.filesOnClickFunc);
         this._createLinks(true, "Download", this.datasetName, this.downloadOnClickFunc);
-        this._createLinks(true, "Upload Files", this.datasetName, this.uploadOnClickFunc);
+        // TODO: put this back in later
+        //this._createLinks(true, "Upload Files", this.datasetName, this.uploadOnClickFunc);
         this._createLinks(true, "Delete", this.datasetName, this.deleteOnClickFunc);
     }
 }
