@@ -1,7 +1,8 @@
 version: '3.8'
 services:
   minio1:
-    image: minio/minio:latest
+    # TODO: temporary work around of backend storage mount (long term, this will need a different fix)
+    image: minio/minio:RELEASE.2022-10-08T20-11-00Z
     hostname: minio1
     volumes:
       - ${DMOD_OBJECT_STORE_SINGLE_NODE_HOST_DIR:?No host data directory for single-node object store storage provided}:/export
