@@ -632,6 +632,8 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
             alloc = self._resource_manager.allocate_fill_nodes(job.cpu_count, job.memory_size)
         elif job.allocation_paradigm == AllocationParadigm.ROUND_ROBIN:
             alloc = self._resource_manager.allocate_round_robin(job.cpu_count, job.memory_size)
+        elif job.allocation_paradigm == AllocationParadigm.GROUPED_SINGLE_NODE:
+            alloc = self._resource_manager.allocate_grouped_single_node(job.cpu_count, job.memory_size)
         else:
             alloc = [None]
         if isinstance(alloc, list) and len(alloc) > 0 and isinstance(alloc[0], ResourceAllocation):
