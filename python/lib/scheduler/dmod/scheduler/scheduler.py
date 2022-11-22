@@ -659,6 +659,7 @@ class Launcher(SimpleDockerUtil):
                 service_params.user = 'root'
                 # Also adding this for ngen
                 service_params.capabilities_to_add = ['SYS_ADMIN']
+            # TODO: actually impose/enforce resource allocations on created services
             #TODO check for proper service creation, return False if doesn't work
             service = self.create_service(serviceParams=service_params, idx=alloc_index,
                                           docker_cmd_args=self._generate_docker_cmd_args(job, alloc_index))

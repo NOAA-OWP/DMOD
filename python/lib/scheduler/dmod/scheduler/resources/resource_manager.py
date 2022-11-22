@@ -231,6 +231,30 @@ class ResourceManager(ABC):
         # Otherwise, return the allocations
         return allocations
 
+    def allocate_grouped_single_node(self, cpus: int, memory: int) -> List[Optional[ResourceAllocation]]:
+        """
+        Check available resources to allocate job request to a single allocation (on a single node) with all resources.
+
+        Parameters
+        ----------
+            cpus: Total number of CPUs requested
+            memory: Amount of memory required in bytes
+
+        Returns
+        -------
+        List[Optional[ResourceAllocation]]
+            List containing a single element, where this element is either a ::class:`ResourceAllocation` if allocation
+            was successful, or ``None``.
+        """
+        self.validate_allocation_parameters(cpus, memory)
+
+        for r in self.get_useable_resources():
+            if r.cpu_count >= cpus and r.memory >= memory:
+                alloc = self.allocate_resource(resource_id=r.resource_id, requested_cpus=cpus, requested_memory=memory)
+                if alloc is not None:
+                    return [alloc]
+        return [None]
+
     def allocate_round_robin(self, cpus: int, memory: int) -> List[Optional[ResourceAllocation]]:
         """
             Check available resources on host nodes and allocate in round robin manner even the request
