@@ -1,0 +1,433 @@
+{
+  "title": "DatasetManager",
+  "type": "object",
+  "properties": {
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "category": {
+      "$ref": "#/definitions/DataCategory"
+    },
+    "data_format": {
+      "title": "Data Format",
+      "type": "object",
+      "anyOf": [
+        {
+          "title": "AORC_CSV",
+          "$ref": "#/definitions/AORC_CSV"
+        },
+        {
+          "title": "NETCDF_FORCING_CANONICAL",
+          "$ref": "#/definitions/NETCDF_FORCING_CANONICAL"
+        },
+        {
+          "title": "NETCDF_AORC_DEFAULT",
+          "$ref": "#/definitions/NETCDF_AORC_DEFAULT"
+        },
+        {
+          "title": "NGEN_OUTPUT",
+          "$ref": "#/definitions/NGEN_OUTPUT"
+        },
+        {
+          "title": "NGEN_REALIZATION_CONFIG",
+          "$ref": "#/definitions/NGEN_REALIZATION_CONFIG"
+        },
+        {
+          "title": "NGEN_GEOJSON_HYDROFABRIC",
+          "$ref": "#/definitions/NGEN_GEOJSON_HYDROFABRIC"
+        },
+        {
+          "title": "NGEN_PARTITION_CONFIG",
+          "$ref": "#/definitions/NGEN_PARTITION_CONFIG"
+        },
+        {
+          "title": "BMI_CONFIG",
+          "$ref": "#/definitions/BMI_CONFIG"
+        },
+        {
+          "title": "NWM_OUTPUT",
+          "$ref": "#/definitions/NWM_OUTPUT"
+        },
+        {
+          "title": "NWM_CONFIG",
+          "$ref": "#/definitions/NWM_CONFIG"
+        }
+      ]
+    }
+  },
+  "required": [
+    "name",
+    "category",
+    "data_format"
+  ],
+  "definitions": {
+    "DataCategory": {
+      "title": "DataCategory",
+      "description": "An enumeration.",
+      "enum": [
+        "CONFIG",
+        "FORCING",
+        "HYDROFABRIC",
+        "OBSERVATION",
+        "OUTPUT"
+      ],
+      "type": "string"
+    },
+    "AORC_CSV": {
+      "title": "AORC_CSV",
+      "type": "object",
+      "properties": {
+        "catchment_id": {
+          "title": "Catchment ID",
+          "description": "List of Catchment IDs",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "start_time": {
+          "title": "Start Time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "end_time": {
+          "title": "End Time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "file": {
+          "title": "File",
+          "format": "file-path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "catchment_id",
+        "start_time",
+        "end_time",
+        "file"
+      ]
+    },
+    "NETCDF_FORCING_CANONICAL": {
+      "title": "NETCDF_FORCING_CANONICAL",
+      "type": "object",
+      "properties": {
+        "catchment_id": {
+          "title": "Catchment ID",
+          "description": "List of Catchment IDs",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "start_time": {
+          "title": "Start Time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "end_time": {
+          "title": "End Time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "file": {
+          "title": "File",
+          "format": "file-path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "catchment_id",
+        "start_time",
+        "end_time",
+        "file"
+      ]
+    },
+    "NETCDF_AORC_DEFAULT": {
+      "title": "NETCDF_AORC_DEFAULT",
+      "type": "object",
+      "properties": {
+        "catchment_id": {
+          "title": "Catchment ID",
+          "description": "List of Catchment IDs",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "start_time": {
+          "title": "Start Time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "end_time": {
+          "title": "End Time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "file": {
+          "title": "File",
+          "format": "file-path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "catchment_id",
+        "start_time",
+        "end_time",
+        "file"
+      ]
+    },
+    "NGEN_OUTPUT": {
+      "title": "NGEN_OUTPUT",
+      "type": "object",
+      "properties": {
+        "catchment_id": {
+          "title": "Catchment ID",
+          "description": "List of Catchment IDs",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "start_time": {
+          "title": "Start Time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "end_time": {
+          "title": "End Time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "file": {
+          "title": "File",
+          "format": "file-path",
+          "type": "string"
+        },
+        "data_id": {
+          "title": "Data Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "catchment_id",
+        "start_time",
+        "end_time",
+        "file",
+        "data_id"
+      ]
+    },
+    "NGEN_REALIZATION_CONFIG": {
+      "title": "NGEN_REALIZATION_CONFIG",
+      "type": "object",
+      "properties": {
+        "catchment_id": {
+          "title": "Catchment ID",
+          "description": "List of Catchment IDs",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "start_time": {
+          "title": "Start Time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "end_time": {
+          "title": "End Time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "file": {
+          "title": "File",
+          "format": "file-path",
+          "type": "string"
+        },
+        "data_id": {
+          "title": "Data Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "catchment_id",
+        "start_time",
+        "end_time",
+        "file",
+        "data_id"
+      ]
+    },
+    "NGEN_GEOJSON_HYDROFABRIC": {
+      "title": "NGEN_GEOJSON_HYDROFABRIC",
+      "type": "object",
+      "properties": {
+        "catchment_id": {
+          "title": "Catchment ID",
+          "description": "List of Catchment IDs",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "start_time": {
+          "title": "Start Time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "end_time": {
+          "title": "End Time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "file": {
+          "title": "File",
+          "format": "file-path",
+          "type": "string"
+        },
+        "data_id": {
+          "title": "Data Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "catchment_id",
+        "start_time",
+        "end_time",
+        "file",
+        "data_id"
+      ]
+    },
+    "NGEN_PARTITION_CONFIG": {
+      "title": "NGEN_PARTITION_CONFIG",
+      "type": "object",
+      "properties": {
+        "hydrofabric_id": {
+          "title": "Hydrofabric Id",
+          "type": "string"
+        },
+        "length": {
+          "title": "Length",
+          "min": 0,
+          "type": "integer"
+        },
+        "data_id": {
+          "title": "Data Id",
+          "type": "string"
+        },
+        "file": {
+          "title": "File",
+          "format": "file-path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hydrofabric_id",
+        "length",
+        "data_id",
+        "file"
+      ]
+    },
+    "BMI_CONFIG": {
+      "title": "BMI_CONFIG",
+      "type": "object",
+      "properties": {
+        "global_checksum": {
+          "title": "Global Checksum",
+          "type": "string"
+        },
+        "data_id": {
+          "title": "Data Id",
+          "type": "string"
+        },
+        "file": {
+          "title": "File",
+          "format": "file-path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "global_checksum",
+        "data_id",
+        "file"
+      ]
+    },
+    "NWM_OUTPUT": {
+      "title": "NWM_OUTPUT",
+      "type": "object",
+      "properties": {
+        "catchment_id": {
+          "title": "Catchment ID",
+          "description": "List of Catchment IDs",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "start_time": {
+          "title": "Start Time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "end_time": {
+          "title": "End Time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "file": {
+          "title": "File",
+          "format": "file-path",
+          "type": "string"
+        },
+        "data_id": {
+          "title": "Data Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "catchment_id",
+        "start_time",
+        "end_time",
+        "file",
+        "data_id"
+      ]
+    },
+    "NWM_CONFIG": {
+      "title": "NWM_CONFIG",
+      "type": "object",
+      "properties": {
+        "element_id": {
+          "title": "Element Id",
+          "type": "string"
+        },
+        "start_time": {
+          "title": "Start Time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "end_time": {
+          "title": "End Time",
+          "type": "string",
+          "format": "date-time"
+        },
+        "data_id": {
+          "title": "Data Id",
+          "type": "string"
+        },
+        "file": {
+          "title": "File",
+          "format": "file-path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "element_id",
+        "start_time",
+        "end_time",
+        "data_id",
+        "file"
+      ]
+    }
+  }
+}
