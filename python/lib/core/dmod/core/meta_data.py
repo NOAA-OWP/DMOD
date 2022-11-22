@@ -22,6 +22,8 @@ class StandardDatasetIndex(Enum):
     """ Index for some type of dataset-scope checksum. """
     ELEMENT_ID = (6, str)
     """ A general-purpose index for the applicable data element unique identifier. """
+    REALIZATION_CONFIG_DATA_ID = (7, str)
+    """ A specialized index for the unique data id of an associated realization config dataset. """
 
     @classmethod
     def get_for_name(cls, name_str: str) -> 'StandardDatasetIndex':
@@ -107,6 +109,20 @@ class DataFormat(Enum):
     """ Format for NWM 2.0/2.1/2.2 output. """
     NWM_CONFIG = (9, {StandardDatasetIndex.ELEMENT_ID: None, StandardDatasetIndex.TIME: None, StandardDatasetIndex.DATA_ID: None}, None)
     """ Format for initial config for NWM 2.0/2.1/2.2. """
+    NGEN_CAL_OUTPUT = (10,
+                       {StandardDatasetIndex.CATCHMENT_ID: None, StandardDatasetIndex.TIME: None,
+                        StandardDatasetIndex.DATA_ID: None},
+                       None,
+                       False)
+    """ Representation of the format for ngen-cal calibration tool output. """
+    # TODO: come back later and fill in details of fields
+    NGEN_CAL_CONFIG = (11,
+                       {StandardDatasetIndex.DATA_ID: None, StandardDatasetIndex.TIME: None,
+                        StandardDatasetIndex.REALIZATION_CONFIG_DATA_ID: None,
+                        StandardDatasetIndex.HYDROFABRIC_ID: None},
+                       None,
+                       False)
+    """ Format representing ngen-cal configurations. """
     # TODO: consider whether a datetime format string is necessary for each type value
     # TODO: consider whether something to indicate the time step size is necessary
     # TODO: need format specifically for Nextgen model output (i.e., for evaluations)
