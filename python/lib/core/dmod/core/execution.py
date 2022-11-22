@@ -15,11 +15,13 @@ class AllocationParadigm(Enum):
                       allocations be single cpu/process
         SINGLE_NODE - require all allocation of assets to be from a single resource/host; also, require allocations to
                       be single cpu/process
+        GROUPED_SINGLE_NODE     -   obtain one grouped allocation of required assets, all from a single resource/host
     """
 
     FILL_NODES = 0
     ROUND_ROBIN = 1
     SINGLE_NODE = 2
+    GROUPED_SINGLE_NODE = 3
 
     @classmethod
     def get_default_selection(cls) -> 'AllocationParadigm':
