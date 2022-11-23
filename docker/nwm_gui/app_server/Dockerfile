@@ -20,12 +20,14 @@ RUN pip install -r dependencies.txt
 ENV PYTHONUNBUFFERED 1
 
 # Slurp (or set default) wheel package names ...
+ARG core_package_name=dmod-core
 ARG comms_package_name=dmod-communication
 ARG client_package_name=dmod-client
 
 # Copy custom built packages from external sources image
 COPY --from=sources /DIST /DIST
-RUN pip install --upgrade --find-links=/DIST ${comms_package_name} \
+RUN pip install --upgrade --find-links=/DIST ${core_package_name} \
+    && pip install --upgrade --find-links=/DIST ${comms_package_name} \
     && pip install --upgrade --find-links=/DIST ${client_package_name} \
     # After eventually installing all dist files like this, clean up ... \
     && rm -rf /DIST
