@@ -4,6 +4,7 @@ from datetime import datetime
 from .serializable import Serializable
 from numbers import Number
 from typing import Any, Dict, List, Optional, Set, Type, Union
+from collections.abc import Iterable
 
 
 class StandardDatasetIndex(Enum):
@@ -467,6 +468,75 @@ class DataDomain(Serializable):
         except:
             return None
 
+    @classmethod
+    def factory_init_from_restriction_collections(cls, data_format: DataFormat, **kwargs) -> 'DataDomain':
+        """
+        Create and return a data domain object of the given format and keyword args containing restriction properties.
+
+        The key for each restriction determines the appropriate ::class:`StandardDatasetIndex` for the restriction's
+        ``variable`` property via ::method:`StandardDatasetIndex.get_for_name``.
+
+        The restriction property values should either be a single value, a list or a dictionary with exactly two inner
+        keys.  Single values are converted to one-items lists, then otherwise treated as lists. Lists represent
+        discrete restrictions and may be of arbitrary length. Dictionaries represent continuous restrictions and must
+        have exactly two elements (see below for valid inner keys and their meaning).  There is also the special case
+        when the (keyword args) key translates to ``StandardDatasetIndex.TIME``, which results in use of the
+        ::class:`TimeRange` subtype and must be continuous.
+
+        For list values, the value is used directly for ::attribute:`DiscreteRestriction.values`. For dictionary values,
+        the inner keys of each dictionary must be either ``begin`` or ``start`` for the beginning of
+        the range, and ``end`` or ``finish`` for the end.
+
+        Parameters
+        ----------
+        data_format
+        kwargs
+
+        Returns
+        -------
+        DataDomain
+        """
+        continuous = []
+        discrete = []
+
+        for k, v in kwargs.items():
+            # First convert string values to one-item lists (will get caught by the Iterable test otherwise)
+            if isinstance(v, str):
+                v = [v]
+            # Also convert anything else that is not an Iterable to a one-item list
+            elif not isinstance(v, Iterable):
+                v = [v]
+
+            linked_index = StandardDatasetIndex.get_for_name(k)
+            if linked_index == StandardDatasetIndex.UNKNOWN:
+                msg = "Unrecognized domain property {} when creating domain with {} format".format(k, data_format.name)
+                raise RuntimeError(msg)
+            elif linked_index not in data_format.indices_to_fields().keys():
+                msg = "Unexpected index {} when creating domain with {} format".format(k, data_format.name)
+                raise RuntimeError(msg)
+            elif isinstance(v, list):
+                discrete.append(DiscreteRestriction(variable=linked_index, values=v))
+            elif not isinstance(v, dict):
+                msg = "Invalid value type {} for {} restriction when creating domain".format(v.__class__.__name__, k)
+                raise ValueError(msg)
+            elif len(v.keys()) != 2:
+                msg = "Invalid value dict of size {} for {} restriction when creating domain".format(v.keys(), k)
+                raise ValueError(msg)
+            elif isinstance(v, dict) and ('begin' in v or 'start' in v) and ('end' in v or 'finish' in v):
+                begin = v['begin'] if 'begin' in v else v['start']
+                end = v['end'] if 'end' in v else v['finish']
+                if linked_index == StandardDatasetIndex.TIME:
+                    continuous.append(TimeRange(begin=begin, end=end))
+                else:
+                    continuous.append(ContinuousRestriction(variable=linked_index, begin=begin, end=end))
+            else:
+                msg = "Invalid value dict (missing required keys) for {} restriction when creating domain".format(k)
+                raise ValueError(msg)
+
+        return DataDomain(data_format=data_format,
+                          continuous_restrictions=None if len(continuous) == 0 else continuous,
+                          discrete_restrictions=None if len(discrete) == 0 else discrete)
+
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.data_format == other.data_format \
                and self.continuous_restrictions == other.continuous_restrictions \
@@ -664,9 +734,13 @@ class TimeRange(ContinuousRestriction):
     Encapsulated representation of a time range.
     """
 
-    def __init__(self, begin: datetime, end: datetime, datetime_pattern: Optional[str] = None, **kwargs):
-        super(TimeRange, self).__init__(variable=StandardDatasetIndex.TIME, begin=begin, end=end,
-                                        datetime_pattern=self.get_datetime_str_format() if datetime_pattern is None else datetime_pattern)
+    def __init__(self, begin: Union[str, datetime], end: Union[str, datetime], datetime_pattern: Optional[str] = None,
+                 **kwargs):
+        dt_ptrn = self.get_datetime_str_format() if datetime_pattern is None else datetime_pattern
+        super(TimeRange, self).__init__(variable=StandardDatasetIndex.TIME,
+                                        begin=begin if isinstance(begin, datetime) else datetime.strptime(begin, dt_ptrn),
+                                        end=end if isinstance(end, datetime) else datetime.strptime(end, dt_ptrn),
+                                        datetime_pattern=dt_ptrn)
 
 
 class DataRequirement(Serializable):
