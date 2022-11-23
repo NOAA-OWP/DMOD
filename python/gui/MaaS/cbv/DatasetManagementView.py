@@ -136,9 +136,11 @@ class DatasetManagementView(AbstractDatasetView):
         # Should get a list of file-type objects, with a ``name`` property and a ``file`` BytesIO property
         files = http_request.FILES.getlist('files')
 
+        csrf_token_key = 'csrfmiddlewaretoken'
+
         # name (dataset name), category, data_format, and any other applicable dynamic form items
         # e.g., catchment_id, hydrofabric_id, data_id, etc.
-        dataset_details = dict([(k, v) for k, v in http_request.POST.items() if k != 'csrfmiddlewaretoken'])
+        dataset_details = dict([(k, v) for k, v in http_request.POST.items() if k != csrf_token_key])
         dataset_name = dataset_details['name']
 
         # TODO: consider reading files to validate/replace domain details from form
