@@ -672,7 +672,7 @@
         </div>
         <div id="dataset-create">
             <h3>Create New Dataset:</h3>
-            <form action="." method="post" id="dataset-create-form">
+            <form action="datasets" method="post" enctype="multipart/form-data" id="dataset-create-form">
                 {# Add the token to provide cross site request forgery protection #}
                 {% csrf_token %}
                 {{ form }}
