@@ -3,6 +3,7 @@ from enum import Enum
 from functools import partial
 
 from dmod.core.meta_data import DataCategory, DataFormat
+from django.conf import settings
 
 from .js_utils import start_end_time_validation
 
@@ -21,7 +22,7 @@ def _time(start_time_id: str, end_time_id: str):
             }
         ),
         # TODO: this should be removed once we upgrade django versions >= 3.1 (tracked by #209)
-        input_formats=["%Y-%m-%dT%H:%M"],
+        input_formats=[settings.DATE_TIME_FORMAT],
     )
 
 
@@ -32,10 +33,11 @@ _HydrofabricId = forms.CharField
 _Length = forms.IntegerField
 _GlobalChecksum = forms.CharField
 _ElementId = forms.CharField
-_File = partial(
+_Files = partial(
     forms.FileField,
     widget=forms.ClearableFileInput(
         attrs={
+            'multiple': True,
             # filename cannot contain underscore (_)
             "oninput": """((el) => {
             const files = el.files;
@@ -127,7 +129,7 @@ class AORC_CSV(DynamicFormMixIn, FormNameMixIn, forms.Form):
     # TODO: note that all datetimes are naive UTC time.
     # help_text="",
     # )
-    file = _File()
+    files = _Files()
 
 
 class NETCDF_FORCING_CANONICAL(DynamicFormMixIn, FormNameMixIn, forms.Form):
@@ -138,7 +140,7 @@ class NETCDF_FORCING_CANONICAL(DynamicFormMixIn, FormNameMixIn, forms.Form):
     end_time = _time(
         "id_start_time_NETCDF_FORCING_CANONICAL", "id_end_time_NETCDF_FORCING_CANONICAL"
     )(label="End Datetime")
-    file = _File()
+    files = _Files()
 
 
 class NETCDF_AORC_DEFAULT(DynamicFormMixIn, FormNameMixIn, forms.Form):
@@ -149,7 +151,7 @@ class NETCDF_AORC_DEFAULT(DynamicFormMixIn, FormNameMixIn, forms.Form):
     end_time = _time(
         "id_start_time_NETCDF_AORC_DEFAULT", "id_end_time_NETCDF_AORC_DEFAULT"
     )(label="End Datetime")
-    file = _File()
+    files = _Files()
 
 
 class NGEN_OUTPUT(DynamicFormMixIn, FormNameMixIn, forms.Form):
@@ -161,7 +163,7 @@ class NGEN_OUTPUT(DynamicFormMixIn, FormNameMixIn, forms.Form):
         label="End Datetime"
     )
     data_id = _DataId()
-    file = _File()
+    files = _Files()
 
 
 class NGEN_REALIZATION_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
@@ -173,27 +175,27 @@ class NGEN_REALIZATION_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
         "id_start_time_NGEN_REALIZATION_CONFIG", "id_end_time_NGEN_REALIZATION_CONFIG"
     )(label="End Datetime")
     data_id = _DataId()
-    file = _File()
+    files = _Files()
 
 
 class NGEN_GEOJSON_HYDROFABRIC(DynamicFormMixIn, FormNameMixIn, forms.Form):
     catchment_id = _CatchmentId()
     hydrofabric_id = _HydrofabricId()
     data_id = _DataId()
-    file = _File()
+    files = _Files()
 
 
 class NGEN_PARTITION_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
     data_id = _DataId()
     hydrofabric_id = _HydrofabricId
     length = _Length()
-    file = _File()
+    files = _Files()
 
 
 class BMI_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
     global_checksum = _GlobalChecksum()
     data_id = _DataId()
-    file = _File()
+    files = _Files()
 
 
 class NWM_OUTPUT(DynamicFormMixIn, FormNameMixIn, forms.Form):
@@ -205,7 +207,7 @@ class NWM_OUTPUT(DynamicFormMixIn, FormNameMixIn, forms.Form):
         label="End Datetime"
     )
     data_id = _DataId()
-    file = _File()
+    files = _Files()
 
 
 class NWM_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
@@ -217,7 +219,7 @@ class NWM_CONFIG(DynamicFormMixIn, FormNameMixIn, forms.Form):
         label="End Datetime"
     )
     data_id = _DataId()
-    file = _File()
+    files = _Files()
 
 
 class DatasetFormatForm(Enum):
