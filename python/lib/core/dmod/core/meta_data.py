@@ -476,7 +476,7 @@ class DataDomain(Serializable):
         The key for each restriction determines the appropriate ::class:`StandardDatasetIndex` for the restriction's
         ``variable`` property via ::method:`StandardDatasetIndex.get_for_name``.
 
-        The restriction property values should either be a single value, a list or a dictionary with exactly two inner
+        The restriction property values should either be a single value, a list, or a dictionary with exactly two inner
         keys.  Single values are converted to one-items lists, then otherwise treated as lists. Lists represent
         discrete restrictions and may be of arbitrary length. Dictionaries represent continuous restrictions and must
         have exactly two elements (see below for valid inner keys and their meaning).  There is also the special case
