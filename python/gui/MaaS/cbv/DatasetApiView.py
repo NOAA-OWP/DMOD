@@ -10,12 +10,6 @@ from .DatasetFileWebsocketFilelike import DatasetFileWebsocketFilelike
 from django.conf import settings
 from typing import Optional, Set
 import logging
-import minio
-
-MINIO_HOST_STRING = settings.MINIO_HOST_STRING
-MINIO_ACCESS = Path(settings.MINIO_ACCESS_FILE).read_text().strip()
-MINIO_SECRET = Path(settings.MINIO_SECRET_FILE).read_text().strip()
-MINIO_SECURE_CONNECT = settings.MINIO_SECURE_CONNECT
 
 logger = logging.getLogger("gui_log")
 
@@ -25,16 +19,6 @@ UPLOADS_DIR: Path = Path(settings.DATA_UPLOADS_DIR)
 
 
 class DatasetApiView(AbstractDatasetView):
-
-    @classmethod
-    def factory_minio_client(cls, endpoint: Optional[str] = None, access: Optional[str] = None,
-                             secret: Optional[str] = None, is_secure: Optional[bool] = False) -> minio.Minio:
-        client = minio.Minio(endpoint=MINIO_HOST_STRING if endpoint is None else endpoint,
-                             access_key=MINIO_ACCESS if access is None else access,
-                             secret_key=MINIO_SECRET if secret is None else secret,
-                             secure=MINIO_SECURE_CONNECT if is_secure is None else is_secure)
-
-        return client
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
