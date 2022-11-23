@@ -58,6 +58,8 @@ services:
       - SQL_USER=${DMOD_GUI_POSTGRES_USER:?}
       - SQL_HOST=db
       - SQL_PORT=5432
+      - DMOD_SU_NAME=dmod_super_user
+      - DMOD_SU_EMAIL=none@noaa.gov
       - DATABASE=postgres
       - DOCKER_SECRET_POSTGRES_PASS=postgres_password
     volumes:
