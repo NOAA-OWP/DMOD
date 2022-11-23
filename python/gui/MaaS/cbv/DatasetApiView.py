@@ -2,11 +2,8 @@ import asyncio
 import zipfile
 
 from django.http import JsonResponse
-from wsgiref.util import FileWrapper
-from django.http.response import StreamingHttpResponse
 from .AbstractDatasetView import AbstractDatasetView
 from pathlib import Path
-from .DatasetFileWebsocketFilelike import DatasetFileWebsocketFilelike
 from django.conf import settings
 from typing import Optional, Set
 import logging
@@ -19,9 +16,6 @@ UPLOADS_DIR: Path = Path(settings.DATA_UPLOADS_DIR)
 
 
 class DatasetApiView(AbstractDatasetView):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
     @classmethod
     def _cleanup_dir(cls, dir_path: Path) -> bool:
@@ -53,6 +47,9 @@ class DatasetApiView(AbstractDatasetView):
                     p.unlink()
             dir_path.rmdir()
             return results
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def _cache_dataset_downloads(self, dataset_name: str, files: Optional[Set[str]] = None) -> Path:
         """
