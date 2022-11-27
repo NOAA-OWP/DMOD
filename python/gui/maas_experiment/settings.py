@@ -26,7 +26,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY",'cm_v*vc*8s048%f46*@t7)hb9rtaa@%)#b!s(+
 ALLOWED_HOSTS = ['*']
 
 # The default is false; if it's not true, it will leave a user logged in indefinitely
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+#SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 # This is the absolute age; navigating won't necessarily tell the system that anything is happening
 # and sessions will absolutely end after this time, regardless of what is going on.
@@ -40,18 +40,23 @@ SECURE_BROWSER_XSS_FILTER = True
 # “secure”, which means browsers may ensure that the cookie is only sent under an HTTPS connection.
 # Leaving this setting off isn’t a good idea because an attacker could capture an unencrypted session cookie with a
 # packet sniffer and use the cookie to hijack the user’s session.
-SESSION_COOKIE_SECURE = not DEBUG
+#SESSION_COOKIE_SECURE = not DEBUG
 
 # Whether to use a secure cookie for the CSRF cookie. If this is set to True, the cookie will be marked as “secure”,
 # which means browsers may ensure that the cookie is only sent with an HTTPS connection.
-CSRF_COOKIE_SECURE = not DEBUG
+#CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = False
 
 # Whether to store the CSRF token in the user’s session instead of in a cookie.
 # It requires the use of django.contrib.sessions.
 #
 # Storing the CSRF token in a cookie (Django’s default) is safe, but storing it in the session is common practice
 # in other web frameworks and therefore sometimes demanded by security auditors.
-CSRF_USE_SESSIONS = not DEBUG
+#CSRF_USE_SESSIONS = not DEBUG
+CSRF_USE_SESSIONS = False
+
+# A list of trusted origins for unsafe requests (e.g. POST).
+CSRF_TRUSTED_ORIGINS = [url.strip() for url in os.environ.get('DMOD_GUI_CSRF_TRUSTED_ORIGINS', '').split(',') if url]
 
 # security.W019: Unless we start serving data in a frame, set to 'DENY'
 X_FRAME_OPTIONS = 'DENY'
