@@ -13,7 +13,7 @@ from django.shortcuts import render
 from django.conf import settings
 from rest_framework.views import APIView
 #PROJECT_ROOT = settings.BASE_DIR
-HYDROFABRICS_DIR = settings.STATIC_HYDROFABRICS_DIR
+HYDROFABRICS_DIR = settings.HYDROFABRIC_ROOT
 SUBSET_SERVICE_URL = settings.SUBSET_SERVICE_URL
 import json
 from pathlib import Path
@@ -40,8 +40,8 @@ def _build_fabric_path(fabric, fabric_type):
         name = fabric
         resolution=''
     
-    #path = Path(HYDROFABRICS_DIR, name, resolution, fabric_type + '_data.geojson')
-    path = Path(HYDROFABRICS_DIR, name, fabric_type + '_data.geojson')
+    path = Path(HYDROFABRICS_DIR, name, resolution, fabric_type + '_data.geojson')
+    #path = Path(HYDROFABRICS_DIR, name, fabric_type + '_data.geojson')
     return path
 
 
