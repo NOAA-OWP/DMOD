@@ -156,6 +156,11 @@ function plotMapLayers(featureDocuments, map) {
 function propertiesToHTML(geojson, xwalk) {
     var properties = geojson.properties;
     var markup = "";
+
+    if (!("id" in geojson) && "id" in properties) {
+        geojson.id = properties.id;
+    }
+
     if ("Name" in properties) {
         markup += "<h3>" + properties.Name + "</h3>";
     }
@@ -184,7 +189,8 @@ function propertiesToHTML(geojson, xwalk) {
         var propertyIsNotName = property.toLowerCase() != "name";
         var propertyIsNotBlank = properties[property] != null && properties[property] != "";
         var propertyIsNotAnObject = typeof properties[property] != 'object';
-        if (propertyIsNotName && propertyIsNotBlank && propertyIsNotAnObject) {
+        var propertyIsNotId = property.toLowerCase() != "id";
+        if (propertyIsNotName && propertyIsNotBlank && propertyIsNotAnObject && propertyIsNotId) {
             propertyKeys.push(property);
         }
     }
