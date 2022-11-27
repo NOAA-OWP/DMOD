@@ -139,13 +139,10 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "static/")
-
-STATIC_NGEN_DIR = os.path.join(STATIC_ROOT, 'ngen')
+NGEN_STATIC_ROOT = os.path.join(STATIC_ROOT, "ngen/")
+HYDROFABRIC_ROOT = os.path.join(NGEN_STATIC_ROOT, "hydrofabric/")
 
 SUBSET_SERVICE_URL = os.environ.get('GUI_SUBSET_SERVICE_API_URL')
-
-#STATIC_HYDROFABRICS_DIR = os.path.join(STATIC_NGEN_DIR, 'hydrofabrics')
-STATIC_HYDROFABRICS_DIR = os.path.join(BASE_DIR, 'hydrofabrics')
 
 GUI_SSL_DIR = os.path.join(BASE_DIR, 'ssl')
 DEFAULT_MAAS_ENDPOINT_URI = 'wss://' + os.environ.get('MAAS_ENDPOINT_HOST') + ':' + os.environ.get('MAAS_ENDPOINT_PORT')
