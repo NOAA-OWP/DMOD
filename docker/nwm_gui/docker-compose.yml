@@ -64,6 +64,7 @@ services:
       - SQL_PORT=5432
       - DATABASE=postgres
       - DOCKER_SECRET_POSTGRES_PASS=postgres_password
+      - DMOD_GUI_CSRF_TRUSTED_ORIGINS=${DMOD_GUI_CSRF_TRUSTED_ORIGINS:?No CSRF trusted origins configured (provide '' at least)}
     volumes:
       - ${DMOD_APP_STATIC:?}:/usr/maas_portal/static
       - ${DMOD_SSL_DIR}/requestservice:/usr/maas_portal/ssl
@@ -83,8 +84,10 @@ services:
     networks:
       - request-listener-net
     volumes:
-        - ${DMOD_GUI_POSTGRES_DATA_VOLUME_HOST_DIR:?}:/var/lib/postgresql/data
-        #- dmod_db_volume:/var/lib/postgresql/data
+        # TODO: look back later at why this was done during dev work, and whether it is still needed
+        # TODO: for now, implement by just defaulting to same Docker volume name (i.e., without bind mount) as before
+        - ${DMOD_GUI_POSTGRES_DATA_VOLUME_HOST_DIR:-dmod_db_volume}:/var/lib/postgresql/data
+        #- ${DMOD_GUI_POSTGRES_DATA_VOLUME_HOST_DIR:?}:/var/lib/postgresql/data
     secrets:
         - postgres_password
     environment:
