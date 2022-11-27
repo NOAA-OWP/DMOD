@@ -51,9 +51,9 @@ startup_scripts.push(
     function(){
         mymap = L.map('mapid').setView(centerLine, zoom);
 
-        mymap.on('zoomend', function() {
-            loadFabric('zoomend');
-        });
+        //mymap.on('zoomend', function() {
+        //    loadFabric('zoomend');
+        //});
 
         L.tileLayer(mapUrl, {
                 maxZoom: maxZoom,
@@ -424,6 +424,7 @@ function isZoomCloseEnoughForFabricLookup() {
 
 function loadFabric(event) {
     // TODO: test this out, both to see if it works and to see if it is the right amount
+    /*
     if (!isZoomCloseEnoughForFabricLookup()) {
         return
     }
@@ -433,6 +434,7 @@ function loadFabric(event) {
     var min_y = bounding_box.getSouth();
     var max_x = bounding_box.getEast();
     var max_y = bounding_box.getNorth();
+    */
 
     var name = $("#fabric-selector").val();
     var type = $("#fabric-type-selector").val();
@@ -471,6 +473,7 @@ function loadFabric(event) {
 
         mymap.fitBounds(activeLayer.getBounds());
     }
+    /*
     if (activeLayer) {
         Object.values(selectedLayers).forEach(layer => removeFeature(layer.feature.id));
         activeLayer.remove();
@@ -491,8 +494,7 @@ function loadFabric(event) {
             }
         }
     )
-    
-    /*
+    */
     var name_type = name+"|"+type;
     if (name && type &&  (name_type != activeLayerName || activeLayer == null)) {
         activeLayerName = name_type;
@@ -525,5 +527,4 @@ function loadFabric(event) {
             )
         }
     }
-    */
 }
