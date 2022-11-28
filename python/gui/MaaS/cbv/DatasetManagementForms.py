@@ -44,12 +44,12 @@ _Files = partial(
 
             for (let {name} of files){
                 // filenames cannot include _'s.
-                if (name.includes('_')){
+                //if (name.includes('_')){
 
                     // see constraint validation API for more detail (https://developer.mozilla.org/en-US/docs/Web/API/Constraint_validation)
-                    el.setCustomValidity('Filename cannot contain underscores \"_\"');
-                    return;
-                }
+                //    el.setCustomValidity('Filename cannot contain underscores \"_\"');
+                //    return;
+                //}
 
                 // valid input
                 el.setCustomValidity('');
