@@ -2,9 +2,11 @@
 Defines a view that may be used to configure a MaaS request
 """
 import asyncio
+import os.path
+
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
-from django.core.files.uploadedfile import UploadedFile
+from django.core.files.uploadedfile import UploadedFile, InMemoryUploadedFile, TemporaryUploadedFile
 from django.conf import settings
 
 import dmod.communication as communication
@@ -68,8 +70,12 @@ class DatasetManagementView(AbstractDatasetView):
         minio_client = self.factory_minio_client()
         result = True
         for f in files:
+            if isinstance(f, TemporaryUploadedFile):
+                length = os.path.getsize(f.file.name)
+            else:
+                length = f.file.getbuffer().nbytes
             result_obj = minio_client.put_object(bucket_name=dataset_name, object_name=f.name, data=f.file,
-                                                 length=f.file.getbuffer().nbytes)
+                                                 length=length)
             # TODO: (later) try to do something based on result_obj.last_modified
             result = result and result_obj.bucket_name == dataset_name and result_obj.object_name == f.name
         return result
