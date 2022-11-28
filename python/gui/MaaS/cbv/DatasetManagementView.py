@@ -8,9 +8,10 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.core.files.uploadedfile import UploadedFile, InMemoryUploadedFile, TemporaryUploadedFile
 from django.conf import settings
+from datetime import datetime
 
 import dmod.communication as communication
-from dmod.core.meta_data import DataCategory, DataDomain, DataFormat
+from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, Serializable
 
 import logging
 logger = logging.getLogger("gui_log")
@@ -157,7 +158,10 @@ class DatasetManagementView(AbstractDatasetView):
 
         # Fix keys for start and end times
         if 'start_time' in dataset_details and 'end_time' in dataset_details:
-            dataset_details['time'] = {'start': dataset_details.pop('start_time'), 'end': dataset_details.pop('end_time')}
+            start = datetime.strptime(dataset_details.pop('start_time'), settings.DATE_TIME_FORMAT)
+            end = datetime.strptime(dataset_details.pop('end_time'), settings.DATE_TIME_FORMAT)
+            dataset_details['time'] = {'start': start.strftime(Serializable.get_datetime_str_format()),
+                                       'end': end.strftime(Serializable.get_datetime_str_format())}
         elif 'start_time' in dataset_details or 'end_time' in dataset_details:
             # TODO: figure out best way to handle this; for now ...
             raise RuntimeError('Cannot create a dataset of this format unless both a start and end time are given')
