@@ -34,6 +34,11 @@
             <label for="end-time" class="key-column" style="grid-row: 2;">End Date and Time (GMT):</label>
             <input type="datetime-local" class="value-column" pattern="mm-dd-yyyy HH:mm" style="grid-row: 2" id="end-time" name="end-time" required>
         </fieldset>
+        <fieldset class="resources-container" style="display: grid; position: relative; width: 50%">
+            <legend>Resources</legend>
+            <label for="requested-cpu-count" class="key-column" style="grid-row: 1">Requested CPUs:</label>
+            <input type="number" value="{% if catchments|length < 8 %}{{ catchments|length }}{% else %}8{% endif %}" class="value-column" id="cpu-count" name="cpu-count">
+        </fieldset>
         <div id="configuration-navigation-alignment" style="display:grid; grid-template-columns: 200px auto">
             <fieldset id="navigation" style="grid-column: 1; overflow-y: auto; height: 60vh; padding: 10px;">
                 <legend>Locations</legend>
