@@ -138,6 +138,7 @@ USE_L10N = True
 
 USE_TZ = True
 
+DATE_TIME_FORMAT = "%Y-%m-%dT%H:%M"
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.2/howto/static-files/
