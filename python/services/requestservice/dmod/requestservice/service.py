@@ -14,8 +14,8 @@ from dmod.access import DummyAuthUtil, RedisBackendSessionManager
 from dmod.communication import AbstractInitRequest, InvalidMessageResponse, MessageEventType, NGENRequest, NWMRequest, \
     PartitionRequest, WebSocketSessionsInterface, SessionInitMessage, SchedulerClient, UnsupportedMessageTypeResponse
 from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage
-from dmod.externalrequests import AuthHandler, DatasetRequestHandler, ModelExecRequestHandler, PartitionRequestHandler
-from dmod.externalrequests import EvaluationRequestHandler
+from dmod.externalrequests import AuthHandler, DatasetRequestHandler, ModelExecRequestHandler, \
+    NgenCalibrationRequestHandler, PartitionRequestHandler, EvaluationRequestHandler
 
 from .alternate_service import EvaluationMessage
 
@@ -124,6 +124,11 @@ class RequestService(WebSocketSessionsInterface):
                                                                    service_port=int(scheduler_port),
                                                                    service_ssl_dir=self.scheduler_client_ssl_dir)
 
+        self._calibration_request_handler = NgenCalibrationRequestHandler(session_manager=self._session_manager,
+                                                                          authorizer=self.authorizer,
+                                                                          service_host=scheduler_host,
+                                                                          service_port=int(scheduler_port),
+                                                                          service_ssl_dir=self.scheduler_client_ssl_dir)
 
         self._partition_request_handler = PartitionRequestHandler(session_manager=self._session_manager,
                                                                   authorizer=self.authorizer,
@@ -195,6 +200,11 @@ class RequestService(WebSocketSessionsInterface):
                 elif event_type == MessageEventType.PARTITION_REQUEST:
                     response = await self._partition_request_handler.handle_request(request=req_message)
                     logging.debug('************************* Handled request response: {}'.format(str(response)))
+                    await websocket.send(str(response))
+                elif event_type == MessageEventType.CALIBRATION_REQUEST:
+                    logging.debug('Handled calibration request')
+                    response = await self._calibration_request_handler.handle_request(request=req_message)
+                    logging.debug('Processed calibration request; response was: {}'.format(str(response)))
                     await websocket.send(str(response))
                 # FIXME: add another message type for closing a session
                 else:
