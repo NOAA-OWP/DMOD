@@ -12,7 +12,8 @@ from websockets import WebSocketServerProtocol
 
 from dmod.access import DummyAuthUtil, RedisBackendSessionManager
 from dmod.communication import AbstractInitRequest, InvalidMessageResponse, MessageEventType, NGENRequest, NWMRequest, \
-    PartitionRequest, WebSocketSessionsInterface, SessionInitMessage, SchedulerClient, UnsupportedMessageTypeResponse
+    NgenCalibrationRequest, PartitionRequest, WebSocketSessionsInterface, SessionInitMessage, SchedulerClient, \
+    UnsupportedMessageTypeResponse
 from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage
 from dmod.externalrequests import AuthHandler, DatasetRequestHandler, ModelExecRequestHandler, \
     NgenCalibrationRequestHandler, PartitionRequestHandler, EvaluationRequestHandler
@@ -45,6 +46,7 @@ class RequestService(WebSocketSessionsInterface):
     """
     _PARSEABLE_REQUEST_TYPES = [
         SessionInitMessage,
+        NgenCalibrationRequest,
         NWMRequest,
         NGENRequest,
         MaaSDatasetManagementMessage,
