@@ -3,7 +3,7 @@ from dmod.core.meta_data import TimeRange
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 from ...message import MessageEventType
-from ...maas_request import ExternalRequestResponse
+from ...maas_request import ExternalRequestResponse, ModelExecRequestResponse
 from .ngen_request import NGENRequest
 
 
@@ -158,6 +158,23 @@ class NgenCalibrationRequest(NGENRequest):
         serial[self._KEY_IS_RESTART] = self.is_restart
         return serial
 
+    # TODO: This should likely be created or determined if it already exsits on the fly
+    # @property
+    # def data_requirements(self) -> List[DataRequirement]:
+    #     """
+    #     List of all the explicit and implied data requirements for this request, as needed fo    r creating a job object.
 
-class NgenCalibrationResponse(ExternalRequestResponse):
+    #     Returns
+    #     -------
+    #     List[DataRequirement]
+    #         List of all the explicit and implied data requirements for this request.
+    #     """
+    #     data_requirements = super().data_requirements
+    #     return [self.calibration_cfg_data_requirement ,*data_requirements]
+
+
+# TODO: aaraney. this looks unfinished
+# class NgenCalibrationResponse(ExternalRequestResponse):
+class NgenCalibrationResponse(ModelExecRequestResponse):
+
     response_to_type = NgenCalibrationRequest
