@@ -981,7 +981,9 @@ class ServiceManager(WebSocketInterface):
                     response = await self._async_process_add_data(dataset_name=dest_dataset_name,
                                                                   dest_item_name=partial_item_name,
                                                                   message=inbound_message,
-                                                                  is_temp=True,
+                                                                # if True, causes: S3 operation failed; code: InvalidRequest, message: Bucket is missing ObjectLockConfiguration,
+                                                                #   is_temp=True,
+                                                                  is_temp=False,
                                                                   manager=dataset_manager)
                     partial_indx += 1
                     if inbound_message.is_last and response.success:
