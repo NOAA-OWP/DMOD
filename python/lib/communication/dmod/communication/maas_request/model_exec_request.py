@@ -12,12 +12,25 @@ def get_available_models() -> dict:
     """
     :return: The names of all models mapped to their class
     """
-    available_models = dict()
+    # TODO: the previous implementation; confirm reason this change was needed
+    # available_models = dict()
+    #
+    # for subclass in ModelExecRequest.__subclasses__():  # type: ModelExecRequest
+    #     available_models[subclass.model_name] = subclass
+    #
+    # return available_models
 
-    for subclass in ModelExecRequest.__subclasses__():  # type: ModelExecRequest
-        available_models[subclass.model_name] = subclass
+    def recursively_get_all_model_subclasses(model_exec_request: "ModelExecRequest") -> dict:
+        available_models = dict()
 
-    return available_models
+        for subclass in model_exec_request.__subclasses__():  # type: ModelExecRequest
+            available_models[subclass.model_name] = subclass
+            # TODO: what to do if descendant subclass "overwrites" ancestor subclass?
+            available_models.update(recursively_get_all_model_subclasses(subclass))
+
+        return available_models
+
+    return recursively_get_all_model_subclasses(ModelExecRequest)
 
 
 class ModelExecRequest(ExternalRequest, DmodJobRequest, ABC):
