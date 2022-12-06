@@ -54,6 +54,17 @@ def _handle_exec_command_args(parent_subparsers_container):
     # Nested parser for the 'ngen' action
     parser_ngen = workflow_subparsers.add_parser('ngen')
 
+    parser_ngen_cal = workflow_subparsers.add_parser('ngen_cal')
+    # parser_ngen_cal.add_argument('--allocation-paradigm',
+    #                          dest='allocation_paradigm',
+    #                          type=AllocationParadigm.get_from_name,
+    #                          choices=[val.name.lower() for val in AllocationParadigm],
+    #                          default=AllocationParadigm.get_default_selection(),
+    #                          help='Specify job resource allocation paradigm to use.')
+    parser_ngen_cal.add_argument('realization_cfg_data_id', help='Identifier of dataset of required realization config')
+    # parser_ngen_cal.add_argument('cpu_count', type=int, help='Provide the desired number of processes for the execution')
+
+
     parser_ngen.add_argument('--partition-config-data-id', dest='partition_cfg_data_id', default=None,
                              help='Provide data_id for desired partition config dataset.')
     parser_ngen.add_argument('--allocation-paradigm',
@@ -449,8 +460,12 @@ def execute_jobs_command(args, client: DmodClient):
 
 def execute_workflow_command(args, client: DmodClient):
     async_loop = get_or_create_eventloop()
+    # TODO: aaraney
     if args.workflow == 'ngen':
         result = async_loop.run_until_complete(client.submit_ngen_request(**(vars(args))))
+        print(result)
+    elif args.workflow == "ngen_cal":
+        result = async_loop.run_until_complete(client.submit_ngen_cal_request(realization_cfg_data_id=args.realization_cfg_data_id))
         print(result)
     else:
         print("ERROR: Unsupported execution workflow {}".format(args.workflow))
