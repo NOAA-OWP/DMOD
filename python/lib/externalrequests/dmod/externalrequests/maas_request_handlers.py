@@ -206,7 +206,7 @@ class PartitionRequestHandler(MaaSRequestHandler):
         return self._service_client
 
     async def handle_request(self, request: PartitionRequest, **kwargs) -> PartitionResponse:
-        session, is_authorized, reason, msg = self.get_authorized_session(request)
+        session, is_authorized, reason, msg = await self.get_authorized_session(request)
         if not is_authorized:
             return PartitionResponse(success=False, reason=reason.name, message=msg)
         # In this case, we actually can pass the request as-is straight through (i.e., after confirming authorization)
