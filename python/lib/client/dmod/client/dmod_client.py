@@ -91,16 +91,16 @@ class DmodClient:
             if self._bypass_request_service:
                 if self.client_config.dataservice_endpoint_uri is None:
                     raise RuntimeError("Cannot bypass request service without data service config details")
-                self._dataset_client = DatasetInternalClient(self.client_config.dataservice_endpoint_uri,
-                                                             self.client_config.dataservice_ssl_dir)
+                self._dataset_client = DatasetInternalClient(endpoint_uri=self.client_config.dataservice_endpoint_uri,
+                                                             ssl_directory=self.client_config.dataservice_ssl_dir)
             else:
-                self._dataset_client = DatasetExternalClient(self.requests_endpoint_uri, self.requests_ssl_dir)
+                self._dataset_client = DatasetExternalClient(endpoint_uri=self.requests_endpoint_uri, ssl_directory=self.requests_ssl_dir)
         return self._dataset_client
 
     @property
     def ngen_request_client(self) -> NgenRequestClient:
         if self._ngen_client is None:
-            self._ngen_client = NgenRequestClient(self.requests_endpoint_uri, self.requests_ssl_dir)
+            self._ngen_client = NgenRequestClient(endpoint_uri=self.requests_endpoint_uri, ssl_directory=self.requests_ssl_dir)
         return self._ngen_client
 
     async def delete_dataset(self, dataset_name: str, **kwargs):
