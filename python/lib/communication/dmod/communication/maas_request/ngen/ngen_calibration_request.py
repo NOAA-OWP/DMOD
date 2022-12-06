@@ -13,6 +13,7 @@ class NgenCalibrationRequest(NGENRequest):
     """
 
     event_type: MessageEventType = MessageEventType.CALIBRATION_REQUEST
+    model_name = 'ngen-cal' #FIXME case sentitivity
 
     # TODO: probably will need to re-examine this
     _DEFAULT_CPU_COUNT = 1
