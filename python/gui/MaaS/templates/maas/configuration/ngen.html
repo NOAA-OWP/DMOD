@@ -78,12 +78,15 @@
                                     <legend><b>Default {{ formulation.name }} Parameters:</b></legend>
                                         <div class="parameters" style="display: grid">
                                     {% for parameter in formulation.formulationparameter_set.all %}
-                                        <label for="global-{{ formulation.clean_name }}-{{ parameter.name }}" class="key-column">{{ parameter.name }}</label>
-                                        <input type="{{ parameter.value_type }}" id="global-{{ formulation.clean_name }}-{{ parameter.name }}"
-                                               name="global-{{ formulation.clean_name }}-{{ parameter.name }}"
+                                        <label for="global:::{{ formulation.clean_name }}:::{{ parameter.name }}" class="key-column">{{ parameter.name }}</label>
+                                        <input type="{{ parameter.value_type }}" id="global:::{{ formulation.clean_name }}:::{{ parameter.name }}"
+                                               name="global:::{{ formulation.clean_name }}:::{{ parameter.name }}"
                                                title="{{ parameter.description }}" min='{{ parameter.minimum|default:"" }}'
                                                max='{{ parameter.maximum|default:"" }}' value='{{ parameter.default_value|default:"" }}'
                                                class="value-column">
+                                        <input type="hidden" id="global:::{{ formulation.clean_name }}:::{{ parameter.name }}:::config-type"
+                                               name="global:::{{ formulation.clean_name }}:::{{ parameter.name }}:::config-type"
+                                               value='{{ parameter.config_type|default:parameter.value_type }}'/>
                                     {% endfor %}
                                             </div>
                                 </fieldset>
@@ -146,12 +149,15 @@
                                     <legend><b>{{ formulation.clean_name }} Parameters for {{ feature }}</b></legend>
                                     <div class="parameters" display="grid">
                                         {% for parameter in formulation.formulationparameter_set.all %}
-                                            <label for="{{ feature }}-{{ formulation.clean_name }}-{{ parameter.name }}" class="key-column">{{ parameter.name }}</label>
-                                            <input type="{{ parameter.value_type }}" id="{{ feature }}-{{ formulation.clean_name }}-{{ parameter.name }}"
+                                            <label for="{{ feature }}:::{{ formulation.clean_name }}:::{{ parameter.name }}" class="key-column">{{ parameter.name }}</label>
+                                            <input type="{{ parameter.value_type }}" id="{{ feature }}:::{{ formulation.clean_name }}:::{{ parameter.name }}"
                                                    title="{{ parameter.description }}" min='{{ parameter.minimum|default:"" }}'
                                                    max='{{ parameter.maximum|default:"" }}' value='{{ parameter.default_value|default:"" }}'
-                                                    name="{{ feature }}-{{ formulation.clean_name }}-{{ parameter.name }}"
+                                                    name="{{ feature }}:::{{ formulation.clean_name }}:::{{ parameter.name }}"
                                                    class="value-column">
+                                            <input type="hidden" id="{{ feature }}:::{{ formulation.clean_name }}:::{{ parameter.name }}:::config-type"
+                                                   name="{{ feature }}:::{{ formulation.clean_name }}:::{{ parameter.name }}:::config-type"
+                                                   value='{{ parameter.config_type|default:parameter.value_type }}'/>
                                         {% endfor %}
                                     </div>
                                 </fieldset>
