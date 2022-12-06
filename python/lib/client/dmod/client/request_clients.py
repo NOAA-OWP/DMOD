@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from dmod.core.execution import AllocationParadigm
 from dmod.communication import DataServiceClient, ExternalRequestClient, ManagementAction, ModelExecRequestClient, \
-    NGENRequest, NGENRequestResponse
+    NGENRequest, NGENRequestResponse, \
+    NgenCalibrationRequest, NgenCalibrationResponse
 from dmod.communication.client import R
 from dmod.communication.dataset_management_message import DatasetManagementMessage, DatasetManagementResponse, \
     MaaSDatasetManagementMessage, MaaSDatasetManagementResponse, QueryType, DatasetQuery
@@ -40,6 +41,67 @@ class NgenRequestClient(ModelExecRequestClient[NGENRequest, NGENRequestResponse]
                               bmi_cfg_data_id=bmi_cfg_data_id,
                               partition_cfg_data_id=partition_cfg_data_id,
                               catchments=cat_ids)
+        return await self.async_make_request(request)
+
+# TODO: aaraney add NgenCalRequestClient
+class NgenCalRequestClient(ModelExecRequestClient[NgenCalibrationRequest, NgenCalibrationResponse]):
+
+    # In particular needs - endpoint_uri: str, ssl_directory: Path
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._cached_session_file = Path.home().joinpath('.dmod_client_session')
+
+    async def request_exec(self,
+                        #    start: datetime,
+                        #    end: datetime,
+                        #    hydrofabric_data_id: str,
+                        #    hydrofabric_uid: str,
+                        #    cpu_count: int,
+                           realization_cfg_data_id: str,
+                        #    bmi_cfg_data_id: str,
+                        #    partition_cfg_data_id: Optional[str] = None,
+                        #    cat_ids: Optional[List[str]] = None,
+                        #    allocation_paradigm: Optional[AllocationParadigm] = None
+                           ) -> NgenCalibrationResponse:
+        await self._async_acquire_session_info()
+
+        start = "2022-01-01 01:00:00"
+        end = "2022-01-02 01:00:00"
+
+        hydrofabric_uid = ""
+        bmi_cfg_data_id = "bmi-config"
+        hydrofabric_data_id = "hydrofabric"
+        config_data_id = "ngen-cal-config"
+
+        # NOTE: aaraney this will likely  have to change
+        request = NgenCalibrationRequest(
+                                        evaluation_time_range=TimeRange(begin=start, end=end),
+                                        # model_cal_params={"fake": (-1, 1, 0)}, # TODO: remove this
+                                        model_cal_params=dict(), # TODO: remove this
+                                        iterations=2, # TODO: remove this
+                                        # config_data_id=realization_cfg_data_id,
+                                        config_data_id=config_data_id,
+
+                                        time_range=TimeRange(begin=start, end=end),
+                                        hydrofabric_uid=hydrofabric_uid,
+                                        hydrofabric_data_id=hydrofabric_data_id,
+                                        bmi_cfg_data_id=bmi_cfg_data_id,
+
+                                        # job_name= None,
+                                        # cal_strategy_type= 'estimation',
+                                        # cal_strategy_algorithm= 'dds',
+                                        # cal_strategy_objective_func= 'nnse',
+                                        # is_objective_func_minimized= True,
+                                        # model_strategy= 'uniform',
+                                        # is_restart= False,
+                                        session_secret=self.session_secret,
+                                        # cpu_count=cpu_count,
+                                        # allocation_paradigm=allocation_paradigm,
+
+                                        # config_data_id=realization_cfg_data_id,
+                                        # partition_cfg_data_id=partition_cfg_data_id,
+                                        # catchments=cat_ids
+                                        )
         return await self.async_make_request(request)
 
 
