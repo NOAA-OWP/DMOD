@@ -47,7 +47,7 @@ class NgenCalibrationRequest(NGENRequest):
         additional_kw_args['cal_strategy_algorithm'] = json_obj[cls._KEY_CAL_STRATEGY_ALGO]
         additional_kw_args['cal_strategy_objective_func'] = json_obj[cls._KEY_CAL_STRATEGY_OBJ_FUNC]
         additional_kw_args['cal_strategy_type'] = json_obj[cls._KEY_CAL_STRATEGY_TYPE]
-        additional_kw_args['evaluation_time_range'] = json_obj[cls._KEY_EVALUTATION_TIME]
+        additional_kw_args['evaluation_time_range'] = TimeRange.factory_init_from_deserialized_json(json_obj[cls._KEY_EVALUTATION_TIME])
         additional_kw_args['is_objective_func_minimized'] = json_obj[cls._KEY_IS_OBJ_FUNC_MIN]
         additional_kw_args['is_restart'] = json_obj[cls._KEY_IS_RESTART]
         additional_kw_args['iterations'] = json_obj[cls._KEY_ITERATIONS]
