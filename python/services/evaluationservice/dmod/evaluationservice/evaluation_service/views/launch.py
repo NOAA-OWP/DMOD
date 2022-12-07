@@ -74,7 +74,9 @@ class ReadyListenEvaluation(View):
             "evaluation_template": self.get_evaluation_template(),
             "launch_url": "/ws/launch",
             "generated_evaluation_id": self._generate_evaluation_id(request),
-            "evaluation_id_pattern": EVALUATION_ID_PATTERN
+            "evaluation_id_pattern": EVALUATION_ID_PATTERN,
+            "geometry_name": "",
+            "show_map": True
         }
         return render(request, template_name=self.template, context=context)
 
