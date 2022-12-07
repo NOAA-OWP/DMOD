@@ -4,6 +4,7 @@ import os
 import unittest
 
 import pandas
+from dmod.metrics import Scores
 
 from ...metrics.threshold import Threshold
 from ...metrics import scoring
@@ -143,6 +144,10 @@ class TestScoring(unittest.TestCase):
                 thresholds=self.thresholds,
                 truth_tables=self.truth_tables[name]
             )
+
+            for threshold, values in results:
+                for value in values:
+                    print(value)
             metric_results[name] = results
 
         ordered_results: typing.List[scoring.MetricResults] = sorted(

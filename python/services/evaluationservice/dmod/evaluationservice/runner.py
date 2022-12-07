@@ -4,7 +4,6 @@ import os
 import multiprocessing
 import json
 import signal
-import traceback
 
 from argparse import ArgumentParser
 

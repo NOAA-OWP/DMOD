@@ -356,13 +356,13 @@ class Scores(abstract_collections.Sized, abstract_collections.Iterable):
 
     @property
     def performance(self) -> float:
-        valid_scores = [
+        valid_scores: typing.List[Score] = [
             score
             for score in self
             if not numpy.isnan(score.sample_size)
                and score.sample_size > 0
         ]
-        max_possible = sum([score.scaled_value for score in valid_scores])
+        max_possible = sum([score.threshold.weight for score in valid_scores])
         return self.total / max_possible if max_possible else numpy.nan
 
     def to_dict(self) -> dict:
@@ -378,7 +378,8 @@ class Scores(abstract_collections.Sized, abstract_collections.Iterable):
                 "scaled_value": score.scaled_value,
                 "sample_size": score.sample_size,
                 "failed": score.failed,
-                "weight": score.threshold.weight
+                "weight": score.threshold.weight,
+                "grade": score.scaled_value / score.threshold.weight if score.threshold.weight else numpy.NaN,
             }
 
         return score_representation

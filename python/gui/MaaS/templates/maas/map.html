@@ -74,10 +74,10 @@
 {% include "data_pane.html" %}
 
 <form id="location-selection-form" method="post" style="display: none" action="{% url 'MaaS:create_config' %}">
+    {# Add the token to provide cross site request forgery protection #}
     {% csrf_token %}
     <input type="hidden" name="feature-ids" />
     <input type="hidden" name="fabric" />
-    {# Add the token to provide cross site request forgery protection #}
 
     {% for pane_input in pane_inputs %}
         <input type="hidden" name="{{ pane_input.id }}" id="{{ pane_input.id }}" >
