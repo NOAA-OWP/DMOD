@@ -7,7 +7,7 @@ def create_premade_formulations(apps, schema_editor):
     FormulationParameter = apps.get_model('MaaS', 'FormulationParameter')
 
     raw_form_details = [
-        ('Multi::PET::CFE', 'Combination of external Noah OWP Modular, PET and CFE BMI modules.')
+        ('Multi::PET::CFE', 'Combination of external PET and CFE BMI modules.')
     ]
     formulations = dict([(n, Formulation.objects.create(name=n, description=d)) for n, d in raw_form_details])
 
