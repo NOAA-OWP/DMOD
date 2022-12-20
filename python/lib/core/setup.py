@@ -14,6 +14,6 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=[],
+    install_requires=["pydantic"],
     packages=find_namespace_packages(exclude=('tests', 'schemas', 'ssl', 'src'))
 )
