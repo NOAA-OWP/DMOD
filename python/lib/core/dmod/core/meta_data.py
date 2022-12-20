@@ -1,5 +1,6 @@
 from datetime import datetime
-from pydantic import BaseModel, root_validator, validator
+from pydantic import BaseModel, root_validator, validator, StrictStr, StrictFloat, StrictInt
+from collections import OrderedDict
 
 from .serializable import Serializable
 from .common.helper_types import PydanticEnum
@@ -329,43 +330,35 @@ class ContinuousRestriction(BaseModel, Serializable):
             serial["end"] = self.end.strftime(self.datetime_pattern)
         return serial
 
-
-class DiscreteRestriction(Serializable):
+class DiscreteRestriction(BaseModel, Serializable):
     """
     A filtering component, typically applied as a restriction on a domain, by a discrete set of values of a variable.
 
     Note that an empty list for the ::attribute:`values` property implies a restriction of all possible values being
     required.  This is reflected by the :method:`is_all_possible_values` property.
     """
+    variable: StandardDatasetIndex
+    values: Union[List[StrictStr], List[StrictFloat], List[StrictInt]]
+
+    # validate variable is not UNKNOWN variant
+    _validate_variable = validator("variable", allow_reuse=True)(_validate_variable_is_known)
+
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
         try:
-            variable = StandardDatasetIndex.get_for_name(json_obj["variable"])
-            if variable == StandardDatasetIndex.UNKNOWN:
-                return None
-            return cls(variable=variable, values=json_obj["values"])
+            return cls(**json_obj)
         except:
             return None
 
-    def __init__(self, variable: Union[str, StandardDatasetIndex], values: Union[List[str], List[Number]], allow_reorder: bool = True,
-                 remove_duplicates: bool = True):
-        self.variable = StandardDatasetIndex.get_for_name(variable) if isinstance(variable, str) else variable
-        if self.variable == StandardDatasetIndex.UNKNOWN:
-            raise ValueError("Invalid value for {} variable: {}".format(self.__class__.__name__, variable))
-        self.values: Union[List[str], List[Number]] = list(set(values)) if remove_duplicates else values
+    def __init__(self, *, allow_reorder: bool = True, remove_duplicates: bool = True, **data: Any) -> None:
+        super().__init__(**data)
+        if remove_duplicates:
+            self.values = list(OrderedDict.fromkeys(self.values))
         if allow_reorder:
             self.values.sort()
 
-    def __eq__(self, other):
-        if self.__class__ == other.__class__ or isinstance(other, self.__class__):
-            return self.variable == other.variable and self.values == other.values
-        elif isinstance(self, other.__class__):
-            return other.__eq__(self)
-        else:
-            return False
-
     def __hash__(self):
-        hash('{}-{}'.format(self.variable.name, ','.join([str(v) for v in self.values])))
+        return hash('{}-{}'.format(self.variable.name, ','.join([str(v) for v in self.values])))
 
     def contains(self, other: 'DiscreteRestriction') -> bool:
         """
@@ -421,8 +414,7 @@ class DiscreteRestriction(Serializable):
         return self.values is not None and len(self.values) == 0
 
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        return {"variable": self.variable.name, "values": self.values}
-
+        return self.dict()
 
 class DataDomain(Serializable):
     """
