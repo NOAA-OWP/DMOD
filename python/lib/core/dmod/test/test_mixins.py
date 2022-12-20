@@ -34,3 +34,11 @@ class TestEnumValidateByNameMixIn(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             SomeModel(some_enum=BadEnum.bad)
+
+    def test_enum_names_in_json_schema(self):
+        schema = SomeModel.schema()
+        some_enum_schema = schema["definitions"]["SomeEnum"]
+        self.assertEqual(some_enum_schema["type"], "string")
+
+        enum_field_names = [member.name for member in SomeEnum]
+        self.assertListEqual(enum_field_names, some_enum_schema["enum"])
