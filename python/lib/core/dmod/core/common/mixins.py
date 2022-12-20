@@ -27,9 +27,9 @@ class EnumValidateByNameMixIn:
 
     @classmethod
     def validate(cls, v):
-        enum_names = {k.upper(): item for k, item in cls.__members__.items()}
+        enum_names = {k: item for k, item in cls.__members__.items()}
 
-        name = v.name.upper() if isinstance(v, Enum) else str(v).upper()
+        name = v.name if isinstance(v, Enum) else str(v)
         needle = enum_names.get(name)
 
         if needle is None:
