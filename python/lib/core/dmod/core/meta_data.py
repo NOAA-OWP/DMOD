@@ -210,6 +210,10 @@ class DataFormat(PydanticEnum):
         """
         return self._is_time_series_index
 
+def _validate_variable_is_known(cls, variable: StandardDatasetIndex) -> StandardDatasetIndex:
+    if variable == StandardDatasetIndex.UNKNOWN:
+        raise ValueError("Invalid value for {} variable: {}".format(cls.__name__, variable))
+    return variable
 
 class ContinuousRestriction(BaseModel, Serializable):
     """
@@ -237,11 +241,8 @@ class ContinuousRestriction(BaseModel, Serializable):
 
         return values
 
-    @validator("variable")
-    def validate_variable_is_known(cls, variable):
-        if variable == StandardDatasetIndex.UNKNOWN:
-            raise ValueError("Invalid value for {} variable: {}".format(cls.__name__, variable))
-        return variable
+    # validate variable is not UNKNOWN variant
+    _validate_variable = validator("variable", allow_reuse=True)(_validate_variable_is_known)
 
     @classmethod
     def convert_truncated_serial_form(cls, truncated_json_obj: dict, datetime_format: Optional[str] = None) -> dict:
