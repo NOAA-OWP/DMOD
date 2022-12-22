@@ -8,6 +8,8 @@ from dmod.core.meta_data import (
     DataDomain,
     DataFormat,
     TimeRange,
+    DataCategory,
+    DataRequirement,
 )
 
 from typing import Any
@@ -174,3 +176,20 @@ class TestTimeRange(unittest.TestCase):
     def test_cannot_provide_non_time_variable(self):
         with self.assertRaises(RuntimeError):
             TimeRange(variable=StandardDatasetIndex.DATA_ID, begin=1, end=0)
+
+class TestDataRequirement(unittest.TestCase):
+    def test_unset_fields_are_excluded_in_serialized_dict(self):
+        domain = DataDomain(
+            data_format=DataFormat.AORC_CSV,
+            discrete_restrictions=[
+                DiscreteRestriction(variable=StandardDatasetIndex.DATA_ID, values=["0"])
+            ],
+        )
+
+        d = DataRequirement(
+            domain=domain, is_input=True, category=DataCategory.CONFIG
+        ).to_dict()
+        self.assertNotIn("size", d)
+        self.assertNotIn("fulfilled_by", d)
+        self.assertNotIn("fulfilled_access_at", d)
+
