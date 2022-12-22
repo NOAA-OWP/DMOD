@@ -7,6 +7,7 @@ from dmod.core.meta_data import (
     StandardDatasetIndex,
     DataDomain,
     DataFormat,
+    TimeRange,
 )
 
 from typing import Any
@@ -143,7 +144,6 @@ class TestDataDomain(unittest.TestCase):
         self.assertEqual(o.custom_data_fields["b"], float)
         self.assertEqual(o.custom_data_fields["c"], int)
         self.assertEqual(o.custom_data_fields["d"], Any)
-        print(o.to_json())
 
     def test_init_fails_if_insufficient_restrictions(self):
         with self.assertRaises(RuntimeError):
@@ -164,3 +164,13 @@ class TestDataDomain(unittest.TestCase):
         }
         o = DataDomain.factory_init_from_deserialized_json(data)
         self.assertEqual(o.data_format.name, "AORC_CSV")
+
+
+class TestTimeRange(unittest.TestCase):
+    def test_begin_cannot_come_after_end(self):
+        with self.assertRaises(RuntimeError):
+            TimeRange(begin=1, end=0)
+
+    def test_cannot_provide_non_time_variable(self):
+        with self.assertRaises(RuntimeError):
+            TimeRange(variable=StandardDatasetIndex.DATA_ID, begin=1, end=0)
