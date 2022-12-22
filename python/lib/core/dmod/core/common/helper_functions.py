@@ -3,6 +3,8 @@ Provides simple helper functions
 """
 import typing
 import inspect
+import json
+import enum
 
 
 def get_current_function_name(parent_name: bool = None) -> str:
@@ -175,3 +177,26 @@ def merge_dictionaries(first: typing.Mapping = None, second: typing.Mapping = No
     })
 
     return merged_dictionary
+
+
+def _encode_enum_using_name(o):
+    if isinstance(o, dict):
+        return {_encode_enum_using_name(k): _encode_enum_using_name(v) for k, v in o.items()}
+    elif isinstance(o, (set, tuple, list)):
+        return type(o)(_encode_enum_using_name(x) for x in o)
+    elif isinstance(o, enum.Enum):
+        return o.name
+    elif o == str:
+        return "str"
+    elif o == int:
+        return "int"
+    elif o == float:
+        return "float"
+    elif o == typing.Any:
+        return "Any"
+    return o
+
+
+class EnumNamesJSONEncoder(json.JSONEncoder):
+    def encode(self, o):
+        return super().encode(_encode_enum_using_name(o))
