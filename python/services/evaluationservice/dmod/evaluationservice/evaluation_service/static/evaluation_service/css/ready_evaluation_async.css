@@ -197,3 +197,10 @@ button:hover {
     display: inline-block;
     width: 100%;
 }
+
+#map-geometry-button {
+	padding: 1px 4px;
+	float: none;
+	font-size: 15px;
+	border-radius: 4px;
+}

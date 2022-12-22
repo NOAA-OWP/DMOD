@@ -15,6 +15,7 @@ from datetime import time
 
 import pandas
 import numpy
+import pytz
 
 from dateutil.parser import parse as parse_date
 
@@ -58,7 +59,6 @@ def get_specifications(base_specification: typing.Type = None) -> typing.List[ty
     return subclasses
 
 
-
 def is_a_value(o) -> bool:
     """
     Whether the passed object is a value and not some method or module or something
@@ -71,16 +71,16 @@ def is_a_value(o) -> bool:
     """
     # This will exclude methods, code, stuff like __get__, __set__, __add__, async objects, etc
     return not (
-        inspect.iscode(o)
-        or inspect.isdatadescriptor(o)
-        or inspect.ismethoddescriptor(o)
-        or inspect.ismemberdescriptor(o)
-        or inspect.ismodule(o)
-        or inspect.isgenerator(o)
-        or inspect.isgeneratorfunction(o)
-        or inspect.ismethod(o)
-        or inspect.isawaitable(o)
-        or inspect.isabstract(o)
+            inspect.iscode(o)
+            or inspect.isdatadescriptor(o)
+            or inspect.ismethoddescriptor(o)
+            or inspect.ismemberdescriptor(o)
+            or inspect.ismodule(o)
+            or inspect.isgenerator(o)
+            or inspect.isgeneratorfunction(o)
+            or inspect.ismethod(o)
+            or inspect.isawaitable(o)
+            or inspect.isabstract(o)
     )
 
 
@@ -194,8 +194,8 @@ def create_class_instance(cls, data, decoder: json.JSONDecoder = None):
             except json.JSONDecodeError:
                 # If the string can't be interpreted as JSON, try to interpret in another way later.
                 logging.error(
-                        "Tried to interpret string data as json, but it wasn't valid. "
-                        "Continuing with attempted parsing."
+                    "Tried to interpret string data as json, but it wasn't valid. "
+                    "Continuing with attempted parsing."
                 )
 
     # If data is a list of lists or objects, send each back to this function and return a list instead of a single value
@@ -248,11 +248,13 @@ def create_class_instance(cls, data, decoder: json.JSONDecoder = None):
         if 'properties' not in arguments or arguments['properties'] is None:
             arguments['properties'] = dict()
 
-        arguments['properties'].update({
-            key: value
-            for key, value in data.items()
-            if key not in arguments
-        })
+        arguments['properties'].update(
+            {
+                key: value
+                for key, value in data.items()
+                if key not in arguments
+            }
+        )
 
         return cls(**arguments)
 
@@ -369,16 +371,19 @@ class Specification(abc.ABC):
         return key in self.__properties
 
     def __repr__(self) -> str:
-        return str({
-            key.replace("__", ""): getattr(self, key)
-            for key in self.__slots__
-        })
+        return str(
+            {
+                key.replace("__", ""): getattr(self, key)
+                for key in self.__slots__
+            }
+        )
 
 
 class UnitDefinition(Specification):
     """
     A definition of what a measurement unit is or where to find it
     """
+
     def validate(self) -> typing.Sequence[str]:
         messages = list()
 
@@ -417,12 +422,12 @@ class UnitDefinition(Specification):
     __slots__ = ["__field", "__path", "__value"]
 
     def __init__(
-            self,
-            value: typing.Union[str, bytes] = None,
-            field: str = None,
-            path: typing.Union[str, typing.Sequence[str]] = None,
-            properties: typing.Dict[str, typing.Any] = None,
-            **kwargs
+        self,
+        value: typing.Union[str, bytes] = None,
+        field: str = None,
+        path: typing.Union[str, typing.Sequence[str]] = None,
+        properties: typing.Dict[str, typing.Any] = None,
+        **kwargs
     ):
         super(UnitDefinition, self).__init__(properties, **kwargs)
 
@@ -467,6 +472,7 @@ class ThresholdDefinition(Specification):
     """
     A definition of a single threshold, the field that it comes from, and its significance
     """
+
     def validate(self) -> typing.Sequence[str]:
         return list()
 
@@ -482,13 +488,13 @@ class ThresholdDefinition(Specification):
     __slots__ = ["__name", "__field", "__weight", "__unit"]
 
     def __init__(
-            self,
-            name: typing.Union[str, bytes],
-            field: typing.Union[str, bytes, typing.Sequence[str]],
-            weight: typing.Union[str, float],
-            unit: typing.Union[UnitDefinition, str, dict],
-            properties: typing.Union[typing.Dict[str, typing.Any], str] = None,
-            **kwargs
+        self,
+        name: typing.Union[str, bytes],
+        field: typing.Union[str, bytes, typing.Sequence[str]],
+        weight: typing.Union[str, float],
+        unit: typing.Union[UnitDefinition, str, dict],
+        properties: typing.Union[typing.Dict[str, typing.Any], str] = None,
+        **kwargs
     ):
         super().__init__(properties, **kwargs)
 
@@ -570,12 +576,12 @@ class BackendSpecification(Specification):
     __slots__ = ["__backend_type", "__address", "__format"]
 
     def __init__(
-            self,
-            backend_type: str,
-            data_format: str,
-            address: str = None,
-            properties: typing.Dict[str, typing.Any] = None,
-            **kwargs
+        self,
+        backend_type: str,
+        data_format: str,
+        address: str = None,
+        properties: typing.Dict[str, typing.Any] = None,
+        **kwargs
     ):
         super().__init__(properties, **kwargs)
 
@@ -651,12 +657,12 @@ class FieldMappingSpecification(Specification):
     __slots__ = ["__field", "__map_type", "__value"]
 
     def __init__(
-            self,
-            field: str,
-            map_type: str,
-            value: str,
-            properties: typing.Dict[str, typing.Any] = None,
-            **kwargs
+        self,
+        field: str,
+        map_type: str,
+        value: str,
+        properties: typing.Dict[str, typing.Any] = None,
+        **kwargs
     ):
         super().__init__(properties, **kwargs)
         self.__field = field
@@ -693,6 +699,7 @@ class AssociatedField(Specification):
     A specification for additional data that should accompany selected data
     (retrieved measurements? Also get their dates)
     """
+
     def validate(self) -> typing.Sequence[str]:
         messages = list()
         if self.__name is None or self.__name == '':
@@ -715,12 +722,12 @@ class AssociatedField(Specification):
     __slots__ = ["__name", "__datatype", "__path"]
 
     def __init__(
-            self,
-            name: str,
-            path: typing.Union[str, typing.Sequence[str]] = None,
-            datatype: typing.Union[str, typing.Sequence[str]] = None,
-            properties: typing.Dict[str, typing.Any] = None,
-            **kwargs
+        self,
+        name: str,
+        path: typing.Union[str, typing.Sequence[str]] = None,
+        datatype: typing.Union[str, typing.Sequence[str]] = None,
+        properties: typing.Dict[str, typing.Any] = None,
+        **kwargs
     ):
         super().__init__(properties, **kwargs)
 
@@ -784,6 +791,8 @@ class AssociatedField(Specification):
                 return raw_datetime.date()
             elif datatype == 'time':
                 return raw_datetime.time()
+            elif raw_datetime.tzinfo is not None:
+                raw_datetime = raw_datetime.astimezone(pytz.utc)
 
             return raw_datetime
 
@@ -826,6 +835,7 @@ class ValueSelector(Specification):
     """
     Instructions for how to retrieve values from a data source
     """
+
     def validate(self) -> typing.Sequence[str]:
         return list()
 
@@ -852,15 +862,15 @@ class ValueSelector(Specification):
     __slots__ = ["__name", "__where", "__path", "__associated_fields", "__datatype", "__origin"]
 
     def __init__(
-            self,
-            name: str,
-            where: str,
-            origin: typing.Union[str, bytes, typing.Sequence[str]] = None,
-            path: typing.Union[str, bytes, typing.Sequence[str]] = None,
-            associated_fields: typing.Sequence[AssociatedField] = None,
-            datatype: str = None,
-            properties: typing.Dict[str, typing.Any] = None,
-            **kwargs
+        self,
+        name: str,
+        where: str,
+        origin: typing.Union[str, bytes, typing.Sequence[str]] = None,
+        path: typing.Union[str, bytes, typing.Sequence[str]] = None,
+        associated_fields: typing.Sequence[AssociatedField] = None,
+        datatype: str = None,
+        properties: typing.Dict[str, typing.Any] = None,
+        **kwargs
     ):
         super().__init__(properties, **kwargs)
 
@@ -1054,12 +1064,12 @@ class ThresholdApplicationRules(Specification):
         pass
 
     def __init__(
-            self,
-            threshold_field: AssociatedField,
-            observation_field: AssociatedField = None,
-            prediction_field: AssociatedField = None,
-            properties: typing.Dict[str, typing.Any] = None,
-            **kwargs
+        self,
+        threshold_field: AssociatedField,
+        observation_field: AssociatedField = None,
+        prediction_field: AssociatedField = None,
+        properties: typing.Dict[str, typing.Any] = None,
+        **kwargs
     ):
         super().__init__(properties=properties, **kwargs)
         self.__threshold_field = threshold_field
@@ -1099,6 +1109,7 @@ class LocationSpecification(Specification):
     """
     A specification for where location data should be found
     """
+
     def validate(self) -> typing.Sequence[str]:
         return list()
 
@@ -1118,13 +1129,13 @@ class LocationSpecification(Specification):
     __slots__ = ["__identify", "__from_field", "__pattern", "__ids"]
 
     def __init__(
-            self,
-            identify: bool = None,
-            from_field: str = None,
-            pattern: typing.Union[str, typing.Sequence[str]] = None,
-            ids: typing.List[str] = None,
-            properties: typing.Dict[str, typing.Any] = None,
-            **kwargs
+        self,
+        identify: bool = None,
+        from_field: str = None,
+        pattern: typing.Union[str, typing.Sequence[str]] = None,
+        ids: typing.List[str] = None,
+        properties: typing.Dict[str, typing.Any] = None,
+        **kwargs
     ):
         super().__init__(properties, **kwargs)
 
@@ -1135,16 +1146,16 @@ class LocationSpecification(Specification):
 
         if identify and not (from_field or pattern or ids):
             raise ValueError(
-                    "A from_field, a pattern, or a list of ids are required if locations are supposed to be identified"
+                "A from_field, a pattern, or a list of ids are required if locations are supposed to be identified"
             )
 
         if pattern and not from_field:
             raise ValueError(
-                    "A from_field is required if a location is to be found from a pattern"
+                "A from_field is required if a location is to be found from a pattern"
             )
         elif from_field and ids:
             raise ValueError(
-                    "Locations may be discovered from a static list or a field, but not both"
+                "Locations may be discovered from a static list or a field, but not both"
             )
 
         if from_field or ids:
@@ -1214,6 +1225,7 @@ class DataSourceSpecification(LoaderSpecification):
     """
     Specification for where to get the actual data for evaluation
     """
+
     def validate(self) -> typing.Sequence[str]:
         return list()
 
@@ -1236,17 +1248,17 @@ class DataSourceSpecification(LoaderSpecification):
     __slots__ = ["__name", "__value_field", "__locations", "__field_mapping", "__value_selectors", "__unit", "__x_axis"]
 
     def __init__(
-            self,
-            value_field: str,
-            backend: BackendSpecification,
-            value_selectors: typing.Sequence[ValueSelector],
-            unit: UnitDefinition,
-            name: str = None,
-            x_axis: str = None,
-            locations: LocationSpecification = None,
-            field_mapping: typing.List[FieldMappingSpecification] = None,
-            properties: typing.Dict[str, typing.Any] = None,
-            **kwargs
+        self,
+        value_field: str,
+        backend: BackendSpecification,
+        value_selectors: typing.Sequence[ValueSelector],
+        unit: UnitDefinition,
+        name: str = None,
+        x_axis: str = None,
+        locations: LocationSpecification = None,
+        field_mapping: typing.List[FieldMappingSpecification] = None,
+        properties: typing.Dict[str, typing.Any] = None,
+        **kwargs
     ):
         super().__init__(properties, **kwargs)
         self._backend = backend
@@ -1328,6 +1340,7 @@ class CrosswalkSpecification(LoaderSpecification):
     """
     Specifies how locations in the observations should be linked to locations in the predictions
     """
+
     def validate(self) -> typing.Sequence[str]:
         return list()
 
@@ -1348,14 +1361,14 @@ class CrosswalkSpecification(LoaderSpecification):
     __slots__ = ['__origin', "__field", '__prediction_field_name', '__observation_field_name']
 
     def __init__(
-            self,
-            backend: BackendSpecification,
-            field: ValueSelector,
-            observation_field_name: str,
-            prediction_field_name: str = None,
-            origin: typing.Union[str, typing.Sequence[str]] = None,
-            properties: typing.Dict[str, typing.Any] = None,
-            **kwargs
+        self,
+        backend: BackendSpecification,
+        field: ValueSelector,
+        observation_field_name: str,
+        prediction_field_name: str = None,
+        origin: typing.Union[str, typing.Sequence[str]] = None,
+        properties: typing.Dict[str, typing.Any] = None,
+        **kwargs
     ):
         super().__init__(properties, **kwargs)
         if origin is None:
@@ -1409,11 +1422,11 @@ class MetricSpecification(Specification):
     __slots__ = ["__name", "__weight"]
 
     def __init__(
-            self,
-            name: str,
-            weight: float,
-            properties: typing.Dict[str, typing.Any] = None,
-            **kwargs
+        self,
+        name: str,
+        weight: float,
+        properties: typing.Dict[str, typing.Any] = None,
+        **kwargs
     ):
         super().__init__(properties, **kwargs)
 
@@ -1459,10 +1472,10 @@ class SchemeSpecification(Specification):
     __slots__ = ["__metrics"]
 
     def __init__(
-            self,
-            metrics: typing.Sequence[MetricSpecification],
-            properties: typing.Dict[str, typing.Any] = None,
-            **kwargs
+        self,
+        metrics: typing.Sequence[MetricSpecification],
+        properties: typing.Dict[str, typing.Any] = None,
+        **kwargs
     ):
         super().__init__(properties, **kwargs)
 
@@ -1529,14 +1542,14 @@ class ThresholdSpecification(LoaderSpecification):
     __slots__ = ["__locations", "__definitions", "__origin", "__application_rules"]
 
     def __init__(
-            self,
-            backend: BackendSpecification,
-            definitions: typing.Sequence[ThresholdDefinition],
-            locations: LocationSpecification = None,
-            application_rules: ThresholdApplicationRules = None,
-            properties: typing.Dict[str, typing.Any] = None,
-            origin: typing.Union[str, typing.Sequence[str]] = None,
-            **kwargs
+        self,
+        backend: BackendSpecification,
+        definitions: typing.Sequence[ThresholdDefinition],
+        locations: LocationSpecification = None,
+        application_rules: ThresholdApplicationRules = None,
+        properties: typing.Dict[str, typing.Any] = None,
+        origin: typing.Union[str, typing.Sequence[str]] = None,
+        **kwargs
     ):
         super().__init__(properties, **kwargs)
 
@@ -1669,14 +1682,14 @@ class EvaluationSpecification(Specification):
     __slots__ = ["__observations", "__predictions", "__crosswalks", "__thresholds", "__scheme"]
 
     def __init__(
-            self,
-            observations: typing.Sequence[DataSourceSpecification],
-            predictions: typing.Sequence[DataSourceSpecification],
-            crosswalks: typing.Sequence[CrosswalkSpecification],
-            thresholds: typing.Sequence[ThresholdSpecification],
-            scheme: SchemeSpecification,
-            properties: typing.Dict[str, typing.Any] = None,
-            **kwargs
+        self,
+        observations: typing.Sequence[DataSourceSpecification],
+        predictions: typing.Sequence[DataSourceSpecification],
+        crosswalks: typing.Sequence[CrosswalkSpecification],
+        thresholds: typing.Sequence[ThresholdSpecification],
+        scheme: SchemeSpecification,
+        properties: typing.Dict[str, typing.Any] = None,
+        **kwargs
     ):
         super().__init__(properties, **kwargs)
 
@@ -1731,22 +1744,23 @@ class EvaluationSpecification(Specification):
         return total_threshold_weight + self.__scheme.total_weight
 
 
-
 class EvaluationResults:
     def __init__(
-            self,
-            instructions: EvaluationSpecification,
-            raw_results: typing.Dict[typing.Tuple[str, str], metrics.MetricResults]
+        self,
+        instructions: EvaluationSpecification,
+        raw_results: typing.Dict[typing.Tuple[str, str], metrics.MetricResults]
     ):
         self._instructions = instructions
         self._original_results = raw_results.copy()
         self._location_map: typing.Dict[str, typing.Dict[str, metrics.MetricResults]] = collections.defaultdict(dict)
 
-        self._total = sum([
-            metric_result.total
-            for metric_result in raw_results.values()
-            if not numpy.isnan(metric_result.total)
-        ])
+        self._total = sum(
+            [
+                metric_result.total
+                for metric_result in raw_results.values()
+                if not numpy.isnan(metric_result.total)
+            ]
+        )
 
         for (observed_location, predicted_location), metric_result in self._original_results.items():
             self._location_map[observed_location][predicted_location] = metric_result
@@ -1822,11 +1836,13 @@ class EvaluationResults:
             for _, scores in result:
                 for score in scores:
                     if not [metric for metric in included_metrics if metric['name'] == score.metric.name]:
-                        included_metrics.append({
-                            "name": score.metric.name,
-                            "weight": score.metric.weight,
-                            "description": score.metric.get_descriptions()
-                        })
+                        included_metrics.append(
+                            {
+                                "name": score.metric.name,
+                                "weight": score.metric.weight,
+                                "description": score.metric.get_descriptions()
+                            }
+                        )
 
         data['metrics'] = included_metrics
 
@@ -1906,10 +1922,12 @@ class EvaluationResults:
         """
         The highest possible value that can be achieved with the given instructions
         """
-        total_threshold_weight = sum([
-            evaluation_threshold.total_weight
-            for evaluation_threshold in self._instructions.thresholds
-        ])
+        total_threshold_weight = sum(
+            [
+                evaluation_threshold.total_weight
+                for evaluation_threshold in self._instructions.thresholds
+            ]
+        )
 
         result_count = len(self._original_results)
 
@@ -1942,10 +1960,12 @@ class EvaluationResults:
         if as_percentage is None:
             as_percentage = True
 
-        weight_of_all_locations = sum([
-            result.weight
-            for result in self._original_results.values()
-        ])
+        weight_of_all_locations = sum(
+            [
+                result.weight
+                for result in self._original_results.values()
+            ]
+        )
         """The total weight of all locations"""
 
         target_calculated_grade = 0
@@ -1958,7 +1978,7 @@ class EvaluationResults:
             location_percentage = location_results.weight / weight_of_all_locations
             """
             The percentage of how this set of values affects the whole
-            
+
             If this location's weight is greater than another's, this location's grade will have a greater 
             affect on the total
             """
@@ -1986,13 +2006,15 @@ class EvaluationResults:
             #  scaled total = ∑i  (   -----------------------------------------------  *  Threshold(i) Weight  )
             #  (for location)     (     ∑j    score(j) weight in Threshold(i)                                  )
             #
-            scaled_total = sum([
-                (
-                        sum([score.scaled_value for score in scores])
-                        / sum([score.metric.weight for score in scores])
-                ) * threshold.weight
-                for threshold, scores in location_results.populated_thresholds.items()
-            ])
+            scaled_total = sum(
+                [
+                    (
+                            sum([score.scaled_value for score in scores if not numpy.isnan(score.value)])
+                            / sum([score.metric.weight for score in scores if not numpy.isnan(score.value)])
+                    ) * threshold.weight
+                    for threshold, scores in location_results.populated_thresholds.items()
+                ]
+            )
             """The grade of the results for this location and this location only"""
 
             # Scale the calculated grade for this location by the percentage that this location affects the whole
@@ -2018,33 +2040,39 @@ class EvaluationResults:
         """
         The mean total value across all evaluated location pairings
         """
-        return float(numpy.mean(
+        return float(
+            numpy.mean(
                 [
                     result.total
                     for result in self._original_results.values()
                 ]
-        ))
+            )
+        )
 
     @property
     def median(self) -> float:
         """
         The median total value across all evaluated location pairings
         """
-        return float(numpy.median(
+        return float(
+            numpy.median(
                 [
                     result.total
                     for result in self._original_results.values()
                 ]
-        ))
+            )
+        )
 
     @property
     def standard_deviation(self) -> float:
         """
         The standard deviation for result values across all location pairings
         """
-        return float(numpy.std(
+        return float(
+            numpy.std(
                 [
                     result.total
                     for result in self._original_results.values()
                 ]
-        ))
+            )
+        )

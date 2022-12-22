@@ -76,7 +76,8 @@ class ReadyListenEvaluation(View):
             "generated_evaluation_id": self._generate_evaluation_id(request),
             "evaluation_id_pattern": EVALUATION_ID_PATTERN,
             "geometry_name": "",
-            "show_map": True
+            "show_map": True,
+            "production": not application_values.in_debug_mode()
         }
         return render(request, template_name=self.template, context=context)
 
