@@ -1,9 +1,10 @@
 from datetime import datetime
-from pydantic import BaseModel, root_validator, validator, StrictStr, StrictFloat, StrictInt
+from pydantic import BaseModel, root_validator, validator, StrictStr, StrictFloat, StrictInt, Field
 from collections import OrderedDict
 
 from .serializable import Serializable
 from .common.helper_types import PydanticEnum
+from .common.mixins import PydanticSerializeEnum
 from numbers import Number
 from typing import Any, Dict, List, Optional, Set, Type, Union
 
