@@ -623,10 +623,7 @@ class TimeRange(ContinuousRestriction):
     """
     Encapsulated representation of a time range.
     """
-
-    def __init__(self, begin: datetime, end: datetime, datetime_pattern: Optional[str] = None, **kwargs):
-        super(TimeRange, self).__init__(variable=StandardDatasetIndex.TIME, begin=begin, end=end,
-                                        datetime_pattern=self.get_datetime_str_format() if datetime_pattern is None else datetime_pattern)
+    variable: StandardDatasetIndex = Field(StandardDatasetIndex.TIME, const=True)
 
 
 class DataRequirement(Serializable):
