@@ -358,12 +358,37 @@ class Evaluator:
         )
 
         data = observations.merge(right=crosswalk_data, on=self._observed_location_field)
-        data = data.merge(
-            right=predictions,
-            left_on=[self._predicted_location_field, self._observed_xaxis],
-            right_on=[self._predicted_location_field, self._predicted_xaxis],
-            suffixes=('_observation', '_prediction')
-        )
+
+        join_left_on = [self._predicted_location_field, self._observed_xaxis]
+        join_right_on = [self._predicted_location_field, self._predicted_xaxis]
+
+        try:
+            data = data.merge(
+                right=predictions,
+                left_on=join_left_on,
+                right_on=join_right_on,
+                suffixes=('_observation', '_prediction')
+            )
+        except ValueError as e:
+            print(str(e))
+            left_types = {
+                key: {
+                    type(val)
+                    for val in data[key].values
+                }
+                for key in join_left_on
+            }
+
+            right_types = {
+                key: {
+                    type(val)
+                    for val in predictions[key].values
+                }
+                for key in join_right_on
+            }
+
+            print(f"Can't merge data and predictions based on {str(left_types)} to {str(right_types)}, respectively")
+            raise
 
         self._communicators.info(
             "Finished joining observation and prediction data",

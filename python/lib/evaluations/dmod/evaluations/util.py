@@ -94,6 +94,61 @@ def configure_logging() -> typing.NoReturn:
             logging.getLogger().addHandler(udp_handler)
 
 
+def is_true(value) -> bool:
+    """
+    Check to see what the boolean value of a value is
+
+    The `bool` function does not adequately check if a value is true or false in all cases so this covers some of
+    those that don't fit by default
+
+    The following strings (case and whitespace insensitive) evaluate to true:
+        - "True"
+        - "Yes"
+        - "Y"
+        - "On"
+        - "T"
+        - "1"
+
+    Example:
+        >>> bool("True")
+        True
+        >>> bool("False")
+        True
+        >>> bool("0")
+        True
+        >>> bool(0)
+        False
+        >>> is_true("True")
+        True
+        >>> is_true("False")
+        False
+        >>> is_true("0")
+        False
+        >>> is_true("1")
+        True
+
+    Arguments:
+        value: Some value to check
+
+    Returns:
+        Whether the value to equivalent to `True`
+    """
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, bytes):
+        value = value.decode()
+
+    if isinstance(value, str):
+        value = value.lower().strip()
+        return value in ('true', 'y', 'yes', '1', 't', 'on')
+
+    try:
+        return bool(value)
+    except ValueError:
+        return value is not None
+
+
 def each(collection: typing.Iterable[_T], func: typing.Callable[[_T], typing.NoReturn]):
     """
     Calls the passed in function on every item in the collection

@@ -1,24 +1,41 @@
-var startup_scripts = [];
+// global
 var crosswalk = {};
+let control_layers = {};
+let active_control_layers = [];
+let metrics = [];
+var map_controls;
+var layer;
+let visualizationMap = null;
 
-function getDateFormatter() {
-    var channel = $("#channel-name").text();
-    var formatterOptions = {
-        hour12: false,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZoneName: 'short'
-    };
-
-    // Base formatter rules based on Canada since it'll yield values in the right order and characters
-    // e.g. YYYY-DD-MM where en-us is DD/MM/YYYY
-    var formatter = new Intl.DateTimeFormat('en-ca', formatterOptions);
-
-    return formatter;
+const digest = {
+    digest: []
 };
+
+// Debug Flags - Set to true to stop upon execution
+
+// Debug the 'UpdateCrosswalk' function
+var debugUpdateCrosswalk = false;
+
+// Debug the 'updateMapMetrics' function
+var debugUpdateMapMetrics = true;
+
+// Debug the 'showPopup' function
+var debugShowPopup = false;
+
+// Debug the 'showSearchPopup' function
+var debugShowSearchPopup = false;
+
+// Debug the 'debugLoadPreexistingDefinition' function
+var debugLoadPreexistingDefinition = false;
+
+// Debug the 'plotMapLayers' function
+var debugPlotMapLayers = false;
+
+// Debug the 'getShapeStyle' function
+var debugShapeStyle = false;
+
+// Debug the 'debugMapLoader' function
+var debugMapLoad = false;
 
 function recordMessage(dateAndTime, message) {
     if ($("#record-messages").val() == "on") {
@@ -138,6 +155,11 @@ function switchTabs(event, tabID) {
     });
 }
 
+function toMapTab(event, tabID) {
+    switchTabs(event, 'map-div');
+    visualizationMap.updateSize();
+}
+
 function getCodeView(name) {
     for (const codeView of codeViews) {
         if (codeView.name == name) {
@@ -186,34 +208,162 @@ function registerEvent(eventName, handler, callCount) {
     }
 }
 
-function updateCrosswalk(event, data) {
-/*
-data will look like:
-{
-    "prediction_location": {
-        "0": "cat-67",
-        "1": "cat-27",
-        "2": "cat-52"
-    },
-    "observation_location": {
-        "0": "02146562",
-        "1": "0214655255",
-        "2": "0214657975"
+function updateCrosswalk(event, msg) {
+    /*
+    msg will look like:
+    {
+        "event": "crosswalk",
+        "type": "send_message",
+        "time": "2022-12-08 02:20:39 PM CST",
+        "data": {
+            "prediction_location": {
+                "0": "cat-67",
+                "1": "cat-27",
+                "2": "cat-52"
+            },
+            "observation_location": {
+                "0": "02146562",
+                "1": "0214655255",
+                "2": "0214657975"
+            }
+        }
     }
-}
-*/
-    for (var location_index in data.prediction_location) {
-        var predictedLocation = data.prediction_location[location_index];
-        var observedLocation = data.observation_location[location_index];
+    */
+    if (debugUpdateCrosswalk) {
+        debugger;
+    }
+    const { data: {prediction_location, observation_location}} = msg
+    for (var location_index in prediction_location) {
+        const predictedLocation = prediction_location[location_index];
+        const observedLocation = observation_location[location_index];
         crosswalk[predictedLocation] = observedLocation;
     }
 }
 
+function updateMapMetrics(event, msg){
+    /* msg will look like:
+    {
+        "event": "metric",
+        "type": "send_message",
+        "time": "2022-12-09 08:33:42 AM CST",
+        "data": {
+            "metric": "Pearson Correlation Coefficient",
+            "description": "A measure of linear correlation between two sets of data",
+            "weight": 18,
+            "total": 36.99786170539468,
+            "scores": {
+                "total": 36.99786170539468,
+                "grade": "1.00%",
+                "scores": {
+                    "p50_va": {
+                        "value": 0.6851455871369385,
+                        "scaled_value": 12.332620568464893,
+                        "sample_size": 697,
+                        "failed": false,
+                        "weight": 1
+                    },
+                    "p75_va": {
+                        "value": 0.6851455871369385,
+                        "scaled_value": 12.332620568464893,
+                        "sample_size": 697,
+                        "failed": false,
+                        "weight": 10
+                    },
+                    "p80_va": {
+                        "value": 0.6851455871369385,
+                        "scaled_value": 12.332620568464893,
+                        "sample_size": 697,
+                        "failed": false,
+                        "weight": 5
+                    }
+                }
+            },
+            "metadata": {
+                "observed_location": "0214657975",
+                "predicted_location": "cat-52"
+            }
+        }
+    }
+    */
+    if (debugUpdateMapMetrics) {
+        debugger;
+    }
+
+    const { data: {metric}} = msg;
+
+    // add map control for each metric type
+    if (!Object.hasOwn(control_layers, metric)){
+        const layer_stub = L.layerGroup([]);
+        control_layers[metric] = layer_stub;
+        if (map_controls !== undefined){
+            map_controls.remove()
+        }
+
+        map_controls = L.control.layers({}, control_layers).addTo(visualizationMap.getMap());
+    }
+    metrics.push(msg)
+}
+
 function addMapHandlers() {
-    registerEvent(
+    /*registerEvent(
         "crosswalk",
         updateCrosswalk
+    );*/
+    registerEvent(
+        "metric",
+        updateMapMetrics
     );
+}
+
+function receivedSocketMessage(response) {
+    var raw_data = JSON.parse(response.data);
+    var event = "";
+
+    if ("event" in raw_data) {
+        event = raw_data.event;
+    }
+
+    var errored = raw_data.data
+        && raw_data.data.message
+        && (raw_data.event == "error" || raw_data.response_type == "error" || raw_data.type == "error");
+
+    if (errored) {
+        updateError(raw_data.data.message);
+    }
+
+    if (errored && raw_data.event == "launch") {
+        $("#evaluation-submit").prop("disabled", false);
+    }
+
+    var data = JSON.stringify(raw_data, getJSONReplacer(), getExpectedIndentSpaces());
+    messageView = getCodeView("messages");
+
+    if (messageView && messageView.view) {
+        messageView = messageView.view;
+        var currentDate = new Date().toLocaleString();
+        recordMessage(currentDate, raw_data);
+        var newMessage = messageView.getValue();
+        newMessage += `\n//${Array(200).join("=")}\n\n// [${currentDate}]:\n\n${data}\n\n`
+
+        messageView.setValue(newMessage);
+        messageView.scrollIntoView(messageView.lastLine());
+        $("#last-updated").text(currentDate);
+        var updateCount = Number($("#message-count").text()) + 1;
+        $("#message-count").text(updateCount);
+    }
+
+    if (event in eventHandlers) {
+        var handlers = eventHandlers[event];
+        for (const handler of handlers) {
+            if (typeof(handler) == 'function') {
+                handler(event, raw_data);
+            }
+            else {
+                handler.count = handler.count - 1;
+                handler.handle(event, raw_data);
+            }
+        }
+    }
 }
 
 function connectToSocket(event) {
@@ -233,56 +383,7 @@ function connectToSocket(event) {
         var currentDate = new Date().toLocaleString();
         $("#connection-time").text(currentDate);
     };
-    socket.onmessage = function (response) {
-        var raw_data = JSON.parse(response.data);
-        var event = "";
-
-        if ("event" in raw_data) {
-            event = raw_data.event;
-        }
-
-        var errored = raw_data.data
-            && raw_data.data.message
-            && (raw_data.event == "error" || raw_data.response_type == "error" || raw_data.type == "error");
-
-        if (errored) {
-            updateError(raw_data.data.message);
-        }
-
-        if (errored && raw_data.event == "launch") {
-            $("#evaluation-submit").prop("disabled", false);
-        }
-
-        var data = JSON.stringify(raw_data, getJSONReplacer(), getExpectedIndentSpaces());
-        messageView = getCodeView("messages");
-
-        if (messageView && messageView.view) {
-            messageView = messageView.view;
-            var currentDate = new Date().toLocaleString();
-            recordMessage(currentDate, raw_data);
-            var newMessage = messageView.getValue();
-            newMessage += `\n//${Array(200).join("=")}\n\n// [${currentDate}]:\n\n${data}\n\n`
-
-            messageView.setValue(newMessage);
-            messageView.scrollIntoView(messageView.lastLine());
-            $("#last-updated").text(currentDate);
-            var updateCount = Number($("#message-count").text()) + 1;
-            $("#message-count").text(updateCount);
-        }
-
-        if (event in eventHandlers) {
-            var handlers = eventHandlers[event];
-            for (const handler of handlers) {
-                if (typeof(handler) == 'function') {
-                    handler(event, raw_data);
-                }
-                else {
-                    handler.count = handler.count - 1;
-                    handler.handle(event, raw_data);
-                }
-            }
-        }
-    };
+    socket.onmessage = receivedSocketMessage;
     socket.onerror = function(response) {
         updateError(response.data);
     }
@@ -485,6 +586,9 @@ function selectPreexistingDefinition(event) {
 }
 
 function showPopup(event, popupID) {
+    if (debugShowPopup) {
+        debugger;
+    }
     if (event) {
         event.preventDefault();
     }
@@ -496,6 +600,9 @@ function showPopup(event, popupID) {
 }
 
 function showSearchPopup(event) {
+    if (debugShowSearchPopup) {
+        debugger;
+    }
     if (event) {
         event.preventDefault();
     }
@@ -549,17 +656,30 @@ function showDigestPopup(event) {
     }
 }
 
+
+/**
+ * Load a retrieved evaluation configuration into the editor
+ *
+ * @param {Object} event The event that triggered the load
+ * @param {Object} responseData The configuration retrieved from the server
+ */
 function loadPreexistingDefinition(event, responseData) {
-    debugger;
+    if (debugLoadPreexistingDefinition) {
+        debugger;
+    }
 
     if (responseData.response_type == "error") {
-        // Record error to the popup
+        // @todo Record error to the popup
         return;
     }
+
     var editorView = getCodeView("editor");
 
+    // The definition will be nested under the 'data' property of the response, so go ahead and pull that out
     var definition = responseData.data.definition;
 
+    // The definition will most likely be an Object, but we can only load strings into the editor.
+    // Convert the to a string and format it to make it easy to read in the editor
     if (typeof(definition) == 'object') {
         definition = JSON.stringify(definition, getJSONReplacer(), getExpectedIndentSpaces());
     }
@@ -567,14 +687,24 @@ function loadPreexistingDefinition(event, responseData) {
     editorView.view.setValue(definition);
     $("#evaluation_id").val(responseData.data.name.trim());
     closePopups(null);
+
+    // Make sure that the editor view is showing
     switchTabs(null, "edit-div");
 }
 
 
-
+/**
+ * Get data from the server
+ *
+ * @param {String} The url to request data from
+ * @return {Object} The data retrieved from the server. `null` will be returned if the request failed
+ **/
 function getServerData(serverUrl) {
+    // Create an array to store possibly retrieved data
+    // This is to be used as a catcher's mitt from the handler of the response
     var data = [];
 
+    // @todo This might be a good candidate for the fetch API
     $.ajax(
         {
             url: serverUrl,
@@ -584,134 +714,69 @@ function getServerData(serverUrl) {
                 console.error(error);
             },
             success: function(result,status,xhr) {
+                // Push data from the server into the data array
                 data.push(result);
             }
         }
     );
 
+    // Return null if there was an error
     if (data.length == 0) {
         return null;
     }
 
+    // There will be at most one item in the array, so return the first element
     return data[0];
 }
 
-function layerCreation(geoJsonPoint, latlng) {
-    var colorIndex = 0;
+/**
+ * Gets a listing of options available for geometry and populates the selector with them
+ **/
+function populateGeometrySelector() {
+    var geometryOptions = getServerData(geometryEndpoint);
+    var selector = document.getElementById("map-geometry-selector");
 
-    return L.circleMarker(latlng);
+    for (var geometryOption of geometryOptions) {
+        var option = document.createElement("option");
+        option.text = geometryOption.name;
+        option.value = geometryOption.value;
+        selector.add(option);
+    }
 }
 
-function plotMapLayers(featureDocuments, map) {
-    var layers = [];
-
-    var addTooltip = function(feature, layer) {
-        if ("id" in feature) {
-            layer.bindTooltip(feature["id"]);
-        }
-        else if ("properties" in feature && "Name" in feature["properties"]) {
-            layer.bindTooltip(feature['properties']['Name']);
-        }
+/**
+ * Adds the selected geometry to the map. Any geometry that was already rendered will be replaced.
+**/
+function addGeometry(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
     }
 
-    var buildProperties = function(feature, layer) {
-        layer.bindPopup(propertiesToHTML(feature, crosswalk), {"maxWidth": 2000})
-        addTooltip(feature, layer);
-    };
+    var selector = document.getElementById("map-geometry-selector");
 
-    var addFeature = function(featureDocument) {
-        var layer = L.geoJSON(
-            featureDocument.features,
-            {
-                onEachFeature: buildProperties,
-                style: function() {return layerStyle;},
-                pointToLayer: layerCreation
-            }
-        ).addTo(map);
-        layers.push(layer);
+    if (!geometryEndpoint.endsWith("/")){
+        geometryEndpoint = geometryEndpoint + "/";
     }
 
-    featureDocuments.forEach(featureDocument => addFeature(featureDocument));
-    return layers;
+    var url = geometryEndpoint + selector.value;
+
+    var geometry = getServerData(url);
+
+    visualizationMap.clear();
+    visualizationMap.plotGeoJSON(geometry);
 }
 
-function propertiesToHTML(geojson, xwalk) {
-    var properties = geojson.properties;
-    var markup = "";
-    if ("Name" in properties) {
-        markup += "<h3>" + properties.Name + "</h3>";
-    }
-    else if ("id" in geojson) {
-        markup += "<h3>" + geojson.id + "</h3>";
-    }
-
-    if (geojson.id in xwalk) {
-        var cross_walk = xwalk[geojson.id];
-        if ("COMID" in cross_walk) {
-            var comids = cross_walk['COMID'];
-            markup += "<h4>COMID</h4>";
-            markup += "<ul>";
-            for (comid of comids) {
-                markup += "<li>" + comid + "</li>";
-            }
-            markup += "</ul>";
-        }
-    }
-
-    markup += "<table style='border-spacing: 8px'>";
-
-    var propertyKeys = [];
-
-    for (const property in properties) {
-        var propertyIsNotName = property.toLowerCase() != "name";
-        var propertyIsNotBlank = properties[property] != null && properties[property] != "";
-        var propertyIsNotAnObject = typeof properties[property] != 'object';
-        if (propertyIsNotName && propertyIsNotBlank && propertyIsNotAnObject) {
-            propertyKeys.push(property);
-        }
-    }
-
-    var columnCount = Math.ceil(propertyKeys.length / maxRows);
-    var rowCount = Math.min(propertyKeys.length, maxRows);
-
-    for(rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-        if (rowIndex % 2 == 0) {
-            markup += "<tr class='even-feature-property-row'>";
-        }
-        else {
-            markup += "<tr class='odd-feature-property-row'>";
-        }
-
-        for (columnIndex = 0; columnIndex < columnCount; columnIndex++) {
-            var keyIndex = rowIndex * columnCount + columnIndex;
-
-            if (keyIndex < propertyKeys.length) {
-                var key = propertyKeys[keyIndex];
-
-                markup += "<td id='feature-property-key'><b>" + key + ":</b></td>";
-                markup += "<td id='feature-property-value'>" + properties[key] + "</td>";
-            }
-        }
-
-        markup += "</tr>";
-    }
-
-    markup += "</table>";
-    return markup;
-}
-
-function getSelectedShapeStyle(feature) {
-    var featureExists = feature != null && typeof feature != 'undefined';
-    var featureType = feature.geometry.type.toLowerCase();
-
-    if (featureExists && featureType.includes("linestring")) {
-        return selectedLineStyle;
-    }
-
-    return selectedShapeStyle;
-}
-
+/**
+ * Get appropriate styling for a geojson shape
+ *
+ * @param {Object} feature The feature to inspect
+ * @return {Object} Styling information for the feature. Will use specific line styling if the feature is a line
+ **/
 function getShapeStyle(feature) {
+    if (debugShapeStyle) {
+        debugger;
+    }
     var featureExists = feature != null && typeof feature != 'undefined';
     var featureType = feature.geometry.type.toLowerCase();
 
@@ -722,17 +787,23 @@ function getShapeStyle(feature) {
     return layerStyle;
 }
 
+/**
+ * Populate fields for editing with previous values and configure fields to update their values for later use
+ */
 function initializeFields() {
     var editorView = getCodeView("editor");
 
     var author = sessionStorage.getItem("author");
 
+    // Set the value of the author field to the previous value if one was stored
     if (author) {
         $("#author").val(author);
     }
 
+    // Try to find any previous code that was stored in the editor
     var code = sessionStorage.getItem("code");
 
+    // Set the code in the editor to that of the previously stored value
     if (code) {
         editorView.view.setValue(code);
     }
@@ -749,6 +820,63 @@ function initializeFields() {
             sessionStorage.setItem("author", $("#author").val());
         }
     );
+}
+
+function extract_metric_fields(data){
+    const location = data.metadata.predicted_location
+    const observed_location = data.metadata.observed_location
+    const metric = data.metric
+    const aggregated_value = data.total
+    const grade = data.scores.grade
+    const threshold_values = Object.entries(data.scores.scores).map(([key, value]) => ({threshold: key, value: value.value}))
+    return {location, metric, grade, value: aggregated_value, threshold_values, observed_location}
+}
+
+function groupby_metric(data){
+
+    // ...variable is an unpacking operation, like *args or **kwargs
+    return data.filter(item => item.event == "metric")
+                            .map(({data}) => extract_metric_fields(data))
+                            .reduce((grouped_by_metric, item) => ({
+                                ...grouped_by_metric,
+                                [item.metric]: [...(grouped_by_metric[item.metric] || []), item]
+                            }), {});
+}
+
+// build map of {location-id: popup text} for a list of selected metrics
+function build_popup_map(selected_metrics, grouped_metrics){
+    return selected_metrics.reduce((ids, metric) => {
+        const records = grouped_metrics[metric]
+        const reduced = records.reduce((metric_records, record) => {
+            let current_text = "";
+            let location_text = `Prediction Location: ${record.location}<br>`
+            let observed_location_text = `Observation Location: ${record.observed_location}<br>`
+
+            // check if metrics already added for location
+            if (Object.hasOwn(ids, record.location)){
+                current_text = `${ids[record.location]}<br>`
+                location_text = ""
+                observed_location_text= ""
+            }
+
+            const popup_text = `${location_text}${observed_location_text}${current_text}Metric: ${record.metric}<br>Grade: ${record.grade}`
+
+            // ...variable is an unpacking operation, like *args or **kwargs
+            return {...metric_records, [record.location]: popup_text}
+        }, {})
+
+
+        // ...variable is an unpacking operation, like *args or **kwargs
+        return {...ids, ...reduced}
+    }, {})
+}
+
+function update_popups(map, layer_group, popup_map){
+    layer_group.eachLayer(l => {
+        const feature_id = l.feature.id
+        l.bindPopup(popup_map[feature_id])
+        l.addTo(map)
+    })
 }
 
 function loadGeometry(name) {
@@ -770,16 +898,16 @@ function loadGeometry(name) {
 
     var addDocument = function(document) {
         var layer = L.geoJSON(
-            document.features,
+            document,
             {
                 onEachFeature: buildProperties,
                 style: getShapeStyle,
                 pointToLayer: layerCreation
             }
         ).addTo(visualizationMap);
-
-        visualizationMap.fitBounds(layer.getBounds());
     }
+
+    addDocument(crosswalk)
 
     var url = "fabric/" + name;
     $.ajax(
@@ -801,37 +929,91 @@ function loadGeometry(name) {
     );
 }
 
-$(function(){
-    $(".error-box").hide();
-    showPopup(null, "connecting-modal");
-    codeViews.forEach((codeView) => {
-        var editorArea = $("textarea" + codeView.textarea)[0];
-        codeView.view = CodeMirror.fromTextArea(
-            editorArea,
-            codeView.config
+/**
+ * Finds the color that corresponds to a given value based on the declared lowest and highest colors
+ *
+ * @param {int} value The value to find a color for
+ * @return {string} The color that corresponds to the given value
+ */
+function scaleColor(value) {
+    if (value > 1) {
+        throw "Only values between 0 and 1 inclusive may be scaled. Received " + value ;
+    }
+
+    const low = parseInt(lowestColor, 16);
+    const high = parseInt(highestColor, 16);
+
+    const [lowRed, lowGreen, lowBlue] = colorToArray(low);
+    const [highRed, highGreen, highBlue] = colorToArray(high);
+
+    const highScaler = 1 - value;
+    const scaledRed = Math.round(lowRed * value + highRed * highScaler);
+    const scaledGreen = Math.round(lowGreen * value + highGreen * highScaler);
+    const scaledBlue = Math.round(lowBlue * value + highBlue * highScaler);
+
+    return  Number((scaledRed << 16) + (scaledGreen << 8) + scaledBlue).toString(16);
+}
+
+/*
+ * Breaks down a 16 bit number into red, green, and blue values
+ *
+ * @param {Number} colorNumber A 16 bit number to break down into red, green, and blue values
+ * @return {Array} An array of 3 values broken out of the colorNumber, the first being red, the second being green,
+ *                 and the third being blue
+ */
+function colorToArray(colorNumber) {
+    const red = colorNumber >> 16;
+    const green = (colorNumber >> 8) % 256;
+    const blue = colorNumber % 256;
+
+    return [red, green, blue];
+}
+
+// Initialize the map when the page starts up
+startupScripts.push(
+    function () {
+        visualizationMap = initializeActiveMap("map", mapOptions);
+    }
+);
+
+startupScripts.push(
+    function() {
+        $(".error-box").hide();
+        showPopup(null, "connecting-modal");
+        codeViews.forEach((codeView) => {
+            var editorArea = $("textarea" + codeView.textarea)[0];
+            codeView.view = CodeMirror.fromTextArea(
+                editorArea,
+                codeView.config
+            );
+        });
+
+        initializeFields();
+        switchTabs(null, "edit-div");
+
+        $("#evaluation-submit").click(submit_evaluation);
+
+        // Connect to service
+        connectToSocket();
+
+        // Register message handlers
+        registerEvent(
+            "search",
+            renderDefinitions,
+            -1
         );
-    });
+        registerEvent(
+            "get_saved_definition",
+            loadPreexistingDefinition,
+            -1
+        );
 
-    initializeFields();
-    switchTabs(null, "edit-div");
+        closePopups(null);
+    }
+);
 
-    $("#evaluation-submit").click(submit_evaluation);
+// Add geometry options to the geometry selector when the page starts up
+startupScripts.push(populateGeometrySelector);
 
-    // Connect to service
-    connectToSocket();
-
-    // Register message handlers
-    registerEvent(
-        "search",
-        renderDefinitions,
-        -1
-    );
-    registerEvent(
-        "get_saved_definition",
-        loadPreexistingDefinition,
-        -1
-    );
-
-    closePopups(null);
-    startup_scripts.forEach(script => script());
-});
+// Add handlers to the map view when the page starts up
+startupScripts.push(addMapHandlers);

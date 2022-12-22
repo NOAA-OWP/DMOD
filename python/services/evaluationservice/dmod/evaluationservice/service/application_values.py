@@ -1,4 +1,5 @@
 import os
+import pathlib
 import typing
 import re
 import pytz
@@ -150,10 +151,12 @@ BASE_DIR = BASE_DIRECTORY
 STATIC_URL = os.environ.get("EVALUATION_STATIC_URL", '/static/')
 """The URL to direct requests for static resources to"""
 
-STATIC_ROOT = os.path.join(BASE_DIR, "static/")
-"""The relative file path to where static files live"""
+STATICFILES_DIRS: typing.Iterable[typing.Union[str, pathlib.Path]] = [
+    BASE_DIR / "static"
+]
+"""Directories that contain static files"""
 
-STATIC_RESOURCES_PATH = os.path.join(STATIC_ROOT, "resources")
+STATIC_RESOURCES_PATH = os.path.join(BASE_DIR, "static", "resources")
 """The path to static resources that are not code, stylesheets, images, or other standard media"""
 
 APPLICATION_NAME = os.environ.get("APPLICATION_NAME", "Evaluation Service")

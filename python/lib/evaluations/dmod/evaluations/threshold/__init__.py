@@ -67,7 +67,7 @@ def get_thresholds(threshold_definition: specification.ThresholdSpecification) -
 
             on_observation = rules.observation_field is not None and bool(rules.observation_field)
             if on_observation:
-                extra_kwargs['observed_value_key'] = rules.observation_field
+                extra_kwargs['observed_value_key'] = "observation"
             else:
                 extra_kwargs['on_observed'] = False
 
@@ -75,7 +75,7 @@ def get_thresholds(threshold_definition: specification.ThresholdSpecification) -
 
             if on_prediction:
                 extra_kwargs['on_predicted'] = True
-                extra_kwargs['predicted_value_key'] = rules.prediction_field
+                extra_kwargs['predicted_value_key'] = "prediction"
 
                 # TODO: Build custom transformation function if needed
 

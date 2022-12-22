@@ -3,7 +3,6 @@
 {% load static %}
 
 {% block scripts %}
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css"
       crossorigin="anonymous" referrerpolicy="no-referrer" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"
@@ -21,6 +20,17 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.6/addon/fold/foldgutter.min.js"
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="{% static 'evaluation_service/js/ready_evaluation_async.js' %}"></script>
+<script src="{% static 'evaluation_service/js/active_map.js' %}"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" integrity="sha256-kLaT2GOSpHechhsozzB+flnD+zUyjE2LlfWPgU04xyI=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+   integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+   crossorigin=""></script>
+<style>
+    #map {
+        width: 100%;
+        height: 100%;
+    }
+</style>
 <script>
     let socket = null;
     let previousState = {};
@@ -88,10 +98,6 @@
     ];
 
     const LAUNCH_URL = "{{ launch_url }}";
-
-    let digest = {
-        digest: []
-    };
 </script>
 {% endblock scripts %}
 {% block style %}
@@ -104,12 +110,14 @@
 {% endblock bannercontent %}
 {% block content %}
     <div id="content" class="pane">
+        {% if production %}
         <div id="launch-warning">
             <p>
                 This page is for testing the evaluation service - use in production should be initiated directly via the
                 API, not here
             </p>
         </div>
+        {% endif %}
         <div id="general-error-box" class="error-box">
             <p id="error-message"></p>
             <img id="acknowledge-error-icon" src="{% static 'evaluation_service/img/error.png' %}"
@@ -118,11 +126,9 @@
         <div id="tabs">
             <button id="instruction-tab-button" class="tablinks" onclick="switchTabs(event, 'edit-div')">Instructions</button>
             <button id="messages-tab-button" class="tablinks" onclick="switchTabs(event, 'message-div')">Messages</button>
-            {% if show_map %}
-                <button id="visualization-tab-button" class="tablinks" onclick="switchTabs(event, 'visualization-div')">
-                    Visualization
-                </button>
-            {% endif %}
+            <button id="map-tab-button" class="tablinks" onclick="toMapTab(event, 'map-div')">
+                Map
+            </button>
         </div>
         <div id="edit-div" class="tab">
             <div id="editor-header" class="tab-header">
@@ -164,39 +170,25 @@
                 <button id="get-digest" onclick="showDigestPopup(event)">Get Digest</button>
             </div>
         </div>
-        {% if show_map %}
-            <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
-               integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
-               crossorigin=""></script>
-            <script>
-            {% if center %}
-                var centerLine = [{{ center.0 }}, {{ center.1 }}];
-                console.log("Using passed center line");
+        <script>
+            {% if mapOptions %}
+            let mapOptions = {{ mapOptions }};
             {% else %}
-                var centerLine = [37.0902, -95.7129];
+            let mapOptions = {};
             {% endif %}
 
-            var zoom = {{ zoom|default:6 }};
+            // The endpoint for where to get geometry
+            let geometryEndpoint = "{{ geometryEndpoint|default:"/evaluation_service/geometry" }}";
 
-            var mapUrl = "{{ mapUrl|default:"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" }}";
+            // The color representing the lowest possible value on the map
+            let lowestColor = "{{ lowestColor|default:"d9040b" }}"
 
-            {% if attribution %}
-                var attribution = "{{ attribution }}";
-            {% else %}
-            var attribution = 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
-            {% endif %}
-
-            var maxZoom = {{ max_zoom|default:18 }};
-
-            {% autoescape on %}
-            {% for layerUrl in layerUrls %}
-                layerUrls.push("{{ layerUrl }}");
-            {% endfor %}
-            {% endautoescape %}
+            // The color representing the highest possible value on the map
+            let highestColor = "{{ highestColor|default:"00a80e" }}"
 
             {% if layerStyle %}
                 {% for style_name, value in layerStyle.items %}
-                    startup_scripts.push(
+                    startupScripts.push(
                         function() {
                             layerStyle[style_name] = value;
                         }
@@ -206,7 +198,7 @@
 
             {% if lineStyle %}
                 {% for style_name, value in lineStyle.items %}
-                    startup_scripts.push(
+                    startupScripts.push(
                         function() {
                             lineStyle[style_name] = value;
                         }
@@ -215,43 +207,60 @@
             {% endif %}
 
             let geometryName = "{{ geometry_name }}";
-            let visualizationMap = null;
 
-            startup_scripts.push(
-                function(){
-                    visualizationMap = L.map('visualization-content').setView(centerLine, zoom);
+        /*startupScripts.push(function(){
+            addMapHandlers()
 
-                    L.tileLayer(mapUrl, {
-                            maxZoom: maxZoom,
-                            attribution: attribution,
-                            tileSize: 512,
-                            zoomOffset: -1
-                        }).addTo(visualizationMap);
+            // listen for layer control checked
+            visualizationMap.on("overlayadd", e => {
+                active_control_layers.push(e.name)
+                debugger;
+                const grouped_by_metric = groupby_metric(metrics)
+
+                const popup_text_map = build_popup_map(active_control_layers, grouped_by_metric)
+                update_popups(visualizationMap, layer, popup_text_map)
                 }
-            );
-        </script>
-        <div id="visualization-div" class="tab">
-            <div id="visualization-header" class="tab-header">
-                <h3>Results</h3>
-            </div>
-            <div id="visualization-content" class="tab-content">
-            </div>
+            )
+
+            // listen for layer control unchecked
+            visualizationMap.on("overlayremove", e => {
+                const control_index_to_remove = active_control_layers.indexOf(e.name)
+                // remove control name inplace
+                active_control_layers.splice(control_index_to_remove, 1)
+                const grouped_by_metric = groupby_metric(metrics)
+
+                const popup_text_map = build_popup_map(active_control_layers, grouped_by_metric)
+                update_popups(visualizationMap, layer, popup_text_map)
+            })
+        });*/
+    </script>
+    <div id="map-div" class="tab">
+        <div id="map-header" class="tab-header">
+            <fieldset id="map-geometry-selector-group">
+                <legend id="map-geometry-legend">Geometry</legend>
+                <select id="map-geometry-selector"></select>
+                <button id="map-geometry-button" onclick="addGeometry(event)">Load</button>
+            </fieldset>
         </div>
-        {% endif %}
-        <div id="page-modal">
-            <div id="save-dialog" class="popup">
-                <div id="save-header" class="popup-header">
-                    <b>Save Evaluation Definition</b>
+        <div id="map-content" class="tab-content">
+            <div id="map"></div>
+        </div>
+        <div id="map-footer" class="tab-footer"></div>
+    </div>
+    <div id="page-modal">
+        <div id="save-dialog" class="popup">
+            <div id="save-header" class="popup-header">
+                <b>Save Evaluation Definition</b>
+            </div>
+            <div class="popup-contents">
+                <div id="save-errors" class="error-box">
+                    <p id="save-error-message"></p>
                 </div>
-                <div class="popup-contents">
-                    <div id="save-errors" class="error-box">
-                        <p id="save-error-message"></p>
-                    </div>
-                    <div id="save-fields" class="popup-fields" style="display: grid">
-                        <label for="author" style="grid-column: 1; grid-row: 1">Author:</label>
-                        <input type="text" placeholder="Your name..." style="grid-column: 2; grid-row: 1"
-                               id="author" minlength="10" maxlength="255" required>
-                        <br>
+                <div id="save-fields" class="popup-fields" style="display: grid">
+                    <label for="author" style="grid-column: 1; grid-row: 1">Author:</label>
+                    <input type="text" placeholder="Your name..." style="grid-column: 2; grid-row: 1" id="author"
+                        minlength="10" maxlength="255" required>
+                    <br>
 
                         <label for="evaluation_name" style="grid-column: 1; grid-row: 2">Configuration Name:</label>
                         <input name="evaluation_name" style="grid-column: 2; grid-row: 2" id="evaluation_name"

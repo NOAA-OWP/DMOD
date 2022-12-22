@@ -1,0 +1,14 @@
+{% load static %}
+<style>
+
+</style>
+
+{% if map_header %}
+<div id="{{ map_id|active-map }}-header" class="active-map active-map-header">
+    <h3>{{ map_header }}</h3>
+</div>
+{% endif %}
+
+<div id="{{ map_id|active-map }}-wrapper" class="active-map active-map-wrapper">
+    <div id="{{ map_id|active-map }}"></div>
+</div>

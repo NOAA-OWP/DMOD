@@ -1,6 +1,7 @@
 from django.urls import re_path
 
 from service.application_values import CHANNEL_NAME_PATTERN
+from service.application_values import CHANNEL_NAME_PATTERN as SAFE_STRING_NAME
 
 import evaluation_service.views as views
 
@@ -16,5 +17,12 @@ urlpatterns = [
     re_path(r'build_async$', views.ReadyListenEvaluation.as_view(), name="BuildAndRun"),
     re_path(r'^$', views.EvaluationList.as_view(), name="EvaluationList"),
     re_path(r'clean$', views.Clean.as_view(), name="Clean"),
-    re_path(f'output/(?P<evaluation_name>{CHANNEL_NAME_PATTERN})/?$', views.helpers.GetOutput.as_view(), name="Output")
+    re_path(f'output/(?P<evaluation_name>{CHANNEL_NAME_PATTERN})/?$', views.helpers.GetOutput.as_view(), name="Output"),
+    re_path('geometry/?$', views.GetGeometryDatasets.as_view(), name="GeometryList"),
+    re_path(f"geometry/(?P<dataset_id>\d+)/?$", views.GetGeometry.as_view(), name="GetGeometry"),
+    re_path(
+        f"geometry/(?P<dataset_id>\d+)/(?P<geometry_name>{SAFE_STRING_NAME})/?$",
+        views.GetGeometry.as_view(),
+        name="GetGeometryByName"
+    ),
 ]
