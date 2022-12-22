@@ -2,7 +2,12 @@ from pydantic.fields import ModelField
 from pprint import pformat
 from enum import Enum
 
-from typing import Any, Dict
+from .helper_functions import EnumNamesJSONEncoder
+
+from typing import Any, Callable, Dict, Optional, Union, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pydantic.typing import AbstractSetIntStr, MappingIntStrAny
 
 # inspiration / code from https://github.com/pydantic/pydantic/issues/598
 class EnumValidateByNameMixIn:
@@ -39,3 +44,37 @@ class EnumValidateByNameMixIn:
             raise ValueError(error_message)
 
         return needle
+
+
+class PydanticSerializeEnum:
+    """Serialize `pydantic.BaseModel` subclass enum fields using their `name` attribute."""
+
+    def json(
+        self,
+        *,
+        include: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        exclude: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        by_alias: bool = False,
+        skip_defaults: Optional[bool] = None,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False,
+        encoder: Optional[Callable[[Any], Any]] = None,
+        models_as_dict: bool = True,
+        **dumps_kwargs: Any,
+    ) -> str:
+        return super().json(
+            include=include,
+            exclude=exclude,
+            by_alias=by_alias,
+            skip_defaults=skip_defaults,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
+            encoder=encoder,
+            models_as_dict=models_as_dict,
+            cls=EnumNamesJSONEncoder
+            if "cls" not in dumps_kwargs
+            else dumps_kwargs["cls"],
+            **dumps_kwargs,
+        )
