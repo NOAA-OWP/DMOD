@@ -545,30 +545,6 @@ class DataDomain(PydanticSerializeEnum, BaseModel, Serializable):
             return True
 
     @property
-    def continuous_restrictions(self) -> Dict[StandardDatasetIndex, ContinuousRestriction]:
-        """
-        Map of the continuous restrictions defining this domain, keyed by variable name.
-
-        Returns
-        -------
-        Dict[str, ContinuousRestriction]
-            Map of the continuous restrictions defining this domain, keyed by variable name.
-        """
-        return self._continuous_restrictions
-
-    @property
-    def discrete_restrictions(self) -> Dict[StandardDatasetIndex, DiscreteRestriction]:
-        """
-        Map of the discrete restrictions defining this domain, keyed by variable name.
-
-        Returns
-        -------
-        Dict[str, DiscreteRestriction]
-            Map of the discrete restrictions defining this domain, keyed by variable name.
-        """
-        return self._discrete_restrictions
-
-    @property
     def data_fields(self) -> Dict[str, Type]:
         """
         Get the data fields map of this domain instance.
