@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from pydantic import BaseModel, root_validator, validator, StrictStr, StrictFloat, StrictInt, Field
 from collections import OrderedDict
@@ -337,6 +338,10 @@ class ContinuousRestriction(PydanticSerializeEnum, BaseModel, Serializable):
             serial["end"] = self.end.strftime(self.datetime_pattern)
         return serial
 
+    def to_json(self) -> str:
+        serial = self.to_dict()
+        serial["variable"] = serial["variable"].name
+        return json.dumps(serial)
 
 class DiscreteRestriction(PydanticSerializeEnum, BaseModel, Serializable):
     """
