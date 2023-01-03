@@ -801,14 +801,8 @@ class DatasetManager(ABC):
             self._dataset_users[dataset.name].remove(user.uuid)
         return True
 
-    @property
-    def uuid(self) -> UUID:
-        """
-        UUID for this instance.
 
-        Returns
-        -------
-        UUID
-            UUID for this instance.
-        """
-        return self._uuid
+# TODO: refactor dataset module into embedded package (i.e. `dmod/core/dataset`) splitting out types
+# into their own modules.
+# required because `DatasetManager` is defined after `Dataset`
+Dataset.update_forward_refs()
