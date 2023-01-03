@@ -105,12 +105,6 @@ class Dataset(PydanticSerializeEnum, BaseModel, Serializable):
             return value
         return None
 
-    @validator("manager_uuid", "uuid")
-    def create_uuids(cls, v: str):
-        if isinstance(v, UUID):
-            return v
-        return UUID(v)
-
     @root_validator()
     def set_manager_uuid(cls, values) -> dict:
         manager: Optional[DatasetManager] = values["manager"]
