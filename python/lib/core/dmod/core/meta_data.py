@@ -582,11 +582,29 @@ class DataDomain(PydanticSerializeEnum, BaseModel, Serializable):
         """
         return self.data_format.indices
 
-    def to_json(self) -> str:
-        if self.data_format.data_fields is None:
-            return self.json(by_alias=True)
+    def dict(self, **kwargs) -> dict:
+        """
+        fields alias names are used by default (`by_alias=True`).
 
-        return self.json(by_alias=True, exclude={"custom_data_fields"})
+        `data_fields` is excluded from dict if `self.data_format.data_fields` is None.
+        """
+        by_alias = kwargs.pop("by_alias") if "by_alias" in kwargs else True
+
+        if self.data_format.data_fields is None:
+            return super().dict(by_alias=by_alias, **kwargs)
+
+        exclude = {"custom_data_fields"}
+
+        # merge exclude fields and excludes from kwargs
+        if "exclude" in kwargs:
+            values = kwargs.pop("exclude")
+            if values is not None:
+                exclude = {*exclude, *values}
+
+        return super().dict(by_alias=by_alias, exclude=exclude, **kwargs)
+
+    def to_json(self) -> str:
+        return self.json(by_alias=True)
 
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
         """
@@ -599,10 +617,7 @@ class DataDomain(PydanticSerializeEnum, BaseModel, Serializable):
         -------
 
         """
-        if self.data_format.data_fields is None:
-            return self.dict(by_alias=True)
-
-        return self.dict(by_alias=True, exclude={"custom_data_fields"})
+        return self.dict(by_alias=True)
 
 
 class DataCategory(PydanticEnum):
