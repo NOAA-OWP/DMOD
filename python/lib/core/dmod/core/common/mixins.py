@@ -23,7 +23,7 @@ class EnumValidateByNameMixIn:
     def __modify_schema__(cls, field_schema: Dict[str, Any], field: ModelField) -> None:
         # display enum field names as field options
         if "enum" in field_schema:
-            field_schema["enum"] = [f.name for f in field.type_]
+            field_schema["enum"] = [f.name.upper() for f in field.type_]
             field_schema["type"] = "string"
 
     @classmethod
@@ -32,9 +32,9 @@ class EnumValidateByNameMixIn:
 
     @classmethod
     def validate(cls, v):
-        enum_names = {k: item for k, item in cls.__members__.items()}
+        enum_names = {k.upper(): item for k, item in cls.__members__.items()}
 
-        name = v.name if isinstance(v, Enum) else str(v)
+        name = v.name.upper() if isinstance(v, Enum) else str(v).upper()
         needle = enum_names.get(name)
 
         if needle is None:
