@@ -1,6 +1,6 @@
 import unittest
-from ..core.dataset import Dataset, DatasetType
-from ..core.meta_data import DataCategory, DataDomain, DataFormat, DiscreteRestriction, TimeRange
+from dmod.core.dataset import Dataset, DatasetType, DatasetManager
+from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DiscreteRestriction, TimeRange
 from datetime import datetime, timedelta
 from typing import Optional, Union
 
@@ -41,7 +41,7 @@ class TestDataset(unittest.TestCase):
         indx_val = 0
         self.example_types.append(DatasetType.OBJECT_STORE)
         self.example_time_ranges.append(self.generate_testing_time_range(begin='2022-01-01 00:00:00'))
-        self.example_catchment_restrictions.append(DiscreteRestriction("CATCHMENT_ID", ['cat-1', 'cat-2', 'cat-3']))
+        self.example_catchment_restrictions.append(DiscreteRestriction(variable="CATCHMENT_ID", values=['cat-1', 'cat-2', 'cat-3']))
         self.example_categories.append(DataCategory.FORCING)
         self.example_formats.append(DataFormat.AORC_CSV)
 
@@ -49,7 +49,7 @@ class TestDataset(unittest.TestCase):
         indx_val += 1
         self.example_types.append(DatasetType.OBJECT_STORE)
         self.example_time_ranges.append(self.generate_testing_time_range(begin='2022-01-01 00:00:00'))
-        self.example_catchment_restrictions.append(DiscreteRestriction("CATCHMENT_ID", ['cat-1', 'cat-2', 'cat-3']))
+        self.example_catchment_restrictions.append(DiscreteRestriction(variable="CATCHMENT_ID", values=['cat-1', 'cat-2', 'cat-3']))
         self.example_categories.append(DataCategory.CONFIG)
         self.example_formats.append(DataFormat.NGEN_REALIZATION_CONFIG)
 
@@ -60,14 +60,14 @@ class TestDataset(unittest.TestCase):
                                                    discrete_restrictions=[self.example_catchment_restrictions[i]]))
             self.example_datasets.append(self._init_dataset_example(i))
             date_fmt = Dataset.get_datetime_str_format()
-            self.example_data.append({Dataset._KEY_NAME: self.gen_dataset_name(i),
-                                      Dataset._KEY_DATA_DOMAIN: self.example_domains[i].to_dict(),
-                                      Dataset._KEY_DATA_CATEGORY: self.example_categories[i].name,
-                                      Dataset._KEY_TYPE: self.example_types[i].name,
-                                      Dataset._KEY_UUID: str(self.example_datasets[i].uuid),
-                                      Dataset._KEY_ACCESS_LOCATION: 'location_{}'.format(i),
-                                      Dataset._KEY_IS_READ_ONLY: False,
-                                      Dataset._KEY_CREATED_ON: self._created_on.strftime(date_fmt),
+            self.example_data.append({"name": self.gen_dataset_name(i),
+                                      "data_domain": self.example_domains[i].to_dict(),
+                                      "data_category": self.example_categories[i],
+                                      "type": self.example_types[i],
+                                      "uuid": self.example_datasets[i].uuid,
+                                      "access_location": 'location_{}'.format(i),
+                                      "is_read_only": False,
+                                      "created_on": self._created_on,
                                       })
 
     def test_factory_init_from_deserialized_json_0_a(self):
@@ -103,6 +103,9 @@ class TestDataset(unittest.TestCase):
 
         data_dict = self.example_datasets[ex_indx].to_dict()
 
+        for key, value in data_dict.items():
+            assert expected_data_dict[key] == value
+
         self.assertEqual(expected_data_dict, data_dict)
 
     def test_to_dict_1_a(self):
@@ -114,4 +117,73 @@ class TestDataset(unittest.TestCase):
 
         self.assertEqual(expected_data_dict, data_dict)
 
+    def test_set_manager(self):
+        from uuid import uuid4, UUID
 
+        # `Dataset` uses `isinstance` to verify a `DatasetManager` subtype was passed. This means
+        # you cannot deserialize a `DatasetManager`, an instance must be passed explicitly.
+        class MockManager(DatasetManager):
+            def __init__(self):
+                self._uuid = uuid4()
+            @property
+            def uuid(self) -> UUID:
+                return self._uuid
+
+        # `DatasetManager` is an ABC, patch `MockManager` subtype abstract methods so we can
+        # instantiate without implementing them.
+        MockManager.__abstractmethods__ = set()
+
+        o = Dataset(name="some_data", type=DatasetType.OBJECT_STORE, access_location="here", data_category="CONFIG")
+
+        manager = MockManager()
+
+        self.assertNotEqual(o.manager_uuid, manager.uuid)
+        self.assertIsInstance(manager, DatasetManager)
+
+        o.manager = manager
+
+        self.assertEqual(o.manager, manager)
+        self.assertEqual(o.manager_uuid, manager.uuid)
+
+    def test_manager_uuid_without_manager(self):
+        from uuid import uuid4
+        uuid = uuid4()
+        o = Dataset(name="some_data", type=DatasetType.OBJECT_STORE, access_location="here", data_category="CONFIG", manager_uuid=uuid)
+
+        self.assertEqual(o.manager_uuid, uuid)
+        self.assertIsNone(o.manager)
+
+    def test_to_json(self):
+        import json
+        o = Dataset(name="some_data", type=DatasetType.OBJECT_STORE, access_location="here", data_category="CONFIG")
+        from pprint import pprint
+        pprint(json.loads(o.to_json()))
+
+    def test_factory_init_from_deserialized_json_back_to_dict_1_a(self):
+        """ Test basic operation of function on example 1. """
+        ex_indx = 1
+        data_dict = self.example_data[ex_indx]
+        expected_dataset = self.example_datasets[ex_indx]
+
+        dataset = Dataset.factory_init_from_deserialized_json(data_dict)
+        dataset_dict = dataset.to_dict()
+        self.assertDictEqual(dataset_dict, data_dict)
+
+    def test_factory_init_from_deserialized_json_back_to_dict_0_a(self):
+        """ Test basic operation of function on example 0. """
+        ex_indx = 0
+        data_dict = self.example_data[ex_indx]
+        expected_dataset = self.example_datasets[ex_indx]
+
+        dataset_dict = expected_dataset.to_dict()
+        self.assertDictEqual(dataset_dict, data_dict)
+
+    def test_factory_init_from_deserialized_json_back_to_dict_1_a(self):
+        """ Test basic operation of function on example 1. """
+        ex_indx = 1
+        data_dict = self.example_data[ex_indx]
+        expected_dataset = self.example_datasets[ex_indx]
+
+        dataset = Dataset.factory_init_from_deserialized_json(data_dict)
+        dataset_dict = dataset.to_dict()
+        self.assertDictEqual(dataset_dict, data_dict)
