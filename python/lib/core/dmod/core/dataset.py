@@ -3,11 +3,13 @@ from .meta_data import ContinuousRestriction, DataCategory, DataDomain, DataForm
     StandardDatasetIndex, TimeRange
 from .exception import DmodRuntimeError
 from datetime import datetime, timedelta
+from pydantic import BaseModel, root_validator, validator, Field
 
 from .serializable import Serializable, ResultIndicator
 from .common.helper_types import PydanticEnum
+from .common.mixins import PydanticSerializeEnum
 from numbers import Number
-from typing import Any, Callable, Dict, FrozenSet, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Callable, ClassVar, Dict, FrozenSet, List, Optional, Set, Tuple, Type, Union
 from uuid import UUID, uuid4
 
 
@@ -54,27 +56,79 @@ class DatasetType(PydanticEnum):
         return self._is_file_based
 
 
-class Dataset(Serializable):
+class Dataset(PydanticSerializeEnum, BaseModel, Serializable):
     """
     Rrepresentation of the descriptive metadata for a grouped collection of data.
     """
 
-    _SERIAL_DATETIME_STR_FORMAT = '%Y-%m-%d %H:%M:%S'
+    _SERIAL_DATETIME_STR_FORMAT: ClassVar = '%Y-%m-%d %H:%M:%S'
+    name: str = Field(description="The name for this dataset, which also should be a unique identifier.")
+    category: Optional[DataCategory] = Field(None, alias="data_category", description="The ::class:`DataCategory` type value for this instance.")
+    data_domain: Optional[DataDomain]
+    dataset_type: DatasetType = Field(DatasetType.UNKNOWN, alias="type")
+    access_location: str = Field(description="String representation of the location at which this dataset is accessible.")
+    uuid: Optional[UUID] = Field(default_factory=uuid4)
+    # manager can only be passed as constructed DatasetManager subtype. Manager not included in `dict` or `json` deserialization.
+    # TODO: don't include `manager` in `Dataset.schema()`. Inclusion is not reflective of the de/serialization behavior.
+    manager: Optional['DatasetManager'] = Field(exclude=True)
+    manager_uuid: Optional[UUID]
+    is_read_only: bool = Field(True, description="Whether this is a dataset that can only be read from.")
+    description: Optional[str]
+    expires: Optional[datetime] = Field(description='The time after which a dataset may "expire" and be removed, or ``None`` if the dataset is not temporary.')
+    derived_from: Optional[str] = Field(description="The name of the dataset from which this dataset was derived, if it is known to have been derived.")
+    derivations: Optional[List[str]] = Field(default_factory=list, description="""List of names of datasets which were derived from this dataset.\n
+    Note that it is not guaranteed that any such dataset still exist and/or are still available.""")
+    created_on: Optional[datetime] = Field(description="When this dataset was created, or ``None`` if that is not known.")
+    last_updated: Optional[datetime]
 
-    _KEY_ACCESS_LOCATION = 'access_location'
-    _KEY_CREATED_ON = 'create_on'
-    _KEY_DATA_CATEGORY = 'data_category'
-    _KEY_DATA_DOMAIN = 'data_domain'
-    _KEY_DERIVED_FROM = 'derived_from'
-    _KEY_DERIVATIONS = 'derivations'
-    _KEY_DESCRIPTION = 'description'
-    _KEY_EXPIRES = 'expires'
-    _KEY_IS_READ_ONLY = 'is_read_only'
-    _KEY_LAST_UPDATE = 'last_updated'
-    _KEY_MANAGER_UUID = 'manager_uuid'
-    _KEY_NAME = 'name'
-    _KEY_TYPE = 'type'
-    _KEY_UUID = 'uuid'
+    @validator("created_on", "last_updated", "expires", pre=True)
+    def parse_dates(cls, v):
+        if v is None:
+            return None
+
+        if isinstance(v, datetime):
+            return v
+
+        # NOTE: could raise:
+        # - TypeError: if `v` or `cls.get_datetime_str_format` is not `str`
+        # - ValueError: if `v` cannot be coerced into `datetime` object
+        return datetime.strptime(v, cls.get_datetime_str_format())
+
+    @validator("created_on", "last_updated", "expires")
+    def drop_microseconds(cls, v: datetime):
+        return v.replace(microsecond=0)
+
+    @validator("manager", pre=True)
+    def drop_manager_if_not_constructed_subtype(cls, value):
+        # manager can only be passed as constructed DatasetManager subtype
+        if isinstance(value, DatasetManager):
+            return value
+        return None
+
+    @validator("manager_uuid", "uuid")
+    def create_uuids(cls, v: str):
+        if isinstance(v, UUID):
+            return v
+        return UUID(v)
+
+    @root_validator()
+    def set_manager_uuid(cls, values) -> dict:
+        manager: Optional[DatasetManager] = values["manager"]
+        # give preference to `manager.uuid` otherwise use specified `manager_uuid`
+        if manager is not None:
+            # pydantic will not validate this, so we need to check it
+            if not isinstance(manager.uuid, UUID):
+                raise ValueError(f"Expected UUID got {type(manager.uuid)}")
+            values["manager_uuid"] = manager.uuid
+
+        return values
+
+    class Config:
+        allow_population_by_field_name = True
+        # NOTE: re-validate when any field is re-assigned (i.e. `model.foo = 12`)
+        # TODO: in future deprecate setting properties unless through a setter method
+        validate_assignment = True
+        arbitrary_types_allowed = True
 
     # TODO: move this (and something more to better automatically handle Serializable subtypes) to Serializable directly
     @classmethod
@@ -87,22 +141,8 @@ class Dataset(Serializable):
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
         try:
-            manager_uuid = UUID(json_obj[cls._KEY_MANAGER_UUID]) if cls._KEY_MANAGER_UUID in json_obj else None
-            return cls(name=json_obj[cls._KEY_NAME],
-                       category=DataCategory.get_for_name(json_obj[cls._KEY_DATA_CATEGORY]),
-                       data_domain=DataDomain.factory_init_from_deserialized_json(json_obj[cls._KEY_DATA_DOMAIN]),
-                       dataset_type=DatasetType.get_for_name(json_obj[cls._KEY_TYPE]),
-                       access_location=json_obj[cls._KEY_ACCESS_LOCATION],
-                       description=json_obj.get(cls._KEY_DESCRIPTION, None),
-                       uuid=UUID(json_obj[cls._KEY_UUID]),
-                       manager_uuid=manager_uuid,
-                       is_read_only=json_obj[cls._KEY_IS_READ_ONLY],
-                       expires=cls._date_parse_helper(json_obj, cls._KEY_EXPIRES),
-                       derived_from=json_obj[cls._KEY_DERIVED_FROM] if cls._KEY_DERIVED_FROM in json_obj else None,
-                       derivations=json_obj[cls._KEY_DERIVATIONS] if cls._KEY_DERIVATIONS in json_obj else [],
-                       created_on=cls._date_parse_helper(json_obj, cls._KEY_CREATED_ON),
-                       last_updated=cls._date_parse_helper(json_obj, cls._KEY_LAST_UPDATE))
-        except Exception as e:
+            return cls(**json_obj)
+        except Exception:
             return None
 
     def __eq__(self, other):
@@ -114,29 +154,6 @@ class Dataset(Serializable):
     def __hash__(self):
         return hash(','.join([self.__class__.__name__, self.name, self.category.name, str(hash(self.data_domain)),
                               self.access_location, str(self.is_read_only), str(hash(self.created_on))]))
-
-    def __init__(self, name: str, category: DataCategory, data_domain: DataDomain, dataset_type: DatasetType,
-                 access_location: str, uuid: Optional[UUID] = None, manager: Optional['DatasetManager'] = None,
-                 manager_uuid: Optional[UUID] = None, is_read_only: bool = True, description: Optional[str] = None, expires: Optional[datetime] = None,
-                 derived_from: Optional[str] = None, derivations: Optional[List[str]] = None,
-                 created_on: Optional[datetime] = None, last_updated: Optional[datetime] = None):
-        self._name = name
-        self._category = category
-        self._data_domain = data_domain
-        self._dataset_type = dataset_type
-        self._access_location = access_location
-        self._uuid = uuid4() if uuid is None else uuid
-        self._manager = manager
-        self._manager_uuid = manager.uuid if manager is not None else manager_uuid
-        self._description = description
-        self._is_read_only = is_read_only
-        self._expires = expires if expires is None else expires.replace(microsecond=0)
-        self._derived_from = derived_from
-        self._derivations = derivations if derivations is not None else list()
-        self._created_on = created_on if created_on is None else created_on.replace(microsecond=0)
-        self._last_updated = last_updated if last_updated is None else last_updated.replace(microsecond=0)
-        # TODO: have manager handle the logic
-        #retention_strategy
 
     def _set_expires(self, new_expires: datetime):
         """
@@ -150,60 +167,8 @@ class Dataset(Serializable):
         new_expires : datetime
             The new value for ::attribute:`expires`.
         """
-        self._expires = new_expires
-        # n = datetime.now()
-        # n.astimezone().tzinfo.tzname(n.astimezone())
-        self._last_updated = datetime.now()
-
-    @property
-    def access_location(self) -> str:
-        """
-        String representation of the location at which this dataset is accessible.
-
-        Depending on the subtype, this may be the string form of a URL, URI, or basic filesystem path.
-
-        Returns
-        -------
-        str
-            String representation of the location at which this dataset is accessible.
-        """
-        return self._access_location
-
-    @property
-    def category(self) -> DataCategory:
-        """
-        The ::class:`DataCategory` type value for this instance.
-
-        Returns
-        -------
-        DataCategory
-            The ::class:`DataCategory` type value for this instance.
-        """
-        return self._category
-
-    @property
-    def created_on(self) -> Optional[datetime]:
-        """
-        When this dataset was created, or ``None`` if that is not known.
-
-        Returns
-        -------
-        Optional[datetime]
-            When this dataset was created, or ``None`` if that is not known.
-        """
-        return self._created_on
-
-    @property
-    def data_domain(self) -> DataDomain:
-        """
-        The data domain for this instance.
-
-        Returns
-        -------
-        DataDomain
-            The ::class:`DataDomain` for this instance.
-        """
-        return self._data_domain
+        self.expires = new_expires
+        self.last_updated = datetime.now()
 
     @property
     def data_format(self) -> DataFormat:
@@ -216,53 +181,6 @@ class Dataset(Serializable):
             The ::class:`DataFormat` type value for this instance.
         """
         return self.data_domain.data_format
-
-    @property
-    def dataset_type(self) -> DatasetType:
-        return self._dataset_type
-
-    @property
-    def derivations(self) -> List[str]:
-        """
-        List of names of datasets which were derived from this dataset.
-
-        Note that it is not guaranteed that any such dataset still exist and/or are still available.
-
-        Returns
-        -------
-        List[str]
-            List of names of datasets which were derived from this dataset.
-        """
-        return self._derivations
-
-    @property
-    def derived_from(self) -> Optional[str]:
-        """
-        The name of the dataset from which this dataset was derived, if it is known to have been derived.
-
-        Returns
-        -------
-        Optional[str]
-            The name of the dataset from which this dataset was derived, or ``None`` if this dataset is not known to
-            have been derived.
-        """
-        return self._derived_from
-
-    @property
-    def description(self) -> Optional[str]:
-        """
-        An optional string description of this dataset.
-
-        Returns
-        -------
-        Optional[str]
-            An optional string description of this dataset.
-        """
-        return self._description
-
-    @description.setter
-    def description(self, desc: Optional[str]):
-        self._description = desc
 
     @property
     def docker_mount(self) -> str:
@@ -288,22 +206,6 @@ class Dataset(Serializable):
             raise DmodRuntimeError(msg.format(self.name, self.dataset_type.name))
         else:
             return result
-
-    @property
-    def expires(self) -> Optional[datetime]:
-        """
-        The time after which a dataset may "expire" and be removed, or ``None`` if the dataset is not temporary.
-
-        A dataset may be temporary, meaning its availability and validity cannot be assumed perpetually; e.g., the data
-        may be removed from storage.  This property indicates the time through which availability and validity is
-        guaranteed.
-
-        Returns
-        -------
-        Optional[datetime]
-            The time after which a dataset may "expire" and be removed, or ``None`` if the dataset is not temporary.
-        """
-        return self._expires
 
     def extend_life(self, value: Union[datetime, timedelta]) -> bool:
         """
@@ -356,18 +258,6 @@ class Dataset(Serializable):
         return self.data_domain.data_fields
 
     @property
-    def is_read_only(self) -> bool:
-        """
-        Whether this is a dataset that can only be read from.
-
-        Returns
-        -------
-        bool
-            Whether this is a dataset that can only be read from.
-        """
-        return self._is_read_only
-
-    @property
     def is_temporary(self) -> bool:
         """
         Whether this dataset is (at present) intended to be temporary.
@@ -381,64 +271,6 @@ class Dataset(Serializable):
             Whether this dataset is (at present) intended to be temporary.
         """
         return self.expires is not None
-
-    @property
-    def last_updated(self) -> Optional[datetime]:
-        """
-        When this dataset was last updated, or ``None`` if that is not known.
-
-        Note that this includes adjustments to metadata, including the value for ::attribute:`expires`.
-
-        Returns
-        -------
-        Optional[datetime]
-            When this dataset was last updated, or ``None`` if that is not known.
-        """
-        return self._last_updated
-
-    @property
-    def manager(self) -> 'DatasetManager':
-        """
-        The ::class:`DatasetManager` for this instance.
-
-        Returns
-        -------
-        DatasetManager
-            The ::class:`DatasetManager` for this instance.
-        """
-        return self._manager
-
-    @manager.setter
-    def manager(self, manager: 'DatasetManager'):
-        self._manager = manager
-        self._manager_uuid = manager.uuid
-
-    @property
-    def manager_uuid(self) -> UUID:
-        """
-        The UUID of the ::class:`DatasetManager` for this instance.
-
-        Returns
-        -------
-        DatasetManager
-            The UUID of the ::class:`DatasetManager` for this instance.
-        """
-        return self._manager_uuid
-
-    @property
-    def name(self) -> str:
-        """
-        The name for this dataset, which also should be a unique identifier.
-
-        Every dataset in the domain of all datasets known to this instance's ::attribute:`manager` must have a unique
-        name value.
-
-        Returns
-        -------
-        str
-            The dataset's unique name.
-        """
-        return self._name
 
     @property
     def time_range(self) -> Optional[TimeRange]:
@@ -456,17 +288,22 @@ class Dataset(Serializable):
         tr = self.data_domain.continuous_restrictions[StandardDatasetIndex.TIME]
         return tr if isinstance(tr, TimeRange) else TimeRange(begin=tr.begin, end=tr.end, variable=tr.variable)
 
-    @property
-    def uuid(self) -> UUID:
+    def _get_exclude_fields(self) -> Set[str]:
+        """Set of fields to exclude during deserialization if they are some None variant (e.g. '', 0, None)"""
+        candidates = ("manager_uuid", "expires", "derived_from", "derivations", "description", "created_on", "last_updated")
+        return {f for f in candidates if not self.__getattribute__(f)}
+
+    def to_json(self) -> str:
         """
-        The UUID for this instance.
+        Get the serial form of this instance as a dictionary object.
 
         Returns
         -------
-        UUID
-            The UUID for this instance.
+        Dict[str, Union[str, Number, dict, list]]
+            The serialized form of this instance.
         """
-        return self._uuid
+        exclude = self._get_exclude_fields()
+        return self.json(by_alias=True, exclude=exclude)
 
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
         """
@@ -477,30 +314,8 @@ class Dataset(Serializable):
         Dict[str, Union[str, Number, dict, list]]
             The serialized form of this instance.
         """
-        serial = dict()
-        serial[self._KEY_NAME] = self.name
-        serial[self._KEY_DATA_CATEGORY] = self.category.name
-        serial[self._KEY_DATA_DOMAIN] = self.data_domain.to_dict()
-        serial[self._KEY_TYPE] = self.dataset_type.name
-        # TODO: unit test this
-        serial[self._KEY_ACCESS_LOCATION] = self.access_location
-        serial[self._KEY_UUID] = str(self.uuid)
-        serial[self._KEY_IS_READ_ONLY] = self.is_read_only
-        if self.manager_uuid is not None:
-            serial[self._KEY_MANAGER_UUID] = str(self.manager_uuid)
-        if self.expires is not None:
-            serial[self._KEY_EXPIRES] = self.expires.strftime(self.get_datetime_str_format())
-        if self.derived_from is not None:
-            serial[self._KEY_DERIVED_FROM] = self.derived_from
-        if len(self.derivations) > 0:
-            serial[self._KEY_DERIVATIONS] = self.derivations
-        if self.description is not None:
-            serial[self._KEY_DESCRIPTION] = self.description
-        if self.created_on is not None:
-            serial[self._KEY_CREATED_ON] = self.created_on.strftime(self.get_datetime_str_format())
-        if self.last_updated is not None:
-            serial[self._KEY_LAST_UPDATE] = self.last_updated.strftime(self.get_datetime_str_format())
-        return serial
+        exclude = self._get_exclude_fields()
+        return self.dict(by_alias=True, exclude=exclude)
 
 
 class DatasetUser(ABC):
@@ -764,18 +579,6 @@ class DatasetManager(ABC):
             The "offset" and "length" keywords to chunk results, or ``None`` if chunking not supported.
         """
         pass
-
-    @property
-    def datasets(self) -> Dict[str, Dataset]:
-        """
-        The datasets known to and managed by this instance, mapped by the unique ::attribute:`Dataset.name` of each.
-
-        Returns
-        -------
-        Dict[str, Dataset]
-            The datasets known to and managed by this instance.
-        """
-        return self._datasets
 
     @property
     def errors(self) -> List[Union[str, Exception, ResultIndicator]]:
