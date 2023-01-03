@@ -217,7 +217,7 @@ def _validate_variable_is_known(cls, variable: StandardDatasetIndex) -> Standard
         raise ValueError("Invalid value for {} variable: {}".format(cls.__name__, variable))
     return variable
 
-class ContinuousRestriction(BaseModel, Serializable):
+class ContinuousRestriction(PydanticSerializeEnum, BaseModel, Serializable):
     """
     A filtering component, typically applied as a restriction on a domain, by a continuous range of values of a variable.
     """
@@ -337,7 +337,8 @@ class ContinuousRestriction(BaseModel, Serializable):
             serial["end"] = self.end.strftime(self.datetime_pattern)
         return serial
 
-class DiscreteRestriction(BaseModel, Serializable):
+
+class DiscreteRestriction(PydanticSerializeEnum, BaseModel, Serializable):
     """
     A filtering component, typically applied as a restriction on a domain, by a discrete set of values of a variable.
 
