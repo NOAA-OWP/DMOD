@@ -155,9 +155,20 @@ class TestDataset(unittest.TestCase):
 
     def test_to_json(self):
         import json
-        o = Dataset(name="some_data", type=DatasetType.OBJECT_STORE, access_location="here", data_category="CONFIG")
-        from pprint import pprint
-        pprint(json.loads(o.to_json()))
+
+        valid_data = {
+        "name": "some_data",
+        "type": "OBJECT_STORE",
+        "access_location": "here",
+        "data_category": "CONFIG",
+        "uuid": "00000000-0000-0000-0000-000000000000"
+        }
+        s_json = json.loads(
+            Dataset(**valid_data).to_json()
+        )
+        for k, v in valid_data.items():
+            self.assertEqual(s_json[k], v)
+
 
     def test_factory_init_from_deserialized_json_back_to_dict_1_a(self):
         """ Test basic operation of function on example 1. """
