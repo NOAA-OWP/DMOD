@@ -232,8 +232,14 @@ class ContinuousRestriction(BaseModel, Serializable):
 
         if datetime_ptr is not None:
             # If there is a datetime pattern, then expect begin and end to parse properly to datetime objects
-            values["begin"] = datetime.strptime(values["begin"], datetime_ptr)
-            values["end"] = datetime.strptime(values["end"], datetime_ptr)
+            begin = values["begin"]
+            end = values["end"]
+
+            if not isinstance(begin, datetime):
+                values["begin"] = datetime.strptime(begin, datetime_ptr)
+
+            if not isinstance(end, datetime):
+                values["end"] = datetime.strptime(end, datetime_ptr)
         return values
 
     @root_validator()
