@@ -466,14 +466,10 @@ class DataDomain(PydanticSerializeEnum, BaseModel, Serializable):
 
         return {k: handle_type_map(v) for k, v in values.items()}
 
-    @root_validator()
-    def validate_sufficient_restrictions(cls, values):
-        continuous_restrictions = values.get("continuous_restrictions", [])
-        discrete_restrictions = values.get("discrete_restrictions", [])
-        if len(continuous_restrictions) + len(discrete_restrictions) == 0:
+    def __post_init__(self):
+        if len(self.continuous_restrictions) + len(self.discrete_restrictions) == 0:
             msg = "Cannot create {} without at least one finite continuous or discrete restriction"
-            raise RuntimeError(msg.format(cls.__name__))
-        return values
+            raise RuntimeError(msg.format(self.__name__))
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
