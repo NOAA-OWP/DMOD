@@ -439,9 +439,11 @@ class DataDomain(PydanticSerializeEnum, BaseModel, Serializable):
         description="The format for the data in this domain, which contains details like the indices and other data fields."
     )
     continuous_restrictions: Optional[List[ContinuousRestriction]] = Field(
+        alias="continuous",
         default_factory=list
     )
     discrete_restrictions: Optional[List[DiscreteRestriction]] = Field(
+        alias="discrete",
         default_factory=list
     )
     custom_data_fields: Optional[Dict[str, Union[str, int, float, Any]]] = Field(
