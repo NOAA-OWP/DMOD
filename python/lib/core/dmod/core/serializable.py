@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from numbers import Number
-from typing import Callable, Dict, Type, Union
+from typing import Callable, Dict, Type, Union, Optional
+from pydantic import BaseModel, Field
 import json
 
 
@@ -213,7 +214,7 @@ class SerializedDict(Serializable):
         return self.base_dict
 
 
-class ResultIndicator(Serializable, ABC):
+class ResultIndicator(BaseModel, Serializable, ABC):
     """
     A type extending from ::class:`Serializable` for encapsulating a status indication for a result of something.
 
@@ -236,18 +237,12 @@ class ResultIndicator(Serializable, ABC):
         An optional, more detailed explanation of the result, which by default is an empty string.
 
     """
-
-    def __init__(self, success: bool, reason: str, message: str = '', *args, **kwargs):
-        super(ResultIndicator, self).__init__(*args, **kwargs)
-        self.success: bool = success
-        """ Whether this indicates a successful result. """
-        self.reason: str = reason
-        """ A very short, high-level summary of the result. """
-        self.message: str = message
-        """ An optional, more detailed explanation of the result, which by default is an empty string. """
+    success: bool = Field(description="Whether this indicates a successful result.")
+    reason: str = Field(description="A very short, high-level summary of the result.")
+    message: Optional[str] = Field("", description="An optional, more detailed explanation of the result, which by default is an empty string.")
 
     def to_dict(self) -> dict:
-        return {'success': self.success, 'reason': self.reason, 'message': self.message}
+        return self.dict()
 
 
 class BasicResultIndicator(ResultIndicator):
@@ -258,9 +253,6 @@ class BasicResultIndicator(ResultIndicator):
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
         try:
-            return cls(success=json_obj['success'], reason=json_obj['reason'], message=json_obj['message'])
+            return cls(**json_obj)
         except Exception as e:
             return None
-
-    def __init__(self, *args, **kwargs):
-        super(BasicResultIndicator, self).__init__(*args, **kwargs)
