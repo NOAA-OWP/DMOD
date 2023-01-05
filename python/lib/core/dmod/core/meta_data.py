@@ -471,6 +471,9 @@ class DataDomain(PydanticSerializeEnum, BaseModel, Serializable):
             msg = "Cannot create {} without at least one finite continuous or discrete restriction"
             raise RuntimeError(msg.format(self.__name__))
 
+    class Config:
+        allow_population_by_field_name = True
+
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
         try:
