@@ -299,11 +299,11 @@ class ContinuousRestriction(PydanticSerializeEnum, BaseModel, Serializable):
             except:
                 pass
 
-        try:
-            return cls(**json_obj)
-        except:
-            # TODO: revisit returning None.
-            return None
+        # try:
+        return cls(**json_obj)
+        # except:
+        #     # TODO: revisit returning None.
+        #     return None
 
     def __hash__(self) -> int:
         return hash('{}-{}-{}'.format(self.variable.name, self.begin, self.end))
@@ -466,10 +466,14 @@ class DataDomain(PydanticSerializeEnum, BaseModel, Serializable):
 
         return {k: handle_type_map(v) for k, v in values.items()}
 
-    def __post_init__(self):
-        if len(self.continuous_restrictions) + len(self.discrete_restrictions) == 0:
+    @root_validator()
+    def validate_sufficient_restrictions(cls, values):
+        continuous_restrictions = values.get("continuous_restrictions", [])
+        discrete_restrictions = values.get("discrete_restrictions", [])
+        if len(continuous_restrictions) + len(discrete_restrictions) == 0:
             msg = "Cannot create {} without at least one finite continuous or discrete restriction"
-            raise RuntimeError(msg.format(self.__name__))
+            raise RuntimeError(msg.format(cls.__name__))
+        return values
 
     class Config:
         allow_population_by_field_name = True
