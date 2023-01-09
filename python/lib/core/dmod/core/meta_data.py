@@ -709,19 +709,6 @@ class DataRequirement(Serializable):
     is_input: bool = Field(..., description="Whether this represents required input data, as opposed to a requirement for storing output data.")
     size: Optional[int]
 
-    _KEY_CATEGORY = 'category'
-    """ Serialization dictionary JSON key for ::attribute:`category` property value. """
-    _KEY_DOMAIN = 'domain'
-    """ Serialization dictionary JSON key for ::attribute:`domain_params` property value. """
-    _KEY_FULFILLED_ACCESS_AT = 'fulfilled_access_at'
-    """ Serialization dictionary JSON key for ::attribute:`fulfilled_access_at` property value. """
-    _KEY_FULFILLED_BY = 'fulfilled_by'
-    """ Serialization dictionary JSON key for ::attribute:`fulfilled_by` property value. """
-    _KEY_IS_INPUT = 'is_input'
-    """ Serialization dictionary JSON key for ::attribute:`is_input` property value. """
-    _KEY_SIZE = 'size'
-    """ Serialization dictionary JSON key for ::attribute:`size` property value. """
-
     def __hash__(self):
         return hash((self.domain, self.is_input, self.category))
 
