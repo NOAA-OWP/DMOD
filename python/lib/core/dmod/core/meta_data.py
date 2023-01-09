@@ -668,6 +668,7 @@ class TimeRange(ContinuousRestriction):
     """
     Encapsulated representation of a time range.
     """
+    variable: StandardDatasetIndex = Field(StandardDatasetIndex.TIME, const=True)
 
     @classmethod
     def parse_from_string(cls, as_string: str, dt_format: Optional[str] = None, dt_str_length: int = 19) -> 'TimeRange':
@@ -710,19 +711,17 @@ class TimeRange(ContinuousRestriction):
         except:
             raise ValueError
 
-    def __init__(self, begin: Union[str, datetime], end: Union[str, datetime], datetime_pattern: Optional[str] = None,
-                 **kwargs):
-        dt_ptrn = self.get_datetime_str_format() if datetime_pattern is None else datetime_pattern
-        super(TimeRange, self).__init__(variable=StandardDatasetIndex.TIME,
-                                        begin=begin if isinstance(begin, datetime) else datetime.strptime(begin, dt_ptrn),
-                                        end=end if isinstance(end, datetime) else datetime.strptime(end, dt_ptrn),
-                                        datetime_pattern=dt_ptrn)
-
 
 class DataRequirement(Serializable):
     """
     A definition of a particular data requirement needed for an execution task.
     """
+    category: DataCategory
+    domain: DataDomain
+    fulfilled_access_at: Optional[str] = Field(description="The location at which the fulfilling dataset for this requirement is accessible, if the dataset known.")
+    fulfilled_by: Optional[str] = Field(description="The name of the dataset that will fulfill this, if it is known.")
+    is_input: bool = Field(..., description="Whether this represents required input data, as opposed to a requirement for storing output data.")
+    size: Optional[int]
 
     _KEY_CATEGORY = 'category'
     """ Serialization dictionary JSON key for ::attribute:`category` property value. """
@@ -753,129 +752,14 @@ class DataRequirement(Serializable):
             A deserialized ::class:`DataRequirement` instance, or return ``None`` if the JSON is not valid.
         """
         try:
-            domain = DataDomain.factory_init_from_deserialized_json(json_obj[cls._KEY_DOMAIN])
-            category = DataCategory.get_for_name(json_obj[cls._KEY_CATEGORY])
-            is_input = json_obj[cls._KEY_IS_INPUT]
-
-            opt_kwargs_w_defaults = dict()
-            if cls._KEY_FULFILLED_BY in json_obj:
-                opt_kwargs_w_defaults['fulfilled_by'] = json_obj[cls._KEY_FULFILLED_BY]
-            if cls._KEY_SIZE in json_obj:
-                opt_kwargs_w_defaults['size'] = json_obj[cls._KEY_SIZE]
-            if cls._KEY_FULFILLED_ACCESS_AT in json_obj:
-                opt_kwargs_w_defaults['fulfilled_access_at'] = json_obj[cls._KEY_FULFILLED_ACCESS_AT]
-
-            return cls(domain=domain, is_input=is_input, category=category, **opt_kwargs_w_defaults)
+            return cls(**json_obj)
         except:
             return None
-
-    def __eq__(self, other):
-        return self.__class__ == other.__class__ and self.domain == other.domain and self.is_input == other.is_input \
-               and self.category == other.category
 
     def __hash__(self):
         return hash((self.domain, self.is_input, self.category))
 
-    def __init__(self, domain: DataDomain, is_input: bool, category: DataCategory, size: Optional[int] = None,
-                 fulfilled_by: Optional[str] = None, fulfilled_access_at: Optional[str] = None):
-        self._domain = domain
-        self._is_input = is_input
-        self._category = category
-        self._size = size
-        self._fulfilled_by = fulfilled_by
-        self._fulfilled_access_at = fulfilled_access_at
-
-    @property
-    def category(self) -> DataCategory:
-        """
-        The ::class:`DataCategory` of data required.
-
-        Returns
-        -------
-        DataCategory
-            The category of data required.
-        """
-        return self._category
-
-    @property
-    def domain(self) -> DataDomain:
-        """
-        The (restricted) domain of the data that is required.
-
-        Returns
-        -------
-        DataDomain
-            The (restricted) domain of the data that is required.
-        """
-        return self._domain
-
-    @property
-    def fulfilled_access_at(self) -> Optional[str]:
-        """
-        The location at which the fulfilling dataset for this requirement is accessible, if the dataset known.
-
-        Returns
-        -------
-        Optional[str]
-            The location at which the fulfilling dataset for this requirement is accessible, if known, or ``None``
-            otherwise.
-        """
-        return self._fulfilled_access_at
-
-    @fulfilled_access_at.setter
-    def fulfilled_access_at(self, location: str):
-        self._fulfilled_access_at = location
-
-    @property
-    def fulfilled_by(self) -> Optional[str]:
-        """
-        The name of the dataset that will fulfill this, if it is known.
-
-        Returns
-        -------
-        Optional[str]
-            The name of the dataset that will fulfill this, if it is known; ``None`` otherwise.
-        """
-        return self._fulfilled_by
-
-    @fulfilled_by.setter
-    def fulfilled_by(self, name: str):
-        self._fulfilled_by = name
-
-    @property
-    def is_input(self) -> bool:
-        """
-        Whether this represents required input data, as opposed to a requirement for storing output data.
-
-        Returns
-        -------
-        bool
-            Whether this represents required input data.
-        """
-        return self._is_input
-
-    @property
-    def size(self) -> Optional[int]:
-        """
-        The size of the required data, if it is known.
-
-        This is particularly important (though still not strictly required) for an output data requirement; i.e., a
-        requirement to store output data somewhere.
-
-        Returns
-        -------
-        Optional[int]
-            he size of the required data, if it is known, or ``None`` otherwise.
-        """
-        return self._size
-
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        serial = {self._KEY_DOMAIN: self.domain.to_dict(), self._KEY_IS_INPUT: self.is_input,
-                  self._KEY_CATEGORY: self.category.name}
-        if self.size is not None:
-            serial[self._KEY_SIZE] = self.size
-        if self.fulfilled_by is not None:
-            serial[self._KEY_FULFILLED_BY] = self.fulfilled_by
-        if self.fulfilled_access_at is not None:
-            serial[self._KEY_FULFILLED_ACCESS_AT] = self.fulfilled_access_at
-        return serial
+    def dict(self, *, **kwargs) -> dict:
+        exclude_unset = True if kwargs.get("exclude_unset") is None else False
+        kwargs["exclude_unset"] = exclude_unset
+        return super().dict(**kwargs)
