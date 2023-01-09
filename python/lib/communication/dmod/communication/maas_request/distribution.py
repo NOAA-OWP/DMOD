@@ -1,4 +1,4 @@
-class Distribution(object):
+class Distribution:
     """
     Represents the definition of a distribution of numbers
     """
