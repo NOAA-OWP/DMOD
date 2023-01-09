@@ -90,9 +90,6 @@ class Dataset(Serializable):
         if isinstance(v, datetime):
             return v
 
-        # NOTE: could raise:
-        # - TypeError: if `v` or `cls.get_datetime_str_format` is not `str`
-        # - ValueError: if `v` cannot be coerced into `datetime` object
         return datetime.strptime(v, cls.get_datetime_str_format())
 
     @validator("created_on", "last_updated", "expires")
@@ -123,14 +120,6 @@ class Dataset(Serializable):
         # TODO: in future deprecate setting properties unless through a setter method
         validate_assignment = True
         arbitrary_types_allowed = True
-
-    # TODO: move this (and something more to better automatically handle Serializable subtypes) to Serializable directly
-    @classmethod
-    def _date_parse_helper(cls, json_obj: dict, key: str) -> Optional[datetime]:
-        if key in json_obj:
-            return datetime.strptime(json_obj[key], cls.get_datetime_str_format())
-        else:
-            return None
 
     # TODO: Remove after draft review
     # @classmethod
@@ -240,8 +229,10 @@ class Dataset(Serializable):
         if not self.is_temporary:
             return False
         elif isinstance(value, timedelta):
+            # TODO: Fix bug. expires could be None
             self._set_expires(self.expires + value)
             return True
+            # TODO: Fix bug. expires could be None
         elif isinstance(value, datetime) and self.expires < value:
             self._set_expires(value)
             return True
