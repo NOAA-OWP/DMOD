@@ -316,10 +316,3 @@ class BasicResultIndicator(ResultIndicator):
     """
     Bare-bones, concrete implementation of ::class:`ResultIndicator`.
     """
-
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        try:
-            return cls(**json_obj)
-        except Exception:
-            return None
