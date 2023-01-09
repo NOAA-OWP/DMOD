@@ -60,14 +60,14 @@ class TestDataset(unittest.TestCase):
                                                    discrete_restrictions=[self.example_catchment_restrictions[i]]))
             self.example_datasets.append(self._init_dataset_example(i))
             date_fmt = Dataset.get_datetime_str_format()
-            self.example_data.append({Dataset._KEY_NAME: self.gen_dataset_name(i),
-                                      Dataset._KEY_DATA_DOMAIN: self.example_domains[i].to_dict(),
-                                      Dataset._KEY_DATA_CATEGORY: self.example_categories[i].name,
-                                      Dataset._KEY_TYPE: self.example_types[i].name,
-                                      Dataset._KEY_UUID: str(self.example_datasets[i].uuid),
-                                      Dataset._KEY_ACCESS_LOCATION: 'location_{}'.format(i),
-                                      Dataset._KEY_IS_READ_ONLY: False,
-                                      Dataset._KEY_CREATED_ON: self._created_on.strftime(date_fmt),
+            self.example_data.append({"name": self.gen_dataset_name(i),
+                                      "data_domain": self.example_domains[i].to_dict(),
+                                      "data_category": self.example_categories[i].name,
+                                      "type": self.example_types[i].name,
+                                      "uuid": str(self.example_datasets[i].uuid),
+                                      "access_location": 'location_{}'.format(i),
+                                      "is_read_only": False,
+                                      "created_on": self._created_on, # NOTE: breaking change
                                       })
 
     def test_factory_init_from_deserialized_json_0_a(self):
