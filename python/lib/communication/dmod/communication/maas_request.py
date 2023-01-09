@@ -12,45 +12,6 @@ from numbers import Number
 from typing import Dict, List, Optional, Set, Union
 
 
-class NWMRequestResponse(ModelExecRequestResponse):
-    """
-    A response to a :class:`NWMRequest`.
-
-    Note that, when not ``None``, the :attr:`data` value will be a dictionary with the following format:
-        - key 'job_id' : the appropriate job id value in response to the request
-        - key 'output_data_id' : the 'data_id' of the output dataset for the requested job
-        - key 'scheduler_response' : the related :class:`SchedulerRequestResponse`, in serialized dictionary form
-
-    For example:
-    {
-        'job_id': 1,
-        'output_data_id': '00000000-0000-0000-0000-000000000000',
-        'scheduler_response': {
-            'success': True,
-            'reason': 'Testing Stub',
-            'message': 'Testing stub',
-            'data': {
-                'job_id': 1
-            }
-        }
-    }
-
-    Or:
-    {
-        'job_id': 0,
-        'output_data_id': '00000000-0000-0000-0000-000000000000',
-        'scheduler_response': {
-            'success': False,
-            'reason': 'Testing Stub',
-            'message': 'Testing stub',
-            'data': {}
-        }
-    }
-    """
-
-    response_to_type = NWMRequest
-
-
 class NGENRequest(ModelExecRequest):
 
     event_type = MessageEventType.MODEL_EXEC_REQUEST
