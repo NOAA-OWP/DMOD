@@ -1,6 +1,7 @@
 import json
 import unittest
-from ..communication.maas_request import NWMRequestResponse, InitRequestResponseReason
+from ..communication.maas_request import NWMRequestResponse
+from ..communication.message import InitRequestResponseReason
 from ..communication.scheduler_request import SchedulerRequestResponse
 
 
