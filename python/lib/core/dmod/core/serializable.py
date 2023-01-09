@@ -1,13 +1,27 @@
 from abc import ABC, abstractmethod
 from numbers import Number
-from typing import Callable, Dict, Type, Union
+from enum import Enum
+from typing import Any, Callable, ClassVar, Dict, Type, TYPE_CHECKING, Union, Optional
+from pydantic import BaseModel
 import json
 
+if TYPE_CHECKING:
+    from pydantic.typing import (
+        AbstractSetIntStr,
+        MappingIntStrAny,
+    )
 
-class Serializable(ABC):
+
+class Serializable(BaseModel, ABC):
     """
     An interface class for an object that can be serialized to a dictionary-like format (i.e., potentially a JSON
     object) and JSON string format based directly from dumping the aforementioned dictionary-like representation.
+
+    Subtypes of `Serializable` should specify their fields following
+    [`pydantic.BaseModel`](https://docs.pydantic.dev/usage/models/) semantics (see example below).
+    Notably, `to_dict` and `to_json` will exclude `None` fields and serialize fields using any
+    provided aliases (i.e.  `pydantic.Field(alias="some_alias")`). Also, enum subtypes are
+    serialized using their member `name` property.
 
     Objects of this type will also used the JSON string format as their default string representation.
 
@@ -24,9 +38,30 @@ class Serializable(ABC):
     its ::attribute:`_SERIAL_DATETIME_STR_FORMAT` class attribute.  Note that the actual parsing/serialization logic is
     left entirely to the subtypes, as many will not need it (and thus should not have to worry about implement another
     method or have their superclass bloated by importing the ``datetime`` package).
+
+    Example:
+    ```
+    # specify field as class variable, specify final type using type hint.
+    # pydantic will try to coerce a field into the specified type, if it can't, a
+    # `pydantic.ValidationError` is raised.
+
+    class User(Serializable):
+        id: int
+        username: str
+        email: str # more appropriately, `pydantic.EmailStr`
+
+    >>> user = User(id=1, username="uncle_sam", email="uncle_sam@fake.gov")
+    >>> user.to_dict() # {"id": 1, "username": "uncle_sam", "email": "uncle_sam@fake.gov"}
+    >>> user.to_json() # '{"id": 1, "username": "uncle_sam", "email": "uncle_sam@fake.gov"}'
+    ```
     """
 
-    _SERIAL_DATETIME_STR_FORMAT = '%Y-%m-%d %H:%M:%S'
+    _SERIAL_DATETIME_STR_FORMAT: ClassVar[str] = '%Y-%m-%d %H:%M:%S'
+
+    # global pydantic options
+    class Config:
+        # fields can be populated using their given name or provided alias
+        allow_population_by_field_name = True
 
     @classmethod
     def _get_invalid_type_message(cls):
@@ -158,11 +193,11 @@ class Serializable(ABC):
         # If we get this far, then return the converted value
         return converted_value
 
-    @abstractmethod
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
         """
         Get the representation of this instance as a serialized dictionary or dictionary-like object (e.g., a JSON
-        object).
+        object). Field's are serialized using an alias, if provided. Field's that are `None` are
+        excluded from serialization.
 
         Since the returned value must be serializable and JSON-like, key and value types are restricted.  In particular,
         the returned value type, which this docstring will call ``D``, must adhere to the criteria defined below:
@@ -180,7 +215,7 @@ class Serializable(ABC):
             The representation of this instance as a serialized dictionary or dictionary-like object, with valid types
             of keys and values.
         """
-        pass
+        return self.dict(exclude_none=True, by_alias=True)
 
     def __str__(self):
         return str(self.to_json())
@@ -195,6 +230,39 @@ class Serializable(ABC):
             the serialized JSON string representation of this instance
         """
         return json.dumps(self.to_dict(), sort_keys=True)
+
+    @classmethod
+    def _get_value(
+        cls,
+        v: Any,
+        to_dict: bool,
+        by_alias: bool,
+        include: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]],
+        exclude: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]],
+        exclude_unset: bool,
+        exclude_defaults: bool,
+        exclude_none: bool,
+    ) -> Any:
+        """
+        Method used by pydantic to serialize field values.
+
+        Override how `enum.Enum` subclasses are serialized by pydantic. Enums are serialized using
+        their member name, not their value.
+        """
+        # serialize enum's using their name property
+        if isinstance(v, Enum) and not getattr(cls.Config, "use_enum_values", False):
+            return v.name
+
+        return super()._get_value(
+            v,
+            to_dict=to_dict,
+            by_alias=by_alias,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            include=include,
+            exclude=exclude,
+            exclude_none=exclude_none,
+        )
 
 
 class SerializedDict(Serializable):
