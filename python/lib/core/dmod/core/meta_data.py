@@ -349,13 +349,6 @@ class DiscreteRestriction(Serializable):
     # validate variable is not UNKNOWN variant
     _validate_variable = validator("variable", allow_reuse=True)(_validate_variable_is_known)
 
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        try:
-            cls(**json_obj)
-        except:
-            return None
-
     def __init__(self, variable: Union[str, StandardDatasetIndex], values: Union[List[str], List[Number]], allow_reorder: bool = True,
                  remove_duplicates: bool = True, **kwargs):
         super().__init__(variable=variable, values=values, **kwargs)
@@ -468,13 +461,6 @@ class DataDomain(Serializable):
             msg = "Cannot create {} without at least one finite continuous or discrete restriction"
             raise RuntimeError(msg.format(cls.__name__))
         return values
-
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        try:
-            return cls(**json_obj)
-        except:
-            return None
 
     @classmethod
     def factory_init_from_restriction_collections(cls, data_format: DataFormat, **kwargs) -> 'DataDomain':
@@ -735,26 +721,6 @@ class DataRequirement(Serializable):
     """ Serialization dictionary JSON key for ::attribute:`is_input` property value. """
     _KEY_SIZE = 'size'
     """ Serialization dictionary JSON key for ::attribute:`size` property value. """
-
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict) -> Optional['DataRequirement']:
-        """
-        Deserialize the given JSON to a ::class:`DataRequirement` instance, or return ``None`` if it is not valid.
-
-        Parameters
-        ----------
-        json_obj : dict
-            The JSON to be deserialized.
-
-        Returns
-        -------
-        Optional[DataRequirement]
-            A deserialized ::class:`DataRequirement` instance, or return ``None`` if the JSON is not valid.
-        """
-        try:
-            return cls(**json_obj)
-        except:
-            return None
 
     def __hash__(self):
         return hash((self.domain, self.is_input, self.category))
