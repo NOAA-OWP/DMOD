@@ -1,3 +1,6 @@
+from .model_exec_request import ModelExecRequest
+
+
 def get_available_models() -> dict:
     """
     :return: The names of all models mapped to their class
