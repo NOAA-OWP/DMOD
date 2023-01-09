@@ -36,7 +36,7 @@ class Serializable(BaseModel, ABC):
     An exception to the aforementioned recommendation is the ::class:`datetime.datetime` type.  Subtype attributes of
     ::class:`datetime.datetime` type should be parsed and serialized using the pattern returned by the
     ::method:`get_datetime_str_format` class method.  A reasonable default is provided in the base interface class, but
-    the pattern can be adjusted eitehr by overriding the class method directly or by having a subtypes set/override
+    the pattern can be adjusted either by overriding the class method directly or by having a subtypes set/override
     its ::attribute:`_SERIAL_DATETIME_STR_FORMAT` class attribute.  Note that the actual parsing/serialization logic is
     left entirely to the subtypes, as many will not need it (and thus should not have to worry about implement another
     method or have their superclass bloated by importing the ``datetime`` package).
