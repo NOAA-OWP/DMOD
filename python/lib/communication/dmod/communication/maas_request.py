@@ -12,15 +12,6 @@ from numbers import Number
 from typing import Dict, List, Optional, Set, Union
 
 
-class ExternalRequestResponse(Response, ABC):
-
-    response_to_type = ExternalRequest
-    """ The type of :class:`AbstractInitRequest` for which this type is the response"""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-
 class ModelExecRequestResponse(ExternalRequestResponse, ABC):
 
     _data_dict_key_job_id = 'job_id'
