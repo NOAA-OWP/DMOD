@@ -1,8 +1,9 @@
-from enum import Enum
 from typing import Optional
 
+from .enum import PydanticEnum
 
-class AllocationParadigm(Enum):
+
+class AllocationParadigm(PydanticEnum):
     """
     Representation of the ways compute assets may be combined to fulfill a total required asset amount for a task.
 
