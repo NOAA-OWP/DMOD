@@ -4,9 +4,20 @@ from typing import Optional, Union
 
 from dmod.core.execution import AllocationParadigm
 from ..message import MessageEventType
-from .utilities import get_available_models
 from .dmod_job_request import DmodJobRequest
 from .external_request import ExternalRequest
+
+
+def get_available_models() -> dict:
+    """
+    :return: The names of all models mapped to their class
+    """
+    available_models = dict()
+
+    for subclass in ModelExecRequest.__subclasses__():  # type: ModelExecRequest
+        available_models[subclass.model_name] = subclass
+
+    return available_models
 
 
 class ModelExecRequest(ExternalRequest, DmodJobRequest, ABC):
