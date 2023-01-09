@@ -1,16 +1,4 @@
-from .model_exec_request import ModelExecRequest
-
-
-def get_available_models() -> dict:
-    """
-    :return: The names of all models mapped to their class
-    """
-    available_models = dict()
-
-    for subclass in ModelExecRequest.__subclasses__():  # type: ModelExecRequest
-        available_models[subclass.model_name] = subclass
-
-    return available_models
+from .model_exec_request import ModelExecRequest, get_available_models
 
 
 def get_available_outputs() -> set:
