@@ -425,30 +425,54 @@ class DataDomain(Serializable):
     """
     A domain for a dataset, with domain-defining values contained by one or more discrete and/or continuous components.
     """
+    data_format: DataFormat = Field(
+    description="The format for the data in this domain, which contains details like the indices and other data fields."
+    )
+    continuous_restrictions: Optional[List[ContinuousRestriction]] = Field(
+        description="Map of the continuous restrictions defining this domain, keyed by variable name.",
+        alias="continuous",
+        default_factory=list
+    )
+    discrete_restrictions: Optional[List[DiscreteRestriction]] = Field(
+        description="Map of the discrete restrictions defining this domain, keyed by variable name.",
+        alias="discrete",
+        default_factory=list
+    )
+    custom_data_fields: Optional[Dict[str, Union[str, int, float, Any]]] = Field(
+        description=("This will either be directly from the format, if its format specifies any fields, or from a custom fields"
+                     "attribute that may be set during initialization (but is ignored when the format specifies fields)."),
+        alias="data_fields"
+    )
+
+    @validator("custom_data_fields")
+    def validate_data_fields(cls, values):
+        def handle_type_map(t):
+            if t == "str" or t == str:
+                return str
+            elif t == "int" or t == int:
+                return int
+            elif t == "float" or t == float:
+                return float
+            # maintain reference to a passed in python type or subtype
+            elif isinstance(t, type):
+                return t
+            return Any
+
+        return {k: handle_type_map(v) for k, v in values.items()}
+
+    @root_validator()
+    def validate_sufficient_restrictions(cls, values):
+        continuous_restrictions = values.get("continuous_restrictions", [])
+        discrete_restrictions = values.get("discrete_restrictions", [])
+        if len(continuous_restrictions) + len(discrete_restrictions) == 0:
+            msg = "Cannot create {} without at least one finite continuous or discrete restriction"
+            raise RuntimeError(msg.format(cls.__name__))
+        return values
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
         try:
-            data_format = DataFormat.get_for_name(json_obj["data_format"])
-            continuous = [ContinuousRestriction.factory_init_from_deserialized_json(c) for c in json_obj["continuous"]]
-            discrete = [DiscreteRestriction.factory_init_from_deserialized_json(d) for d in json_obj["discrete"]]
-            if 'data_fields' in json_obj:
-                data_fields = dict()
-                for key in json_obj['data_fields']:
-                    val = json_obj['data_fields'][key]
-                    if val == 'str':
-                        data_fields[key] = str
-                    elif val == 'int':
-                        data_fields[key] = int
-                    elif val == 'float':
-                        data_fields[key] = float
-                    else:
-                        data_fields[key] = Any
-            else:
-                data_fields = None
-
-            return cls(data_format=data_format, continuous_restrictions=continuous, discrete_restrictions=discrete,
-                       custom_data_fields=data_fields)
+            return cls(**json_obj)
         except:
             return None
 
@@ -521,40 +545,13 @@ class DataDomain(Serializable):
                           continuous_restrictions=None if len(continuous) == 0 else continuous,
                           discrete_restrictions=None if len(discrete) == 0 else discrete)
 
-    def __eq__(self, other):
-        return self.__class__ == other.__class__ and self.data_format == other.data_format \
-               and self.continuous_restrictions == other.continuous_restrictions \
-               and self.discrete_restrictions == other.discrete_restrictions \
-               and self._custom_data_fields == other._custom_data_fields
-
     def __hash__(self) -> int:
-        cu = [] if self._custom_data_fields is None else [tup for tup in sorted(self._custom_data_fields.items())]
+        cu = [] if self.custom_data_fields is None else [tup for tup in sorted(self._custom_data_fields.items())]
         return hash((self.data_format.name,
                      *[v for _, v in sorted(self.continuous_restrictions.items(), key=lambda dt: dt[0].name)],
                      *[v for _, v in sorted(self.discrete_restrictions.items(), key=lambda dt: dt[0].name)],
                      *cu
                      ))
-
-    def __init__(self, data_format: DataFormat, continuous_restrictions: Optional[List[ContinuousRestriction]] = None,
-                 discrete_restrictions: Optional[List[DiscreteRestriction]] = None,
-                 custom_data_fields: Optional[Dict[str, Type]] = None):
-        self._data_format = data_format
-        self._continuous_restrictions = dict()
-        self._discrete_restrictions = dict()
-        self._custom_data_fields = custom_data_fields
-        """ Extra attribute for custom data fields when format does not specify all data fields (ignore when format does specify). """
-
-        if continuous_restrictions is not None:
-            for c in continuous_restrictions:
-                self._continuous_restrictions[c.variable] = c
-
-        if discrete_restrictions is not None:
-            for d in discrete_restrictions:
-                self._discrete_restrictions[d.variable] = d
-
-        if len(self._continuous_restrictions) + len(self._discrete_restrictions) == 0:
-            msg = "Cannot create {} without at least one finite continuous or discrete restriction"
-            raise RuntimeError(msg.format(self.__class__.__name__))
 
     def _extends_continuous_restriction(self, continuous_restriction: ContinuousRestriction) -> bool:
         idx = continuous_restriction.variable
@@ -594,30 +591,6 @@ class DataDomain(Serializable):
             return True
 
     @property
-    def continuous_restrictions(self) -> Dict[StandardDatasetIndex, ContinuousRestriction]:
-        """
-        Map of the continuous restrictions defining this domain, keyed by variable name.
-
-        Returns
-        -------
-        Dict[str, ContinuousRestriction]
-            Map of the continuous restrictions defining this domain, keyed by variable name.
-        """
-        return self._continuous_restrictions
-
-    @property
-    def discrete_restrictions(self) -> Dict[StandardDatasetIndex, DiscreteRestriction]:
-        """
-        Map of the discrete restrictions defining this domain, keyed by variable name.
-
-        Returns
-        -------
-        Dict[str, DiscreteRestriction]
-            Map of the discrete restrictions defining this domain, keyed by variable name.
-        """
-        return self._discrete_restrictions
-
-    @property
     def data_fields(self) -> Dict[str, Type]:
         """
         Get the data fields map of this domain instance.
@@ -630,23 +603,9 @@ class DataDomain(Serializable):
 
         """
         if self.data_format.data_fields is None:
-            return self._custom_data_fields
+            return self.custom_data_fields
         else:
-            return self._data_format.data_fields
-
-    @property
-    def data_format(self) -> DataFormat:
-        """
-        The format for data in this domain.
-
-        The format for the data in this domain, which contains details like the indices and other data fields.
-
-        Returns
-        -------
-        DataFormat
-            The format for data in this domain.
-        """
-        return self._data_format
+            return self.data_format.data_fields
 
     @property
     def indices(self) -> List[str]:
@@ -661,34 +620,29 @@ class DataDomain(Serializable):
         List[str]
             List of the string forms of the ::class:`StandardDataIndex` indices that define this domain.
         """
-        return self._data_format.indices
+        return self.data_format.indices
 
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
+    def dict(self, **kwargs) -> dict:
         """
-        Serialize to a dictionary.
+        `data_fields` is excluded from dict if `self.data_format.data_fields` is None.
 
-        Serialize this instance to a dictionary, with there being two top-level list items.  These are made from the
-        the contained ::class:`ContinuousRestriction` and ::class:`DiscreteRestriction` objects
-
-        Returns
-        -------
-
+        called by `to_dict` and `to_json`.
         """
-        serial = {"data_format": self._data_format.name,
-                  "continuous": [component.to_dict() for idx, component in self.continuous_restrictions.items()],
-                  "discrete": [component.to_dict() for idx, component in self.discrete_restrictions.items()]}
+        # TODO: aaraney, handle encoding type (int, float, etc.) as str
+        by_alias = kwargs.pop("by_alias") if "by_alias" in kwargs else True
+
         if self.data_format.data_fields is None:
-            serial['data_fields'] = dict()
-            for key in self._custom_data_fields:
-                if self._custom_data_fields[key] == str:
-                    serial['data_fields'][key] = 'str'
-                elif self._custom_data_fields[key] == int:
-                    serial['data_fields'][key] = 'int'
-                elif self._custom_data_fields[key] == float:
-                    serial['data_fields'][key] = 'float'
-                else:
-                    serial['data_fields'][key] = 'Any'
-        return serial
+            return super().dict(by_alias=by_alias, **kwargs)
+
+        exclude = {"custom_data_fields"}
+
+        # merge exclude fields and excludes from kwargs
+        if "exclude" in kwargs:
+            values = kwargs.pop("exclude")
+            if values is not None:
+                exclude = {*exclude, *values}
+
+        return super().dict(by_alias=by_alias, exclude=exclude, **kwargs)
 
 
 class DataCategory(PydanticEnum):
