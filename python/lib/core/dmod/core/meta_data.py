@@ -1,13 +1,13 @@
-from enum import Enum
 from datetime import datetime
 
+from .enum import PydanticEnum
 from .serializable import Serializable
 from numbers import Number
 from typing import Any, Dict, List, Optional, Set, Type, Union
 from collections.abc import Iterable
 
 
-class StandardDatasetIndex(Enum):
+class StandardDatasetIndex(PydanticEnum):
 
     UNKNOWN = (-1, Any)
     TIME = (0, datetime)
@@ -35,7 +35,7 @@ class StandardDatasetIndex(Enum):
         return StandardDatasetIndex.UNKNOWN
 
 
-class DataFormat(Enum):
+class DataFormat(PydanticEnum):
     """
     Supported data format types for data needed or produced by workflow execution tasks.
 
@@ -706,7 +706,7 @@ class DataDomain(Serializable):
         return serial
 
 
-class DataCategory(Enum):
+class DataCategory(PydanticEnum):
     """
     The general category values for different data.
     """
