@@ -290,7 +290,12 @@ class Dataset(Serializable):
         # if exclude is set, ignore this _get_exclude_fields()
         exclude = self._get_exclude_fields() if kwargs.get("exclude", False) is False else kwargs["exclude"]
         kwargs["exclude"] = exclude
-        return super().dict(**kwargs)
+
+        serial = super().dict(**kwargs)
+
+        # serialize uuid
+        serial["uuid"] = str(self.uuid)
+        return serial
 
 
 class DatasetUser(ABC):
