@@ -279,7 +279,8 @@ class SerializedDict(Serializable):
     base_dict: dict
 
     @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
+    def factory_init_from_deserialized_json(cls: Self, json_obj: dict) -> Self:
+        # NOTE: could raise. return type has fewer constraints
         return cls(**json_obj)
 
 
