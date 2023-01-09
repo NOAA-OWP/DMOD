@@ -2,6 +2,8 @@
 Defines common decorators
 """
 import typing
+from warnings import warn
+from functools import wraps
 
 from .decorator_constants import *
 
@@ -88,3 +90,18 @@ def describe(description: str):
         return obj
 
     return add_description
+
+
+def deprecated(deprecation_message: str):
+    def function_to_deprecate(fn):
+
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            warn(deprecation_message, DeprecationWarning)
+            return fn(*args, **kwargs)
+
+        return wrapper
+
+    return function_to_deprecate
+
+
