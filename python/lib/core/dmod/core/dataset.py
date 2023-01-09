@@ -5,13 +5,13 @@ from .exception import DmodRuntimeError
 from datetime import datetime, timedelta
 
 from .serializable import Serializable, ResultIndicator
-from enum import Enum
+from .enum import PydanticEnum
 from numbers import Number
 from typing import Any, Callable, Dict, FrozenSet, List, Optional, Set, Tuple, Type, Union
 from uuid import UUID, uuid4
 
 
-class DatasetType(Enum):
+class DatasetType(PydanticEnum):
     UNKNOWN = (-1, False, lambda dataset: None)
     OBJECT_STORE = (0, True, lambda dataset: dataset.name)
     FILESYSTEM = (1, True, lambda dataset: dataset.access_location)
