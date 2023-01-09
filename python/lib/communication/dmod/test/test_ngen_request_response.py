@@ -1,6 +1,7 @@
 import json
 import unittest
-from ..communication.maas_request import NGENRequestResponse, InitRequestResponseReason
+from ..communication.maas_request import NGENRequestResponse
+from ..communication.message import InitRequestResponseReason
 from ..communication.scheduler_request import SchedulerRequestResponse
 
 
