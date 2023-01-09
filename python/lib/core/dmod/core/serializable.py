@@ -1,7 +1,7 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from numbers import Number
 from enum import Enum
-from typing import Any, Callable, ClassVar, Dict, Type, TYPE_CHECKING, Union, Optional
+from typing import Any, Callable, ClassVar, Dict, Type, TypeVar, TYPE_CHECKING, Union, Optional
 from pydantic import BaseModel, Field
 import json
 
@@ -12,6 +12,8 @@ if TYPE_CHECKING:
         AbstractSetIntStr,
         MappingIntStrAny,
     )
+
+Self = TypeVar("Self", bound="Serializable")
 
 
 class Serializable(BaseModel, ABC):
@@ -71,8 +73,7 @@ class Serializable(BaseModel, ABC):
         return invalid_type_msg
 
     @classmethod
-    @abstractmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
+    def factory_init_from_deserialized_json(cls: Self, json_obj: dict) -> Optional[Self]:
         """
         Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
 
@@ -84,7 +85,10 @@ class Serializable(BaseModel, ABC):
         -------
         A new object of this type instantiated from the deserialize JSON object dictionary
         """
-        pass
+        try:
+            return cls(**json_obj)
+        except:
+            return None
 
     @classmethod
     def get_datetime_str_format(cls):
