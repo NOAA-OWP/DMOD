@@ -30,15 +30,15 @@ class TestDataRequirement(unittest.TestCase):
         requirement = self.example_reqs[ex]
         as_dict = requirement.to_dict()
         self.assertTrue(isinstance(as_dict, dict))
-        self.assertTrue(DataRequirement._KEY_DOMAIN in as_dict)
+        self.assertTrue("domain" in as_dict)
 
     def test_to_dict_0_b(self):
         ex = 0
         requirement = self.example_reqs[ex]
         as_dict = requirement.to_dict()
         self.assertTrue(requirement.is_input)
-        self.assertTrue(isinstance(as_dict[DataRequirement._KEY_IS_INPUT], bool))
-        self.assertTrue(as_dict[DataRequirement._KEY_IS_INPUT])
+        self.assertTrue(isinstance(as_dict["is_input"], bool))
+        self.assertTrue(as_dict["is_input"])
 
     def test_factory_init_from_deserialized_json_0_a(self):
         """
