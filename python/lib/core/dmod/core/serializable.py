@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from numbers import Number
 from enum import Enum
 from typing import Any, Callable, ClassVar, Dict, Type, TYPE_CHECKING, Union, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import json
 
 from .decorators import deprecated
@@ -272,16 +272,11 @@ class SerializedDict(Serializable):
     """
     A basic encapsulation of a dictionary as a ::class:`Serializable`.
     """
+    base_dict: dict
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
-        return cls(json_obj)
-
-    def __init__(self, base_dict: dict):
-        self.base_dict = base_dict
-
-    def to_dict(self) -> dict:
-        return self.base_dict
+        return cls(**json_obj)
 
 
 class ResultIndicator(Serializable, ABC):
@@ -307,18 +302,9 @@ class ResultIndicator(Serializable, ABC):
         An optional, more detailed explanation of the result, which by default is an empty string.
 
     """
-
-    def __init__(self, success: bool, reason: str, message: str = '', *args, **kwargs):
-        super(ResultIndicator, self).__init__(*args, **kwargs)
-        self.success: bool = success
-        """ Whether this indicates a successful result. """
-        self.reason: str = reason
-        """ A very short, high-level summary of the result. """
-        self.message: str = message
-        """ An optional, more detailed explanation of the result, which by default is an empty string. """
-
-    def to_dict(self) -> dict:
-        return {'success': self.success, 'reason': self.reason, 'message': self.message}
+    success: bool = Field(description="Whether this indicates a successful result.")
+    reason: str = Field(description="A very short, high-level summary of the result.")
+    message: str = Field("", description="An optional, more detailed explanation of the result, which by default is an empty string.")
 
 
 class BasicResultIndicator(ResultIndicator):
@@ -329,9 +315,6 @@ class BasicResultIndicator(ResultIndicator):
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
         try:
-            return cls(success=json_obj['success'], reason=json_obj['reason'], message=json_obj['message'])
-        except Exception as e:
+            return cls(**json_obj)
+        except Exception:
             return None
-
-    def __init__(self, *args, **kwargs):
-        super(BasicResultIndicator, self).__init__(*args, **kwargs)
