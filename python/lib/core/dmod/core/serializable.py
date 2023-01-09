@@ -5,6 +5,8 @@ from typing import Any, Callable, ClassVar, Dict, Type, TYPE_CHECKING, Union, Op
 from pydantic import BaseModel
 import json
 
+from .decorators import deprecated
+
 if TYPE_CHECKING:
     from pydantic.typing import (
         AbstractSetIntStr,
@@ -100,6 +102,7 @@ class Serializable(BaseModel, ABC):
         return cls._SERIAL_DATETIME_STR_FORMAT
 
     @classmethod
+    @deprecated("In the future this will be removed. Use pydantic type hints, validators, or root validators instead.")
     def parse_simple_serialized(cls, json_obj: dict, key: str, expected_type: Type, required_present: bool = True,
                                 converter: Callable = None):
         """
