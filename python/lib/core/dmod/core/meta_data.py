@@ -5,6 +5,7 @@ from .serializable import Serializable
 from numbers import Number
 from typing import Any, Dict, List, Optional, Set, Type, Union
 from collections.abc import Iterable
+from pydantic import root_validator, validator, PyObject, Field
 
 
 class StandardDatasetIndex(PydanticEnum):
@@ -33,6 +34,11 @@ class StandardDatasetIndex(PydanticEnum):
             if value.name.upper() == cleaned_up_str:
                 return value
         return StandardDatasetIndex.UNKNOWN
+
+def _validate_variable_is_known(cls, variable: StandardDatasetIndex) -> StandardDatasetIndex:
+    if variable == StandardDatasetIndex.UNKNOWN:
+        raise ValueError("Invalid value for {} variable: {}".format(cls.__name__, variable))
+    return variable
 
 
 class DataFormat(PydanticEnum):
@@ -215,6 +221,37 @@ class ContinuousRestriction(Serializable):
     """
     A filtering component, typically applied as a restriction on a domain, by a continuous range of values of a variable.
     """
+    variable: StandardDatasetIndex
+    begin: datetime
+    end: datetime
+    datetime_pattern: Optional[str]
+    subclass: Optional[PyObject] = Field(exclude=True)
+
+    @root_validator(pre=True)
+    def coerce_times_if_datetime_pattern(cls, values):
+        datetime_ptr = values.get("datetime_pattern")
+
+        if datetime_ptr is not None:
+            # If there is a datetime pattern, then expect begin and end to parse properly to datetime objects
+            begin = values["begin"]
+            end = values["end"]
+
+            if not isinstance(begin, datetime):
+                values["begin"] = datetime.strptime(begin, datetime_ptr)
+
+            if not isinstance(end, datetime):
+                values["end"] = datetime.strptime(end, datetime_ptr)
+        return values
+
+    @root_validator()
+    def validate_start_before_end(cls, values):
+        if values["begin"] > values["end"]:
+            raise RuntimeError("Cannot have {} with begin value larger than end.".format(cls.__name__))
+
+        return values
+
+    # validate variable is not UNKNOWN variant
+    _validate_variable = validator("variable", allow_reuse=True)(_validate_variable_is_known)
 
     @classmethod
     def convert_truncated_serial_form(cls, truncated_json_obj: dict, datetime_format: Optional[str] = None) -> dict:
@@ -251,57 +288,18 @@ class ContinuousRestriction(Serializable):
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
-        datetime_ptr = json_obj["datetime_pattern"] if "datetime_pattern" in json_obj else None
-        try:
-            variable = StandardDatasetIndex.get_for_name(json_obj['variable'])
-            if variable == StandardDatasetIndex.UNKNOWN:
-                raise RuntimeError(
-                    "Unrecognized continuous restriction serialize variable: {}".format(json_obj['variable']))
-            # Handle simple case, which currently means non-datetime item (i.e., no pattern included)
-            if datetime_ptr is None:
-                return cls(variable=variable, begin=json_obj["begin"], end=json_obj["end"])
-
-            # If there is a datetime pattern, then expect begin and end to parse properly to datetime objects
-            begin = datetime.strptime(json_obj["begin"], datetime_ptr)
-            end = datetime.strptime(json_obj["end"], datetime_ptr)
-
-            # Use this type if that's what the JSON specifies is the Serializable subtype
-            if cls.__name__ == json_obj["subclass"]:
-                return cls(variable=variable, begin=begin, end=end, datetime_pattern=datetime_ptr)
-
-            # Try to initialize the right subclass type, or fall back if appropriate to the base type
-            # TODO: consider adding something for recursive search for subclass, not just immediate children types
-            # Use nested try, because we want to fall back to cls type if no subclass attempt or subclass attempt fails
+        if "subclass" in json_obj:
             try:
                 for subclass in cls.__subclasses__():
                     if subclass.__name__ == json_obj["subclass"]:
-                        return subclass(variable=variable, begin=begin, end=end, datetime_pattern=datetime_ptr)
+                        return subclass(**json_obj)
             except:
                 pass
 
-            # Fall back if needed
-            return cls(variable=variable, begin=begin, end=end, datetime_pattern=datetime_ptr)
+        try:
+            return cls(**json_obj)
         except:
             return None
-
-    def __init__(self, variable: Union[str, StandardDatasetIndex], begin, end, datetime_pattern: Optional[str] = None):
-        self.variable = StandardDatasetIndex.get_for_name(variable) if isinstance(variable, str) else variable
-        if self.variable == StandardDatasetIndex.UNKNOWN:
-            raise ValueError("Invalid value for {} variable: {}".format(self.__class__.__name__, variable))
-        if begin > end:
-            raise RuntimeError("Cannot have {} with begin value larger than end.".format(self.__class__.__name__))
-        self.begin = begin
-        self.end = end
-        self._datetime_pattern = datetime_pattern
-
-    def __eq__(self, other):
-        if self.__class__ == other.__class__ or isinstance(other, self.__class__):
-            return self.variable == other.variable and self.begin == other.begin and self.end == other.end \
-                   and self._datetime_pattern == other._datetime_pattern
-        elif isinstance(self, other.__class__):
-            return other.__eq__(self)
-        else:
-            return False
 
     def __hash__(self) -> int:
         return hash((self.variable.name, self.begin, self.end))
@@ -329,16 +327,11 @@ class ContinuousRestriction(Serializable):
            return self.begin <= other.begin and self.end >= other.end
 
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        serial = dict()
-        serial["variable"] = self.variable.name
+        serial = self.dict(exclude_none=True)
         serial["subclass"] = self.__class__.__name__
-        if self._datetime_pattern is not None:
-            serial["datetime_pattern"] = self._datetime_pattern
-            serial["begin"] = self.begin.strftime(self._datetime_pattern)
-            serial["end"] = self.end.strftime(self._datetime_pattern)
-        else:
-            serial["begin"] = self.begin
-            serial["end"] = self.end
+        if self.datetime_pattern is not None:
+            serial["begin"] = self.begin.strftime(self.datetime_pattern)
+            serial["end"] = self.end.strftime(self.datetime_pattern)
         return serial
 
 
