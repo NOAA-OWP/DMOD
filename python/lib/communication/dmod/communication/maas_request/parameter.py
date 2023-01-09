@@ -1,4 +1,4 @@
-class Scalar(object):
+class Scalar:
     """
     Represents a parameter value that is bound to a single number
     """
@@ -19,7 +19,7 @@ class Scalar(object):
         return self.__str__()
 
 
-class Parameter(object):
+class Parameter:
     """
     Base clase for model parameter descriptions that a given model may expose to DMOD for dynamic parameter selection.
     """
