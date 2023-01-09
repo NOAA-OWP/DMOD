@@ -254,6 +254,11 @@ class ContinuousRestriction(Serializable):
     # validate variable is not UNKNOWN variant
     _validate_variable = validator("variable", allow_reuse=True)(_validate_variable_is_known)
 
+    def __eq__(self, o: object) -> bool:
+        if not isinstance(o, ContinuousRestriction):
+            return False
+        return self.variable == o.variable and self.begin == o.begin and self.end == o.end
+
     @classmethod
     def convert_truncated_serial_form(cls, truncated_json_obj: dict, datetime_format: Optional[str] = None) -> dict:
         """
@@ -291,8 +296,15 @@ class ContinuousRestriction(Serializable):
     def factory_init_from_deserialized_json(cls, json_obj: dict):
         if "subclass" in json_obj:
             try:
+                subclass_str = json_obj["subclass"]
+
+                if subclass_str == cls.__name__:
+                    json_obj["subclass"] = cls
+                    return subclass(**json_obj)
+
                 for subclass in cls.__subclasses__():
-                    if subclass.__name__ == json_obj["subclass"]:
+                    if subclass.__name__ == subclass_str:
+                        json_obj["subclass"] = subclass
                         return subclass(**json_obj)
             except:
                 pass
