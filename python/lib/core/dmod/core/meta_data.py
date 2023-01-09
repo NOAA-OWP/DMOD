@@ -706,7 +706,7 @@ class DataRequirement(Serializable):
     domain: DataDomain
     fulfilled_access_at: Optional[str] = Field(description="The location at which the fulfilling dataset for this requirement is accessible, if the dataset known.")
     fulfilled_by: Optional[str] = Field(description="The name of the dataset that will fulfill this, if it is known.")
-    is_input: bool = Field(..., description="Whether this represents required input data, as opposed to a requirement for storing output data.")
+    is_input: bool = Field(description="Whether this represents required input data, as opposed to a requirement for storing output data.")
     size: Optional[int]
 
     def __hash__(self):
