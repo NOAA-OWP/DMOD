@@ -458,6 +458,8 @@ class DataDomain(Serializable):
                 return int
             elif t == "float" or t == float:
                 return float
+            elif t == "bool" or t == bool:
+                return bool
             # maintain reference to a passed in python type or subtype
             elif isinstance(t, type):
                 return t
