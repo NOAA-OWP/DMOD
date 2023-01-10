@@ -57,3 +57,4 @@ Shapely
 packaging
 pyparsing
 shapely>=2.0.0
+pydantic
