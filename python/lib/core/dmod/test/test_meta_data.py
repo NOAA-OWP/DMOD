@@ -184,6 +184,34 @@ class TestDataDomain(unittest.TestCase):
         o = DataDomain.factory_init_from_deserialized_json(data)
         self.assertEqual(o.data_format.name, "AORC_CSV")
 
+    def test_to_dict(self):
+        input_data_fields = {"a": "int", "b": "float", "c": "bool", "d": "str", "e": "flux_capacitor"}
+        expected_serialized_data_fields = {"a": "int", "b": "float", "c": "bool", "d": "str", "e": "Any"}
+        data = {
+            "data_format": "AORC_CSV",
+            "continuous": [],
+            "discrete": [{"variable": "DATA_ID", "values": ["0"]}],
+        }
+        input_data = data.copy()
+        input_data["data_fields"] = input_data_fields
+
+        expected_data = data.copy()
+        expected_data["data_fields"] = expected_serialized_data_fields
+
+        # better error detection if this fails
+        o = DataDomain(**input_data)
+        serial = o.to_dict()
+        self.assertDictEqual(serial, expected_data)
+
+    def test_factory_init_from_restriction_collections(self):
+        catchment_id = ["12"]
+        o = DataDomain.factory_init_from_restriction_collections(data_format=DataFormat.AORC_CSV, CATCHMENT_ID=catchment_id)
+        self.assertListEqual(o.discrete_restrictions[0].values, catchment_id)
+
+    def test_factory_init_from_restriction_collections_fail_for_mismatching_index_field(self):
+        with self.assertRaises(RuntimeError):
+            DataDomain.factory_init_from_restriction_collections(data_format=DataFormat.AORC_CSV, DATA_ID=["12"])
+
 
 class TestTimeRange(unittest.TestCase):
     def test_begin_cannot_come_after_end(self):
