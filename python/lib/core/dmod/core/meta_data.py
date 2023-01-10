@@ -449,6 +449,12 @@ class DataDomain(Serializable):
         alias="data_fields"
     )
 
+    @validator("continuous_restrictions", "discrete_restrictions", always=True)
+    def _validate_restriction_default(cls, value):
+        if value is None:
+            return []
+        return value
+
     @validator("custom_data_fields")
     def validate_data_fields(cls, values):
         def handle_type_map(t):
