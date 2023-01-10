@@ -635,16 +635,49 @@ class DataDomain(Serializable):
 
         called by `to_dict` and `to_json`.
         """
-        # TODO: aaraney, handle encoding type (int, float, etc.) as str
-        exclude = {"custom_data_fields"}
+        DATA_FIELDS_KEY = "custom_data_fields"
+        DATA_FIELDS_ALIAS_KEY = "data_fields"
+        exclude = {DATA_FIELDS_KEY}
 
         # merge exclude fields and excludes from kwargs
-        if "exclude" in kwargs:
-            values = kwargs.pop("exclude")
-            if values is not None:
-                exclude = {*exclude, *values}
+        kwarg_exclude: Optional[Set[str]] = kwargs.get("exclude")
+        if kwarg_exclude is not None:
+            exclude = {*exclude, *kwarg_exclude}
 
-        return super().dict(exclude=exclude, **kwargs)
+        # cases when "custom_data_fields" is excluded
+        if (
+        self.data_format.data_fields is None
+        or (
+            kwarg_exclude is not None
+            and DATA_FIELDS_KEY in kwarg_exclude
+        )
+        ):
+            # overwrite existing exclude with, potentially, merged version.
+            kwargs["exclude"] = exclude
+            return super().dict(**kwargs)
+
+        # serialize "custom_data_fields" python types
+        custom_data_fields = (
+            {k: self._encode_py_type(v) for k, v in self.custom_data_fields.items()}
+            if self.custom_data_fields is not None
+            # need this to support `exclude_none=False`
+            else None
+        )
+
+        # exclude "custom_data_fields" and potentially other fields
+        kwargs["exclude"] = exclude
+
+        serial = super().dict(**kwargs)
+
+        # case: `by_alias` is True
+        if kwargs.get("by_alias", False):
+            # reincorporate "custom_data_fields" using it's alias
+            serial[DATA_FIELDS_ALIAS_KEY] = custom_data_fields
+            return serial
+
+        # reincorporate "custom_data_fields" using it's name
+        serial[DATA_FIELDS_KEY] = custom_data_fields
+        return serial
 
 
 class DataCategory(PydanticEnum):
