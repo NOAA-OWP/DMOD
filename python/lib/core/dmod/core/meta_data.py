@@ -471,6 +471,9 @@ class DataDomain(Serializable):
                 return t
             return Any
 
+        if values is None:
+            return None
+
         return {k: handle_type_map(v) for k, v in values.items()}
 
     @root_validator()
