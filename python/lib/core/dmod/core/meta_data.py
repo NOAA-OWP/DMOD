@@ -627,11 +627,6 @@ class DataDomain(Serializable):
         called by `to_dict` and `to_json`.
         """
         # TODO: aaraney, handle encoding type (int, float, etc.) as str
-        by_alias = kwargs.pop("by_alias") if "by_alias" in kwargs else True
-
-        if self.data_format.data_fields is None:
-            return super().dict(by_alias=by_alias, **kwargs)
-
         exclude = {"custom_data_fields"}
 
         # merge exclude fields and excludes from kwargs
@@ -640,7 +635,7 @@ class DataDomain(Serializable):
             if values is not None:
                 exclude = {*exclude, *values}
 
-        return super().dict(by_alias=by_alias, exclude=exclude, **kwargs)
+        return super().dict(exclude=exclude, **kwargs)
 
 
 class DataCategory(PydanticEnum):
