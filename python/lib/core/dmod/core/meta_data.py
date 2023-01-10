@@ -622,6 +622,13 @@ class DataDomain(Serializable):
         """
         return self.data_format.indices
 
+    @staticmethod
+    def _encode_py_type(o: type) -> str:
+        """Return string representation of a built in type (e.g. 'int') or 'Any'."""
+        if o in {str, int, float, bool}:
+            return o.__name__
+        return "Any"
+
     def dict(self, **kwargs) -> dict:
         """
         `data_fields` is excluded from dict if `self.data_format.data_fields` is None.
