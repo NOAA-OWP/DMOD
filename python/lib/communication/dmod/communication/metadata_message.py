@@ -48,17 +48,9 @@ class MetadataMessage(MetadataSignal, AbstractInitRequest):
 
     event_type: ClassVar[MessageEventType] = MessageEventType.INVALID
 
-    purpose: MetadataPurpose
     description: Optional[str]
-    metadata_follows: bool = Field(
-        False,
-        alias="additional_metadata",
-        description=(
-            "An indication of whether there is more metadata the sender needs to communicate beyond what is contained in this"
-            "message, thus letting the receiver know whether it should continue receiving after sending the response to this."
-        ),
-    )
 
+    config_changes: Optional[Dict[str, Union[None, str, bool, int, float, dict, list]]] = Field(description="A dictionary, keyed by strings, representing some configurable setting(s) that need their value(s) changed.")
     """
     A dictionary, keyed by strings, representing some configurable setting(s) that need their value(s) changed.
 
@@ -74,7 +66,6 @@ class MetadataMessage(MetadataSignal, AbstractInitRequest):
     ::method:`get_config_change_dict_type_key`.  This should be the string representation of the class type of the
     nested, serialized object.
     """
-    config_changes: Optional[Dict[str, Union[None, str, bool, int, float, dict, list]]] = Field(description="A dictionary, keyed by strings, representing some configurable setting(s) that need their value(s) changed.")
 
     @root_validator()
     def validate_purpose(cls, values):
@@ -107,9 +98,8 @@ class MetadataResponse(Response):
     The subtype of ::class:`Response` appropriate for ::class:`MetadataMessage` objects.
     """
 
-    _metadata_follows_serial_key = MetadataMessage._metadata_follows_serial_key
-    _purpose_serial_key = MetadataMessage._purpose_serial_key
-    response_to_type = MetadataMessage
+    response_to_type: ClassVar[Type[AbstractInitRequest]] = MetadataMessage
+    data: MetadataSignal
 
     @classmethod
     def factory_create(cls, success: bool, reason: str, purpose: MetadataPurpose, expect_more: bool, message: str = ''):
@@ -129,16 +119,14 @@ class MetadataResponse(Response):
         -------
 
         """
-        data = {cls._purpose_serial_key: purpose.name, cls._metadata_follows_serial_key: expect_more}
-        return cls(success=success, reason=reason, data=data, message=message)
+        data = MetadataSignal(purpose=purpose, metadata_follows=expect_more)
 
-    def __init__(self, success: bool, reason: str, data: dict, message: str = ''):
-        super().__init__(success=success, reason=reason, message=message, data=data)
+        return cls(success=success, reason=reason, data=data, message=message)
 
     @property
     def metadata_follows(self) -> bool:
-        return self.data[self._metadata_follows_serial_key]
+        return self.data.metadata_follows
 
     @property
     def purpose(self) -> MetadataPurpose:
-        return MetadataPurpose.get_value_for_name(self.data[self._purpose_serial_key])
+        return self.data.purpose
