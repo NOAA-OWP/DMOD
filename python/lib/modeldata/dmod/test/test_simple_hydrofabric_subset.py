@@ -4,7 +4,7 @@ import git
 from pathlib import Path
 from typing import Optional, Union
 from ..modeldata.subset import SimpleHydrofabricSubset, SubsetHandler
-from ..modeldata.hydrofabric import GeoJsonHydrofabricReader, MappedGraphHydrofabric
+from ..modeldata.hydrofabric import GeoJsonHydrofabricReader, GeoJsonHydrofabric
 
 
 class TestSimpleHydrofabricSubset(unittest.TestCase):
@@ -53,7 +53,7 @@ class TestSimpleHydrofabricSubset(unittest.TestCase):
 
         geojson_reader = GeoJsonHydrofabricReader(catchment_data=catchment_geojson, nexus_data=nexus_geojson,
                                                   cross_walk=crosswalk_json)
-        self.hydrofabric = MappedGraphHydrofabric(geojson_reader.hydrofabric_graph, geojson_reader.roots, geojson_reader)
+        self.hydrofabric = GeoJsonHydrofabric(geojson_reader)
         self.subset_handler = SubsetHandler(self.hydrofabric)
 
         self.subset_examples = list()
