@@ -1,12 +1,12 @@
 from abc import ABC
-from enum import Enum
 from typing import Type
 
 from dmod.core.serializable import Serializable, ResultIndicator
+from dmod.core.enum import PydanticEnum
 
 
 #FIXME make an independent enum of model request types???
-class MessageEventType(Enum):
+class MessageEventType(PydanticEnum):
     SESSION_INIT = 1
 
     MODEL_EXEC_REQUEST = 2
@@ -36,7 +36,7 @@ class MessageEventType(Enum):
     INVALID = -1
 
 
-class InitRequestResponseReason(Enum):
+class InitRequestResponseReason(PydanticEnum):
     """
     Values for the ``reason`` attribute in responses to ``AbstractInitRequest`` messages.
     """
