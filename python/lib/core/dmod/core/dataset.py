@@ -118,28 +118,6 @@ class Dataset(Serializable):
         validate_assignment = True
         arbitrary_types_allowed = True
 
-    # TODO: Remove after draft review
-    # @classmethod
-    # def factory_init_from_deserialized_json(cls, json_obj: dict):
-    #     try:
-    #         manager_uuid = UUID(json_obj[cls._KEY_MANAGER_UUID]) if cls._KEY_MANAGER_UUID in json_obj else None
-    #         return cls(name=json_obj[cls._KEY_NAME],
-    #                    category=DataCategory.get_for_name(json_obj[cls._KEY_DATA_CATEGORY]),
-    #                    data_domain=DataDomain.factory_init_from_deserialized_json(json_obj[cls._KEY_DATA_DOMAIN]),
-    #                    dataset_type=DatasetType.get_for_name(json_obj[cls._KEY_TYPE]),
-    #                    access_location=json_obj[cls._KEY_ACCESS_LOCATION],
-    #                    description=json_obj.get(cls._KEY_DESCRIPTION, None),
-    #                    uuid=UUID(json_obj[cls._KEY_UUID]),
-    #                    manager_uuid=manager_uuid,
-    #                    is_read_only=json_obj[cls._KEY_IS_READ_ONLY],
-    #                    expires=cls._date_parse_helper(json_obj, cls._KEY_EXPIRES),
-    #                    derived_from=json_obj[cls._KEY_DERIVED_FROM] if cls._KEY_DERIVED_FROM in json_obj else None,
-    #                    derivations=json_obj[cls._KEY_DERIVATIONS] if cls._KEY_DERIVATIONS in json_obj else [],
-    #                    created_on=cls._date_parse_helper(json_obj, cls._KEY_CREATED_ON),
-    #                    last_updated=cls._date_parse_helper(json_obj, cls._KEY_LAST_UPDATE))
-    #     except Exception as e:
-    #         return None
-
     def __hash__(self):
         return hash(','.join([self.__class__.__name__, self.name, self.category.name, str(hash(self.data_domain)),
                               self.access_location, str(self.is_read_only), str(hash(self.created_on))]))
