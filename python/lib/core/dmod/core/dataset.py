@@ -61,10 +61,8 @@ class Dataset(Serializable):
 
     _SERIAL_DATETIME_STR_FORMAT: ClassVar = '%Y-%m-%d %H:%M:%S'
     name: str = Field(description="The name for this dataset, which also should be a unique identifier.")
-    # QUESTION: should this be optional? see factory_init_from_deserialized_json
-    category: Optional[DataCategory] = Field(None, alias="data_category", description="The ::class:`DataCategory` type value for this instance.")
-    # QUESTION: should this be optional? see factory_init_from_deserialized_json
-    data_domain: Optional[DataDomain]
+    category: DataCategory = Field(None, alias="data_category", description="The ::class:`DataCategory` type value for this instance.")
+    data_domain: DataDomain
     dataset_type: DatasetType = Field(DatasetType.UNKNOWN, alias="type")
     access_location: str = Field(description="String representation of the location at which this dataset is accessible.")
     uuid: Optional[UUID] = Field(default_factory=uuid4)
