@@ -93,7 +93,6 @@ class NGENRequest(ModelExecRequest):
                 config_data_id=json_obj["model"]["config_data_id"],
                 bmi_cfg_data_id=json_obj["model"]["bmi_config_data_id"],
                 session_secret=json_obj["session-secret"],
-                **optional_kwargs_w_defaults,
                 **additional_kw_args
             )
         except Exception as e:
