@@ -2,12 +2,12 @@ from .message import AbstractInitRequest, MessageEventType, Response
 from dmod.core.serializable import Serializable
 from .maas_request import ExternalRequest, ExternalRequestResponse
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement
+from dmod.core.enum import PydanticEnum
 from numbers import Number
-from enum import Enum
 from typing import Dict, Optional, Union, List
 
 
-class QueryType(Enum):
+class QueryType(PydanticEnum):
     LIST_FILES = 1
     GET_CATEGORY = 2
     GET_FORMAT = 3
@@ -65,7 +65,7 @@ class DatasetQuery(Serializable):
         return serial
 
 
-class ManagementAction(Enum):
+class ManagementAction(PydanticEnum):
     """
     Type enumerating the standard actions that can be requested via ::class:`DatasetManagementMessage`.
     """

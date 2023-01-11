@@ -1,10 +1,11 @@
 from .message import AbstractInitRequest, MessageEventType, Response
-from enum import Enum
 from numbers import Number
 from typing import Dict, Optional, Union
 
+from dmod.core.enum import PydanticEnum
 
-class MetadataPurpose(Enum):
+
+class MetadataPurpose(PydanticEnum):
     CONNECT = 1,
     """ The metadata relates to the opening of a connection. """
     DISCONNECT = 2,
