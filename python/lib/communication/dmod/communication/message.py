@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import ClassVar, Type
+from typing import Any, ClassVar, Dict, Type
 
 from dmod.core.serializable import Serializable, ResultIndicator
 from dmod.core.enum import PydanticEnum
@@ -190,33 +190,10 @@ class InvalidMessage(AbstractInitRequest):
     type.
     """
 
-    event_type: MessageEventType = MessageEventType.INVALID
+    event_type: ClassVar[MessageEventType] = MessageEventType.INVALID
     """ :class:`MessageEventType`: the type of ``MessageEventType`` for which this message is applicable. """
 
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        """
-        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
-
-        Parameters
-        ----------
-        json_obj
-
-        Returns
-        -------
-        A new object of this type instantiated from the deserialize JSON object dictionary, or none if the provided
-        parameter could not be used to instantiated a new object.
-        """
-        try:
-            return cls(content=json_obj['content'])
-        except:
-            return None
-
-    def __init__(self, content: dict):
-        self.content = content
-
-    def to_dict(self) -> dict:
-        return {'content': self.content}
+    content: Dict[str, Any]
 
 
 class InvalidMessageResponse(Response):
