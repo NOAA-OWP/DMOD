@@ -1,9 +1,12 @@
 from setuptools import setup, find_namespace_packages
+from pathlib import Path
 
-with open('README.md', 'r') as readme:
+ROOT = Path(__file__).resolve().parent
+
+with open(ROOT / 'README.md', 'r') as readme:
     long_description = readme.read()
 
-exec(open('dmod/requestservice/_version.py').read())
+exec(open(ROOT / 'dmod/requestservice/_version.py').read())
 
 setup(
     name='dmod-requestservice',
