@@ -3,13 +3,13 @@ import hashlib
 import random
 from .message import AbstractInitRequest, MessageEventType, Response
 from dmod.core.serializable import Serializable
+from dmod.core.enum import PydanticEnum
 from abc import ABC, abstractmethod
-from enum import Enum
 from numbers import Number
 from typing import Dict, Optional, Union
 
 
-class SessionInitFailureReason(Enum):
+class SessionInitFailureReason(PydanticEnum):
     AUTHENTICATION_SYS_FAIL = 1, # some error other than bad credentials prevented successful user authentication
     AUTHENTICATION_DENIED = 2,  # the user's asserted identity was not authenticated due to the provided credentials
     USER_NOT_AUTHORIZED = 3,  # the user was authenticated, but does not have authorized permission for a session
