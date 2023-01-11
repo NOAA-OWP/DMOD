@@ -118,7 +118,7 @@ class Response(ResultIndicator, Message, ABC):
 
     """
 
-    response_to_type = AbstractInitRequest
+    response_to_type: ClassVar[Type[AbstractInitRequest]] = AbstractInitRequest
     """ The type of :class:`AbstractInitRequest` for which this type is the response"""
 
     @classmethod
@@ -154,31 +154,6 @@ class Response(ResultIndicator, Message, ABC):
             return None
 
     @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        """
-        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
-
-        Parameters
-        ----------
-        json_obj
-
-        Returns
-        -------
-        response_obj : Response
-            A new object of this type instantiated from the deserialize JSON object dictionary, or none if the provided
-            parameter could not be used to instantiated a new object.
-
-        See Also
-        -------
-        _factory_init_data_attribute
-        """
-        try:
-            return cls(success=json_obj['success'], reason=json_obj['reason'], message=json_obj['message'],
-                       data=cls._factory_init_data_attribute(json_obj))
-        except Exception as e:
-            return None
-
-    @classmethod
     def get_message_event_type(cls) -> MessageEventType:
         """
         Get the message event type for this response message.
@@ -204,24 +179,6 @@ class Response(ResultIndicator, Message, ABC):
             The corresponding :class:`Message` type to this response type.
         """
         return cls.response_to_type
-
-    def __init__(self, data=None, *args, **kwargs):
-        super(Response, self).__init__(*args, **kwargs)
-        self.data = data
-
-    def __eq__(self, other):
-        return self.success == other.success and self.reason == other.reason and self.message == other.message \
-               and self.data == other.data
-
-    def to_dict(self) -> dict:
-        serial = super(Response, self).to_dict()
-        if self.data is None:
-            serial['data'] = {}
-        elif isinstance(self.data, dict):
-            serial['data'] = self.data
-        else:
-            serial['data'] = self.data.to_dict()
-        return serial
 
 
 class InvalidMessage(AbstractInitRequest):
