@@ -1,8 +1,9 @@
 from .message import AbstractInitRequest, MessageEventType, Response
 from numbers import Number
-from typing import ClassVar, Dict, Optional, Union
+from typing import ClassVar, Dict, Optional, Type, Union
 from pydantic import Field, root_validator
 
+from dmod.core.serializable import Serializable
 from dmod.core.enum import PydanticEnum
 
 
@@ -27,7 +28,23 @@ class MetadataPurpose(PydanticEnum):
         return None
 
 
-class MetadataMessage(AbstractInitRequest):
+class MetadataSignal(Serializable):
+    purpose: MetadataPurpose
+    metadata_follows: bool
+
+    class Config:
+        fields = {
+            "metadata_follows": {
+                "alias": "additional_metadata",
+                "description": (
+                    "An indication of whether there is more metadata the sender needs to communicate beyond what is contained in this"
+                    "message, thus letting the receiver know whether it should continue receiving after sending the response to this."
+                ),
+            }
+        }
+
+
+class MetadataMessage(MetadataSignal, AbstractInitRequest):
 
     event_type: ClassVar[MessageEventType] = MessageEventType.INVALID
 
