@@ -121,6 +121,9 @@ class Response(ResultIndicator, Message, ABC):
     response_to_type: ClassVar[Type[AbstractInitRequest]] = AbstractInitRequest
     """ The type of :class:`AbstractInitRequest` for which this type is the response"""
 
+    # TODO: aaraney, make this union
+    # data: Union[]
+
     @classmethod
     def _factory_init_data_attribute(cls, json_obj: dict):
         """
