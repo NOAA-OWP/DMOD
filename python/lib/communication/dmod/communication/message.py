@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Type
+from typing import ClassVar, Type
 
 from dmod.core.serializable import Serializable, ResultIndicator
 from dmod.core.enum import PydanticEnum
@@ -62,7 +62,7 @@ class Message(Serializable, ABC):
     Class representing communication message of some kind between parts of the NWM MaaS system.
     """
 
-    event_type: MessageEventType = None
+    event_type: ClassVar[MessageEventType] = MessageEventType.INVALID
     """ :class:`MessageEventType`: the event type for this message implementation """
 
     @classmethod
@@ -76,9 +76,6 @@ class Message(Serializable, ABC):
             The event type for this message type
         """
         return cls.event_type
-
-    def __init__(self, *args, **kwargs):
-        pass
 
 
 class AbstractInitRequest(Message, ABC):
