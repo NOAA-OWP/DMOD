@@ -1,5 +1,6 @@
 from abc import ABC
-from typing import Any, ClassVar, Dict, Type
+from typing import Any, ClassVar, Dict, Literal, Optional, Type
+from pydantic import Field
 
 from dmod.core.serializable import Serializable, ResultIndicator
 from dmod.core.enum import PydanticEnum
@@ -121,40 +122,7 @@ class Response(ResultIndicator, Message, ABC):
     response_to_type: ClassVar[Type[AbstractInitRequest]] = AbstractInitRequest
     """ The type of :class:`AbstractInitRequest` for which this type is the response"""
 
-    # TODO: aaraney, make this union
-    # data: Union[]
-
-    @classmethod
-    def _factory_init_data_attribute(cls, json_obj: dict):
-        """
-        Initialize the argument value for a constructor param used to set the :attr:`data` attribute appropriate for
-        this type, given the parent JSON object, which may mean simply returning the value or may mean deserializing the
-        value to some object type, depending on the implementation.
-
-        The intent is for this to be used by :meth:`factory_init_from_deserialized_json`, where initialization logic for
-        the value to be set as :attr:`data` from the provided param may vary depending on the particular class.
-
-        In the default implementation, the value found at the 'data' key is simply directly returned, or None is
-        returned if the 'data' key is not found.
-
-        Parameters
-        ----------
-        json_obj : dict
-            the parent JSON object containing the desired data value under the 'data' key
-
-        Returns
-        -------
-        data : dict
-            the resulting data value object
-
-        See Also
-        -------
-        factory_init_from_deserialized_json
-        """
-        try:
-            return json_obj['data']
-        except Exception as e:
-            return None
+    data: Optional[Serializable]
 
     @classmethod
     def get_message_event_type(cls) -> MessageEventType:
@@ -198,27 +166,32 @@ class InvalidMessage(AbstractInitRequest):
 
 class InvalidMessageResponse(Response):
 
-    response_to_type = InvalidMessage
+    response_to_type: ClassVar[Type[AbstractInitRequest]] = InvalidMessage
     """ The type of :class:`AbstractInitRequest` for which this type is the response"""
 
-    def __init__(self, data=None):
-        super().__init__(success=False,
-                         reason='Invalid Request Message',
-                         message='Request message was not formatted as any known valid type',
-                         data=data)
+    success = False
+    reason: Literal["Invalid Request message"] = "Invalid Request message"
+    message: Literal["Request message was not formatted as any known valid type"] = "Request message was not formatted as any known valid type"
+    data: Optional[Serializable]
 
+    def __init__(self, data: Optional[Serializable]=None, **kwargs):
+        super().__init__(data=data)
+
+
+class HttpCode(Serializable):
+    http_code: int = Field(ge=100, le=599)
 
 class ErrorResponse(Response):
     """
     A response to inform a client of an error that has occured within a request
     """
-    def __init__(self, message: str, http_code: int = None):
-        if not http_code:
-            http_code = 500
+    success = False
+    reason: Literal["Error"] = "Error"
+    data: HttpCode = Field(default_factory=lambda: HttpCode(http_code=500))
 
-        if not isinstance(http_code, int):
-            try:
-                http_code = int(float(http_code))
-            except:
-                http_code = str(http_code)
-        super().__init__(success=False, reason="Error", message=message, data={"http_code": http_code})
+    def __init__(self, message: str, http_code: int = None, **kwargs):
+        if http_code is None:
+            super().__init__(message=message)
+            return
+
+        super().__init__(message=message, data={"http_code": http_code})
