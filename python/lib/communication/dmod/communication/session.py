@@ -6,7 +6,20 @@ from dmod.core.serializable import Serializable
 from dmod.core.enum import PydanticEnum
 from abc import ABC, abstractmethod
 from numbers import Number
-from typing import Dict, Optional, Union
+from typing import ClassVar, Dict, Optional, List, Type, Union
+from pydantic import Field, IPvAnyAddress, validator, root_validator
+
+
+def _generate_secret() -> str:
+    """Generate random sha256 session secret.
+
+    Returns
+    -------
+    str
+        sha256 digest
+    """
+    random.seed()
+    return hashlib.sha256(str(random.random()).encode('utf-8')).hexdigest()
 
 
 class SessionInitFailureReason(PydanticEnum):
