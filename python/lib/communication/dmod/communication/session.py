@@ -40,52 +40,32 @@ class Session(Serializable):
     be made, and potentially other communication may take place.
     """
 
-    _DATETIME_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
+    _DATETIME_FORMAT: ClassVar[str] = '%Y-%m-%d %H:%M:%S.%f'
 
-    _full_equality_attributes = ['session_id', 'session_secret', 'created', 'last_accessed']
+    session_id: int = Field(description="The unique identifier for this session.")
+    # QUESTION: we are using UUID4's elsewhere, do we want to use that instead here? Or perhaps a ULID?
+    session_secret: str = Field(default_factory=_generate_secret, min_length=64, max_length=64, description="The unique random secret for this session.")
+    created: datetime.datetime = Field(default_factory=datetime.datetime.now, description="The date and time this session was created.")
+    last_accessed: datetime.datetime = Field(default_factory=datetime.datetime.now)
+
+    _full_equality_attributes: ClassVar[List[str]]= ['session_id', 'session_secret', 'created', 'last_accessed']
     """ list of str: the names of attributes/properties to include when testing instances for complete equality """
 
-    _serialized_attributes = ['session_id', 'session_secret', 'created', 'last_accessed']
+    _serialized_attributes: ClassVar[List[str]]= ['session_id', 'session_secret', 'created', 'last_accessed']
     """ list of str: the names of attributes/properties to include when serializing an instance """
 
-    _session_timeout_delta = datetime.timedelta(minutes=30.0)
+    _session_timeout_delta: ClassVar[datetime.timedelta] = datetime.timedelta(minutes=30.0)
 
-    @classmethod
-    def _init_datetime_val(cls, value):
+    @validator("created", "last_accessed", pre=True)
+    def validate_date(cls, value):
+        if isinstance(value, datetime):
+            return value
+
         try:
-            if value is None:
-                return datetime.datetime.now()
-            elif isinstance(value, str):
-                return datetime.datetime.strptime(value, Session._DATETIME_FORMAT)
-            elif not isinstance(value, datetime.datetime):
-                raise RuntimeError()
-            else:
-                return value
-        except Exception as e:
+            return datetime.datetime.strptime(value, cls.get_datetime_str_format())
+        # TODO: improve error handling, or throw something know for downstream users.
+        except: 
             return datetime.datetime.now()
-
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        """
-        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
-
-        Parameters
-        ----------
-        json_obj
-
-        Returns
-        -------
-        A new object of this type instantiated from the deserialize JSON object dictionary
-        """
-        int_converter = lambda x: int(x)
-        str_converter = lambda s: str(s)
-        date_converter = lambda date_str: datetime.datetime.strptime(date_str, cls.get_datetime_str_format())
-
-        return cls(session_id=cls.parse_simple_serialized(json_obj, 'session_id', int, True, int_converter),
-                   session_secret=cls.parse_simple_serialized(json_obj, 'session_secret', str, False, str_converter),
-                   created=cls.parse_simple_serialized(json_obj, 'created', datetime.datetime, False, date_converter),
-                   last_accessed=cls.parse_simple_serialized(json_obj, 'last_accessed', datetime.datetime, False,
-                                                             date_converter))
 
     @classmethod
     def get_datetime_str_format(cls):
@@ -104,7 +84,7 @@ class Session(Serializable):
             a tuple-ized (and therefore immutable) collection of attribute names for those attributes used for
             determining full/complete equality between instances.
         """
-        return tuple(cls._full_equality_attributes)
+        return tuple(cls.__fields__)
 
     @classmethod
     def get_serialized_attributes(cls) -> tuple:
@@ -119,7 +99,7 @@ class Session(Serializable):
         tuple of str:
             a tuple-ized (and therefore immutable) collection of attribute names for attributes used in serialization
         """
-        return tuple(cls._serialized_attributes)
+        return tuple(cls.__fields__)
 
     @classmethod
     def get_session_timeout_delta(cls) -> datetime.timedelta:
@@ -128,46 +108,10 @@ class Session(Serializable):
     def __eq__(self, other):
         return isinstance(other, Session) and self.session_id == other.session_id
 
-    def __init__(self,
-                 session_id: Union[str, int],
-                 session_secret: str = None,
-                 created: Union[datetime.datetime, str, None] = None,
-                 last_accessed: Union[datetime.datetime, str, None] = None):
-        """
-        Instantiate, either from an existing record - in which case values for 'secret' and 'created' are provided - or
-        from a newly acquired session id - in which case 'secret' is randomly generated, 'created' is set to now(), and
-        the expectation is that a new session record will be created from this instance.
-
-        Parameters
-        ----------
-        session_id : Union[str, int]
-            numeric session id value
-        session_secret : :obj:`str`, optional
-            the session secret, if deserializing this object from an existing session record
-        created : Union[:obj:`datetime.datetime`, :obj:`str`]
-            the date and time of session creation, either as a datetime object or parseable string, set to
-            :method:`datetime.datetime.now()` by default
-        """
-
-        self._session_id = int(session_id)
-        if session_secret is None:
-            random.seed()
-            self._session_secret = hashlib.sha256(str(random.random()).encode('utf-8')).hexdigest()
-        else:
-            self._session_secret = session_secret
-
-        self._created = self._init_datetime_val(created)
-        self._last_accessed = self._init_datetime_val(last_accessed)
-
     def __hash__(self):
         return self.session_id
 
-    @property
-    def created(self):
-        """:obj:`datetime.datetime`: The date and time this session was created."""
-        return self._created
-
-    def full_equals(self, other) -> bool:
+    def full_equals(self, other: object) -> bool:
         """
         Test if this object and another are both of the exact same type and are more "fully" equal than can be
         determined from the standard equality implementation, by comparing all the attributes from
@@ -185,16 +129,7 @@ class Session(Serializable):
         fully_equal : bool
             whether the objects are of the same type and with equal values for all serialized attributes
         """
-        if self.__class__ != other.__class__:
-            return False
-        try:
-            for attr in self.get_full_equality_attributes():
-                if getattr(self, attr) != getattr(other, attr):
-                    return False
-            return True
-        except Exception as e:
-            # TODO: do something with this exception
-            return False
+        return super().__eq__(other)
 
     def get_as_dict(self) -> dict:
         """
@@ -205,17 +140,7 @@ class Session(Serializable):
         dict
             a serialized representation of this instance
         """
-        attributes = {}
-        for attr in self._serialized_attributes:
-            attr_val = getattr(self, attr)
-            if isinstance(attr_val, datetime.datetime):
-                attributes[attr] = attr_val.strftime(self.get_datetime_str_format())
-            elif isinstance(attr_val, Number) or isinstance(attr_val, str):
-                attributes[attr] = attr_val
-            else:
-                attributes[attr] = str(attr_val)
-
-        return attributes
+        return self.dict()
 
     def get_as_json(self) -> str:
         """
@@ -232,12 +157,12 @@ class Session(Serializable):
         return self.created.strftime(Session._DATETIME_FORMAT)
 
     def get_last_accessed_serialized(self):
-        return self._last_accessed.strftime(Session._DATETIME_FORMAT)
+        return self.last_accessed.strftime(Session._DATETIME_FORMAT)
 
     def is_expired(self):
-        return self._last_accessed + self.get_session_timeout_delta() < datetime.datetime.now()
+        return self.last_accessed + self.get_session_timeout_delta() < datetime.datetime.now()
 
-    def is_serialized_attribute(self, attribute) -> bool:
+    def is_serialized_attribute(self, attribute: str) -> bool:
         """
         Test whether an attribute of the given name is included in the serialized version of the instance returned by
         :method:`get_as_dict` and/or :method:`get_as_json` (at the top level).
