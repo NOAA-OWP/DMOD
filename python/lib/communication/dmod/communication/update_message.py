@@ -1,6 +1,7 @@
 from .message import AbstractInitRequest, MessageEventType, Response
 from pydoc import locate
-from typing import Dict, Optional, Type, Union
+from typing import ClassVar, Dict, Optional, Type, Union
+from pydantic import Field, validator
 import uuid
 
 
@@ -28,132 +29,76 @@ class UpdateMessage(AbstractInitRequest):
     update it conveys.
     """
 
-    event_type: MessageEventType = MessageEventType.INFORMATION_UPDATE
+    event_type: ClassVar[MessageEventType] = MessageEventType.INFORMATION_UPDATE
 
-    _DIGEST_KEY = 'digest'
-    _OBJECT_ID_KEY = 'object_id'
-    _OBJECT_TYPE_KEY = 'object_type'
-    _UPDATED_DATA_KEY = 'updated_data'
+    object_id: str = Field(description="The identifier for the object being updated, as a string.")
+    object_type: Type[object] = Field(description="The type of object being updated.")
+    # NOTE: updated_data must container at least one key
+    updated_data: Dict[str, str] = Field(description="A serialized dictionary of properties to new values.")
+    digest: str = Field(default_factory=lambda: uuid.uuid4().hex)
+
+    @validator("object_type", pre=True)
+    def _coerce_object_type(cls, value):
+        obj_type = locate(value)
+        if obj_type is None:
+            raise ValueError("could not resolve `object_type`")
+        return obj_type
+
+    @validator("updated_data")
+    def _validate_updated_data_has_keys(cls, value: Dict[str, str]):
+        if not value.keys():
+            raise ValueError("`updated_data` must have at least one key.")
+        return value
 
     @classmethod
     def get_digest_key(cls) -> str:
-        return cls._DIGEST_KEY
+        return cls.__fields__["digest"].alias
 
     @classmethod
     def get_object_id_key(cls) -> str:
-        return cls._OBJECT_ID_KEY
+        return cls.__fields__["object_id"].alias
 
     @classmethod
     def get_object_type_key(cls) -> str:
-        return cls._OBJECT_TYPE_KEY
+        return cls.__fields__["object_type"].alias
 
     @classmethod
     def get_updated_data_key(cls) -> str:
-        return cls._UPDATED_DATA_KEY
-
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        """
-        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
-
-        The method expects the ::attribute:`object_type` to be represented as the fully-qualified name string for the
-        particular class type.  If the method cannot located the actual class type by this string, the JSON is
-        considered invalid.
-
-        Additionally, if the representation of the ::attribute:`updated_data` property is not a (serialized) nested
-        dictionary, or is an empty dictionary, this is also considered invalid.
-
-        Both ::attribute:`digest` and ::attribute:`object_id` representations are valid if they can be cast to strings.
-
-        The JSON is not considered invalid if it has other keys/values at the root level beyond those for the standard
-        properties.
-
-        For invalid JSON representations, ``None`` is returned.
-
-        Parameters
-        ----------
-        json_obj
-
-        Returns
-        -------
-        Optional[UpdateMessage]
-            A new object of this type instantiated from the deserialize JSON object dictionary, or ``None`` if the JSON
-            is not a valid serialized representation of this type.
-        """
-        try:
-            obj_type = locate(json_obj[cls.get_object_type_key()])
-            if obj_type is None:
-                return None
-            obj_id = str(json_obj[cls.get_object_id_key()])
-            updated_data = json_obj[cls.get_updated_data_key()]
-            if not isinstance(updated_data, dict) or len(updated_data.keys()) == 0:
-                return None
-            message = cls(object_id=obj_id, object_type=obj_type, updated_data=updated_data)
-            message._digest = str(json_obj[cls.get_digest_key()])
-        except:
-            return None
-
-    def __init__(self, object_id: str, object_type: Type, updated_data: Dict[str, str]):
-        """
-        Initialize a new object.
-
-        Parameters
-        ----------
-        object_id : str
-            The identifier for the object being updated, as a string.
-        object_type : Type
-            The type of object being updated.
-        updated_data : Dict[str, str]
-            A serialized dictionary of properties to new values.
-        """
-        self._digest = None
-        self._object_type = object_type
-        self._object_id = object_id
-        self._updated_data = updated_data
-
-    @property
-    def digest(self) -> str:
-        if self._digest is None:
-            self._digest = uuid.uuid4().hex
-        return self._digest
-
-    @property
-    def object_id(self) -> str:
-        return self._object_id
-
-    @property
-    def object_type(self) -> Type:
-        return self._object_type
+        return cls.__fields__["updated_data"].alias
 
     @property
     def object_type_string(self) -> str:
         return '{}.{}'.format(self.object_type.__module__, self.object_type.__name__)
 
-    def to_dict(self) -> dict:
-        """
-        Get the representation of this instance as a dictionary or dictionary-like object (e.g., a JSON object).
+    def dict(
+        self,
+        *,
+        include: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        exclude: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        by_alias: bool = True, # Note this follows Serializable convention
+        skip_defaults: Optional[bool] = None,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False
+    ) -> Dict[str, Union[str, int]]:
+        _exclude = {"object_type"}
+        if exclude is not None:
+            _exclude = {*_exclude, *exclude}
 
-        Returns
-        -------
-        dict
-            The representation of this instance as a dictionary or dictionary-like object (e.g., a JSON object).
-        """
-        return {self.get_object_id_key(): self.object_id, self.get_digest_key(): self.digest,
-                self.get_object_type_key(): self.object_type_string, self.get_updated_data_key(): self.updated_data}
+        serial = super().dict(
+            include=include,
+            exclude=_exclude,
+            by_alias=by_alias,
+            skip_defaults=skip_defaults,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
+        )
 
-    @property
-    def updated_data(self) -> Dict[str, str]:
-        """
-        Get the updated properties of the updated entity and the new values, as a dictionary of string property name
-        keys mapped to string representations of the values.
+        if exclude is None or "object_type" not in exclude:
+            serial["object_type"] = self.object_type_string
 
-        Returns
-        -------
-        Dict[str, str]
-            The updated properties of the updated entity and the new values, as a dictionary of string property name
-            keys mapped to string representations of the values.
-        """
-        return self._updated_data
+        return serial
 
 
 class UpdateMessageResponse(Response):
