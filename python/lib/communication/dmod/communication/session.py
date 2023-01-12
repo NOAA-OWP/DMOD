@@ -335,42 +335,54 @@ class SessionInitResponse(Response):
 
     """
 
-    response_to_type = SessionInitMessage
+    response_to_type: ClassVar[Type[AbstractInitRequest]] = SessionInitMessage
     """ Type[`SessionInitMessage`]: the type or subtype of :class:`Message` for which this type is the response"""
 
-    @classmethod
-    def _factory_init_data_attribute(cls, json_obj: dict) -> Optional[SessionInitDataType]:
-        """
-        Initialize the argument value for a constructor param used to set the :attr:`data` attribute appropriate for
-        this type, given the parent JSON object, which for this type means deserializing the dict value to either a
-        session object or a failure info object.
+    # NOTE: this field _is_ optional, however `data` will be FailedSessionInitInfo if it is not
+    # provided or set to None.
+    # NOTE: order of this Union matters. types will be coerced from left to right.  meaning, more
+    # specific types (i.e. subtypes) should be listed before more general types. see `SmartUnion`
+    # for more detail: https://docs.pydantic.dev/usage/model_config/#smart-union
+    data: Union[FailedSessionInitInfo, FullAuthSession, Session]
 
-        Parameters
-        ----------
-        json_obj : dict
-            the parent JSON object containing the desired session data serialized value
+    @root_validator(pre=True)
+    def _coerce_data_field(cls, values):
+        data = values.get("data")
 
-        Returns
-        -------
-        data
-            the resulting :class:`Session` or :class:`FailedSessionInitInfo` object obtained after processing,
-            or None if no valid object could be processed of either type
-        """
-        data = None
-        try:
-            data = json_obj['data']
-        except:
-            det = 'Received serialized JSON response object that did not contain expected key for serialized session.'
-            return FailedSessionInitInfo(user='', reason=SessionInitFailureReason.SESSION_DETAILS_MISSING, details=det)
+        if data is None:
+            details = "Instantiated SessionInitResponse object without session data; defaulting to failure"
+            values["data"] = FailedSessionInitInfo(
+                user="",
+                reason=SessionInitFailureReason.SESSION_DETAILS_MISSING,
+                details=details,
+            )
+            return values
 
-        try:
-            # If we can, return the FullAuthSession or Session obtained by this class method
-            return FullAuthSession.factory_init_from_deserialized_json(data)
-        except:
+        # run `data` field validators
+        coerced_data, errors = cls.__fields__["data"].validate(data, {}, loc="")
+        if errors is not None:
+            details = 'Instantiated SessionInitResponse object using unexpected type for data ({})'.format(
+                data.__class__.__name__)
             try:
-                return FailedSessionInitInfo.factory_init_from_deserialized_json(data)
+                as_str = '; converted to string: \n{}'.format(str(data))
+                details += as_str
             except:
-                return None
+                # If we can't cast to string, don't worry; just leave out that part in details
+                pass
+            values["data"] = FailedSessionInitInfo(
+                user="",
+                reason=SessionInitFailureReason.SESSION_DETAILS_MISSING,
+                details=details,
+            )
+            return values
+
+        values["data"] = coerced_data
+        return values
+
+    @validator("success")
+    def _update_success(cls, value: bool, values):
+        # Make sure to reset/change self.success if self.data ends up being a failure info object
+        return value and isinstance(values["data"], Session)
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ \
@@ -378,34 +390,6 @@ class SessionInitResponse(Response):
                and self.reason == other.reason \
                and self.message == other.message \
                and self.data.full_equals(other.data) if isinstance(self.data, Session) else self.data == other.data
-
-    def __init__(self, success: bool, reason: str, message: str = '', data: Optional[SessionInitDataType] = None):
-        super().__init__(success=success, reason=reason, message=message, data=data)
-
-        # If we received a dict for data, try to deserialize using the class method (failures will set to None,
-        # which will get handled by the next conditional logic)
-        if isinstance(self.data, dict):
-            # Remember, the class method expects a JSON obj dict with the data as a child element, not the data directly
-            self.data = self.__class__._factory_init_data_attribute({'success': self.success, 'data': data})
-
-        if self.data is None:
-            details = 'Instantiated SessionInitResponse object without session data; defaulting to failure'
-            self.data = FailedSessionInitInfo(user='', reason=SessionInitFailureReason.SESSION_DETAILS_MISSING,
-                                              details=details)
-        elif not (isinstance(self.data, Session) or isinstance(self.data, FailedSessionInitInfo)):
-            details = 'Instantiated SessionInitResponse object using unexpected type for data ({})'.format(
-                self.data.__class__.__name__)
-            try:
-                as_str = '; converted to string: \n{}'.format(str(self.data))
-                details += as_str
-            except:
-                # If we can't cast to string, don't worry; just leave out that part in details
-                pass
-            self.data = FailedSessionInitInfo(user='', reason=SessionInitFailureReason.SESSION_DETAILS_MISSING,
-                                              details=details)
-
-        # Make sure to reset/change self.success if self.data ends up being a failure info object
-        self.success = self.success and isinstance(self.data, Session)
 
 
 class SessionManager(ABC):
