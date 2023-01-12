@@ -4,6 +4,8 @@ from typing import ClassVar, Dict, Optional, Type, Union
 from pydantic import Field, validator
 import uuid
 
+from dmod.core.serializable import Serializable
+
 
 class UpdateMessage(AbstractInitRequest):
     """
@@ -99,6 +101,10 @@ class UpdateMessage(AbstractInitRequest):
             serial["object_type"] = self.object_type_string
 
         return serial
+
+class UpdateMessageData(Serializable):
+    digest: Optional[str]
+    object_found: Optional[bool]
 
 
 class UpdateMessageResponse(Response):
