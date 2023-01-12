@@ -1,16 +1,33 @@
 from dmod.core.execution import AllocationParadigm
 from .maas_request import ModelExecRequest, ModelExecRequestResponse
 from .maas_request.dmod_job_request import DmodJobRequest
-from .message import MessageEventType, Response
-from typing import Optional, Union, List
+from .message import AbstractInitRequest, MessageEventType, Response
+from pydantic import Field, PrivateAttr
+from typing import ClassVar, Dict, List, Optional, Union
 
 from dmod.core.meta_data import DataRequirement, DataFormat
 
 
+# TODO: #pydantic_rebase - Make sure everything is properly placed after changes to superclass
 class SchedulerRequestMessage(DmodJobRequest):
 
-    event_type: MessageEventType = MessageEventType.SCHEDULER_REQUEST
+    event_type: ClassVar[MessageEventType] = MessageEventType.SCHEDULER_REQUEST
     """ :class:`MessageEventType`: the event type for this message implementation """
+
+    model_request: ModelExecRequest = Field(description="The underlying request for a job to be scheduled.")
+    user_id: str = Field(description="The associated user id for this scheduling request.")
+    memory: int = Field(500_000, description="The amount of memory, in bytes, requested for the scheduling of this job.")
+    cpus_: Optional[int] = Field(description="The number of processors requested for the scheduling of this job.")
+    allocation_paradigm_: Optional[AllocationParadigm]
+
+    _memory_unset: bool = PrivateAttr()
+
+    class Config:
+        fields = {
+            "memory": {"alias": "mem"},
+            "cpus_": {"alias": "cpus"},
+            "allocation_paradigm_": {"alias": "allocation_paradigm"},
+        }
 
     @classmethod
     def default_allocation_paradigm_str(cls) -> str:
@@ -30,67 +47,34 @@ class SchedulerRequestMessage(DmodJobRequest):
         """
         return AllocationParadigm.get_default_selection().name
 
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        """
-        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
-
-        Parameters
-        ----------
-        json_obj
-
-        Returns
-        -------
-        SchedulerRequestMessage
-            A new object of this type instantiated from the deserialize JSON object dictionary, or ``None`` if the
-            provided parameter could not be used to instantiated a new object of this type.
-        """
-        try:
-            model_request = ModelExecRequest.factory_init_correct_subtype_from_deserialized_json(json_obj['model_request'])
-            if model_request is not None:
-                alloc_paradigm = json_obj['allocation_paradigm'] if 'allocation_paradigm' in json_obj else None
-                return cls(model_request=model_request,
-                           user_id=json_obj['user_id'],
-                           # This may be absent to indicate use the value from the backing model request
-                           cpus=json_obj['cpus'] if 'cpus' in json_obj else None,
-                           # This may be absent to indicate it should be marked "unset" and a default should be used
-                           mem=json_obj['mem'] if 'mem' in json_obj else None,
-                           allocation_paradigm=alloc_paradigm)
-            else:
-                return None
-        except:
-            return None
-
     # TODO: may need to generalize the underlying request to support, say, scheduling evaluation jobs
-    def __init__(self, model_request: ModelExecRequest, user_id: str, cpus: Optional[int] = None, mem: Optional[int] = None,
-                 allocation_paradigm: Optional[Union[str, AllocationParadigm]] = None, *args, **kwargs):
-        if 'config_data_id' not in kwargs and len(args) == 0:
-            kwargs['config_data_id'] = model_request.config_data_id
-        elif (args[0] if len(args) > 0 else kwargs['config_data_id']) != model_request.config_data_id:
-            raise ValueError('Bad init value for "config_data_id" that does not match model_request')
-        super(SchedulerRequestMessage, self).__init__(*args, **kwargs)
-        self._model_request = model_request
-        self._user_id = user_id
-        self._cpus = cpus
+    # TODO: #pydantic_rebase - account for several changes here
+    def __init__(
+        self,
+        model_request: ModelExecRequest,
+        user_id: str,
+        cpus: Optional[int] = None,
+        mem: Optional[int] = None,
+        allocation_paradigm: Optional[Union[str, AllocationParadigm]] = None,
+    ):
+        # TODO: #pydantic_rebase - This part no longer makes sense, but make sure config_data_id is properly being handle by init
+        # if 'config_data_id' not in kwargs and len(args) == 0:
+        #     kwargs['config_data_id'] = model_request.config_data_id
+        # elif (args[0] if len(args) > 0 else kwargs['config_data_id']) != model_request.config_data_id:
+        #     raise ValueError('Bad init value for "config_data_id" that does not match model_request')
+        super().__init__(
+            model_request=model_request,
+            user_id=user_id,
+            cpus=cpus,
+            memory=mem,
+            allocation_paradigm=allocation_paradigm
+        )
         if mem is None:
             self._memory_unset = True
-            self._memory = 500000
         else:
             self._memory_unset = False
-            self._memory = mem
-        if isinstance(allocation_paradigm, str):
-            self._allocation_paradigm = AllocationParadigm.get_from_name(allocation_paradigm)
-        else:
-            self._allocation_paradigm = allocation_paradigm
 
-    def __eq__(self, other):
-        return self.__class__ == other.__class__ \
-               and self.model_request == other.model_request \
-               and self.cpus == other.cpus \
-               and self.memory == other.memory \
-               and self.user_id == other.user_id \
-               and self.allocation_paradigm == other.allocation_paradigm
-
+    # TODO: #pydantic_rebase - consider altering how this works using validators
     @property
     def allocation_paradigm(self) -> AllocationParadigm:
         """
@@ -101,11 +85,12 @@ class SchedulerRequestMessage(DmodJobRequest):
         AllocationParadigm
             The allocation paradigm requested for the job to be scheduled.
         """
-        if self._allocation_paradigm is None:
+        if self.allocation_paradigm_ is None:
             return self.model_request.allocation_paradigm
         else:
-            return self._allocation_paradigm
+            return self.allocation_paradigm_
 
+    # TODO: #pydantic_rebase - consider altering how this works using validators
     @property
     def cpus(self) -> int:
         """
@@ -119,23 +104,12 @@ class SchedulerRequestMessage(DmodJobRequest):
         int
             The number of processors requested for the scheduling of this job.
         """
-        return self.model_request.cpu_count if self._cpus is None else self._cpus
+        return self.model_request.cpu_count if self.cpus_ is None else self.cpus_
 
     @property
     def data_requirements(self) -> List[DataRequirement]:
         return self.model_request.data_requirements
 
-    @property
-    def memory(self) -> int:
-        """
-        The amount of memory, in bytes, requested for the scheduling of this job.
-
-        Returns
-        -------
-        int
-            The amount of memory, in bytes, requested for the scheduling of this job.
-        """
-        return self._memory
 
     @property
     def memory_unset(self) -> bool:
@@ -148,18 +122,6 @@ class SchedulerRequestMessage(DmodJobRequest):
             Whether a default amount for job scheduling memory amount was used, and no explicit amount was provided.
         """
         return self._memory_unset
-
-    @property
-    def model_request(self) -> ModelExecRequest:
-        """
-        The underlying request for a job to be scheduled.
-
-        Returns
-        -------
-        ModelExecRequest
-            The underlying request for a job to be scheduled.
-        """
-        return self._model_request
 
     @property
     def nested_event(self) -> MessageEventType:
@@ -177,29 +139,30 @@ class SchedulerRequestMessage(DmodJobRequest):
     def output_formats(self) -> List[DataFormat]:
         return self.model_request.output_formats
 
-    @property
-    def user_id(self) -> str:
-        """
-        The associated user id for this scheduling request.
-
-        Returns
-        -------
-        str
-            The associated user id for this scheduling request.
-        """
-        return self._user_id
-
-    def to_dict(self) -> dict:
-        serial = {'model_request': self.model_request.to_dict(), 'user_id': self.user_id}
-        if self._allocation_paradigm is not None:
-            serial['allocation_paradigm'] = self._allocation_paradigm.name
-        # Don't include this in serial form if property value is sourced from underlying model request
-        if self._cpus is not None:
-            serial['cpus'] = self._cpus
+    def dict(
+        self,
+        *,
+        include: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        exclude: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        by_alias: bool = True, # Note this follows Serializable convention
+        skip_defaults: Optional[bool] = None,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False
+    ) -> Dict[str, Union[str, int]]:
         # Only including memory value in serial form if it was explicitly set in the first place
         if not self.memory_unset:
-            serial['mem'] = self.memory
-        return serial
+            exclude = {"memory"} if exclude is None else {"memory", *exclude}
+
+        return super().dict(
+            include=include,
+            exclude=exclude,
+            by_alias=by_alias,
+            skip_defaults=skip_defaults,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
+        )
 
 
 class SchedulerRequestResponse(Response):
