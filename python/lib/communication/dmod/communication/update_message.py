@@ -107,15 +107,14 @@ class UpdateMessageData(Serializable):
     object_found: Optional[bool]
 
 
-class UpdateMessageResponse(Response):
+class UpdateMessageResponse(UpdateMessageData, Response):
     """
     The subtype of ::class:`Response` appropriate for ::class:`UpdateMessage` objects.
     """
 
-    _DIGEST_SUBKEY = 'digest'
-    _OBJECT_FOUND_SUBKEY = 'object_found'
+    response_to_type: ClassVar[Type[AbstractInitRequest]] = UpdateMessage
 
-    response_to_type = UpdateMessage
+    data: Optional[UpdateMessageData] = Field(default_factory=UpdateMessageData)
 
     @classmethod
     def get_digest_subkey(cls) -> str:
@@ -129,7 +128,7 @@ class UpdateMessageResponse(Response):
             The "subkey" (i.e., the key for the value within the nested ``data`` dictionary) for the ``digest`` in
             serialized representations.
         """
-        return cls._DIGEST_SUBKEY
+        return cls.__fields__["digest"].alias
 
     @classmethod
     def get_object_found_subkey(cls) -> str:
@@ -143,25 +142,20 @@ class UpdateMessageResponse(Response):
             The "subkey" (i.e., the key for the value within the nested ``data`` dictionary) for the ``digest`` in
             serialized representations.
         """
-        return cls._OBJECT_FOUND_SUBKEY
+        return cls.__fields__["object_found"].alias
 
     def __init__(self, success: bool, reason: str, response_text: str = '',
                  data: Optional[Dict[str, Union[str, bool]]] = None, digest: Optional[str] = None,
-                 object_found: Optional[bool] = None):
+                 object_found: Optional[bool] = None, **kwargs):
         # Work with digest/found either as params or contained within data param
         # However, move explicit params into the data dict param, allowing non-None params to overwrite
         data = dict() if data is None else data
-        digest = data[self.get_digest_subkey()] if digest is None and self.get_digest_subkey() in data else digest
-        if object_found is None and self.get_object_found_subkey():
+
+        if digest is None and self.get_digest_subkey() in data:
+            digest = data[self.get_digest_subkey()]
+
+        if object_found is None and self.get_object_found_subkey() in data:
             object_found = data[self.get_object_found_subkey()]
 
         super().__init__(success=success, reason=reason, message=response_text,
-                         data={self.get_digest_subkey(): digest, self.get_object_found_subkey(): object_found})
-
-    @property
-    def digest(self) -> str:
-        return self.data[self.get_digest_subkey()]
-
-    @property
-    def object_found(self) -> bool:
-        return self.data[self.get_object_found_subkey()]
+                         data=UpdateMessageData(digest=digest, object_found=object_found))
