@@ -177,30 +177,55 @@ class Session(Serializable):
             True if there is an attribute with the given name in the :attr:`_serialized_attributes` list, or False
             otherwise
         """
-        for attr in self._serialized_attributes:
-            if attribute == attr:
-                return True
-        return False
+        if not isinstance(attribute, str):
+            return False
+        return attribute in self.__fields__
 
-    @property
-    def session_id(self):
-        """int: The unique identifier for this session."""
-        return int(self._session_id)
+    def dict(
+        self,
+        *,
+        include: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        exclude: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        by_alias: bool = True, # Note this follows Serializable convention
+        skip_defaults: Optional[bool] = None,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False
+    ) -> Dict[str, Union[str, int]]:
+        _exclude = {"created", "last_accessed"}
+        if exclude is not None:
+            _exclude = {*_exclude, *exclude}
 
-    @property
-    def session_secret(self):
-        """str: The unique random secret for this session."""
-        return self._session_secret
+        serial = super().dict(
+            include=include,
+            exclude=_exclude,
+            by_alias=by_alias,
+            skip_defaults=skip_defaults,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
+        )
 
-    def to_dict(self) -> dict:
-        return self.get_as_dict()
+        if exclude is None or "created" not in exclude:
+            serial["created"] = self.created.strftime(self.get_datetime_str_format())
+
+        if exclude is None or "last_accessed" not in exclude:
+            serial["last_accessed"] = self.last_accessed.strftime(self.get_datetime_str_format())
+
+        return serial
 
 
 # TODO: work more on this later, when authentication becomes more important
 class FullAuthSession(Session):
 
-    _full_equality_attributes = ['session_id', 'session_secret', 'created', 'ip_address', 'user', 'last_accessed']
-    _serialized_attributes = ['session_id', 'session_secret', 'created', 'ip_address', 'user', 'last_accessed']
+    ip_address: str
+    user: str = 'default'
+
+    @validator("ip_address", pre=True)
+    def cast_ip_address_to_str(cls, value: str) -> str:
+        # this will raise if cannot be coerced into IPv(4|6)Address
+        IPvAnyAddress.validate(value)
+        return value
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
@@ -215,44 +240,11 @@ class FullAuthSession(Session):
         -------
         A new object of this type instantiated from the deserialize JSON object dictionary
         """
-        # TODO: these are duplicated ... try to improve on that
-        int_converter = lambda x: int(x)
-        str_converter = lambda s: str(s)
-        date_converter = lambda date_str: datetime.datetime.strptime(date_str, cls.get_datetime_str_format())
 
         try:
-            return cls(session_id=cls.parse_simple_serialized(json_obj, 'session_id', int, True, int_converter),
-                       session_secret=cls.parse_simple_serialized(json_obj, 'session_secret', str, False, str_converter),
-                       created=cls.parse_simple_serialized(json_obj, 'created', datetime.datetime, False, date_converter),
-                       ip_address=cls.parse_simple_serialized(json_obj, 'ip_address', str, True, str_converter),
-                       user=cls.parse_simple_serialized(json_obj, 'user', str, True, str_converter),
-                       last_accessed=cls.parse_simple_serialized(json_obj, 'last_accessed', datetime.datetime, False, date_converter))
+            return cls(**json_obj)
         except:
             return Session.factory_init_from_deserialized_json(json_obj)
-
-    def __init__(self,
-                 ip_address: str,
-                 session_id: Union[str, int],
-                 session_secret: str = None,
-                 user: str = 'default',
-                 created: Union[datetime.datetime, str, None] = None,
-                 last_accessed: Union[datetime.datetime, str, None] = None):
-        super().__init__(session_id=session_id, session_secret=session_secret, created=created,
-                         last_accessed=last_accessed)
-        self._user = user if user is not None else 'default'
-        self._ip_address = ip_address
-
-    @property
-    def ip_address(self):
-        return self._ip_address
-
-    @property
-    def last_accessed(self):
-        return self._last_accessed
-
-    @property
-    def user(self):
-        return self._user
 
 
 class SessionInitMessage(AbstractInitRequest):
