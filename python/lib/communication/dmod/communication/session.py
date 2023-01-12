@@ -266,33 +266,11 @@ class SessionInitMessage(AbstractInitRequest):
         The secret through which the client entity establishes the authenticity of its username assertion
     """
 
-    event_type: MessageEventType = MessageEventType.SESSION_INIT
+    username: str
+    user_secret: str
+
+    event_type: ClassVar[MessageEventType] = MessageEventType.SESSION_INIT
     """ :class:`MessageEventType`: the event type for this message implementation """
-
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        """
-        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
-
-        Parameters
-        ----------
-        json_obj
-
-        Returns
-        -------
-        A new object of this type instantiated from the deserialize JSON object dictionary
-        """
-        try:
-            return SessionInitMessage(username=json_obj['username'], user_secret=json_obj['user_secret'])
-        except:
-            return None
-
-    def __init__(self, username: str, user_secret: str):
-        self.username = username
-        self.user_secret = user_secret
-
-    def to_dict(self) -> dict:
-        return {'username': self.username, 'user_secret': self.user_secret}
 
 
 class FailedSessionInitInfo(Serializable):
