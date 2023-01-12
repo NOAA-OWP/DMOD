@@ -279,72 +279,18 @@ class FailedSessionInitInfo(Serializable):
     successfully init a session.
     """
 
+    user: str
+    reason: SessionInitFailureReason = SessionInitFailureReason.UNKNOWN
+    fail_time: datetime.datetime = Field(default_factory=datetime.datetime.now)
+    details: Optional[str]
+
     @classmethod
     def get_datetime_str_format(cls):
         return Session.get_datetime_str_format()
 
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        date_converter = lambda date_str: datetime.datetime.strptime(date_str, cls.get_datetime_str_format())
-        reason_converter = lambda r: SessionInitFailureReason[r]
-        try:
-            user = cls.parse_simple_serialized(json_obj, 'user', str, True)
-            fail_time = cls.parse_simple_serialized(json_obj, 'fail_time', datetime.datetime, False, date_converter)
-            reason = cls.parse_simple_serialized(json_obj, 'reason', SessionInitFailureReason, False, reason_converter)
-            details = cls.parse_simple_serialized(json_obj, 'details', str, False)
-
-            if reason is None:
-                FailedSessionInitInfo(user=user, fail_time=fail_time, details=details)
-            else:
-                return FailedSessionInitInfo(user=user, reason=reason, fail_time=fail_time, details=details)
-        except:
-            return None
-
-    def __eq__(self, other):
-        if self.__class__ != other.__class__ or self.user != other.user or self.reason != other.reason:
-            return False
-        if self.fail_time is not None and other.fail_time is not None and self.fail_time != other.fail_time:
-            return False
-        return True
-
-    def __init__(self, user: str, reason: SessionInitFailureReason = SessionInitFailureReason.UNKNOWN,
-                 fail_time: Optional[datetime.datetime] = None, details: Optional[str] = None):
-        self.user = user
-        self.reason = reason
-        self.fail_time = fail_time if fail_time is not None else datetime.datetime.now()
-        self.details = details
-
-    def to_dict(self) -> Dict[str, str]:
-        """
-        Get the representation of this instance as a serialized dictionary or dictionary-like object (e.g., a JSON
-        object).
-
-        Since the returned value must be serializable and JSON-like, key and value types are restricted.  For this
-        implementation, all keys and values in the returned dictionary must be strings.  Thus, for the
-        ::attribute:`fail_time` and ::attribute:`details` attributes, there should be no key or value if the attribute
-        has a current value of ``None``.
-
-        Returns
-        -------
-        Dict[str, str]
-            The representation of this instance as a serialized dictionary or dictionary-like object, with valid types
-            of keys and values.
-
-        See Also
-        -------
-        ::method:`Serializable.to_dict`
-        """
-        result = {'user': self.user, 'reason': self.reason.value}
-        if self.fail_time is not None:
-            result['fail_time'] = self.fail_time.strftime(self.get_datetime_str_format())
-        if self.details is not None:
-            result['details'] = self.details
-        return result
-
 
 # Define this custom type here for hinting
 SessionInitDataType = Union[Session, FailedSessionInitInfo]
-
 
 class SessionInitResponse(Response):
     """
