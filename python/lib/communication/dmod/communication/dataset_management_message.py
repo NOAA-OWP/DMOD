@@ -41,28 +41,10 @@ class QueryType(PydanticEnum):
 
 class DatasetQuery(Serializable):
 
-    _KEY_QUERY_TYPE = 'query_type'
-
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict) -> Optional['DatasetQuery']:
-        try:
-            return cls(query_type=QueryType.get_for_name(json_obj[cls._KEY_QUERY_TYPE]))
-        except Exception as e:
-            return None
+    query_file: QueryType
 
     def __hash__(self):
         return hash(self.query_type)
-
-    def __eq__(self, other):
-        return isinstance(other, DatasetQuery) and self.query_type == other.query_type
-
-    def __init__(self, query_type: QueryType):
-        self.query_type = query_type
-
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        serial = dict()
-        serial[self._KEY_QUERY_TYPE] = self.query_type.name
-        return serial
 
 
 class ManagementAction(PydanticEnum):
