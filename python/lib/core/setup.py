@@ -15,5 +15,5 @@ setup(
     url='',
     license='',
     install_requires=[],
-    packages=find_namespace_packages(exclude=('tests', 'schemas', 'ssl', 'src'))
+    packages=find_namespace_packages(exclude=['dmod.test', 'schemas', 'ssl', 'src'])
 )
