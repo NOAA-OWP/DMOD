@@ -18,5 +18,5 @@ setup(
     url='',
     license='',
     install_requires=['websockets', 'dmod-communication>=0.4.2', 'dmod-redis>=0.1.0'],
-    packages=find_namespace_packages(exclude=('tests', 'schemas', 'ssl', 'src'))
+    packages=find_namespace_packages(exclude=['dmod.test', 'schemas', 'ssl', 'src'])
 )
