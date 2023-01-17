@@ -16,5 +16,5 @@ setup(
     license='',
     install_requires=['dmod-core>=0.3.0', 'dmod-communication>=0.7.1', 'dmod-scheduler>=0.7.0', 'dmod-modeldata>=0.9.0',
                       'redis'],
-    packages=find_namespace_packages(exclude=('tests', 'test', 'deprecated', 'conf', 'schemas', 'ssl', 'src'))
+    packages=find_namespace_packages(exclude=['dmod.test', 'deprecated', 'conf', 'schemas', 'ssl', 'src'])
 )
