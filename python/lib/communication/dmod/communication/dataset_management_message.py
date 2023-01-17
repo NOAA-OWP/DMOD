@@ -3,8 +3,9 @@ from dmod.core.serializable import Serializable
 from .maas_request import ExternalRequest, ExternalRequestResponse
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement
 from dmod.core.enum import PydanticEnum
+from pydantic import root_validator, Field
 from numbers import Number
-from typing import Dict, Optional, Union, List
+from typing import ClassVar, Dict, Optional, Union, List
 
 
 class QueryType(PydanticEnum):
@@ -157,65 +158,43 @@ class DatasetManagementMessage(AbstractInitRequest):
     Valid actions are enumerated by the ::class:`ManagementAction`.
     """
 
-    event_type: MessageEventType = MessageEventType.DATASET_MANAGEMENT
+    event_type: ClassVar[MessageEventType] = MessageEventType.DATASET_MANAGEMENT
 
-    _SERIAL_KEY_ACTION = 'action'
-    _SERIAL_KEY_CATEGORY = 'category'
-    _SERIAL_KEY_DATA_DOMAIN = 'data_domain'
-    _SERIAL_KEY_DATA_LOCATION = 'data_location'
-    _SERIAL_KEY_DATASET_NAME = 'dataset_name'
-    _SERIAL_KEY_IS_PENDING_DATA = 'pending_data'
-    _SERIAL_KEY_QUERY = 'query'
-    _SERIAL_KEY_IS_READ_ONLY = 'read_only'
+    management_action: ManagementAction = Field(description="The type of ::class:`ManagementAction` this message embodies or requests.")
+    dataset_name: Optional[str] = Field(description="The name of the involved dataset, if applicable.")
+    is_read_only_dataset: bool = Field(False, description="Whether the dataset involved is, should be, or must be (depending on action) read-only.")
+    data_category: Optional[DataCategory] = Field(description="The category of the involved data, if applicable.")
+    data_domain: Optional[DataDomain] = Field(description="The domain of the involved data, if applicable.")
+    data_location: Optional[str] = Field(description="Location for acted-upon data.")
+    is_pending_data: bool = Field(False, description="Whether the sender has data pending transmission after this message.")
+    """
+    Whether the sender has data it wants to transmit after this message.  The typical use case is during a
+    ``CREATE`` action, where this indicates there is already data to add to the newly created dataset.
+    """
+    query: Optional[DatasetQuery]
 
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict) -> Optional['DatasetManagementMessage']:
-        """
-        Inflate serialized representation back to a full object, if serial representation is valid.
+    @root_validator()
+    def _post_init_validate_dependent_fields(cls, values):
+        # Sanity check certain param values depending on the action; e.g., can't CREATE a dataset without a name
+        action: ManagementAction = values["management_action"]
+        name, category, domain = values["dataset_name"], values["data_category"], values["data_domain"]
+        err_msg_template = "Cannot create {} for action {} without {}"
+        if name is None and action.requires_dataset_name:
+            raise RuntimeError(err_msg_template.format(cls.__name__, action, "a dataset name"))
+        if category is None and action.requires_data_category:
+            raise RuntimeError(err_msg_template.format(cls.__name__, action, "a data category"))
+        if domain is None and action.requires_data_domain:
+            raise RuntimeError(err_msg_template.format(cls.__name__, action, "a data domain"))
 
-        Parameters
-        ----------
-        json_obj : dict
-            Serialized representation of a ::class:`DatasetManagementMessage` instance.
+        return values
 
-        Returns
-        -------
-        Optional[DatasetManagementMessage]
-            The inflated ::class:`DatasetManagementMessage`, or ``None`` if the serialized form was invalid.
-        """
-        try:
-            # Grab the class to deserialize, popping it from the json obj (it was temp injected by a subclass) if there
-            deserialized_class = json_obj.pop('deserialized_class', cls)
-
-            # Similarly, get/pop any temporarily injected kwargs values to pass to deserialized_class's init function
-            deserialized_class_kwargs = json_obj.pop('deserialized_class_kwargs', dict())
-
-            action = ManagementAction.get_for_name(json_obj[cls._SERIAL_KEY_ACTION])
-            if json_obj[cls._SERIAL_KEY_ACTION] != action.name:
-                raise RuntimeError("Unparseable serialized {} value: {}".format(ManagementAction.__name__,
-                                                                                json_obj[cls._SERIAL_KEY_ACTION]))
-
-            dataset_name = json_obj.get(cls._SERIAL_KEY_DATASET_NAME)
-            category_str = json_obj.get(cls._SERIAL_KEY_CATEGORY)
-            category = None if category_str is None else DataCategory.get_for_name(category_str)
-            data_loc = json_obj.get(cls._SERIAL_KEY_DATA_LOCATION)
-            #page = json_obj[cls._SERIAL_KEY_PAGE] if cls._SERIAL_KEY_PAGE in json_obj else None
-            if cls._SERIAL_KEY_QUERY in json_obj:
-                query = DatasetQuery.factory_init_from_deserialized_json(json_obj[cls._SERIAL_KEY_QUERY])
-            else:
-                query = None
-            if cls._SERIAL_KEY_DATA_DOMAIN in json_obj:
-                domain = DataDomain.factory_init_from_deserialized_json(json_obj[cls._SERIAL_KEY_DATA_DOMAIN])
-            else:
-                domain = None
-
-            return deserialized_class(action=action, dataset_name=dataset_name, category=category,
-                                      is_read_only_dataset=json_obj[cls._SERIAL_KEY_IS_READ_ONLY], domain=domain,
-                                      data_location=data_loc,
-                                      is_pending_data=json_obj.get(cls._SERIAL_KEY_IS_PENDING_DATA), #page=page,
-                                      query=query, **deserialized_class_kwargs)
-        except Exception as e:
-            return None
+    class Config:
+        fields = {
+            "management_action": {"alias": "action"},
+            "data_category": {"alias": "category"},
+            "is_read_only_dataset": {"alias": "read_only"},
+            "is_pending_data": {"alias": "pending_data"},
+        }
 
     def __eq__(self, other):
         try:
@@ -241,10 +220,20 @@ class DatasetManagementMessage(AbstractInitRequest):
                               self.data_category.name, str(hash(self.data_domain)), self.data_location,
                               str(self.is_pending_data), self.query.to_json()]))
 
-    def __init__(self, action: ManagementAction, dataset_name: Optional[str] = None, is_read_only_dataset: bool = False,
-                 category: Optional[DataCategory] = None, domain: Optional[DataDomain] = None,
-                 data_location: Optional[str] = None, is_pending_data: bool = False,
-                 query: Optional[DatasetQuery] = None, *args, **kwargs):
+    def __init__(
+        self,
+        *,
+        # NOTE: default is None for backwards compatibility. could be specified using alias.
+        action: ManagementAction = None,
+        dataset_name: Optional[str] = None,
+        is_read_only_dataset: bool = False,
+        category: Optional[DataCategory] = None,
+        domain: Optional[DataDomain] = None,
+        data_location: Optional[str] = None,
+        is_pending_data: bool = False,
+        query: Optional[DatasetQuery] = None,
+        **data
+    ):
         """
         Initialize this instance.
 
@@ -265,134 +254,17 @@ class DatasetManagementMessage(AbstractInitRequest):
         query : Optional[DatasetQuery]
             Optional ::class:`DatasetQuery` object for query messages.
         """
-        # Sanity check certain param values depending on the action; e.g., can't CREATE a dataset without a name
-        err_msg_template = "Cannot create {} for action {} without {}"
-        if dataset_name is None and action.requires_dataset_name:
-            raise RuntimeError(err_msg_template.format(self.__class__.__name__, action, "a dataset name"))
-        if category is None and action.requires_data_category:
-            raise RuntimeError(err_msg_template.format(self.__class__.__name__, action, "a data category"))
-        if domain is None and action.requires_data_domain:
-            raise RuntimeError(err_msg_template.format(self.__class__.__name__, action, "a data domain"))
-
-        super(DatasetManagementMessage, self).__init__(*args, **kwargs)
-
-        # TODO: raise exceptions for actions for which the workflow is not yet supported (e.g., REMOVE_DATA)
-
-        self._action = action
-        self._dataset_name = dataset_name
-        self._is_read_only_dataset = is_read_only_dataset
-        self._category = category
-        self._domain = domain
-        self._data_location = data_location
-        self._query = query
-        self._is_pending_data = is_pending_data
-
-    @property
-    def data_location(self) -> Optional[str]:
-        """
-        Location for acted-upon data.
-
-        Returns
-        -------
-        Optional[str]
-            Location for acted-upon data.
-        """
-        return self._data_location
-
-    @property
-    def is_pending_data(self) -> bool:
-        """
-        Whether the sender has data pending transmission after this message.
-
-        Whether the sender has data it wants to transmit after this message.  The typical use case is during a
-        ``CREATE`` action, where this indicates there is already data to add to the newly created dataset.
-
-        Returns
-        -------
-        bool
-            Whether the sender has data pending transmission after this message.
-        """
-        return self._is_pending_data
-
-    @property
-    def data_category(self) -> Optional[DataCategory]:
-        """
-        The category of the involved data, if applicable.
-
-        Returns
-        -------
-        bool
-            The category of the involved data, if applicable.
-        """
-        return self._category
-
-    @property
-    def data_domain(self) -> Optional[DataDomain]:
-        """
-        The domain of the involved data, if applicable.
-
-        Returns
-        -------
-        Optional[DataDomain]
-            The domain of the involved data, if applicable.
-        """
-        return self._domain
-
-    @property
-    def dataset_name(self) -> Optional[str]:
-        """
-        The name of the involved dataset, if applicable.
-
-        Returns
-        -------
-        Optional
-            The name of the involved dataset, if applicable.
-        """
-        return self._dataset_name
-
-    @property
-    def is_read_only_dataset(self) -> bool:
-        """
-        Whether the dataset involved is, should be, or must be (depending on action) read-only.
-
-        Returns
-        -------
-        bool
-            Whether the dataset involved is, should be, or must be (depending on action) read-only.
-        """
-        return self._is_read_only_dataset
-
-    @property
-    def management_action(self) -> ManagementAction:
-        """
-        The type of ::class:`ManagementAction` this message embodies or requests.
-
-        Returns
-        -------
-        ManagementAction
-            The type of ::class:`ManagementAction` this message embodies or requests.
-        """
-        return self._action
-
-    @property
-    def query(self) -> Optional[DatasetQuery]:
-        return self._query
-
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        serial = {self._SERIAL_KEY_ACTION: self.management_action.name,
-                  self._SERIAL_KEY_IS_READ_ONLY: self.is_read_only_dataset,
-                  self._SERIAL_KEY_IS_PENDING_DATA: self.is_pending_data}
-        if self.dataset_name is not None:
-            serial[self._SERIAL_KEY_DATASET_NAME] = self.dataset_name
-        if self.data_category is not None:
-            serial[self._SERIAL_KEY_CATEGORY] = self.data_category.name
-        if self.data_location is not None:
-            serial[self._SERIAL_KEY_DATA_LOCATION] = self.data_location
-        if self.data_domain is not None:
-            serial[self._SERIAL_KEY_DATA_DOMAIN] = self.data_domain.to_dict()
-        if self.query is not None:
-            serial[self._SERIAL_KEY_QUERY] = self.query.to_dict()
-        return serial
+        super().__init__(
+            management_action=action or data.pop("management_action", None),
+            dataset_name=dataset_name,
+            is_read_only_dataset=is_read_only_dataset or data.pop("read_only", False),
+            data_category=category or data.pop("data_category", None),
+            data_domain=domain or data.pop("data_domain", None),
+            data_location=data_location,
+            is_pending_data=is_pending_data or data.pop("pending_data", False),
+            query=query,
+            **data
+        )
 
 
 class DatasetManagementResponse(Response):
