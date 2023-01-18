@@ -373,13 +373,7 @@ class SessionInitResponse(Response):
     # NOTE: order of this Union matters. types will be coerced from left to right. meaning, more
     # specific types (i.e. subtypes) should be listed before more general types. see `SmartUnion`
     # for more detail: https://docs.pydantic.dev/usage/model_config/#smart-union
-    data: Union[FailedSessionInitInfo, FullAuthSession, Session] = Field(
-        default_factory=lambda: FailedSessionInitInfo(
-            user="",
-            reason=SessionInitFailureReason.SESSION_DETAILS_MISSING,
-            details="Instantiated SessionInitResponse object without session data; defaulting to failure",
-        )
-    )
+    data: Union[FullAuthSession, Session, FailedSessionInitInfo]
 
     @root_validator(pre=True)
     def _coerce_data_field(cls, values):
