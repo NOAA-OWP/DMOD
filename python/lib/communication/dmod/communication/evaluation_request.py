@@ -4,7 +4,7 @@ import json
 
 from numbers import Number
 from typing import Dict
-from typing import Union
+from typing import ClassVar, Union
 
 from .message import Message, MessageEventType, Response
 
@@ -16,17 +16,15 @@ class EvaluationRequest(Message, abc.ABC):
     A request to be forwarded to the evaluation service
     """
 
-    event_type: MessageEventType = MessageEventType.EVALUATION_REQUEST
+    event_type: ClassVar[MessageEventType] = MessageEventType.EVALUATION_REQUEST
     """ :class:`MessageEventType`: the event type for this message implementation """
+
+    action: str
 
     @classmethod
     @abc.abstractmethod
     def get_action(cls) -> str:
         ...
-
-    @property
-    def action(self) -> str:
-        return self.get_action()
 
 
 class EvaluationConnectionRequest(EvaluationRequest):
