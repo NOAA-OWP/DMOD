@@ -6,8 +6,7 @@ from numbers import Number
 from typing import Dict
 from typing import Union
 
-from .maas_request import MessageEventType, Response
-from .message import Message
+from .message import Message, MessageEventType, Response
 
 SERIALIZABLE_DICT = typing.Dict[str, typing.Union[str, Number, dict, typing.List]]
 

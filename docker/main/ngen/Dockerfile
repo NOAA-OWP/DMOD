@@ -346,7 +346,7 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     # && ctest \
     && make install \
     # Install required python dependency packages with Pip \
-    && pip3 install numpy pandas pyyaml bmipy netCDF4 wheel packaging \
+    && pip3 install numpy pandas pyyaml bmipy Cython blosc2 netCDF4 wheel packaging \
     && HDF5_DIR=/usr pip3 install --install-option="\'--hdf5 \${HDF5_DIR}\'" --install-option="\'--jobs=$(nproc) \'"  --no-build-isolation tables \
     # Make aliases for convenience \
     && alias pip='pip3' \
@@ -429,6 +429,10 @@ ARG BUILD_PARALLEL_JOBS
 
 COPY --chown=${USER} --from=rocky_init_troute_repo ${WORKDIR}/t-route ${WORKDIR}/t-route
 
+USER root
+RUN cp -s /usr/bin/python3 /usr/bin/python
+USER ${USER}
+
 #    && python(){ /usr/bin/python3 \$@; } && export -f python \
 RUN cd ${WORKDIR}/t-route \
     && mkdir wheels \
@@ -436,9 +440,7 @@ RUN cd ${WORKDIR}/t-route \
     && pip3 install wheel deprecated dask \
     && cd ${WORKDIR}/t-route \
     && cd ./src/python_routing_v02 \
-    && sudo ln -s /usr/bin/python3 /usr/bin/python \
     && ./compiler.sh \
-    && sudo rm /usr/bin/python \
     && python3 setup.py bdist_wheel \
     && cp dist/*.whl ${WORKDIR}/t-route/wheels/ \
     && cd ../python_framework_v02 \
@@ -450,6 +452,10 @@ RUN cd ${WORKDIR}/t-route \
     && cd ../ngen_routing \
     && python3 setup.py bdist_wheel \
     && cp dist/*.whl ${WORKDIR}/t-route/wheels/
+
+USER root
+RUN rm /usr/bin/python
+USER ${USER}
 
 ################################################################################################################
 ################################################################################################################

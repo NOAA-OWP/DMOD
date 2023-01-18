@@ -21,5 +21,5 @@ setup(
     url='',
     license='',
     install_requires=['redis'],
-    packages=find_namespace_packages(exclude=('test'))
+    packages=find_namespace_packages(exclude=['dmod.test'])
 )

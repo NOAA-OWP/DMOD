@@ -17,10 +17,10 @@ import websockets
 import ssl
 import signal
 import logging
-from .maas_request import AbstractInitRequest, NWMRequest, NGENRequest
+from .maas_request import NWMRequest, NGENRequest
 from .partition_request import PartitionRequest
 from .dataset_management_message import MaaSDatasetManagementMessage
-from .message import MessageEventType, InvalidMessage
+from .message import AbstractInitRequest,MessageEventType, InvalidMessage
 from .session import Session, SessionInitMessage
 from .validator import SessionInitMessageJsonValidator
 from pathlib import Path

@@ -31,5 +31,5 @@ setup(
         'requests'
     ],
     include_package_data=True,
-    packages=find_namespace_packages(exclude=('tests', 'schemas', 'ssl', 'src'))
+    packages=find_namespace_packages(exclude=['dmod.test', 'schemas', 'ssl', 'src'])
 )

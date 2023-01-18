@@ -168,6 +168,10 @@ class TestWebSocketInterface(WebSocketInterfaceTestBase):
 
         self.session_secret = hashlib.sha256('blah'.encode('utf-8')).hexdigest()
         self.request_handler = NoOpHandler(listen_host=self.host, port=self.port, ssl_dir=self.test_ssl_dir)
+    
+    def tearDown(self):
+        # close event loop
+        self.request_handler.shutdown()
 
     def test__deserialize_message_0_a(self):
         """
