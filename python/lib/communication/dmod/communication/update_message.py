@@ -83,13 +83,14 @@ class UpdateMessage(AbstractInitRequest):
         exclude_defaults: bool = False,
         exclude_none: bool = False
     ) -> Dict[str, Union[str, int]]:
-        _exclude = {"object_type"}
-        if exclude is not None:
-            _exclude = {*_exclude, *exclude}
+        OBJECT_TYPE_KEY = "object_type"
+        exclude = exclude or set()
+        object_type_in_exclude = OBJECT_TYPE_KEY in exclude
+        exclude.add(OBJECT_TYPE_KEY)
 
         serial = super().dict(
             include=include,
-            exclude=_exclude,
+            exclude=exclude,
             by_alias=by_alias,
             skip_defaults=skip_defaults,
             exclude_unset=exclude_unset,
@@ -97,8 +98,8 @@ class UpdateMessage(AbstractInitRequest):
             exclude_none=exclude_none,
         )
 
-        if exclude is None or "object_type" not in exclude:
-            serial["object_type"] = self.object_type_string
+        if not object_type_in_exclude:
+            serial[OBJECT_TYPE_KEY] = self.object_type_string
 
         return serial
 
