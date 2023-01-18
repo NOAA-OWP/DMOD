@@ -47,9 +47,10 @@ class PartitionRequest(AbstractInitRequest):
 
     def __init__(
         self,
+        *,
+        hydrofabric_uid: str,
         # NOTE: default is None for backwards compatibility. could be specified using alias.
         num_partitions: int = None,
-        hydrofabric_uid: str = None,
         hydrofabric_data_id: Optional[str] = None,
         uuid: Optional[str] = None,
         description: Optional[str] = None,
@@ -74,10 +75,10 @@ class PartitionRequest(AbstractInitRequest):
 
         super().__init__(
             num_partitions=num_partitions or data.pop("partition_count", None),
-            hydrofabric_uid=hydrofabric_uid or data.pop("hydrofabric_description", None),
+            hydrofabric_uid=hydrofabric_uid,
             hydrofabric_data_id=hydrofabric_data_id,
             uuid=uuid,
-            description=description,
+            description=description or data.pop("hydrofabric_description", None),
             **data
         )
 
