@@ -287,6 +287,37 @@ class FailedSessionInitInfo(Serializable):
     def get_datetime_str_format(cls):
         return Session.get_datetime_str_format()
 
+    def dict(
+        self,
+        *,
+        include: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        exclude: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        by_alias: bool = True, # Note this follows Serializable convention
+        skip_defaults: Optional[bool] = None,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False
+    ) -> Dict[str, Union[str, int]]:
+        FAIL_TIME_KEY = "fail_time"
+        exclude = exclude or set()
+        fail_time_in_exclude = FAIL_TIME_KEY in exclude
+        exclude.add(FAIL_TIME_KEY)
+
+        serial = super().dict(
+            include=include,
+            exclude=exclude,
+            by_alias=by_alias,
+            skip_defaults=skip_defaults,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
+        )
+
+        if not fail_time_in_exclude:
+            serial[FAIL_TIME_KEY] = self.fail_time.strftime(self.get_datetime_str_format())
+
+        return serial
+
 
 # Define this custom type here for hinting
 SessionInitDataType = Union[Session, FailedSessionInitInfo]
