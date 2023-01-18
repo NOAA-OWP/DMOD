@@ -339,10 +339,16 @@ class SessionInitResponse(Response):
 
     # NOTE: this field _is_ optional, however `data` will be FailedSessionInitInfo if it is not
     # provided or set to None.
-    # NOTE: order of this Union matters. types will be coerced from left to right.  meaning, more
+    # NOTE: order of this Union matters. types will be coerced from left to right. meaning, more
     # specific types (i.e. subtypes) should be listed before more general types. see `SmartUnion`
     # for more detail: https://docs.pydantic.dev/usage/model_config/#smart-union
-    data: Union[FailedSessionInitInfo, FullAuthSession, Session]
+    data: Union[FailedSessionInitInfo, FullAuthSession, Session] = Field(
+        default_factory=lambda: FailedSessionInitInfo(
+            user="",
+            reason=SessionInitFailureReason.SESSION_DETAILS_MISSING,
+            details="Instantiated SessionInitResponse object without session data; defaulting to failure",
+        )
+    )
 
     @root_validator(pre=True)
     def _coerce_data_field(cls, values):
@@ -378,10 +384,11 @@ class SessionInitResponse(Response):
         values["data"] = coerced_data
         return values
 
-    @validator("success")
-    def _update_success(cls, value: bool, values):
+    @root_validator()
+    def _update_success(cls, values):
         # Make sure to reset/change self.success if self.data ends up being a failure info object
-        return value and isinstance(values["data"], Session)
+        values["success"] = values["success"] and isinstance(values["data"], Session)
+        return values
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ \
