@@ -58,7 +58,7 @@ class Session(Serializable):
 
     @validator("created", "last_accessed", pre=True)
     def validate_date(cls, value):
-        if isinstance(value, datetime):
+        if isinstance(value, datetime.datetime):
             return value
 
         try:
