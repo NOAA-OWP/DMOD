@@ -638,7 +638,17 @@ class DataDomain(Serializable):
             return o.__name__
         return "Any"
 
-    def dict(self, **kwargs) -> dict:
+    def dict(
+        self,
+        *,
+        include: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        exclude: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        by_alias: bool = True, # Note this follows Serializable convention
+        skip_defaults: Optional[bool] = None,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False
+    ) -> Dict[str, Union[str, int]]:
         """
         `data_fields` is excluded from dict if `self.data_format.data_fields` is None.
 
@@ -646,45 +656,36 @@ class DataDomain(Serializable):
         """
         DATA_FIELDS_KEY = "custom_data_fields"
         DATA_FIELDS_ALIAS_KEY = "data_fields"
-        exclude = {DATA_FIELDS_KEY}
 
-        # merge exclude fields and excludes from kwargs
-        kwarg_exclude: Optional[Set[str]] = kwargs.get("exclude")
-        if kwarg_exclude is not None:
-            exclude = {*exclude, *kwarg_exclude}
+        exclude = exclude or set()
 
-        # cases when "custom_data_fields" is excluded
-        if (
-        self.data_format.data_fields is None
-        or (
-            kwarg_exclude is not None
-            and DATA_FIELDS_KEY in kwarg_exclude
+        exclude_data_fields = DATA_FIELDS_KEY in exclude
+        exclude.add(DATA_FIELDS_KEY)
+
+        serial = super().dict(
+            include=include,
+            exclude=exclude,
+            by_alias=by_alias,
+            skip_defaults=skip_defaults,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
         )
-        ):
-            # overwrite existing exclude with, potentially, merged version.
-            kwargs["exclude"] = exclude
-            return super().dict(**kwargs)
+
+        if exclude_data_fields or self.data_format.data_fields:
+            return serial
 
         # serialize "custom_data_fields" python types
         custom_data_fields = (
             {k: self._encode_py_type(v) for k, v in self.custom_data_fields.items()}
             if self.custom_data_fields is not None
-            # need this to support `exclude_none=False`
-            else None
+            else dict()
         )
 
-        # exclude "custom_data_fields" and potentially other fields
-        kwargs["exclude"] = exclude
-
-        serial = super().dict(**kwargs)
-
-        # case: `by_alias` is True
-        if kwargs.get("by_alias", False):
-            # reincorporate "custom_data_fields" using it's alias
+        if by_alias:
             serial[DATA_FIELDS_ALIAS_KEY] = custom_data_fields
             return serial
 
-        # reincorporate "custom_data_fields" using it's name
         serial[DATA_FIELDS_KEY] = custom_data_fields
         return serial
 
