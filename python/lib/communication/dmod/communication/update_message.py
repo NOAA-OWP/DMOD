@@ -108,14 +108,14 @@ class UpdateMessageData(Serializable):
     object_found: Optional[bool]
 
 
-class UpdateMessageResponse(UpdateMessageData, Response):
+class UpdateMessageResponse(Response):
     """
     The subtype of ::class:`Response` appropriate for ::class:`UpdateMessage` objects.
     """
 
     response_to_type: ClassVar[Type[AbstractInitRequest]] = UpdateMessage
 
-    data: Optional[UpdateMessageData] = Field(default_factory=UpdateMessageData)
+    data: UpdateMessageData = Field(default_factory=UpdateMessageData)
 
     @classmethod
     def get_digest_subkey(cls) -> str:
@@ -129,7 +129,7 @@ class UpdateMessageResponse(UpdateMessageData, Response):
             The "subkey" (i.e., the key for the value within the nested ``data`` dictionary) for the ``digest`` in
             serialized representations.
         """
-        return cls.__fields__["digest"].alias
+        return UpdateMessageData.__fields__["digest"].alias
 
     @classmethod
     def get_object_found_subkey(cls) -> str:
@@ -143,7 +143,7 @@ class UpdateMessageResponse(UpdateMessageData, Response):
             The "subkey" (i.e., the key for the value within the nested ``data`` dictionary) for the ``digest`` in
             serialized representations.
         """
-        return cls.__fields__["object_found"].alias
+        return UpdateMessageData.__fields__["object_found"].alias
 
     def __init__(self, success: bool, reason: str, response_text: str = '',
                  data: Optional[Dict[str, Union[str, bool]]] = None, digest: Optional[str] = None,
@@ -158,5 +158,18 @@ class UpdateMessageResponse(UpdateMessageData, Response):
         if object_found is None and self.get_object_found_subkey() in data:
             object_found = data[self.get_object_found_subkey()]
 
-        super().__init__(success=success, reason=reason, message=response_text,
-                         data=UpdateMessageData(digest=digest, object_found=object_found))
+        super().__init__(
+            success=success,
+            reason=reason,
+            message=response_text,
+            data=UpdateMessageData(digest=digest, object_found=object_found),
+            **kwargs
+            )
+
+    @property
+    def digest(self) -> Optional[str]:
+        return self.data.digest
+
+    @property
+    def object_found(self) -> Optional[bool]:
+        return self.data.object_found
