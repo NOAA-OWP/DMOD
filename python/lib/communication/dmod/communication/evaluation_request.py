@@ -81,62 +81,46 @@ class ActionParameters(Serializable):
 
 
 class StartEvaluationRequest(EvaluationRequest):
+    action: typing.Literal["launch"] = "launch"
+
+    # Note: `parameters`, from parent class, is in this subclass, a dictionary representation of
+    # `ActionParameters` plus arbitrary keys and values
+    @validator("parameters", pre=True)
+    def _coerce_action_parameters(cls, value: typing.Union[typing.Dict[str, typing.Any], ActionParameters]):
+        if isinstance(value, ActionParameters):
+            return value.to_dict()
+
+        parameters = ActionParameters(**value)
+        return {**value, **parameters.to_dict()}
+
     @classmethod
     def get_action(cls) -> str:
-        return "launch"
-
-    evaluation_name: str = None
-
-    instructions: typing.Union[str, dict] = None
-
-    action_parameters: dict = None
+        return cls.__fields__["action"].default
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict) -> typing.Optional[EvaluationRequest]:
         try:
-            if "action" in json_obj and json_obj['action'] != cls.get_action():
+            if "action" in json_obj and json_obj["action"] != cls.get_action():
                 return None
 
-            if "action_parameters" in json_obj:
-                parameters = json_obj['action_parameters']
-            else:
-                parameters = json_obj
-
-            missing_instructions = not parameters.get("instructions") \
-                                   or not isinstance(parameters.get("instructions"), (str, dict))
-            missing_name = not parameters.get("evaluation_name")
-
-            if missing_instructions or missing_name:
-                return None
-
-            return cls(
-                instructions=parameters.get("instructions"),
-                evaluation_name=parameters.get("evaluation_name"),
-                **parameters
-            )
-        except Exception as e:
+            return cls(**json_obj)
+        except Exception:
             return None
-
-    def to_dict(self) -> SERIALIZABLE_DICT:
-        return {
-            "action": self.action,
-            "action_parameters": self.action_parameters.update(
-                {
-                    "evaluation_name": self.evaluation_name,
-                    "instructions": self.instructions
-                }
-            )
-        }
 
     def __init__(
         self,
-        instructions: str,
-        evaluation_name: str,
+        # NOTE: None for backwards compatibility
+        instructions: str = None,
+        evaluation_name: str = None,
         **kwargs
     ):
-        self._instructions = json.dumps(instructions, indent=4) if isinstance(instructions, dict) else instructions
-        self._evaluation_name = evaluation_name
-        self._action_parameters = kwargs
+        # assume no need for backwards compatibility
+        if instructions is None or evaluation_name is None:
+            super().__init__(**kwargs)
+            return
+
+        parameters = ActionParameters(instructions=instructions, evaluation_name=evaluation_name, **kwargs)
+        super().__init__(parameters=parameters.to_dict())
 
 
 class FindEvaluationRequest(EvaluationRequest):
