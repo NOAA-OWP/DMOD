@@ -5,6 +5,7 @@ import json
 from numbers import Number
 from pydantic import Field, validator
 
+from dmod.core.serializable import Serializable
 from .message import Message, MessageEventType, Response
 
 SERIALIZABLE_DICT = typing.Dict[str, typing.Union[str, Number, dict, typing.List]]
@@ -67,6 +68,16 @@ class EvaluationConnectionRequestResponse(Response):
 
 class SaveEvaluationRequest(EvaluationRequest):
     pass
+
+class ActionParameters(Serializable):
+    evaluation_name: str
+    instructions: str
+
+    @validator("instructions", pre=True)
+    def _coerce_instructions(cls, value):
+        if isinstance(value, dict):
+            return json.dumps(value, indent=4)
+        return value
 
 
 class StartEvaluationRequest(EvaluationRequest):
