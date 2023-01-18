@@ -82,9 +82,15 @@ class ActionParameters(Serializable):
 
 class StartEvaluationRequest(EvaluationRequest):
     action: typing.Literal["launch"] = "launch"
+    parameters: typing.Dict[str, typing.Any]
 
-    # Note: `parameters`, from parent class, is in this subclass, a dictionary representation of
-    # `ActionParameters` plus arbitrary keys and values
+    class Config:
+        fields = {
+            "parameters": {"alias": "action_parameters"}
+            }
+
+    # Note: `parameters` is a dictionary representation of `ActionParameters` plus arbitrary keys
+    # and values
     @validator("parameters", pre=True)
     def _coerce_action_parameters(cls, value: typing.Union[typing.Dict[str, typing.Any], ActionParameters]):
         if isinstance(value, ActionParameters):
