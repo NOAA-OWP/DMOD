@@ -1,6 +1,7 @@
 from uuid import uuid4
 from numbers import Number
-from typing import Optional, Union, Dict
+from pydantic import Field
+from typing import ClassVar, Dict, Optional, Union
 from .message import AbstractInitRequest, MessageEventType, Response
 from .maas_request import ExternalRequest
 
@@ -11,27 +12,23 @@ class PartitionRequest(AbstractInitRequest):
     Request for partitioning of the catchments in a hydrofabric, typically for distributed processing.
     """
 
-    event_type = MessageEventType.PARTITION_REQUEST
-    _KEY_NUM_PARTS = 'partition_count'
-    _KEY_NUM_CATS = 'catchment_count'
-    _KEY_UUID = 'uuid'
-    _KEY_HYDROFABRIC_UID = 'hydrofabric_uid'
-    _KEY_HYDROFABRIC_DATA_ID = 'hydrofabric_data_id'
-    _KEY_HYDROFABRIC_DESC = 'hydrofabric_description'
+    event_type: ClassVar[MessageEventType] = MessageEventType.PARTITION_REQUEST
 
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict, **kwargs):
-        hy_data_id = json_obj[cls._KEY_HYDROFABRIC_DATA_ID] if cls._KEY_HYDROFABRIC_DATA_ID in json_obj else None
+    num_partitions: int
+    uuid: Optional[str] = Field(default_factory=lambda: str(uuid4()), description="Get (as a string) the UUID for this instance.")
+    hydrofabric_uid: str = Field(description="The unique identifier for the hydrofabric that is to be partitioned.")
+    hydrofabric_data_id: Optional[str] = Field(description="When known, the 'data_id' for the dataset containing the associated hydrofabric.")
+    description: Optional[str] = Field(description="The optional description or name of the hydrofabric that is to be partitioned.")
 
-        try:
-            return cls(hydrofabric_uid=json_obj[cls._KEY_HYDROFABRIC_UID],
-                       hydrofabric_data_id=hy_data_id,
-                       num_partitions=json_obj[cls._KEY_NUM_PARTS],
-                       description=json_obj.get(cls._KEY_HYDROFABRIC_DESC),
-                       uuid=json_obj[cls._KEY_UUID],
-                       **kwargs)
-        except:
-            return None
+    class Config:
+        fields = {
+            "num_partitions": {"alias": "partition_count"},
+            "description": {"alias": "hydrofabric_description"}
+            }
+
+    # QUESTION: is this unused?
+    # catchment_count: str
+    # _KEY_NUM_CATS = 'catchment_count'
 
     @classmethod
     def factory_init_correct_response_subtype(cls, json_obj: dict):
@@ -48,8 +45,16 @@ class PartitionRequest(AbstractInitRequest):
         """
         return PartitionResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
-    def __init__(self, num_partitions: int, hydrofabric_uid: str, hydrofabric_data_id: Optional[str] = None,
-                 uuid: Optional[str] = None, description: Optional[str] = None, *args, **kwargs):
+    def __init__(
+        self,
+        # NOTE: default is None for backwards compatibility. could be specified using alias.
+        num_partitions: int = None,
+        hydrofabric_uid: str = None,
+        hydrofabric_data_id: Optional[str] = None,
+        uuid: Optional[str] = None,
+        description: Optional[str] = None,
+        **data
+    ):
         """
         Initialize the request.
 
@@ -66,12 +71,15 @@ class PartitionRequest(AbstractInitRequest):
         description : Optional[str]
             An optional description or name for the hydrofabric.
         """
-        super(PartitionRequest, self).__init__(*args, **kwargs)
-        self._hydrofabric_uid = hydrofabric_uid
-        self._hydrofabric_data_id = hydrofabric_data_id
-        self._num_partitions = num_partitions
-        self._uuid = uuid if uuid else str(uuid4())
-        self._description = description
+
+        super().__init__(
+            num_partitions=num_partitions or data.pop("partition_count", None),
+            hydrofabric_uid=hydrofabric_uid or data.pop("hydrofabric_description", None),
+            hydrofabric_data_id=hydrofabric_data_id,
+            uuid=uuid,
+            description=description,
+            **data
+        )
 
     def __eq__(self, other):
         return self.uuid == other.uuid and self.hydrofabric_uid == other.hydrofabric_uid and self.hydrofabric_data_id == other.hydrofabric_data_id
@@ -79,71 +87,32 @@ class PartitionRequest(AbstractInitRequest):
     def __hash__(self):
         return hash("{}{}{}".format(self.uuid, self.hydrofabric_uid, self.hydrofabric_data_id))
 
-    @property
-    def description(self) -> Optional[str]:
-        """
-        The optional description or name of the hydrofabric that is to be partitioned.
+    def dict(
+        self,
+        *,
+        include: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        exclude: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        by_alias: bool = True, # Note this follows Serializable convention
+        skip_defaults: Optional[bool] = None,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False
+    ) -> Dict[str, Union[str, int]]:
+        serial = super().dict(
+            include=include,
+            exclude=exclude,
+            by_alias=by_alias,
+            skip_defaults=skip_defaults,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
+        )
 
-        Returns
-        -------
-        Optional[str]
-            The optional description or name of the hydrofabric that is to be partitioned.
-        """
-        return self._description
+        # include "class_name" if not in excludes
+        if exclude is not None and "class_name" not in exclude:
+            serial["class_name"] = self.__class__.__name__
 
-    @property
-    def hydrofabric_data_id(self) -> Optional[str]:
-        """
-        When known, the 'data_id' for the dataset containing the associated hydrofabric.
-
-        Returns
-        -------
-        Optional[str]
-            When known, the 'data_id' for the dataset containing the associated hydrofabric.
-        """
-        return self._hydrofabric_data_id
-
-    @property
-    def hydrofabric_uid(self) -> str:
-        """
-        The unique identifier for the hydrofabric that is to be partitioned.
-
-        Returns
-        -------
-        str
-            The unique identifier for the hydrofabric that is to be partitioned.
-        """
-        return self._hydrofabric_uid
-
-    @property
-    def num_partitions(self) -> int:
-        return self._num_partitions
-
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        serialized = {
-            'class_name': self.__class__.__name__,
-            self._KEY_HYDROFABRIC_UID: self.hydrofabric_uid,
-            self._KEY_NUM_PARTS: self.num_partitions,
-            #self._KEY_SECRET: self.session_secret,
-            self._KEY_UUID: self.uuid,
-        }
-        if self.description is not None:
-            serialized[self._KEY_HYDROFABRIC_DESC] = self.description
-        if self.hydrofabric_data_id is not None:
-            serialized[self._KEY_HYDROFABRIC_DATA_ID] = self.hydrofabric_data_id
-        return serialized
-
-    @property
-    def uuid(self) -> str:
-        """
-        Get (as a string) the UUID for this instance.
-
-        Returns
-        -------
-        str
-            The UUID for this instance, as a string.
-        """
-        return self._uuid
+        return serial
 
 
 class PartitionResponse(Response):
