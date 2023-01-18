@@ -31,18 +31,17 @@ class EvaluationConnectionRequest(EvaluationRequest):
     """
     A request used to communicate through a chained websocket connection
     """
-    _action_parameters: typing.Dict[str, typing.Any]
+    action: typing.Literal["connect"] = "connect"
+    parameters: typing.Dict[str, typing.Any]
 
-    def __init__(self, **kwargs):
-        self._action_parameters = kwargs or dict()
+    class Config:
+        fields = {
+            "parameters": {"alias": "action_parameters"}
+            }
 
     @classmethod
     def get_action(cls) -> str:
-        return "connect"
-
-    @property
-    def parameters(self) -> typing.Dict[str, typing.Any]:
-        return self._action_parameters
+        return cls.action
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict) -> typing.Optional[EvaluationRequest]:
@@ -61,20 +60,6 @@ class EvaluationConnectionRequest(EvaluationRequest):
         json_obj.pop('action')
 
         return cls(**json_obj)
-
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        """
-        Returns:
-            A dictionary representation of this request
-        """
-        dictionary_representation = {
-            "action": self.action
-        }
-
-        if self._action_parameters:
-            dictionary_representation['action_parameters'] = self._action_parameters.copy()
-
-        return dictionary_representation
 
 
 class EvaluationConnectionRequestResponse(Response):
