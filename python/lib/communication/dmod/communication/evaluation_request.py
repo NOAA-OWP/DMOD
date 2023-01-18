@@ -3,8 +3,7 @@ import abc
 import json
 
 from numbers import Number
-from typing import Dict
-from typing import ClassVar, Union
+from pydantic import Field, validator
 
 from .message import Message, MessageEventType, Response
 
@@ -16,7 +15,7 @@ class EvaluationRequest(Message, abc.ABC):
     A request to be forwarded to the evaluation service
     """
 
-    event_type: ClassVar[MessageEventType] = MessageEventType.EVALUATION_REQUEST
+    event_type: typing.ClassVar[MessageEventType] = MessageEventType.EVALUATION_REQUEST
     """ :class:`MessageEventType`: the event type for this message implementation """
 
     action: str
@@ -32,7 +31,7 @@ class EvaluationConnectionRequest(EvaluationRequest):
     A request used to communicate through a chained websocket connection
     """
     action: typing.Literal["connect"] = "connect"
-    parameters: typing.Dict[str, typing.Any]
+    parameters: typing.Dict[str, typing.Any] = Field(default_factory=dict)
 
     class Config:
         fields = {
@@ -41,7 +40,7 @@ class EvaluationConnectionRequest(EvaluationRequest):
 
     @classmethod
     def get_action(cls) -> str:
-        return cls.action
+        return cls.__fields__["action"].default
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict) -> typing.Optional[EvaluationRequest]:
