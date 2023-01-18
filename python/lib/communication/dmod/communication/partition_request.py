@@ -173,23 +173,9 @@ class PartitionResponse(Response):
 
 class PartitionExternalRequest(PartitionRequest, ExternalRequest):
 
-    _KEY_SECRET = 'session_secret'
-
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict, **kwargs):
-        try:
-            kwargs['session_secret'] = json_obj[cls._KEY_SECRET]
-            return super(PartitionExternalRequest, cls).factory_init_from_deserialized_json(json_obj, **kwargs)
-        except:
-            return None
-
-    def __init__(self, *args, **kwargs):
-        super(PartitionExternalRequest, self).__init__(*args, **kwargs)
-
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        serial = super(PartitionExternalRequest, self).to_dict()
-        serial[self._KEY_SECRET] = self.session_secret
-        return serial
+    class Config:
+        # NOTE: in parent class, `ExternalRequest`, `session_secret` is aliased using `session-secret`
+        fields = {"session_secret": {"alias": "session_secret"}}
 
 
 class PartitionExternalResponse(PartitionResponse):
