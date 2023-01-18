@@ -390,9 +390,26 @@ class MaaSDatasetManagementMessage(DatasetManagementMessage, ExternalRequest):
     the superclass.
     """
 
-    _SERIAL_KEY_DATA_REQUIREMENTS = 'data_requirements'
-    _SERIAL_KEY_OUTPUT_FORMATS = 'output_formats'
-    _SERIAL_KEY_SESSION_SECRET = 'session_secret'
+    data_requirements: List[DataRequirement] = Field(
+        default_factory=list,
+        description="List of all the explicit and implied data requirements for this request.",
+    )
+    """
+    By default, this is an empty list, though it is possible to append requirements to the list.
+    """
+
+    output_formats: List[DataFormat] = Field(
+        default_factory=list,
+        description="List of the formats of each required output dataset for the requested task."
+        )
+    """
+    By default, this will be an empty list, though if any request does need to produce output,
+    formats can be appended to it.
+    """
+
+    class Config:
+        # NOTE: in parent class, `ExternalRequest`, `session_secret` is aliased using `session-secret`
+        fields = {"session_secret": {"alias": "session_secret"}}
 
     @classmethod
     def factory_create(cls, mgmt_msg: DatasetManagementMessage, session_secret: str) -> 'MaaSDatasetManagementMessage':
@@ -416,90 +433,33 @@ class MaaSDatasetManagementMessage(DatasetManagementMessage, ExternalRequest):
         """
         return MaaSDatasetManagementResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict) -> Optional['MaaSDatasetManagementMessage']:
-        try:
-            # Inject this if necessary before passing to supertype
-            if 'deserialized_class' not in json_obj:
-                json_obj['deserialized_class'] = cls
-            elif isinstance(json_obj['deserialized_class'], str):
-                json_obj['deserialized_class'] = globals()[json_obj['deserialized_class']]
-            # Also inject things that will be used as additional kwargs to the eventual class init
-            if 'deserialized_class_kwargs' not in json_obj:
-                json_obj['deserialized_class_kwargs'] = dict()
-            if 'session_secret' not in json_obj['deserialized_class_kwargs']:
-                json_obj['deserialized_class_kwargs']['session_secret'] = json_obj[cls._SERIAL_KEY_SESSION_SECRET]
+    def dict(
+        self,
+        *,
+        include: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        exclude: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        by_alias: bool = True, # Note this follows Serializable convention
+        skip_defaults: Optional[bool] = None,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False
+    ) -> Dict[str, Union[str, int]]:
+        exclude = exclude or set()
 
-            obj = super().factory_init_from_deserialized_json(json_obj=json_obj)
+        if not self.data_requirements:
+            exclude.add("data_requirements")
+        if not self.output_formats:
+            exclude.add("output_formats")
 
-            # Also add these if there happened to be any present
-            if cls._SERIAL_KEY_DATA_REQUIREMENTS in json_obj:
-                obj.data_requirements.extend([DataRequirement.factory_init_from_deserialized_json(json) for json in
-                                              json_obj[cls._SERIAL_KEY_DATA_REQUIREMENTS]])
-            if cls._SERIAL_KEY_OUTPUT_FORMATS in json_obj:
-                obj.output_formats.extend(
-                    [DataFormat.get_for_name(f) for f in json_obj[cls._SERIAL_KEY_OUTPUT_FORMATS]])
-
-            # Finally, return the object
-            return obj
-        except Exception as e:
-            return None
-
-    def __init__(self, session_secret: str, *args, **kwargs):
-        """
-
-        Keyword Args
-        ----------
-        session_secret : str
-        action : ManagementAction
-        dataset_name : Optional[str]
-        is_read_only_dataset : bool
-        category : Optional[DataCategory]
-        data_location : Optional[str]
-        is_pending_data : bool
-        query : Optional[DataQuery]
-        """
-        super(MaaSDatasetManagementMessage, self).__init__(session_secret=session_secret, *args, **kwargs)
-        self._data_requirements = []
-        self._output_formats = []
-
-    @property
-    def data_requirements(self) -> List[DataRequirement]:
-        """
-        List of all the explicit and implied data requirements for this request.
-
-        By default, this is an empty list, though it is possible to append requirements to the list.
-
-        Returns
-        -------
-        List[DataRequirement]
-            List of all the explicit and implied data requirements for this request.
-        """
-        return self._data_requirements
-
-    @property
-    def output_formats(self) -> List[DataFormat]:
-        """
-        List of the formats of each required output dataset for the requested task.
-
-        By default, this will be an empty list, though if any request does need to produce output, formats can be
-        appended to it
-
-        Returns
-        -------
-        List[DataFormat]
-            List of the formats of each required output dataset for the requested.
-        """
-        return self._output_formats
-
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        serial = super(MaaSDatasetManagementMessage, self).to_dict()
-        serial[self._SERIAL_KEY_SESSION_SECRET] = self.session_secret
-        if len(self.data_requirements) > 0:
-            serial[self._SERIAL_KEY_DATA_REQUIREMENTS] = [r.to_dict() for r in self.data_requirements]
-        if len(self.output_formats) > 0:
-            serial[self._SERIAL_KEY_OUTPUT_FORMATS] = [f.name for f in self.output_formats]
-        return serial
+        return super().dict(
+            include=include,
+            exclude=exclude,
+            by_alias=by_alias,
+            skip_defaults=skip_defaults,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
+        )
 
 
 class MaaSDatasetManagementResponse(ExternalRequestResponse, DatasetManagementResponse):
