@@ -224,8 +224,7 @@ class FullAuthSession(Session):
     @validator("ip_address", pre=True)
     def cast_ip_address_to_str(cls, value: str) -> str:
         # this will raise if cannot be coerced into IPv(4|6)Address
-        IPvAnyAddress.validate(value)
-        return value
+        return str(IPvAnyAddress.validate(value))
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict):
