@@ -1,5 +1,6 @@
 from .message import AbstractInitRequest, MessageEventType, Response
-from typing import Dict, Optional, Union
+from pydantic import Field
+from typing import ClassVar, Dict, Optional, Union
 from numbers import Number
 from uuid import UUID
 
@@ -18,64 +19,45 @@ class DataTransmitMessage(AbstractInitRequest):
     ::class:`str` object.  However, instances can be initialized using either ::class:`str` or ::class:`bytes` data.
     """
 
-    _KEY_SERIES_UUID = 'series_uuid'
+    event_type: ClassVar[MessageEventType] = MessageEventType.DATA_TRANSMISSION
 
-    event_type: MessageEventType = MessageEventType.DATA_TRANSMISSION
+    data: str = Field(description="The data carried by this message, in decoded string form.")
+    series_uuid: UUID = Field(description="A unique id for the collective series of transmission message this instance is a part of.")
+    """
+    The expectation is that a larger amount of data will be broken up into multiple messages in a series.
+    """
+    is_last: bool = Field(False, description="Whether this is the last data transmission message in this series.")
 
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict) -> Optional['DataTransmitMessage']:
-        try:
-            return cls(data=json_obj['data'], series_uuid=UUID(json_obj[cls._KEY_SERIES_UUID]),
-                       is_last=json_obj['is_last'])
-        except Exception as e:
-            return None
+    def dict(
+        self,
+        *,
+        include: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        exclude: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        by_alias: bool = True, # Note this follows Serializable convention
+        skip_defaults: Optional[bool] = None,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False
+    ) -> Dict[str, Union[str, int]]:
+        SERIES_UUID_KEY = "series_uuid"
+        exclude = exclude or set()
+        series_uuid_in_exclude = SERIES_UUID_KEY in exclude
+        exclude.add(SERIES_UUID_KEY)
 
-    def __init__(self, data: Union[str, bytes], series_uuid: UUID, is_last: bool = False, *args, **kwargs):
-        super(DataTransmitMessage, self).__init__(*args, **kwargs)
-        self._data: str = data if isinstance(data, str) else data.decode()
-        self._series_uuid = series_uuid
-        self._is_last: bool = is_last
+        serial = super().dict(
+            include=include,
+            exclude=exclude,
+            by_alias=by_alias,
+            skip_defaults=skip_defaults,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
+        )
 
-    @property
-    def data(self) -> str:
-        """
-        The data carried by this message, in decoded string form.
+        if not series_uuid_in_exclude:
+            serial[SERIES_UUID_KEY] = str(self.series_uuid)
 
-        Returns
-        -------
-        str
-            The data carried by this message, in decoded string form.
-        """
-        return self._data
-
-    @property
-    def is_last(self) -> bool:
-        """
-        Whether this is the last data transmission message in this series.
-
-        Returns
-        -------
-        bool
-            Whether this is the last data transmission message in this series.
-        """
-        return self._is_last
-
-    @property
-    def series_uuid(self) -> UUID:
-        """
-        A unique id for the collective series of transmission message this instance is a part of.
-
-        The expectation is that a larger amount of data will be broken up into multiple messages in a series.
-
-        Returns
-        -------
-        UUID
-            A unique id for the collective series of transmission message this instance is a part of.
-        """
-        return self._series_uuid
-
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        return {'data': self.data, self._KEY_SERIES_UUID: str(self.series_uuid), 'is_last': self.is_last}
+        return serial
 
 
 class DataTransmitResponse(Response):
