@@ -1,6 +1,6 @@
 from abc import ABC
 
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 from dmod.core.execution import AllocationParadigm
 from ..message import MessageEventType
@@ -8,7 +8,7 @@ from .dmod_job_request import DmodJobRequest
 from .external_request import ExternalRequest
 
 
-def get_available_models() -> dict:
+def get_available_models() -> Dict[str, "ModelExecRequest"]:
     """
     :return: The names of all models mapped to their class
     """
