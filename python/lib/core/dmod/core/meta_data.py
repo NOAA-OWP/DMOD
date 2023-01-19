@@ -673,7 +673,9 @@ class DataDomain(Serializable):
             exclude_none=exclude_none,
         )
 
-        if exclude_data_fields or self.data_format.data_fields:
+        # NOTE: `custom_data_fields` is excluded if it is a empty T variant. This breaks with
+        # Serializable's convention to only exclude `None` value fields.
+        if exclude_data_fields or self.data_format.data_fields or not self.custom_data_fields:
             return serial
 
         # serialize "custom_data_fields" python types
