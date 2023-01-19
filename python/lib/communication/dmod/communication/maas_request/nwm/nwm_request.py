@@ -1,25 +1,26 @@
-from typing import List
+from typing import ClassVar, List, Optional, Union
 
+from dmod.core.execution import AllocationParadigm
 from dmod.core.meta_data import (
-    DataCategory,
-    DataDomain,
     DataFormat,
     DataRequirement,
-    DiscreteRestriction,
 )
 from ...message import MessageEventType
 from ..model_exec_request import ModelExecRequest
 from ..model_exec_request_response import ModelExecRequestResponse
+from .nwm_exec_request_body import NWMRequestBody
 
 
 class NWMRequest(ModelExecRequest):
 
-    event_type = MessageEventType.MODEL_EXEC_REQUEST
+    event_type: ClassVar[MessageEventType] = MessageEventType.MODEL_EXEC_REQUEST
     """(:class:`MessageEventType`) The type of event for this message"""
     # Once more the case senstivity of this model name is called into question
     # note: this is essentially keyed to image_and_domain.yml and the cases must match!
-    model_name = "nwm"
+    model_name: ClassVar[str] = "nwm"
     """(:class:`str`) The name of the model to be used"""
+
+    model: NWMRequestBody
 
     @classmethod
     def factory_init_correct_response_subtype(
@@ -38,65 +39,32 @@ class NWMRequest(ModelExecRequest):
         """
         return NWMRequestResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        """
-        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
+    def __init__(
+        self,
+        # required in prior version of code
+        config_data_id: str = None,
+        # optional in prior version of code
+        cpu_count: Optional[int] = None,
+        allocation_paradigm: Optional[Union[str, AllocationParadigm]] = None,
+        **data
+    ):
+        # assume no need for backwards compatibility
+        if "model" in data:
+            super().__init__(**data)
+            return
 
-        Recall this will look something like:
+        data["model"] = dict()
+        nwm_inner_request_body = {"config_data_id": config_data_id}
 
-        {
-            'model': {
-                'NWM': {
-                    'allocation_paradigm': '<allocation_paradigm_str>',
-                    'config_data_id': '<config_dataset_data_id>',
-                    'cpu_count': <count>,
-                    'data_requirements': [ ... (serialized DataRequirement objects) ... ]
-                }
-            }
-            'session-secret': 'secret-string-val'
-        }
+        if cpu_count is not None:
+            nwm_inner_request_body["cpu_count"] = cpu_count
 
-        Parameters
-        ----------
-        json_obj
+        if allocation_paradigm is not None:
+            nwm_inner_request_body["allocation_paradigm"] = allocation_paradigm
 
-        Returns
-        -------
-        A new object of this type instantiated from the deserialize JSON object dictionary, or none if the provided
-        parameter could not be used to instantiated a new object.
-        """
-        try:
-            nwm_element = json_obj["model"][cls.model_name]
-            additional_kwargs = dict()
-            if "cpu_count" in nwm_element:
-                additional_kwargs["cpu_count"] = nwm_element["cpu_count"]
+        data["model"]["nwm"] = nwm_inner_request_body
 
-            if "allocation_paradigm" in nwm_element:
-                additional_kwargs["allocation_paradigm"] = nwm_element[
-                    "allocation_paradigm"
-                ]
-
-            obj = cls(
-                config_data_id=nwm_element["config_data_id"],
-                session_secret=json_obj["session-secret"],
-                **additional_kwargs
-            )
-
-            reqs = [
-                DataRequirement.factory_init_from_deserialized_json(req_json)
-                for req_json in json_obj["model"][cls.model_name]["data_requirements"]
-            ]
-
-            obj._data_requirements = reqs
-
-            return obj
-        except Exception as e:
-            return None
-
-    def __init__(self, *args, **kwargs):
-        super(NWMRequest, self).__init__(*args, **kwargs)
-        self._data_requirements = None
+        super().__init__(**data)
 
     @property
     def data_requirements(self) -> List[DataRequirement]:
@@ -108,21 +76,7 @@ class NWMRequest(ModelExecRequest):
         List[DataRequirement]
             List of all the explicit and implied data requirements for this request.
         """
-        if self._data_requirements is None:
-            data_id_restriction = DiscreteRestriction(
-                variable="data_id", values=[self.config_data_id]
-            )
-            self._data_requirements = [
-                DataRequirement(
-                    domain=DataDomain(
-                        data_format=DataFormat.NWM_CONFIG,
-                        discrete_restrictions=[data_id_restriction],
-                    ),
-                    is_input=True,
-                    category=DataCategory.CONFIG,
-                )
-            ]
-        return self._data_requirements
+        return self.model.data_requirements
 
     @property
     def output_formats(self) -> List[DataFormat]:
@@ -136,40 +90,6 @@ class NWMRequest(ModelExecRequest):
         """
         return [DataFormat.NWM_OUTPUT]
 
-    def to_dict(self) -> dict:
-        """
-        Converts the request to a dictionary that may be passed to web requests.
-
-        Will look like:
-
-        {
-            'model': {
-                'NWM': {
-                    'allocation_paradigm': '<allocation_paradigm_str>',
-                    'config_data_id': '<config_dataset_data_id>',
-                    'cpu_count': <count>,
-                    'data_requirements': [ ... (serialized DataRequirement objects) ... ]
-                }
-            }
-            'session-secret': 'secret-string-val'
-        }
-
-        Returns
-        -------
-        dict
-            A dictionary containing all the data in such a way that it may be used by a web request
-        """
-        model = dict()
-        model[self.get_model_name()] = dict()
-        model[self.get_model_name()][
-            "allocation_paradigm"
-        ] = self.allocation_paradigm.name
-        model[self.get_model_name()]["config_data_id"] = self.config_data_id
-        model[self.get_model_name()]["cpu_count"] = self.cpu_count
-        model[self.get_model_name()]["data_requirements"] = [
-            r.to_dict() for r in self.data_requirements
-        ]
-        return {"model": model, "session-secret": self.session_secret}
 
 
 class NWMRequestResponse(ModelExecRequestResponse):
