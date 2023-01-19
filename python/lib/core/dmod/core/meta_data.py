@@ -768,6 +768,14 @@ class DataRequirement(Serializable):
     is_input: bool = Field(description="Whether this represents required input data, as opposed to a requirement for storing output data.")
     size: Optional[int]
 
+    def __eq__(self, other: object) -> bool:
+        return (
+            self.__class__ == other.__class__
+            and self.domain == other.domain
+            and self.is_input == other.is_input
+            and self.category == other.category
+        )
+
     def __hash__(self):
         return hash((self.domain, self.is_input, self.category))
 
