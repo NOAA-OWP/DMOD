@@ -443,6 +443,7 @@ class DataDomain(Serializable):
         alias="discrete",
         default_factory=list
     )
+    # NOTE: remove this field after #239 is merged. will close #245.
     custom_data_fields: Optional[Dict[str, Union[str, int, float, Any]]] = Field(
         description=("This will either be directly from the format, if its format specifies any fields, or from a custom fields"
                      "attribute that may be set during initialization (but is ignored when the format specifies fields)."),
