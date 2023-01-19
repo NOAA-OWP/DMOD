@@ -1,11 +1,14 @@
 from abc import ABC
 
+from typing import Dict, Optional, Union
+
+from dmod.core.execution import AllocationParadigm
 from ..message import MessageEventType
 from .dmod_job_request import DmodJobRequest
 from .external_request import ExternalRequest
 
 
-def get_available_models() -> dict:
+def get_available_models() -> Dict[str, "ModelExecRequest"]:
     """
     :return: The names of all models mapped to their class
     """
@@ -30,6 +33,7 @@ def get_available_models() -> dict:
     return recursively_get_all_model_subclasses(ModelExecRequest)
 
 
+# TODO: #pydantic_rebase - confirm implementation is Pydantic and consistent with changes made to class hierarchy
 class ModelExecRequest(ExternalRequest, DmodJobRequest, ABC):
     """
     An abstract extension of ::class:`DmodJobRequest` for requesting model execution jobs.
