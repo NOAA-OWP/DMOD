@@ -1,6 +1,6 @@
-from numbers import Number
+from pydantic import PrivateAttr
 
-from typing import Dict, List, Optional, Set, Union
+from typing import List, Optional, Set, Union
 
 from dmod.core.meta_data import (
     DataCategory,
@@ -13,6 +13,7 @@ from dmod.core.meta_data import (
 from ...message import MessageEventType
 from ..model_exec_request import ModelExecRequest
 from ..model_exec_request_response import ModelExecRequestResponse
+from .ngen_exec_request_body import NGENRequestBody
 
 
 class NGENRequest(ModelExecRequest):
@@ -23,58 +24,13 @@ class NGENRequest(ModelExecRequest):
     model_name = "ngen"  # FIXME case sentitivity
     """(:class:`str`) The name of the model to be used"""
 
-    @classmethod
-    def factory_init_from_deserialized_json(
-        cls, json_obj: dict
-    ) -> Optional["NGENRequest"]:
-        """
-        Deserialize request formated as JSON to an instance.
+    model: NGENRequestBody
 
-        See the documentation of this type's ::method:`to_dict` for an example of the format of valid JSON.
-
-        Parameters
-        ----------
-        json_obj : dict
-            The serialized JSON representation of a request object.
-
-        Returns
-        -------
-        The deserialized ::class:`NGENRequest`, or ``None`` if the JSON was not valid for deserialization.
-
-        See Also
-        -------
-        ::method:`to_dict`
-        """
-        try:
-            optional_kwargs_w_defaults = dict()
-            if "cpu_count" in json_obj["model"]:
-                optional_kwargs_w_defaults["cpu_count"] = json_obj["model"]["cpu_count"]
-            if "allocation_paradigm" in json_obj["model"]:
-                optional_kwargs_w_defaults["allocation_paradigm"] = json_obj["model"][
-                    "allocation_paradigm"
-                ]
-            if "catchments" in json_obj["model"]:
-                optional_kwargs_w_defaults["catchments"] = json_obj["model"][
-                    "catchments"
-                ]
-            if "partition_config_data_id" in json_obj["model"]:
-                optional_kwargs_w_defaults["partition_config_data_id"] = json_obj[
-                    "model"
-                ]["partition_config_data_id"]
-
-            return cls(
-                time_range=TimeRange.factory_init_from_deserialized_json(
-                    json_obj["model"]["time_range"]
-                ),
-                hydrofabric_uid=json_obj["model"]["hydrofabric_uid"],
-                hydrofabric_data_id=json_obj["model"]["hydrofabric_data_id"],
-                config_data_id=json_obj["model"]["config_data_id"],
-                bmi_cfg_data_id=json_obj["model"]["bmi_config_data_id"],
-                session_secret=json_obj["session-secret"],
-                **optional_kwargs_w_defaults
-            )
-        except Exception as e:
-            return None
+    _hydrofabric_data_requirement = PrivateAttr(None)
+    _forcing_data_requirement = PrivateAttr(None)
+    _realization_cfg_data_requirement = PrivateAttr(None)
+    _bmi_cfg_data_requirement = PrivateAttr(None)
+    _partition_cfg_data_requirement = PrivateAttr(None)
 
     @classmethod
     def factory_init_correct_response_subtype(
@@ -95,20 +51,23 @@ class NGENRequest(ModelExecRequest):
             json_obj=json_obj
         )
 
-    def __eq__(self, other):
-        return (
-            self.time_range == other.time_range
-            and self.hydrofabric_data_id == other.hydrofabric_data_id
-            and self.hydrofabric_uid == other.hydrofabric_uid
-            and self.config_data_id == other.config_data_id
-            and self.bmi_config_data_id == other.bmi_config_data_id
-            and self.session_secret == other.session_secret
-            and self.cpu_count == other.cpu_count
-            and self.partition_cfg_data_id == other.partition_cfg_data_id
-            and self.catchments == other.catchments
-        )
+    def __eq__(self, other: "NGENRequest"):
+        try:
+            return (
+                self.time_range == other.time_range
+                and self.hydrofabric_data_id == other.hydrofabric_data_id
+                and self.hydrofabric_uid == other.hydrofabric_uid
+                and self.config_data_id == other.config_data_id
+                and self.bmi_config_data_id == other.bmi_config_data_id
+                and self.session_secret == other.session_secret
+                and self.cpu_count == other.cpu_count
+                and self.partition_cfg_data_id == other.partition_cfg_data_id
+                and self.catchments == other.catchments
+            )
+        except AttributeError:
+            return False
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         hash_str = "{}-{}-{}-{}-{}-{}-{}-{}-{}".format(
             self.time_range.to_json(),
             self.hydrofabric_data_id,
@@ -124,14 +83,15 @@ class NGENRequest(ModelExecRequest):
 
     def __init__(
         self,
-        time_range: TimeRange,
-        hydrofabric_uid: str,
-        hydrofabric_data_id: str,
-        bmi_cfg_data_id: str,
+        # required in prior version of code
+        time_range: TimeRange = None,
+        hydrofabric_uid: str = None,
+        hydrofabric_data_id: str = None,
+        bmi_cfg_data_id: str = None,
+        # optional in prior version of code
         catchments: Optional[Union[Set[str], List[str]]] = None,
         partition_cfg_data_id: Optional[str] = None,
-        *args,
-        **kwargs
+        **data
     ):
         """
         Initialize an instance.
@@ -159,28 +119,24 @@ class NGENRequest(ModelExecRequest):
         session_secret : str
             The session secret for the right session when communicating with the MaaS request handler
         """
-        super().__init__(*args, **kwargs)
-        self._time_range = time_range
-        self._hydrofabric_uid = hydrofabric_uid
-        self._hydrofabric_data_id = hydrofabric_data_id
-        self._bmi_config_data_id = bmi_cfg_data_id
-        self._part_config_data_id = partition_cfg_data_id
-        # Convert an initial list to a set to remove duplicates
-        try:
-            catchments = set(catchments)
-        # TypeError should mean that we received `None`, so just use that to set _catchments
-        except TypeError:
-            self._catchments = catchments
-        # Assuming we have a set now, move this set back to list and sort
-        else:
-            self._catchments = list(catchments)
-            self._catchments.sort()
+        # If `model` key is present, assume there is not a need for backwards compatibility
+        if "model" in data:
+            super().__init__(**data)
+            return
 
-        self._hydrofabric_data_requirement = None
-        self._forcing_data_requirement = None
-        self._realization_cfg_data_requirement = None
-        self._bmi_cfg_data_requirement = None
-        self._partition_cfg_data_requirement = None
+        # NOTE: backwards compatibility support.
+        model = NGENRequestBody(
+            time_range=time_range,
+            hydrofabric_uid=hydrofabric_uid,
+            hydrofabric_data_id=hydrofabric_data_id,
+            catchments=catchments,
+            partition_cfg_data_id=partition_cfg_data_id,
+            # previous version of code used `bmi_cfg_data_id` as parameter name.
+            bmi_config_data_id=bmi_cfg_data_id,
+            **data
+        )
+
+        super().__init__(model=model, **data)
 
     def _gen_catchments_domain_restriction(
         self, var_name: str = "catchment_id"
@@ -237,7 +193,7 @@ class NGENRequest(ModelExecRequest):
         str
             Index value of ``data_id`` to uniquely identify sets of BMI module config data that are otherwise similar.
         """
-        return self._bmi_config_data_id
+        return self.model.bmi_config_data_id
 
     @property
     def bmi_cfg_data_requirement(self) -> DataRequirement:
@@ -276,7 +232,7 @@ class NGENRequest(ModelExecRequest):
         Optional[List[str]]
             An optional list of catchment ids for those catchments in the request ngen execution.
         """
-        return self._catchments
+        return self.model.catchments
 
     @property
     def forcing_data_requirement(self) -> DataRequirement:
@@ -292,7 +248,7 @@ class NGENRequest(ModelExecRequest):
             # TODO: going to need to address the CSV usage later
             forcing_domain = DataDomain(
                 data_format=DataFormat.AORC_CSV,
-                continuous_restrictions=[self._time_range],
+                continuous_restrictions=[self.model.time_range],
                 discrete_restrictions=[self._gen_catchments_domain_restriction()],
             )
             self._forcing_data_requirement = DataRequirement(
@@ -313,10 +269,10 @@ class NGENRequest(ModelExecRequest):
         if self._hydrofabric_data_requirement is None:
             hydro_restrictions = [
                 DiscreteRestriction(
-                    variable="hydrofabric_id", values=[self._hydrofabric_uid]
+                    variable="hydrofabric_id", values=[self.model.hydrofabric_uid]
                 ),
                 DiscreteRestriction(
-                    variable="data_id", values=[self._hydrofabric_data_id]
+                    variable="data_id", values=[self.model.hydrofabric_data_id]
                 ),
             ]
             hydro_domain = DataDomain(
@@ -343,7 +299,7 @@ class NGENRequest(ModelExecRequest):
         str
             The data format ``data_id`` for the hydrofabric dataset to use in requested modeling.
         """
-        return self._hydrofabric_data_id
+        return self.model.hydrofabric_data_id
 
     @property
     def hydrofabric_uid(self) -> str:
@@ -355,7 +311,7 @@ class NGENRequest(ModelExecRequest):
         str
             The unique id of the hydrofabric for this modeling request.
         """
-        return self._hydrofabric_uid
+        return self.model.hydrofabric_uid
 
     @property
     def output_formats(self) -> List[DataFormat]:
@@ -384,7 +340,7 @@ class NGENRequest(ModelExecRequest):
         Optional[str]
             The data format ``data_id`` for the partition config dataset to use in requested modeling, or ``None``.
         """
-        return self._part_config_data_id
+        return self.model.partition_cfg_data_id
 
     @property
     def partition_cfg_data_requirement(self) -> DataRequirement:
@@ -480,54 +436,7 @@ class NGENRequest(ModelExecRequest):
         TimeRange
             The time range for the requested model execution.
         """
-        return self._time_range
-
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        """
-        Converts the request to a dictionary that may be passed to web requests
-
-        Will look like:
-
-        {
-            'model': {
-                'name': 'ngen',
-                'allocation_paradigm': <allocation_paradigm_str>,
-                'cpu_count': <cpu_count>,
-                'time_range': { <serialized_time_range_object> },
-                'hydrofabric_data_id': 'hy-data-id-val',
-                'hydrofabric_uid': 'hy-uid-val',
-                'config_data_id': 'config-data-id-val',
-                'bmi_config_data_id': 'bmi-config-data-id',
-                'partition_config_data_id': 'partition_config_data_id',
-                ['catchments': { <serialized_catchment_discrete_restriction_object> },]
-                'version': 4.0
-            },
-            'session-secret': 'secret-string-val'
-        }
-
-        As a reminder, the ``catchments`` item may be absent, which implies the object does not have a specified list of
-        catchment ids.
-
-        Returns
-        -------
-        Dict[str, Union[str, Number, dict, list]]
-            A dictionary containing all the data in such a way that it may be used by a web request
-        """
-        model = dict()
-        model["name"] = self.get_model_name()
-        model["allocation_paradigm"] = self.allocation_paradigm.name
-        model["cpu_count"] = self.cpu_count
-        model["time_range"] = self.time_range.to_dict()
-        model["hydrofabric_data_id"] = self.hydrofabric_data_id
-        model["hydrofabric_uid"] = self.hydrofabric_uid
-        model["config_data_id"] = self.config_data_id
-        model["bmi_config_data_id"] = self._bmi_config_data_id
-        if self.catchments is not None:
-            model["catchments"] = self.catchments
-        if self.partition_cfg_data_id is not None:
-            model["partition_config_data_id"] = self.partition_cfg_data_id
-
-        return {"model": model, "session-secret": self.session_secret}
+        return self.model.time_range
 
 
 class NGENRequestResponse(ModelExecRequestResponse):
