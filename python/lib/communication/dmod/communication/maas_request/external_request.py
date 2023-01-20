@@ -28,19 +28,7 @@ class ExternalRequest(AbstractInitRequest, ABC):
         """
         pass
 
-    def __init__(self, session_secret: str, *args, **kwargs):
-        """
-        Initialize the base attributes and state of this request object.
-
-        Parameters
-        ----------
-        session_secret : str
-            The session secret for the right session when communicating with the MaaS request handler
-        """
-        super(ExternalRequest, self).__init__(*args, **kwargs)
-        self.session_secret = session_secret
-
-    def _check_class_compatible_for_equality(self, other) -> bool:
+    def _check_class_compatible_for_equality(self, other: object) -> bool:
         """
         Check and return whether another object is of some class that is compatible for equality checking with the class
         of this instance, such that the class difference does not independently imply the other object and this instance
