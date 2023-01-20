@@ -1,6 +1,6 @@
 from pydantic import PrivateAttr
 
-from typing import List, Optional, Set, Union
+from typing import ClassVar, List, Optional, Set, Type, Union
 
 # TODO: #pydantic_refactor - clean up any imports that are not still needed once this is finished
 from dmod.core.meta_data import (
@@ -11,7 +11,7 @@ from dmod.core.meta_data import (
     DiscreteRestriction,
     TimeRange,
 )
-from ...message import MessageEventType
+from ...message import AbstractInitRequest, MessageEventType
 from .abstract_nextgen_request import ExternalAbstractNgenRequest
 from ..model_exec_request import ModelExecRequest
 from ..model_exec_request_response import ModelExecRequestResponse
@@ -480,4 +480,4 @@ class NGENRequestResponse(ModelExecRequestResponse):
     }
     """
 
-    response_to_type = NGENRequest
+    response_to_type: ClassVar[Type[AbstractInitRequest]] = NGENRequest
