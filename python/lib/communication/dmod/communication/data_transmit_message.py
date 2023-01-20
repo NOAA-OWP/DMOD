@@ -60,42 +60,7 @@ class DataTransmitMessage(DataTransmitUUID, AbstractInitRequest):
     event_type: ClassVar[MessageEventType] = MessageEventType.DATA_TRANSMISSION
 
     data: str = Field(description="The data carried by this message, in decoded string form.")
-    series_uuid: UUID = Field(description="A unique id for the collective series of transmission message this instance is a part of.")
-    """
-    The expectation is that a larger amount of data will be broken up into multiple messages in a series.
-    """
     is_last: bool = Field(False, description="Whether this is the last data transmission message in this series.")
-
-    def dict(
-        self,
-        *,
-        include: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
-        exclude: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
-        by_alias: bool = True, # Note this follows Serializable convention
-        skip_defaults: Optional[bool] = None,
-        exclude_unset: bool = False,
-        exclude_defaults: bool = False,
-        exclude_none: bool = False
-    ) -> Dict[str, Union[str, int]]:
-        SERIES_UUID_KEY = "series_uuid"
-        exclude = exclude or set()
-        series_uuid_in_exclude = SERIES_UUID_KEY in exclude
-        exclude.add(SERIES_UUID_KEY)
-
-        serial = super().dict(
-            include=include,
-            exclude=exclude,
-            by_alias=by_alias,
-            skip_defaults=skip_defaults,
-            exclude_unset=exclude_unset,
-            exclude_defaults=exclude_defaults,
-            exclude_none=exclude_none,
-        )
-
-        if not series_uuid_in_exclude:
-            serial[SERIES_UUID_KEY] = str(self.series_uuid)
-
-        return serial
 
 
 class DataTransmitResponse(Response):
