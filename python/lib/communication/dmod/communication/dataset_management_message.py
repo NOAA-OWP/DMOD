@@ -463,7 +463,7 @@ class MaaSDatasetManagementResponse(ExternalRequestResponse, DatasetManagementRe
     Analog of ::class:`DatasetManagementResponse`, but for the ::class:`MaaSDatasetManagementMessage` message type.
     """
 
-    response_to_type = MaaSDatasetManagementMessage
+    response_to_type: ClassVar[Type[AbstractInitRequest]] = MaaSDatasetManagementMessage
 
     @classmethod
     def factory_create(cls, dataset_mgmt_response: DatasetManagementResponse) -> 'MaaSDatasetManagementResponse':
