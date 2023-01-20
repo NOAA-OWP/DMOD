@@ -54,6 +54,9 @@ python -m ${SERVICE_PACKAGE_NAME:?} \
     --data-service-host ${DATA_SERVICE_ENDPOINT_HOST:?} \
     --data-service-port ${DATA_SERVICE_ENDPOINT_PORT:?} \
     --data-service-ssl-dir ${DATA_SERVICE_CLIENT_SSL_DIR:?} \
+    --evaluation-service-host ${EVALUATION_SERVICE_ENDPOINT_HOST:?} \
+    --evaluation-service-port ${EVALUATION_SERVICE_ENDPOINT_PORT:?} \
+    --evaluation-service-ssl-dir ${EVALUATION_SERVICE_CLIENT_SSL_DIR:?} \
     --partitioner-service-host ${PARTITIONER_SERVICE_ENDPOINT_HOST:?} \
     --partitioner-service-port ${PARTITIONER_SERVICE_ENDPOINT_PORT:?} \
     --partitioner-service-ssl-dir ${PARTITIONER_SERVICE_CLIENT_SSL_DIR:?}
