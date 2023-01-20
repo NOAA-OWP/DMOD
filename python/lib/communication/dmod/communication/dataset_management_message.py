@@ -4,8 +4,7 @@ from .maas_request import ExternalRequest, ExternalRequestResponse
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement
 from dmod.core.enum import PydanticEnum
 from pydantic import root_validator, Field
-from numbers import Number
-from typing import ClassVar, Dict, Optional, Union, List
+from typing import Any, ClassVar, Dict, Optional, Type, Union, List
 
 
 class QueryType(PydanticEnum):
@@ -267,41 +266,45 @@ class DatasetManagementMessage(AbstractInitRequest):
         )
 
 
+class DatasetManagementResponseBody(Serializable):
+    action: Optional[ManagementAction]
+    data_id: Optional[str]
+    dataset_name: Optional[str]
+    item_name: Optional[str]
+    # TODO: in the future, tighten the type restrictions of this field
+    query_results: Optional[Dict[str, Any]]
+    is_awaiting: bool = False
+
+
 class DatasetManagementResponse(Response):
 
-    _DATA_KEY_ACTION= 'action'
-    _DATA_KEY_DATA_ID = 'data_id'
-    _DATA_KEY_DATASET_NAME = 'dataset_name'
-    _DATA_KEY_ITEM_NAME = 'item_name'
-    _DATA_KEY_QUERY_RESULTS = 'query_results'
-    _DATA_KEY_IS_AWAITING = 'is_awaiting'
-    response_to_type = DatasetManagementMessage
+    response_to_type: ClassVar[Type[AbstractInitRequest]] = DatasetManagementMessage
 
-    def __init__(self, action: Optional[ManagementAction] = None, is_awaiting: bool = False,
-                 data_id: Optional[str] = None, dataset_name: Optional[str] = None, data: Optional[dict] = None,
-                 **kwargs):
-        if data is None:
-            data = {}
+    data: DatasetManagementResponseBody
+
+    def __init__(
+        self,
+        action: Optional[ManagementAction] = None,
+        is_awaiting: bool = False,
+        data_id: Optional[str] = None,
+        dataset_name: Optional[str] = None,
+        data: Optional[Union[dict, DatasetManagementResponseBody]] = None,
+        **kwargs
+    ):
+        data = data if isinstance(data, DatasetManagementResponseBody) else DatasetManagementResponseBody(**data or {})
 
         # Make sure 'action' param and action string within 'data' param aren't both present and conflicting
         if action is not None:
-            if action.name != data.get(self._DATA_KEY_ACTION, action.name):
+            if action != data.action:
                 msg = '{} initialized with {} action param, but {} action in initial data.'
-                raise ValueError(msg.format(self.__class__.__name__, action.name, data.get(self._DATA_KEY_ACTION)))
-            data[self._DATA_KEY_ACTION] = action.name
-        # Additionally, if not using an explicit 'action', make sure it's a valid action string in 'data', or bail
-        else:
-            data_action_str = data.get(self._DATA_KEY_ACTION, '')
-            # Compare the string to the 'name' string of the action value obtain by passing the string to get_for_name()
-            if data_action_str.strip().upper() != ManagementAction.get_for_name(data_action_str).name.upper():
-                msg = "No valid action param or within 'data' when initializing {} instance (received only '{}')"
-                raise ValueError(msg.format(self.__class__.__name__, data_action_str))
+                raise ValueError(msg.format(self.__class__.__name__, action.name, data.action.name if data.action else data.action))
+            data.action = action
 
-        data[self._DATA_KEY_IS_AWAITING] = is_awaiting
+        data.is_awaiting = is_awaiting
         if data_id is not None:
-            data[self._DATA_KEY_DATA_ID] = data_id
+            data.data_id = data_id
         if dataset_name is not None:
-            data[self._DATA_KEY_DATASET_NAME] = dataset_name
+            data.dataset_name = dataset_name
         super().__init__(data=data, **kwargs)
 
     @property
@@ -314,16 +317,9 @@ class DatasetManagementResponse(Response):
         ManagementAction
             The action requested by the ::class:`DatasetManagementMessage` for which this instance is the response.
         """
-        if self._DATA_KEY_ACTION not in self.data:
+        if self.data.action is None:
             return ManagementAction.UNKNOWN
-        elif isinstance(self.data[self._DATA_KEY_ACTION], str):
-            return ManagementAction.get_for_name(self.data[self._DATA_KEY_ACTION])
-        elif isinstance(self.data[self._DATA_KEY_ACTION], ManagementAction):
-            val = self.data[self._DATA_KEY_ACTION]
-            self.data[self._DATA_KEY_ACTION] = val.name
-            return val
-        else:
-            return ManagementAction.UNKNOWN
+        return self.data.action
 
     @property
     def data_id(self) -> Optional[str]:
@@ -335,7 +331,7 @@ class DatasetManagementResponse(Response):
         Optional[str]
             When available, the 'data_id' of the related dataset.
         """
-        return self.data[self._DATA_KEY_DATA_ID] if self._DATA_KEY_DATA_ID in self.data else None
+        return self.data.data_id
 
     @property
     def dataset_name(self) -> Optional[str]:
@@ -347,7 +343,7 @@ class DatasetManagementResponse(Response):
         Optional[str]
             When available, the name of the relevant dataset; otherwise ``None``.
         """
-        return self.data[self._DATA_KEY_DATASET_NAME] if self._DATA_KEY_DATASET_NAME in self.data else None
+        return self.data.dataset_name
 
     @property
     def item_name(self) -> Optional[str]:
@@ -359,11 +355,11 @@ class DatasetManagementResponse(Response):
         Optional[str]
             The name of the relevant dataset item/object/file, or ``None``.
         """
-        return self.data.get(self._DATA_KEY_ITEM_NAME)
+        return self.data.item_name
 
     @property
     def query_results(self) -> Optional[dict]:
-        return self.data.get(self._DATA_KEY_QUERY_RESULTS)
+        return self.data.query_results
 
     @property
     def is_awaiting(self) -> bool:
@@ -379,7 +375,7 @@ class DatasetManagementResponse(Response):
         bool
             Whether the response indicates the response sender is awaiting something additional.
         """
-        return self.data[self._DATA_KEY_IS_AWAITING]
+        return self.data.is_awaiting
 
 
 class MaaSDatasetManagementMessage(DatasetManagementMessage, ExternalRequest):
