@@ -116,7 +116,7 @@ class TestJSONRetrieving(unittest.TestCase):
         self.run_table_assertions(retriever)
 
     def test_implicit_table_json(self):
-        retriever = data_retriever.get_datasource(self.__table_data_specification)
+        retriever = data_retriever.get_datasource_retriever(self.__table_data_specification)
         self.run_table_assertions(retriever)
 
     def test_direct_response_json(self):
@@ -124,7 +124,7 @@ class TestJSONRetrieving(unittest.TestCase):
         TestJSONRetrieving.run_response_assertions(self, retriever)
 
     def test_implicit_response_json(self):
-        retriever = data_retriever.get_datasource(self.__response_data_specification)
+        retriever = data_retriever.get_datasource_retriever(self.__response_data_specification)
         TestJSONRetrieving.run_response_assertions(self, retriever)
 
     def run_table_assertions(self, retriever: Retriever):

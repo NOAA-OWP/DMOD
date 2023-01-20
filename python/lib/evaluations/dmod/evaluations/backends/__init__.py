@@ -14,10 +14,10 @@ __all__ = [
 from . import *
 
 from .backend import Backend
-import inspect
-from .. import specification
 
-from .. import util
+import dmod.core.common as common
+
+from .. import specification
 
 
 def get_backend(backend_specification: specification.BackendSpecification, cache_limit: int = None) -> Backend:
@@ -33,7 +33,7 @@ def get_backend(backend_specification: specification.BackendSpecification, cache
     """
     backend_map = {
         subclass.get_backend_type().lower(): subclass
-        for subclass in util.get_subclasses(Backend)
+        for subclass in common.get_subclasses(Backend)
     }
 
     data_backend = backend_map.get(backend_specification.type.lower())

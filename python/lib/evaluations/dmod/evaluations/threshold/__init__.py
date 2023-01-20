@@ -17,16 +17,17 @@ import pandas
 
 from dmod.metrics.threshold import Threshold
 
+import dmod.core.common as common
+
 from .. import specification
 from .. import retrieval
-from .. import util
 
 
 def get_threshold_retriever(threshold_definition: specification.ThresholdSpecification) -> retrieval.Retriever:
     threshold_format = threshold_definition.backend.format.lower()
 
     possible_retrievers = [
-        cls for cls in util.get_subclasses(retrieval.Retriever)
+        cls for cls in common.get_subclasses(retrieval.Retriever)
         if cls.get_purpose() == 'thresholds'
            and cls.get_format().lower() == threshold_format
     ]

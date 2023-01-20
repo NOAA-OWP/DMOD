@@ -7,6 +7,8 @@ import logging
 
 import pandas
 
+import dmod.core.common as common
+
 from .. import specification
 from .. import retrieval
 
@@ -152,7 +154,7 @@ class FrameDataRetriever(retrieval.Retriever):
         for option, value in column_options.items():
             if option not in provided_parameters:
                 provided_parameters[option] = value
-            elif util.is_arraytype(value) and util.is_arraytype(provided_parameters[option]):
+            elif common.is_sequence_type(value) and common.is_sequence_type(provided_parameters[option]):
                 for entry in value:
                     if entry not in provided_parameters[option]:
                         provided_parameters[option].append(entry)
@@ -204,7 +206,7 @@ class FrameDataRetriever(retrieval.Retriever):
                 file_name_without_extension = os.path.splitext(os.path.basename(source))[0]
                 pattern = self.definition.locations.pattern
 
-                path_to_check = os.path.join(*pattern) if util.is_arraytype(pattern) else pattern
+                path_to_check = os.path.join(*pattern) if common.is_sequence_type(pattern) else pattern
                 search_results = re.search(
                         path_to_check,
                         file_name_without_extension

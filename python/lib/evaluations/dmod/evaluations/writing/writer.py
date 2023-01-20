@@ -5,8 +5,9 @@ import abc
 import io
 import zipfile
 
+import dmod.core.common as common
+
 from .. import specification
-from .. import util
 
 
 def read_and_act_recursively(
@@ -110,7 +111,7 @@ class OutputWriter(abc.ABC):
     __destination: str
 
     def __init__(self, destination: typing.Union[pathlib.Path, str, typing.Sequence[str]] = None, **kwargs):
-        if destination and util.is_arraytype(destination):
+        if destination and common.is_sequence_type(destination):
             destination = os.path.join(*[part for part in destination])
         elif destination:
             destination = str(destination)

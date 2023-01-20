@@ -10,6 +10,7 @@ from datetime import timedelta
 import redis
 
 import dmod.metrics.communication as communication
+from dmod.core.common import to_json
 
 from . import common
 
@@ -387,14 +388,19 @@ class RedisCommunicator(communication.Communicator):
         message = {
             "event": reason,
             "time": common.now().strftime(application_values.COMMON_DATETIME_FORMAT),
-            "data": json.dumps(data, indent=4)
+            "data": to_json(data, indent=4)
         }
 
         # Publish and indent by 4 for later readability
-        self.__connection.publish(self.__channel_name, json.dumps(message, indent=4))
+        self.__connection.publish(self.__channel_name, to_json(message, indent=4))
 
-        for handler in self._handlers.get('write', []):
-            handler(message)
+        try:
+            for handler in self._handlers.get('write', []):
+                handler(message)
+        except:
+            # Leave room for a breakpoint
+            pass
+            raise
 
     def read(self) -> typing.Any:
         """

@@ -295,10 +295,10 @@ class TestMetrics(unittest.TestCase):
         self.assertAlmostEqual(scores['Major'].value, -0.25714, delta=EPSILON)
         self.assertTrue(numpy.isnan(scores['Record'].value))
 
-        self.assertAlmostEqual(scores['All'].scaled_value, 5, delta=EPSILON)
-        self.assertAlmostEqual(scores['Minor'].scaled_value, 5, delta=EPSILON)
-        self.assertAlmostEqual(scores['Moderate'].scaled_value, 4.88765, delta=EPSILON)
-        self.assertAlmostEqual(scores['Major'].scaled_value, 5, delta=EPSILON)
+        self.assertAlmostEqual(scores['All'].scaled_value, 1, delta=EPSILON)
+        self.assertAlmostEqual(scores['Minor'].scaled_value, 1, delta=EPSILON)
+        self.assertAlmostEqual(scores['Moderate'].scaled_value, 0.97753, delta=EPSILON)
+        self.assertAlmostEqual(scores['Major'].scaled_value, 1, delta=EPSILON)
         self.assertTrue(numpy.isnan(scores['Record'].scaled_value))
 
 

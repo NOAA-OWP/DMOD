@@ -25,4 +25,5 @@ urlpatterns = [
         views.GetGeometry.as_view(),
         name="GetGeometryByName"
     ),
+    re_path(f"metrics/?$", views.Metrics.as_view(), name="Metrics"),
 ]

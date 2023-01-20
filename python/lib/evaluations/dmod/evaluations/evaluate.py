@@ -7,6 +7,8 @@ import pandas
 from dmod.metrics.communication import Verbosity
 import dmod.metrics as metrics
 
+import dmod.core.common as common
+
 from . import util
 from . import specification
 from . import crosswalk
@@ -249,7 +251,8 @@ class Evaluator:
             publish=True
         )
 
-        scores = self.score(data_to_evaluate, thresholds)
+        # Score data and arrange in a dictionary like (observed location, forecasted location) => MetricResults
+        scores: typing.Dict[typing.Tuple[str, str], metrics.MetricResults] = self.score(data_to_evaluate, thresholds)
 
         evaluation_results = specification.EvaluationResults(self._instructions, scores)
 
@@ -285,9 +288,9 @@ class Evaluator:
 
             additional_information = list()
 
-            util.each(
-                self._instructions.crosswalks,
-                lambda cross: additional_information.append(f"No crosswalk data was found at {str(cross)}")
+            common.foreach(
+                lambda cross: additional_information.append(f"No crosswalk data was found at {str(cross)}"),
+                self._instructions.crosswalks
             )
 
             missing_data_details = os.linesep + os.linesep.join(additional_information)
@@ -565,7 +568,7 @@ class Evaluator:
                     data = {
                         "observed_location": identifiers[0],
                         "predicted_location": identifiers[1],
-                        "scores": location_scores.rows()
+                        "scores": location_scores.to_dict(),
                     }
                     reason = "location_scores"
                     self._communicators.write(reason=reason, data=data)

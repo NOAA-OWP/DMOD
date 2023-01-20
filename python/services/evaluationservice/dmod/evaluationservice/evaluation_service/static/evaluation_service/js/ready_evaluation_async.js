@@ -11,6 +11,8 @@ const digest = {
     digest: []
 };
 
+const metricDefinitions = {};
+
 // Debug Flags - Set to true to stop upon execution
 
 // Debug the 'UpdateCrosswalk' function
@@ -139,7 +141,7 @@ function submit_evaluation(event) {
 
     event.target.disabled = true;
 
-    switchTabs(event, "message-div");
+    $("#tabs").tabs("option", "active", 1);
 }
 
 function switchTabs(event, tabID) {
@@ -153,6 +155,67 @@ function switchTabs(event, tabID) {
             codeView.view.setSize(null, height);
         }
     });
+}
+
+function resizeCodeView(codeViewName) {
+    codeViews.forEach((codeView) => {
+        if (codeView.tab == codeViewName) {
+            var area = document.getElementById(codeView.container);
+            var height = area.offsetHeight;
+            codeView.view.setSize(null, height);
+        }
+    });
+}
+
+function tabActivated(event, {newTab, oldTab, newPanel, oldPanel}) {
+    var newTabID = newPanel[0].id;
+    resizeTabs();
+}
+
+function resizeTabContent(panel) {
+    var headerSelector = `#${panel.id} .tab-header`;
+    var contentSelector = `#${panel.id} .tab-content`;
+    var footerSelector = `#${panel.id} .tab-footer`;
+
+    var header = $(headerSelector)[0];
+    var content = $(contentSelector)[0];
+    var footer = $(footerSelector)[0];
+
+    var newContentHeight = panel.offsetHeight - (panel.offsetTop + header.offsetHeight + footer.offsetHeight);
+
+    content.style.height = `${newContentHeight}px`;
+}
+
+function resizePanel(panelIndex) {
+    var tabInstance = $("#tabs").tabs("instance");
+    var panel = tabInstance.panels[panelIndex];
+    var tabsElement = tabInstance.element[0];
+
+    var tabsElementTop = tabsElement.offsetTop;
+    var tabsElementHeight = tabsElement.offsetHeight;
+
+    panel.style.height = `${tabsElementHeight - tabsElementTop}px`;
+
+    resizeTabContent(panel);
+
+    var panelID = panel.id;
+
+    resizeCodeView(panelID);
+
+    var mapSelector = `#${panelID} #${visualizationMap.getContainer().id}`;
+
+    if ($(mapSelector).length) {
+        visualizationMap.updateSize();
+    }
+}
+
+function resizeTabs() {
+    var tabs = $("#tabs");
+    tabs.height(tabs.parent().height());
+
+    var activeTabNumber = $("#tabs").tabs("option", "active");
+
+    resizePanel(activeTabNumber);
 }
 
 function toMapTab(event, tabID) {
@@ -304,15 +367,266 @@ function updateMapMetrics(event, msg){
     metrics.push(msg)
 }
 
-function addMapHandlers() {
-    /*registerEvent(
-        "crosswalk",
-        updateCrosswalk
-    );*/
-    registerEvent(
-        "metric",
-        updateMapMetrics
+function updateLocation(event, message) {
+    var data = message.data;
+    var predictedLocation = data.predicted_location;
+
+    var feature = visualizationMap.getFeature(predictedLocation);
+
+    if (feature) {
+        var locationScore = data.scores.scaled_value;
+        var grade = data.scores.grade;
+        var gradeColor = getGradeColor(grade);
+        var color = scaleColor(locationScore);
+
+        feature.setStyle({
+            "fillColor": gradeColor,
+            "color": gradeColor,
+        });
+
+        updateLocationPopup(feature, data);
+        updateLocationTooltip(feature, data);
+    }
+}
+
+function getLocationMetricColumnCount(metricCount) {
+    if (metricCount == 1 || metricCount == null || metricCount <= 0) {
+        return 1;
+    }
+    else if (metricCount == 2) {
+        return 2;
+    }
+    else if (metricCount == 4) {
+        return 2;
+    }
+    else if (metricCount < 10) {
+        return 3;
+    }
+    else {
+        return 4;
+    }
+}
+
+function updateLocationTooltip(featureLayer, data) {
+    if (featureLayer == null) {
+        return;
+    }
+
+    var grade = getGradeLetter(data.scores.grade);
+    var text = `${data.observed_location} vs ${data.predicted_location}: ${grade}`;
+
+    featureLayer.bindTooltip(text);
+}
+
+function updateLocationPopup(featureLayer, data) {
+    if (featureLayer == null) {
+        return;
+    }
+
+    var wrapperDiv = document.createElement("div");
+    wrapperDiv.classList.add("freature-result-wrapper");
+
+    var content = document.createElement("fieldset");
+    content.classList.add("feature-result-fields");
+
+    wrapperDiv.appendChild(content);
+
+    var legend = document.createElement("legend");
+    legend.classList.add("feature-result-legend");
+
+    legend.textContent = `${data.observed_location} vs ${data.predicted_location}`;
+
+    content.appendChild(legend);
+
+    var metrics = Object.entries(data.scores.scores);
+
+    var columnCount = getLocationMetricColumnCount(metrics.length);
+
+    var gridColumnTemplate = "";
+
+    for (let i = 0; i < columnCount; i++) {
+        gridColumnTemplate = gridColumnTemplate + "auto ";
+    }
+
+    content.style['grid-template-columns'] = gridColumnTemplate;
+
+    for (let [metricName, metricData] of metrics) {
+        var metricFieldSet = document.createElement("fieldset");
+        metricFieldSet.classList.add("metric-result-fields");
+
+        if (metricName in metricDefinitions) {
+            metricFieldSet.setAttribute("title", metricDefinitions[metricName].description);
+        }
+
+        var metricLegend = document.createElement("legend");
+        metricLegend.classList.add("metric-result-legend");
+
+        metricLegend.textContent = metricName;
+
+        metricFieldSet.appendChild(metricLegend);
+
+        var metricGrade = (metricData.scaled_value / metricData.weight * 100.0).toFixed(2);
+        var gradeMarkup = `<span class="metric-result-grade"><b>Grade</b>: ${metricGrade}%`;
+        metricFieldSet.appendChild(htmlToElement(gradeMarkup));
+
+        metricFieldSet.appendChild(document.createElement("br"));
+
+        var weightMarkup = `<span class="metric-result-weight"><b>Weight</b>: ${metricData.weight}</span>`;
+        metricFieldSet.appendChild(htmlToElement(weightMarkup));
+
+        metricFieldSet.appendChild(document.createElement("br"));
+        metricFieldSet.appendChild(document.createElement("hr"));
+
+        var thresholdTable = document.createElement("table");
+        thresholdTable.classList.add("metric-result-threshold-table");
+
+        var headerRow = document.createElement("tr");
+        headerRow.appendChild(document.createElement("th"));
+
+        var gradeColumn = document.createElement("th");
+        gradeColumn.classList.add("metric-result-grade-column");
+        gradeColumn.classList.add("metric-result-grade-column-header");
+        gradeColumn.textContent = "Grade";
+
+        headerRow.appendChild(gradeColumn);
+
+        var weightColumn = document.createElement("th");
+        weightColumn.classList.add("metric-result-weight-column");
+        weightColumn.classList.add("metric-result-weight-column-header");
+        weightColumn.textContent = "Weight";
+
+        headerRow.appendChild(weightColumn);
+
+        thresholdTable.appendChild(headerRow);
+
+        for (var entry of Object.values(metricData.thresholds)) {
+            var thresholdEntryRow = document.createElement("tr");
+
+            var thresholdNameCell = document.createElement("th");
+            thresholdNameCell.classList.add("metric-result-threshold-name-cell");
+            thresholdNameCell.textContent = entry.threshold;
+
+            thresholdEntryRow.appendChild(thresholdNameCell);
+
+            var thresholdGradeCell = document.createElement("td");
+            thresholdGradeCell.classList.add("metric-result-grade-column");
+
+            thresholdGradeCell.textContent = `${entry.grade.toFixed(2)}%`;
+
+            thresholdEntryRow.appendChild(thresholdGradeCell);
+
+            var thresholdWeightCell = document.createElement("td");
+            thresholdWeightCell.classList.add("metric-result-weight-column");
+            thresholdWeightCell.textContent = entry.weight;
+
+            thresholdEntryRow.appendChild(thresholdWeightCell);
+
+            thresholdTable.appendChild(thresholdEntryRow);
+        }
+
+        metricFieldSet.appendChild(thresholdTable);
+        content.appendChild(metricFieldSet);
+    }
+
+    var finalGradeMarkup = `<h2 class="feature-result-grade">Grade: ${data.scores.grade.toFixed(2)}%</h2>`;
+    wrapperDiv.appendChild(htmlToElement(finalGradeMarkup));
+
+    var popupOptions = {
+        "maxWidth": "900px",
+        "maxHeight": "500px"
+    }
+
+    featureLayer.bindPopup(
+        wrapperDiv,
+        popupOptions
     );
+}
+
+function addMapHandlers() {
+    registerEvent(
+        "location_scores",
+        updateLocation
+    );
+}
+
+function getGradeLetter(grade) {
+    if (grade == null) {
+        return "Unknown";
+    }
+
+    if (grade >= 96.66) {
+        return "A+";
+    }
+    else if (grade >= 93.33) {
+        return "A";
+    }
+    else if (grade >= 90.0) {
+        return "A-";
+    }
+    else if (grade >= 86.66) {
+        return "B+";
+    }
+    else if (grade >= 83.33) {
+        return "B";
+    }
+    else if (grade >= 80.0) {
+        return "B-";
+    }
+    else if (grade >= 76.66) {
+        return "C+";
+    }
+    else if (grade >= 73.33) {
+        return "C";
+    }
+    else if (grade >= 70.0) {
+        return "C-";
+    }
+    else if (grade >= 66.66) {
+        return "D+";
+    }
+    else if (grade >= 63.33) {
+        return "D";
+    }
+    else if (grade >= 60.0) {
+        return "D-";
+    }
+
+    return "F";
+}
+
+function getGradeColor(gradeLetter) {
+    var color = null;
+
+    switch(gradeLetter) {
+        case "A+":
+        case "A":
+        case "A-":
+            color = "#09d60f";
+            break;
+        case "B+":
+        case "B":
+        case "B-":
+            color = "#bcff12";
+            break;
+        case "C+":
+        case "C":
+        case "C-":
+            color = "#f5f50c";
+            break;
+        case "D+":
+        case "D":
+        case "D-":
+            color = "#ffc247";
+            break;
+        default:
+            color = "d12828";
+    }
+
+    if (color[0] != "#") {
+        color = `#${color}`;
+    }
+
+    return color;
 }
 
 function receivedSocketMessage(response) {
@@ -337,6 +651,20 @@ function receivedSocketMessage(response) {
 
     var data = JSON.stringify(raw_data, getJSONReplacer(), getExpectedIndentSpaces());
     messageView = getCodeView("messages");
+    var digestView = getCodeView("digest");
+
+    if (digestView && digestView.view) {
+        var currentDigest = digestView.view.getValue();
+
+        if (currentDigest.length > 0) {
+            currentDigest += `\n${data}`;
+        }
+        else {
+            currentDigest = data;
+        }
+
+        digestView.view.setValue(currentDigest);
+    }
 
     if (messageView && messageView.view) {
         messageView = messageView.view;
@@ -382,11 +710,19 @@ function connectToSocket(event) {
     socket.onopen = function (response) {
         var currentDate = new Date().toLocaleString();
         $("#connection-time").text(currentDate);
+        $("#connected-edit-buttons").show();
+        $("#disconnected-edit-buttons").hide();
     };
     socket.onmessage = receivedSocketMessage;
+
     socket.onerror = function(response) {
         updateError(response.data);
-    }
+    };
+
+    socket.onclose = function(event) {
+        $("#connected-edit-buttons").hide();
+        $("#disconnected-edit-buttons").show();
+    };
 };
 
 function closePopups(event) {
@@ -765,6 +1101,12 @@ function addGeometry(event) {
 
     visualizationMap.clear();
     visualizationMap.plotGeoJSON(geometry);
+
+    var locationScores = digest.digest.filter(entry => entry.event == "location_scores");
+
+    for (let locationScore of locationScores) {
+        updateLocation(null, locationScore);
+    }
 }
 
 /**
@@ -820,6 +1162,32 @@ function initializeFields() {
             sessionStorage.setItem("author", $("#author").val());
         }
     );
+}
+
+async function loadMetricDefinitions() {
+    let metricDefinitionResponse = await fetch(METRICS_URL);
+
+    if (metricDefinitionResponse.status >= 400) {
+        console.error(`Could not load basic metric definitions; ${metricDefinitionResponse.statusText}`);
+        return;
+    }
+
+    let receivedMetricDefinitions = await metricDefinitionResponse.json();
+
+    /**
+        The JSON should look like:
+        {
+            "metric1": {
+                "details": "value"
+            },
+            "metric2": {
+                "details": "value"
+            }
+        }
+    */
+    for (var [metricName, details] of Object.entries(receivedMetricDefinitions)) {
+        metricDefinitions[metricName] = details;
+    }
 }
 
 function extract_metric_fields(data){
@@ -937,7 +1305,7 @@ function loadGeometry(name) {
  */
 function scaleColor(value) {
     if (value > 1) {
-        throw "Only values between 0 and 1 inclusive may be scaled. Received " + value ;
+        throw "Only values between 0 and 1 inclusive may be scaled. Received " + value;
     }
 
     const low = parseInt(lowestColor, 16);
@@ -947,11 +1315,19 @@ function scaleColor(value) {
     const [highRed, highGreen, highBlue] = colorToArray(high);
 
     const highScaler = 1 - value;
-    const scaledRed = Math.round(lowRed * value + highRed * highScaler);
-    const scaledGreen = Math.round(lowGreen * value + highGreen * highScaler);
-    const scaledBlue = Math.round(lowBlue * value + highBlue * highScaler);
+    const scaledRed = Math.round(highRed * value);
+    const scaledGreen = Math.round(highGreen * value);
+    const scaledBlue = Math.round(highBlue * value);
 
-    return  Number((scaledRed << 16) + (scaledGreen << 8) + scaledBlue).toString(16);
+    var newColor = Number((scaledRed << 16) + (scaledGreen << 8) + scaledBlue).toString(16);
+
+     while (newColor.length < 6) {
+        newColor = "0" + newColor;
+     }
+
+     newColor = "#" + newColor;
+
+     return newColor;
 }
 
 /*
@@ -987,11 +1363,18 @@ startupScripts.push(
                 codeView.config
             );
         });
-
+        $("#tabs").tabs({
+            active: 0,
+            activate: tabActivated,
+        });
+        $("#tabs").tabs("refresh");
         initializeFields();
-        switchTabs(null, "edit-div");
+        //switchTabs(null, "edit-div");
 
         $("#evaluation-submit").click(submit_evaluation);
+
+        resizeTabs();
+        window.addEventListener("resize", resizeTabs);
 
         // Connect to service
         connectToSocket();
@@ -1017,3 +1400,6 @@ startupScripts.push(populateGeometrySelector);
 
 // Add handlers to the map view when the page starts up
 startupScripts.push(addMapHandlers);
+
+// Record available metric definitions
+startupScripts.push(loadMetricDefinitions);

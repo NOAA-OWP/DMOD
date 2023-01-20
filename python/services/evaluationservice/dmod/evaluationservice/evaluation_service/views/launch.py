@@ -73,6 +73,7 @@ class ReadyListenEvaluation(View):
         context = {
             "evaluation_template": self.get_evaluation_template(),
             "launch_url": "/ws/launch",
+            "metrics_url": "/evaluation_service/metrics",
             "generated_evaluation_id": self._generate_evaluation_id(request),
             "evaluation_id_pattern": EVALUATION_ID_PATTERN,
             "geometry_name": "",

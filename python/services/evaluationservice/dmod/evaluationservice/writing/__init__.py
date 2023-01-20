@@ -4,6 +4,7 @@ import os
 
 import dmod.evaluations.specification as specification
 import dmod.evaluations.writing as writing
+import dmod.core.common as common
 
 import utilities
 
@@ -61,7 +62,7 @@ def get_parameters_from_redis(configuration_key: str) -> typing.Dict[str, typing
 def get_destination_parameters(evaluation_id: str, output_format: str = None, **kwargs) -> typing.Dict[str, typing.Any]:
     environment_variables = output_environment_variables()
 
-    should_use_environment_variables = utilities.is_true(environment_variables.get("USE_ENVIRONMENT", False))
+    should_use_environment_variables = common.is_true(environment_variables.get("USE_ENVIRONMENT", False))
     redis_configuration_key = environment_variables.get("REDIS_OUTPUT_KEY", None)
 
     parameters = dict()

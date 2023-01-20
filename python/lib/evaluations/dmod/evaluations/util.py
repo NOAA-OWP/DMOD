@@ -27,6 +27,8 @@ import pytz
 
 from dateutil.parser import parse as parse_date_string
 
+import dmod.core.common as common
+
 RE_PATTERN = re.compile(r"(\{.+\}|\[.+\]|\(.+\)|(?<!\\)\.|\{|\}|\]|\[|\(|\)|\+|\*|\\[a-zA-Z]|\?)+")
 MULTI_GLOB_PATTERN = re.compile(r"\*+")
 EXPLICIT_START_PATTERN = re.compile(r"^(~|\.)?/.*$")
@@ -94,89 +96,6 @@ def configure_logging() -> typing.NoReturn:
             logging.getLogger().addHandler(udp_handler)
 
 
-def is_true(value) -> bool:
-    """
-    Check to see what the boolean value of a value is
-
-    The `bool` function does not adequately check if a value is true or false in all cases so this covers some of
-    those that don't fit by default
-
-    The following strings (case and whitespace insensitive) evaluate to true:
-        - "True"
-        - "Yes"
-        - "Y"
-        - "On"
-        - "T"
-        - "1"
-
-    Example:
-        >>> bool("True")
-        True
-        >>> bool("False")
-        True
-        >>> bool("0")
-        True
-        >>> bool(0)
-        False
-        >>> is_true("True")
-        True
-        >>> is_true("False")
-        False
-        >>> is_true("0")
-        False
-        >>> is_true("1")
-        True
-
-    Arguments:
-        value: Some value to check
-
-    Returns:
-        Whether the value to equivalent to `True`
-    """
-    if isinstance(value, bool):
-        return value
-
-    if isinstance(value, bytes):
-        value = value.decode()
-
-    if isinstance(value, str):
-        value = value.lower().strip()
-        return value in ('true', 'y', 'yes', '1', 't', 'on')
-
-    try:
-        return bool(value)
-    except ValueError:
-        return value is not None
-
-
-def each(collection: typing.Iterable[_T], func: typing.Callable[[_T], typing.NoReturn]):
-    """
-    Calls the passed in function on every item in the collection
-
-    Why use this instead of the builtin map function(s)? The builtin functions create generators rather than actually
-    performing the requested actions, meaning you have to iterate over the generated map, rather than the call just
-    running.
-
-        >>> def p(obj) -> typing.NoReturn:
-        >>>     print(obj)
-        >>>
-        >>> map(p, collection) # Doesn't actually do anything; just creates a collection and throws it away
-        >>> # Calls print on every element in the collection and assigns the results to the `results` collection
-        >>> results = [o for o in map(p, collection)]
-        >>> each(collection, p) # Just calls print on every element in the collection
-
-    Args:
-        collection: The items to use as arguments for each function
-        func: The function to call on each element
-    """
-    for element in collection:
-        func(element)
-
-
-_CLASS_TYPE = typing.TypeVar('_CLASS_TYPE')
-"""A type that points directly to a class. The _CLASS_TYPE of `6`, for example, is `<class 'int'>`"""
-
-
 def type_name_to_dtype(type_name: str) -> typing.Optional[typing.Type]:
     if not type_name:
         return None
@@ -205,52 +124,6 @@ def type_name_to_dtype(type_name: str) -> typing.Optional[typing.Type]:
         })
 
     return np_types.get(type_name.lower())
-
-
-def is_arraytype(obj) -> bool:
-    """
-    Whether the passed object is an array of values, bytes and strings excluded
-
-    Args:
-        obj: The object to test
-
-    Returns:
-        Whether the passed object is an array of values
-    """
-    # bytes and str are both primitive types AND sequences, so we exclude those
-    return isinstance(obj, typing.Sequence) and not (isinstance(obj, str) or isinstance(obj, bytes))
-
-
-def get_subclasses(base: typing.Type[_CLASS_TYPE]) -> typing.List[typing.Type[_CLASS_TYPE]]:
-    """
-    Gets a collection of all concrete subclasses of the given class
-
-    Args:
-        base: The base class to get subclasses from
-
-    Returns:
-        All implemented subclasses of a specified types
-    """
-    subclasses = [
-        cls
-        for cls in base.__subclasses__()
-    ]
-
-    concrete_classes = [
-        subclass
-        for subclass in subclasses
-        if not inspect.isabstract(subclass)
-    ]
-
-    for subclass in subclasses:
-        concrete_classes.extend([
-            cls
-            for cls in get_subclasses(subclass)
-            if cls not in concrete_classes
-               and not inspect.isabstract(cls)
-        ])
-
-    return concrete_classes
 
 
 def value_is_number(value: typing.Any) -> bool:
@@ -707,10 +580,10 @@ class Day:
         if day is None:
             raise ValueError("The day is not defined; 'None' has been passed.")
 
-        if is_arraytype(day) and len(day) == 1:
+        if common.is_sequence_type(day) and len(day) == 1:
             day = day[0]
 
-        if is_arraytype(day):
+        if common.is_sequence_type(day):
             possible_args = [
                 int(float(argument))
                 for argument in day

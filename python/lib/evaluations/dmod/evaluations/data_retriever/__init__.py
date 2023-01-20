@@ -10,16 +10,18 @@ from . import *
 
 import pandas
 
+import dmod.core.common as common
+
 from .. import specification
 from .. import retrieval
-from .. import util
 
 
-def get_datasource(datasource_definition: specification.DataSourceSpecification) -> retrieval.Retriever:
+def get_datasource_retriever(datasource_definition: specification.DataSourceSpecification) -> retrieval.Retriever:
     reader_format = datasource_definition.backend.format.lower()
 
     readers = [
-        cls for cls in util.get_subclasses(retrieval.Retriever)
+        cls
+        for cls in common.get_subclasses(retrieval.Retriever)
         if cls.get_purpose().lower() == 'input_data'
            and cls.get_format().lower() == reader_format
     ]
@@ -42,6 +44,6 @@ def read(datasource_definition: specification.DataSourceSpecification) -> pandas
     Returns:
         A DataFrame containing the data that complies with the specification
     """
-    retriever = get_datasource(datasource_definition)
+    retriever = get_datasource_retriever(datasource_definition)
     return retriever.retrieve()
 

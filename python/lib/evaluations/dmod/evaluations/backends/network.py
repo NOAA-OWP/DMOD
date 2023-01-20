@@ -7,6 +7,8 @@ import io
 
 import requests
 
+import dmod.core.common as common
+
 from . import backend
 from .. import util
 from .. import specification
@@ -68,7 +70,7 @@ class RESTBackend(backend.Backend):
         Whether there should be SSL verification
         """
         if 'verify' in self.definition.properties:
-            return util.is_true(self.definition.properties['verify'])
+            return common.is_true(self.definition.properties['verify'])
         return self.cert and os.path.exists(self.cert)
 
     @property

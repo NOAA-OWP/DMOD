@@ -3,6 +3,7 @@ import typing
 import string
 import abc
 import re
+import json
 
 from collections import defaultdict
 from collections import abc as abstract_collections
@@ -11,6 +12,8 @@ from math import inf as infinity
 
 import pandas
 import numpy
+
+import dmod.core.common as common
 
 from .threshold import Threshold
 from .communication import Verbosity
@@ -33,40 +36,68 @@ WHITESPACE_PATTERN = re.compile(f"[{string.whitespace}]+")
 
 
 def scale_value(metric: "Metric", raw_value: NUMBER) -> NUMBER:
+    """
+    Rescales the result of a metric to bear a value in relation to the metric's ideal value.
+
+    If a metric has an ideal value of 1 with the bounds of 0 and 1 and a raw value of 0.75, the scaled value is 0.75
+    If a metric has an ideal value of 0 with the bounds of 0 and 1 and a raw value of 0.75, the scaled value is 0.25
+    If a metric has an ideal value of 0 with the bounds of -1 and 1 and a raw value of 0.75, the scaled value is 0.25
+    If a metric has an ideal value of 0 with the bounds of -1 and 1 and a raw value of 0.25, the scaled value is 0.75
+    If a metric has an ideal value of 0 with the bounds of -1 and 1 and a raw value of -0.25, the scaled value is 0.75
+    If a metric has an ideal value of 0 with the bounds of -1 and 1 and a raw value of 0.25, the scaled value is 0.75
+
+    Args:
+        metric: The metric that was run
+        raw_value: The result of the metric that was run
+
+    Returns:
+        The raw value scaled between the metric's bounds in relation to the metric's ideal value
+    """
     if numpy.isnan(raw_value):
         return numpy.nan
+
+    if not metric.has_ideal_value or not metric.bounded:
+        return raw_value
 
     rise = 0
     run = 1
 
-    if metric.has_ideal_value and metric.bounded:
-        if metric.ideal_value == metric.lower_bound:
-            # Lower should be higher and the max scale factor is 1.0 and the minimum is 0.0
-            rise = -1
-            run = metric.upper_bound - metric.lower_bound
-        elif metric.ideal_value == metric.upper_bound:
-            # lower should stay lower, meaning that the the scale should move from 0 to 1
-            rise = 1
-            run = metric.upper_bound - metric.lower_bound
-        elif metric.lower_bound < metric.ideal_value < metric.upper_bound and raw_value <= metric.ideal_value:
-            rise = 1
-            run = metric.ideal_value - metric.lower_bound
-        elif metric.lower_bound < metric.ideal_value < metric.upper_bound and raw_value > metric.ideal_value:
-            rise = -1
-            run = metric.upper_bound - metric.ideal_value
+    if metric.ideal_value == metric.lower_bound:
+        # Lower should be higher and the max scale factor is 1.0 and the minimum is 0.0
+        rise = -1
+        run = metric.upper_bound - metric.lower_bound
+    elif metric.ideal_value == metric.upper_bound:
+        # lower should stay lower, meaning that the scale should move from 0 to 1
+        rise = 1
+        run = metric.upper_bound - metric.lower_bound
+    elif metric.lower_bound < metric.ideal_value < metric.upper_bound and raw_value <= metric.ideal_value:
+        # If the ideal is between the bounds and the raw value is less than the ideal, the value will be scaled
+        # in an upwards direction
+        rise = 1
+        run = metric.ideal_value - metric.lower_bound
+    elif metric.lower_bound < metric.ideal_value < metric.upper_bound and raw_value > metric.ideal_value:
+        # If the ideal is between the bounds and the raw value is greater than the ideal, the value will be scaled
+        # in a downwards direction
+        rise = -1
+        run = metric.upper_bound - metric.ideal_value
 
-        slope = rise / run
-        y_intercept = 1 - (slope * metric.ideal_value)
-        scaled_value = slope * raw_value + y_intercept
+    # This will set up a very basic slope-intercept form of a line (y = slope * x + value of y at x=0).
+    # The metric value will be scaled linearly along the constructed line
+    slope = rise / run
+    y_intercept = 1 - (slope * metric.ideal_value)
 
-        if metric.has_upper_bound:
-            scaled_value = min(scaled_value, metric.upper_bound)
+    # The scaled value will be the y value of the constructed line with the raw value serving as the input x value
+    scaled_value = slope * raw_value + y_intercept
 
-        if metric.has_lower_bound:
-            scaled_value = max(scaled_value, metric.lower_bound)
+    # Ensure that value is scaled to the maximum at most
+    if metric.has_upper_bound:
+        scaled_value = min(scaled_value, metric.upper_bound)
 
-        return scaled_value
-    return raw_value
+    # Ensure that the value is scaled to the minimum at least
+    if metric.has_lower_bound:
+        scaled_value = max(scaled_value, metric.lower_bound)
+
+    return scaled_value
 
 
 def create_identifier(name: str) -> str:
@@ -83,8 +114,15 @@ def create_identifier(name: str) -> str:
     """
     identifier = WHITESPACE_PATTERN.sub("", name)
     identifier = identifier.replace("_", "")
+
+    identifier = identifier.strip()
+
+    # chr(45) and chr(8211) are both different types of hyphens
+    # chr(45) => '-'
     identifier = identifier.replace(chr(45), "")
+    # chr(8211) => '–'
     identifier = identifier.replace(chr(8211), "")
+
     identifier = identifier.lower()
     return identifier
 
@@ -115,7 +153,7 @@ class Metric(
             upper_bound: The highest acknowledged value - this doesn't necessarily need to be the upper bound of the statistical function
             ideal_value: The value deemed to be perfect for the metric
             failure: A value indicating a complete failure for the metric, triggering a failure among all accompanying metrics
-            greater_is_better: Whether or not a higher value is perferred over a lower value
+            greater_is_better: Whether a higher value is preferred over a lower value
         """
         if weight is None or not (isinstance(weight, int) or isinstance(weight, float)) or numpy.isnan(weight):
             raise ValueError("Weight must be supplied and must be numeric")
@@ -217,7 +255,7 @@ class Metric(
     def greater_is_better(self) -> bool:
         """
         Returns:
-            Whether or not a greater value is considered better
+            Whether a greater value is considered better
         """
         return self.__greater_is_better
 
@@ -284,8 +322,18 @@ class Score(object):
         return self.__value
 
     @property
+    def grade(self) -> NUMBER:
+        """
+        The performance of the score on a scale from 0 to 100
+        """
+        return scale_value(self.__metric, self.__value) * 100.0
+
+    @property
     def scaled_value(self) -> NUMBER:
-        return scale_value(self.__metric, self.__value) * self.__metric.weight
+        """
+        The value of the score as a fraction of the threshold's weight
+        """
+        return scale_value(self.__metric, self.__value) * self.__threshold.weight
 
     @property
     def metric(self) -> Metric:
@@ -297,6 +345,12 @@ class Score(object):
 
     @property
     def failed(self) -> bool:
+        """
+        Whether the metric results indicate a failure
+
+        A metric score is deemed a failure if the metric has a failure score (such as 0 for probability of detection)
+        that matches the result of the metric
+        """
         if self.__metric.fails_on is None:
             return False
         elif numpy.isnan(self.__metric.fails_on) and numpy.isnan(self.__value):
@@ -315,6 +369,17 @@ class Score(object):
     def sample_size(self):
         return self.__sample_size
 
+    def to_dict(self) -> dict:
+        return {
+            "value": common.truncate(self.value, 2),
+            "scaled_value": common.truncate(self.scaled_value, 2),
+            "sample_size": common.truncate(self.sample_size, 2),
+            "failed": self.failed,
+            "weight": self.threshold.weight,
+            "threshold": self.threshold.name,
+            "grade": self.grade,
+        }
+
     def __len__(self):
         return self.__sample_size
 
@@ -323,6 +388,84 @@ class Score(object):
 
     def __repr__(self) -> str:
         return self.__str__()
+
+
+class ScoreDescription:
+    """
+    A simple class used to help organize finalized score data
+    """
+    def __init__(self, scores: typing.Sequence[Score]):
+        self.__total: int = 0
+        self.__maximum_metric_value: int = 0
+        self.__weight: int = None
+        self.__thresholds: typing.Dict[Threshold, dict] = dict()
+        self.__scaled_value: int = 0
+        self.__metric_name = None
+
+        common.foreach(self.add_score, scores)
+
+        self.update_scaled_value()
+
+    def add_score(self, score: Score):
+        if self.__weight is None:
+            self.__weight = score.metric.weight
+            self.__metric_name = score.metric.name
+
+        self.__thresholds[score.threshold.name] = score.to_dict()
+        self.__maximum_metric_value += score.threshold.weight
+        self.__total += score.scaled_value
+
+    def update_scaled_value(self):
+        if self.has_value:
+            scale_factor = self.__total / self.__maximum_metric_value
+            self.__scaled_value = scale_factor * self.__weight
+
+    def to_dict(self) -> dict:
+        return {
+            "total": self.__total,
+            "maximum_possible_value": self.__maximum_metric_value,
+            "scaled_value": self.__scaled_value,
+            "thresholds": self.__thresholds,
+            "weight": self.__weight
+        }
+
+    @property
+    def has_value(self) -> bool:
+        total_has_value = self.__total != 0 and not numpy.isnan(self.__total)
+        has_maximum_value = self.__maximum_metric_value !=0 and not numpy.isnan(self.__maximum_metric_value)
+        has_weight = self.__weight != 0 and not numpy.isnan(self.__weight)
+
+        return has_weight and total_has_value and has_maximum_value
+
+    @property
+    def name(self) -> str:
+        return self.__metric_name
+
+    @property
+    def weight(self) -> int:
+        return self.__weight
+
+    @property
+    def value(self) -> float:
+        return self.__total
+
+    @property
+    def scaled_value(self) -> float:
+        return self.__scaled_value
+
+    @property
+    def maximum_value(self) -> float:
+        return self.__maximum_metric_value
+
+    @property
+    def thresholds(self) -> typing.Dict[Threshold, dict]:
+        return self.__thresholds
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        return f"{self.name}: {self.value} out of {self.maximum_value}"
 
 
 class Scores(abstract_collections.Sized, abstract_collections.Iterable):
@@ -343,12 +486,20 @@ class Scores(abstract_collections.Sized, abstract_collections.Iterable):
 
     @property
     def total(self) -> NUMBER:
+        """
+        The total of all scaled scores contained. Only non-null and non-empty scores are considered,
+        otherwise values will be skewed
+
+            n
+            Σ   self.__results.values()[i].scaled_value
+          i = 0
+        """
         if len(self.__results) == 0:
             raise ValueError("There are no scores to total")
 
         return sum([
             score.scaled_value
-            for score in self.__results.values()
+            for score in self
             if not numpy.isnan(score.sample_size)
                and score.sample_size > 0
                and not numpy.isnan(score.scaled_value)
@@ -356,6 +507,24 @@ class Scores(abstract_collections.Sized, abstract_collections.Iterable):
 
     @property
     def performance(self) -> float:
+        """
+        Demonstrates the performance of the metrics in relation to the total possible value in relation to the
+        highest possible value of all thresholds
+
+        A perfect metric result for a score yields the weight of its threshold, anything else is a fraction of it.
+        The performance is the sum of all scores divided by their max possible value.
+
+        Only non-null and non-empty scores are considered. Results with low sample sizes can skew results otherwise.
+
+            n
+            Σ   self[i].scaled_value
+          i = 0
+        -----------------------------------
+            n
+            Σ   self[i].threshold.weight
+          i = 0
+
+        """
         valid_scores: typing.List[Score] = [
             score
             for score in self
@@ -365,21 +534,38 @@ class Scores(abstract_collections.Sized, abstract_collections.Iterable):
         max_possible = sum([score.threshold.weight for score in valid_scores])
         return self.total / max_possible if max_possible else numpy.nan
 
+    @property
+    def scaled_value(self) -> float:
+        """
+        Scales the weight of this metric by the performance of all scores to be a fraction of the metric's weight
+
+            n
+            Σ   self[i].scaled_value
+          i = 0
+        -----------------------------------  * self.metric.weight
+            n
+            Σ   self[i].threshold.weight
+          i = 0
+
+        """
+        return self.performance * self.metric.weight
+
     def to_dict(self) -> dict:
         score_representation = {
             "total": self.total,
-            "grade": "{:.2f}%".format(self.performance) if not numpy.isnan(self.performance) else None,
+            "scaled_value": common.truncate(self.scaled_value, 2),
+            "grade": "{:.2f}%".format(self.performance * 100) if not numpy.isnan(self.performance) else None,
             "scores": dict()
         }
 
         for threshold, score in self.__results.items():  # type: Threshold, Score
             score_representation['scores'][str(threshold)] = {
-                "value": score.value,
-                "scaled_value": score.scaled_value,
-                "sample_size": score.sample_size,
+                "value": common.truncate(score.value, 2),
+                "scaled_value": common.truncate(score.scaled_value, 2),
+                "sample_size": common.truncate(score.sample_size, 2),
                 "failed": score.failed,
                 "weight": score.threshold.weight,
-                "grade": score.scaled_value / score.threshold.weight if score.threshold.weight else numpy.NaN,
+                "grade": common.truncate(score.grade, 3),
             }
 
         return score_representation
@@ -405,30 +591,98 @@ class Scores(abstract_collections.Sized, abstract_collections.Iterable):
 
 
 class MetricResults(object):
+    """
+    A mapping thresholds to a variety of metrics and their values
+
+    Expect all scores and thresholds within a MetricResults instance to pertain to a single location
+    """
     def __init__(
         self,
-        aggregator: NUMERIC_OPERATOR,
         metric_scores: typing.Sequence[Scores] = None,
         weight: NUMBER = None
     ):
+        self.__weight = weight or 1
+        self.__scaled_value = 0
+        self.__total = 0
+        self.__maximum_valid_score = 0
+
         if not metric_scores:
             metric_scores = list()
 
-        self.__aggregator = aggregator
         self.__results: typing.Dict[Threshold, typing.List[Score]] = defaultdict(list)
+        self.__metric_scores = list()
+
+        self.__metrics: typing.Dict[str, typing.List[Score]] = defaultdict(list)
 
         for scores in metric_scores:
             self.add_scores(scores)
 
-        self.__weight = weight or 1
+
+    def to_dict(self) -> typing.Dict:
+        structured_results = {
+            "weight": self.weight,
+            "grade": self.grade,
+            "scaled_value": self.scaled_value,
+            "scores": dict()
+        }
+
+        for metric_name, scores in self.__metrics.items():  # type: str, typing.List[Score]
+            description = ScoreDescription(scores)
+
+            if description.has_value:
+                structured_results['scores'][metric_name] = description.to_dict()
+
+        structured_results['scaled_value'] = self.scaled_value
+        structured_results['grade'] = self.grade
+
+        return structured_results
+
+    @property
+    def has_value(self) -> bool:
+        has_weight = self.weight != 0 and not numpy.isnan(self.weight)
+        has_total = self.total != 0 and not numpy.isnan(self.total)
+        has_maximum_possible_value = self.maximum_valid_score != 0 and not numpy.isnan(self.maximum_valid_score)
+
+        return has_weight and has_maximum_possible_value and has_total
+
+    def update_scaled_value(self):
+        if self.has_value:
+            scale_factor = self.total / self.maximum_valid_score
+            scaled_value = scale_factor * self.weight
+            self.__scaled_value = scaled_value
+
+    @property
+    def scaled_value(self) -> float:
+        """
+        Scales the overall value of all scores for this location as a fraction of its weight
+
+        len(self.valid_scores)
+                Σ       self.valid_scores[i].scaled_value
+              i = 0
+        --------------------------------------------------------  * self.weight
+        len(self.valid_scores)
+                Σ       self.valid_scores[i].metric.weight
+              i = 0
+
+        """
+        return self.__scaled_value
 
     def rows(self, include_metadata: bool = None) -> typing.List[typing.Dict[str, typing.Any]]:
+        """
+        Creates a list of dictionaries that may be used to represent tabular fields
+
+        Args:
+            include_metadata: Whether to include metadata in regards to metric properties and used thresholds
+
+        Returns:
+            A list of dictionaries that may be used to represent tabular fields
+        """
         if include_metadata is None:
             include_metadata = False
 
         rows = list()
 
-        for threshold, scores in self.__results.items():
+        for threshold, scores in self.__results.items():  # type: Threshold, typing.List[Score]
             threshold_rows: typing.List[dict] = list()
 
             threshold_values = list(threshold.value) if isinstance(threshold.value, pandas.Series) else threshold.value
@@ -463,82 +717,45 @@ class MetricResults(object):
         return pandas.DataFrame(rows)
 
     @property
-    def maximum_value_per_threshold(self) -> NUMBER:
-        total_value_per_threshold = 0
-        for threshold_scores in self.__results.values():
-            for score in threshold_scores:
-                total_value_per_threshold += score.metric.weight
-            break
-        return total_value_per_threshold
+    def valid_scores(self) -> typing.List[Score]:
+        """
+        A list of scores with sample sizes large enough to reflect reasonable calculations
 
-    def score_threshold(self, threshold: Threshold) -> NUMBER:
-        threshold_score = numpy.nan
-
-        for score in self.__results[threshold]:
-            if score.failed:
-                return 0
-
-            scaled_value = score.scaled_value
-
-            if score is None or numpy.isnan(scaled_value):
-                continue
-
-            if numpy.isnan(threshold_score):
-                threshold_score = scaled_value
-            else:
-                threshold_score += scaled_value
-
-        return threshold_score
+        When including thresholds like record flows, there may be no observations or simulated values that ever cross
+        the line. As a result, metrics can't be calculated and null values are rightfully returned. Considering null
+        scores as perfect or failing will skew the results. If all entries in a truth table are in the
+        'true negative' cell, is the probability of detection right or wrong? It's neither.  This list will grant
+        all scores appropriate for final calculations.
+        """
+        valid_scores: typing.List[Score] = [
+            score
+            for score in self.__metric_scores
+            if not (
+                    numpy.isnan(score.sample_size)
+                    or numpy.isnan(score.value)
+                    or score.sample_size == 0
+            )
+        ]
+        return valid_scores
 
     @property
-    def populated_thresholds(self) -> typing.Dict[Threshold, typing.List[Score]]:
-        populated_keys: typing.List[str] = list()
-        for threshold, scores in self.__results.items():
-            has_populated_scores = len([score for score in scores if not numpy.isnan(score.value)]) > 0
-            if has_populated_scores:
-                populated_keys.append(threshold.name)
-        return {
-            threshold: scores
-            for threshold, scores in self.__results.items()
-            if threshold.name in populated_keys
-        }
-
-    @property
-    def total_of_populated_thresholds(self) -> NUMBER:
-        populated_total = numpy.nan
-        count = 0
-        for threshold in self.populated_thresholds:
-            threshold_score = self.score_threshold(threshold)
-
-            if numpy.isnan(threshold_score):
-                threshold_score = 0
-            else:
-                threshold_factor = threshold_score / self.maximum_value_per_threshold
-                threshold_score = threshold.weight * threshold_factor
-            count += 1
-            populated_total = self.__aggregator(populated_total, threshold_score, count)
-
-        return populated_total
+    def maximum_valid_score(self) -> NUMBER:
+        """
+        The maximum value that the total of all underlying scores could return
+        """
+        return self.__maximum_valid_score
 
     @property
     def total(self) -> NUMBER:
-        total_score = numpy.nan
-        count = 0
-        max_per_threshold = self.maximum_value_per_threshold
+        return self.__total
 
-        for threshold in self.__results.keys():
-            threshold_score = self.score_threshold(threshold)
+    @property
+    def performance(self) -> NUMBER:
+        return (self.total / self.maximum_valid_score) * self.weight
 
-            if numpy.isnan(threshold_score):
-                threshold_score = 0
-            else:
-                threshold_factor = threshold_score / max_per_threshold
-                threshold_score = threshold.weight * threshold_factor
-            count += 1
-
-            total_score = self.__aggregator(total_score, threshold_score, count)
-
-        return total_score
+    @property
+    def grade(self) -> NUMBER:
+        return self.performance * 100.0
 
     def keys(self) -> typing.KeysView:
         return self.__results.keys()
@@ -551,8 +768,18 @@ class MetricResults(object):
         return self.__weight
 
     def add_scores(self, scores: Scores):
-        for score in scores:
+        description = ScoreDescription(scores)
+
+        if description.has_value:
+            self.__total += description.scaled_value
+            self.__maximum_valid_score += description.weight
+
+            self.update_scaled_value()
+
+        for score in scores:  # type: Score
+            self.__metric_scores.append(score)
             self.__results[score.threshold].append(score)
+            self.__metrics[score.metric.name].append(score)
 
     def __getitem__(self, key: str) -> typing.Sequence[Score]:
         result_key = None
@@ -571,28 +798,19 @@ class MetricResults(object):
     def __iter__(self) -> typing.Iterator[typing.Tuple[Threshold, typing.List[Score]]]:
         return iter(self.__results.items())
 
+    def __str__(self) -> str:
+        return f"Metric Results: {self.scaled_value} ({self.total} out of {self.maximum_valid_score})"
+
+    def __repr__(self):
+        return str(self)
+
 
 class ScoringScheme(object):
-    @staticmethod
-    def get_default_aggregator() -> NUMERIC_OPERATOR:
-        def operator(first_score_value: NUMBER, second_score_value: NUMBER, count: NUMBER = None) -> NUMBER:
-            if numpy.isnan(first_score_value) and numpy.isnan(second_score_value):
-                return numpy.nan
-            elif numpy.isnan(first_score_value):
-                return second_score_value
-            elif numpy.isnan(second_score_value):
-                return first_score_value
-
-            return first_score_value + second_score_value
-        return operator
-
     def __init__(
         self,
         metrics: typing.Sequence[Metric] = None,
-        aggregator: NUMERIC_OPERATOR = None,
         communicators: CommunicatorGroup = None
     ):
-        self.__aggregator = aggregator or ScoringScheme.get_default_aggregator()
         self.__metrics = metrics or list()
         self.__communicators = communicators or CommunicatorGroup()
 
@@ -614,7 +832,7 @@ class ScoringScheme(object):
 
         weight = 1 if not weight or numpy.isnan(weight) else weight
 
-        results = MetricResults(aggregator=self.__aggregator, weight=weight)
+        results = MetricResults(weight=weight)
 
         for metric in self.__metrics:  # type: Metric
             self.__communicators.info(f"Calling {metric.name}", verbosity=Verbosity.LOUD, publish=True)

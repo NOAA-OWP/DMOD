@@ -1,7 +1,6 @@
 import typing
 import os
 import traceback
-import logging
 import json
 
 from datetime import datetime
@@ -10,30 +9,6 @@ import dateutil
 import numpy
 
 from service.application_values import COMMON_DATETIME_FORMAT
-
-
-def is_true(value: str) -> bool:
-    """
-    Whether a passed value is meant to represent a `True` value.
-
-    Needed in instances where strings need to be evaluated since the string "False" counts as `True`.
-
-    Args:
-        value: The value to test against
-
-    Returns:
-        Whether a passed value is meant to represent a `True` value.
-    """
-    if isinstance(value, bytes):
-        value = value.decode()
-
-    if not isinstance(value, str):
-        logging.warning(
-            f"A non-string value ({str(value)}) was passed to dmod.evaluation_service.utilities.common.is_true"
-        )
-        return bool(value)
-
-    return str(value).lower() in ("yes", "y", "1", 'true', 'on')
 
 
 def key_separator() -> str:
@@ -98,13 +73,13 @@ def now(local: bool = True) -> datetime:
     return datetime.now(tz=timezone)
 
 
-def make_message_serializable(message: typing.Union[dict, str, bytes, typing.SupportsFloat, datetime, typing.Iterable]):
+def make_message_serializable(message: typing.Union[dict, str, bytes, datetime, typing.Iterable]):
     if isinstance(message, dict):
         for key, value in message.items():
             message[key] = make_message_serializable(value)
     elif isinstance(message, bytes):
         return message.decode()
-    elif isinstance(message, typing.SupportsFloat):
+    elif isinstance(message, float):
         if numpy.isneginf(message):
             return "-Infinity"
         if numpy.isposinf(message):

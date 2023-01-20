@@ -7,8 +7,6 @@ import logging
 import collections
 import math
 
-import collections.abc as abstract_collections
-
 from datetime import datetime
 from datetime import date
 from datetime import time
@@ -21,7 +19,8 @@ from dateutil.parser import parse as parse_date
 
 import dmod.metrics as metrics
 import dmod.metrics.metric as metric_functions
-import dmod.metrics.scoring as scoring
+
+import dmod.core.common as common
 
 from .. import util
 
@@ -142,7 +141,7 @@ def convert_value(value: typing.Any, parameter: typing.Union[inspect.Parameter, 
     if parameter_type is None:
         return value
 
-    if parameter_type in util.get_subclasses(Specification):
+    if parameter_type in common.get_subclasses(Specification):
         return parameter_type.create(value)
     if isinstance(value, str) and util.value_is_number(value) and util.type_is_number(parameter_type):
         return float(value)
@@ -1325,7 +1324,7 @@ class DataSourceSpecification(LoaderSpecification):
                     options[key] = value
                 elif isinstance(options[key], dict):
                     options[key].update(value)
-                elif util.is_arraytype(options[key]):
+                elif common.is_sequence_type(options[key]):
                     for entry in value:
                         if entry not in options[key]:
                             options[key].append(entry)
@@ -1756,9 +1755,17 @@ class EvaluationResults:
 
         self._total = sum(
             [
-                metric_result.total
+                metric_result.scaled_value
                 for metric_result in raw_results.values()
-                if not numpy.isnan(metric_result.total)
+                if not numpy.isnan(metric_result.scaled_value)
+            ]
+        )
+
+        self._maximum_value = sum(
+            [
+                metric_result.weight
+                for metric_result in raw_results.values()
+                if not numpy.isnan(metric_result.weight)
             ]
         )
 
@@ -1804,9 +1811,22 @@ class EvaluationResults:
 
         return frames
 
+    @property
+    def performance(self) -> float:
+        """
+        Returns an aggregate value demonstrating the performance of each location within the evaluation
+
+            n
+            Σ   self._original_results.values()[i].scaled_value
+          i = 0
+        """
+        return self._total / self._maximum_value if self._maximum_value else 0.0
+
     def to_dict(self, include_specification: bool = None) -> typing.Dict[str, typing.Any]:
         """
         Converts the results into a dictionary
+
+        Σ
 
         Args:
             include_specification: Whether to include the specifications for how to conduct the evaluation
@@ -1817,7 +1837,8 @@ class EvaluationResults:
         data = dict()
 
         data['total'] = self._total
-        data['grade'] = "{:.2f}%".format(self.grade)
+        data['performance'] = self.performance
+        data['grade'] = self.grade
         data['max_possible_total'] = self.max_possible_value
         data['mean'] = self.mean
         data['median'] = self.median
@@ -1832,7 +1853,7 @@ class EvaluationResults:
 
         included_metrics: typing.List[dict] = list()
 
-        for result in self._original_results.values():
+        for result in self._original_results.values():  # type: metrics.MetricResults
             for _, scores in result:
                 for score in scores:
                     if not [metric for metric in included_metrics if metric['name'] == score.metric.name]:
@@ -1850,54 +1871,9 @@ class EvaluationResults:
             result_data = {
                 "observation_location": observation_location,
                 "prediction_location": prediction_location,
-                'total': results.total,
-                "results": list()
             }
 
-            for score_threshold, scores in results:  # type: metrics.Threshold, typing.List[metrics.Score]
-                threshold_results: typing.Dict[str, typing.Any] = {
-                    "name": score_threshold.name,
-                    "weight": score_threshold.weight,
-                    "scores": list(),
-                }
-
-                if isinstance(score_threshold.value, pandas.DataFrame) \
-                        and len(score_threshold.value) == 1 \
-                        and len(score_threshold.value.keys()) == 1:
-                    first_column = [key for key in score_threshold.value.keys()][0]
-                    threshold_value = float(score_threshold.value[first_column].values[0])
-                elif isinstance(score_threshold.value, pandas.Series) and len(score_threshold.value) == 1:
-                    threshold_value = float(score_threshold.value.values[0])
-                elif isinstance(score_threshold.value, typing.Sequence) and len(score_threshold.value) == 1:
-                    threshold_value = float(score_threshold.value[0])
-                elif isinstance(score_threshold.value, (pandas.DataFrame, pandas.Series, typing.Sequence)):
-                    threshold_value = "varying"
-                else:
-                    threshold_value = float(score_threshold.value)
-
-                threshold_results['threshold_value'] = threshold_value
-
-                threshold_total = 0
-                maximum_value = 0
-
-                for score in scores:
-                    threshold_total += 0 if numpy.isnan(score.scaled_value) else score.scaled_value
-                    maximum_value += score.metric.weight
-                    score_data = {
-                        "metric": score.metric.name,
-                        "weight": score.metric.weight,
-                        "value": None if numpy.isnan(score.value) else score.value,
-                        "scaled_value": None if numpy.isnan(score.scaled_value) else score.scaled_value,
-                        "sample_size": None if numpy.isnan(score.sample_size) else score.sample_size
-                    }
-
-                    threshold_results['scores'].append(score_data)
-
-                total_factor = threshold_total / maximum_value
-                threshold_results['result'] = threshold_total
-                threshold_results['maximum_result'] = maximum_value
-                threshold_results['scaled_result'] = score_threshold.weight * total_factor
-                result_data['results'].append(threshold_results)
+            result_data.update(results.to_dict())
 
             data['results'].append(result_data)
 
@@ -1922,118 +1898,14 @@ class EvaluationResults:
         """
         The highest possible value that can be achieved with the given instructions
         """
-        total_threshold_weight = sum(
-            [
-                evaluation_threshold.total_weight
-                for evaluation_threshold in self._instructions.thresholds
-            ]
-        )
-
-        result_count = len(self._original_results)
-
-        return float(result_count * total_threshold_weight)
+        return self._maximum_value
 
     @property
-    def max_effective_value(self) -> float:
-        if self.max_possible_value in (0, None, numpy.nan, math.nan):
-            return 0.0
-
-        # The difference between this and the max possible value is that the realistic value discounts scores where
-        # nothing happened so as not to penalize the model for correctly not really doing anything
-        max_realistic_value = 0
-
-        for metric_results in self._original_results.values():
-            for scores in metric_results.populated_thresholds.values():
-                for score in scores:
-                    max_realistic_value += score.metric.weight
-
-        return max_realistic_value
-
-    @property
-    def grade(self, as_percentage: bool = True) -> float:
+    def grade(self) -> float:
         """
         The total weighted grade percentage result across all location pairings. Scales from 0.0 to 100.0
         """
-        if self.max_possible_value in (0, None, numpy.nan, math.nan):
-            return 0.0
-
-        if as_percentage is None:
-            as_percentage = True
-
-        weight_of_all_locations = sum(
-            [
-                result.weight
-                for result in self._original_results.values()
-            ]
-        )
-        """The total weight of all locations"""
-
-        target_calculated_grade = 0
-        """The calculated grade sum that indicates an absolutely perfect verification across all locations"""
-
-        total_calculated_grade = 0
-        """The sum of calculated grade values across all location results"""
-
-        for location_results in self._original_results.values():
-            location_percentage = location_results.weight / weight_of_all_locations
-            """
-            The percentage of how this set of values affects the whole
-
-            If this location's weight is greater than another's, this location's grade will have a greater 
-            affect on the total
-            """
-
-            # Find the sum of all weights of the thresholds containing all metrics, multiply that value by the
-            # percentage that these results affect the whole, then add them to the target value
-            #
-            # Metric weights don't need to be considered here because they are already scaled against the
-            # threshold weights
-            target_calculated_grade += sum(
-                [threshold.weight for threshold in location_results.populated_thresholds]
-            ) * location_percentage
-
-            # Find the total of this location by summing the quotient of the sum of all scaled score values
-            # divided by the sum of the target score values, multiplied by the weight of its threshold
-            # across all thresholds
-            #
-            # If you have a threshold with a weight of 10 with a result of 0.78 and a threshold with a weight of 5
-            # with a result of 0.76, you end up with a sum of 11.1 with the value of the first threshold having a
-            # greater effect on the sum. This yields an effective grade of 11.1/15, or 0.74. That 0.74 is not recorded
-            # here because both components (11.1 and 15) are used later to compute weighted sums used to calculate a
-            # weighted score
-            #
-            #                     (     ∑j scaled value for score(j) in Threshold(i)                           )
-            #  scaled total = ∑i  (   -----------------------------------------------  *  Threshold(i) Weight  )
-            #  (for location)     (     ∑j    score(j) weight in Threshold(i)                                  )
-            #
-            scaled_total = sum(
-                [
-                    (
-                            sum([score.scaled_value for score in scores if not numpy.isnan(score.value)])
-                            / sum([score.metric.weight for score in scores if not numpy.isnan(score.value)])
-                    ) * threshold.weight
-                    for threshold, scores in location_results.populated_thresholds.items()
-                ]
-            )
-            """The grade of the results for this location and this location only"""
-
-            # Scale the calculated grade for this location by the percentage that this location affects the whole
-            scaled_location_grade = scaled_total * location_percentage
-
-            # Add the scaled grade to the total for the later weighted sum
-            total_calculated_grade += scaled_location_grade
-
-        calculated_grade = total_calculated_grade / target_calculated_grade if target_calculated_grade > 0 else 0.0
-
-        if as_percentage:
-            # We now have the value calculated and the value we hoped to calculate. Dividing one from the other yields
-            # the total grade of the verification. Multiplying that by 100.0 yields the percentage
-            calculated_grade *= 100.0
-
-            # Ensure that the percentage calculated fits between the boundaries of the scale
-            calculated_grade = max(min(calculated_grade, 100.0), 0)
-
-        return float(calculated_grade)
+        return common.truncate(self.performance * 100.0, 2)
 
     @property
     def mean(self) -> float:
@@ -2043,7 +1915,7 @@ class EvaluationResults:
         return float(
             numpy.mean(
                 [
-                    result.total
+                    result.scaled_value / result.weight
                     for result in self._original_results.values()
                 ]
             )
@@ -2057,7 +1929,7 @@ class EvaluationResults:
         return float(
             numpy.median(
                 [
-                    result.total
+                    result.scaled_value / result.weight
                     for result in self._original_results.values()
                 ]
             )
@@ -2071,7 +1943,7 @@ class EvaluationResults:
         return float(
             numpy.std(
                 [
-                    result.total
+                    result.scaled_value / result.weight
                     for result in self._original_results.values()
                 ]
             )
