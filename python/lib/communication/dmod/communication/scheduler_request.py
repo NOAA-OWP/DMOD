@@ -2,8 +2,9 @@ from dmod.core.execution import AllocationParadigm
 from .maas_request import ModelExecRequest, ModelExecRequestResponse
 from .maas_request.dmod_job_request import DmodJobRequest
 from .message import AbstractInitRequest, MessageEventType, Response
+from .scheduler_request_response_body import SchedulerRequestResponseBody, UNSUCCESSFUL_JOB
 from pydantic import Field, PrivateAttr
-from typing import ClassVar, Dict, List, Optional, Union
+from typing import ClassVar, Dict, List, Optional, Type, Union
 
 from dmod.core.meta_data import DataRequirement, DataFormat
 
@@ -56,6 +57,7 @@ class SchedulerRequestMessage(DmodJobRequest):
         cpus: Optional[int] = None,
         mem: Optional[int] = None,
         allocation_paradigm: Optional[Union[str, AllocationParadigm]] = None,
+        **data
     ):
         # TODO: #pydantic_rebase - This part no longer makes sense, but make sure config_data_id is properly being handle by init
         # if 'config_data_id' not in kwargs and len(args) == 0:
@@ -65,9 +67,10 @@ class SchedulerRequestMessage(DmodJobRequest):
         super().__init__(
             model_request=model_request,
             user_id=user_id,
-            cpus=cpus,
-            memory=mem,
-            allocation_paradigm=allocation_paradigm
+            cpus=cpus or data.pop("cpus_", None),
+            memory=mem or data.pop("memory", None) or self.__fields__["memory"].default,
+            allocation_paradigm=allocation_paradigm or data.pop("allocation_paradigm_", None),
+            **data
         )
         if mem is None:
             self._memory_unset = True
@@ -166,36 +169,46 @@ class SchedulerRequestMessage(DmodJobRequest):
 
 
 class SchedulerRequestResponse(Response):
-    response_to_type = SchedulerRequestMessage
+
+    response_to_type: ClassVar[Type[AbstractInitRequest]] = SchedulerRequestMessage
+    data: SchedulerRequestResponseBody
 
     def __init__(self, job_id: Optional[int] = None, output_data_id: Optional[str] = None, data: dict = None, **kwargs):
         # TODO: how to handle if kwargs has success=True, but job_id value (as param or in data) implies success=False
-        key_job_id = ModelExecRequestResponse.get_job_id_key()
+
         # Create an empty data if not supplied a dict, but only if there is a job_id or output_data_id to insert
         if data is None and (job_id is not None or output_data_id is not None):
             data = {}
+
         # Prioritize provided job_id over something already in data
         # Note that this condition implies that either a data dict was passed as param, or one just got created above
         if job_id is not None:
-            data[key_job_id] = job_id
+            data["job_id"] = job_id
+
         # Insert this into dict if present also (again, it being non-None implies data must be a dict object)
         if output_data_id is not None:
-            data[ModelExecRequestResponse.get_output_data_id_key()] = output_data_id
+            data["output_data_id"] = output_data_id
+
+        data_body = SchedulerRequestResponseBody(**data if data is not None else {})
+
         # Ensure that 'success' is being passed as a kwarg to the superclass constructor
-        if 'success' not in kwargs:
-            kwargs['success'] = data is not None and key_job_id in data and data[key_job_id] > 0
-        super(SchedulerRequestResponse, self).__init__(data=data, **kwargs)
+        if "success" not in kwargs:
+            kwargs["success"] = data is not None and data_body.job_id > 0
+
+        super().__init__(data=data_body, **kwargs)
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.success == other.success and self.job_id == other.job_id
 
+    # TODO: #pydantic_rebase - compare with original once Pydantic refactoring is finished to make sure it makes sense
     @property
-    def job_id(self):
-        if self.success and self.data is not None:
-            return self.data[ModelExecRequestResponse.get_job_id_key()]
+    def job_id(self) -> int:
+        if self.success:
+            return self.data.job_id
         else:
-            return -1
+            return UNSUCCESSFUL_JOB
 
+    # TODO: #pydantic_rebase - compare with original once Pydantic refactoring is finished to make sure it makes sense
     # TODO: make sure this value gets included in the data dict
     @property
     def output_data_id(self) -> Optional[str]:
@@ -207,7 +220,4 @@ class SchedulerRequestResponse(Response):
         Optional[str]
             The 'data_id' of the output dataset for requested job, or ``None`` if not known.
         """
-        if self.data is not None and ModelExecRequestResponse.get_output_data_id_key() in self.data:
-            return self.data[ModelExecRequestResponse.get_output_data_id_key()]
-        else:
-            return None
+        return self.data.output_data_id
