@@ -23,15 +23,15 @@ CFS_TO_CFS_CONFIG_PATH = os.path.join(RESOURCE_DIRECTORY, "cfs_vs_cfs_evaluation
 def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dict]:
     expected_results = {
         ("0214655255", "cat-27"): {
-            "maximum_value_per_threshold": 68,
-            "total": 9.229883,
+            "maximum_valid_score": 204,
+            "total":  7.07788,
             "thresholds": {
                 "p50_va": [
                     {
                         "name": "False Alarm Ratio",
                         "failed": False,
                         "value": 0.0,
-                        "scaled_value": 10.0,
+                        "scaled_value": 1.0,
                         "metric_weight": 10,
                         "threshold_weight": 1,
                         "threshold_name": "p50_va"
@@ -40,7 +40,7 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                         "name": "Probability Of Detection",
                         "failed": False,
                         "value": 1.0,
-                        "scaled_value": 10.0,
+                        "scaled_value": 1.0,
                         "metric_weight": 10,
                         "threshold_weight": 1,
                         "threshold_name": "p50_va"
@@ -49,7 +49,7 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                         "name": "Kling-Gupta Efficiency",
                         "failed": False,
                         "value": 0.278977,
-                        "scaled_value": 4.1846626,
+                        "scaled_value": 0.278977,
                         "metric_weight": 15,
                         "threshold_weight": 1,
                         "threshold_name": "p50_va"
@@ -58,7 +58,7 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                         "name": 'Normalized Nash-Sutcliffe Efficiency',
                         "failed": False,
                         "value": 0.373682,
-                        "scaled_value": 5.60523,
+                        "scaled_value": 0.373682,
                         "metric_weight": 15,
                         "threshold_weight": 1,
                         "threshold_name": "p50_va"
@@ -67,7 +67,7 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                         "name": 'Pearson Correlation Coefficient',
                         "failed": False,
                         "value": 0.583159696,
-                        "scaled_value": 10.49687453,
+                        "scaled_value": 0.583159696,
                         "metric_weight": 18,
                         "threshold_weight": 1,
                         "threshold_name": "p50_va"
@@ -114,7 +114,7 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                         "name": 'Pearson Correlation Coefficient',
                         "failed": False,
                         "value": 0.5831596961286304,
-                        "scaled_value": 10.496874530315347,
+                        "scaled_value": 1.496874530315347,
                         "metric_weight": 18,
                         "threshold_weight": 10,
                         "threshold_name": "p75_va"
@@ -161,7 +161,7 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                         "name": 'Pearson Correlation Coefficient',
                         "failed": False,
                         "value": 0.5831596961286304,
-                        "scaled_value": 10.496874530315347,
+                        "scaled_value": 1.496874530315347,
                         "metric_weight": 18,
                         "threshold_weight": 5,
                         "threshold_name": "p80_va"
@@ -264,7 +264,7 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
             }
         },
         ("0214657975", "cat-52"): {
-            "maximum_value_per_threshold": 68,
+            "maximum_valid_score": 204,
             "total": 12.018,
             "thresholds": {
                 "p50_va": [
@@ -272,7 +272,7 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                         "name": "False Alarm Ratio",
                         "failed": False,
                         "value": 0.0,
-                        "scaled_value": 10.0,
+                        "scaled_value": 1.0,
                         "metric_weight": 10,
                         "threshold_weight": 1,
                         "threshold_name": "p50_va"
@@ -281,7 +281,7 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                         "name": "Probability Of Detection",
                         "failed": False,
                         "value": 1.0,
-                        "scaled_value": 10.0,
+                        "scaled_value": 1.0,
                         "metric_weight": 10,
                         "threshold_weight": 1,
                         "threshold_name": "p50_va"
@@ -290,7 +290,7 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                         "name": "Kling-Gupta Efficiency",
                         "failed": False,
                         "value": 0.6588182003575915,
-                        "scaled_value": 9.882273005363873,
+                        "scaled_value": 0.6588182,
                         "metric_weight": 15,
                         "threshold_weight": 1,
                         "threshold_name": "p50_va"
@@ -299,7 +299,7 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                         "name": 'Normalized Nash-Sutcliffe Efficiency',
                         "failed": False,
                         "value": 0.623952,
-                        "scaled_value": 9.359285,
+                        "scaled_value": 0.623952,
                         "metric_weight": 15,
                         "threshold_weight": 1,
                         "threshold_name": "p50_va"
@@ -308,7 +308,7 @@ def get_expected_evaluation_results() -> typing.Dict[typing.Tuple[str, str], dic
                         "name": 'Pearson Correlation Coefficient',
                         "failed": False,
                         "value": 0.6851455871369385,
-                        "scaled_value": 12.332620568464893,
+                        "scaled_value": 0.6851455871369385,
                         "metric_weight": 18,
                         "threshold_weight": 1,
                         "threshold_name": "p50_va"
@@ -550,10 +550,11 @@ class TestEvaluate(unittest.TestCase):
             self.assertIsNotNone(matching_expected_results)
 
             self.assertAlmostEqual(
-                    matching_expected_results.pop('maximum_value_per_threshold'),
-                    results.maximum_value_per_threshold,
+                    matching_expected_results.pop('maximum_valid_score'),
+                    results.maximum_valid_score,
                     delta=EPSILON
             )
+
             self.assertAlmostEqual(matching_expected_results.pop('total'), results.total, delta=EPSILON)
 
             for threshold, scores in results:  # type: scoring.Threshold, typing.List[scoring.Score]

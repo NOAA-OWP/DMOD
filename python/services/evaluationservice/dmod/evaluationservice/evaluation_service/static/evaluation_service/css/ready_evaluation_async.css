@@ -80,6 +80,10 @@ body {
     height: 100%;
 }
 
+.tab-footer {
+    display: inline-block;
+}
+
 /* Style the buttons inside the tab */
 button {
   background-color: #ECECEC;
@@ -112,6 +116,41 @@ button:hover {
 
 #save-header {
 
+}
+
+.feature-result-fields {
+    display: grid;
+}
+
+.feature-result-grade {
+    text-align: right;
+}
+
+.feature-result-legend {
+    font-weight: bold;
+    font-size: 1.3em;
+}
+
+.metric-result-legend {
+    text-align: center;
+    font-weight: bold;
+}
+
+.metric-result-threshold-table {
+    border-collapse: collapse;
+}
+
+.metric-result-threshold-table td {
+    border: 1px solid gray;
+    text-align: center;
+}
+
+.metric-result-threshold-table th, .metric-result-threshold-table td {
+    padding: 4px;
+}
+
+.feature-result-wrapper fieldset {
+    border-radius: 5px;
 }
 
 .popup {

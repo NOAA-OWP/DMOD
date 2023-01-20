@@ -13,15 +13,16 @@ from . import *
 
 import pandas
 
+import dmod.core.common as common
+
 from .. import specification
-from .. import util
 
 from .retriever import CrosswalkRetriever
 
 
 def get_crosswalk(definition: specification.CrosswalkSpecification) -> CrosswalkRetriever:
     possible_crosswalks = [
-        cls for cls in util.get_subclasses(CrosswalkRetriever)
+        cls for cls in common.get_subclasses(CrosswalkRetriever)
         if cls.get_type().lower() == definition.backend.type.lower()
            and cls.get_format().lower() == definition.backend.format.lower()
     ]

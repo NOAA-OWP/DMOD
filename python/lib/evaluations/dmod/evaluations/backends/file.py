@@ -15,6 +15,8 @@ from deprecated import deprecated
 
 import pandas
 
+import dmod.core.common as common
+
 from . import backend
 from .. import util
 from .. import specification
@@ -104,7 +106,7 @@ class FileBackend(backend.Backend):
         if data_format is None:
             data_format = self.format
 
-        if util.is_arraytype(destination):
+        if common.is_sequence_type(destination):
             destination = pathlib.Path(*destination)
 
         write_functions = {
@@ -166,7 +168,7 @@ class FileBackend(backend.Backend):
         else:
             grouped_data["Evaluation Results"] = data
 
-        if util.is_arraytype(destination):
+        if common.is_sequence_type(destination):
             destination = pathlib.Path(*destination)
 
         buffer: typing.Optional[typing.Union[typing.IO, io.IOBase]] = None
@@ -221,7 +223,7 @@ class FileBackend(backend.Backend):
             **kwargs:
         """
 
-        if util.is_arraytype(destination):
+        if common.is_sequence_type(destination):
             destination = pathlib.Path(*destination)
 
         buffer: typing.Optional[typing.Union[typing.IO, io.IOBase]] = None

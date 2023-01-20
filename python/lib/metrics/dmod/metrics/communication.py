@@ -5,6 +5,7 @@ import collections
 import inspect
 import enum
 import logging
+import traceback
 
 from collections import abc as abstract_collections
 
@@ -278,9 +279,18 @@ class CommunicatorGroup(abstract_collections.Mapping):
             data:
             verbosity:
         """
-        for communicator in self.__communicators.values():
-            if not verbosity or verbosity and communicator.verbosity >= verbosity:
-                communicator.write(reason=reason, data=data)
+        try:
+            for communicator in self.__communicators.values():
+                if not verbosity or verbosity and communicator.verbosity >= verbosity:
+                    communicator.write(reason=reason, data=data)
+        except:
+            message = traceback.format_exc()
+            logging.error(message)
+
+            # The message is also printed since logging sometimes forces all newlines into a single line with just
+            # the "\n" character, making the error hard to read
+            print(message)
+            raise
 
     def update(self, communicator_id: str = None, **kwargs):
         """

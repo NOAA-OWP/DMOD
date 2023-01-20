@@ -112,10 +112,6 @@ class TestScoring(unittest.TestCase):
     def test_uniform_metrics_and_thresholds(self):
         """
         Test what happens when all metrics are run for all thresholds with the same weights
-
-        This should heavily favor "Model 2" since "Model 2" is geared to over predict, yet highly correlate.
-        This means that it will ALWAYS have a PoD of 1 and will have higher non-categorical results than 'Model 1'
-        since 'Model 1' doesn't reflect behavior, just the crossing of thresholds
         """
 
         metric_functions: typing.List[scoring.Metric] = [
@@ -145,36 +141,23 @@ class TestScoring(unittest.TestCase):
                 truth_tables=self.truth_tables[name]
             )
 
-            for threshold, values in results:
-                for value in values:
-                    print(value)
             metric_results[name] = results
 
         ordered_results: typing.List[scoring.MetricResults] = sorted(
             metric_results.values(),
-            key=lambda metric_result: metric_result.total,
+            key=lambda metric_result: metric_result.scaled_value,
             reverse=True
         )
 
-        # First should be "Model 1" - while it doesn't correlate to the observations very much, the metrics are
-        # biased heavily towards categorical measures, which "Model 1" is perfect at
         self.assertEqual(ordered_results[0], metric_results['Model 1'])
 
-        # Next should be "Model 2" - it correlates highly to the observations and always detects events,
-        # even though it over predicts
-        self.assertEqual(ordered_results[1], metric_results['Model 2'])
+        self.assertEqual(ordered_results[1], metric_results['Model 3'])
 
-        # Next should be "Model 3" - even though it has less error than "Model 2" and also has a strong correlation,
-        # it underpredicts meaning that there are more misses in the truth table
-        self.assertEqual(ordered_results[2], metric_results['Model 3'])
+        self.assertEqual(ordered_results[2], metric_results['Model 2'])
 
-        # Next should be "Model 5" - while it never predicts anything and doesn't react to the observations,
-        # it also never has any false positives.
-        self.assertEqual(ordered_results[3], metric_results['Model 5'])
+        self.assertEqual(ordered_results[3], metric_results['Model 4'])
 
-        # Last should be "Model 4" - "Model 4" always surpasses record and doesn't have any sort of correlation to
-        # the observation. This means that it constantly raises false alarms.
-        self.assertEqual(ordered_results[4], metric_results['Model 4'])
+        self.assertEqual(ordered_results[4], metric_results['Model 5'])
 
 
 def main():

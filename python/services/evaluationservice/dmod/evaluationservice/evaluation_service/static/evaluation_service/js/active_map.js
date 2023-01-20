@@ -190,7 +190,7 @@ function initializeActiveMap(elementID, options) {
 
         // Try to find a name for the feature - it should be given underneath the feature object as 'id'
         if ("id" in layer.feature) {
-            name = geometry.feature.id;
+            name = layer.feature.id;
         }
         else if ("properties" in layer.feature) {
             // If no feature level id was given, try to pick off a name from its properties
@@ -384,6 +384,9 @@ function initializeActiveMap(elementID, options) {
 
             // Reposition the map to feature the new locations
             internalMap.fitBounds(geojsonLayer.getBounds());
+        },
+        "getContainer": () => {
+            return internalMap.getContainer();
         }
     }
 }

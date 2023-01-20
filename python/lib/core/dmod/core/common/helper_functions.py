@@ -3,6 +3,15 @@ Provides simple helper functions
 """
 import typing
 import inspect
+import math
+import json
+import numbers
+
+from collections import OrderedDict
+
+
+_CLASS_TYPE = typing.TypeVar('_CLASS_TYPE')
+"""A type that points directly to a class. The _CLASS_TYPE of `6`, for example, is `<class 'int'>`"""
 
 
 def get_current_function_name(parent_name: bool = None) -> str:
@@ -175,3 +184,322 @@ def merge_dictionaries(first: typing.Mapping = None, second: typing.Mapping = No
     })
 
     return merged_dictionary
+
+
+def truncate(number: typing.Union[numbers.Number, float], digits: int) -> typing.Union[numbers.Number, float]:
+    """
+    Truncate a float by the desired number of digits
+
+    Example:
+        >>> example_value = 10.1231244121235435
+        >>> math.trunc(example_value)
+        10
+        >>> truncate(example_value, 3)
+        10.123
+        >>> truncate(example_value, 5)
+        10.12312
+
+    Args:
+        number: The number to truncate
+        digits: The number of desired digits
+
+    Returns:
+        The floating point number truncated to the specified number of digits
+    """
+    if digits <= 0:
+        return number
+
+    if not isinstance(digits, int):
+        raise TypeError(
+            f"The number {number} cannot be truncated - "
+            f"the number of digits to truncate by must be an integer and received {type(digits)} instead"
+        )
+
+    # We'll use the number 10.23423523423 and the desired number of digits as 3 as an example
+
+    # This gives us "10.23423523423"
+    string_representation = str(number)
+
+    if "." not in string_representation:
+        return number
+
+    # Find the number of current decimal points in order to avoid operations if necessary.
+    # This will yield 11 for our example
+    number_of_decimal_points = len(string_representation.split('.')[1])
+
+    # If the current number of digits is less than or equal to the number of desired digits, we can move on
+    # Our example has 11 decimal points, which is greater than the desired 3, so we continue
+    if number_of_decimal_points <= digits:
+        return number
+
+    # Create a factor that will shift the desired number of decimal points
+    # This will create 1000 for our example
+    adjuster = 10.0 ** digits
+
+    # This will shift the number by the desired number of decimal points
+    # This yields 10234.23523423 for our example
+    adjusted_value = adjuster * number
+
+    # This will get rid of the extra digits
+    # Our example value now becomes 10234.0
+    adjusted_value = math.trunc(adjusted_value)
+
+    # This will shift the value back to the desired number of decimal points
+    # Our example value now becomes 10.324
+    return adjusted_value / adjuster
+
+
+def get_subclasses(base: typing.Type[_CLASS_TYPE]) -> typing.List[typing.Type[_CLASS_TYPE]]:
+    """
+    Gets a collection of all concrete subclasses of the given class in memory
+
+    A subclass that has not been imported will not be returned
+
+    Example:
+        >>> import numpy
+        >>> get_subclasses(float)
+        [numpy.float64]
+
+    Args:
+        base: The base class to get subclasses from
+
+    Returns:
+        All implemented subclasses of a specified types
+    """
+    subclasses = [
+        cls
+        for cls in base.__subclasses__()
+    ]
+
+    concrete_classes = [
+        subclass
+        for subclass in subclasses
+        if not inspect.isabstract(subclass)
+    ]
+
+    for subclass in subclasses:
+        concrete_classes.extend([
+            cls
+            for cls in get_subclasses(subclass)
+            if cls not in concrete_classes
+               and not inspect.isabstract(cls)
+        ])
+
+    return concrete_classes
+
+
+def foreach(
+    func: typing.Callable[[_CLASS_TYPE], typing.Any],
+    collection: typing.Iterable[_CLASS_TYPE]
+) -> typing.Sequence[typing.Any]:
+    """
+    Calls the passed in function on every item in the collection
+
+    Why use this instead of the builtin map function(s)? The builtin functions create generators rather than actually
+    performing the requested actions, meaning you have to iterate over the generated map, rather than the call just
+    running.
+
+        >>> def p(obj) -> typing.NoReturn:
+        >>>     print(obj)
+        >>> example_collection = [1, 2, 3]
+        >>> map(p, example_collection) # Doesn't actually do anything; just creates a collection and throws it away
+        >>> # Calls print on every element in the collection and assigns the results to the `results` collection
+        >>> map_results = [operation for operation in map(p, example_collection)]
+        1
+        2
+        3
+        >>> foreach(p, example_collection) # Just calls print on every element in the collection
+        1
+        2
+        3
+
+    Args:
+        collection: The items to use as arguments for each function
+        func: The function to call on each element
+
+    Returns:
+        A collection containing any of the results of the function
+    """
+    results: typing.List[typing.Any] = list()
+
+    for element in collection:
+        function_result = func(element)
+        results.append(function_result)
+
+    return results
+
+
+def is_true(value) -> bool:
+    """
+    Check to see what the boolean value of a value is
+
+    The `bool` function does not adequately check if a value is true or false in all cases so this covers some of
+    those that don't fit by default
+
+    The following strings (case and whitespace insensitive) evaluate to true:
+        - "True"
+        - "Yes"
+        - "Y"
+        - "On"
+        - "T"
+        - "1"
+
+    Example:
+        >>> bool("True")
+        True
+        >>> bool("False")
+        True
+        >>> bool("0")
+        True
+        >>> bool(0)
+        False
+        >>> is_true("True")
+        True
+        >>> is_true("False")
+        False
+        >>> is_true("0")
+        False
+        >>> is_true("1")
+        True
+
+    Arguments:
+        value: Some value to check
+
+    Returns:
+        Whether the value to equivalent to `True`
+    """
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, bytes):
+        value = value.decode()
+
+    if isinstance(value, str):
+        value = value.lower().strip()
+        return value in ('true', 'y', 'yes', '1', 't', 'on')
+
+    try:
+        return bool(value)
+    except ValueError:
+        return value is not None
+
+
+def order_dictionary(dictionary: typing.Mapping) -> dict:
+    """
+    Order a given dictionary so that primitive-like values appear in name ordering first, then values without an mro,
+    __slots__, or __dict__ sorted by name, then array-like items sorted by name, then basic object-like items sorted
+    by name, then finally mappings ordered by name.
+
+    Nested dictionaries are also ordered.
+
+    Example:
+        >>> example = {
+            "two": 2.0,
+            "three": False,
+            "one": 1,
+            "four": b"bytes",
+            "five": [1, 2, 3, 4, 5],
+            "six": datetime.now(),
+            "seven": SomeClass(),
+            "eight": {
+                "z": b'z',
+                "a": {
+                    "q": 99,
+                     "f": None
+                },
+                "y": 9
+            }
+        }
+        >>> order_dictionary(example)
+        {
+            "four": b"bytes",
+            "one": 1,
+            "three": False,
+            "two": 2.0,
+            "six": <class datetime>,
+            "seven": <class SomeClass>,
+            "five": [1, 2, 3, 4, 5],
+            "eight": {
+                "y": 9,
+                "z": b'z',
+                "a": {
+                    "f": None,
+                    "q": 99
+                }
+            }
+        }
+
+    Arguments:
+         dictionary: The mapping to order
+
+    Returns:
+        An reording of the dictionary from least complex to theoretically most complex values
+    """
+    primitive_keys: typing.List[str] = list()
+    array_keys: typing.List[str] = list()
+    mapping_keys: typing.List[str] = list()
+    object_keys: typing.List[str] = list()
+    non_mro_keys: typing.List[str] = list()
+
+    for key, value in dictionary.items():
+        if isinstance(key, (str, bytes, bool, numbers.Number)) or value is None:
+            primitive_keys.append(key)
+        elif isinstance(value, typing.Mapping):
+            mapping_keys.append(key)
+        elif isinstance(value, typing.Collection):
+            array_keys.append(key)
+        elif not (hasattr(value, "__mro__") or hasattr(value, "__dict__") or hasattr(value, "__slots__")):
+            non_mro_keys.append(key)
+        else:
+            object_keys.append(key)
+
+    ordered_dictionary = OrderedDict()
+
+    for key in sorted(primitive_keys):
+        ordered_dictionary[key] = dictionary[key]
+
+    for key in sorted(non_mro_keys):
+        ordered_dictionary[key] = dictionary[key]
+
+    for key in sorted(array_keys):
+        ordered_dictionary[key] = dictionary[key]
+
+    for key in sorted(object_keys):
+        ordered_dictionary[key] = dictionary[key]
+
+    for key in sorted(mapping_keys):
+        ordered_dictionary[key] = order_dictionary(dictionary[key])
+
+    return ordered_dictionary
+
+
+def truncate_numbers_in_dictionary(dictionary: typing.Mapping, places: int, copy: bool = False) -> typing.Mapping:
+    if places is None or places <= 0:
+        return dictionary
+
+    if copy:
+        dictionary = {key: value for key, value in dictionary.items()}
+
+    for key, value in dictionary.items():
+        if isinstance(value, numbers.Number) and "." in str(key):
+            dictionary[key] = truncate(value, places)
+        elif isinstance(value, typing.Mapping):
+            dictionary[key] = truncate_numbers_in_dictionary(value, places, copy)
+
+    return dictionary
+
+
+def to_json(obj, encoder: json.JSONEncoder = None, indent: int = 4, truncate_digits: int = None) -> str:
+    if indent is None or indent <= 0:
+        indent = 4
+
+    first_layer: str = json.dumps(obj, cls=encoder, indent=indent)
+
+    dictionary_representation = json.loads(first_layer)
+    dictionary_representation = truncate_numbers_in_dictionary(dictionary_representation, truncate_digits)
+
+    ordered_dictionary = order_dictionary(dictionary_representation)
+
+    second_layer: str = json.dumps(ordered_dictionary, cls=encoder, indent=indent)
+
+    return second_layer

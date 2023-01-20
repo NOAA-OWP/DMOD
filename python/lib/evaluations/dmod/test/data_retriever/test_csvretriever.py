@@ -126,7 +126,7 @@ class TestCSVRetrieving(unittest.TestCase):
         self.run_multiple_assertions(retriever)
 
     def test_implicit_multiple_tables(self):
-        retriever = data_retriever.get_datasource(self.__multiple_specification)
+        retriever = data_retriever.get_datasource_retriever(self.__multiple_specification)
         self.run_multiple_assertions(retriever)
 
     def test_direct_single_table(self):
@@ -134,7 +134,7 @@ class TestCSVRetrieving(unittest.TestCase):
         TestCSVRetrieving.run_single_assertions(self, retriever)
 
     def test_implicit_single_table(self):
-        retriever = data_retriever.get_datasource(self.__single_data_specification)
+        retriever = data_retriever.get_datasource_retriever(self.__single_data_specification)
         TestCSVRetrieving.run_single_assertions(self, retriever)
 
     def run_multiple_assertions(self, retriever: Retriever):

@@ -15,6 +15,8 @@ from django.http import HttpResponseBadRequest
 from rest_framework.views import APIView
 
 import dmod.evaluations.util as evaluation_utilities
+import dmod.metrics.metric as metrics
+import dmod.metrics.scoring as scoring
 
 import utilities
 
@@ -181,3 +183,47 @@ class GetOutput(View):
         response = HttpResponse(content=file, content_type=written_data.get_content_type())
         response['Content-Disposition'] = f'attachment; filename={filename}'
         return response
+
+
+class Metrics(APIView):
+    """
+    View that returns all metadata for all available metrics
+    """
+    @staticmethod
+    def get_metrics() -> typing.Dict[str, typing.Dict[str, str]]:
+        """
+        Generate a dictionary with helpful metadata for each available metric
+        """
+        defined_metrics: typing.Collection[typing.Type[scoring.Metric]] = metrics.get_all_metrics()
+
+        # Instantiate every found metric. This is necessary to get the ideal value of each
+        instantiated_metrics = [
+            metric(weight=1)
+            for metric in defined_metrics
+        ]
+
+        name_and_metadata = {
+            metric.name: {
+                "ideal_value": metric.ideal_value,
+                "description": metric.get_descriptions(),
+                "identifier": metric.get_identifier()
+            }
+            for metric in instantiated_metrics
+        }
+
+        return name_and_metadata
+
+    def get(self, request: HttpRequest) -> JsonResponse:
+        """
+        Handle GET requests and return JSON
+        """
+        return JsonResponse(Metrics.get_metrics())
+
+    def post(self, request: HttpRequest) -> JsonResponse:
+        """
+        Handle POST requests and return JSON
+
+        NOTE: It would be best for callers to use GET since that makes the most sense, but this is here just to be
+        robust
+        """
+        return JsonResponse(Metrics.get_metrics())
