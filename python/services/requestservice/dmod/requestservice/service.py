@@ -18,7 +18,7 @@ from dmod.communication.dataset_management_message import MaaSDatasetManagementM
 from dmod.externalrequests import AuthHandler, DatasetRequestHandler, ModelExecRequestHandler, \
     NgenCalibrationRequestHandler, PartitionRequestHandler, EvaluationRequestHandler
 
-from .alternate_service import EvaluationMessage
+from .alternate_service import LaunchEvaluationMessage, OpenEvaluationMessage
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -51,7 +51,8 @@ class RequestService(WebSocketSessionsInterface):
         NGENRequest,
         MaaSDatasetManagementMessage,
         PartitionRequest,
-        EvaluationMessage
+        LaunchEvaluationMessage,
+        OpenEvaluationMessage
     ]
     """ Parseable request types, which are all authenticated ::class:`ExternalRequest` subtypes for this implementation. """
 
@@ -73,19 +74,19 @@ class RequestService(WebSocketSessionsInterface):
                  scheduler_port: Union[str, int] = 3013,
                  partitioner_host: str = 'partitioner-service',
                  data_service_host: str = 'data-service',
-                evaluation_service_host: str = 'evaluation-service',
+                 evaluation_service_host: str = 'evaluation-service',
                  partitioner_port: Union[str, int] = 3014,
                  data_service_port: Union[str, int] = 3015,
-                evaluation_service_port: Union[str, int] = 3016,
+                 evaluation_service_port: Union[str, int] = 3016,
                  ssl_dir=None,
                  cert_pem=None,
                  priv_key_pem=None,
                  scheduler_ssl_dir=None,
                  partitioner_ssl_dir=None,
                  data_service_ssl_dir=None,
-                evaluation_service_ssl_dir=None,
-                **kwargs
-    ):
+                 evaluation_service_ssl_dir=None,
+                 **kwargs
+                 ):
         super().__init__(listen_host=listen_host, port=port, ssl_dir=ssl_dir, cert_pem=cert_pem,
                          priv_key_pem=priv_key_pem)
         self._session_manager: RedisBackendSessionManager = RedisBackendSessionManager()
@@ -145,6 +146,7 @@ class RequestService(WebSocketSessionsInterface):
                                                            service_ssl_dir=self.data_service_ssl_dir)
 
         self._evaluation_service_handler = EvaluationRequestHandler(
+            target_service='evaluation-service',
             service_host=evaluation_service_host,
             service_port=evaluation_service_port,
             ssl_directory=evaluation_service_ssl_dir
@@ -167,7 +169,7 @@ class RequestService(WebSocketSessionsInterface):
                 req_message = await self.deserialized_message(message_data=data)
                 event_type = MessageEventType.INVALID if req_message is None else req_message.get_message_event_type()
 
-                if isinstance(req_message, EvaluationMessage):
+                if isinstance(req_message, LaunchEvaluationMessage) or isinstance(req_message, OpenEvaluationMessage):
                     response = await self._evaluation_service_handler.handle_request(
                         request=req_message,
                         socket=websocket,
