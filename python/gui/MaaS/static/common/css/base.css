@@ -4,7 +4,7 @@
     background-size: 100px 100px;
     background-position-x: 10px;
     height: fit-content;
-    background-color: #33ade0;
+    background-color: #0a5190;
 }
 
 #base-banner h1 {
@@ -38,7 +38,7 @@ input[type="checkbox"] + label {
 .MaaS-btn {
     margin: 10px 0px;
     color: white;
-    background-color: #E06633;
+    background-color: #900f0f;
     border: none;
     font-weight: bold;
     height: 40px;
@@ -47,7 +47,7 @@ input[type="checkbox"] + label {
 }
 
 .MaaS-btn:hover {
-    background-color: #e7875f;
+    background-color: #c92e2e;
 }
 
 fieldset {
@@ -58,7 +58,7 @@ fieldset {
 legend {
     padding: 3px;
     color: white;
-    background-color: #33ade0;
+    background-color: #0a5190;
     font-weight: bold;
     border: none;
     width: fit-content;
@@ -67,12 +67,12 @@ legend {
 details summary {
     font-weight: bold;
     padding: 10px;
-    background-color: #33ade0;
+    background-color: #0a5190;
     color: white;
     border: none;
     cursor: pointer;
 }
 
 summary:hover, summary.summary-hover {
-    background-color: #E06633;
+    background-color: #900f0f;
 }

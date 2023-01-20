@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OWP MaaS</title>
+    {% load static %}
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js">
+    </script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js">
+    </script>
+    <script src="{% static 'maas/js/components/confirmDialog.js' %}">
+    </script>
+    <script src="{% static 'maas/js/components/createDatasetForm.js' %}">
+    </script>
+    <script src="{% static 'maas/js/components/datasetOverview.js' %}">
+    </script>
+    <link rel="stylesheet" type="text/css" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/cupertino/jquery-ui.css">
+    <link rel="icon" type="image/gif" href="{% static 'maas/img/favicon.gif' %}">
+    <script>
+        function activate_model(model) {
+            $(".parameters").hide();
+            $("#" + model + "_parameters").show();
+        }
+
+        function buildDatasetsOverviewTable() {
+            $.ajax({
+                url: "/dataset-api",
+                type: 'get',
+                data: {"request_type": "datasets"},
+                success: function(response) {
+                    let tableComp = new DatasetOverviewTable('dataset-manage', 'datasets-table', displayDatasetDetails,
+                        displayDatasetFiles, clickDownloadDataset, clickUploadDataset, clickDeleteDataset);
+                    tableComp.buildTable(response);
+                },
+                error: function(response) {
+                    alert('Received an error');
+                    console.log(response);
+                }
+            });
+        }
+
+        function initDatasetCreateForm() {
+            let category_select = document.getElementById("dataset-create-form-input-category");
+            category_select.selectedIndex = -1;
+            let format_select = document.getElementById("dataset-create-form-input-format");
+            format_select.selectedIndex = -1;
+        }
+
+        function initGuiViews() {
+            buildDatasetsOverviewTable();
+            initDatasetCreateForm();
+        }
+
+        function changeCreateDatasetFormatSelection(selection) {
+            let dy_div = document.getElementById("dataset-create-form-div-dynamic-inputs");
+            for (let i = 0; i < dy_div.children.length; i++) {
+                dy_div.children[i].remove();
+            }
+            let addUploadSelection = false;
+            if (selection === "NETCDF_FORCING_CANONICAL") {
+                addUploadSelection = true;
+            }
+
+            if (addUploadSelection) {
+                let upload_select_label = document.createElement('label');
+                upload_select_label.appendChild(document.createTextNode('Data Files:'));
+                dy_div.appendChild(upload_select_label);
+                upload_select_label.htmlFor = 'create-dataset-upload';
+                let upload_select = document.createElement('input');
+                upload_select.type = 'file';
+                upload_select.name = 'create-dataset-upload';
+                upload_select.id = 'create-dataset-upload';
+                upload_select.style.float = 'right';
+                upload_select.style.textAlign = 'right';
+                dy_div.appendChild(upload_select);
+            }
+        }
+
+        /**
+         * Toggle what is displayed based on selection click in main nav bar for page.
+         *
+         * @param {string} selected_div_id - The id of the main-level div selected to be displayed.
+         */
+        function toggleNav(selected_div_id) {
+            const all_nav_divs = ["dataset-manage", "dataset-create"];
+            for (let i = 0; i <= all_nav_divs.length; i++) {
+                // TODO: consider a warning message for receiving an unexpected selection
+                let nav_div = document.getElementById(all_nav_divs[i]);
+                nav_div.style.display = (selected_div_id === all_nav_divs[i]) ? 'block' : 'none';
+            }
+        }
+
+        function buildDatasetDetailsEmptyDiv() {
+            let details_div = document.createElement('div');
+            details_div.id = 'details-div';
+            details_div.class = 'details-modal';
+            details_div.style.position = 'fixed';
+            details_div.style.zIndex = '1';
+            details_div.style.left = '25%';
+            details_div.style.top = '5%';
+            details_div.style.width = '50%';
+            details_div.style.height = '50%';
+            details_div.style.overflow = 'clip';
+            details_div.style.backgroundColor = '#B7B5B5FF';
+            details_div.style.border = '1px solid #888';
+            details_div.style.padding = '5px';
+            details_div.style.paddingTop = '0px';
+            details_div.style.margin = '15% auto';
+
+            let close_x = document.createElement('span');
+            close_x.style.padding = "0px";
+            close_x.style.cursor = "pointer";
+            close_x.style.fontWeight = "bold";
+            close_x.style.fontSize = "20px";
+            close_x.appendChild(document.createTextNode("\u00d7"));
+            close_x.onclick = function() { details_div.remove() };
+            details_div.appendChild(close_x);
+
+            let details_content_div = document.createElement('div');
+            details_content_div.style.height = '90%';
+            details_content_div.style.overflow = 'auto';
+
+            details_div.appendChild(details_content_div);
+
+            let parent_div = document.getElementById('dataset-manage');
+            parent_div.appendChild(details_div);
+            return details_content_div;
+        }
+
+        function buildDetailsTableRow() {
+            let row = document.createElement('tr');
+            // Skip the first arg, as this is the table itself
+            let colCell;
+            let cellText;
+            for (let i = 1; i < arguments.length; i++) {
+                colCell = document.createElement('th');
+                if (i == 1) {
+                    colCell.style.verticalAlign = 'top';
+                    colCell.style.textAlign = 'right';
+                    colCell.style.paddingRight = '8px';
+                    arguments[i] += ":";
+                }
+                else {
+                    colCell.style.textAlign = 'left';
+                    colCell.style.fontWeight = 'normal';
+                }
+                cellText = document.createTextNode(arguments[i]);
+                colCell.appendChild(cellText);
+                row.appendChild(colCell);
+            }
+            arguments[0].appendChild(row);
+        }
+
+        function buildDatasetFilesEmptyDiv() {
+            let ds_files_div = document.createElement('div');
+            ds_files_div.id = 'ds-files-div';
+            ds_files_div.class = 'ds-files-modal';
+            ds_files_div.style.position = 'fixed';
+            ds_files_div.style.zIndex = '1';
+            ds_files_div.style.left = '25%';
+            ds_files_div.style.top = '5%';
+            ds_files_div.style.width = '50%';
+            ds_files_div.style.height = '50%';
+            ds_files_div.style.overflow = 'clip';
+            ds_files_div.style.backgroundColor = '#B7B5B5FF';
+            ds_files_div.style.border = '1px solid #888';
+            ds_files_div.style.padding = '5px';
+            ds_files_div.style.paddingTop = '0px';
+            ds_files_div.style.margin = '15% auto';
+
+            let close_x = document.createElement('span');
+            close_x.style.padding = "0px";
+            close_x.style.cursor = "pointer";
+            close_x.style.fontWeight = "bold";
+            close_x.style.fontSize = "20px";
+            close_x.appendChild(document.createTextNode("\u00d7"));
+            close_x.onclick = function() { ds_files_div.remove() };
+            ds_files_div.appendChild(close_x);
+
+            let ds_files_content_div = document.createElement('div');
+            ds_files_content_div.style.height = '90%';
+            ds_files_content_div.style.overflow = 'auto';
+
+            ds_files_div.appendChild(ds_files_content_div);
+
+            let parent_div = document.getElementById('dataset-manage');
+            parent_div.appendChild(ds_files_div);
+            return ds_files_content_div;
+        }
+
+        function ajaxBuildDatasetDetailsTable(dataset_json, table) {
+            buildDetailsTableRow(table, "Name", dataset_json["name"]);
+            buildDetailsTableRow(table, "Category", dataset_json["data_category"])
+            buildDetailsTableRow(table, "Type", dataset_json["type"]);
+            buildDetailsTableRow(table, "Format", dataset_json["data_domain"]["data_format"]);
+            buildDetailsTableRow(table, "Read Only", dataset_json["is_read_only"]);
+            buildDetailsTableRow(table, "Created", dataset_json["create_on"]);
+            buildDetailsTableRow(table, "Last Updated", dataset_json["last_updated"]);
+
+            // TODO: add something for dataset size
+            // TODO: add something for number of files.
+            // TODO: add something for indicating if data aligns properly with configured domain
+
+            let hiddenIFrame = document.createElement('iframe');
+            hiddenIFrame.id = "hidden_download_iframe";
+            hiddenIFrame.style.display = "None";
+
+            // Put spacer row in to indicate the start of domain details
+            let domain_header_row = document.createElement('tr');
+            let colCell = document.createElement('th');
+            colCell.colSpan = 2;
+            colCell.style.textAlign = 'left';
+            colCell.style.paddingTop = '20px';
+            colCell.style.paddingLeft = '5%';
+            colCell.style.fontStyle = 'italic';
+            colCell.style.fontSize = '18px';
+            colCell.appendChild(document.createTextNode("Data Domain"));
+            domain_header_row.appendChild(colCell);
+            table.appendChild(domain_header_row);
+
+            // Then iteratively add domain details rows
+            let c_restrict;
+            for (let c_i = 0; c_i < dataset_json["data_domain"]["continuous"].length; c_i++) {
+                c_restrict = dataset_json["data_domain"]["continuous"][c_i];
+                buildDetailsTableRow(table, c_restrict["variable"], c_restrict["begin"] + " to " + c_restrict["end"]);
+            }
+            let d_restrict;
+            for (let d_i = 0; d_i < dataset_json["data_domain"]["discrete"].length; d_i++) {
+                d_restrict = dataset_json["data_domain"]["discrete"][d_i];
+                buildDetailsTableRow(table, d_restrict["variable"], d_restrict["values"]);
+            }
+        }
+
+        function makeByteSizesReadable(bytes, decimal_places = 2) {
+            if (bytes <= 0) {
+                return "0 B";
+            }
+            let thresh = 1024;
+            let decimals = decimal_places < 0 ? 0 : decimal_places;
+            let units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            let level = Math.floor(Math.log(bytes) / Math.log(thresh))
+
+            return `${parseFloat((bytes / Math.pow(thresh, level)).toFixed(decimals))} ${units[level]}`
+        }
+
+        function clickDownloadDatasetFile(dataset_name, file_name) {
+            $.ajax({
+                url: "/dataset-api",
+                type: 'get',
+                data: {"request_type": "download_file", "dataset_name": dataset_name, "item_name": file_name},
+                success: function(response) {
+                    let url = "/download_dataset_file/" + dataset_name + "/" + file_name;
+                    let a = document.createElement('a');
+                    a.href = url;
+                    a.download = file_name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                },
+                error: function(response) {
+                    alert('Received an error downloading file ' + file_name + ' from dataset ' + dataset_name);
+                    console.log(response);
+                }
+            });
+        }
+
+        function ajaxBuildDatasetFilesTable(dataset_name, contents_json, table) {
+            let row, colCell, content;
+            row = document.createElement('tr');
+            row.className = 'dataset-files-table-header-row';
+            let thead = document.createElement('thead');
+            table.appendChild(thead);
+            thead.appendChild(row);
+            colCell = document.createElement('th');
+            colCell.appendChild(document.createTextNode('Filename'));
+            row.appendChild(colCell);
+            colCell = document.createElement('th');
+            colCell.appendChild(document.createTextNode('Size'));
+            row.appendChild(colCell);
+            colCell = document.createElement('th');
+            row.appendChild(colCell);
+            for (let i = 0; i < contents_json.length; i++) {
+                row = document.createElement('tr');
+                row.className = 'dataset-files-table-row';
+                colCell = document.createElement('th');
+                colCell.className = 'dataset-files-table-col-1';
+                colCell.appendChild(document.createTextNode(contents_json[i]["name"]));
+                row.appendChild(colCell);
+
+                colCell = document.createElement('th');
+                colCell.className = 'dataset-files-table-col-2';
+                colCell.style.textAlign = 'right';
+                colCell.appendChild(document.createTextNode(makeByteSizesReadable(contents_json[i]["size"])));
+                row.appendChild(colCell);
+
+                colCell = document.createElement('th');
+                content = document.createElement('a')
+                //content.href = "dataset-api?request_type=download_file&dataset_name=" + dataset_name + "&item_name=" + contents_json[i]["name"];
+                content.href = "javascript:void(0);";
+                content.onclick = function() { clickDownloadDatasetFile(dataset_name, contents_json[i]["name"]); };
+                content.appendChild(document.createTextNode("Download"));
+                colCell.appendChild(content);
+                row.appendChild(colCell);
+
+                // TODO: later have button to delete just this file
+
+                table.appendChild(row);
+            }
+        }
+
+        function buildDatasetFilesTable(dataset_name) {
+            let table = document.createElement('table');
+            table.class = 'dataset-files-table';
+
+            $.ajax({
+                url: "/dataset-api",
+                type: 'get',
+                data: {"request_type": "contents", "name": dataset_name},
+                success: function(response) {
+                    ajaxBuildDatasetFilesTable(dataset_name, response["contents"], table);
+                },
+                error: function(response) {
+                    alert('Received an error getting file contents of ' + dataset_name + ' dataset');
+                    console.log(response);
+                }
+            });
+            return table;
+        }
+
+        function buildDatasetDetailsTable(dataset_name) {
+            let table = document.createElement('table');
+            table.class = 'datasets-details-table';
+
+            $.ajax({
+                url: "/dataset-api",
+                type: 'get',
+                data: {"request_type": "dataset", "name": dataset_name},
+                success: function(response) {
+                    ajaxBuildDatasetDetailsTable(response["dataset"], table);
+                },
+                error: function(response) {
+                    alert('Received an error getting serialized ' + dataset_name + ' dataset');
+                    console.log(response);
+                }
+            });
+            return table;
+        }
+
+        function displayDatasetFiles(name) {
+            let ds_files_div = buildDatasetFilesEmptyDiv();
+            let ds_files_table = buildDatasetFilesTable(name);
+            ds_files_div.appendChild(ds_files_table);
+            ds_files_div.style.display = 'block';
+        }
+
+        function displayDatasetDetails(name) {
+            let details_div = buildDatasetDetailsEmptyDiv();
+
+            let detailsTable = buildDatasetDetailsTable(name);
+            details_div.appendChild(detailsTable);
+            details_div.style.display = 'block';
+        }
+
+        function clickDownloadDataset(dataset_name) {
+            // TODO: if possible, add indicator that files are being gathered, removed once actual download link setup begins
+            $.ajax({
+                url: "/dataset-api",
+                type: 'get',
+                data: {"request_type": "download_dataset", "dataset_name": dataset_name},
+                success: function(response) {
+                    let url = "/download_dataset/" + response["zip_file"];
+                    let a = document.createElement('a');
+                    a.href = url;
+                    a.download = response["zip_file"];
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    // TODO: also perhaps put callback here to clean up things on server side
+                },
+                error: function(response) {
+                    alert('Received an error downloading ' + dataset_name + ' dataset');
+                    console.log(response);
+                }
+            });
+
+            return false;
+        }
+
+        function clickUploadDataset(dataset_name) {
+            // TODO: consider modal popup until implemented.
+            return false;
+        }
+
+        function clickDeleteDataset(dataset_name) {
+            let component = new ConfirmDeleteDatasetDialog(dataset_name, 'dataset-manage', 'delete-dataset-dialog-div',
+                'delete-dataset-modal', null);
+
+            component.onConfirmFunc = function () {
+                component.remove();
+                apiDeleteDataset(dataset_name);
+            };
+
+            component.append();
+        }
+
+        function apiDeleteDataset(dataset_name) {
+            $.ajax({
+                url: "/dataset-api",
+                type: 'get',
+                data: {"request_type": "delete", "name": dataset_name},
+                success: function(response) {
+                    if (response["successful"]) {
+                        // Remove the relevant row from the table
+                        let del_row = document.getElementById("datasets-overview-table-row-" + dataset_name);
+                        del_row.remove();
+                        return true;
+                    }
+                    alert('Failed to delete dataset ' + dataset_name);
+                    return false;
+                },
+                error: function(response) {
+                    alert('Failed to delete dataset ' + dataset_name);
+                    console.log(response);
+                }
+            });
+        }
+
+        function createFormSelectChange(formInput, selection) {
+            let component = new CreateDatasetForm('dataset-create');
+            component.dynamicInputUpdate(formInput, selection);
+        }
+
+        /*
+        {% for model, model_parameters in parameters.items %}
+        {% for parameter in model_parameters %}
+        function toggle_{{ model }}_{{ parameter.value }}() {
+            var selector = "#{{ model }}_{{ parameter.value }}_scalar_row, ";
+            selector = selector + "#{{ model }}_{{ parameter.value }}_distribution_row";
+
+            $(selector).toggle();
+        }
+
+        function enable_{{ model }}_{{ parameter.value }}_scalar() {
+            var scalarSelector = "#{{ model }}_{{ parameter.value }}_scalar";
+
+            var distributionSelector = "#{{ model }}_{{ parameter.value }}_distribution_min, ";
+            distributionSelector = distributionSelector + "#{{ model }}_{{ parameter.value }}_distribution_max, ";
+            distributionSelector = distributionSelector + "#{{ model }}_{{ parameter.value }}_distribution_type";
+
+            var distributionRowsSelector = "#{{ model }}_{{ parameter.value }}_distribution_type_row, ";
+            distributionRowsSelector = distributionRowsSelector + "#{{ model }}_{{ parameter.value }}_distribution_min_row, ";
+            distributionRowsSelector = distributionRowsSelector + "#{{ model }}_{{ parameter.value }}_distribution_max_row";
+
+            $(distributionSelector).attr('disabled', true);
+            $(distributionRowsSelector).addClass('disabled');
+            $(distributionRowsSelector).hide();
+
+            $(scalarSelector).removeAttr('disabled');
+        }
+
+        function enable_{{ model }}_{{ parameter.value }}_distribution() {
+            var scalarSelector = "#{{ model }}_{{ parameter.value }}_scalar";
+
+            var distributionSelector = "#{{ model }}_{{ parameter.value }}_distribution_min, ";
+            distributionSelector = distributionSelector + "#{{ model }}_{{ parameter.value }}_distribution_max, ";
+            distributionSelector = distributionSelector + "#{{ model }}_{{ parameter.value }}_distribution_type";
+
+            var distributionRowsSelector = "#{{ model }}_{{ parameter.value }}_distribution_type_row, ";
+            distributionRowsSelector = distributionRowsSelector + "#{{ model }}_{{ parameter.value }}_distribution_min_row, ";
+            distributionRowsSelector = distributionRowsSelector + "#{{ model }}_{{ parameter.value }}_distribution_max_row";
+
+            $(scalarSelector).attr('disabled', true);
+
+            $(distributionSelector).removeAttr('disabled');
+            $(distributionRowsSelector).removeClass('disabled');
+            $(distributionRowsSelector).show();
+        }
+        {% endfor %}
+        {% endfor %}
+        */
+    </script>
+    <style>
+        #header {
+            width: auto;
+            height: 40px;
+            background: #417690;
+            padding: 10px 40px;
+            line-height: 40px;
+            color: #ffc;
+            overflow: hidden;
+        }
+
+        #branding {
+            float: left;
+        }
+
+        #branding h1 {
+            color: #f5dd5d;
+            padding: 0px;
+            margin: 0 20px 0 0;
+            font-weight: 300;
+            font-size: 24px;
+        }
+
+        #container {
+            position: relative;
+            width: 100%;
+            min-width: 880px;
+            padding: 0;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-size: 14px;
+            font-family: Tahoma, Geneva, sans-serif;
+            color: #333;
+            background: #FFF;
+        }
+
+        #content {
+            padding: 20px 40px;
+        }
+
+        .message-list {
+            list-style-type: none;
+        }
+
+        #error-messages {
+            border: 1px solid black;
+            background-color: lightpink;
+        }
+
+        #warning-messages {
+            border: 1px solid black;
+            background-color: #FFC;
+        }
+
+        #info-messages {
+            border: 1px solid black;
+            background-color: palegreen;
+        }
+
+        #dataset-create-form-div-universal-inputs {
+            line-height: 25px;
+            max-width: 350px;
+        }
+
+        #dataset-create-form-div-dynamic-inputs {
+            line-height: 25px;
+            max-width: 350px;
+        }
+
+        #dataset-create-form{
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            width: 30em;
+            gap: 0.5em;
+        }
+
+        .disabled {
+            color: gray;
+        }
+
+        /* Add a black background color to the top navigation */
+        .topnav {
+            background-color: #417690;
+            overflow: hidden;
+        }
+
+        /* Style the links inside the navigation bar */
+        .topnav a {
+            float: left;
+            color: #f5dd5d;
+            text-align: center;
+            padding: 14px 16px;
+            text-decoration: none;
+            font-size: 17px;
+        }
+
+        #dataset-manage {
+            display: block;
+        }
+
+        .datasets-table thead tr th {
+            padding-bottom: 5px;
+        }
+
+        .dataset-files-table-header-row th{
+            text-align: center;
+            padding-top: 5px;
+        }
+
+        .dataset-files-table-row th {
+            font-weight: normal;
+            text-align: left;
+            padding-left: 30px;
+            padding-bottom: 2px;
+        }
+
+        .dataset-files-table-col-2 {
+            text-align: right;
+        }
+
+        .mgr-tbl-dataset-header {
+            text-align: left;
+        }
+
+        .mgr-tbl-category-header {
+            text-align: left;
+        }
+
+        .mgr-tbl-content th {
+            font-weight: normal;
+            text-align: left;
+            padding-right: 15px;
+            padding-bottom: 2px;
+        }
+
+        #dataset-create {
+            display: none;
+        }
+
+    </style>
+</head>
+<body onload="initGuiViews()">
+<div id="container">
+    <div id="header">
+        <div id="branding">
+            <h1 id="site-name">Office of Water Prediction - Model as a Service</h1>
+        </div>
+    </div>
+
+    {% if errors %}
+    <div id="error-messages">
+        <ul id="error-list" class="message-list">
+            {% for error in errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if warnings %}
+    <div id="warning-messages">
+        <ul id="warning-list" class="message-list">
+            {% for warning in warnings %}
+            <li>{{ warning }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if info %}
+    <div id="info-messages">
+        <ul id="info-list" class="message-list">
+            {% for message in info %}
+            <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {# Cache jQuery scripts for UI scripting and styling #}
+    <div id="content">
+        <h2>Dataset Management</h2>
+        <div class="topnav">
+            <a class="active" href="javascript:void(0);" onclick="toggleNav('dataset-manage')">Manage</a>
+            <a href="javascript:void(0);" onclick="toggleNav('dataset-create')">Create</a>
+        </div>
+        <div id="dataset-manage">
+        </div>
+        <div id="dataset-create">
+            <h3>Create New Dataset:</h3>
+            <form action="datasets" method="post" enctype="multipart/form-data" id="dataset-create-form">
+                {# Add the token to provide cross site request forgery protection #}
+                {% csrf_token %}
+                {{ form }}
+
+                {% comment %} 
+                Below are dynamic forms, meaning depending on the above form's input,
+                one of the below forms is shown. To accomplish this, each of the below forms are
+                wrapped in an element with a unique class. The class name is used _by_ the above
+                form's fields using event listeners to toggle on the correct form. When a form is
+                "toggled on", meaning its wrapper is displayed, a flag class is added to it's
+                wrapper class list.
+                {% endcomment %}
+                {% for format_form in dynamic_forms %}
+                    {% for field in format_form %}
+                    {% comment %}
+                    input field have id's of form: `id_{{field instance var name}}_{{form name}}.
+                    a little song and dance is required to get an input tag's label `for` property
+                    to align properly.
+                    {% endcomment %}
+                    <label for="{{ field.auto_id }}_{{format_form.form_name}}" class="{{ format_form.form_name }}" style="display: none;">
+                            {{ field.label }}:
+                    </label>
+                            {{ field }}
+                    {% endfor %}
+                {% endfor %}
+
+                <!-- <div id="dataset-create-form-div-universal-inputs">
+                    <label for="dataset-create-form-input-name">Dataset Name:</label>
+                    <input name="dataset-create-form-input-name" id="dataset-create-form-input-name" type="text" style="float: right; text-align: right;" >
+                    <br>
+
+                    <label for="dataset-create-form-input-category">Data Category:</label> -->
+                    <!-- TODO: eventually (much later) support selecting the dataset type (e.g., object store) -->
+                    <!-- TODO: adjust and rename function onchange -->
+                    <!-- TODO: modify form for domain needs for different selections -->
+                    <!-- <select name="dataset-create-form-input-category" id="dataset-create-form-input-category" style="float: right; text-align: right">
+                        {% for category in dataset_categories %}
+                        <option value="{{ category }}">{{ category }}</option>
+                        {% endfor %}
+                    </select>
+                    <br> -->
+
+                    <!-- TODO: adjust and rename function onchange -->
+                    <!-- <label for="dataset-create-form-input-format">Data Format:</label>
+                    <select name="dataset-create-form-input-format" id="dataset-create-form-input-format" style="float: right; text-align: right" onchange="createFormSelectChange(this, this.value)">
+                        {% for format in dataset_formats %}
+                        <option value="{{ format }}">{{ format }}</option>
+                        {% endfor %}
+                    </select>
+                    <br> -->
+
+                    <!--
+                    <label for='domains'>Domain:</label>
+                    <select name='domain' id="model" style="float: right; text-align: right">
+                        <option value="example-domain-A" selected="selected"></option>
+                        {% for domain in domains %}
+                        <option value="{{ domain }}">{{ domain }}</option>
+                        {% endfor %}
+                    </select>
+                    <br>
+                    <label for="version">Version:</label>
+                    <input name="version" id="version" type="number" value="1.0" min="0.0" step="0.1" style="float: right; text-align: right;" >
+                    <br>
+                    <label for="output">Output Variable:</label>
+                    <select style="float: right; text-align: right" name="output" id="output">
+                        {% for output in outputs %}
+                        <option value="{{ output.value }}">{{ output.name }}</option>
+                        {% endfor %}
+                    </select>
+                    -->
+                <!-- </div> -->
+                <!-- <br> -->
+                <div id="dataset-create-form-div-dynamic-inputs">
+                <!-- </div> -->
+                <!--
+                {% for model, model_parameters in parameters.items %}
+                <p>{{ parameter_list }}</p>
+                <div id="{{ model }}_parameters" class="parameters" style="display: none;">
+                    <label for="{{ model }}_parameters">Parameters:</label>
+                    <table id="{{ model }}-parameter-table" style="width: 20%; max-width: 400px;">
+                        {% for parameter in model_parameters %}
+                        <tr>
+                            <td>
+                                <input id="use_{{ parameter.value }}"
+                                       name="{{ model }}_{{ parameter.value }}" type="checkbox"
+                                       onclick="toggle_{{ model }}_{{ parameter.value }}()">
+                            </td>
+                            <td colspan="2">{{ parameter.name }}</td>
+                        </tr>
+                        <tr id="{{ model }}_{{ parameter.value }}_scalar_row" style="display: none;">
+                            <td></td>
+                            <td>
+                                <input type="radio" name="{{ model }}_{{ parameter.value }}_parameter_type"
+                                       id="{{ model }}_{{ parameter.value }}_scalar_button"
+                                       checked value="scalar"
+                                       onclick="enable_{{ model }}_{{ parameter.value }}_scalar()">
+                            </td>
+                            <td>
+                                <label for="{{ model }}_{{ parameter.value }}_scalar">Scalar Value:</label>
+                            </td>
+                            <td>
+                                <input style="text-align: right; width: 100%; float: right;" type="number"
+                                       name="{{ model }}_{{ parameter.value }}_scalar"
+                                       id="{{ model }}_{{ parameter.value }}_scalar">
+                            </td>
+                        </tr>
+                        <tr id="{{ model }}_{{ parameter.value }}_distribution_row" style="display: none;">
+                            <td></td>
+                            <td>
+                                <input type="radio" name="{{ model }}_{{ parameter.value }}_parameter_type"
+                                       id="{{ model }}_{{ parameter.value }}_distribution_button"
+                                       value="distribution"
+                                       onclick="enable_{{ model }}_{{ parameter.value }}_distribution()">
+                            </td>
+                            <td>
+                                Distribution Value:
+                            </td>
+                        </tr>
+                        <tr id="{{ model }}_{{ parameter.value }}_distribution_min_row" class="disabled"
+                            style="display: none;">
+                            <td></td>
+                            <td></td>
+                            <td>
+                                <label for="{{ model }}_{{ parameter.value }}_distribution_min">
+                                    Minimum:
+                                </label>
+                            </td>
+                            <td>
+                                <input style="text-align: right; width: 100%; float: right;" id="{{ model }}_{{ parameter.value }}_distribution_min"
+                                       name="{{ model }}_{{ parameter.value }}_distribution_min"
+                                       type="number" disabled>
+                            </td>
+                        </tr>
+                        <tr id="{{ model }}_{{ parameter.value }}_distribution_max_row" class="disabled"
+                            style="display: none;">
+                            <td></td>
+                            <td></td>
+                            <td>
+                                <label for="{{ model }}_{{ parameter.value }}_distribution_max">
+                                    Maximum:
+                                </label>
+                            </td>
+                            <td>
+                                <input style="text-align: right; width: 100%; float: right;" id="{{ model }}_{{ parameter.value }}_distribution_max"
+                                       name="{{ model }}_{{ parameter.value }}_distribution_max"
+                                       type="number" min="0.0" max="10.0" disabled>
+                            </td>
+                        </tr>
+                        <tr id="{{ model }}_{{ parameter.value }}_distribution_type_row" class="disabled"
+                            style="display: none;">
+                            <td></td>
+                            <td></td>
+                            <td>
+                                <label for="{{ model }}_{{ parameter.value }}_distribution_type">
+                                    Distribution Type:
+                                </label>
+                            </td>
+                            <td>
+                                <select style="text-align: right; width: 100%; float: right;"
+                                        id="{{ model }}_{{ parameter.value }}_distribution_type"
+                                        name="{{ model }}_{{ parameter.value }}_distribution_type" disabled>
+                                    <option value="" selected="selected"></option>
+
+                                    {% for distribution_type in distribution_types %}
+                                    <option value="{{ distribution_type.value }}">
+                                        {{ distribution_type.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+                {% endfor %}
+                -->
+                <input type="submit" value="Create" >
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>

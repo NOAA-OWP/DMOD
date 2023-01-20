@@ -78,6 +78,133 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
                 worker_required_datasets.add(fulfilled_by)
         return worker_required_datasets
 
+    def _pre_vol_service_ds_name_processing(self, dataset_names: Set[str]) -> Set[str]:
+        """
+        Run sanity checks and filtering of dataset names before creating service to create S3FS volumes for them.
+
+        Parameters
+        ----------
+        dataset_names
+
+        Returns
+        -------
+        Set[str]
+            The dataset names from the initial params that don't already have S3FS volumes, and thus for which volumes
+            should be created.
+        """
+        # Just immediately return if empty
+        if len(dataset_names) == 0:
+            return dataset_names
+
+        # Return immediately if there are no outstanding dataset names that don't already have volumes
+        if len(dataset_names) == 0:
+            return dataset_names
+
+        # Also, make sure these dataset names a valid for this kind of volume creation
+        known_datasets: Dict[str, Dataset] = self._service_manager.get_known_datasets()
+
+        # First, bail if any dataset names don't correspond to a known dataset
+        unrecognized = [ds_name for ds_name in dataset_names if ds_name not in known_datasets.keys()]
+        if len(unrecognized) > 0:
+            msg = "Can't create {} volumes for unrecognized dataset names: ({})"
+            raise DmodRuntimeError(msg.format(self._docker_plugin_alias, ','.join(unrecognized)))
+
+        # Also bail if any (outstanding) dataset names correspond to known dataset of type other than OBJECT_STORE
+        non_obj_store_dataset_names = [n for n, d in known_datasets.items() if
+                                       n in dataset_names and d.dataset_type != DatasetType.OBJECT_STORE]
+        if len(non_obj_store_dataset_names) > 0:
+            types = ['{}:{}'.format(n, known_datasets[n].dataset_type.name) for n in non_obj_store_dataset_names]
+            raise DmodRuntimeError('Attempting to pass non-object-store datasets to S3FS volume util: {}'.format(types))
+
+        return dataset_names
+
+    def init_volume_create_service(self, dataset_names: Set[str], helper_service_name: str):
+        """
+        Initialize and execute a Docker service that creates S3FS-based volumes for appropriate datasets.
+
+        Function creates a ``global`` Docker service of the given name. The service containers initialize an associated
+        Docker volume for each object store dataset, using a custom S3FS storage driver. Because the service is
+        ``global``, it will run on each Swarm node, thereby creating the same set of desired volumes on each node.
+
+        The image used for the created service containers is determined from "name" and "tag" values provided to this
+        instance when it was initialized.  It is expected and assumed the image runs the appropriate entrypoint script
+        for initializing volumes as described above.
+
+        Parameters
+        ----------
+        dataset_names
+        helper_service_name
+        """
+        # Run sanity checks and filter out names for which there are already S3FS driver volumes
+        dataset_names = self._pre_vol_service_ds_name_processing(dataset_names=dataset_names)
+
+        # Exit early if there are no actual names that need volumes created
+        if len(dataset_names) == 0:
+            return
+
+        secrets = [self.get_secret_reference(sn) for sn in self._obj_store_docker_secret_names]
+
+        docker_cmd_args = ['--sentinel', self.sentinel_file, '--service-mode']
+        docker_cmd_args.extend(dataset_names)
+
+        env_vars = ['PLUGIN_ALIAS={}'.format(self._docker_plugin_alias)]
+        if self._obj_store_url is not None:
+            env_vars.append('S3FS_URL={}'.format(self._obj_store_url))
+        env_vars.append('S3FS_ACCESS_KEY={}'.format(self._obj_store_access))
+        env_vars.append('S3FS_SECRET_KEY={}'.format(self._obj_store_secret))
+
+        # TODO: might need to add logic here to make sure there isn't an existing service with this name
+        # TODO: might also need to parameterize what happens if there is an existing service with this name
+
+        service = None
+
+        try:
+            service = self.docker_client.services.create(image=self.image,
+                                                         mode=ServiceMode(mode='global'),
+                                                         args=docker_cmd_args,
+                                                         cap_add=['SYS_ADMIN'],
+                                                         env=env_vars,
+                                                         name=helper_service_name,
+                                                         # Make sure to re-mount the Docker socket inside the helper
+                                                         # service container that gets started
+                                                         mounts=['/var/run/docker.sock:/var/run/docker.sock:rw'],
+                                                         networks=self.networks,
+                                                         restart_policy=RestartPolicy(condition='none'),
+                                                         healthcheck=self.service_healthcheck,
+                                                         secrets=secrets)
+            time_sleep(1)
+            service_running = False
+            running_states = dict()
+            # TODO: still don't think this works exactly correctly, but should only be an issue when we create new vols
+            for tries in range(120):
+                # Note that this just reloads the true state of the service from Docker (it's not a service restart)
+                service.reload()
+                # Keys: ['ID', 'Version', 'CreatedAt', 'UpdatedAt', 'Labels', 'Spec', 'ServiceID', 'NodeID', 'Status',
+                if all([t['Status']['State'] == t['DesiredState'] for t in service.tasks()]):
+                    service_running = True
+                    break
+                time_sleep(1)
+            if not service_running:
+                msg = 'Unable to get all service tasks to desired state for volume helper service {}'
+                raise RuntimeError(msg.format(helper_service_name))
+            time_sleep(5)
+            service.reload()
+            for tries in range(10):
+                if any([t['Status']['State'] != 'COMPLETE' for t in service.tasks()]):
+                    time_sleep(2)
+                    service.reload()
+                else:
+                    break
+        except KeyError as e:
+            logging.error('Failure checking service status: {}'.format(str(e)))
+        except Exception as e:
+            # TODO: might need to expand the use of service.remove() to here (while also making sure an object exists)
+            logging.error(e)
+            raise e
+        finally:
+            if service is not None:
+                service.remove()
+
     def init_volumes(self, job: Job):
         """
         Primary function for this type, creating needed dataset volumes on all hosts through a global Swarm service.
@@ -94,47 +221,15 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
             required by one of the job's workers.
         """
         worker_required_datasets = self._get_worker_required_datasets(job)
-        if len(worker_required_datasets) == 0:
-            return
+        if len(worker_required_datasets) > 0:
+            self.init_volume_create_service(dataset_names=worker_required_datasets,
+                                            helper_service_name='{}-{}'.format(self.DOCKER_SERVICE_NAME, job.job_id))
 
-        secrets = [self.get_secret_reference(sn) for sn in self._obj_store_docker_secret_names]
-
-        docker_cmd_args = ['--sentinel', self.sentinel_file, '--service-mode']
-        docker_cmd_args.extend(worker_required_datasets)
-
-        env_vars = ['PLUGIN_ALIAS={}'.format(self._docker_plugin_alias)]
-        if self._obj_store_url is not None:
-            env_vars.append('S3FS_URL={}'.format(self._obj_store_url))
-        env_vars.append('S3FS_ACCESS_KEY={}'.format(self._obj_store_access))
-        env_vars.append('S3FS_SECRET_KEY={}'.format(self._obj_store_secret))
-
-        try:
-            service = self.docker_client.services.create(image=self.image,
-                                                         mode=ServiceMode(mode='global'),
-                                                         args=docker_cmd_args,
-                                                         cap_add=['SYS_ADMIN'],
-                                                         env=env_vars,
-                                                         name='{}-{}'.format(self.DOCKER_SERVICE_NAME, job.job_id),
-                                                         # Make sure to re-mount the Docker socket inside the helper
-                                                         # service container that gets started
-                                                         mounts=['/var/run/docker.sock:/var/run/docker.sock:rw'],
-                                                         networks=self.networks,
-                                                         restart_policy=RestartPolicy(condition='none'),
-                                                         healthcheck=self.service_healthcheck,
-                                                         secrets=secrets)
-            time_sleep(5)
-            for tries in range(5):
-                service.reload()
-                if all([task['Status']['State'] == task['DesiredState'] for task in service.tasks()]):
-                    break
-                time_sleep(3)
-            service.remove()
-        except KeyError as e:
-            logging.error('Failure checking service status: {}'.format(str(e)))
-            service.remove()
-        except Exception as e:
-            logging.error(e)
-            raise e
+    def remove_existing_service(self, service_name: str) -> bool:
+        for srv in self.docker_client.services.list():
+            if srv.name == service_name:
+                return srv.remove()
+        return False
 
     @property
     def sentinel_file(self) -> str:
@@ -213,6 +308,11 @@ class ServiceManager(WebSocketInterface):
         """ Map of dataset class type (key), to service's dataset manager (value) for handling that dataset type. """
         self._managers_by_uuid: Dict[UUID, DatasetManager] = {}
         """ Map of dataset managers keyed by the UUID of each. """
+
+        # For now at least, this is on by default
+        # TODO: (later) properly account for whether Docker is actually being used
+        self._is_docker_swarm_active = bool(kwargs.get('docker_swarm_active', True))
+
         self._obj_store_data_mgr = None
         self._obj_store_access_key = None
         self._obj_store_secret_key = None
@@ -684,9 +784,22 @@ class ServiceManager(WebSocketInterface):
             dataset_name = message.dataset_name
             list_of_files = self.get_known_datasets()[dataset_name].manager.list_files(dataset_name)
             return DatasetManagementResponse(action=message.management_action, success=True, dataset_name=dataset_name,
-                                             reason='Obtained {} Items List',
+                                             reason='Obtained {} Items List'.format(dataset_name),
                                              data={DatasetManagementResponse._DATA_KEY_QUERY_RESULTS: list_of_files})
-            # TODO: (later) add support for messages with other query types also
+        elif query_type == QueryType.GET_SERIALIZED_FORM:
+            dataset_name = message.dataset_name
+            serialized_form = self.get_known_datasets()[dataset_name].to_dict()
+            return DatasetManagementResponse(action=message.management_action, success=True, dataset_name=dataset_name,
+                                             reason='Obtained serialized {} dataset'.format(dataset_name),
+                                             data={DatasetManagementResponse._DATA_KEY_QUERY_RESULTS: serialized_form})
+        if query_type == QueryType.GET_DATASET_ITEMS:
+            dataset = self.get_known_datasets()[message.dataset_name]
+            mgr = dataset.manager
+            item_details: List[dict] = [mgr.get_file_stat(dataset.name, f) for f in mgr.list_files(dataset.name)]
+            return DatasetManagementResponse(action=message.management_action, success=True, dataset_name=dataset.name,
+                                             reason='Obtained file details for {} dataset'.format(dataset.name),
+                                             data={DatasetManagementResponse._DATA_KEY_QUERY_RESULTS: item_details})
+        # TODO: (later) add support for messages with other query types also
         else:
             reason = 'Unsupported {} Query Type - {}'.format(DatasetQuery.__class__.__name__, query_type.name)
             return DatasetManagementResponse(action=message.management_action, success=False, reason=reason)
@@ -815,25 +928,29 @@ class ServiceManager(WebSocketInterface):
         self._obj_store_access_key = access_key
         self._obj_store_secret_key = secret_key
 
-        s3fs_helper_networks = ['host']
+        if self._is_docker_swarm_active:
 
-        s3fs_url_proto = os.getenv('S3FS_URL_PROTOCOL', 'http')
-        s3fs_url_host = os.getenv('S3FS_URL_HOST')
-        s3fs_url_port = os.getenv('S3FS_URL_PORT', '9000')
-        if s3fs_url_host is not None:
-            s3fs_helper_url = '{}://{}:{}/'.format(s3fs_url_proto, s3fs_url_host, s3fs_url_port)
-        else:
-            s3fs_helper_url = None
+            s3fs_helper_networks = ['host']
 
-        self._docker_s3fs_helper = DockerS3FSPluginHelper(service_manager=self,
-                                                          obj_store_access=self._obj_store_access_key,
-                                                          obj_store_secret=self._obj_store_secret_key,
-                                                          docker_image_name=os.getenv('S3FS_VOL_IMAGE_NAME', '127.0.0.1:5000/s3fs-volume-helper'),
-                                                          docker_image_tag=os.getenv('S3FS_VOL_IMAGE_TAG', 'latest'),
-                                                          docker_networks=s3fs_helper_networks,
-                                                          docker_plugin_alias=os.getenv('S3FS_PLUGIN_ALIAS', 's3fs'),
-                                                          obj_store_url=s3fs_helper_url,
-                                                          *args, **kwargs)
+            s3fs_url_proto = os.getenv('S3FS_URL_PROTOCOL', 'http')
+            s3fs_url_host = os.getenv('S3FS_URL_HOST')
+            s3fs_url_port = os.getenv('S3FS_URL_PORT', '9000')
+            if s3fs_url_host is not None:
+                s3fs_helper_url = '{}://{}:{}/'.format(s3fs_url_proto, s3fs_url_host, s3fs_url_port)
+            else:
+                s3fs_helper_url = None
+
+            self._docker_s3fs_helper = DockerS3FSPluginHelper(service_manager=self,
+                                                              obj_store_access=self._obj_store_access_key,
+                                                              obj_store_secret=self._obj_store_secret_key,
+                                                              docker_image_name=os.getenv('S3FS_VOL_IMAGE_NAME',
+                                                                                          '127.0.0.1:5000/s3fs-volume-helper'),
+                                                              docker_image_tag=os.getenv('S3FS_VOL_IMAGE_TAG',
+                                                                                         'latest'),
+                                                              docker_networks=s3fs_helper_networks,
+                                                              docker_plugin_alias=os.getenv('S3FS_PLUGIN_ALIAS',
+                                                                                            's3fs'),
+                                                              obj_store_url=s3fs_helper_url, *args, **kwargs)
 
     async def listener(self, websocket: WebSocketServerProtocol, path):
         """
@@ -864,7 +981,9 @@ class ServiceManager(WebSocketInterface):
                     response = await self._async_process_add_data(dataset_name=dest_dataset_name,
                                                                   dest_item_name=partial_item_name,
                                                                   message=inbound_message,
-                                                                  is_temp=True,
+                                                                # if True, causes: S3 operation failed; code: InvalidRequest, message: Bucket is missing ObjectLockConfiguration,
+                                                                #   is_temp=True,
+                                                                  is_temp=False,
                                                                   manager=dataset_manager)
                     partial_indx += 1
                     if inbound_message.is_last and response.success:
@@ -890,6 +1009,14 @@ class ServiceManager(WebSocketInterface):
                         partial_indx = 0
                 elif inbound_message.management_action == ManagementAction.CREATE:
                     response = await self._async_process_dataset_create(message=inbound_message)
+                elif inbound_message.management_action == ManagementAction.REQUEST_DATA and inbound_message.blk_start is not None:
+                    manager = self.get_known_datasets()[inbound_message.dataset_name].manager
+                    raw_data = manager.get_data(dataset_name=inbound_message.dataset_name,
+                                                item_name=inbound_message.data_location,
+                                                offset=inbound_message.blk_start, length=inbound_message.blk_size)
+                    response = DatasetManagementResponse(success=raw_data is not None,
+                                                         action=inbound_message.management_action,
+                                                         data=raw_data, reason="Data Block Retrieve Complete")
                 elif inbound_message.management_action == ManagementAction.REQUEST_DATA:
                     response = await self._async_process_data_request(message=inbound_message, websocket=websocket)
                 elif inbound_message.management_action == ManagementAction.ADD_DATA:
@@ -993,6 +1120,36 @@ class ServiceManager(WebSocketInterface):
 
             self._job_util.unlock_active_jobs(lock_id)
             await asyncio.sleep(5)
+
+    async def manage_hydrofabric_availability(self):
+        """
+        Async task method to make sure hydrofabric datasets are available to GUI.
+        """
+        logging.debug("Starting task loop for managing hydrofabric dataset availability")
+        while True:
+            # TODO: (later) also filter out any already-subdivided hydrofabric datasets
+            datasets = [d for n, d in self.get_known_datasets().items() if d.category == DataCategory.HYDROFABRIC]
+
+            if self._is_docker_swarm_active:
+                service_name = 'hydrofabric_avail_task'
+                self._docker_s3fs_helper.remove_existing_service(service_name=service_name)
+
+                # TODO: (later) support doing this or similar for non-object-store datasets
+                obj_store_ds_names = set([d.name for d in datasets if d.dataset_type == DatasetType.OBJECT_STORE])
+                # TODO: (later) add something to make sure the volumes get removed if/when a dataset is deleted
+
+                # We may re-do even for volumes that already exist; this will ensure any new swarm nodes also get it
+                self._docker_s3fs_helper.init_volume_create_service(dataset_names=obj_store_ds_names,
+                                                                    helper_service_name=service_name)
+                # Right no others are supported, so warn
+                non_obj_store_names = [d.name for d in datasets if d.dataset_type != DatasetType.OBJECT_STORE]
+                if len(non_obj_store_names) > 0:
+                    msg = "Unexpected Hydrofabric datasets that cannot be made available to services: {}"
+                    logging.error(msg.format(non_obj_store_names))
+
+            # TODO: (later) support other availability paradigms
+
+            await asyncio.sleep(60)
 
     async def perform_checks_for_job(self, job: Job) -> bool:
         """

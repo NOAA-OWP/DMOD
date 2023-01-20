@@ -12,12 +12,13 @@ from websockets import WebSocketServerProtocol
 
 from dmod.access import DummyAuthUtil, RedisBackendSessionManager
 from dmod.communication import AbstractInitRequest, InvalidMessageResponse, MessageEventType, NGENRequest, NWMRequest, \
-    PartitionRequest, WebSocketSessionsInterface, SessionInitMessage, SchedulerClient, UnsupportedMessageTypeResponse
+    NgenCalibrationRequest, PartitionRequest, WebSocketSessionsInterface, SessionInitMessage, SchedulerClient, \
+    UnsupportedMessageTypeResponse
 from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage
-from dmod.externalrequests import AuthHandler, DatasetRequestHandler, ModelExecRequestHandler, PartitionRequestHandler
-from dmod.externalrequests import EvaluationRequestHandler
+from dmod.externalrequests import AuthHandler, DatasetRequestHandler, ModelExecRequestHandler, \
+    NgenCalibrationRequestHandler, PartitionRequestHandler, EvaluationRequestHandler
 
-from .alternate_service import EvaluationMessage
+from .alternate_service import LaunchEvaluationMessage, OpenEvaluationMessage
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -45,11 +46,13 @@ class RequestService(WebSocketSessionsInterface):
     """
     _PARSEABLE_REQUEST_TYPES = [
         SessionInitMessage,
+        NgenCalibrationRequest,
         NWMRequest,
         NGENRequest,
         MaaSDatasetManagementMessage,
         PartitionRequest,
-        EvaluationMessage
+        LaunchEvaluationMessage,
+        OpenEvaluationMessage
     ]
     """ Parseable request types, which are all authenticated ::class:`ExternalRequest` subtypes for this implementation. """
 
@@ -71,19 +74,19 @@ class RequestService(WebSocketSessionsInterface):
                  scheduler_port: Union[str, int] = 3013,
                  partitioner_host: str = 'partitioner-service',
                  data_service_host: str = 'data-service',
-                evaluation_service_host: str = 'evaluation-service',
+                 evaluation_service_host: str = 'evaluation-service',
                  partitioner_port: Union[str, int] = 3014,
                  data_service_port: Union[str, int] = 3015,
-                evaluation_service_port: Union[str, int] = 3016,
+                 evaluation_service_port: Union[str, int] = 3016,
                  ssl_dir=None,
                  cert_pem=None,
                  priv_key_pem=None,
                  scheduler_ssl_dir=None,
                  partitioner_ssl_dir=None,
                  data_service_ssl_dir=None,
-                evaluation_service_ssl_dir=None,
-                **kwargs
-    ):
+                 evaluation_service_ssl_dir=None,
+                 **kwargs
+                 ):
         super().__init__(listen_host=listen_host, port=port, ssl_dir=ssl_dir, cert_pem=cert_pem,
                          priv_key_pem=priv_key_pem)
         self._session_manager: RedisBackendSessionManager = RedisBackendSessionManager()
@@ -120,23 +123,30 @@ class RequestService(WebSocketSessionsInterface):
 
         self._model_exec_request_handler = ModelExecRequestHandler(session_manager=self._session_manager,
                                                                    authorizer=self.authorizer,
-                                                                   scheduler_host=scheduler_host,
-                                                                   scheduler_port=int(scheduler_port),
-                                                                   scheduler_ssl_dir=self.scheduler_client_ssl_dir)
+                                                                   service_host=scheduler_host,
+                                                                   service_port=int(scheduler_port),
+                                                                   service_ssl_dir=self.scheduler_client_ssl_dir)
+
+        self._calibration_request_handler = NgenCalibrationRequestHandler(session_manager=self._session_manager,
+                                                                          authorizer=self.authorizer,
+                                                                          service_host=scheduler_host,
+                                                                          service_port=int(scheduler_port),
+                                                                          service_ssl_dir=self.scheduler_client_ssl_dir)
 
         self._partition_request_handler = PartitionRequestHandler(session_manager=self._session_manager,
                                                                   authorizer=self.authorizer,
-                                                                  partition_service_host=partitioner_host,
-                                                                  partition_service_port=int(partitioner_port),
-                                                                  partition_service_ssl_dir=self.partitioner_ssl_dir)
+                                                                  service_host=partitioner_host,
+                                                                  service_port=int(partitioner_port),
+                                                                  service_ssl_dir=self.partitioner_ssl_dir)
 
         self._data_service_handler = DatasetRequestHandler(session_manager=self._session_manager,
                                                            authorizer=self.authorizer,
-                                                           data_service_host=data_service_host,
-                                                           data_service_port=int(data_service_port),
-                                                           data_service_ssl_dir=self.data_service_ssl_dir)
+                                                           service_host=data_service_host,
+                                                           service_port=int(data_service_port),
+                                                           service_ssl_dir=self.data_service_ssl_dir)
 
         self._evaluation_service_handler = EvaluationRequestHandler(
+            target_service='evaluation-service',
             service_host=evaluation_service_host,
             service_port=evaluation_service_port,
             ssl_directory=evaluation_service_ssl_dir
@@ -159,7 +169,7 @@ class RequestService(WebSocketSessionsInterface):
                 req_message = await self.deserialized_message(message_data=data)
                 event_type = MessageEventType.INVALID if req_message is None else req_message.get_message_event_type()
 
-                if isinstance(req_message, EvaluationMessage):
+                if isinstance(req_message, LaunchEvaluationMessage) or isinstance(req_message, OpenEvaluationMessage):
                     response = await self._evaluation_service_handler.handle_request(
                         request=req_message,
                         socket=websocket,
@@ -194,6 +204,11 @@ class RequestService(WebSocketSessionsInterface):
                 elif event_type == MessageEventType.PARTITION_REQUEST:
                     response = await self._partition_request_handler.handle_request(request=req_message)
                     logging.debug('************************* Handled request response: {}'.format(str(response)))
+                    await websocket.send(str(response))
+                elif event_type == MessageEventType.CALIBRATION_REQUEST:
+                    logging.debug('Handled calibration request')
+                    response = await self._calibration_request_handler.handle_request(request=req_message)
+                    logging.debug('Processed calibration request; response was: {}'.format(str(response)))
                     await websocket.send(str(response))
                 # FIXME: add another message type for closing a session
                 else:

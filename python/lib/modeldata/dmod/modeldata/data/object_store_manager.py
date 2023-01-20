@@ -10,7 +10,7 @@ from minio import Minio
 from minio.api import ObjectWriteResult
 from minio.deleteobjects import DeleteObject
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from uuid import UUID
 
 
@@ -59,8 +59,13 @@ class ObjectStoreDatasetManager(DatasetManager):
             # For any buckets that have the standard serialized object (i.e., were for datasets previously), reload them
             for bucket_name in self.list_buckets():
                 serialized_item = self._gen_dataset_serial_obj_name(bucket_name)
-                if serialized_item in [o.object_name for o in self._client.list_objects(bucket_name)]:
+                try:
                     self.reload(reload_from=bucket_name, serialized_item=serialized_item)
+                except minio.error.S3Error as e:
+                    # Continue with looping through buckets and initializing if we get this particular exception and
+                    # error code, but otherwise pass through the exception
+                    if e.code != "NoSuchKey":
+                        raise e
         except Exception as e:
             self._errors.append(e)
             # TODO: consider if we should not re-throw this (which would likely force us to ensure users checked this)
@@ -418,7 +423,32 @@ class ObjectStoreDatasetManager(DatasetManager):
             self._errors.extend(error_list)
             return False
 
-    def get_data(self, dataset_name: str, item_name: str, **kwargs) -> bytes:
+    def get_file_stat(self, dataset_name: str, file_name, **kwargs) -> Dict[str, Any]:
+        """
+        Get the meta information about the given file.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The name of the dataset containing the file of interest.
+        file_name : str
+            The name of the file of interest.
+        kwargs
+
+        Returns
+        -------
+        dict
+            Meta information about the given file, in dictionary form.
+        """
+        obj_stat = self._client.stat_object(dataset_name, file_name)
+        as_dict = dict()
+        as_dict["name"] = obj_stat.object_name
+        as_dict["size"] = obj_stat.size
+        # TODO: get more of this if worth it
+        return as_dict
+
+    def get_data(self, dataset_name: str, item_name: str, offset: Optional[int] = None, length: Optional[int] = None,
+                 **kwargs) -> bytes:
         """
         Get data from this dataset.
 
@@ -432,15 +462,12 @@ class ObjectStoreDatasetManager(DatasetManager):
             The name of the dataset (i.e., bucket) from which to get data.
         item_name : str
             The name of the object from which to get data.
+        offset : Optional[int]
+            Optional start byte position of object data.
+        length : Optional[int]
+            Optional number of bytes of object data from offset.
         kwargs
             Implementation-specific params for representing what data to get and how to get and deliver it.
-
-        Keyword Args
-        -------
-        offset : int
-            Optional start byte position of object data.
-        length : int
-            Optional number of bytes of object data from offset.
 
         Returns
         -------
@@ -450,8 +477,10 @@ class ObjectStoreDatasetManager(DatasetManager):
         if item_name not in self.list_files(dataset_name):
             raise RuntimeError('Cannot get data for non-existing {} file in {} dataset'.format(item_name, dataset_name))
         optional_params = dict()
-        for key in [k for k in self.data_chunking_params if k in kwargs]:
-            optional_params[key] = kwargs[key]
+        if offset is not None:
+            optional_params['offset'] = offset
+        if length is not None:
+            optional_params['length'] = length
         response_object = self._client.get_object(bucket_name=dataset_name, object_name=item_name, **optional_params)
         return response_object.data
 
@@ -552,12 +581,14 @@ class ObjectStoreDatasetManager(DatasetManager):
         if serialized_item is None:
             serialized_item = self._gen_dataset_serial_obj_name(reload_from)
 
+        response_obj = None
         try:
             response_obj = self._client.get_object(bucket_name=reload_from, object_name=serialized_item)
             response_data = json.loads(response_obj.data.decode())
         finally:
-            response_obj.close()
-            response_obj.release_conn()
+            if response_obj is not None:
+                response_obj.close()
+                response_obj.release_conn()
 
         # If we can safely infer it, make sure the "type" key is set in cases when it is missing
         if len(self.supported_dataset_types) == 1 and Dataset._KEY_TYPE not in response_data:

@@ -34,6 +34,7 @@ services:
       args:
         docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
+        client_package_name: ${PYTHON_PACKAGE_DIST_NAME_CLIENT:?}
     networks:
       - request-listener-net
     # Call this when starting the container
@@ -42,6 +43,8 @@ services:
     restart: on-failure
     secrets:
         - postgres_password
+        - object_store_exec_user_name
+        - object_store_exec_user_passwd
     environment:
       #- VENV_DIR=${DOCKER_GUI_CONTAINER_VENV_DIR:-}
       #- CERT_PATH # used by dispatch.py
@@ -50,18 +53,29 @@ services:
       - MAAS_ENDPOINT_PORT=${DOCKER_REQUESTS_HOST_PORT:-3012}
       - MAAS_PORTAL_DEBUG_HOST=${PYCHARM_REMOTE_DEBUG_SERVER_HOST:-host.docker.internal}
       - MAAS_PORTAL_DEBUG_PORT=${PYCHARM_REMOTE_DEBUG_SERVER_PORT_GUI:-55875}
+      - GUI_SUBSET_SERVICE_API_URL=http://${DMOD_GUI_SUBSET_SERVICE_API_HOST:?}:${DOCKER_SUBSET_API_PORT:-5001}
       - PYCHARM_REMOTE_DEBUG_ACTIVE=${PYCHARM_REMOTE_DEBUG_GUI_ACTIVE:-false}
       - PYCHARM_REMOTE_DEBUG_VERSION=${PYCHARM_REMOTE_DEBUG_VERSION:-~=211.7628.24}
+      - DMOD_SU_NAME=dmod_db_admin
+      # TODO: this needs to be changed eventually
+      - DMOD_SU_EMAIL=robert.bartel@noaa.gov
       - SQL_ENGINE=django.db.backends.postgresql
       - SQL_DATABASE=${DMOD_GUI_POSTGRES_DB:-dmod_dev}
       - SQL_USER=${DMOD_GUI_POSTGRES_USER:?}
       - SQL_HOST=db
       - SQL_PORT=5432
+      - DMOD_SU_NAME=dmod_super_user
+      - DMOD_SU_EMAIL=none@noaa.gov
       - DATABASE=postgres
       - DOCKER_SECRET_POSTGRES_PASS=postgres_password
+      - OBJECT_STORE_HOSTNAME=${EXTERNAL_OBJECT_STORE_HOSTNAME:?}
+      - OBJECT_STORE_PORT=${EXTERNAL_OBJECT_STORE_PORT:?}
+      - DMOD_GUI_CSRF_TRUSTED_ORIGINS=${DMOD_GUI_CSRF_TRUSTED_ORIGINS:?No CSRF trusted origins configured (provide '' at least)}
     volumes:
       - ${DMOD_APP_STATIC:?}:/usr/maas_portal/static
       - ${DMOD_SSL_DIR}/requestservice:/usr/maas_portal/ssl
+      # Needed only for speeding debugging
+      #- ${DOCKER_GUI_HOST_SRC:?GUI sources path not configured in environment}/MaaS:/usr/maas_portal/MaaS
       #- ${DOCKER_GUI_HOST_VENV_DIR:-/tmp/blah}:${DOCKER_GUI_CONTAINER_VENV_DIR:-/tmp/blah}
     # Expose Django's port to the internal network so that the web server may access it
     expose:
@@ -76,8 +90,10 @@ services:
     networks:
       - request-listener-net
     volumes:
-        #- ${DMOD_GUI_POSTGRES_DATA:?}:/var/lib/postgresql/data
-        - dmod_db_volume:/var/lib/postgresql/data
+        # TODO: look back later at why this was done during dev work, and whether it is still needed
+        # TODO: for now, implement by just defaulting to same Docker volume name (i.e., without bind mount) as before
+        - ${DMOD_GUI_POSTGRES_DATA_VOLUME_HOST_DIR:-dmod_db_volume}:/var/lib/postgresql/data
+        #- ${DMOD_GUI_POSTGRES_DATA_VOLUME_HOST_DIR:?}:/var/lib/postgresql/data
     secrets:
         - postgres_password
     environment:
@@ -98,6 +114,10 @@ networks:
 secrets:
   postgres_password:
     file: ../secrets/postgres_password.txt
+  object_store_exec_user_passwd:
+    file: ${DMOD_OBJECT_STORE_EXEC_USER_PASSWD_SECRET_FILE:?}
+  object_store_exec_user_name:
+    file: ${DMOD_OBJECT_STORE_EXEC_USER_NAME_SECRET_FILE:?}
 # Define persistent volumes that may be shared and persisted between containers
 volumes:
     dmod_db_volume:

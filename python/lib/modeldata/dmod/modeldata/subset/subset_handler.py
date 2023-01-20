@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
+import geopandas as gpd
+import pandas as pd
 from hypy import Catchment, Nexus
 from queue import Queue
 from typing import Collection, Optional, Set, Tuple, Union
 from .subset_definition import SubsetDefinition
+from pathlib import Path
 from ..hydrofabric import Hydrofabric, GeoJsonHydrofabricReader, GeoJsonHydrofabric
 
 
@@ -137,10 +140,14 @@ class BasicSubsetValidator(SubsetValidator):
 class SubsetHandler:
 
     @classmethod
-    def factory_create_from_geojson(cls, catchment_data, nexus_data, cross_walk,
-                                    validator: Optional[SubsetValidator] = None) -> 'SubsetHandler':
-        hydrofabric = GeoJsonHydrofabric(GeoJsonHydrofabricReader(catchment_data, nexus_data, cross_walk))
-        return cls(hydrofabric=hydrofabric, validator=validator)
+    def factory_create_from_geojson(cls, catchment_data: Union[str, Path, gpd.GeoDataFrame],
+                                    nexus_data: Union[str, Path, gpd.GeoDataFrame],
+                                    cross_walk: Union[str, Path, pd.DataFrame],
+                                    validator: Optional[SubsetValidator] = None) -> 'GeoJsonBackedSubsetHandler':
+        #subtype = [sc for sc in cls.__subclasses__() if sc.__name__ == 'GeoJsonBackedSubsetHandler'][0]
+        #return subtype(catchment_data=catchment_data, nexus_data=nexus_data, cross_walk=cross_walk, validator=validator)
+        return GeoJsonBackedSubsetHandler(catchment_data=catchment_data, nexus_data=nexus_data, cross_walk=cross_walk,
+                                          validator=validator)
 
     def __init__(self, hydrofabric: Hydrofabric, validator: Optional[SubsetValidator] = None):
         """
@@ -324,3 +331,46 @@ class SubsetHandler:
         description = self._validator.invalid_reason(subset)
         return description is None, description
 
+
+class GeoJsonBackedSubsetHandler(SubsetHandler):
+    def __init__(self,
+                 catchment_data: Union[str, Path, gpd.GeoDataFrame],
+                 nexus_data: Union[str, Path, gpd.GeoDataFrame],
+                 cross_walk: Union[str, Path, pd.DataFrame],
+                 validator: Optional[SubsetValidator] = None):
+        self._reader = GeoJsonHydrofabricReader(catchment_data, nexus_data, cross_walk)
+        super(GeoJsonBackedSubsetHandler, self).__init__(hydrofabric=GeoJsonHydrofabric(self._reader),
+                                                         validator=validator)
+
+    def get_geojson_for_subset(self, feature_type: str, subset: SubsetDefinition) -> dict:
+        feature_type = feature_type.strip().lower()
+        #if feature_type not in ('catchment', 'nexus', 'flowpath'):
+        if feature_type not in ('catchment', 'nexus'):
+            feature_type = 'catchment'
+
+        if feature_type == 'catchment':
+            return self._reader.catchment_geodataframe.loc[subset.catchment_ids]._to_geo()
+        elif feature_type == 'nexus':
+            return self._reader.nexus_geodataframe.loc[subset.nexus_ids]._to_geo()
+        else:
+            msg = 'Unsupported geojson subset feature type {} passed to {}'
+            raise RuntimeError(msg.format(feature_type, self.__class__.__name__))
+
+    def get_geodataframe_for_bounds(self, feature_type: str, min_x: float, min_y: float, max_x: float,
+                               max_y: float) -> gpd.GeoDataFrame:
+        if feature_type not in ('catchment', 'nexus'):
+            feature_type = 'catchment'
+
+        if feature_type == 'catchment':
+            src_features = self._reader.catchment_geodataframe
+        elif feature_type == 'nexus':
+            src_features = self._reader.nexus_geodataframe
+        else:
+            msg = 'Unsupported geojson subset feature type {} passed to {}'
+            raise RuntimeError(msg.format(feature_type, self.__class__.__name__))
+
+        return src_features.cx[min_x:max_x, min_y:max_y]
+
+    def get_geojson_for_bounds(self, feature_type: str, min_x: float, min_y: float, max_x: float,
+                               max_y: float) -> dict:
+        return self.get_geodataframe_for_bounds(feature_type, min_x, min_y, max_x, max_y)._to_geo()

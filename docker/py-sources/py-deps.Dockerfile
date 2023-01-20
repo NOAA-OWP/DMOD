@@ -1,4 +1,4 @@
-ARG REQUIRE="gcc g++ musl-dev gdal-dev libffi-dev openssl-dev rust cargo git proj proj-dev proj-util openblas openblas-dev lapack lapack-dev"
+ARG REQUIRE="gcc g++ musl-dev gdal-dev libffi-dev openssl-dev rust cargo git proj proj-dev proj-util openblas openblas-dev lapack lapack-dev geos-dev"
 ################################################################################################################
 ################################################################################################################
 ##### Create foundational level build stage with initial structure

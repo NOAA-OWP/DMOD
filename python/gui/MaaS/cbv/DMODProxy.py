@@ -7,6 +7,9 @@ from abc import ABC, abstractmethod
 from django.http import HttpRequest, HttpResponse
 from django.views.generic.base import View
 from django.shortcuts import render
+from django.conf import settings
+
+DEFAULT_MAAS_URI = settings.DEFAULT_MAAS_ENDPOINT_URI
 
 import logging
 logger = logging.getLogger("gui_log")
@@ -15,6 +18,8 @@ from dmod.communication import Distribution, get_available_models, get_available
     NWMRequestJsonValidator, NWMRequest, ExternalRequest, ExternalRequestResponse, ModelExecRequestClient, Scalar, MessageEventType
 from pathlib import Path
 from typing import List, Optional, Tuple, Type
+
+GUI_STATIC_SSL_DIR = Path(settings.GUI_SSL_DIR)
 
 
 class RequestFormProcessor(ABC):
@@ -209,7 +214,7 @@ class PostFormRequestClient(ModelExecRequestClient):
     def _bootstrap_ssl_dir(cls, ssl_dir: Optional[Path] = None):
         if ssl_dir is None:
             ssl_dir = Path(__file__).resolve().parent.parent.parent.joinpath('ssl')
-            ssl_dir = Path('/usr/maas_portal/ssl') #Fixme
+            ssl_dir = GUI_STATIC_SSL_DIR #Fixme
         return ssl_dir
 
     def __init__(self, endpoint_uri: str, http_request: HttpRequest, ssl_dir: Optional[Path] = None):
@@ -289,8 +294,7 @@ class DMODMixin:
     @property
     def maas_endpoint_uri(self):
         if not hasattr(self, '_maas_endpoint_uri') or self._maas_endpoint_uri is None:
-            self._maas_endpoint_uri = 'wss://' + os.environ.get('MAAS_ENDPOINT_HOST') + ':'
-            self._maas_endpoint_uri += os.environ.get('MAAS_ENDPOINT_PORT')
+            self._maas_endpoint_uri = DEFAULT_MAAS_URI
         return self._maas_endpoint_uri
 
     def forward_request(self, request: HttpRequest, event_type: MessageEventType) -> Tuple[
@@ -315,6 +319,7 @@ class DMODMixin:
         client = PostFormRequestClient(endpoint_uri=self.maas_endpoint_uri, http_request=request)
         if event_type == MessageEventType.MODEL_EXEC_REQUEST:
             form_processor_type = ModelExecRequestFormProcessor
+        # TODO: need a new type of form processor here (or 3 more, for management, uploading, and downloading)
         else:
             raise RuntimeError("{} got unsupported event type: {}".format(self.__class__.__name__, str(event_type)))
 

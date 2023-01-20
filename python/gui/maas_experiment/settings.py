@@ -26,7 +26,8 @@ SECRET_KEY = os.environ.get("SECRET_KEY",'cm_v*vc*8s048%f46*@t7)hb9rtaa@%)#b!s(+
 ALLOWED_HOSTS = ['*']
 
 # The default is false; if it's not true, it will leave a user logged in indefinitely
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+# TODO: get browser sessions working correctly
+#SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 
 # This is the absolute age; navigating won't necessarily tell the system that anything is happening
 # and sessions will absolutely end after this time, regardless of what is going on.
@@ -40,18 +41,25 @@ SECURE_BROWSER_XSS_FILTER = True
 # “secure”, which means browsers may ensure that the cookie is only sent under an HTTPS connection.
 # Leaving this setting off isn’t a good idea because an attacker could capture an unencrypted session cookie with a
 # packet sniffer and use the cookie to hijack the user’s session.
-SESSION_COOKIE_SECURE = not DEBUG
+# TODO: get browser sessions (and cookies) working correctly
+#SESSION_COOKIE_SECURE = not DEBUG
 
 # Whether to use a secure cookie for the CSRF cookie. If this is set to True, the cookie will be marked as “secure”,
 # which means browsers may ensure that the cookie is only sent with an HTTPS connection.
-CSRF_COOKIE_SECURE = not DEBUG
+# TODO: get CSRF security working correctly
+#CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = False
 
 # Whether to store the CSRF token in the user’s session instead of in a cookie.
 # It requires the use of django.contrib.sessions.
 #
 # Storing the CSRF token in a cookie (Django’s default) is safe, but storing it in the session is common practice
 # in other web frameworks and therefore sometimes demanded by security auditors.
-CSRF_USE_SESSIONS = not DEBUG
+# TODO: get CSRF security working correctly
+#CSRF_USE_SESSIONS = not DEBUG
+CSRF_USE_SESSIONS = False
+# A list of trusted origins for unsafe requests (e.g. POST).
+CSRF_TRUSTED_ORIGINS = [url.strip() for url in os.environ.get('DMOD_GUI_CSRF_TRUSTED_ORIGINS', '').split(',') if url]
 
 # security.W019: Unless we start serving data in a frame, set to 'DENY'
 X_FRAME_OPTIONS = 'DENY'
@@ -74,7 +82,8 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    # Turning this off for now, until things get straightened out; it is breaking the dataset management create form
+    #'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -133,13 +142,158 @@ USE_L10N = True
 
 USE_TZ = True
 
+DATE_TIME_FORMAT = "%Y-%m-%dT%H:%M"
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.2/howto/static-files/
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "static/")
+NGEN_STATIC_ROOT = os.path.join(STATIC_ROOT, "ngen/")
+HYDROFABRIC_ROOT = os.path.join(NGEN_STATIC_ROOT, "hydrofabric/")
 
+DATA_CACHE_DIR = os.path.join(STATIC_ROOT, "cache/")
+DATA_DOWNLOADS_DIR = os.path.join(DATA_CACHE_DIR, "downloads/")
+DATA_UPLOADS_DIR = os.path.join(DATA_CACHE_DIR, "uploads/")
+SECRETS_ROOT = '/run/secrets/'
+
+SUBSET_SERVICE_URL = os.environ.get('GUI_SUBSET_SERVICE_API_URL')
+
+GUI_SSL_DIR = os.path.join(BASE_DIR, 'ssl')
+DEFAULT_MAAS_ENDPOINT_URI = 'wss://' + os.environ.get('MAAS_ENDPOINT_HOST') + ':' + os.environ.get('MAAS_ENDPOINT_PORT')
+
+MINIO_HOSTNAME = os.environ.get("OBJECT_STORE_HOSTNAME")
+MINIO_PORT = os.environ.get("OBJECT_STORE_PORT")
+MINIO_HOST_STRING = "{}:{}".format(MINIO_HOSTNAME, MINIO_PORT)
+
+MINIO_ACCESS_DOCKER_SECRET_NAME = 'object_store_exec_user_name'
+MINIO_SECRET_DOCKER_SECRET_NAME: str = 'object_store_exec_user_passwd'
+
+MINIO_ACCESS_FILE = os.path.join(SECRETS_ROOT, MINIO_ACCESS_DOCKER_SECRET_NAME)
+MINIO_SECRET_FILE = os.path.join(SECRETS_ROOT, MINIO_SECRET_DOCKER_SECRET_NAME)
+
+# TODO adjust this to be configurable
+MINIO_SECURE_CONNECT = False
+
+"""
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse'
+        }
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler'
+        }
+    },
+    'loggers': {
+        'gui_log': {
+            'handlers': ['console', ],
+            'level': 'DEBUG'
+        }
+    }
+}
+"""
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse'
+        }
+    },
+    'formatters': {
+        'console': {
+            # exact format is not important, this is the minimum information
+            'format': '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+        },
+    },
+    'handlers': {
+        'guilogFile': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.environ.get('APPLICATION_LOG_PATH', os.path.join(BASE_DIR, 'gui.log')),
+            'maxBytes': 1024*1024*50,  # 50MB
+            'backupCount': 5,
+            'formatter': 'console'
+        },
+        'stdout': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'console'
+        }
+    },
+    'loggers': {
+        'gui_log': {
+            'handlers': ['guilogFile', 'stdout'],
+            'level': 'DEBUG'
+        }
+    }
+}
+
+
+CRITICAL_LEVEL = logging.CRITICAL
+"""Logging level used to indicate critical messages"""
+
+ERROR_LEVEL = logging.ERROR
+"""Logging level used to indicate errors"""
+
+WARNING_LEVEL = logging.WARNING
+"""Logging level used to indicate warnings"""
+
+INFO_LEVEL = logging.INFO
+"""Logging level used to indicate basic information"""
+
+DEBUG_LEVEL = logging.DEBUG
+"""Logging level used to indicate messages useful for debugging"""
+
+UNKNOWN_LEVEL = logging.NOTSET
+"""Logging level to use when a proper logging level is not found"""
+
+DEFAULT_MESSAGE_LEVEL = INFO_LEVEL
+"""The logging level used when none is given"""
+
+
+def log(message: str, level: int = DEFAULT_MESSAGE_LEVEL, logger_name: str = "gui_log"):
+    """
+    Logs the given message at the given level in the given log.
+
+    These are all available as module level variables
+
+    :param str message: The message to log
+    :param str level: The logging level to write as.
+    :param str logger_name: The name of the logger to write to
+    """
+
+    # We want to make sure that we're using a valid level; if it isn't in our approved list, we use the level
+    # equivalent to "uh...I dunno..." since we just want to write
+    if level is None or level not in [CRITICAL_LEVEL, ERROR_LEVEL, WARNING_LEVEL, INFO_LEVEL, DEBUG_LEVEL]:
+        level = UNKNOWN_LEVEL
+
+    # We want to log messages in the form of '[2019-06-04 12:27:14-0500] Something happened...',
+    # so we need to determine the time and append it to the message
+    timestamp = datetime.now(tz=reference.LocalTimezone()).strftime("%Y-%m-%d %I:%M:%S%z")
+    log_message = "[{}] {}".format(timestamp, message)
+
+    # Log the newly formatted message at the given level
+    logging.getLogger(logger_name).log(level, log_message)
+
+
+REQUIRED_ENVIRONMENT_VARIABLES = [
+    {
+        "name": "MAAS_ENDPOINT_HOST",
+        "purpose": "The default host address for MaaS"
+    },
+    {
+        "name": "MAAS_ENDPOINT_PORT",
+        "purpose": "The port for the default MaaS endpoint"
+    }
+]
 
 def ensure_required_environment_variables():
     missing_variables = [

@@ -2,20 +2,22 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from dmod.core.execution import AllocationParadigm
 from dmod.communication import DataServiceClient, ExternalRequestClient, ManagementAction, ModelExecRequestClient, \
-    NGENRequest, NGENRequestResponse
+    NGENRequest, NGENRequestResponse, \
+    NgenCalibrationRequest, NgenCalibrationResponse
 from dmod.communication.client import R
 from dmod.communication.dataset_management_message import DatasetManagementMessage, DatasetManagementResponse, \
     MaaSDatasetManagementMessage, MaaSDatasetManagementResponse, QueryType, DatasetQuery
 from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
 from dmod.core.meta_data import DataCategory, DataDomain, TimeRange
+from dmod.core.dataset import Dataset
 from pathlib import Path
-from typing import List, Optional, Tuple, Type, Union
+from typing import AnyStr, Dict, List, Optional, Tuple, Type, Union
 
 import json
 import websockets
 
-#import logging
-#logger = logging.getLogger("gui_log")
+import logging
+logger = logging.getLogger("client_log")
 
 
 class NgenRequestClient(ModelExecRequestClient[NGENRequest, NGENRequestResponse]):
@@ -40,6 +42,67 @@ class NgenRequestClient(ModelExecRequestClient[NGENRequest, NGENRequestResponse]
                               bmi_cfg_data_id=bmi_cfg_data_id,
                               partition_cfg_data_id=partition_cfg_data_id,
                               catchments=cat_ids)
+        return await self.async_make_request(request)
+
+# TODO: aaraney add NgenCalRequestClient
+class NgenCalRequestClient(ModelExecRequestClient[NgenCalibrationRequest, NgenCalibrationResponse]):
+
+    # In particular needs - endpoint_uri: str, ssl_directory: Path
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._cached_session_file = Path.home().joinpath('.dmod_client_session')
+
+    async def request_exec(self,
+                        #    start: datetime,
+                        #    end: datetime,
+                        #    hydrofabric_data_id: str,
+                        #    hydrofabric_uid: str,
+                        #    cpu_count: int,
+                           realization_cfg_data_id: str,
+                        #    bmi_cfg_data_id: str,
+                        #    partition_cfg_data_id: Optional[str] = None,
+                        #    cat_ids: Optional[List[str]] = None,
+                        #    allocation_paradigm: Optional[AllocationParadigm] = None
+                           ) -> NgenCalibrationResponse:
+        await self._async_acquire_session_info()
+
+        start = "2022-01-01 01:00:00"
+        end = "2022-01-02 01:00:00"
+
+        hydrofabric_uid = ""
+        bmi_cfg_data_id = "bmi-config"
+        hydrofabric_data_id = "hydrofabric"
+        config_data_id = "ngen-cal-config"
+
+        # NOTE: aaraney this will likely  have to change
+        request = NgenCalibrationRequest(
+                                        evaluation_time_range=TimeRange(begin=start, end=end),
+                                        # model_cal_params={"fake": (-1, 1, 0)}, # TODO: remove this
+                                        model_cal_params=dict(), # TODO: remove this
+                                        iterations=2, # TODO: remove this
+                                        # config_data_id=realization_cfg_data_id,
+                                        config_data_id=config_data_id,
+
+                                        time_range=TimeRange(begin=start, end=end),
+                                        hydrofabric_uid=hydrofabric_uid,
+                                        hydrofabric_data_id=hydrofabric_data_id,
+                                        bmi_cfg_data_id=bmi_cfg_data_id,
+
+                                        # job_name= None,
+                                        # cal_strategy_type= 'estimation',
+                                        # cal_strategy_algorithm= 'dds',
+                                        # cal_strategy_objective_func= 'nnse',
+                                        # is_objective_func_minimized= True,
+                                        # model_strategy= 'uniform',
+                                        # is_restart= False,
+                                        session_secret=self.session_secret,
+                                        # cpu_count=cpu_count,
+                                        # allocation_paradigm=allocation_paradigm,
+
+                                        # config_data_id=realization_cfg_data_id,
+                                        # partition_cfg_data_id=partition_cfg_data_id,
+                                        # catchments=cat_ids
+                                        )
         return await self.async_make_request(request)
 
 
@@ -90,6 +153,25 @@ class DatasetClient(ABC):
         pass
 
     @abstractmethod
+    async def download_item_block(self, dataset_name: str, item_name: str, blk_start: int, blk_size: int) -> AnyStr:
+        """
+        Download a block/chunk of a given size and start point from a specified dataset file.
+
+        Parameters
+        ----------
+        dataset_name
+        item_name
+        blk_start
+        blk_size
+
+        Returns
+        -------
+        AnyStr
+            The downloaded block/chunk.
+        """
+        pass
+
+    @abstractmethod
     async def download_dataset(self, dataset_name: str, dest_dir: Path) -> bool:
         """
         Download an entire dataset to a local directory.
@@ -128,6 +210,14 @@ class DatasetClient(ABC):
         -------
 
         """
+        pass
+
+    @abstractmethod
+    async def get_dataset_content_details(self, name: str, **kwargs) -> bool:
+        pass
+
+    @abstractmethod
+    async def get_item_size(self, dataset_name: str, item_name: str) -> int:
         pass
 
     @abstractmethod
@@ -174,6 +264,50 @@ class DatasetInternalClient(DatasetClient, DataServiceClient):
         request = DatasetManagementMessage(action=ManagementAction.DELETE, dataset_name=name)
         self.last_response = await self.async_make_request(request)
         return self.last_response is not None and self.last_response.success
+
+    async def get_dataset_content_details(self, name: str, **kwargs) -> dict:
+        # TODO: later add things like created and last updated perhaps
+        query = DatasetQuery(query_type=QueryType.GET_DATASET_ITEMS)
+        request = DatasetManagementMessage(action=ManagementAction.QUERY, query=query, dataset_name=name)
+        self.last_response: DatasetManagementResponse = await self.async_make_request(request)
+        if self.last_response.success:
+            return self.last_response.data
+        else:
+            return {}
+
+    async def get_item_size(self, dataset_name: str, item_name: str) -> int:
+        query = DatasetQuery(query_type=QueryType.GET_ITEM_SIZE, item_name=item_name)
+        request = DatasetManagementMessage(action=ManagementAction.QUERY, query=query, dataset_name=dataset_name,
+                                           data_location=item_name)
+        self.last_response: DatasetManagementResponse = await self.async_make_request(request)
+        if self.last_response.success:
+            return self.last_response.data
+        else:
+            return -1
+
+    async def download_item_block(self, dataset_name: str, item_name: str, blk_start: int, blk_size: int) -> AnyStr:
+        """
+        Download a block/chunk of a given size and start point from a specified dataset file.
+
+        Parameters
+        ----------
+        dataset_name
+        item_name
+        blk_start
+        blk_size
+
+        Returns
+        -------
+        AnyStr
+            The downloaded block/chunk.
+        """
+        request = DatasetManagementMessage(action=ManagementAction.REQUEST_DATA, dataset_name=dataset_name,
+                                           data_location=item_name, blk_start=blk_start, blk_size=blk_size)
+        self.last_response: DatasetManagementResponse = await self.async_make_request(request)
+        if self.last_response.success:
+            return self.last_response.data
+        else:
+            return ''
 
     async def download_dataset(self, dataset_name: str, dest_dir: Path) -> bool:
         """
@@ -460,7 +594,56 @@ class DatasetExternalClient(DatasetClient,
         self.last_response = await self.async_make_request(request)
         return self.last_response is not None and self.last_response.success
 
-    async def download_dataset(self, dataset_name: str, dest_dir: Path) -> bool:
+    async def download_item_block(self, dataset_name: str, item_name: str, blk_start: int, blk_size: int) -> AnyStr:
+        """
+        Download a block/chunk of a given size and start point from a specified dataset file.
+
+        Parameters
+        ----------
+        dataset_name
+        item_name
+        blk_start
+        blk_size
+
+        Returns
+        -------
+        AnyStr
+            The downloaded block/chunk.
+        """
+        await self._async_acquire_session_info()
+        request = MaaSDatasetManagementMessage(action=ManagementAction.REQUEST_DATA, dataset_name=dataset_name,
+                                               session_secret=self.session_secret, data_location=item_name,
+                                               blk_start=blk_start, blk_size=blk_size)
+        self.last_response: DatasetManagementResponse = await self.async_make_request(request)
+        if self.last_response.success:
+            return self.last_response.data
+        else:
+            return ''
+
+    async def get_item_size(self, dataset_name: str, item_name: str) -> int:
+        await self._async_acquire_session_info()
+        query = DatasetQuery(query_type=QueryType.GET_ITEM_SIZE, item_name=item_name)
+        request = MaaSDatasetManagementMessage(action=ManagementAction.QUERY, query=query, dataset_name=dataset_name,
+                                               session_secret=self._session_secret, data_location=item_name)
+        self.last_response: DatasetManagementResponse = await self.async_make_request(request)
+        if self.last_response.success:
+            return self.last_response.data
+        else:
+            return -1
+
+    async def get_dataset_content_details(self, name: str, **kwargs) -> List:
+        # TODO: later add things like created and last updated perhaps
+        await self._async_acquire_session_info()
+        query = DatasetQuery(query_type=QueryType.GET_DATASET_ITEMS)
+        request = MaaSDatasetManagementMessage(session_secret=self.session_secret, action=ManagementAction.QUERY,
+                                               query=query, dataset_name=name)
+        self.last_response: DatasetManagementResponse = await self.async_make_request(request)
+        if self.last_response.success:
+            return self.last_response.data[DatasetManagementResponse._DATA_KEY_QUERY_RESULTS]
+        else:
+            return []
+
+    async def download_dataset(self, dataset_name: str, dest_dir: Path, overwrite: bool = False) -> bool:
         await self._async_acquire_session_info()
         try:
             dest_dir.mkdir(parents=True, exist_ok=True)
@@ -473,14 +656,18 @@ class DatasetExternalClient(DatasetClient,
         self.last_response: MaaSDatasetManagementResponse = await self.async_make_request(request)
         for item, dest in [(filename, dest_dir.joinpath(filename)) for filename in self.last_response.query_results]:
             dest.parent.mkdir(exist_ok=True)
-            success = success and await self.download_from_dataset(dataset_name=dataset_name, item_name=item, dest=dest)
+            success = success and await self.download_from_dataset(dataset_name=dataset_name, item_name=item, dest=dest,
+                                                                   overwrite=overwrite)
         return success
 
-    async def download_from_dataset(self, dataset_name: str, item_name: str, dest: Path) -> bool:
+    async def download_from_dataset(self, dataset_name: str, item_name: str, dest: Path, overwrite: bool = False) -> bool:
         await self._async_acquire_session_info()
-        if dest.exists():
-            return False
         try:
+            if dest.exists():
+                if overwrite:
+                    dest.unlink()
+                else:
+                    return False
             dest.parent.mkdir(parents=True, exist_ok=True)
         except:
             return False
@@ -504,6 +691,67 @@ class DatasetExternalClient(DatasetClient,
                     has_data, message_object = self._process_data_download_iteration(await websocket.recv())
                     if not has_data:
                         return message_object
+
+    async def get_datasets(self, dataset_name: Optional[str] = None) -> Dict[str, Dataset]:
+        """
+        Get datasets as ::class:`Dataset` objects, either for all datasets or for the one with the provided name.
+
+        Essentially, this is a convenience wrapper around ::method:`get_serialized_datasets` that inflates the
+        ::class:`Dataset`.
+
+        Parameters
+        ----------
+        dataset_name : Optional[str]
+            The name of a specific dataset to get serialized details of, if only one should be obtained.
+
+        Returns
+        -------
+        Dict[str, Dataset]
+            A dictionary, keyed by dataset name, of ::class:`Dataset` objects.
+
+        See Also
+        -------
+        get_serialized_datasets
+        """
+        serial_jsons: Dict[str, dict] = await self.get_serialized_datasets(dataset_name=dataset_name)
+        return dict([(k, Dataset.factory_init_from_deserialized_json(ds_json)) for k, ds_json in serial_jsons.items()])
+
+    async def get_serialized_datasets(self, dataset_name: Optional[str] = None) -> Dict[str, dict]:
+        """
+        Get dataset objects in serialized form, either for all datasets or for the one with the provided name.
+
+        Parameters
+        ----------
+        dataset_name : Optional[str]
+            The name of a specific dataset to get serialized details of, if only one should be obtained.
+
+        Returns
+        -------
+        Dict[str, dict]
+            A dictionary, keyed by dataset name, of serialized dataset objects.
+        """
+        # TODO: may need to generalize this and add to super class
+        if dataset_name is None:
+            datasets = await self.list_datasets()
+        else:
+            # TODO: improve how this is use so that it can be safely, efficiently put everywhere it **may** be needed
+            await self._async_acquire_session_info()
+            datasets = [dataset_name]
+        serialized = dict()
+        action = ManagementAction.QUERY
+        query = DatasetQuery(query_type=QueryType.GET_SERIALIZED_FORM)
+        try:
+            for d in datasets:
+                request = MaaSDatasetManagementMessage(action=action, query=query, dataset_name=d,
+                                                       session_secret=self.session_secret)
+                self.last_response: DatasetManagementResponse = await self.async_make_request(request)
+                if self.last_response.success:
+                    serialized[d] = self.last_response.data[DatasetManagementResponse._DATA_KEY_QUERY_RESULTS]
+                # TODO: what to do if any are not successful
+            return serialized
+        except Exception as e:
+            logger.error(e)
+            raise e
 
     async def list_datasets(self, category: Optional[DataCategory] = None) -> List[str]:
         await self._async_acquire_session_info()

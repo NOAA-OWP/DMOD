@@ -28,6 +28,7 @@ class Migration(migrations.Migration):
                 ('name', models.CharField(help_text='The name of the parameter for the formulation', max_length=50)),
                 ('description', models.CharField(blank=True, help_text='How this parameter affects the formulation', max_length=200, null=True)),
                 ('value_type', models.CharField(choices=[('number', 'Number'), ('text', 'Text'), ('date', 'Date'), ('datetime-local', 'Date and Time')], help_text='The type of the ', max_length=50)),
+                ('config_type', models.CharField(choices=[('number', 'Number'), ('text', 'Text'), ('date', 'Date'), ('datetime-local', 'Date and Time'), ('numbers', 'Numbers'), ('list', 'List'), ('dataset', 'Dataset')], help_text='The type in realization configurations of the ', max_length=50)),
                 ('group', models.CharField(blank=True, help_text='A sub-group to which this parameter belongs', max_length=50, null=True)),
                 ('is_list', models.BooleanField(default=False, help_text='Whether or not this variable should be a list')),
                 ('minimum', models.FloatField(blank=True, help_text='The minimum possible numerical value for this parameter', null=True)),

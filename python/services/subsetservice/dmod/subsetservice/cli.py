@@ -1,6 +1,7 @@
 import geopandas as gpd
 import json
 from dmod.modeldata import SubsetHandler
+from dmod.modeldata.subset.subset_handler import GeoJsonBackedSubsetHandler
 from pathlib import Path
 from typing import List, Optional, Union
 
@@ -30,9 +31,8 @@ class Cli:
         self._partitions_file_str = partition_file_str
         self._partitions_file = None
         if subset_handler is None:
-            self.handler = SubsetHandler.factory_create_from_geojson(catchment_data=catchment_geojson,
-                                                                     nexus_data=nexus_geojson,
-                                                                     cross_walk=crosswalk_json)
+            self.handler = GeoJsonBackedSubsetHandler(catchment_data=catchment_geojson, nexus_data=nexus_geojson,
+                                                      cross_walk=crosswalk_json)
         else:
             self.handler = subset_handler
 

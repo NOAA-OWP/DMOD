@@ -1,15 +1,25 @@
 from django.urls import re_path
 from .cbv.EditView import EditView
+from .cbv.DatasetManagementView import DatasetManagementView
+from .cbv.DatasetApiView import DatasetApiView
 from .cbv.MapView import MapView, Fabrics, FabricNames, FabricTypes, ConnectedFeatures
 
 from .cbv.configuration import CreateConfiguration
 from .cbv.execution import Execute
 from .cbv.crosswalk import Crosswalk
 
+from .views import download_dataset, download_dataset_file
+
 app_name = 'MaaS'
 
 urlpatterns = [
     re_path(r'^$', EditView.as_view()),
+    # TODO: add this later
+    #re_path(r'ngen$', NgenWorkflowView.as_view(), name="ngen-workflow"),
+    re_path(r'datasets', DatasetManagementView.as_view(), name="dataset-management"),
+    re_path(r'dataset-api', DatasetApiView.as_view(), name="dataset-api"),
+    re_path(r'download_dataset/(?P<path>.*)$', download_dataset, name='download_dataset'),
+    re_path(r'download_dataset_file/(?P<dataset_name>.*)/(?P<file_name>.*)$', download_dataset_file, name='download_dataset_file'),
     re_path(r'map$', MapView.as_view(), name="map"),
     re_path(r'map/connections$', ConnectedFeatures.as_view(), name="connections"),
     re_path(r'fabric/names$', FabricNames.as_view(), name='fabric-names'),

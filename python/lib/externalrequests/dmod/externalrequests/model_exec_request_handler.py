@@ -3,8 +3,8 @@ import os
 from pathlib import Path
 from dmod.access import Authorizer
 from dmod.communication import FullAuthSession, InitRequestResponseReason, ModelExecRequest, ModelExecRequestResponse, \
-    NGENRequest, NGENRequestResponse, NWMRequest, NWMRequestResponse, SchedulerClient, SchedulerRequestMessage, \
-    SchedulerRequestResponse, SessionManager
+    NGENRequest, NGENRequestResponse, NgenCalibrationRequest, NgenCalibrationResponse, NWMRequest, NWMRequestResponse, \
+    SchedulerClient, SchedulerRequestMessage, SchedulerRequestResponse, SessionManager
 from .maas_request_handlers import MaaSRequestHandler
 from typing import Optional
 
@@ -17,9 +17,24 @@ logging.basicConfig(
 
 class ModelExecRequestHandler(MaaSRequestHandler):
 
-    def __init__(self, session_manager: SessionManager, authorizer: Authorizer, scheduler_host: str,
-                 scheduler_port: int, scheduler_ssl_dir: Path):
-        super().__init__(session_manager, authorizer, scheduler_host, scheduler_port, scheduler_ssl_dir)
+    def __init__(self, *args, **kwargs):
+        """
+
+        Parameters
+        ----------
+        args
+        kwargs
+
+        Other Parameters
+        ----------
+        session_manager
+        authorizer
+        service_host
+        service_port
+        service_ssl_dir
+
+        """
+        super().__init__(*args, **kwargs)
 
         # TODO: implement properly
         self._default_required_access_type = None
@@ -104,24 +119,46 @@ class ModelExecRequestHandler(MaaSRequestHandler):
         # FIXME: for now, just use the default type (which happens to be "everything")
         return self._default_required_access_type,
 
+    async def _preprocess_request(self, request: ModelExecRequest):
+        """
+        Execute any appropriate preprocessing steps for this request before passing it to the scheduler.
+
+        The default implementation does not perform any actions.
+
+        Parameters
+        ----------
+        request
+
+        Raises
+        -------
+        RuntimeError
+        """
+        pass
+
     async def handle_request(self, request: ModelExecRequest, **kwargs) -> ModelExecRequestResponse:
         """
-        Handle the given request for a new NWM job execution and return the resulting response.
+        Handle the given request for a new job execution and return the resulting response.
 
         Parameters
         ----------
         request: ModelExecRequest
-            A ``ModelExecRequest`` message instance with details of the job being requested.
+            A ::class:`ModelExecRequest` (or subclass) instance with details of the job being requested.
 
         Returns
         -------
         response: ModelExecRequestResponse
-            An appropriate ``NWMRequestResponse`` object.
+            An appropriate response object derived from ::class:`ModelExecRequestResponse`.
         """
         session, is_authorized, reason, msg = await self.get_authorized_session(request)
         if not is_authorized:
             return self._generate_request_response(exec_request=request, success=False, reason=reason.name, message=msg,
                                                    scheduler_response=None)
+
+        try:
+            await self._preprocess_request(request=request)
+        except RuntimeError as e:
+            return self._generate_request_response(exec_request=request, success=False, reason='Preprocessing Failure',
+                                                   message=str(e), scheduler_response=None)
 
         # The context manager manages a SINGLE connection to the scheduler server
         # Adhoc calls to the scheduler can be made for this connection via the scheduler_client
@@ -146,5 +183,83 @@ class ModelExecRequestHandler(MaaSRequestHandler):
     @property
     def service_client(self) -> SchedulerClient:
         if self._scheduler_client is None:
-            self._scheduler_client = SchedulerClient(self.service_url, self.service_ssl_dir)
+            self._scheduler_client = SchedulerClient(ssl_directory=self.service_ssl_dir, endpoint_uri=self.service_url)
         return self._scheduler_client
+
+
+class NgenCalibrationRequestHandler(ModelExecRequestHandler):
+    """
+    An extension of ::class:`ModelExecRequestHandler` specifically for Nextgen calibration requests.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """
+
+        Parameters
+        ----------
+        args
+        kwargs
+
+        Other Parameters
+        ----------
+        session_manager
+        authorizer
+        service_host
+        service_port
+        service_ssl_dir
+
+        """
+        super().__init__(*args, **kwargs)
+
+        # TODO: implement properly (yes, manually doing this again here)
+        self._default_cal_required_access_type = None
+
+    def _generate_request_response(self, exec_request: NgenCalibrationRequest, success: bool, reason: str, message: str,
+                                   scheduler_response: Optional[SchedulerRequestResponse]) -> NgenCalibrationResponse:
+        """
+        Generate a response message of the appropriate type for the given model exec request message.
+
+        Parameters
+        ----------
+        exec_request : NgenCalibrationRequest
+            The originating ::class:`NgenCalibrationRequest` message requiring a response.
+        success : bool
+            Whether the request was successful.
+        reason : string
+            A summary of why the request was successful or not.
+        message : string
+            A more detailed description of why the request was successful or not.
+        scheduler_response : Optional[SchedulerRequestResponse]
+            Response message from the scheduler when processing the exec request resulted in a scheduler request.
+        Returns
+        -------
+        NgenCalibrationResponse
+            A generated calibration response object.
+        """
+        if not isinstance(exec_request, NgenCalibrationRequest):
+            msg = "{} cannot generate calibration response to unexpected {}"
+            raise RuntimeError(msg.format(self.__class__.__name__, exec_request.__class__.__name__))
+        else:
+            return NgenCalibrationResponse(success=success, reason=reason, message=message,
+                                           scheduler_response=scheduler_response)
+
+    async def determine_required_access_types(self, request: NgenCalibrationRequest, user) -> tuple:
+        """
+        Determine what access is required for this request from this user to be accepted.
+
+        Determine the necessary access types for which the given user needs to be authorized in order for the user to
+        be allowed to submit this request, in the context of the current state of the system.
+
+        Parameters
+        ----------
+        request
+        user
+
+        Returns
+        -------
+        A tuple of required access types required for authorization for the given request at this time.
+        """
+        # TODO: implement; in particular, consider things like current job count for user, and whether different access
+        #   types are required at different counts.
+        # FIXME: for now, just use the default type (which happens to be "everything")
+        return self._default_cal_required_access_type,

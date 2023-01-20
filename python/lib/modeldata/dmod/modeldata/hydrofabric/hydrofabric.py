@@ -7,6 +7,7 @@ from hypy import Catchment, HydroLocation, Nexus
 from pathlib import Path
 from typing import Any, Callable, Dict, FrozenSet, List, Optional, Set, Tuple, Union
 from ..subset import SubsetDefinition
+from dmod.core.meta_data import DataDomain, DataFormat, DiscreteRestriction, StandardDatasetIndex
 
 
 class Hydrofabric(ABC):
@@ -221,6 +222,23 @@ class Hydrofabric(ABC):
         return "{};{};{}".format(",".join(sorted_cat_ids),
                                       ",".join(sorted_nex_ids),
                                       ",".join(self._get_link_representations()))
+
+    @abstractmethod
+    def generate_domain(self, dataset_name: str) -> DataDomain:
+        """
+        Automatically assemble an appropriate ::class:`DataDomain` for a ::class:`Dataset` containing this hydrofabric.
+
+        Parameters
+        ----------
+        dataset_name : str
+            A (potentially hypothetical) name for the dataset, which is used as the domain's ``DATA_ID``.
+
+        Returns
+        -------
+        DataDomain
+            An appropriate ::class:`DataDomain` for a ::class:`Dataset` containing this hydrofabric.
+        """
+        pass
 
     @abstractmethod
     def get_all_catchment_ids(self) -> Tuple[str, ...]:
@@ -847,7 +865,7 @@ class SubsetGeoJsonHydrofabricReader(GeoJsonHydrofabricReader):
         self._subset = subset
 
 
-class MappedGraphHydrofabric(Hydrofabric):
+class MappedGraphHydrofabric(Hydrofabric, ABC):
     """
     Subtype of ::class:`Hydrofabric` created from an object graph stored as a dictionary.
     """
@@ -1170,6 +1188,27 @@ class GeoJsonHydrofabric(MappedGraphHydrofabric):
             The reader object which will generate the GeoJSON-based hydrograph.
         """
         super(GeoJsonHydrofabric, self).__init__(geojson_reader.hydrofabric_graph, geojson_reader.roots, geojson_reader)
+
+    def generate_domain(self, dataset_name: str) -> DataDomain:
+        """
+        Automatically assemble an appropriate ::class:`DataDomain` for a ::class:`Dataset` containing this hydrofabric.
+
+        Parameters
+        ----------
+        dataset_name : str
+            A (potentially hypothetical) name for the dataset, which is used as the domain's ``DATA_ID``.
+
+        Returns
+        -------
+        DataDomain
+            An appropriate ::class:`DataDomain` for a ::class:`Dataset` containing this hydrofabric.
+        """
+        d_restricts = [DiscreteRestriction(variable=StandardDatasetIndex.CATCHMENT_ID,
+                                           values=list(self.get_all_catchment_ids())),
+                       DiscreteRestriction(variable=StandardDatasetIndex.DATA_ID, values=[dataset_name]),
+                       DiscreteRestriction(variable=StandardDatasetIndex.HYDROFABRIC_ID, values=[self.uid])]
+
+        return DataDomain(data_format=DataFormat.NGEN_GEOJSON_HYDROFABRIC, discrete_restrictions=d_restricts)
 
     def get_subset_hydrofabric(self, subset: SubsetDefinition) -> 'GeoJsonHydrofabric':
         """

@@ -34,6 +34,11 @@
             <label for="end-time" class="key-column" style="grid-row: 2;">End Date and Time (GMT):</label>
             <input type="datetime-local" class="value-column" pattern="mm-dd-yyyy HH:mm" style="grid-row: 2" id="end-time" name="end-time" required>
         </fieldset>
+        <fieldset class="resources-container" style="display: grid; position: relative; width: 50%">
+            <legend>Resources</legend>
+            <label for="requested-cpu-count" class="key-column" style="grid-row: 1">Requested CPUs:</label>
+            <input type="number" value="{% if catchments|length < 8 %}{{ catchments|length }}{% else %}8{% endif %}" class="value-column" id="requested-cpu-count" name="requested-cpu-count">
+        </fieldset>
         <div id="configuration-navigation-alignment" style="display:grid; grid-template-columns: 200px auto">
             <fieldset id="navigation" style="grid-column: 1; overflow-y: auto; height: 60vh; padding: 10px;">
                 <legend>Locations</legend>
@@ -73,12 +78,15 @@
                                     <legend><b>Default {{ formulation.name }} Parameters:</b></legend>
                                         <div class="parameters" style="display: grid">
                                     {% for parameter in formulation.formulationparameter_set.all %}
-                                        <label for="global-{{ formulation.clean_name }}-{{ parameter.name }}" class="key-column">{{ parameter.name }}</label>
-                                        <input type="{{ parameter.value_type }}" id="global-{{ formulation.clean_name }}-{{ parameter.name }}"
-                                               name="global-{{ formulation.clean_name }}-{{ parameter.name }}"
+                                        <label for="global:::{{ formulation.clean_name }}:::{{ parameter.name }}" class="key-column">{{ parameter.name }}</label>
+                                        <input type="{{ parameter.value_type }}" id="global:::{{ formulation.clean_name }}:::{{ parameter.name }}"
+                                               name="global:::{{ formulation.clean_name }}:::{{ parameter.name }}"
                                                title="{{ parameter.description }}" min='{{ parameter.minimum|default:"" }}'
                                                max='{{ parameter.maximum|default:"" }}' value='{{ parameter.default_value|default:"" }}'
                                                class="value-column">
+                                        <input type="hidden" id="global:::{{ formulation.clean_name }}:::{{ parameter.name }}:::config-type"
+                                               name="global:::{{ formulation.clean_name }}:::{{ parameter.name }}:::config-type"
+                                               value='{{ parameter.config_type|default:parameter.value_type }}'/>
                                     {% endfor %}
                                             </div>
                                 </fieldset>
@@ -89,8 +97,10 @@
                             <div style="display: grid">
                                 <label for="global-forcing-pattern" class="key-column">File Pattern:</label>
                                 <input type="text" value="*" class="value-column" id="global-forcing-pattern" name="global-forcing-pattern">
+                                <!--
                                 <label for="global-forcing-path" class="key-column">Path:</label>
                                 <input type="text" id="global-forcing-path" name="global-forcing-path" class="value-column">
+                                -->
                             </div>
                         </fieldset>
                         <script>
@@ -139,12 +149,15 @@
                                     <legend><b>{{ formulation.clean_name }} Parameters for {{ feature }}</b></legend>
                                     <div class="parameters" display="grid">
                                         {% for parameter in formulation.formulationparameter_set.all %}
-                                            <label for="{{ feature }}-{{ formulation.clean_name }}-{{ parameter.name }}" class="key-column">{{ parameter.name }}</label>
-                                            <input type="{{ parameter.value_type }}" id="{{ feature }}-{{ formulation.clean_name }}-{{ parameter.name }}"
+                                            <label for="{{ feature }}:::{{ formulation.clean_name }}:::{{ parameter.name }}" class="key-column">{{ parameter.name }}</label>
+                                            <input type="{{ parameter.value_type }}" id="{{ feature }}:::{{ formulation.clean_name }}:::{{ parameter.name }}"
                                                    title="{{ parameter.description }}" min='{{ parameter.minimum|default:"" }}'
                                                    max='{{ parameter.maximum|default:"" }}' value='{{ parameter.default_value|default:"" }}'
-                                                    name="{{ feature }}-{{ formulation.clean_name }}-{{ parameter.name }}"
+                                                    name="{{ feature }}:::{{ formulation.clean_name }}:::{{ parameter.name }}"
                                                    class="value-column">
+                                            <input type="hidden" id="{{ feature }}:::{{ formulation.clean_name }}:::{{ parameter.name }}:::config-type"
+                                                   name="{{ feature }}:::{{ formulation.clean_name }}:::{{ parameter.name }}:::config-type"
+                                                   value='{{ parameter.config_type|default:parameter.value_type }}'/>
                                         {% endfor %}
                                     </div>
                                 </fieldset>
@@ -154,8 +167,10 @@
                                 <div style="display: grid">
                                     <label for="{{ feature }}-forcing-pattern" class="key-column">File Pattern:</label>
                                     <input type="text" value="*" class="value-column" id="{{ feature }}-forcing-pattern" name="{{ feature }}-forcing-pattern">
+                                    <!--
                                     <label for="{{ feature }}-forcing-path" class="key-column">Path:</label>
                                     <input type="text" id="{{ feature }}-forcing-path" name="{{ feature }}-forcing-path" class="value-column">
+                                    -->
                                 </div>
                             </fieldset>
                             <script>
