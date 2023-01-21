@@ -1,7 +1,7 @@
 from uuid import uuid4
-from numbers import Number
-from pydantic import Field
-from typing import ClassVar, Dict, Optional, Union
+from pydantic import Field, Extra
+from typing import ClassVar, Dict, Optional, Type, Union
+from dmod.core.serializable import Serializable
 from .message import AbstractInitRequest, MessageEventType, Response
 from .maas_request import ExternalRequest
 
@@ -116,30 +116,43 @@ class PartitionRequest(AbstractInitRequest):
         return serial
 
 
+class PartitionResponseBody(Serializable):
+    data_id: Optional[str]
+    dataset_name: Optional[str]
+
+    class Config:
+        extra = Extra.allow
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.__dict__
+
+    def __getitem__(self, key: str):
+        return self.__dict__[key]
+
 class PartitionResponse(Response):
     """
     A response to a ::class:`PartitionRequest`.
 
     A successful response will contain the serialized partition representation within the ::attribute:`data` property.
     """
-    _DATA_KEY_DATASET_DATA_ID = 'data_id'
-    _DATA_KEY_DATASET_NAME = 'dataset_name'
-    response_to_type = PartitionRequest
+    data: PartitionResponseBody
+
+    response_to_type: ClassVar[Type[AbstractInitRequest]] = PartitionRequest
 
     @classmethod
     def factory_create(cls, dataset_name: Optional[str], dataset_data_id: Optional[str], reason: str, message: str = '',
                        data: Optional[dict] = None):
-        data_dict = {cls._DATA_KEY_DATASET_DATA_ID: dataset_data_id, cls._DATA_KEY_DATASET_NAME: dataset_name}
+        data_dict = {"data_id": dataset_data_id, "dataset_name": dataset_name}
         if data is not None:
             data_dict.update(data)
         return cls(success=(dataset_data_id is not None), reason=reason, message=message, data=data_dict)
 
-    def __init__(self, success: bool, reason: str, message: str = '', data: Optional[dict] = None):
-        if data is None:
-            data = {}
+    def __init__(self, success: bool, reason: str, message: str = '', data: Optional[Union[dict, PartitionResponseBody]] = None):
+        data = data if isinstance(data, PartitionResponseBody) else PartitionResponseBody(**data or {})
+
         if not success:
-            data[self._DATA_KEY_DATASET_DATA_ID] = None
-            data[self._DATA_KEY_DATASET_NAME] = None
+            data.data_id =  None
+            data.dataset_name =  None
         super().__init__(success=success, reason=reason, message=message, data=data)
 
     @property
@@ -152,7 +165,7 @@ class PartitionResponse(Response):
         Optional[str]
             The 'data_id' of the dataset where the partition config is saved when requests are successful.
         """
-        return self.data[self._DATA_KEY_DATASET_DATA_ID]
+        return self.data.data_id
 
     @property
     def dataset_name(self) -> Optional[str]:
@@ -164,11 +177,34 @@ class PartitionResponse(Response):
         Optional[str]
             The name of the dataset where the partitioning config is saved when requests are successful.
         """
-        return self.data[self._DATA_KEY_DATASET_NAME]
+        return self.data.dataset_name
 
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        serial = super(PartitionResponse, self).to_dict()
-        serial['class_name'] = self.__class__.__name__
+    def dict(
+        self,
+        *,
+        include: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        exclude: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        by_alias: bool = True, # Note this follows Serializable convention
+        skip_defaults: Optional[bool] = None,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False
+    ) -> Dict[str, Union[str, int]]:
+        class_name_in_exclude = exclude is not None and "class_name" in exclude
+
+        serial = super().dict(
+            include=include,
+            exclude=exclude,
+            by_alias=by_alias,
+            skip_defaults=skip_defaults,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
+        )
+
+        if not class_name_in_exclude:
+            serial["class_name"] = self.__class__.__name__
+
         return serial
 
 
@@ -181,4 +217,4 @@ class PartitionExternalRequest(PartitionRequest, ExternalRequest):
 
 class PartitionExternalResponse(PartitionResponse):
 
-    response_to_type = PartitionExternalRequest
+    response_to_type: ClassVar[Type[AbstractInitRequest]] = PartitionExternalRequest
