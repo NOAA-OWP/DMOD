@@ -597,6 +597,10 @@ function getGradeLetter(grade) {
 function getGradeColor(gradeLetter) {
     var color = null;
 
+    if (typeof gradeLetter == 'number') {
+        gradeLetter = getGradeLetter(gradeLetter);
+    }
+
     switch(gradeLetter) {
         case "A+":
         case "A":
@@ -619,6 +623,11 @@ function getGradeColor(gradeLetter) {
             color = "#ffc247";
             break;
         default:
+            if (gradeLetter != 'F') {
+                console.warn(`Defaulting to the color for F; ${gradeLetter} is not a valid letter grade.`);
+                var stackError = new Error();
+                console.warn(stackError.stack);
+            }
             color = "d12828";
     }
 

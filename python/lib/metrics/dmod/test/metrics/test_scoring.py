@@ -155,9 +155,9 @@ class TestScoring(unittest.TestCase):
 
         self.assertEqual(ordered_results[2], metric_results['Model 2'])
 
-        self.assertEqual(ordered_results[3], metric_results['Model 4'])
+        self.assertEqual(ordered_results[3], metric_results['Model 5'])
 
-        self.assertEqual(ordered_results[4], metric_results['Model 5'])
+        self.assertEqual(ordered_results[4], metric_results['Model 4'])
 
 
 def main():
