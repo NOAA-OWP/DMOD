@@ -154,7 +154,8 @@ class SchedulerRequestMessage(AbstractInitRequest):
 class SchedulerRequestResponse(Response):
 
     response_to_type: ClassVar[Type[AbstractInitRequest]] = SchedulerRequestMessage
-    data: SchedulerRequestResponseBody
+
+    data: Union[SchedulerRequestResponseBody, Dict[None, None], None]
 
     def __init__(self, job_id: Optional[int] = None, output_data_id: Optional[str] = None, data: dict = None, **kwargs):
         # TODO: how to handle if kwargs has success=True, but job_id value (as param or in data) implies success=False
@@ -172,13 +173,11 @@ class SchedulerRequestResponse(Response):
         if output_data_id is not None:
             data["output_data_id"] = output_data_id
 
-        data_body = SchedulerRequestResponseBody(**data if data is not None else {})
-
         # Ensure that 'success' is being passed as a kwarg to the superclass constructor
         if "success" not in kwargs:
-            kwargs["success"] = data is not None and data_body.job_id > 0
+            kwargs["success"] = data is not None and "job_id" in data and data["job_id"] > 0
 
-        super().__init__(data=data_body, **kwargs)
+        super().__init__(data=data, **kwargs)
 
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.success == other.success and self.job_id == other.job_id
@@ -202,3 +201,20 @@ class SchedulerRequestResponse(Response):
             The 'data_id' of the output dataset for requested job, or ``None`` if not known.
         """
         return self.data.output_data_id
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict) -> "SchedulerRequestResponse":
+        # TODO: remove in future. necessary for backwards compatibility
+        if isinstance(json_obj, SchedulerRequestResponse):
+            return json_obj
+
+        return super().factory_init_from_deserialized_json(json_obj=json_obj)
+
+    # NOTE: legacy support. previously this class was treated as a dictionary
+    def __contains__(self, element: str) -> bool:
+        return element in self.__dict__
+
+    # NOTE: legacy support. previously this class was treated as a dictionary
+    def __getitem__(self, item: str):
+        return self.__dict__[item]
+
