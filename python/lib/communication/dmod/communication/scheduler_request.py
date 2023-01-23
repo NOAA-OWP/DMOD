@@ -3,10 +3,9 @@ from .maas_request import ModelExecRequest, ModelExecRequestResponse
 from .maas_request.dmod_job_request import DmodJobRequest
 from .message import AbstractInitRequest, MessageEventType, Response
 from .scheduler_request_response_body import SchedulerRequestResponseBody, UNSUCCESSFUL_JOB
-from pydantic import Field, PrivateAttr
-from typing import ClassVar, Dict, List, Optional, Type, Union
+from pydantic import Field, PrivateAttr, validator
+from typing import ClassVar, Dict, Optional, Type, Union
 
-from dmod.core.meta_data import DataRequirement, DataFormat
 
 
 # TODO: #pydantic_rebase - Make sure everything is properly placed after changes to superclass
@@ -22,6 +21,12 @@ class SchedulerRequestMessage(DmodJobRequest):
     allocation_paradigm_: Optional[AllocationParadigm]
 
     _memory_unset: bool = PrivateAttr()
+
+    @validator("model_request", pre=True)
+    def _factory_init_model_request(cls, value):
+        if isinstance(value, ModelExecRequest):
+            return value
+        return ModelExecRequest.factory_init_correct_subtype_from_deserialized_json(value)
 
     class Config:
         fields = {
