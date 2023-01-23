@@ -2,7 +2,7 @@ from abc import ABC
 from numbers import Number
 from enum import Enum
 from typing import Any, Callable, ClassVar, Dict, Type, TypeVar, TYPE_CHECKING, Union, Optional
-from typing_extensions import TypeAlias
+from typing_extensions import Self, TypeAlias
 from pydantic import BaseModel, Field
 from functools import lru_cache
 import inspect
@@ -17,7 +17,6 @@ if TYPE_CHECKING:
         DictStrAny
     )
 
-Self = TypeVar("Self", bound="Serializable")
 M = TypeVar("M", bound="Serializable")
 T = TypeVar("T")
 R = Union[str, int, float, bool, None]
@@ -115,7 +114,7 @@ class Serializable(BaseModel, ABC):
         return invalid_type_msg
 
     @classmethod
-    def factory_init_from_deserialized_json(cls: Self, json_obj: dict) -> Optional[Self]:
+    def factory_init_from_deserialized_json(cls: Type[Self], json_obj: dict) -> Optional[Self]:
         """
         Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
 
