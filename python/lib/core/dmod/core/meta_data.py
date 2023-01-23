@@ -254,6 +254,18 @@ class ContinuousRestriction(Serializable):
     # validate variable is not UNKNOWN variant
     _validate_variable = validator("variable", allow_reuse=True)(_validate_variable_is_known)
 
+    class Config:
+        def _serialize_datetime(self: "ContinuousRestriction", value: datetime) -> str:
+            if self.datetime_pattern is not None:
+                return value.strftime(self.datetime_pattern)
+            return str(value)
+
+        field_serializers = {
+            "begin": _serialize_datetime,
+            "end": _serialize_datetime,
+            "subclass": lambda s: s.__class__.__name__
+            }
+
     def __eq__(self, o: object) -> bool:
         if not isinstance(o, ContinuousRestriction):
             return False
@@ -338,14 +350,6 @@ class ContinuousRestriction(Serializable):
             return False
         else:
            return self.begin <= other.begin and self.end >= other.end
-
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        serial = self.dict(exclude_none=True)
-        serial["subclass"] = self.__class__.__name__
-        if self.datetime_pattern is not None:
-            serial["begin"] = self.begin.strftime(self.datetime_pattern)
-            serial["end"] = self.end.strftime(self.datetime_pattern)
-        return serial
 
 
 class DiscreteRestriction(Serializable):
