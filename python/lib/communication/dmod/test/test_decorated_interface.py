@@ -153,7 +153,10 @@ class TestWebSocketInterface(WebSocketInterfaceTestBase):
             "model": {
                 "nwm": {
                     "config_data_id": "1",
-                    "data_requirements": [{"domain": {"data_format": "NWM_CONFIG", "continuous": [],
+                    "data_requirements": [{
+                        "category": "CONFIG",
+                        "is_input": True,
+                        "domain": {"data_format": "NWM_CONFIG", "continuous": [],
                                                       "discrete": [{"variable": "data_id", "values": ["1"]}]}}]
                 }
             },
