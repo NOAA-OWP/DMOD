@@ -268,10 +268,6 @@ class Dataset(Serializable):
 
         return super().dict(**kwargs)
 
-    #     # serialize uuid
-    #     serial["uuid"] = str(self.uuid)
-    #     return serial
-
 
 class DatasetUser(ABC):
     """
