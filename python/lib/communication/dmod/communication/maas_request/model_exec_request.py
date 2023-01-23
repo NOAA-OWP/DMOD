@@ -72,7 +72,10 @@ class ModelExecRequest(ExternalRequest, DmodJobRequest, ABC):
             A deserialized ::class:`ModelExecRequest` of the appropriate subtype.
         """
         try:
-            model_name = json_obj["model"]["name"]
+            model = json_obj["model"]
+
+            # TODO: remove logic once `nwm` ModelExecRequest changes where it store the model name.
+            model_name = model["name"] if "name" in model else "nwm"
             models = get_available_models()
 
             return models[model_name].factory_init_from_deserialized_json(json_obj)
