@@ -41,7 +41,7 @@ class QueryType(PydanticEnum):
 
 class DatasetQuery(Serializable):
 
-    query_file: QueryType
+    query_type: QueryType
 
     def __hash__(self):
         return hash(self.query_type)
