@@ -117,6 +117,7 @@ class Dataset(Serializable):
         # TODO: in future deprecate setting properties unless through a setter method
         validate_assignment = True
         arbitrary_types_allowed = True
+        field_serializers = {"uuid": lambda f: str(f)}
 
     def __hash__(self):
         return hash(','.join([self.__class__.__name__, self.name, self.category.name, str(hash(self.data_domain)),
@@ -265,11 +266,11 @@ class Dataset(Serializable):
         exclude = self._get_exclude_fields() if kwargs.get("exclude", False) is False else kwargs["exclude"]
         kwargs["exclude"] = exclude
 
-        serial = super().dict(**kwargs)
+        return super().dict(**kwargs)
 
-        # serialize uuid
-        serial["uuid"] = str(self.uuid)
-        return serial
+    #     # serialize uuid
+    #     serial["uuid"] = str(self.uuid)
+    #     return serial
 
 
 class DatasetUser(ABC):
