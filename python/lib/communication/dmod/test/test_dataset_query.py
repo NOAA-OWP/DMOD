@@ -10,7 +10,7 @@ class TestDatasetQuery(unittest.TestCase):
         self.examples = []
 
         self.ex_query_types.append(QueryType.LIST_FILES)
-        self.ex_json_data.append({DatasetQuery._KEY_QUERY_TYPE: 'LIST_FILES'})
+        self.ex_json_data.append({"query_type": 'LIST_FILES'})
         self.examples.append(DatasetQuery(query_type=QueryType.LIST_FILES))
 
     def test_factory_init_from_deserialized_json_0_a(self):
