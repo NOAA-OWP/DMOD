@@ -397,8 +397,8 @@ class ScoreDescription:
     def __init__(self, scores: typing.Sequence[Score]):
         self.__total: int = 0
         self.__maximum_metric_value: int = 0
-        self.__weight: int = None
-        self.__thresholds: typing.Dict[Threshold, dict] = dict()
+        self.__weight: typing.Optional[int] = None
+        self.__thresholds: typing.Dict[str, dict] = dict()
         self.__scaled_value: int = 0
         self.__metric_name = None
 
@@ -412,8 +412,10 @@ class ScoreDescription:
             self.__metric_name = score.metric.name
 
         self.__thresholds[score.threshold.name] = score.to_dict()
-        self.__maximum_metric_value += score.threshold.weight
-        self.__total += score.scaled_value
+
+        if not numpy.isnan(score.scaled_value):
+            self.__maximum_metric_value += score.threshold.weight
+            self.__total += score.scaled_value
 
     def update_scaled_value(self):
         if self.has_value:
