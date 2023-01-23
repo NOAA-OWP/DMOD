@@ -2,7 +2,7 @@ from dmod.core.execution import AllocationParadigm
 from .maas_request import ModelExecRequest
 from .message import AbstractInitRequest, MessageEventType, Response
 from .scheduler_request_response_body import SchedulerRequestResponseBody, UNSUCCESSFUL_JOB
-from pydantic import Field, PrivateAttr
+from pydantic import Field, PrivateAttr, validator
 from typing import ClassVar, Dict, Optional, Type, Union
 
 class SchedulerRequestMessage(AbstractInitRequest):
@@ -17,6 +17,12 @@ class SchedulerRequestMessage(AbstractInitRequest):
     allocation_paradigm_: Optional[AllocationParadigm]
 
     _memory_unset: bool = PrivateAttr()
+
+    @validator("model_request", pre=True)
+    def _factory_init_model_request(cls, value):
+        if isinstance(value, ModelExecRequest):
+            return value
+        return ModelExecRequest.factory_init_correct_subtype_from_deserialized_json(value)
 
     class Config:
         fields = {
