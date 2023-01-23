@@ -188,7 +188,8 @@ class TestDataDomain(unittest.TestCase):
         input_data_fields = {"a": "int", "b": "float", "c": "bool", "d": "str", "e": "flux_capacitor"}
         expected_serialized_data_fields = {"a": "int", "b": "float", "c": "bool", "d": "str", "e": "Any"}
         data = {
-            "data_format": "AORC_CSV",
+            # NOTE: NGEN_OUTPUT data_fields = None.
+            "data_format": "NGEN_OUTPUT",
             "continuous": [],
             "discrete": [{"variable": "DATA_ID", "values": ["0"]}],
         }
