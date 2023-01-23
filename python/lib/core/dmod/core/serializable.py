@@ -2,7 +2,10 @@ from abc import ABC
 from numbers import Number
 from enum import Enum
 from typing import Any, Callable, ClassVar, Dict, Type, TypeVar, TYPE_CHECKING, Union, Optional
+from typing_extensions import TypeAlias
 from pydantic import BaseModel, Field
+from functools import lru_cache
+import inspect
 import json
 
 from .decorators import deprecated
@@ -11,9 +14,17 @@ if TYPE_CHECKING:
     from pydantic.typing import (
         AbstractSetIntStr,
         MappingIntStrAny,
+        DictStrAny
     )
 
 Self = TypeVar("Self", bound="Serializable")
+M = TypeVar("M", bound="Serializable")
+T = TypeVar("T")
+R = Union[str, int, float, bool, None]
+
+FnSerializer: TypeAlias = Callable[[T], R]
+SelfFieldSerializer: TypeAlias = Callable[[M, T], R]
+FieldSerializer = Union[SelfFieldSerializer[M, Any], FnSerializer[Any]]
 
 
 class Serializable(BaseModel, ABC):
@@ -66,6 +77,37 @@ class Serializable(BaseModel, ABC):
     class Config:
         # fields can be populated using their given name or provided alias
         allow_population_by_field_name = True
+        field_serializers: Dict[str, FieldSerializer[M]] = {}
+        """
+        Mapping of field name to callable that changes the default serialized form of a field.
+        This is often helpful when a field requires a use case specific representation (i.e.
+        datetime) or is not JSON serializable.
+
+        Callables can be specified as either:
+            (value: T) -> R or
+            (self:  M, value: T) -> R
+        where:
+            T is the field type
+            M is an instance of the Serializable subtype
+            R is the, json serializable, return type of the transformation
+
+        Example:
+
+            class Observation(Serializable):
+                value: float
+                value_time: datetime.datetime
+                value_unit: str
+
+                class Config:
+                    field_serializers = {
+                        "value_time": lambda value_time: value_time.isoformat(timespec="seconds")
+                    }
+
+            o = Observation(value=42.0, value_time=datetime(2020, 1, 1), value_unit="m")
+            expect = {"value": 42.0, "value_time": "2020-01-01T00:00:00", "value_unit": "m"}
+
+            assert o.dict() == expect
+        """
 
     @classmethod
     def _get_invalid_type_message(cls):
@@ -224,6 +266,30 @@ class Serializable(BaseModel, ABC):
         """
         return self.dict(exclude_none=True, by_alias=True)
 
+    def dict(
+        self,
+        *,
+        include: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        exclude: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        by_alias: bool = False,
+        skip_defaults: Optional[bool] = None,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False,
+    ) -> "DictStrAny":
+        serial = super().dict(
+            include=include,
+            exclude=exclude,
+            by_alias=by_alias,
+            skip_defaults=skip_defaults,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
+        )
+
+        transformers = _collect_field_transformers(type(self))
+        return _transform_fields(self, transformers, serial, by_alias=by_alias)
+
     def __str__(self):
         return str(self.to_json())
 
@@ -316,3 +382,91 @@ class BasicResultIndicator(ResultIndicator):
     """
     Bare-bones, concrete implementation of ::class:`ResultIndicator`.
     """
+
+# NOTE: function below are intentionally not methods on `Serializable` to avoid subclasses
+# overriding their behavior.
+
+@lru_cache
+def _collect_field_transformers(cls: Type[M]) -> Dict[str, FieldSerializer[M]]:
+    transformers: Dict[str, FieldSerializer[M]] = {}
+
+    # base case
+    if cls == Serializable:
+        return transformers
+
+    super_classes = cls.__mro__
+    base_class_index = super_classes.index(Serializable)
+
+    # index 0 is the calling cls try and merge `field_serializers` from superclasses up until
+    # Base class (stopping condition). merge in reverse order of mro so child class
+    # `field_serializers` override superclasses `field_serializers`.
+    for s in super_classes[1:base_class_index][::-1]:
+        if not issubclass(s, Serializable):
+            continue
+
+        # doesn't have a Config class or Config.field_serializers
+        if not hasattr(s, "Config") and not hasattr(s.Config, "field_serializers"):
+            continue
+
+        transformers.update(_collect_field_transformers(s))
+
+    # has Config class and Config.field_serializers
+    if hasattr(cls, "Config") and hasattr(cls.Config, "field_serializers"):
+        transformers.update(cls.Config.field_serializers)
+
+    return transformers
+
+
+def _get_field_alias(cls: Type[M], field_name: str) -> str:
+    # NOTE: KeyError will raise if field_name does not exist
+    return cls.__fields__[field_name].alias
+
+
+def _transform_fields(
+    self: M,
+    transformers: Dict[str, FieldSerializer[M]],
+    serial: Dict[str, Any],
+    by_alias: bool = False,
+) -> Dict[str, Any]:
+    for field, transform in transformers.items():
+        if by_alias:
+            field = _get_field_alias(type(self), field)
+
+        if field not in serial:
+            # TODO: field could have been excluded. need to consider what to do if invalid
+            # serial key was provided.
+            continue
+
+        if not inspect.isfunction(transform):
+            error_message = (
+                f"non-callable field_transformer provided for field {field!r}."
+                "\n\n"
+                "field_transformers should be specified as either:"
+                "\n"
+                "\t(value: T) -> R\n"
+                "\t(self:  M, value: T) -> R\n"
+                "where:\n"
+                "\tT is the field type\n"
+                "\tM is an instance of the Serializable subtype\n"
+                "\tR is the, json serializable, return type of the transformation"
+            )
+            raise ValueError(error_message)
+
+        sig = inspect.signature(transform)
+
+        if len(sig.parameters) == 1:
+            serial[field] = transform(serial[field])
+
+        elif len(sig.parameters) == 2:
+            serial[field] = transform(self, serial[field])
+
+        else:
+            error_message = (
+                f"unsupported parameter length for field_transformer callable, {field!r}."
+                "\n\n"
+                "field_transformer's take either 1 or 2 parameters, (value: T) or (self, value: T),\n"
+                "where T is the type of the field."
+            )
+            raise RuntimeError(error_message)
+
+    return serial
