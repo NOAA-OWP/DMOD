@@ -3,7 +3,7 @@ from datetime import datetime
 from .enum import PydanticEnum
 from .serializable import Serializable
 from numbers import Number
-from typing import Any, Dict, List, Optional, Set, Type, Union
+from typing import Any, Dict, List, Literal, Optional, Set, Type, Union
 from collections.abc import Iterable
 from collections import OrderedDict
 from pydantic import root_validator, validator, PyObject, Field, StrictStr, StrictFloat, StrictInt
@@ -226,10 +226,19 @@ class ContinuousRestriction(Serializable):
     begin: datetime
     end: datetime
     datetime_pattern: Optional[str]
-    subclass: Optional[PyObject] = Field(exclude=True)
+    subclass: PyObject
 
     @root_validator(pre=True)
     def coerce_times_if_datetime_pattern(cls, values):
+        subclass_str = values.get("subclass")
+
+        if subclass_str is None:
+            values["subclass"] = cls
+
+        if isinstance(subclass_str, str):
+            if subclass_str == cls.__name__:
+                values["subclass"] = cls
+
         datetime_ptr = values.get("datetime_pattern")
 
         if datetime_ptr is not None:
@@ -263,7 +272,7 @@ class ContinuousRestriction(Serializable):
         field_serializers = {
             "begin": _serialize_datetime,
             "end": _serialize_datetime,
-            "subclass": lambda s: s.__class__.__name__
+            "subclass": lambda value: value.__name__
             }
 
     def __eq__(self, o: object) -> bool:
@@ -312,7 +321,7 @@ class ContinuousRestriction(Serializable):
 
                 if subclass_str == cls.__name__:
                     json_obj["subclass"] = cls
-                    return subclass(**json_obj)
+                    return cls(**json_obj)
 
                 for subclass in cls.__subclasses__():
                     if subclass.__name__ == subclass_str:
@@ -453,6 +462,12 @@ class DataDomain(Serializable):
                      "attribute that may be set during initialization (but is ignored when the format specifies fields)."),
         alias="data_fields"
     )
+
+    @validator("continuous_restrictions", pre=True, each_item=True)
+    def _factory_init_continuous_restrictions(cls, value):
+        if isinstance(value, ContinuousRestriction):
+            return value
+        return ContinuousRestriction.factory_init_from_deserialized_json(value)
 
     @validator("continuous_restrictions", "discrete_restrictions", always=True)
     def _validate_restriction_default(cls, value):
