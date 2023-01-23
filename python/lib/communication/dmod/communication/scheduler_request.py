@@ -154,7 +154,7 @@ class SchedulerRequestMessage(DmodJobRequest):
         exclude_none: bool = False
     ) -> Dict[str, Union[str, int]]:
         # Only including memory value in serial form if it was explicitly set in the first place
-        if not self.memory_unset:
+        if self.memory_unset:
             exclude = {"memory"} if exclude is None else {"memory", *exclude}
 
         return super().dict(
