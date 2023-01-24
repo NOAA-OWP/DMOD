@@ -2,8 +2,7 @@ from dmod.core.serializable import Serializable
 from pydantic import Extra
 from .message import AbstractInitRequest, MessageEventType, Response
 from pydantic import Field
-from typing import ClassVar, Dict, Optional, Type, Union
-from numbers import Number
+from typing import ClassVar, Type, Union
 from uuid import UUID
 
 
