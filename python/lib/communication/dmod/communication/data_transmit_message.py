@@ -13,36 +13,9 @@ class DataTransmitUUID(Serializable):
     The expectation is that a larger amount of data will be broken up into multiple messages in a series.
     """
 
-    def dict(
-        self,
-        *,
-        include: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
-        exclude: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
-        by_alias: bool = True, # Note this follows Serializable convention
-        skip_defaults: Optional[bool] = None,
-        exclude_unset: bool = False,
-        exclude_defaults: bool = False,
-        exclude_none: bool = False
-    ) -> Dict[str, Union[str, int]]:
-        SERIES_UUID_KEY = "series_uuid"
-        exclude = exclude or set()
-        series_uuid_in_exclude = SERIES_UUID_KEY in exclude
-        exclude.add(SERIES_UUID_KEY)
+    class Config:
+        field_serializers = {"series_uuid": lambda s: str(s)}
 
-        serial = super().dict(
-            include=include,
-            exclude=exclude,
-            by_alias=by_alias,
-            skip_defaults=skip_defaults,
-            exclude_unset=exclude_unset,
-            exclude_defaults=exclude_defaults,
-            exclude_none=exclude_none,
-        )
-
-        if not series_uuid_in_exclude:
-            serial[SERIES_UUID_KEY] = str(self.series_uuid)
-
-        return serial
 
 class DataTransmitMessage(DataTransmitUUID, AbstractInitRequest):
     """
