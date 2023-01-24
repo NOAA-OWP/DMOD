@@ -7,8 +7,9 @@ import ssl
 import sys
 import unittest
 from ..communication.message import MessageEventType
-from dmod.communication import ModelExecRequest, SessionInitMessage
-from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage
+from ..communication.maas_request import ModelExecRequest
+from ..communication.session import SessionInitMessage
+from ..communication.dataset_management_message import MaaSDatasetManagementMessage
 from ..communication.websocket_interface import NoOpHandler
 from pathlib import Path
 from socket import gethostname
