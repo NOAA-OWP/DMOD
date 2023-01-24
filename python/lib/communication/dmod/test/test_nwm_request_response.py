@@ -93,10 +93,11 @@ class TestNWMRequestResponse(unittest.TestCase):
     def test_factory_init_from_deserialized_json_2_e(self):
         """
         Test ``factory_init_from_deserialized_json()`` on raw string example 2 to make sure the deserialized object has
-        the expected dictionary value for ``data``.
+        the expected ModelExecRequestResponseBody value for ``data``. For legacy support, this can still be
+        treated like a dictionary.
         """
         obj = NWMRequestResponse.factory_init_from_deserialized_json(self.response_jsons[2])
-        self.assertEqual(obj.data.__class__, dict)
+        self.assertEqual(obj.data.__class__, ModelExecRequestResponseBody)
 
     def test_factory_init_from_deserialized_json_2_f(self):
         """
@@ -125,10 +126,11 @@ class TestNWMRequestResponse(unittest.TestCase):
     def test_factory_init_from_deserialized_json_2_i(self):
         """
         Test ``factory_init_from_deserialized_json()`` on raw string example 2 to make sure the deserialized object has
-        the expected dictionary value for ``data``, with the ``scheduler_response`` being of the right type.
+        the expected SchedulerRequestResponse value for ``data``, with the ``scheduler_response`` being of the right type.
+        For legacy support, ``SchedulerRequestResponse`` can still be treated as a dictionary.
         """
         obj = NWMRequestResponse.factory_init_from_deserialized_json(self.response_jsons[2])
-        self.assertEqual(obj.data['scheduler_response'].__class__, dict)
+        self.assertEqual(obj.data['scheduler_response'].__class__, SchedulerRequestResponse)
 
     def test_factory_init_from_deserialized_json_2_j(self):
         """
