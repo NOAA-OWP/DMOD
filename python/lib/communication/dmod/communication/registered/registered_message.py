@@ -5,8 +5,7 @@ implementations
 import abc
 import typing
 from numbers import Number
-from typing import Dict
-from typing import Union
+from typing import ClassVar, Dict, Union
 
 from ..message import AbstractInitRequest
 from ..message import MessageEventType
@@ -296,7 +295,7 @@ class FieldedMessage(AbstractInitRequest):
     """
     A message formed by dictated fields coming from subclasses
     """
-    event_type: MessageEventType = MessageEventType.INFORMATION_UPDATE
+    event_type: ClassVar[MessageEventType] = MessageEventType.INFORMATION_UPDATE
     """
     The event type for this message; this shouldn't have as much bearing on how to handle this message. 
     Use members and class type instead.
