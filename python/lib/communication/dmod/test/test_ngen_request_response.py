@@ -96,7 +96,7 @@ class TestNGENRequestResponse(unittest.TestCase):
         the expected dictionary value for ``data``.
         """
         obj = NGENRequestResponse.factory_init_from_deserialized_json(self.response_jsons[2])
-        self.assertEqual(obj.data.__class__, dict)
+        self.assertEqual(obj.data.__class__, ModelExecRequestResponseBody)
 
     def test_factory_init_from_deserialized_json_2_f(self):
         """
@@ -128,7 +128,7 @@ class TestNGENRequestResponse(unittest.TestCase):
         the expected dictionary value for ``data``, with the ``scheduler_response`` being of the right type.
         """
         obj = NGENRequestResponse.factory_init_from_deserialized_json(self.response_jsons[2])
-        self.assertEqual(obj.data['scheduler_response'].__class__, dict)
+        self.assertEqual(obj.data['scheduler_response'].__class__, SchedulerRequestResponse)
 
     def test_factory_init_from_deserialized_json_2_j(self):
         """
