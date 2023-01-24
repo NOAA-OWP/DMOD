@@ -112,3 +112,8 @@ schedulerservice/test/test_scheduler.py_old
 
 # Ignore testing-specific env files
 .test_env
+
+.DS_store
+*.db
+*.sqlite3
+*.log.*
