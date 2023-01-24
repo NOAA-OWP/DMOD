@@ -22,6 +22,6 @@ setup(
     license='',
     include_package_data=True,
     #install_requires=['websockets', 'jsonschema'],vi
-    install_requires=['dmod-core>=0.1.2', 'websockets>=8.1', 'jsonschema', 'redis'],
+    install_requires=['dmod-core>=0.1.2', 'websockets>=8.1', 'jsonschema', 'redis', 'pydantic'],
     packages=find_namespace_packages(include=['dmod.*'], exclude=['dmod.test'])
 )
