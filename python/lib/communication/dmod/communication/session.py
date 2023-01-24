@@ -67,6 +67,15 @@ class Session(Serializable):
         except: 
             return datetime.datetime.now()
 
+    class Config:
+        def _serialize_datetime(self: "Session", value: datetime.datetime) -> str:
+            return value.strftime(self.get_datetime_str_format())
+
+        field_serializers = {
+            "created": _serialize_datetime,
+            "last_accessed": _serialize_datetime,
+            }
+
     @classmethod
     def get_datetime_str_format(cls):
         return cls._DATETIME_FORMAT
@@ -180,39 +189,6 @@ class Session(Serializable):
         if not isinstance(attribute, str):
             return False
         return attribute in self.__fields__
-
-    def dict(
-        self,
-        *,
-        include: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
-        exclude: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
-        by_alias: bool = True, # Note this follows Serializable convention
-        skip_defaults: Optional[bool] = None,
-        exclude_unset: bool = False,
-        exclude_defaults: bool = False,
-        exclude_none: bool = False
-    ) -> Dict[str, Union[str, int]]:
-        _exclude = {"created", "last_accessed"}
-        if exclude is not None:
-            _exclude = {*_exclude, *exclude}
-
-        serial = super().dict(
-            include=include,
-            exclude=_exclude,
-            by_alias=by_alias,
-            skip_defaults=skip_defaults,
-            exclude_unset=exclude_unset,
-            exclude_defaults=exclude_defaults,
-            exclude_none=exclude_none,
-        )
-
-        if exclude is None or "created" not in exclude:
-            serial["created"] = self.created.strftime(self.get_datetime_str_format())
-
-        if exclude is None or "last_accessed" not in exclude:
-            serial["last_accessed"] = self.last_accessed.strftime(self.get_datetime_str_format())
-
-        return serial
 
 
 # TODO: work more on this later, when authentication becomes more important
