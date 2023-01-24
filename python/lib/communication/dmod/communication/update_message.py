@@ -52,6 +52,9 @@ class UpdateMessage(AbstractInitRequest):
             raise ValueError("`updated_data` must have at least one key.")
         return value
 
+    class Config:
+        field_serializers = {"object_type": lambda self, _: self.object_type_string}
+
     @classmethod
     def get_digest_key(cls) -> str:
         return cls.__fields__["digest"].alias
@@ -72,36 +75,6 @@ class UpdateMessage(AbstractInitRequest):
     def object_type_string(self) -> str:
         return '{}.{}'.format(self.object_type.__module__, self.object_type.__name__)
 
-    def dict(
-        self,
-        *,
-        include: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
-        exclude: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
-        by_alias: bool = True, # Note this follows Serializable convention
-        skip_defaults: Optional[bool] = None,
-        exclude_unset: bool = False,
-        exclude_defaults: bool = False,
-        exclude_none: bool = False
-    ) -> Dict[str, Union[str, int]]:
-        OBJECT_TYPE_KEY = "object_type"
-        exclude = exclude or set()
-        object_type_in_exclude = OBJECT_TYPE_KEY in exclude
-        exclude.add(OBJECT_TYPE_KEY)
-
-        serial = super().dict(
-            include=include,
-            exclude=exclude,
-            by_alias=by_alias,
-            skip_defaults=skip_defaults,
-            exclude_unset=exclude_unset,
-            exclude_defaults=exclude_defaults,
-            exclude_none=exclude_none,
-        )
-
-        if not object_type_in_exclude:
-            serial[OBJECT_TYPE_KEY] = self.object_type_string
-
-        return serial
 
 class UpdateMessageData(Serializable):
     digest: Optional[str]
