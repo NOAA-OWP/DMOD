@@ -1,7 +1,8 @@
 from uuid import uuid4
 from numbers import Number
 from typing import Optional, Union, Dict
-from .maas_request import AbstractInitRequest, ExternalRequest, MessageEventType, Response
+from .message import AbstractInitRequest, MessageEventType, Response
+from .maas_request import ExternalRequest
 
 
 # TODO: create separate "external" subtype if support for authenticated, session-based requests becomes necessary

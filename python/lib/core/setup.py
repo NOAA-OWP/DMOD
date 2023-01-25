@@ -1,9 +1,15 @@
 from setuptools import setup, find_namespace_packages
+from pathlib import Path
 
-with open('README.md', 'r') as readme:
-    long_description = readme.read()
+ROOT = Path(__file__).resolve().parent
 
-exec(open('dmod/core/_version.py').read())
+try:
+    with open(ROOT / 'README.md', 'r') as readme:
+        long_description = readme.read()
+except:
+    long_description = ''
+
+exec(open(ROOT / 'dmod/core/_version.py').read())
 
 setup(
     name='dmod-core',
@@ -14,6 +20,6 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=["pydantic"],
-    packages=find_namespace_packages(exclude=('tests', 'schemas', 'ssl', 'src'))
+    install_requires=[],
+    packages=find_namespace_packages(exclude=['dmod.test', 'schemas', 'ssl', 'src', 'pydantic'])
 )

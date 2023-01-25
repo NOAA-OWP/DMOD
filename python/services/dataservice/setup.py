@@ -1,9 +1,12 @@
 from setuptools import setup, find_namespace_packages
+from pathlib import Path
 
-with open('README.md', 'r') as readme:
+ROOT = Path(__file__).resolve().parent
+
+with open(ROOT / 'README.md', 'r') as readme:
     long_description = readme.read()
 
-exec(open('dmod/dataservice/_version.py').read())
+exec(open(ROOT / 'dmod/dataservice/_version.py').read())
 
 setup(
     name='dmod-dataservice',
@@ -16,5 +19,5 @@ setup(
     license='',
     install_requires=['dmod-core>=0.3.0', 'dmod-communication>=0.7.1', 'dmod-scheduler>=0.7.0', 'dmod-modeldata>=0.9.0',
                       'redis'],
-    packages=find_namespace_packages(exclude=('tests', 'test', 'deprecated', 'conf', 'schemas', 'ssl', 'src'))
+    packages=find_namespace_packages(exclude=['dmod.test', 'deprecated', 'conf', 'schemas', 'ssl', 'src'])
 )

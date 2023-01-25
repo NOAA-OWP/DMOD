@@ -1,12 +1,15 @@
 from setuptools import setup, find_namespace_packages
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
 
 try:
-    with open('README.md', 'r') as readme:
+    with open(ROOT / 'README.md', 'r') as readme:
         long_description = readme.read()
 except:
     long_description = ''
 
-exec(open('dmod/client/_version.py').read())
+exec(open(ROOT / 'dmod/client/_version.py').read())
 
 setup(
     name='dmod-client',
@@ -20,5 +23,5 @@ setup(
     include_package_data=True,
     #install_requires=['websockets', 'jsonschema'],vi
     install_requires=['dmod-core>=0.1.0', 'websockets>=8.1', 'pyyaml', 'dmod-communication>=0.7.0', 'dmod-externalrequests>=0.3.0'],
-    packages=find_namespace_packages(include=['dmod.*'], exclude=('tests'))
+    packages=find_namespace_packages(include=['dmod.*'], exclude=['dmod.test'])
 )

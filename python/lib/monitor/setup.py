@@ -1,12 +1,15 @@
 from setuptools import setup, find_namespace_packages
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
 
 try:
-    with open('README.md', 'r') as readme:
+    with open(ROOT / 'README.md', 'r') as readme:
         long_description = readme.read()
 except:
     long_description = ''
 
-exec(open('dmod/monitor/_version.py').read())
+exec(open(ROOT / 'dmod/monitor/_version.py').read())
 
 setup(
     name='dmod-monitor',
@@ -19,5 +22,5 @@ setup(
     license='',
     install_requires=['docker', 'Faker', 'dmod-core>=0.1.0', 'dmod-communication>=0.4.2', 'dmod-redis>=0.1.0',
                       'dmod-scheduler>=0.5.0'],
-    packages=find_namespace_packages(exclude=('test', 'src'))
+    packages=find_namespace_packages(exclude=['dmod.test', 'src'])
 )

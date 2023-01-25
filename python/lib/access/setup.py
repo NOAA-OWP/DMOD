@@ -1,12 +1,15 @@
 from setuptools import setup, find_namespace_packages
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
 
 try:
-    with open('README.md', 'r') as readme:
+    with open(ROOT / 'README.md', 'r') as readme:
         long_description = readme.read()
 except:
     long_description = ''
 
-exec(open('dmod/access/_version.py').read())
+exec(open(ROOT / 'dmod/access/_version.py').read())
 
 setup(
     name='dmod-access',
@@ -18,5 +21,5 @@ setup(
     url='',
     license='',
     install_requires=['websockets', 'dmod-communication>=0.4.2', 'dmod-redis>=0.1.0'],
-    packages=find_namespace_packages(exclude=('tests', 'schemas', 'ssl', 'src'))
+    packages=find_namespace_packages(exclude=['dmod.test', 'schemas', 'ssl', 'src'])
 )
