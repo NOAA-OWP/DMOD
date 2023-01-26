@@ -20,8 +20,8 @@ class SubsetDefinition(Serializable):
     def _sort_and_dedupe_fields(cls, value: Tuple[str]) -> Tuple[str]:
         return tuple(sorted(set(value)))
 
-    def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str]):
-        super().__init__(catchment_ids=catchment_ids, nexus_ids=nexus_ids)
+    def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str], **data):
+        super().__init__(catchment_ids=catchment_ids, nexus_ids=nexus_ids, **data)
 
     def __eq__(self, other: object):
         return (
