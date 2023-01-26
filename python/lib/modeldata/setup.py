@@ -29,6 +29,7 @@ setup(
         "minio",
         "aiohttp<=3.7.4",
         "hypy@git+https://github.com/NOAA-OWP/hypy@master#egg=hypy&subdirectory=python",
+        "gitpython",
     ],
     packages=find_namespace_packages(exclude=["dmod.test", "schemas", "ssl", "src"]),
 )
