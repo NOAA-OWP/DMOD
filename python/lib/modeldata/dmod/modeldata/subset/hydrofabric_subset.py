@@ -28,11 +28,11 @@ class HydrofabricSubset(SubsetDefinition, ABC):
         arbitrary_types_allowed = True
 
     def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str], hydrofabric: Hydrofabric, **data):
+        super().__init__(catchment_ids=catchment_ids, nexus_ids=nexus_ids, hydrofabric=hydrofabric, **data)
         if not self.validate_hydrofabric(hydrofabric):
             raise RuntimeError("Insufficient or wrongly formatted hydrofabric when trying to create {} object".format(
                 self.__class__.__name__
             ))
-        super().__init__(catchment_ids=catchment_ids, nexus_ids=nexus_ids, hydrofabric=hydrofabric, **data)
 
     def __eq__(self, other: object):
         if isinstance(other, self.__class__):
