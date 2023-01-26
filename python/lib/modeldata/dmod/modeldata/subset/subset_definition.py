@@ -13,11 +13,11 @@ class SubsetDefinition(Serializable):
     to be immutable.
     """
 
-    catchment_ids: Tuple[str]
-    nexus_ids: Tuple[str]
+    catchment_ids: Tuple[str, ...]
+    nexus_ids: Tuple[str, ...]
 
     @validator("catchment_ids", "nexus_ids")
-    def _sort_and_dedupe_fields(cls, value: Tuple[str]) -> Tuple[str]:
+    def _sort_and_dedupe_fields(cls, value: Tuple[str, ...]) -> Tuple[str, ...]:
         return tuple(sorted(set(value)))
 
     def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str], **data):
