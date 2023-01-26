@@ -1,6 +1,5 @@
-from numbers import Number
 from typing import Collection, Dict, FrozenSet, List, Tuple, Union
-from pydantic import Field
+from pydantic import Field, validator
 from dmod.core.serializable import Serializable
 
 
@@ -89,23 +88,20 @@ class PartitionConfig(Serializable):
     A type to easily encapsulate the JSON object that is output from the NextGen partitioner.
     """
 
-    _KEY_PARTITIONS = 'partitions'
+    partitions: FrozenSet[Partition]
 
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        try:
-            return PartitionConfig([Partition.factory_init_from_deserialized_json(serial_p) for serial_p in json_obj[cls._KEY_PARTITIONS]])
-        except:
-            return None
+    @validator("partitions")
+    def _sort_partitions(cls, value: FrozenSet[Partition]) -> FrozenSet[Partition]:
+        return frozenset(sorted(value))
 
     @classmethod
     def get_serial_property_key_partitions(cls) -> str:
-        return cls._KEY_PARTITIONS
+        return "partitions"
 
-    def __init__(self, partitions: Collection[Partition]):
-        self._partitions = frozenset(partitions)
+    def __init__(self, partitions: Collection[Partition], **data):
+        super().__init__(partitions=partitions, **data)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object):
         if not isinstance(other, PartitionConfig):
             return False
         other_partitions_dict = dict()
@@ -118,7 +114,7 @@ class PartitionConfig(Serializable):
                 return False
         return True
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         """
         Get the unique hash for this instance.
 
@@ -127,22 +123,8 @@ class PartitionConfig(Serializable):
 
         Returns
         -------
-
+        int
+            Hash of instance
         """
-        #
         return hash(','.join([str(p.__hash__()) for p in sorted(self._partitions)]))
 
-    @property
-    def partitions(self) -> List[Partition]:
-        """
-        Get the (sorted) list of partitions for this config.
-
-        Returns
-        -------
-        List[Partition]
-            The (sorted) list of partitions for this config.
-        """
-        return sorted(self._partitions)
-
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        return {self._KEY_PARTITIONS: [p.to_dict() for p in self.partitions]}
