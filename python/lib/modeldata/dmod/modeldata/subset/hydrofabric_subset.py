@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from hypy import Catchment, Nexus
 from typing import Collection, Optional, Set, Tuple
+from pydantic import PrivateAttr
 from ..hydrofabric import Hydrofabric
 from .subset_definition import SubsetDefinition
 
@@ -102,6 +103,9 @@ class SimpleHydrofabricSubset(HydrofabricSubset):
     Simple ::class:`HydrofabricSubset` type.
     """
 
+    _catchments: Set[Catchment] = PrivateAttr(default_factory=set)
+    _nexuses: Set[Nexus] = PrivateAttr(default_factory=set)
+
     @classmethod
     def factory_create_from_base_and_hydrofabric(cls, subset_def: SubsetDefinition, hydrofabric: Hydrofabric,
                                                  *args, **kwargs) \
@@ -130,13 +134,11 @@ class SimpleHydrofabricSubset(HydrofabricSubset):
                    *args, **kwargs)
 
     def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str], hydrofabric: Hydrofabric, **data):
-        self._catchments: Set[Catchment] = set()
-        self._nexuses: Set[Nexus] = set()
         super().__init__(catchment_ids=catchment_ids, nexus_ids=nexus_ids, hydrofabric=hydrofabric, **data)
         # Since super __init__ validates, and validate function make sure ids are recognized, these won't ever be None
-        for cid in catchment_ids:
+        for cid in self.catchment_ids:
             self._catchments.add(hydrofabric.get_catchment_by_id(cid))
-        for nid in nexus_ids:
+        for nid in self.nexus_ids:
             self._nexuses.add(hydrofabric.get_nexus_by_id(nid))
 
     @property
