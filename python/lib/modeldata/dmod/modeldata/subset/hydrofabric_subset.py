@@ -129,13 +129,10 @@ class SimpleHydrofabricSubset(HydrofabricSubset):
         return cls(catchment_ids=subset_def.catchment_ids, nexus_ids=subset_def.nexus_ids, hydrofabric=hydrofabric,
                    *args, **kwargs)
 
-    __slots__ = ["_catchments", "_nexuses"]
-
-    def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str], hydrofabric: Hydrofabric, *args,
-                 **kwargs):
+    def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str], hydrofabric: Hydrofabric, **data):
         self._catchments: Set[Catchment] = set()
         self._nexuses: Set[Nexus] = set()
-        super().__init__(catchment_ids, nexus_ids, hydrofabric)
+        super().__init__(catchment_ids=catchment_ids, nexus_ids=nexus_ids, hydrofabric=hydrofabric, **data)
         # Since super __init__ validates, and validate function make sure ids are recognized, these won't ever be None
         for cid in catchment_ids:
             self._catchments.add(hydrofabric.get_catchment_by_id(cid))
@@ -186,11 +183,11 @@ class SimpleHydrofabricSubset(HydrofabricSubset):
             otherwise.
         """
         if hydrofabric is None:
-            hydrofabric = self._hydrofabric
-        for cid in self._catchment_ids:
+            hydrofabric = self.hydrofabric
+        for cid in self.catchment_ids:
             if not hydrofabric.is_catchment_recognized(cid):
                 return False
-        for nid in self._nexus_ids:
+        for nid in self.nexus_ids:
             if not hydrofabric.is_nexus_recognized(nid):
                 return False
         return True
