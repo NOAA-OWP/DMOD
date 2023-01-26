@@ -1,5 +1,6 @@
 from numbers import Number
-from typing import Collection, Dict, FrozenSet, List, Union
+from typing import Collection, Dict, FrozenSet, List, Tuple, Union
+from pydantic import Field
 from dmod.core.serializable import Serializable
 
 
@@ -13,56 +14,60 @@ class Partition(Serializable):
     in the context of the related hydrofabric.
     """
 
-    __slots__ = ["_catchment_ids", "_hash_val", "_nexus_ids", "_partition_id", "_remote_downstream_nexus_ids",
-                 "_remote_upstream_nexus_ids"]
+    partition_id: int
+    catchment_ids: FrozenSet[str]
+    nexus_ids: FrozenSet[str]
+    """
+    Note that, at the time this is committed, partition ids should always be integers.  This is so they can easily
+    correspond to MPI ranks.  However, because of how the expected
+    """
+    remote_upstream_nexus_ids: FrozenSet[str] = Field(default_factory=frozenset)
+    remote_downstream_nexus_ids: FrozenSet[str] = Field(default_factory=frozenset)
 
-    _KEY_CATCHMENT_IDS = 'cat-ids'
-    _KEY_PARTITION_ID = 'id'
-    # Note that these need to be included in the JSON, but initially aren't actually used at the JSON level
-    _KEY_NEXUS_IDS = 'nex-ids'
-    _KEY_REMOTE_UPSTREAM_NEXUS_IDS = 'remote-up'
-    _KEY_REMOTE_DOWNSTREAM_NEXUS_IDS = 'remote-down'
-
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        try:
-            # TODO: later these may be required, but for now, keep optional
-            if cls._KEY_REMOTE_UPSTREAM_NEXUS_IDS in json_obj:
-                remote_up = json_obj[cls._KEY_REMOTE_UPSTREAM_NEXUS_IDS]
-            else:
-                remote_up = []
-            if cls._KEY_REMOTE_DOWNSTREAM_NEXUS_IDS in json_obj:
-                remote_down = json_obj[cls._KEY_REMOTE_UPSTREAM_NEXUS_IDS]
-            else:
-                remote_down = []
-            return Partition(catchment_ids=json_obj[cls._KEY_CATCHMENT_IDS], nexus_ids=json_obj[cls._KEY_NEXUS_IDS],
-                             remote_up_nexuses=remote_up, remote_down_nexuses=remote_down,
-                             partition_id=int(json_obj[cls._KEY_PARTITION_ID]))
-        except:
-            return None
+    class Config:
+        fields = {
+            "catchment_ids": {"alias": "cat-ids"},
+            "partition_id": {"alias": "id"},
+            "nexus_ids": {"alias": "nex-ids"},
+            "remote_up_nexuses": {"alias": "remote-up"},
+            "remote_down_nexuses": {"alias": "remote-down"},
+        }
 
     def __init__(self, partition_id: int, catchment_ids: Collection[str], nexus_ids: Collection[str],
-                 remote_up_nexuses: Collection[str] = tuple(), remote_down_nexuses: Collection[str] = tuple()):
-        self._partition_id = partition_id
-        self._catchment_ids = frozenset(catchment_ids)
-        self._nexus_ids = frozenset(nexus_ids)
-        self._remote_upstream_nexus_ids = frozenset(remote_up_nexuses)
-        self._remote_downstream_nexus_ids = frozenset(remote_down_nexuses)
+                 remote_up_nexuses: Collection[str] = None, remote_down_nexuses: Collection[str] = None, **data):
 
         self._hash_val = None
 
-    def __eq__(self, other):
+        if remote_up_nexuses is None or remote_down_nexuses is None:
+            super().__init__(
+                partition_id=partition_id,
+                catchment_ids=catchment_ids,
+                nexus_ids=nexus_ids,
+                **data
+            )
+            return
+
+        super().__init__(
+            partition_id=partition_id,
+            catchment_ids=catchment_ids,
+            nexus_ids=nexus_ids,
+            remote_upstream_nexus_ids=remote_up_nexuses,
+            remote_downstream_nexus_ids=remote_down_nexuses
+        )
+
+
+    def __eq__(self, other: object):
         if not isinstance(other, self.__class__) or other.partition_id != self.partition_id:
             return False
         else:
             return other.__hash__() == self.__hash__()
 
-    def __lt__(self, other):
+    def __lt__(self, other: "Partition"):
         # Go first by id, so this is clearly true
-        if self._partition_id < other._partition_id:
+        if self.partition_id < other.partition_id:
             return True
         # Again, going by id first, having greater id is also clear
-        elif self._partition_id > other._partition_id:
+        elif self.partition_id > other.partition_id:
             return False
         # Also can't be (strictly) less-than AND equal-to
         elif self == other:
@@ -78,90 +83,6 @@ class Partition(Serializable):
             cat_id_list.insert(0, str(self.partition_id))
             self._hash_val = hash(','.join(cat_id_list))
         return self._hash_val
-
-    @property
-    def catchment_ids(self) -> FrozenSet[str]:
-        """
-        Get the frozen set of ids for all catchments in this partition.
-
-        Returns
-        -------
-        Set[str]
-            The frozen set of string ids for all catchments in this partition.
-        """
-        return self._catchment_ids
-
-    @property
-    def nexus_ids(self) -> FrozenSet[str]:
-        """
-        Get the frozen set of ids for all nexuses in this partition.
-
-        Returns
-        -------
-        Set[str]
-            The frozen set of string ids for all nexuses in this partition.
-        """
-        return self._nexus_ids
-
-    @property
-    def partition_id(self) -> int:
-        """
-        Get the id of this partition.
-
-        Note that, at the time this is committed, partition ids should always be integers.  This is so they can easily
-        correspond to MPI ranks.  However, because of how the expected
-
-        Returns
-        -------
-        str
-            The id of this partition, as a string.
-        """
-        return self._partition_id
-
-    @property
-    def remote_downstream_nexus_ids(self) -> FrozenSet[str]:
-        """
-        Get the frozen set of ids for all remote downstream nexuses in this partition.
-
-        Returns
-        -------
-        Set[str]
-            The frozen set of string ids for all remote downstream nexuses in this partition.
-        """
-        return self._remote_downstream_nexus_ids
-
-    @property
-    def remote_upstream_nexus_ids(self) -> FrozenSet[str]:
-        """
-        Get the frozen set of ids for all remote upstream nexuses in this partition.
-
-        Returns
-        -------
-        Set[str]
-            The frozen set of string ids for all remote upstream nexuses in this partition.
-        """
-        return self._remote_upstream_nexus_ids
-
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        """
-        Get the instance represented as a dict (i.e., a JSON-like object).
-
-        Note that, as described in the main docstring for the class, there are extra keys in the dict/JSON currently
-        that don't correspond to any attributes of the instance.  This is for consistency with other tools.
-
-        Returns
-        -------
-        dict
-            The instance as a dict
-        """
-        return {
-            self._KEY_PARTITION_ID: str(self.partition_id),
-            self._KEY_CATCHMENT_IDS: list(self.catchment_ids),
-            self._KEY_NEXUS_IDS: list(self.nexus_ids),
-            self._KEY_REMOTE_UPSTREAM_NEXUS_IDS: list(self.remote_upstream_nexus_ids),
-            self._KEY_REMOTE_DOWNSTREAM_NEXUS_IDS: list(self.remote_downstream_nexus_ids)
-        }
-
 
 class PartitionConfig(Serializable):
     """
