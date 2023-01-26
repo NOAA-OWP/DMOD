@@ -49,7 +49,7 @@ class HydrofabricSubset(SubsetDefinition, ABC):
 
     @property
     @abstractmethod
-    def catchments(self) -> Tuple[Catchment]:
+    def catchments(self) -> Tuple[Catchment, ...]:
         """
         Get the associated catchments as ::class:`Catchment` objects.
 
@@ -62,7 +62,7 @@ class HydrofabricSubset(SubsetDefinition, ABC):
 
     @property
     @abstractmethod
-    def nexuses(self) -> Tuple[Nexus]:
+    def nexuses(self) -> Tuple[Nexus, ...]:
         """
         Get the associated nexuses as ::class:`Nexus` objects.
 
@@ -148,19 +148,19 @@ class SimpleHydrofabricSubset(HydrofabricSubset):
 
         Returns
         -------
-        Tuple[Catchment]
+        Tuple[Catchment, ...]
             The associated catchments as ::class:`Catchment` objects.
         """
         return tuple(self._catchments)
 
     @property
-    def nexuses(self) -> Tuple[Nexus]:
+    def nexuses(self) -> Tuple[Nexus, ...]:
         """
         Get the associated nexuses as ::class:`Nexus` objects.
 
         Returns
         -------
-        Tuple[Catchment]
+        Tuple[Catchment, ...]
             The associated nexuses as ::class:`Nexus` objects.
         """
         return tuple(self._nexuses)
