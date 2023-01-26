@@ -1,5 +1,5 @@
-from numbers import Number
-from typing import Collection, Tuple, Dict, Union
+from typing import Collection, Tuple
+from pydantic import validator
 from dmod.core.serializable import Serializable
 
 
@@ -13,33 +13,28 @@ class SubsetDefinition(Serializable):
     to be immutable.
     """
 
-    __slots__ = ["_catchment_ids", "_nexus_ids"]
+    catchment_ids: Tuple[str]
+    nexus_ids: Tuple[str]
 
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        try:
-            return cls(**json_obj)
-        except Exception as e:
-            return None
+    @validator("catchment_ids", "nexus_ids")
+    def _sort_and_dedupe_fields(cls, value: Tuple[str]) -> Tuple[str]:
+        return tuple(sorted(set(value)))
 
     def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str]):
-        self._catchment_ids = tuple(sorted(set(catchment_ids)))
-        self._nexus_ids = tuple(sorted(set(nexus_ids)))
+        super().__init__(catchment_ids=catchment_ids, nexus_ids=nexus_ids)
 
-    def __eq__(self, other):
-        return isinstance(other, SubsetDefinition) \
-               and self.catchment_ids == other.catchment_ids \
-               and self.nexus_ids == other.nexus_ids
+    def __eq__(self, other: object):
+        return (
+            isinstance(other, SubsetDefinition)
+            and self.catchment_ids == other.catchment_ids
+            and self.nexus_ids == other.nexus_ids
+        )
 
     def __hash__(self):
-        joined_cats = ','.join(self.catchment_ids)
-        joined_nexs = ','.join(self.nexus_ids)
-        joined_all = ','.join((joined_cats, joined_nexs))
+        joined_cats = ",".join(self.catchment_ids)
+        joined_nexs = ",".join(self.nexus_ids)
+        joined_all = ",".join((joined_cats, joined_nexs))
         return hash(joined_all)
-
-    @property
-    def catchment_ids(self) -> Tuple[str]:
-        return self._catchment_ids
 
     @property
     def id(self):
@@ -53,10 +48,3 @@ class SubsetDefinition(Serializable):
         The unique id of this instance.
         """
         return self.__hash__()
-
-    @property
-    def nexus_ids(self) -> Tuple[str]:
-        return self._nexus_ids
-
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        return {'catchment_ids': list(self.catchment_ids), 'nexus_ids': list(self.nexus_ids)}
