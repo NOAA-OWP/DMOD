@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from hypy import Catchment, Nexus
-from typing import Collection, Optional, Sequence, Set, Tuple, Union
+from typing import Collection, Optional, Set, Tuple
 from ..hydrofabric import Hydrofabric
 from .subset_definition import SubsetDefinition
 
@@ -22,17 +22,19 @@ class HydrofabricSubset(SubsetDefinition, ABC):
     made in the case of invalid objects.  In such cases, the hash is equal to the super class hash output plus ``1``.
     """
 
-    __slots__ = ["_hydrofabric"]
+    hydrofabric: Hydrofabric
 
-    def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str], hydrofabric: Hydrofabric):
-        super().__init__(catchment_ids=catchment_ids, nexus_ids=nexus_ids)
+    class Config:
+        arbitrary_types_allowed = True
+
+    def __init__(self, catchment_ids: Collection[str], nexus_ids: Collection[str], hydrofabric: Hydrofabric, **data):
         if not self.validate_hydrofabric(hydrofabric):
             raise RuntimeError("Insufficient or wrongly formatted hydrofabric when trying to create {} object".format(
                 self.__class__.__name__
             ))
-        self._hydrofabric = hydrofabric
+        super().__init__(catchment_ids=catchment_ids, nexus_ids=nexus_ids, hydrofabric=hydrofabric, **data)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object):
         if isinstance(other, self.__class__):
             return self.validate_hydrofabric() == other.validate_hydrofabric() and super().__eq__(other)
         else:
