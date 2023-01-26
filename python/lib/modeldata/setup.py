@@ -31,6 +31,7 @@ setup(
         "aiohttp<=3.7.4",
         "shapely>=2.0.0",
         "hypy@git+https://github.com/NOAA-OWP/hypy@master#egg=hypy&subdirectory=python",
+        "gitpython",
     ],
     packages=find_namespace_packages(exclude=["dmod.test", "schemas", "ssl", "src"]),
 )
