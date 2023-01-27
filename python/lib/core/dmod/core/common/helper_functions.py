@@ -266,18 +266,13 @@ def get_subclasses(base: typing.Type[_CLASS_TYPE]) -> typing.List[typing.Type[_C
     Returns:
         All implemented subclasses of a specified types
     """
-    subclasses = [
-        cls
-        for cls in base.__subclasses__()
-    ]
-
     concrete_classes = [
         subclass
-        for subclass in subclasses
+        for subclass in base.__subclasses__()
         if not inspect.isabstract(subclass)
     ]
 
-    for subclass in subclasses:
+    for subclass in base.__subclasses__():
         concrete_classes.extend([
             cls
             for cls in get_subclasses(subclass)
@@ -473,17 +468,16 @@ def order_dictionary(dictionary: typing.Mapping) -> dict:
     return ordered_dictionary
 
 
-def truncate_numbers_in_dictionary(dictionary: typing.Mapping, places: int, copy: bool = False) -> typing.Mapping:
-    if places is None or places <= 0:
+def truncate_numbers_in_dictionary(dictionary: dict, places: int, copy: bool = False) -> typing.Mapping:
+    if places <= 0:
         return dictionary
 
-    if copy:
-        dictionary = {key: value for key, value in dictionary.items()}
+    dictionary = dictionary.copy() if copy else dictionary
 
     for key, value in dictionary.items():
         if isinstance(value, numbers.Number) and "." in str(key):
             dictionary[key] = truncate(value, places)
-        elif isinstance(value, typing.Mapping):
+        elif isinstance(value, dict):
             dictionary[key] = truncate_numbers_in_dictionary(value, places, copy)
 
     return dictionary

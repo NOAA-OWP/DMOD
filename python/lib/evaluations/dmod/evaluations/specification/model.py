@@ -1341,7 +1341,16 @@ class CrosswalkSpecification(LoaderSpecification):
     """
 
     def validate(self) -> typing.Sequence[str]:
-        return list()
+        backend_validation = self._backend.validate()
+        validation_messages = list()
+
+        if backend_validation:
+            validation_messages.append(
+                f"The backend specification for the crosswalk specification is not valid: "
+                f"{', '.join(backend_validation)}"
+            )
+
+        return validation_messages
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         dictionary = {
@@ -1825,8 +1834,6 @@ class EvaluationResults:
     def to_dict(self, include_specification: bool = None) -> typing.Dict[str, typing.Any]:
         """
         Converts the results into a dictionary
-
-        Σ
 
         Args:
             include_specification: Whether to include the specifications for how to conduct the evaluation

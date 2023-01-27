@@ -1,6 +1,7 @@
 import os
 import typing
 import json
+import logging
 
 import pandas
 
@@ -373,7 +374,7 @@ class Evaluator:
                 suffixes=('_observation', '_prediction')
             )
         except ValueError as e:
-            print(str(e))
+            logging.error(str(e), stack_info=True, exc_info=e)
             left_types = {
                 key: {
                     type(val)
@@ -390,8 +391,9 @@ class Evaluator:
                 for key in join_right_on
             }
 
-            print(f"Can't merge data and predictions based on {str(left_types)} to {str(right_types)}, respectively")
-            raise
+            raise ValueError(
+                f"Can't merge data and predictions based on {str(left_types)} to {str(right_types)}, respectively"
+            ) from e
 
         self._communicators.info(
             "Finished joining observation and prediction data",

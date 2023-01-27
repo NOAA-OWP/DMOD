@@ -324,14 +324,14 @@ class Score(object):
     @property
     def grade(self) -> NUMBER:
         """
-        The performance of the score on a scale from 0 to 100
+        The normalized metric score on a scale from 0 to 100
         """
         return scale_value(self.__metric, self.__value) * 100.0
 
     @property
     def scaled_value(self) -> NUMBER:
         """
-        The value of the score as a fraction of the threshold's weight
+        The normalized metric score as a fraction of the threshold's weight
         """
         return scale_value(self.__metric, self.__value) * self.__threshold.weight
 
