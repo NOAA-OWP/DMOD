@@ -6,8 +6,8 @@ from dmod.core.execution import AllocationParadigm
 from dmod.communication import ExternalRequest, ModelExecRequest, NGENRequest, SchedulerRequestMessage
 from dmod.core.serializable import Serializable
 from dmod.core.meta_data import DataRequirement
+from dmod.core.enum import PydanticEnum
 from dmod.modeldata.hydrofabric import PartitionConfig
-from enum import Enum
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 from uuid import UUID
 from uuid import uuid4 as uuid_func
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 import logging
 
 
-class JobExecStep(Enum):
+class JobExecStep(PydanticEnum):
     """
     A component of a JobStatus, representing the particular step within a "phase" encoded within the current status.
 
@@ -133,7 +133,7 @@ class JobExecStep(Enum):
         return self._uid
 
 
-class JobExecPhase(Enum):
+class JobExecPhase(PydanticEnum):
     """
     A component of a JobStatus, representing the high level transition stage at which a status exists.
     """
