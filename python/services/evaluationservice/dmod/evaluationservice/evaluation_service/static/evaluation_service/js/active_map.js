@@ -23,7 +23,7 @@ function initializeActiveMap(elementID, options) {
 
     let mostRecentLayer = geometryGroup;
 
-    if (options == null) {
+    if (options === null) {
         options = {};
     }
 
@@ -109,8 +109,8 @@ function initializeActiveMap(elementID, options) {
             }
             else {
                 console.error(
-                    'Cannot add "' + handler + '" as an event handler for the map named "' + name +
-                    '"; there is no such function in the scope of the window'
+                    `Cannot add "${handler}" as an event handler for the map named "${name}";` +
+                    'there is no such function in the scope of the window'
                 )
             }
         }
