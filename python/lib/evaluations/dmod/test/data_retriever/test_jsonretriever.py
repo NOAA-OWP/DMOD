@@ -16,7 +16,7 @@ from ..common import get_resource_path
 from ..common import get_resource_directory
 
 TEST_FILE_PATH = str(os.path.join(get_resource_directory(), "cat-\d\d.json"))
-TEST_RESPONSE_PATH = str(get_resource_path("observations.json"))
+TEST_RESPONSE_PATH = str(get_resource_path("2015_observations.json"))
 
 
 class TestJSONRetrieving(unittest.TestCase):
