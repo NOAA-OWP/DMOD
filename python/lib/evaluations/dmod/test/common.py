@@ -20,21 +20,42 @@ def get_resource_directory() -> pathlib.Path:
 
 
 def get_resource_path(resource_name: str) -> pathlib.Path:
+    possible_matches: typing.Dict[str, pathlib.Path] = dict()
+
     for current_directory, contained_directories, contained_files in os.walk(get_resource_directory()):
         for contained_file in contained_files:
             if resource_name == contained_file:
-                return pathlib.Path(os.path.join(current_directory, contained_file)).absolute()
+                possible_matches[contained_file] = pathlib.Path(os.path.join(current_directory, contained_file)).absolute()
+                continue
 
             full_name = os.path.join(current_directory, contained_file)
 
             if full_name.endswith(resource_name):
-                return pathlib.Path(full_name).absolute()
+                possible_matches[contained_file] = pathlib.Path(full_name).absolute()
+                continue
 
             absolute_full_name = os.path.join(*pathlib.Path(full_name).absolute().parts)
 
             if absolute_full_name.endswith(resource_name):
-                return pathlib.Path(absolute_full_name)
-    raise KeyError(f"There are no resources named '{resource_name}'")
+                possible_matches[contained_file] = pathlib.Path(absolute_full_name)
+
+    if len(possible_matches) == 0:
+        raise KeyError(f"There are no resources named '{resource_name}'")
+
+    closest_file = None
+    closest_difference: int = 0
+
+    for filename in possible_matches:
+        difference = len(filename.replace(resource_name, ""))
+
+        if closest_file is None or difference < closest_difference:
+            closest_file = filename
+            closest_difference = difference
+
+        if difference == 0:
+            break
+
+    return possible_matches[closest_file]
 
 
 RESOURCE_DIRECTORY = get_resource_directory()
