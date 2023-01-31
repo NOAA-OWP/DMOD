@@ -418,9 +418,20 @@ class Launcher(SimpleDockerUtil):
             docker_cmd_args.append(bmi_config_dataset_names[0])
 
             # $9 is the name of the partition config dataset (which will imply a directory location)
-            partition_config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1,
-                                                                   data_format=DataFormat.NGEN_PARTITION_CONFIG)
-            docker_cmd_args.append(partition_config_dataset_names[0])
+            # TODO: this probably will eventually break things if $10 is added for calibration config dataset
+            # TODO: need to overhaul entrypoint for ngen and ngen-calibration images with flag-based args
+            if job.cpu_count > 1:
+                partition_config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG,
+                                                                       max_count=1,
+                                                                       data_format=DataFormat.NGEN_PARTITION_CONFIG)
+                docker_cmd_args.append(partition_config_dataset_names[0])
+
+            # $10 is the name of the calibration config dataset (which will imply a directory location)
+            # TODO: this *might* need to be added depending on how we decide to handle calibration
+            # configs. meaning if they are datasets or not.
+            # calibration_config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1,
+            #                                                     data_format=DataFormat.NGEN_CAL_CONFIG)
+            # docker_cmd_args.append(calibration_config_dataset_names[0])
 
             # Also do a sanity check here to ensure there is at least one forcing dataset
             self._ds_names_helper(job, worker_index, DataCategory.FORCING)
@@ -492,7 +503,6 @@ class Launcher(SimpleDockerUtil):
         """
         if isinstance(job.model_request, NGENRequest):
             return "127.0.0.1:5000/ngen:latest"
-        # For now, this is the only thing supported
         else:
             msg = "Unable to determine correct scheduler image for job {} with request of {} type"
             raise DmodRuntimeError(msg.format(job.job_id, job.model_request.__class__.__name__))
