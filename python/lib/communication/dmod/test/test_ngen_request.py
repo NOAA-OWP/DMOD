@@ -2,7 +2,7 @@ import json
 import unittest
 from ..communication.maas_request import NGENRequest, NGENRequestResponse
 from ..test.test_ngen_request_response import TestNGENRequestResponse
-from dmod.core.meta_data import TimeRange
+from dmod.core.meta_data import DataFormat, TimeRange
 
 
 class TestNGENRequest(unittest.TestCase):
@@ -95,6 +95,39 @@ class TestNGENRequest(unittest.TestCase):
                         bmi_cfg_data_id='02468',
                         catchments=cat_ids_list))
 
+        # Example 2 - like example 0, but with a CPU count of 1 (which should not require partitioning)
+        time_range = create_time_range('2022-01-01 00:00:00', '2022-03-01 00:00:00')
+        cpu_count_ex_2 = 1
+        self.time_ranges.append(time_range)
+        self.request_strings.append(
+            '{"model": {"allocation_paradigm": "SINGLE_NODE", "bmi_config_data_id": "02468", "config_data_id": "02468", '
+            '"cpu_count": ' + str(cpu_count_ex_2) + ', "hydrofabric_data_id": "9876543210", '
+            '"hydrofabric_uid": "0123456789", "name": "ngen", "time_range": ' + time_range.to_json() + '}, '
+            '"session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}'
+        )
+        self.request_jsons.append({
+            'model': {
+                'name': 'ngen',
+                'allocation_paradigm': 'SINGLE_NODE',
+                'cpu_count': cpu_count_ex_2,
+                'time_range': time_range.to_dict(),
+                'hydrofabric_data_id': '9876543210',
+                'hydrofabric_uid': '0123456789',
+                'bmi_config_data_id': '02468',
+                'config_data_id': '02468'
+            },
+            'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
+        })
+        self.request_objs.append(
+            NGENRequest(session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
+                        cpu_count=cpu_count_ex_2,
+                        allocation_paradigm='SINGLE_NODE',
+                        time_range=time_range,
+                        hydrofabric_uid="0123456789",
+                        hydrofabric_data_id='9876543210',
+                        bmi_cfg_data_id='02468',
+                        config_data_id='02468'))
+
     def test_factory_init_from_deserialized_json_0_a(self):
         """
         Assert that :meth:`NGENRequest.factory_init_from_deserialized_json` produces an equal object to the
@@ -141,6 +174,28 @@ class TestNGENRequest(unittest.TestCase):
         json_obj = json.loads(example_str)
         obj = NGENRequest.factory_init_correct_response_subtype(json_obj)
         self.assertEqual(obj.__class__, NGENRequestResponse)
+
+    def test_data_requirements_0_a(self):
+        example_index = 0
+        obj = self.request_objs[example_index]
+        self.assertIsNotNone(obj.partition_cfg_data_requirement)
+
+    def test_data_requirements_0_b(self):
+        example_index = 0
+        obj = self.request_objs[example_index]
+        partition_reqs = [r for r in obj.data_requirements if r.domain.data_format == DataFormat.NGEN_PARTITION_CONFIG]
+        self.assertEqual(len(partition_reqs), 1)
+
+    def test_data_requirements_2_a(self):
+        example_index = 2
+        obj = self.request_objs[example_index]
+        self.assertIsNone(obj.partition_cfg_data_requirement)
+
+    def test_data_requirements_2_b(self):
+        example_index = 2
+        obj = self.request_objs[example_index]
+        partition_reqs = [r for r in obj.data_requirements if r.domain.data_format == DataFormat.NGEN_PARTITION_CONFIG]
+        self.assertEqual(len(partition_reqs), 0)
 
     def test_to_dict_0_a(self):
         """
