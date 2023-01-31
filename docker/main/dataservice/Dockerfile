@@ -1,6 +1,6 @@
 ARG docker_internal_registry
 ################################################################################################################
-FROM ${docker_internal_registry}/dmod-py-sources as sources
+FROM ${docker_internal_registry}/dmod-py-sources:latest as sources
 
 ################################################################################################################
 FROM python:3.8-alpine3.15

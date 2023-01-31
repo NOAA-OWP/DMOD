@@ -1,5 +1,5 @@
 ARG docker_internal_registry
-FROM ${docker_internal_registry}/dmod-py-deps as basis
+FROM ${docker_internal_registry}/dmod-py-deps:latest as basis
 # Copy these needed for sourced functions used by build scripts in later stages
 RUN mkdir -p /dmod/scripts/shared
 COPY ./scripts/dist_package.sh /dmod/scripts
