@@ -143,6 +143,52 @@ class DataFormat(PydanticEnum):
     # TODO: need format specifically for Nextgen model output (i.e., for evaluations)
 
     @classmethod
+    def can_format_fulfill(cls, needed: 'DataFormat', alternate: 'DataFormat') -> bool:
+        """
+        Test whether data in an alternate format is capable of satisfying requirements of some other format.
+
+        This function indicates whether data in one format (the alternate format) is compatible with requirements
+        specified using a different format (the needed format).  It is an indication of whether data is **potentially**
+        capable of satisfying a requirement - even if the data formats of the two are not the same - due to the two
+        formats being sufficiently similar.
+
+        For example, the NextGen framework can support forcings in either CSV or NetCDF formats, represented as
+        ``AORC_CSV`` and ``NETCDF_FORCING_CANONICAL`` respectively.  A job to execute NextGen would include a forcing
+        ::class:`DataRequirement` associated (albeit indirectly) with a particular format, with that being one of the
+        aforementioned values.  However, even if the ``AORC_CSV`` data format was in the requirement, data in the
+        ``NETCDF_FORCING_CANONICAL`` format would be perfectly satisfactory (assuming it otherwise provided what the
+        job needed).
+
+        Note that the following **is not guaranteed** for all values of ``f_1`` and ``f_2`` (though it will often be the
+        case):
+
+            ``can_format_fulfill(needed=f_1, alternate=f_2) == can_format_fulfill(needed=f_2, alternate=f_1)``
+
+        It is guaranteed that ``can_format_fulfill(needed=f_1, alternate=f_1)`` is ``True``.
+
+        Parameters
+        ----------
+        needed : DataFormat
+            The format defined by some requirement.
+        alternate : DataFormat
+            An alternate format for data.
+
+        Returns
+        -------
+        bool
+            Whether the alternate format is compatible with the needed format.
+        """
+        # Always return True for when the params are the same format
+        if needed == alternate:
+            return True
+        # For these forcing formats, they will all be compatible with each other
+        compatible_forcing_formats = {cls.AORC_CSV, cls.NETCDF_FORCING_CANONICAL, cls.NETCDF_AORC_DEFAULT}
+        if needed in compatible_forcing_formats and alternate in compatible_forcing_formats:
+            return True
+        # Anything else, they are compatible
+        return False
+
+    @classmethod
     def get_for_name(cls, name_str: str) -> Optional['DataFormat']:
         cleaned_up_str = name_str.strip().upper()
         for value in cls:
@@ -642,7 +688,7 @@ class DataDomain(Serializable):
             return self._extends_continuous_restriction(other)
         elif isinstance(other, DiscreteRestriction):
             return self._extends_discrete_restriction(other)
-        elif self.data_format != other.data_format:
+        elif not DataFormat.can_format_fulfill(needed=other.data_format, alternate=self.data_format):
             return False
         else:
             for index in other.continuous_restrictions:
