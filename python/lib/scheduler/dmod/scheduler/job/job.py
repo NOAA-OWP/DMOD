@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from numbers import Number
+from pydantic import Field, validator, root_validator
+from pydantic.fields import ModelField
+from warnings import warn
 
 from dmod.core.execution import AllocationParadigm
 from dmod.communication import ExternalRequest, ModelExecRequest, NGENRequest, SchedulerRequestMessage
@@ -8,7 +11,7 @@ from dmod.core.serializable import Serializable
 from dmod.core.meta_data import DataRequirement
 from dmod.core.enum import PydanticEnum
 from dmod.modeldata.hydrofabric import PartitionConfig
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 from uuid import UUID
 from uuid import uuid4 as uuid_func
 
@@ -220,12 +223,27 @@ class JobStatus(Serializable):
     """
     _NAME_DELIMITER = ':'
 
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict) -> 'JobStatus':
-        try:
-            cls(phase=JobExecPhase.get_for_name(json_obj['phase']), step=JobExecStep.get_for_name(json_obj['step']))
-        except:
-            return None
+    # NOTE: `None` is valid input, default value for field will be used.
+    phase: Optional[JobExecPhase] = Field(JobExecPhase.UNKNOWN)
+    # NOTE: field value will be derived from `phase` field if field is unset or None.
+    step: Optional[JobExecStep]
+
+    @validator("phase", pre=True)
+    def _set_default_phase_if_none(cls, value: Optional[JobExecPhase], field: ModelField) -> JobExecPhase:
+        if value is None:
+            return field.default
+
+        return value
+
+    @validator("step", always=True)
+    def _set_default_or_derived_step_if_none(cls, value: Optional[JobExecStep], values: Dict[str, JobExecPhase]) -> JobExecStep:
+        # implicit assertion that `phase` key has already been processed by it's validator
+        phase: JobExecPhase = values["phase"]
+
+        if value is None:
+            return phase.default_start_step
+
+        return value
 
     @classmethod
     def get_for_name(cls, name: str) -> 'JobStatus':
@@ -258,26 +276,20 @@ class JobStatus(Serializable):
         if len(parsed_list) != 2:
             return JobStatus(JobExecPhase.UNKNOWN, JobExecStep.DEFAULT)
 
-        return JobStatus(phase=JobExecPhase.get_for_name(parsed_list[0]),
-                         step=JobExecStep.get_for_name(parsed_list[1]))
+        phase, step = parsed_list
+        return JobStatus(phase=phase, step=step)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, JobStatus):
             return self.job_exec_phase == other.job_exec_phase and self.job_exec_step == other.job_exec_step
         else:
             return False
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.name)
 
-    def __init__(self, phase: Optional[JobExecPhase], step: Optional[JobExecStep] = None):
-        self._phase = JobExecPhase.UNKNOWN if phase is None else phase
-        if step is not None:
-            self._step = step
-        elif self._phase is not None:
-            self._step = self._phase.default_start_step
-        else:
-            self._step = JobExecStep.DEFAULT
+    def __init__(self, phase: Optional[JobExecPhase], step: Optional[JobExecStep] = None, **data):
+        super().__init__(phase=phase, step=step, **data)
 
     def get_for_new_step(self, step: JobExecStep) -> 'JobStatus':
         """
@@ -316,21 +328,15 @@ class JobStatus(Serializable):
 
     @property
     def job_exec_phase(self) -> JobExecPhase:
-        return self._phase
+        return self.phase
 
     @property
     def job_exec_step(self) -> JobExecStep:
-        return self._step
+        return self.step
 
     @property
     def name(self) -> str:
         return self.job_exec_phase.name + self._NAME_DELIMITER + self.job_exec_step.name
-
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        serial = dict()
-        serial['phase'] = self.job_exec_phase.name
-        serial['step'] = self.job_exec_step.name
-        return serial
 
 
 class Job(Serializable, ABC):
