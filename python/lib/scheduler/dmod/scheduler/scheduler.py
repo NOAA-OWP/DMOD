@@ -418,40 +418,13 @@ class Launcher(SimpleDockerUtil):
             docker_cmd_args.append(bmi_config_dataset_names[0])
 
             # $9 is the name of the partition config dataset (which will imply a directory location)
-            partition_config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1,
-                                                                   data_format=DataFormat.NGEN_PARTITION_CONFIG)
-            docker_cmd_args.append(partition_config_dataset_names[0])
-
-            # Also do a sanity check here to ensure there is at least one forcing dataset
-            self._ds_names_helper(job, worker_index, DataCategory.FORCING)
-
-        if isinstance(job.model_request, NgenCalibrationRequest):
-            # $4 is the worker index (where index 0 is assumed to be the lead node)
-            docker_cmd_args.append(str(worker_index))
-
-            # $5 is the name of the output dataset (which will imply a directory location)
-            output_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.OUTPUT, max_count=1)
-                                                        #  data_format=DataFormat.NGEN_CAL_OUTPUT) # not sure if this line if required or not
-            docker_cmd_args.append(output_dataset_names[0])
-
-            # $6 is the name of the hydrofabric dataset (which will imply a directory location)
-            hydrofabric_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.HYDROFABRIC, max_count=1)
-            docker_cmd_args.append(hydrofabric_dataset_names[0])
-
-            # $7 is the name of the realization configuration dataset (which will imply a directory location)
-            realization_cfg_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1,
-                                                                  data_format=DataFormat.NGEN_REALIZATION_CONFIG)
-            docker_cmd_args.append(realization_cfg_dataset_names[0])
-
-            # $8 is the name of the BMI config dataset (which will imply a directory location)
-            bmi_config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1,
-                                                             data_format=DataFormat.BMI_CONFIG)
-            docker_cmd_args.append(bmi_config_dataset_names[0])
-
-            # $9 is the name of the partition config dataset (which will imply a directory location)
-            partition_config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1,
-                                                                   data_format=DataFormat.NGEN_PARTITION_CONFIG)
-            docker_cmd_args.append(partition_config_dataset_names[0])
+            # TODO: this probably will eventually break things if $10 is added for calibration config dataset
+            # TODO: need to overhaul entrypoint for ngen and ngen-calibration images with flag-based args
+            if job.cpu_count > 1:
+                partition_config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG,
+                                                                       max_count=1,
+                                                                       data_format=DataFormat.NGEN_PARTITION_CONFIG)
+                docker_cmd_args.append(partition_config_dataset_names[0])
 
             # $10 is the name of the calibration config dataset (which will imply a directory location)
             # TODO: this *might* need to be added depending on how we decide to handle calibration
@@ -533,7 +506,7 @@ class Launcher(SimpleDockerUtil):
         # In the future, we should refactor this so this method doesn't need to know about this
         # subclass relationship.
 
-        # TODO: move registry name into environment variable other other more appropriate place
+        # TODO: move registry name into environment variable or other more appropriate place
         if isinstance(job.model_request, NgenCalibrationRequest):
             return "127.0.0.1:5000/ngen-cal:latest"
 
