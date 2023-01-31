@@ -953,7 +953,7 @@ class ServiceManager(WebSocketInterface):
                     logging.info("All required data for {} is available.".format(job.job_id))
                     # Before moving to next successful step, also create output datasets and requirement entries
                     self._create_output_datasets(job)
-                    job.status_step = JobExecStep.AWAITING_PARTITIONING
+                    job.status_step = JobExecStep.AWAITING_PARTITIONING if job.cpu_count > 1 else JobExecStep.AWAITING_ALLOCATION
                 else:
                     logging.error("Some or all required data for {} is unprovideable.".format(job.job_id))
                     job.status_step = JobExecStep.DATA_UNPROVIDEABLE
