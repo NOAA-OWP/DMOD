@@ -989,28 +989,46 @@ class ServiceManager(WebSocketInterface):
         # Keep track of a few things for logging purposes
         datasets_count_match_category = 0
         datasets_count_match_format = 0
+        # Keep those of the right category but wrong format, in case one is needed and satisfactory
+        potentially_compatible_alternates: List[Dataset] = []
 
         for name, dataset in self.get_known_datasets().items():
             # Skip anything with the wrong category
             if dataset.category != requirement.category:
                 continue
-            else:
-                datasets_count_match_category += 1
 
-            # ... or a different format
+            # Keep track of how many of the right category there were for error purposes
+            datasets_count_match_category += 1
+
+            # Skip (for now at least) anything with a different format (though set aside if potentially compatible)
             if dataset.data_format != requirement.domain.data_format:
+                # Check if this format could fulfill
+                if DataFormat.can_format_fulfill(needed=requirement.domain.data_format, alternate=dataset.data_format):
+                    # We will return to examine these if no dataset qualifies that has the exact format in requirement
+                    potentially_compatible_alternates.append(dataset)
                 continue
-            else:
-                datasets_count_match_format += 1
 
+            # When a dataset matches, keep track for error counts, and then test to see if it qualifies
+            datasets_count_match_format += 1
+            # TODO: need additional test of some kind for cases when the requirement specifies "any" (e.g., "any"
+            #  catchment (from hydrofabric) in realization config, for finding a forcing dataset)
             if dataset.data_domain.contains(requirement.domain):
                 return dataset
+
+        # At this point, no datasets qualify against the exact domain (including format) of the requirement
+        # However, before failing, check if any have different, but compatible format, and otherwise qualify
+        for dataset in potentially_compatible_alternates:
+            if dataset.data_domain.contains(requirement.domain):
+                return dataset
+
+        # Before failing, treat the count of alternates as being of the same format, for error messaging purposes
+        datasets_count_match_format += len(potentially_compatible_alternates)
 
         if datasets_count_match_category == 0:
             msg = "Could not fill requirement for '{}': no datasets for this category"
             logging.error(msg.format(requirement.category.name))
         elif datasets_count_match_format == 0:
-            msg = "Could not fill requirement with '{}' format domain: no datasets found this format"
+            msg = "Could not fill requirement with '{}' format domain: no datasets found this (or compatible) format"
             logging.error(msg.format(requirement.domain.data_format.name))
         else:
             msg = "Could not find dataset meeting all restrictions of requirement: {}"
