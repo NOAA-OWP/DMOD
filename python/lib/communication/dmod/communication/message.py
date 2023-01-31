@@ -92,8 +92,8 @@ class AbstractInitRequest(Message, ABC):
     interactions.
     """
 
-    def __int__(self, *args, **kwargs):
-        super(AbstractInitRequest, self).__int__(*args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super(AbstractInitRequest, self).__init__(*args, **kwargs)
 
 
 class Response(ResultIndicator, Message, ABC):
