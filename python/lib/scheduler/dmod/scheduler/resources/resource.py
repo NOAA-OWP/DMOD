@@ -2,14 +2,16 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Dict, Optional, Tuple, Type, Union
 
+from dmod.core.enum import PydanticEnum
 
-class ResourceAvailability(Enum):
+
+class ResourceAvailability(PydanticEnum):
     ACTIVE = 1,
     INACTIVE = 2,
     UNKNOWN = -1
 
 
-class ResourceState(Enum):
+class ResourceState(PydanticEnum):
     READY = 1
     NOT_READY = 2,
     UNKNOWN = -1
