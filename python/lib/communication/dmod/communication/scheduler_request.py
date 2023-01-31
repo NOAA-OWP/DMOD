@@ -1,10 +1,13 @@
 from dmod.core.execution import AllocationParadigm
 from .maas_request import ModelExecRequest, ModelExecRequestResponse
-from .message import AbstractInitRequest, MessageEventType, Response
-from typing import Optional, Union
+from .maas_request.dmod_job_request import DmodJobRequest
+from .message import MessageEventType, Response
+from typing import Optional, Union, List
+
+from dmod.core.meta_data import DataRequirement, DataFormat
 
 
-class SchedulerRequestMessage(AbstractInitRequest):
+class SchedulerRequestMessage(DmodJobRequest):
 
     event_type: MessageEventType = MessageEventType.SCHEDULER_REQUEST
     """ :class:`MessageEventType`: the event type for this message implementation """
@@ -60,7 +63,8 @@ class SchedulerRequestMessage(AbstractInitRequest):
 
     # TODO: may need to generalize the underlying request to support, say, scheduling evaluation jobs
     def __init__(self, model_request: ModelExecRequest, user_id: str, cpus: Optional[int] = None, mem: Optional[int] = None,
-                 allocation_paradigm: Optional[Union[str, AllocationParadigm]] = None):
+                 allocation_paradigm: Optional[Union[str, AllocationParadigm]] = None, *args, **kwargs):
+        super(SchedulerRequestMessage, self).__init__(*args, *kwargs)
         self._model_request = model_request
         self._user_id = user_id
         self._cpus = cpus
@@ -114,6 +118,10 @@ class SchedulerRequestMessage(AbstractInitRequest):
         return self.model_request.cpu_count if self._cpus is None else self._cpus
 
     @property
+    def data_requirements(self) -> List[DataRequirement]:
+        return self.model_request.data_requirements
+
+    @property
     def memory(self) -> int:
         """
         The amount of memory, in bytes, requested for the scheduling of this job.
@@ -160,6 +168,10 @@ class SchedulerRequestMessage(AbstractInitRequest):
             The nested event type of the request this message is trying to have scheduled.
         """
         return self.model_request.get_message_event_type()
+
+    @property
+    def output_formats(self) -> List[DataFormat]:
+        return self.model_request.output_formats
 
     @property
     def user_id(self) -> str:
