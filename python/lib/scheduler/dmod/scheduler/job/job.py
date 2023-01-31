@@ -946,7 +946,7 @@ class JobImpl(Job):
             raise RuntimeError(msg)
 
     def __init__(self, cpu_count: int, memory_size: int, model_request: ExternalRequest,
-                 allocation_paradigm: Union[str, AllocationParadigm], alloc_priority: int = 0):
+                 allocation_paradigm: Union[str, AllocationParadigm], alloc_priority: int = 0, *args, **kwargs):
         self._cpu_count = cpu_count
         self._memory_size = memory_size
         self._model_request = model_request
@@ -1329,17 +1329,14 @@ class RequestedJob(JobImpl):
             return None
 
         # Create the object initially from the request
-        new_obj = cls(job_request=request)
+        new_obj = cls(job_request=request, cpu_count=cpus, memory_size=memory, allocation_paradigm=paradigm,
+                      alloc_priority=priority)
 
         # Then update its properties based on the deserialized values, as those are considered most correct
 
         # Use property setter for job id to handle string or UUID
         new_obj.job_id = job_id
 
-        new_obj._cpu_count = cpus
-        new_obj._memory_size = memory
-        new_obj._allocation_paradigm = paradigm
-        new_obj._allocation_priority = priority
         new_obj._rsa_key_pair = rsa_key_pair
         new_obj._status = status
         new_obj._allocations = allocations
@@ -1351,12 +1348,43 @@ class RequestedJob(JobImpl):
 
         return new_obj
 
-    def __init__(self, job_request: SchedulerRequestMessage):
+    @classmethod
+    def factory_init_from_request(cls, job_request: SchedulerRequestMessage) -> 'RequestedJob':
+        """
+        Factory init function to create an object from the parameters implied by the job request.
+
+        Parameters
+        ----------
+        job_request
+
+        Returns
+        -------
+
+        """
+        return cls(job_request=job_request, cpu_count=job_request.cpus, memory_size=job_request.memory,
+                   allocation_paradigm=job_request.allocation_paradigm)
+
+    def __init__(self, job_request: SchedulerRequestMessage, *args, **kwargs):
+        """
+        Initialize this instance.
+
+        Parameters
+        ----------
+        job_request
+        args
+        kwargs
+
+        Other Parameters
+        ----------
+        cpu_count
+        memory_size
+        model_request
+        allocation_paradigm
+        alloc_priority
+        """
+        super(RequestedJob, self).__init__(model_request=job_request.model_request, *args, **kwargs)
         self._originating_request = job_request
-        super().__init__(cpu_count=job_request.cpus, memory_size=job_request.memory,
-                         model_request=job_request.model_request,
-                         allocation_paradigm=job_request.allocation_paradigm)
-        self.data_requirements = self.model_request.data_requirements
+        self.data_requirements = job_request.model_request.data_requirements
 
     @property
     def model_request(self) -> ExternalRequest:
