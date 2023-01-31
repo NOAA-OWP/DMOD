@@ -454,6 +454,12 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
 
             for job in [j for j in self._job_util.get_all_active_jobs() if
                         j.status_step == JobExecStep.AWAITING_PARTITIONING]:
+
+                if job.cpu_count == 1:
+                    logging.warning("No need to partition job {} with only 1 CPU allocated".format(job.job_id))
+                    job.status_step = JobExecStep.AWAITING_ALLOCATION
+                    continue
+
                 logging.info("Processing partitioning for active job {}".format(job.job_id))
                 try:
                     # See if there is already an existing dataset to use for this
