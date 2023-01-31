@@ -219,13 +219,15 @@ class NGENRequest(ModelExecRequest):
         List[DataRequirement]
             List of all the explicit and implied data requirements for this request.
         """
-        return [
+        requirements = [
             self.bmi_cfg_data_requirement,
             self.forcing_data_requirement,
             self.hydrofabric_data_requirement,
-            self.partition_cfg_data_requirement,
             self.realization_cfg_data_requirement,
         ]
+        if self.use_parallel_ngen:
+            requirements.append(self.partition_cfg_data_requirement)
+        return requirements
 
     @property
     def bmi_config_data_id(self) -> str:
@@ -291,6 +293,7 @@ class NGENRequest(ModelExecRequest):
         if self._forcing_data_requirement is None:
             # TODO: going to need to address the CSV usage later
             forcing_domain = DataDomain(
+                # TODO: come back to this to change to other type
                 data_format=DataFormat.AORC_CSV,
                 continuous_restrictions=[self._time_range],
                 discrete_restrictions=[self._gen_catchments_domain_restriction()],
@@ -358,6 +361,54 @@ class NGENRequest(ModelExecRequest):
         return self._hydrofabric_uid
 
     @property
+    def use_parallel_ngen(self) -> bool:
+        """
+        Whether this request specifies to use the variant of the NextGen framework compiled for parallel execution.
+
+        NextGen may be compiled to execute either serially or using parallelization.  DMOD and its NextGen job workers
+        can now support either.  This property indicates whether this request indicates that parallel execution should
+        be used.
+
+        In the current implementation, this property is ``True`` IFF ::method:`use_serial_ngen` is ``False``.  Note that
+        this will result in CPU counts of ``0`` or negative numbers, if they were to occur, also resulting in this
+        returning ``True``.
+
+        Returns
+        -------
+        bool
+            Whether this request specifies parallel NextGen execution for the job.
+
+        See Also
+        -------
+        use_serial_ngen
+        """
+        return not self.use_serial_ngen
+
+    @property
+    def use_serial_ngen(self) -> bool:
+        """
+        Whether this request specifies to use the variant of the NextGen framework compiled for serial execution.
+
+        NextGen may be compiled to execute either serially or using parallelization.  DMOD and its NextGen job workers
+        can now support either.  This property indicates whether this request indicates that serially execution should
+        be used.
+
+        In the current implementation, this property is ``True`` IFF the request required a CPU count of exactly ``1``.
+
+        Returns
+        -------
+        bool
+            Whether this request specifies serial NextGen execution for the job.
+
+        See Also
+        -------
+        use_parallel_ngen
+        """
+        return self.cpu_count == 1
+
+
+
+    @property
     def output_formats(self) -> List[DataFormat]:
         """
         List of the formats of each required output dataset for the requested job.
@@ -387,16 +438,16 @@ class NGENRequest(ModelExecRequest):
         return self._part_config_data_id
 
     @property
-    def partition_cfg_data_requirement(self) -> DataRequirement:
+    def partition_cfg_data_requirement(self) -> Optional[DataRequirement]:
         """
         A requirement object defining of the partitioning configuration data needed to execute this request.
 
         Returns
         -------
-        DataRequirement
-            A requirement object defining of the partitioning configuration data needed to execute this request.
+        Optional[DataRequirement]
+            Requirement object defining of the partitioning configuration data needed to execute this request.
         """
-        if self._partition_cfg_data_requirement is None:
+        if self._partition_cfg_data_requirement is None and self.use_parallel_ngen:
             d_restricts = []
 
             # Add restriction on hydrofabric
