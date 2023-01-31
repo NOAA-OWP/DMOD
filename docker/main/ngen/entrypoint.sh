@@ -19,7 +19,10 @@ OUTPUT_DATASET_NAME="${5:?}"
 HYDROFABRIC_DATASET_NAME="${6:?}"
 REALIZATION_CONFIG_DATASET_NAME="${7:?}"
 BMI_CONFIG_DATASET_NAME="${8:?}"
-PARTITION_DATASET_NAME="${9:?}"
+# Don't require a partitioning config when only using a single node
+if [ ${MPI_NODE_COUNT:?} -gt 1 ]; then
+    PARTITION_DATASET_NAME="${9:?No argument for partition config dataset when expecting one for MPI-based job}"
+fi
 
 ACCESS_KEY_SECRET="object_store_exec_user_name"
 SECRET_KEY_SECRET="object_store_exec_user_passwd"
@@ -36,6 +39,9 @@ fi
 
 MPI_RUN="mpirun"
 #NGEN_EXECUTABLE="ngen"
+NGEN_SERIAL_EXECUTABLE="/ngen/ngen/cmake_build_serial/ngen"
+NGEN_PARALLEL_EXECUTABLE="/ngen/ngen/cmake_build_parallel/ngen"
+# This will be symlinked to the parallel one currently
 NGEN_EXECUTABLE="/ngen/ngen/cmake_build/ngen"
 
 ALL_DATASET_DIR="/dmod/datasets"
@@ -43,7 +49,10 @@ OUTPUT_DATASET_DIR="${ALL_DATASET_DIR}/output/${OUTPUT_DATASET_NAME}"
 HYDROFABRIC_DATASET_DIR="${ALL_DATASET_DIR}/hydrofabric/${HYDROFABRIC_DATASET_NAME}"
 REALIZATION_CONFIG_DATASET_DIR="${ALL_DATASET_DIR}/config/${REALIZATION_CONFIG_DATASET_NAME}"
 BMI_CONFIG_DATASET_DIR="${ALL_DATASET_DIR}/config/${BMI_CONFIG_DATASET_NAME}"
-PARTITION_DATASET_DIR="${ALL_DATASET_DIR}/config/${PARTITION_DATASET_NAME}"
+# Don't require a partitioning dataset when only using a single node
+if [ ${MPI_NODE_COUNT:?} -gt 1 ]; then
+    PARTITION_DATASET_DIR="${ALL_DATASET_DIR}/config/${PARTITION_DATASET_NAME:?No partition config dataset name for directory}"
+fi
 
 RUN_SENTINEL="/home/${MPI_USER}/.run_sentinel"
 
@@ -127,10 +136,32 @@ exec_main_worker_ngen_run()
     return ${NGEN_RETURN}
 }
 
+exec_serial_ngen_run()
+{
+    echo "$(print_date) Skipping host checks since job uses ${MPI_NODE_COUNT} worker hosts and framework will run serially"
+
+    # Execute the model on the linked data
+    echo "$(print_date) Executing serial build of ngen"
+    ${NGEN_SERIAL_EXECUTABLE:?} ${HYDROFABRIC_DATASET_DIR}/catchment_data.geojson "" \
+        ${HYDROFABRIC_DATASET_DIR}/nexus_data.geojson "" \
+        ${REALIZATION_CONFIG_DATASET_DIR}/realization_config.json
+
+    #Capture the return value to use as service exit code
+    NGEN_RETURN=$?
+
+    echo "$(print_date) serial ngen command finished with return value: ${NGEN_RETURN}"
+
+    # Exit with the model's exit code
+    return ${NGEN_RETURN}
+}
+
 # Sanity check that the output, hydrofabric, and config datasets are available (i.e., their directories are in place)
 check_for_dataset_dir "${REALIZATION_CONFIG_DATASET_DIR}"
 check_for_dataset_dir "${BMI_CONFIG_DATASET_DIR}"
-check_for_dataset_dir "${PARTITION_DATASET_DIR}"
+# Don't require a partitioning dataset when only using a single node
+if [ ${MPI_NODE_COUNT:?} -gt 1 ]; then
+    check_for_dataset_dir "${PARTITION_DATASET_DIR:?No partition dataset directory defined}"
+fi
 check_for_dataset_dir "${HYDROFABRIC_DATASET_DIR}"
 check_for_dataset_dir "${OUTPUT_DATASET_DIR}"
 
@@ -139,7 +170,11 @@ cd ${OUTPUT_DATASET_DIR}
 
 if [ "${WORKER_INDEX}" = "0" ]; then
     if [ "$(whoami)" = "${MPI_USER}" ]; then
-        exec_main_worker_ngen_run
+        if [ ${MPI_NODE_COUNT:-1} -gt 1 ]; then
+            exec_main_worker_ngen_run
+        else
+            exec_serial_ngen_run
+        fi
     else
         echo "$(print_date) Starting SSH daemon on main worker"
         /usr/sbin/sshd -D &
