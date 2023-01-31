@@ -4,6 +4,7 @@ from asyncio import sleep
 from typing import Dict, List, Optional, Tuple, Union
 from uuid import UUID, uuid4 as random_uuid
 from dmod.core.execution import AllocationParadigm
+from dmod.communication.maas_request.dmod_job_request import DmodJobRequest
 from .job import Job, JobExecPhase, JobExecStep, JobStatus, RequestedJob
 from .job_util import JobUtil, RedisBackedJobUtil
 from ..resources.resource_allocation import ResourceAllocation
@@ -110,7 +111,7 @@ class JobManager(JobUtil, ABC):
         pass
 
     @abstractmethod
-    def create_job(self, **kwargs) -> Job:
+    def create_job(self, request: DmodJobRequest, *args, **kwargs) -> Job:
         """
         Create and return a new job object.
 
@@ -123,8 +124,12 @@ class JobManager(JobUtil, ABC):
 
         Parameters
         ----------
+        request : DmodJobRequest
+            The originating request for the job.
+        args
+            Other optional positional arguments
         kwargs
-            Other appropriate, implementation-specific keyed parameters supported for creating the job object.
+            Other optional keyword arguments.
 
         Returns
         -------
@@ -412,7 +417,7 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
             self.save_job(j)
         return allocated_successfully
 
-    def create_job(self, **kwargs) -> RequestedJob:
+    def create_job(self, request: SchedulerRequestMessage, *args, **kwargs) -> RequestedJob:
         """
         Create and return a new job object that has been saved to the backend store.
 
@@ -420,15 +425,17 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
         ::class:`SchedulerRequestMessage` as a parameter.  This is in the ``request`` keyword arg.
 
         Parameters
-        ----------
-        kwargs
-            Implementation-specific keyed parameters for creating appropriate job objects (see *Keyword Args* section).
-
-        Keyword Args
         ------------
         request : SchedulerRequestMessage
             The originating request for the job.
-        job_id : str, UUID, None
+        args
+            Other optional positional arguments
+        kwargs
+            Other optional keyword arguments.
+
+        Other Parameters
+        ------------
+        job_id : Union[str, UUID]
             Optional value to try use for the job's id, falling back to random if not present, invalid, or already used.
 
         Returns
@@ -436,16 +443,19 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
         RequestedJob
             The newly created job object.
         """
-        job_obj = RequestedJob(job_request=kwargs['request'])
+        job_obj = RequestedJob.factory_init_from_request(job_request=request)
+        # TODO: do some processing here or in the object init to build restrictions and constraints that make sense globally;
+        #  i.e., make sure the requirements for forcings satisfy the necessary hydrofabric if the config doesn't include a specific subset explicitly
+        uuid_param = kwargs.get('job_id', random_uuid())
         try:
-            job_uuid = kwargs['job_id'] if isinstance(kwargs['job_id'], UUID) else UUID(str(kwargs['job_id']))
-            if not self._does_redis_key_exist(self._get_job_key_for_id(job_uuid)):
-                job_obj.job_id = job_uuid
-            else:
-                job_obj.job_id = random_uuid()
+            job_uuid = uuid_param if isinstance(uuid_param, UUID) else UUID(str(uuid_param))
         except:
-            job_obj.job_id = random_uuid()
+            job_uuid = random_uuid()
 
+        while self._does_redis_key_exist(self._get_job_key_for_id(job_uuid)):
+            job_uuid = random_uuid()
+
+        job_obj.job_id = job_uuid
         self.save_job(job_obj)
         return job_obj
 
