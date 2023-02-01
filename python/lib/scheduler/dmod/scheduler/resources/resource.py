@@ -146,63 +146,56 @@ class Resource(SingleHostProcessingAssetPool):
     are expected to never change for a resource.
     """
 
-    @classmethod
-    def factory_init_from_dict(cls, init_dict: dict, ignore_extra_keys: bool = False) -> 'Resource':
-        """
-        Initialize a new object from the given dictionary, raising a ::class:`ValueError` if there are missing expected
-        keys or there are extra keys when the method is not set to ignore them.
+    availability: ResourceAvailability
+    """
+    The availability of the resource.
 
-        Note that this method will allow ::class:`ResourceAvailability` and ::class:`ResourceState` values for the
-        init values of ``availability`` and ``state`` respectively, in addition to strings.  It will also convert
-        numeric types from string values appropriately.
+    Note that the property setter accepts both string and ::class:`ResourceAvailability` values.  For a string, the
+    argument is converted to a ::class:`ResourceAvailability` value using ::method:`get_resource_enum_value`.
 
-        Also, unlike other implementations, ``total cpus`` and ``total memory`` are expected keys, but they are not
-        required.  If they are not present, the defaults (the respective available values) are used by the initializer.
+    However, if the conversion of a string with ::method:`get_resource_enum_value` returns ``None``, the setter
+    sets ::attribute:`availability` to the ``UNKNOWN`` enum value, rather than ``None``.  This is more applicable
+    and allows the getter to always return an actual ::class:`ResourceAvailability` instance.
+    """
 
-        parent:
-        """
-        node_id = None
-        hostname = None
-        avail = None
-        state = None
-        cpus = None
-        total_cpus = None
-        memory = None
-        total_memory = None
+    state: ResourceState = Field(description="The readiness state of the resource.")
+    """
+    Note that the property setter accepts both string and ::class:`ResourceState` values.  For a string, the
+    argument is converted to a ::class:`ResourceState` value using ::method:`get_resource_enum_value`.
 
-        for param_key in init_dict:
-            # We don't care about non-string keys directly, but they are implicitly extra ...
-            if not isinstance(param_key, str):
-                if not ignore_extra_keys:
-                    raise ValueError("Unexpected non-string resource init key")
-                else:
-                    continue
-            lower_case_key = param_key.lower()
-            if lower_case_key == 'node_id' and node_id is None:
-                node_id = init_dict[param_key]
-            elif lower_case_key == 'hostname' and hostname is None:
-                hostname = init_dict[param_key]
-            elif lower_case_key == 'availability' and avail is None:
-                avail = init_dict[param_key]
-            elif lower_case_key == 'state' and state is None:
-                state = init_dict[param_key]
-            elif lower_case_key == 'cpus' and cpus is None:
-                cpus = int(init_dict[param_key])
-            elif lower_case_key == 'memorybytes' and memory is None:
-                memory = int(init_dict[param_key])
-            elif lower_case_key == 'total cpus' and total_cpus is None:
-                total_cpus = int(init_dict[param_key])
-            elif lower_case_key == 'total memory' and total_memory is None:
-                total_memory = int(init_dict[param_key])
-            elif not ignore_extra_keys:
-                raise ValueError("Unexpected resource init key (or case-insensitive duplicate) {}".format(param_key))
+    However, if the conversion of a string with ::method:`get_resource_enum_value` returns ``None``, the setter sets
+    ::attribute:`state` to the ``UNKNOWN`` enum value, rather than ``None``.  This is more applicable and allows the
+    getter to always return an actual ::class:`ResourceState` instance.
+    """
 
-        # Make sure we have everything required set
-        if node_id is None or hostname is None or cpus is None or memory is None or avail is None or state is None:
-            raise ValueError("Insufficient valid values keyed within resource init dictionary")
+    total_cpus: Optional[int] = Field(description="The total number of CPUs known to be on this resource.")
 
-        return cls(resource_id=node_id, hostname=hostname, availability=avail, state=state, cpu_count=cpus,
-                   memory=memory, total_cpu_count=total_cpus, total_memory=total_memory)
+    total_memory: Optional[int] = Field(description="The total amount of memory known to be on this resource.")
+
+    class Config:
+        fields = {
+            "availability": {"alias": "Availability"},
+            "cpu_count": {"alias": "CPUs"},
+            "hostname": {"alias": "Hostname"},
+            "memory": {"alias": "MemoryBytes"},
+            "pool_id": {"alias": "node_id"},
+            "state": {"alias": "State"},
+            "total_cpus": {"alias": "Total CPUs"},
+            "total_memory": {"alias": "Total Memory"},
+            "unique_id_separator": {"exclude": True}
+        }
+
+    @validator("availability", pre=True)
+    def _validate_availability(cls, value: Optional[Any]) -> Union[Any, ResourceAvailability]:
+        if value is None:
+            return ResourceAvailability.UNKNOWN
+        return value
+
+    @validator("state", pre=True)
+    def _validate_state(cls, value: Optional[Any]) -> Union[Any, ResourceState]:
+        if value is None:
+            return ResourceState.UNKNOWN
+        return value
 
     @classmethod
     def generate_unique_id(cls, resource_id: str, separator: str):
@@ -220,7 +213,7 @@ class Resource(SingleHostProcessingAssetPool):
         str
             The derived unique id.
         """
-        return cls.__name__ + separator + resource_id
+        return f"{cls.__name__}{separator}{resource_id}"
 
     @classmethod
     def get_cpu_hash_key(cls) -> str:
@@ -232,7 +225,7 @@ class Resource(SingleHostProcessingAssetPool):
         str
             The hash key value for serialized dictionaries/hashes representations.
         """
-        return 'CPUs'
+        return "CPUs"
 
     @classmethod
     def get_resource_enum_value(cls, enum_type: Union[Type[ResourceAvailability], Type[ResourceState]],
@@ -269,7 +262,8 @@ class Resource(SingleHostProcessingAssetPool):
                 return val
         return None
 
-    def __eq__(self, other):
+
+    def __eq__(self, other: object):
         if not isinstance(other, Resource):
             return super().__eq__(other)
         else:
@@ -278,19 +272,32 @@ class Resource(SingleHostProcessingAssetPool):
                    and self.cpu_count == other.cpu_count and self.memory == other.memory \
                    and self.total_cpu_count == other.total_cpu_count and self.total_memory == other.total_memory
 
-    def __init__(self, resource_id: str, hostname: str, availability: Union[str, ResourceAvailability],
-                 state: Union[str, ResourceState], cpu_count: int, memory: int, total_cpu_count: Optional[int],
-                 total_memory: Optional[int]):
-        super().__init__(pool_id=resource_id, hostname=hostname, cpu_count=cpu_count, memory=memory)
+    def __init__(
+        self,
+        resource_id: str = None,
+        hostname: str = None,
+        availability: Union[str, ResourceAvailability] = None,
+        state: Union[str, ResourceState] = None,
+        cpu_count: int = None,
+        memory: int = None,
+        total_cpu_count: Optional[int] = None,
+        total_memory: Optional[int] = None,
+        **data
+        ):
+        if data:
+            super().__init__(**data)
+            return
 
-        self._availability = None
-        self.availability = availability
-
-        self._state = state
-        self.state = state
-
-        self._total_cpu_count = cpu_count if total_cpu_count is None else total_cpu_count
-        self._total_memory = memory if total_memory is None else total_memory
+        super().__init__(
+            pool_id=resource_id,
+            hostname=hostname,
+            cpu_count=cpu_count,
+            memory=memory,
+            availability=availability,
+            state=state,
+            total_cpu_count=cpu_count if total_cpu_count is None else total_cpu_count,
+            total_memory=memory if total_memory is None else total_memory,
+            )
 
     def allocate(self, cpu_count: int, memory: int) -> Tuple[int, int, bool]:
         """
@@ -333,32 +340,12 @@ class Resource(SingleHostProcessingAssetPool):
             self.memory = 0
         return allocated_cpus, allocated_mem, is_fully_allocated
 
-    @property
-    def availability(self) -> ResourceAvailability:
-        """
-        The availability of the resource.
-
-        Note that the property setter accepts both string and ::class:`ResourceAvailability` values.  For a string, the
-        argument is converted to a ::class:`ResourceAvailability` value using ::method:`get_resource_enum_value`.
-
-        However, if the conversion of a string with ::method:`get_resource_enum_value` returns ``None``, the setter
-        sets ::attribute:`availability` to the ``UNKNOWN`` enum value, rather than ``None``.  This is more applicable
-        and allows the getter to always return an actual ::class:`ResourceAvailability` instance.
-
-        Returns
-        -------
-        ResourceAvailability
-            The availability of the resource.
-        """
-        return self._availability
-
-    @availability.setter
-    def availability(self, availability: Union[str, ResourceAvailability]):
+    def set_availability(self, availability: Union[str, ResourceAvailability]):
         if isinstance(availability, ResourceAvailability):
             enum_val = availability
         else:
             enum_val = self.get_resource_enum_value(ResourceAvailability, availability)
-        self._availability = ResourceAvailability.UNKNOWN if enum_val is None else enum_val
+        self.__dict__["availability"] = ResourceAvailability.UNKNOWN if enum_val is None else enum_val
 
     def is_allocatable(self) -> bool:
         """
@@ -396,85 +383,48 @@ class Resource(SingleHostProcessingAssetPool):
     def resource_id(self) -> str:
         return self.pool_id
 
-    @property
-    def state(self) -> ResourceState:
-        """
-        The readiness state of the resource.
-
-        Note that the property setter accepts both string and ::class:`ResourceState` values.  For a string, the
-        argument is converted to a ::class:`ResourceState` value using ::method:`get_resource_enum_value`.
-
-        However, if the conversion of a string with ::method:`get_resource_enum_value` returns ``None``, the setter sets
-        ::attribute:`state` to the ``UNKNOWN`` enum value, rather than ``None``.  This is more applicable and allows the
-        getter to always return an actual ::class:`ResourceState` instance.
-
-        Returns
-        -------
-        ResourceState
-            The readiness state of the resource.
-        """
-        return self._state
-
-    @state.setter
-    def state(self, state: Union[str, ResourceState]):
+    def set_state(self, state: Union[str, ResourceState]):
         if isinstance(state, ResourceState):
             enum_val = state
         else:
             enum_val = self.get_resource_enum_value(ResourceState, state)
-        self._state = ResourceState.UNKNOWN if enum_val is None else enum_val
-
-    def to_dict(self) -> Dict[str, Union[str, int]]:
-        """
-        Convert the object to a serialized dictionary.
-
-        Key names are as shown in the example below.  Enum values are represented as the lower-case version of the name
-        for the given value.  Values shown for CPU and Memory are the max values.
-
-        E.g.:
-            {
-                'node_id': "Node-0001",
-                'Hostname': "my-host",
-                'Availability': "active",
-                'State': "ready",
-                'CPUs': 18,
-                'MemoryBytes': 33548128256,
-                'Total CPUs': 18,
-                'Total Memory: 33548128256
-            }
-
-        Returns
-        -------
-        Dict[str, Union[str, int]]
-            The object as a serialized dictionary.
-        """
-        return {'node_id': self.resource_id, 'Hostname': self.hostname, 'Availability': self.availability.name.lower(),
-                'State': self.state.name.lower(), self.get_cpu_hash_key(): self.cpu_count, 'MemoryBytes': self.memory,
-                'Total CPUs': self.total_cpu_count, 'Total Memory': self.total_memory}
-
-    @property
-    def total_cpu_count(self) -> int:
-        """
-        The total number of CPUs known to be on this resource.
-
-        Returns
-        -------
-        int
-            The total number of CPUs known to be on this resource.
-        """
-        return self._total_cpu_count
-
-    @property
-    def total_memory(self) -> int:
-        """
-        The total amount of memory known to be on this resource.
-
-        Returns
-        -------
-        int
-            The total amount of memory known to be on this resource.
-        """
-        return self._total_memory
+        self.__dict__["state"] = ResourceState.UNKNOWN if enum_val is None else enum_val
 
     @property
     def unique_id(self) -> str:
         return self.generate_unique_id(resource_id=self.resource_id, separator=self.unique_id_separator)
+
+    def _setter_methods(self) -> Dict[str, Callable]:
+        """Mapping of attribute name to setter method. This supports backwards functional compatibility."""
+        # TODO: remove once migration to setters by down stream users is complete
+        return {
+            "state": self.set_state,
+            "availability": self.set_availability,
+            }
+
+    def __setattr__(self, name: str, value: Any):
+        """
+        Use property setter method when available.
+
+        Note, all setter methods should modify their associated property using the instance `__dict__`.
+        This ensures that calls to, for example, `set_id` don't raise a warning, while `o.id = "new
+        id"` do.
+
+        Example:
+            ```
+            class SomeJob(Job):
+                id: str
+
+                def set_id(self, value: str):
+                    self.__dict__["id"] = value
+            ```
+        """
+        if name not in self._setter_methods():
+            return super().__setattr__(name, value)
+
+        setter_fn = self._setter_methods()[name]
+
+        message = f"Setting by attribute is deprecated. Use `{self.__class__.__name__}.{setter_fn.__name__}` method instead."
+        warn(message, DeprecationWarning)
+
+        setter_fn(value)
