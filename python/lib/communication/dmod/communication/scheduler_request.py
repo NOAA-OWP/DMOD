@@ -24,6 +24,12 @@ class SchedulerRequestMessage(AbstractInitRequest):
             return value
         return ModelExecRequest.factory_init_correct_subtype_from_deserialized_json(value)
 
+    @validator("allocation_paradigm_", pre=True)
+    def _dekabob_input(cls, value: Optional[Union[AllocationParadigm, str]]) -> Optional[Union[AllocationParadigm, str]]:
+        if isinstance(value, str):
+            return value.replace("-", "_")
+        return value
+
     class Config:
         fields = {
             "memory": {"alias": "mem"},
