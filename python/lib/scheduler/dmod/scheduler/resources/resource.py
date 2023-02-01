@@ -220,6 +220,14 @@ class Resource(SingleHostProcessingAssetPool):
 
         if values.get("total_memory") is None:
             values["total_memory"] = values["memory"]
+
+        msg_template = "`{}` cannot be larger than `{}`. {} > {}"
+        if values["cpu_count"] > values["total_cpus"]:
+            raise ValueError(msg_template.format("cpu_count", "total_cpus", values["cpu_count"], values["total_cpus"]))
+
+        if values["memory"] > values["total_memory"]:
+            raise ValueError(msg_template.format("memory", "total_memory", values["memory"], values["total_memory"]))
+
         return values
 
     @classmethod
