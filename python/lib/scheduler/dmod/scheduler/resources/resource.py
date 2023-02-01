@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
-from pydantic import Field, Extra, validator
+from typing_extensions import Self
+from pydantic import Field, Extra, validator, root_validator
+from functools import cache
+from warnings import warn
 
 
 from dmod.core.enum import PydanticEnum
@@ -37,7 +40,7 @@ class AbstractProcessingAssetPool(Serializable, ABC):
 
     @classmethod
     def factory_init_from_dict(cls, init_dict: Dict[str, Any],
-                               ignore_extra_keys: bool = False) -> 'AbstractProcessingAssetPool':
+                               ignore_extra_keys: bool = False) -> Self:
         """
         Initialize a new object from the given dictionary, raising a ::class:`ValueError` if there are missing expected
         keys or there are extra keys when the method is not set to ignore them.
@@ -197,6 +200,34 @@ class Resource(SingleHostProcessingAssetPool):
             return ResourceState.UNKNOWN
         return value
 
+    @root_validator(pre=True)
+    def _remap_alias_case_insensitive(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        alias_field_map = cls._alias_field_map()
+
+        # NOTE: consider removing this in the future and enforcing case sensitive keys
+        new_values: Dict[str, Any] = dict()
+        for k, v in values.items():
+            if k.lower() in alias_field_map:
+                new_values[alias_field_map[k.lower()]] = v
+                continue
+            new_values[k] = v
+        return new_values
+
+    @root_validator()
+    def _set_total_cpus_and_total_memory_if_unset(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        if values.get("total_cpus") is None:
+            values["total_cpus"] = values["cpu_count"]
+
+        if values.get("total_memory") is None:
+            values["total_memory"] = values["memory"]
+        return values
+
+    @classmethod
+    @cache
+    def _alias_field_map(cls) -> Dict[str, str]:
+        """Mapping of lower cased alias names to cased alias names."""
+        return {v.alias.lower(): v.alias for v in cls.__fields__.values()}
+
     @classmethod
     def generate_unique_id(cls, resource_id: str, separator: str):
         """
@@ -270,7 +301,7 @@ class Resource(SingleHostProcessingAssetPool):
             return self.resource_id == other.resource_id and self.hostname == other.hostname \
                    and self.availability == other.availability and self.state == other.state \
                    and self.cpu_count == other.cpu_count and self.memory == other.memory \
-                   and self.total_cpu_count == other.total_cpu_count and self.total_memory == other.total_memory
+                   and self.total_cpus == other.total_cpus and self.total_memory == other.total_memory
 
     def __init__(
         self,
@@ -285,6 +316,17 @@ class Resource(SingleHostProcessingAssetPool):
         **data
         ):
         if data:
+            # NOTE: this can be removed alias field names _are_ case sensitive
+            potentially_aliased_fields = {
+                "availability": availability,
+                "hostname": hostname,
+                "state": state,
+                "total_memory": total_memory
+                }
+
+            for field_name, value in potentially_aliased_fields.items():
+                if value is not None:
+                    data[field_name] = value
             super().__init__(**data)
             return
 
@@ -295,8 +337,8 @@ class Resource(SingleHostProcessingAssetPool):
             memory=memory,
             availability=availability,
             state=state,
-            total_cpu_count=cpu_count if total_cpu_count is None else total_cpu_count,
-            total_memory=memory if total_memory is None else total_memory,
+            total_cpus=total_cpu_count,
+            total_memory=total_memory
             )
 
     def allocate(self, cpu_count: int, memory: int) -> Tuple[int, int, bool]:
