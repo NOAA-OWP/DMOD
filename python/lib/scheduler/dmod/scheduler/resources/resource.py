@@ -422,6 +422,19 @@ class Resource(SingleHostProcessingAssetPool):
         self.memory = self.memory + memory
 
     @property
+    def total_cpu_count(self) -> int:
+        """
+        The total number of CPUs known to be on this resource.
+        Returns
+        -------
+        int
+            The total number of CPUs known to be on this resource.
+        """
+        # NOTE: total cpus will be set or derived from `cpu_count`
+        return self.total_cpus # type: ignore
+
+
+    @property
     def resource_id(self) -> str:
         return self.pool_id
 
