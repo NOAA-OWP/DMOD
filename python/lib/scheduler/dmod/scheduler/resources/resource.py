@@ -119,13 +119,7 @@ class SingleHostProcessingAssetPool(AbstractProcessingAssetPool, ABC):
     creation.
     """
 
-    def __init__(self, pool_id: str, hostname: str, cpu_count: int, memory: int):
-        super().__init__(pool_id=pool_id, cpu_count=cpu_count, memory=memory)
-        self._hostname = hostname
-
-    @property
-    def hostname(self) -> str:
-        return self._hostname
+    hostname: str
 
 
 class Resource(SingleHostProcessingAssetPool):
