@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
-from enum import Enum
-from typing import Any, Dict, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
+from pydantic import Field, Extra, validator
+
 
 from dmod.core.enum import PydanticEnum
+from dmod.core.serializable import Serializable
 
 
 class ResourceAvailability(PydanticEnum):
@@ -17,7 +19,7 @@ class ResourceState(PydanticEnum):
     UNKNOWN = -1
 
 
-class AbstractProcessingAssetPool(ABC):
+class AbstractProcessingAssetPool(Serializable, ABC):
     """
     Abstract representation of some collection of assets used for processing jobs/tasks.
 
@@ -28,8 +30,12 @@ class AbstractProcessingAssetPool(ABC):
     ::method:`factory_init_from_dict` class method, and serialization using the ::method:`to_dict` method.
     """
 
+    cpu_count: int
+    memory: int
+    pool_id: str
+    unique_id_separator: str = ":"
+
     @classmethod
-    @abstractmethod
     def factory_init_from_dict(cls, init_dict: Dict[str, Any],
                                ignore_extra_keys: bool = False) -> 'AbstractProcessingAssetPool':
         """
@@ -71,45 +77,24 @@ class AbstractProcessingAssetPool(ABC):
         TypeError
             If any parameters sourced from the init dictionary are not of a supported type for that param.
         """
-        pass
+        original_extra_level = getattr(cls.Config, "extra", None)
 
-    def __init__(self, pool_id: str, cpu_count: int, memory: int):
-        self._pool_id = pool_id
-        self._cpu_count = cpu_count
-        self._memory = memory
-        self.unique_id_separator = ':'
+        if ignore_extra_keys:
+            setattr(cls.Config, "extra", Extra.ignore)
+        else:
+            setattr(cls.Config, "extra", Extra.forbid)
 
-    @property
-    def cpu_count(self) -> int:
-        return self._cpu_count
+        o = cls.parse_obj(init_dict)
 
-    @cpu_count.setter
-    def cpu_count(self, cpu_count: int):
-        self._cpu_count = cpu_count
+        if original_extra_level is None:
+            delattr(cls.Config, "extra")
+        else:
+            setattr(cls.Config, "extra", original_extra_level)
 
-    @property
-    def memory(self) -> int:
-        return self._memory
+        return o
 
-    @memory.setter
-    def memory(self, memory: int):
-        self._memory = memory
-
-    @property
-    def pool_id(self) -> str:
-        return self._pool_id
-
-    @abstractmethod
-    def to_dict(self) -> Dict[str, Union[str, int]]:
-        """
-        Convert the object to a serialized dictionary.
-
-        Returns
-        -------
-        Dict[str, Union[str, int]]
-            The object as a serialized dictionary
-        """
-        pass
+    class Config:
+        extra = Extra.forbid
 
     @property
     @abstractmethod
