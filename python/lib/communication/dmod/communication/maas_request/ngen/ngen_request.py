@@ -214,7 +214,7 @@ class NGENRequest(ModelExecRequest, ExternalAbstractNgenRequest):
         if self._bmi_cfg_data_requirement is None:
             bmi_config_restrict = [
                 DiscreteRestriction(
-                    variable="data_id", values=[self._bmi_config_data_id]
+                    variable="data_id", values=[self.bmi_config_data_id]
                 )
             ]
             bmi_config_domain = DataDomain(
