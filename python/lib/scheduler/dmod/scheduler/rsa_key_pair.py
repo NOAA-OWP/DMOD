@@ -271,6 +271,7 @@ class RsaKeyPair(_RsaKeyPair, Serializable):
 
     class Config: # type: ignore
         arbitrary_types_allowed = True
+        validate_assignment = True
         def _serialize_datetime(self: "RsaKeyPair", value: datetime.datetime) -> str:
             return value.strftime(self.get_datetime_str_format())
 
