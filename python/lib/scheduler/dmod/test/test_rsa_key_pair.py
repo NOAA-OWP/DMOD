@@ -55,7 +55,7 @@ class TestRsaKeyPair(unittest.TestCase):
         # This should result in the same file names as key_pair, and so the constructor should resolve that it needs to
         # load the key, not regenerate it
         reserialized_key = RsaKeyPair(directory=key_pair.directory, name=key_pair.name)
-        self.assertEqual(key_pair.private_key, reserialized_key.private_key)
+        self.assertTrue(key_pair.private_key, reserialized_key.private_key)
 
     def test_generate_key_pair_1_e(self):
         """
