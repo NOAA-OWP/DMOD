@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from ..scheduler.rsa_key_pair import RsaKeyPair
 from typing import Dict
@@ -186,3 +187,31 @@ class TestRsaKeyPair(unittest.TestCase):
         key_pair = self.rsa_key_pairs[1]
         kp = RsaKeyPair(directory=key_pair.directory, name=key_pair.name)
         self.assertTrue(kp.is_deserialized)
+
+    def test_reassign_directory_to_default(self):
+        """
+        verify object `is_deserialized` property is false when key is generated.
+        """
+        key_pair = self.rsa_key_pairs[1]
+        default_location = Path.home() / ".ssh"
+        self.assertNotEqual(key_pair.directory, default_location)
+
+        key_pair.directory = None
+        self.assertEqual(key_pair.directory, default_location)
+
+    def test_reassign_directory_creates_directory_if_not_exist(self):
+        """
+        verify object `is_deserialized` property is false when key is generated.
+        """
+        key_pair = self.rsa_key_pairs[1]
+        with TemporaryDirectory() as dir:
+            dir = Path(dir)
+            new_dir = dir / ".ssh"
+
+            self.assertFalse(new_dir.exists())
+            self.assertNotEqual(key_pair.directory, new_dir)
+
+            key_pair.directory = new_dir
+
+            self.assertTrue(new_dir.exists())
+            self.assertEqual(key_pair.directory, new_dir)
