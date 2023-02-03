@@ -222,7 +222,7 @@ class NGENRequest(ModelExecRequest, ExternalAbstractNgenRequest):
                 discrete_restrictions=bmi_config_restrict,
             )
             self._bmi_cfg_data_requirement = DataRequirement(
-                bmi_config_domain, True, DataCategory.CONFIG
+                domain=bmi_config_domain, is_input=True, category=DataCategory.CONFIG
             )
         return self._bmi_cfg_data_requirement
 
