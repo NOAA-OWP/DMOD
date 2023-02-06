@@ -1043,119 +1043,44 @@ class RequestedJob(JobImpl):
     in the form of a ::class:`SchedulerRequestMessage` object.
     """
 
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        """
-        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
+    originating_request: SchedulerRequestMessage
+    """The original request that resulted in the creation of this job."""
 
-        Parameters
-        ----------
-        json_obj
+    class Config: # type: ignore
+        fields = {
+            # exclude `model_request` during serialization
+            "model_request": {"exclude": True}
+            }
 
-        Returns
-        -------
-        A new object of this type instantiated from the deserialize JSON object dictionary
-        """
+    def __init__(self, job_request: SchedulerRequestMessage = None, **data):
+        if data:
+            # NOTE: in previous version of code, `model_request` was always a derived field.
+            # this allows `model_request` be separately specified
+            if "model_request" in data:
+                super().__init__(**data)
+                return
 
-        originating_request_key = 'originating_request'
+            originating_request = data.get("originating_request")
+            if originating_request is None:
+                # this should fail, let pydantic handle that.
+                super().__init__(**data)
+                return
 
-        try:
-            cpus, memory, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated, partitioning = \
-                cls.deserialize_core_attributes(json_obj)
+            if isinstance(originating_request, SchedulerRequestMessage):
+                # inject
+                data["model_request"] = originating_request.model_request
 
-            if originating_request_key not in json_obj:
-                msg = 'Key for originating request ({}) not present when deserialize {} object'
-                raise RuntimeError(msg.format(originating_request_key, cls.__name__))
-            request = SchedulerRequestMessage.factory_init_from_deserialized_json(json_obj[originating_request_key])
-            if request is None:
-                msg = 'Invalid serialized scheduler request when deserialize {} object'
-                raise RuntimeError(msg.format(cls.__name__))
-        except Exception as e:
-            logging.error(e)
-            return None
+            data["model_request"] = originating_request.get("model_request")
+            super().__init__(**data)
+            return
 
-        # Create the object initially from the request
-        new_obj = cls(job_request=request)
-
-        # Then update its properties based on the deserialized values, as those are considered most correct
-
-        # Use property setter for job id to handle string or UUID
-        new_obj.job_id = job_id
-
-        new_obj._cpu_count = cpus
-        new_obj._memory_size = memory
-        new_obj._allocation_paradigm = paradigm
-        new_obj._allocation_priority = priority
-        new_obj._rsa_key_pair = rsa_key_pair
-        new_obj._status = status
-        new_obj._allocations = allocations
-        new_obj.data_requirements = cls._parse_serialized_data_requirements(json_obj)
-        new_obj._partition_config = partitioning
-
-        # Do last_updated last, as any usage of setters above might cause the value to be maladjusted
-        new_obj._last_updated = updated
-
-        return new_obj
-
-    def __init__(self, job_request: SchedulerRequestMessage):
-        self._originating_request = job_request
-        super().__init__(cpu_count=job_request.cpus, memory_size=job_request.memory,
-                         model_request=job_request.model_request,
-                         allocation_paradigm=job_request.allocation_paradigm)
-        self.data_requirements = self.model_request.data_requirements
-
-    @property
-    def model_request(self) -> ExternalRequest:
-        """
-        Get the underlying configuration for the model execution that is being requested.
-
-        Returns
-        -------
-        ExternalRequest
-            The underlying configuration for the model execution that is being requested.
-        """
-        return self.originating_request.model_request
-
-    @property
-    def originating_request(self) -> SchedulerRequestMessage:
-        """
-        The original request that resulted in the creation of this job.
-
-        Returns
-        -------
-        SchedulerRequestMessage
-            The original request that resulted in the creation of this job.
-        """
-        return self._originating_request
-
-    def to_dict(self) -> dict:
-        """
-        Get the representation of this instance as a dictionary or dictionary-like object (e.g., a JSON object).
-
-        {
-            "job_class" : "<class_name>",
-            "cpu_count" : 4,
-            "memory_size" : 1000,
-            "allocation_paradigm" : "SINGLE_NODE",
-            "allocation_priority" : 0,
-            "job_id" : "12345678-1234-5678-1234-567812345678",
-            "rsa_key_pair" : {<serialized_representation_of_RsaKeyPair_obj>},
-            "status" : INIT:DEFAULT,
-            "last_updated" : "2020-07-10 12:05:45",
-            "allocations" : [...],
-            'data_requirements" : [...],
-            "partitioning" : { "partitions": [ ... ] },
-            "originating_request" : {<serialized_representation_of_originating_message>}
-        }
-
-        Returns
-        -------
-        dict
-            the representation of this instance as a dictionary or dictionary-like object (e.g., a JSON object)
-        """
-        dictionary = super().to_dict()
-        # To avoid this being messy, rely on the superclass's implementation and the returned dict, but remove the
-        # 'model_request' key/value, since this is contained within the originating serialized scheduler request
-        dictionary.pop('model_request')
-        dictionary['originating_request'] = self.originating_request.to_dict()
-        return dictionary
+        # NOTE: consider refactoring this into `from_job_request` class method.
+        super().__init__(
+            cpu_count=job_request.cpus,
+            memory_size=job_request.memory,
+            model_request=job_request.model_request,
+            allocation_paradigm=job_request.allocation_paradigm,
+            originating_request=job_request,
+            )
+        # NOTE: this implicitly resets `last_updated` field
+        self.set_data_requirements(job_request.model_request.data_requirements)
