@@ -11,7 +11,7 @@ class TestJobImpl(unittest.TestCase):
 
     def setUp(self) -> None:
         self._nwm_model_request = NWMRequest.factory_init_from_deserialized_json(
-            {"model": {"nwm": {"version": 2.0, "output": "streamflow", "domain": "blah", "parameters": {}}},
+            {"model": {"nwm": {"version": 2.0, "output": "streamflow", "domain": "blah", "parameters": {}, "config_data_id": "42"}},
              "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"})
         self._example_jobs: List[JobImpl]= []
         self._example_jobs.append(JobImpl(4, 1000, model_request=self._nwm_model_request,
