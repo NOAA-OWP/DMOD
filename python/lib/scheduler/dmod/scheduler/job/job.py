@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from functools import cache
 from pydantic import Field, PrivateAttr, validator, root_validator
 from pydantic.fields import ModelField
 from warnings import warn
@@ -609,7 +608,6 @@ class Job(Serializable, ABC):
         """
         pass
 
-    @cache
     def _setter_methods(self) -> Dict[str, Callable]:
         """Mapping of attribute name to setter method. This supports backwards functional compatibility."""
         # TODO: remove once migration to setters by down stream users is complete
@@ -980,7 +978,6 @@ class JobImpl(Job):
             self._worker_data_requirements = self._process_per_worker_data_requirements()
         return self._worker_data_requirements
 
-    @cache
     def _setter_methods(self) -> Dict[str, Callable]:
         return {
             **super()._setter_methods(),
