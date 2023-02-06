@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from numbers import Number
-from pydantic import Field, validator, root_validator
+from functools import cache
+from pydantic import Field, PrivateAttr, validator, root_validator
 from pydantic.fields import ModelField
 from warnings import warn
 
