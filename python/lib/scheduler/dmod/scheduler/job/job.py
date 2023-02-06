@@ -22,6 +22,9 @@ if TYPE_CHECKING:
 
 import logging
 
+# SAFETY: tuple can be used in this context because this sentinel is being used to verify if the data is being
+# deserialized from json. Tuple's are not datatypes in json or deserialized json.
+JOB_CLASS_SENTINEL = tuple()
 
 class JobExecStep(PydanticEnum):
     """
@@ -348,8 +351,111 @@ class Job(Serializable, ABC):
     The hash value of a job is calculated as the hash of it's ::attribute:`job_id`.
     """
 
+    allocation_paradigm: AllocationParadigm
+    """The ::class:`AllocationParadigm` type value that was used or should be used to make allocations."""
+
+    allocation_priority: int = 0
+    """A score for how this job should be prioritized with respect to allocation."""
+
+    allocations: Optional[List[ResourceAllocation]]
+    """The scheduler resource allocations for this job, or ``None`` if it is queued or otherwise not yet allocated."""
+
+    cpu_count: int = Field(gt=0)
+    """The number of CPUs for this job."""
+
+    data_requirements: List[DataRequirement] = Field(default_factory=list)
+    """List of ::class:`DataRequirement` objects representing all data needed for the job."""
+
+    job_id: str = Field(default_factory=lambda: str(uuid_func()))
+    """The unique identifier for this particular job."""
+
+    last_updated: datetime = Field(default_factory=datetime.now)
+    """ The last time this objects state was updated."""
+
+    memory_size: int = Field(gt=0)
+    """The amount of the memory needed for this job."""
+
+    # TODO: do we need to account for jobs for anything other than model exec?
+    model_request: ExternalRequest
+    """The underlying configuration for the model execution that is being requested."""
+
+    partition_config: Optional[PartitionConfig]
+    """This job's partitioning configuration."""
+
+    rsa_key_pair: Optional[RsaKeyPair]
+    """The ::class:`'RsaKeyPair'` for this job's shared SSH RSA keys, or ``None`` if not has been set."""
+
+    status: JobStatus = Field(default_factory=lambda: JobStatus(JobExecPhase.INIT))
+    """The ::class:`JobStatus` of this object."""
+
+    job_class: Type[Self] = JOB_CLASS_SENTINEL
+    """A type or subtype of ::class:`Self`. This can be provided as a str (e.g. "Job"), but will be coerced into a Type
+    object. Class names, not including module namespace, are used when coercing from a str into a Type (i.e. "job.Job"
+    is invalid; "Job" is valid). This field is required when factory deserializing from a dictionary. The field defaults
+    to the type of Self when programmatically creating an instance. It may be possible to specify a `job_class` during
+    programmatic initialization, however that capability is subtype dependent.
+
+    Notably, the `job_class` field of subtypes of Job are also covariant in Self. Meaning, the `job_class` field of a
+    subtype S can only be S or a subtype of S. Sibling and super types of S are not allowed.
+    """
+
     @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
+    def _subclass_search(cls, t: Union[str, Any]) -> Optional[Type[Self]]:
+        if isinstance(t, str):
+            # base case
+            if t == cls.__name__:
+                return cls
+
+            current_level: List[Type[Self]] = cls.__subclasses__()
+            # bfs subclass search
+            while True:
+                next_level: List[Type[Self]] = list()
+                for subclass in current_level:
+                    if  t == subclass.__name__:
+                        return subclass
+                    next_level.extend(subclass.__subclasses__())
+
+                # no more levels to explore
+                if not next_level:
+                    raise ValueError(
+                        f"`t`: {t!r} must be a str with value name of Type[{cls.__name__}]. This includes subtypes of `{cls.__name__}`"
+                    )
+
+                current_level = next_level
+
+        return None
+
+    @validator("job_class", pre=True, always=True)
+    def _validate_job_class(cls: Self, value: Union[str, Type[Self]]) -> Type[Self]:
+        # default case. Is unreachable when factory init from json.
+        if value is JOB_CLASS_SENTINEL:
+            return cls
+
+        subclass = cls._subclass_search(value)
+        if subclass is not None:
+            return subclass
+
+        if value == cls:
+            return value
+
+        if issubclass(value, cls):
+            return value
+
+        raise ValueError(
+            f"`job_class` field must be a Type[{cls.__name__}]. This includes subtypes of `{cls.__name__}`"
+        )
+
+    class Config:
+        fields = {
+            "partition_config": {"alias": "partitioning"}
+        }
+        field_serializers = {
+            "job_class": lambda cls: cls.__name__,
+            "last_updated": lambda self, value: value.strftime(self.get_datetime_str_format())
+        }
+
+    @classmethod
+    def factory_init_from_deserialized_json(cls, json_obj: dict) -> Optional[Self]:
         """
         Factory create a new instance of the correct subtype based on a JSON object dictionary deserialized from
         received JSON, where this includes a ``job_class`` property containing the name of the appropriate subtype.
@@ -363,36 +469,21 @@ class Job(Serializable, ABC):
         A new object of the correct subtype instantiated from the deserialize JSON object dictionary, or ``None`` if
         this cannot be done successfully.
         """
-        job_type_key = 'job_class'
-        recursive_loop_key = 'base_type_invoked_twice'
+        try:
+            if "job_class" not in json_obj:
+                raise KeyError("missing `job_class` field")
 
-        if job_type_key not in json_obj:
+            subclass = cls._subclass_search(json_obj["job_class"])
+
+            if subclass is None:
+                raise ValueError("`job_class` field must be provided as a type `str`")
+
+            json_obj["job_class"] = subclass
+            return subclass(**json_obj)
+        except:
             return None
 
-        # Avoid accidental recursive infinite loop by adding an indicator key and bailing if we already see it
-        if recursive_loop_key in json_obj:
-            return None
-        else:
-            json_obj[recursive_loop_key] = True
-
-        # Traverse class type tree and get all subtypes of Job
-        subclasses = []
-        subclasses.extend(cls.__subclasses__())
-        traversed_subclasses = set()
-        while len(subclasses) > len(traversed_subclasses):
-            for s in subclasses:
-                if s not in traversed_subclasses:
-                    subclasses.extend(s.__subclasses__())
-                    traversed_subclasses.add(s)
-
-        for subclass in subclasses:
-            subclass_name = subclass.__name__
-            if subclass_name == json_obj[job_type_key]:
-                json_obj.pop(job_type_key)
-                return subclass.factory_init_from_deserialized_json(json_obj)
-        return None
-
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if other is None:
             return False
         elif isinstance(other, Job):
@@ -405,38 +496,11 @@ class Job(Serializable, ABC):
             #  infinite loop (perhaps via some shared interface where that's appropriate)
             return False
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.job_id)
 
-    def __lt__(self, other):
+    def __lt__(self, other: "Job") -> bool:
         return self.allocation_priority < other.allocation_priority
-
-    @property
-    @abstractmethod
-    def allocation_paradigm(self) -> AllocationParadigm:
-        """
-        The ::class:`AllocationParadigm` type value that was used or should be used to make allocations.
-
-        Returns
-        -------
-        AllocationParadigm
-            The ::class:`AllocationParadigm` type value that was used or should be used to make allocations.
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def allocation_priority(self) -> int:
-        """
-        Get a score for how this job should be prioritized with respect to allocation, with high scores being more
-        likely to received allocation.
-
-        Returns
-        -------
-        int
-            A score for how this job should be prioritized with respect to allocation.
-        """
-        pass
 
     @property
     @abstractmethod
@@ -456,53 +520,28 @@ class Job(Serializable, ABC):
         """
         pass
 
-    @property
     @abstractmethod
-    def allocations(self) -> Optional[Tuple[ResourceAllocation]]:
-        """
-        The resource allocations that have been allocated for this job.
-
-        Returns
-        -------
-        Optional[List[ResourceAllocation]]
-            The scheduler resource allocations for this job, or ``None`` if it is queued or otherwise not yet allocated.
-        """
+    def set_allocations(self, allocations: List[ResourceAllocation]):
         pass
 
-    @allocations.setter
     @abstractmethod
-    def allocations(self, allocations: List[ResourceAllocation]):
+    def set_data_requirements(self, data_requirements: List[DataRequirement]):
         pass
 
-    @property
     @abstractmethod
-    def cpu_count(self) -> int:
-        """
-        The number of CPUs for this job.
-
-        Returns
-        -------
-        int
-            The number of CPUs for this job.
-        """
+    def set_partition_config(self, part_config: PartitionConfig):
         pass
 
-    @property
     @abstractmethod
-    def data_requirements(self) -> List[DataRequirement]:
-        """
-        List of ::class:`DataRequirement` objects representing all data needed for the job.
-
-        Returns
-        -------
-        List[DataRequirement]
-            List of ::class:`DataRequirement` objects representing all data needed for the job.
-        """
+    def set_status(self, status: JobStatus):
         pass
 
-    @data_requirements.setter
     @abstractmethod
-    def data_requirements(self, data_requirements: List[DataRequirement]):
+    def set_status_phase(self, phase: JobExecPhase):
+        pass
+
+    @abstractmethod
+    def set_status_step(self, step: JobExecStep):
         pass
 
     @property
@@ -520,89 +559,6 @@ class Job(Serializable, ABC):
 
     @property
     @abstractmethod
-    def job_id(self):
-        """
-        The unique identifier for this particular job.
-
-        Returns
-        -------
-        The unique identifier for this particular job.
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def last_updated(self) -> datetime:
-        """
-        The last time this objects state was updated.
-
-        Returns
-        -------
-        datetime
-            The last time this objects state was updated.
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def memory_size(self) -> int:
-        """
-        The amount of the memory needed for this job.
-
-        Returns
-        -------
-        int
-            The amount of the memory needed for this job.
-        """
-        pass
-
-    # TODO: do we need to account for jobs for anything other than model exec?
-    @property
-    @abstractmethod
-    def model_request(self) -> ExternalRequest:
-        """
-        Get the underlying configuration for the model execution that is being requested.
-
-        Returns
-        -------
-        ExternalRequest
-            The underlying configuration for the model execution that is being requested.
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def partition_config(self) -> Optional[PartitionConfig]:
-        """
-        Get this job's partitioning configuration.
-
-        Returns
-        -------
-        PartitionConfig
-            This job's partitioning configuration.
-        """
-        pass
-
-    @partition_config.setter
-    @abstractmethod
-    def partition_config(self, part_config: PartitionConfig):
-        pass
-
-    @property
-    @abstractmethod
-    def rsa_key_pair(self) -> Optional['RsaKeyPair']:
-        """
-        The ::class:`'RsaKeyPair'` for this job's shared SSH RSA keys.
-
-        Returns
-        -------
-        Optional['RsaKeyPair']
-            The ::class:`'RsaKeyPair'` for this job's shared SSH RSA keys, or ``None`` if not has been set.
-        """
-        pass
-
-    @property
-    @abstractmethod
     def should_release_resources(self) -> bool:
         """
         Whether the job has entered a state where it is appropriate to release resources.
@@ -612,24 +568,6 @@ class Job(Serializable, ABC):
         bool
             Whether the job has entered a state where it is appropriate to release resources.
         """
-        pass
-
-    @property
-    @abstractmethod
-    def status(self) -> JobStatus:
-        """
-        The ::class:`JobStatus` of this object.
-
-        Returns
-        -------
-        JobStatus
-            The ::class:`JobStatus` of this object.
-        """
-        pass
-
-    @status.setter
-    @abstractmethod
-    def status(self, status: JobStatus):
         pass
 
     @property
@@ -644,11 +582,6 @@ class Job(Serializable, ABC):
         """
         return self.status.job_exec_phase
 
-    @status_phase.setter
-    @abstractmethod
-    def status_phase(self, phase: JobExecPhase):
-        pass
-
     @property
     def status_step(self) -> JobExecStep:
         """
@@ -660,11 +593,6 @@ class Job(Serializable, ABC):
             The ::class:`JobStageStep` for the ::class:`JobStatus` ::attribute:`status` property of this object.
         """
         return self.status.job_exec_step
-
-    @status_step.setter
-    @abstractmethod
-    def status_step(self, step: JobExecStep):
-        pass
 
     @property
     @abstractmethod
