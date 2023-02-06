@@ -11,16 +11,18 @@ from dmod.core.serializable import Serializable
 from dmod.core.meta_data import DataRequirement
 from dmod.core.enum import PydanticEnum
 from dmod.modeldata.hydrofabric import PartitionConfig
-from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Set, Tuple, Type, TYPE_CHECKING, Union
+from typing_extensions import Self
 from uuid import UUID
 from uuid import uuid4 as uuid_func
 
 from ..resources import ResourceAllocation
-
-if TYPE_CHECKING:
-    from .. import RsaKeyPair
+from .. import RsaKeyPair
 
 import logging
+
+if TYPE_CHECKING:
+    from pydantic.typing import AbstractSetIntStr, MappingIntStrAny, DictStrAny
 
 # SAFETY: tuple can be used in this context because this sentinel is being used to verify if the data is being
 # deserialized from json. Tuple's are not datatypes in json or deserialized json.
@@ -648,158 +650,87 @@ class Job(Serializable, ABC):
 
         setter_fn(value)
 
-        if key not in json_obj:
-            return None
+class JobImpl(Job):
+    """
+    Basic implementation of ::class:`Job`
 
-        serial_list = json_obj[key]
-        if not isinstance(serial_list, list):
-            raise RuntimeError("Invalid format for data requirements list value '{}'".format(str(serial_list)))
-        data_req_list = []
-        for serial_data_req in serial_list:
-            if not isinstance(serial_data_req, dict):
-                raise RuntimeError("Invalid format for data requirements value '{}'".format(str(serial_list)))
-            data_req = DataRequirement.factory_init_from_deserialized_json(serial_data_req)
-            if not isinstance(data_req, DataRequirement):
-                msg = "Unable to deserialize `{}` to nested data requirements while deserializing {}"
-                raise RuntimeError(msg.format(serial_data_req, cls.__name__))
-            data_req_list.append(data_req)
-        return data_req_list
+    Job ids are simply the string cast of generated UUID values, stored within the ::attribute:`job_uuid` property.
+    """
 
-    @classmethod
-    def _parse_serialized_job_status(cls, json_obj: dict, key: Optional[str] = None):
-        # Set this to the default value if it is initially None
-        if key is None:
-            key = 'status'
-        status_str = cls.parse_simple_serialized(json_obj=json_obj, key=key, expected_type=str, required_present=False)
-        if status_str is None:
-            return None
-        return JobStatus.get_for_name(name=status_str)
+    # NOTE: more specific ExternalRequest subtype than super class
+    model_request: ModelExecRequest
 
-    @classmethod
-    def _parse_serialized_last_updated(cls, json_obj: dict, key: Optional[str] = None):
-        date_str_converter = lambda date_str: datetime.strptime(date_str, cls.get_datetime_str_format())
-        if key is None:
-            key = 'last_updated'
-        if key in json_obj:
-            return cls.parse_simple_serialized(json_obj=json_obj, key=key, expected_type=datetime,
-                                               converter=date_str_converter, required_present=False)
-        else:
-            return None
+    _worker_data_requirements: Optional[List[List[DataRequirement]]] = PrivateAttr(None)
+    _allocation_service_names: Optional[Tuple[str]] = PrivateAttr(None)
 
-    @classmethod
-    def _parse_serialized_partition_config(cls, json_obj: dict, key: Optional[str] = None):
-        if key is None:
-            key = 'partitioning'
-        if key in json_obj:
-            return PartitionConfig.factory_init_from_deserialized_json(json_obj[key])
-        else:
-            return None
+    @validator("allocation_paradigm", pre=True)
+    def _parse_allocation_paradigm(cls, value: Union[AllocationParadigm, str]) -> Union[str, AllocationParadigm]:
+        if isinstance(value, AllocationParadigm):
+            return value
 
-    @classmethod
-    def _parse_serialized_rsa_key_pair(cls, json_obj: dict, key: Optional[str] = None, warn_if_missing: bool = False):
-        # Doing this here for now to avoid import errors
-        # TODO: find a better way for this
-        from .. import RsaKeyPair
+        # NOTE: potentially remove in future. There are cases in codebase where kabob case is being used.
+        return value.replace("-", "_")
 
-        # Set this to the default value if it is initially None
-        if key is None:
-            # TODO: set somewhere globally
-            key = 'rsa_key_pair'
-        if key not in json_obj:
-            if warn_if_missing:
-                # TODO: log this better.  NJF changed print to logging.warning, anything else needed?
-                msg = 'Warning: expected serialized RSA key at {} when deserializing {} object'
-                logging.warning(msg.format(key, cls.__name__))
-            return None
-        if key not in json_obj or json_obj[key] is None:
-            return None
-        rsa_key_pair = RsaKeyPair.factory_init_from_deserialized_json(json_obj=json_obj[key])
-        if rsa_key_pair is None:
-            raise RuntimeError('Could not deserialized child RsaKeyPair when deserializing ' + cls.__name__)
-        else:
-            return rsa_key_pair
+    @validator("status", pre=True)
+    def _parse_status(cls, value: Optional[Union[str, JobStatus]], field: ModelField) -> JobStatus:
+        if value is None:
+            if field.default_factory is None:
+                raise RuntimeError("unreachable")
+            return field.default_factory()
+
+        if isinstance(value, JobStatus):
+            return value
+
+        value = str(value)
+        return JobStatus.get_for_name(name=value)
+
+    @validator("last_updated", pre=True)
+    def _parse_serialized_last_updated(cls, value: Union[str, datetime]) -> datetime:
+        if isinstance(value, datetime):
+            return value
+
+        try:
+            value = str(value)
+            return datetime.strptime(value, cls.get_datetime_str_format())
+        except:
+            return datetime.now()
+
+    @validator("data_requirements", pre=True)
+    def _populate_default_data_requirements(cls, value: Optional[List[DataRequirement]]) -> List[DataRequirement]:
+        if value is None:
+            return list()
+        return value
+
+    @validator("model_request", pre=True)
+    def _deserialize_model_request(cls, value: Union[Dict[str, Any], ModelExecRequest]) -> ModelExecRequest:
+        if isinstance(value, ModelExecRequest):
+            return value
+
+        return ModelExecRequest.factory_init_correct_subtype_from_deserialized_json(value)
+
+    @validator("job_id", pre=True)
+    def _validate_job_id(cls, value: Optional[Union[UUID, str]], field: ModelField) -> str:
+        if value is None:
+            if field.default_factory is None:
+                raise RuntimeError("unreachable")
+            return field.default_factory()
+
+        if isinstance(value, UUID):
+            return str(value)
+
+        return str(UUID(value))
+
+    @root_validator(pre=True)
+    def _parse_job_id(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        job_id = values.get("job_id")
+        if job_id is not None:
+            return values
+
+        values["job_id"] = cls.parse_serialized_job_id(job_id, **values)
+        return values
 
     # TODO: unit test
     # TODO: consider moving this up to Job or even Serializable
-
-    @classmethod
-    def deserialize_core_attributes(cls, json_obj: dict):
-        """
-        Deserialize the core attributes of the basic ::class:`JobImpl` implementation from the provided dictionary and
-        return as a tuple.
-
-        Parameters
-        ----------
-        json_obj
-
-        Returns
-        -------
-        The tuple with parse values of (cpus, memory, paradigm, priority, job_id, rsa_key_pair, status, allocations,
-        updated, partitioning) from the provided dictionary.
-        """
-        int_converter = lambda x: int(x)
-        cpus = cls.parse_simple_serialized(json_obj=json_obj, key='cpu_count', expected_type=int,
-                                           converter=int_converter)
-        memory = cls.parse_simple_serialized(json_obj=json_obj, key='memory_size', expected_type=int,
-                                             converter=int_converter)
-        paradigm = cls._parse_serialized_allocation_paradigm(json_obj=json_obj, key='allocation_paradigm')
-        priority = cls.parse_simple_serialized(json_obj=json_obj, key='allocation_priority', expected_type=int,
-                                               converter=int_converter)
-        job_id = cls.parse_serialized_job_id(serialized_value=None, json_obj=json_obj, key='job_id')
-        rsa_key_pair = cls._parse_serialized_rsa_key_pair(json_obj=json_obj)
-        status = cls._parse_serialized_job_status(json_obj=json_obj)
-        allocations = cls._parse_serialized_allocations(json_obj=json_obj)
-        updated = cls._parse_serialized_last_updated(json_obj=json_obj)
-        partitioning = cls._parse_serialized_partition_config(json_obj=json_obj, key='partitioning')
-        return cpus, memory, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated, partitioning
-
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        """
-        Factory create a new instance of this type based on a JSON object dictionary deserialized from received JSON.
-
-        Parameters
-        ----------
-        json_obj
-
-        Returns
-        -------
-        A new object of this type instantiated from the deserialize JSON object dictionary
-        """
-
-        try:
-            cpus, memory, paradigm, priority, job_id, rsa_key_pair, status, allocations, updated, partitioning = \
-                cls.deserialize_core_attributes(json_obj)
-
-            if 'model_request' in json_obj:
-                model_request = ModelExecRequest.factory_init_correct_subtype_from_deserialized_json(json_obj['model_request'])
-            else:
-                # TODO: add serialize/deserialize support for other situations/requests (also change 'model_request' property name)
-                msg = "Type {} can only support deserializing JSON containing a {} under the 'model_request' key"
-                raise RuntimeError(msg.format(cls.__name__, ModelExecRequest.__name__))
-
-            obj = cls(cpu_count=cpus, memory_size=memory, model_request=model_request, allocation_paradigm=paradigm,
-                      alloc_priority=priority)
-
-            if job_id is not None:
-                obj.job_id = job_id
-            if rsa_key_pair is not None:
-                obj.rsa_key_pair = rsa_key_pair
-            if status is not None:
-                obj.status = status
-            if updated is not None:
-                obj._last_updated = updated
-            if allocations is not None:
-                obj.allocations = allocations
-                obj.data_requirements = cls._parse_serialized_data_requirements(json_obj)
-            if partitioning is not None:
-                obj.partition_config = partitioning
-
-            return obj
-
-        except RuntimeError as e:
-            logging.error(e)
-            return None
 
     @classmethod
     def parse_serialized_job_id(cls, serialized_value: Optional[str], **kwargs):
@@ -850,46 +781,38 @@ class Job(Serializable, ABC):
         RuntimeError
             Raised if the parameter does not parse to a UUID.
         """
+        if serialized_value is not None:
+            return serialized_value
+
         key_key = 'key'
-        json_obj_key = 'json_obj'
 
         # First, try to obtain a serialized value, if one was not already set
-        if serialized_value is None and kwargs is not None and json_obj_key in kwargs and key_key in kwargs:
-            if isinstance(kwargs[json_obj_key], dict) and kwargs[key_key] in kwargs[json_obj_key]:
-                try:
-                    serialized_value = cls.parse_simple_serialized(json_obj=kwargs[json_obj_key], key=kwargs[key_key],
-                                                                   expected_type=str, converter=lambda x: str(x),
-                                                                   required_present=False)
-                except:
-                    # TODO: consider logging this
-                    return None
-        # Bail here if we don't have a serialized_value to work with
-        if serialized_value is None:
-            return None
-        try:
-            return UUID(str(serialized_value))
-        except ValueError as e:
-            msg = "Failed parsing parameter value `{}` to UUID object: {}".format(str(serialized_value), str(e))
-            raise RuntimeError(msg)
+        if kwargs is not None and key_key in kwargs:
+            if kwargs[key_key] in kwargs:
+                return kwargs[kwargs[key_key]]
+
+        return None
+
 
     def __init__(self, cpu_count: int, memory_size: int, model_request: ExternalRequest,
-                 allocation_paradigm: Union[str, AllocationParadigm], alloc_priority: int = 0, *args, **kwargs):
-        self._cpu_count = cpu_count
-        self._memory_size = memory_size
-        self._model_request = model_request
-        if isinstance(allocation_paradigm, AllocationParadigm):
-            self._allocation_paradigm = allocation_paradigm
-        else:
-            self._allocation_paradigm = AllocationParadigm.get_from_name(name=allocation_paradigm)
-        self._allocation_priority = alloc_priority
-        self._job_uuid = uuid_func()
-        self._rsa_key_pair = None
-        self._status = JobStatus(JobExecPhase.INIT)
-        self._allocations = None
-        self._data_requirements = None
-        self._worker_data_requirements = None
-        self._allocation_service_names = None
-        self._partition_config = None
+                 allocation_paradigm: Union[str, AllocationParadigm], alloc_priority: int = 0, **data):
+        if data:
+            super().__init__(
+                allocation_paradigm=allocation_paradigm,
+                cpu_count=cpu_count,
+                memory_size=memory_size,
+                model_request=model_request,
+                **data,
+            )
+            return
+
+        super().__init__(
+            allocation_paradigm=allocation_paradigm,
+            allocation_priority=alloc_priority,
+            cpu_count=cpu_count,
+            memory_size=memory_size,
+            model_request=model_request,
+        )
         self._reset_last_updated()
 
     def _process_per_worker_data_requirements(self) -> List[List[DataRequirement]]:
@@ -901,11 +824,13 @@ class Job(Serializable, ABC):
         List[List[DataRequirement]]
             List (indexed analogously to worker allocations) of lists of per-worker data requirements.
         """
+        if self.allocations is None:
+            return []
         # TODO: implement this properly/more efficiently
-        return [list(self.data_requirements) for a in self.allocations]
+        return [list(self.data_requirements) for _ in self.allocations]
 
     def _reset_last_updated(self):
-        self._last_updated = datetime.now()
+        self.last_updated = datetime.now()
 
     def add_allocation(self, allocation: ResourceAllocation):
         """
@@ -917,44 +842,16 @@ class Job(Serializable, ABC):
         allocation : ResourceAllocation
             A resource allocation object to add.
         """
-        if self._allocations is None:
-            self._allocations = list()
-        self._allocations.append(allocation)
+        if self.allocations is None:
+            self.set_allocations(list())
+        self.allocations.append(allocation) # type: ignore
         self._allocation_service_names = None
         self._reset_last_updated()
 
-    @property
-    def allocation_paradigm(self) -> AllocationParadigm:
-        """
-        The ::class:`AllocationParadigm` type value that was used or should be used to make allocations.
-
-        For this type, the value is set as a private attribute during initialization, based on the value of the
-        ::attribute:`SchedulerRequestMessage.allocation_paradigm` string property present within the provided
-        ::class:`SchedulerRequestMessage` init param.
-
-        Returns
-        -------
-        AllocationParadigm
-            The ::class:`AllocationParadigm` type value that was used or should be used to make allocations.
-        """
-        return self._allocation_paradigm
-
-    @property
-    def allocation_priority(self) -> int:
-        """
-        A score for how this job should be prioritized with respect to allocation, with high scores being more likely to
-        received allocation.
-
-        Returns
-        -------
-        int
-            A score for how this job should be prioritized with respect to allocation.
-        """
-        return self._allocation_priority
-
-    @allocation_priority.setter
-    def allocation_priority(self, priority: int):
-        self._allocation_priority = priority
+    def set_allocation_priority(self, priority: int):
+        # NOTE: set using dict to avoid deprecation warning thrown by `__setattr__`.  See `Job.__setattr__`
+        # docstring for more detail.
+        self.__dict__["allocation_priority"] = priority
         self._reset_last_updated()
 
     @property
@@ -977,7 +874,7 @@ class Job(Serializable, ABC):
             allocations.
         """
         if self._allocation_service_names is None and self.allocations is not None and len(self.allocations) > 0:
-            service_names = []
+            service_names: List[str] = []
             # TODO: read this from request metadata
             base_name = "{}-worker".format(self.model_request.get_model_name())
             num_allocations = len(self.allocations)
@@ -986,42 +883,24 @@ class Job(Serializable, ABC):
             self._allocation_service_names = tuple(service_names)
         return self._allocation_service_names
 
-    @property
-    def allocations(self) -> Optional[Tuple[ResourceAllocation]]:
-        return None if self._allocations is None else tuple(self._allocations)
-
-    @allocations.setter
-    def allocations(self, allocations: Union[List[ResourceAllocation], Tuple[ResourceAllocation]]):
+    def set_allocations(self, allocations: Union[List[ResourceAllocation], Tuple[ResourceAllocation]]):
         if isinstance(allocations, tuple):
-            self._allocations = list(allocations)
+            # NOTE: set using dict to avoid deprecation warning thrown by `__setattr__`.  See `Job.__setattr__`
+            # docstring for more detail.
+            self.__dict__["allocations"] = list(allocations)
         else:
-            self._allocations = allocations
+            # NOTE: set using dict to avoid deprecation warning thrown by `__setattr__`.  See `Job.__setattr__`
+            # docstring for more detail.
+            self.__dict__["allocations"] = allocations
         self._allocation_service_names = None
         self._reset_last_updated()
 
-    @property
-    def cpu_count(self) -> int:
-        return self._cpu_count
-
-    @property
-    def data_requirements(self) -> List[DataRequirement]:
-        """
-        List of ::class:`DataRequirement` objects representing all data needed for the job.
-
-        Returns
-        -------
-        List[DataRequirement]
-            List of ::class:`DataRequirement` objects representing all data needed for the job.
-        """
-        if self._data_requirements is None:
-            self._data_requirements = []
-        return self._data_requirements
-
-    @data_requirements.setter
-    def data_requirements(self, data_requirements: List[DataRequirement]):
+    def set_data_requirements(self, data_requirements: List[DataRequirement]):
         # Make sure to reset worker data requirements if this is changed
         self._worker_data_requirements = None
-        self._data_requirements = data_requirements
+        # NOTE: set using dict to avoid deprecation warning thrown by `__setattr__`.  See `Job.__setattr__`
+        # docstring for more detail.
+        self.__dict__["data_requirements"] = data_requirements
         self._reset_last_updated()
 
     @property
@@ -1038,68 +917,25 @@ class Job(Serializable, ABC):
         """
         return self.model_request is not None and isinstance(self.model_request, NGENRequest)
 
-    @property
-    def job_id(self) -> Optional[str]:
-        """
-        The unique job id for this job in the manager, if one has been set for it, or ``None``.
-
-        The getter for the property returns the ::attribute:`UUID.bytes` field of the ::attribute:`job_uuid` property,
-        if it is set, or ``None`` if it is not set.
-
-        The setter for the property will actually set the ::attribute:`job_uuid` attribute, via a call to the setter for
-        the ::attribute:`job_uuid` property.  ::attribute:`job_id`'s setter can accept either a ::class:`UUID` or a
-        string, with the latter case being used to initialize a ::class:`UUID` object.
-
-        Returns
-        -------
-        Optional[str]
-            The unique job id for this job in the manager, if one has been set for it, or ``None``.
-        """
-        return str(self._job_uuid) if isinstance(self._job_uuid, UUID) else None
-
-    @job_id.setter
-    def job_id(self, job_id: Union[str, UUID]):
+    def set_job_id(self, job_id: Union[str, UUID]):
         job_uuid = job_id if isinstance(job_id, UUID) else UUID(str(job_id))
-        if job_uuid != self._job_uuid:
-            self._job_uuid = job_uuid
+        job_uuid = str(job_uuid)
+        if job_uuid != self.job_id:
+            # NOTE: set using dict to avoid deprecation warning thrown by `__setattr__`.  See `Job.__setattr__`
+            # docstring for more detail.
+            self.__dict__["job_id"] = job_uuid
             self._reset_last_updated()
 
-    @property
-    def memory_size(self) -> int:
-        return self._memory_size
+    def set_partition_config(self, part_config: PartitionConfig):
+        # NOTE: set using dict to avoid deprecation warning thrown by `__setattr__`.  See `Job.__setattr__`
+        # docstring for more detail.
+        self.__dict__["partition_config"] = part_config
 
-    @property
-    def last_updated(self) -> datetime:
-        return self._last_updated
-
-    @property
-    def model_request(self) -> ExternalRequest:
-        """
-        Get the underlying configuration for the model execution that is being requested.
-
-        Returns
-        -------
-        ExternalRequest
-            The underlying configuration for the model execution that is being requested.
-        """
-        return self._model_request
-
-    @property
-    def partition_config(self) -> Optional[PartitionConfig]:
-        return self._partition_config
-
-    @partition_config.setter
-    def partition_config(self, part_config: PartitionConfig):
-        self._partition_config = part_config
-
-    @property
-    def rsa_key_pair(self) -> Optional['RsaKeyPair']:
-        return self._rsa_key_pair
-
-    @rsa_key_pair.setter
-    def rsa_key_pair(self, key_pair: 'RsaKeyPair'):
-        if key_pair != self._rsa_key_pair:
-            self._rsa_key_pair = key_pair
+    def set_rsa_key_pair(self, key_pair: 'RsaKeyPair'):
+        if key_pair != self.rsa_key_pair:
+            # NOTE: set using dict to avoid deprecation warning thrown by `__setattr__`.  See `Job.__setattr__`
+            # docstring for more detail.
+            self.__dict__["rsa_key_pair"] = key_pair
             self._reset_last_updated()
 
     @property
@@ -1117,34 +953,21 @@ class Job(Serializable, ABC):
         # TODO: confirm that allocations should be maintained for stopped output jobs while in eval or calibration phase
         return self.status_step == JobExecStep.FAILED or self.status_phase == JobExecPhase.CLOSED
 
-    @property
-    def status(self) -> JobStatus:
-        return self._status
-
-    @status.setter
-    def status(self, new_status: JobStatus):
-        if new_status != self._status:
-            self._status = new_status
+    def set_status(self, status: JobStatus):
+        if status != self.status:
+            # NOTE: set using dict to avoid deprecation warning thrown by `__setattr__`.  See `Job.__setattr__`
+            # docstring for more detail.
+            self.__dict__["status"] = status
             self._reset_last_updated()
 
-    @property
-    def status_phase(self) -> JobExecPhase:
-        return super().status_phase
+    def set_status_phase(self, phase: JobExecPhase):
+        self.set_status(JobStatus(phase=phase, step=phase.default_start_step))
 
-    @status_phase.setter
-    def status_phase(self, phase: JobExecPhase):
-        self.status = JobStatus(phase=phase, step=phase.default_start_step)
+    def set_status_step(self, step: JobExecStep):
+        self.set_status(JobStatus(phase=self.status.job_exec_phase, step=step))
 
     @property
-    def status_step(self) -> JobExecStep:
-        return super().status_step
-
-    @status_step.setter
-    def status_step(self, new_step: JobExecStep):
-        self.status = JobStatus(phase=self.status.job_exec_phase, step=new_step)
-
-    @property
-    def worker_data_requirements(self) -> List[List[DataRequirement]]:
+    def worker_data_requirements(self) -> Optional[List[List[DataRequirement]]]:
         """
         List of lists of per-worker data requirements, indexed analogously to worker allocations.
 
@@ -1157,64 +980,60 @@ class Job(Serializable, ABC):
             self._worker_data_requirements = self._process_per_worker_data_requirements()
         return self._worker_data_requirements
 
-    def to_dict(self) -> dict:
-        """
-        Get the representation of this instance as a dictionary or dictionary-like object (e.g., a JSON object).
+    @cache
+    def _setter_methods(self) -> Dict[str, Callable]:
+        return {
+            **super()._setter_methods(),
+            "allocation_priority": self.set_allocation_priority,
+            "job_id": self.set_job_id,
+            "rsa_key_pair": self.set_rsa_key_pair,
+         }
 
-        {
-            "job_class" : "<class_name>",
-            "cpu_count" : 4,
-            "memory_size" : 1000,
-            "model_request" : {<serialized_maas_request>},
-            "allocation_paradigm" : "SINGLE_NODE",
-            "allocation_priority" : 0,
-            "job_id" : "12345678-1234-5678-1234-567812345678",
-            "rsa_key_pair" : {<serialized_representation_of_RsaKeyPair_obj>},
-            "status" : INIT:DEFAULT,
-            "last_updated" : "2020-07-10 12:05:45",
-            "allocations" : [...],
-            'data_requirements" : [...],
-            "partitioning" : { "partitions": [ ... ] }
-        }
+    def dict(
+        self,
+        *,
+        include: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        exclude: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        by_alias: bool = True, # Note, this follows Serializable convention
+        skip_defaults: Optional[bool] = None,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = True,
+    ) -> "DictStrAny":
+        def add(*fields: str, collection: Union[Set[str], Dict[str, bool]]) -> Union[Set[str], Dict[str, bool]]:
+            if isinstance(collection, set):
+                collection_copy = {*collection}
+                for field in fields:
+                    collection_copy.add(field)
+                return collection_copy
 
-        Returns
-        -------
-        dict
-            the representation of this instance as a dictionary or dictionary-like object (e.g., a JSON object)
-        """
-        serial = dict()
+            elif isinstance(exclude, dict):
+                collection_copy = {**collection}
+                for field in fields:
+                    collection_copy[field] = True
+                return collection_copy
 
-        serial['job_class'] = self.__class__.__name__
-        serial['cpu_count'] = self.cpu_count
-        serial['memory_size'] = self.memory_size
+            return collection
 
-        # TODO: support other scenarios along with deserializing (maybe even eliminate RequestedJob subtype)
-        if isinstance(self.model_request, ModelExecRequest):
-            request_key = 'model_request'
-        else:
-            msg = "Type {} can only support serializing to JSON when fulfilled request is a {}"
-            raise RuntimeError(msg.format(self.__class__.__name__, ModelExecRequest.__name__))
-        serial[request_key] = self.model_request.to_dict()
+        exclude = exclude or set()
 
-        if self.allocation_paradigm:
-            serial['allocation_paradigm'] = self.allocation_paradigm.name
-        serial['allocation_priority'] = self.allocation_priority
-        if self.job_id is not None:
-            serial['job_id'] = str(self.job_id)
-        if self.rsa_key_pair is not None:
-            serial['rsa_key_pair'] = self.rsa_key_pair.to_dict()
-        serial['status'] = self.status.name
-        serial['last_updated'] = self._last_updated.strftime(self.get_datetime_str_format())
-        serial['data_requirements'] = []
-        for dr in self.data_requirements:
-            serial['data_requirements'].append(dr.to_dict())
-        if self.allocations is not None and len(self.allocations) > 0:
-            serial['allocations'] = []
-            for allocation in self.allocations:
-                serial['allocations'].append(allocation.to_dict())
-            if self.partition_config is not None:
-                serial['partitioning'] = self.partition_config.to_dict()
+        # conditionally exclude `allocations` and `partitioning` if allocations is None or is empty
+        if self.allocations is None or not len(self.allocations):
+            exclude = add("allocations", "partitioning", collection=exclude)
 
+        serial = super().dict(
+            include=include,
+            exclude=exclude,
+            by_alias=by_alias,
+            skip_defaults=skip_defaults,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
+        )
+
+        # serialize status as "{PHASE}:{STEP}"
+        if "status" not in exclude:
+            serial["status"] = self.status.name
         return serial
 
 
@@ -1255,6 +1074,7 @@ class RequestedJob(JobImpl):
             logging.error(e)
             return None
 
+        # TODO: #pydantic_refactor - come back and make sure this makes sense (it probaably doesn't)
         # Create the object initially from the request
         new_obj = cls(job_request=request, cpu_count=cpus, memory_size=memory, allocation_paradigm=paradigm,
                       alloc_priority=priority)
