@@ -196,8 +196,15 @@ class TestRsaKeyPair(unittest.TestCase):
         default_location = Path.home() / ".ssh"
         self.assertNotEqual(key_pair.directory, default_location)
 
+        o_pub_key = key_pair.public_key_file
+        o_priv_key = key_pair.private_key_file
+
         key_pair.directory = None
         self.assertEqual(key_pair.directory, default_location)
+
+        # remove original public key and private key
+        o_priv_key.unlink(missing_ok=True)
+        o_pub_key.unlink(missing_ok=True)
 
     def test_reassign_directory_creates_directory_if_not_exist(self):
         """
