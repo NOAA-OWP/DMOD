@@ -4,6 +4,8 @@ from ..scheduler.resources.resource_allocation import ResourceAllocation
 from dmod.communication import NWMRequest
 from uuid import UUID
 
+from typing import List
+
 
 class TestJobImpl(unittest.TestCase):
 
@@ -11,14 +13,14 @@ class TestJobImpl(unittest.TestCase):
         self._nwm_model_request = NWMRequest.factory_init_from_deserialized_json(
             {"model": {"nwm": {"version": 2.0, "output": "streamflow", "domain": "blah", "parameters": {}}},
              "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"})
-        self._example_jobs = []
+        self._example_jobs: List[JobImpl]= []
         self._example_jobs.append(JobImpl(4, 1000, model_request=self._nwm_model_request,
                                           allocation_paradigm='single-node'))
 
-        self._uuid_str_vals = []
+        self._uuid_str_vals: List[str] = []
         self._uuid_str_vals.append('12345678-1234-5678-1234-567812345678')
 
-        self._resource_allocations = []
+        self._resource_allocations: List[ResourceAllocation] = []
         self._resource_allocations.append(ResourceAllocation('node001', 'node001', 4, 1000))
 
     def tearDown(self) -> None:
