@@ -328,11 +328,11 @@ class JobStatus(Serializable):
 
     @property
     def job_exec_phase(self) -> JobExecPhase:
-        return self.phase
+        return self.phase # type: ignore
 
     @property
     def job_exec_step(self) -> JobExecStep:
-        return self.step
+        return self.step # type: ignore
 
     @property
     def name(self) -> str:
