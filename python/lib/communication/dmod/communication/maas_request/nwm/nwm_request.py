@@ -66,6 +66,12 @@ class NWMRequest(ModelExecRequest):
 
         super().__init__(**data)
 
+    @classmethod
+    def get_model_name(cls) -> str:
+        # NOTE: overridden b.c. nwm request has nested model field. In the future we should be able
+        # to remove this.
+        return cls.__fields__["model"].type_.__fields__["nwm"].type_.__fields__["name"].default
+
     @property
     def data_requirements(self) -> List[DataRequirement]:
         """
