@@ -607,52 +607,46 @@ class Job(Serializable, ABC):
         """
         pass
 
+    @cache
+    def _setter_methods(self) -> Dict[str, Callable]:
+        """Mapping of attribute name to setter method. This supports backwards functional compatibility."""
+        # TODO: remove once migration to setters by down stream users is complete
+        return {
+            "allocations": self.set_allocations,
+            "data_requirements": self.set_data_requirements,
+            "partition_config": self.set_partition_config,
+            "status": self.set_status,
+            # derived properties
+            "status_phase": self.set_status_phase,
+            "status_step": self.set_status_step,
+            }
 
-class JobImpl(Job):
-    """
-    Basic implementation of ::class:`Job`
+    def __setattr__(self, name: str, value: Any):
+        """
+        Use property setter method when available.
 
-    Job ids are simply the string cast of generated UUID values, stored within the ::attribute:`job_uuid` property.
-    """
+        Note, all setter methods should modify their associated property using the instance `__dict__`.
+        This ensures that calls to, for example, `set_id` don't raise a warning, while `o.id = "new
+        id"` do.
 
-    @classmethod
-    def _parse_serialized_allocation_paradigm(cls, json_obj: dict, key: str):
-        paradigm = AllocationParadigm.get_from_name(name=json_obj[key], strict=True) if key in json_obj else None
-        if not isinstance(paradigm, AllocationParadigm):
-            if paradigm is None:
-                type_name = 'None'
-            else:
-                type_name = paradigm.__class__.__name__
-            raise RuntimeError(cls._get_invalid_type_message().format(key, str.__name__, type_name))
-        return paradigm
+        Example:
+            ```
+            class SomeJob(Job):
+                id: str
 
-    @classmethod
-    def _parse_serialized_allocations(cls, json_obj: dict, key: Optional[str] = None):
-        if key is None:
-            key = 'allocations'
+                def set_id(self, value: str):
+                    self.__dict__["id"] = value
+            ```
+        """
+        if name not in self._setter_methods():
+            return super().__setattr__(name, value)
 
-        if key not in json_obj:
-            return None
+        setter_fn = self._setter_methods()[name]
 
-        serial_alloc_list = json_obj[key]
-        if not isinstance(serial_alloc_list, list):
-            raise RuntimeError("Invalid format for allocations list value '{}'".format(str(serial_alloc_list)))
-        allocations = []
-        for serial_alloc in serial_alloc_list:
-            if not isinstance(serial_alloc, dict):
-                raise RuntimeError("Invalid format for allocation value '{}'".format(str(serial_alloc_list)))
-            allocation = ResourceAllocation.factory_init_from_dict(serial_alloc)
-            if not isinstance(allocation, ResourceAllocation):
-                raise RuntimeError(
-                    "Unable to deserialize `{}` to resource allocation while deserializing {}".format(
-                        str(allocation), cls.__name__))
-            allocations.append(allocation)
-        return allocations
+        message = f"Setting by attribute is deprecated. Use `{self.__class__.__name__}.{setter_fn.__name__}` method instead."
+        warn(message, DeprecationWarning)
 
-    @classmethod
-    def _parse_serialized_data_requirements(cls, json_obj: dict, key: Optional[str] = None):
-        if key is None:
-            key = 'data_requirements'
+        setter_fn(value)
 
         if key not in json_obj:
             return None
