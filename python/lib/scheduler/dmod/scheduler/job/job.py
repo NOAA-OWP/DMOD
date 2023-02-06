@@ -358,7 +358,7 @@ class Job(Serializable, ABC):
     allocation_priority: int = 0
     """A score for how this job should be prioritized with respect to allocation."""
 
-    allocations: Optional[List[ResourceAllocation]]
+    allocations: Optional[Tuple[ResourceAllocation, ...]]
     """The scheduler resource allocations for this job, or ``None`` if it is queued or otherwise not yet allocated."""
 
     cpu_count: int = Field(gt=0)
@@ -841,8 +841,8 @@ class JobImpl(Job):
             A resource allocation object to add.
         """
         if self.allocations is None:
-            self.set_allocations(list())
-        self.allocations.append(allocation) # type: ignore
+            self.set_allocations(tuple())
+        self.set_allocations((*self.allocations, allocation)) # type: ignore
         self._allocation_service_names = None
         self._reset_last_updated()
 
@@ -882,10 +882,10 @@ class JobImpl(Job):
         return self._allocation_service_names
 
     def set_allocations(self, allocations: Union[List[ResourceAllocation], Tuple[ResourceAllocation]]):
-        if isinstance(allocations, tuple):
+        if isinstance(allocations, list):
             # NOTE: set using dict to avoid deprecation warning thrown by `__setattr__`.  See `Job.__setattr__`
             # docstring for more detail.
-            self.__dict__["allocations"] = list(allocations)
+            self.__dict__["allocations"] = tuple(allocations)
         else:
             # NOTE: set using dict to avoid deprecation warning thrown by `__setattr__`.  See `Job.__setattr__`
             # docstring for more detail.
