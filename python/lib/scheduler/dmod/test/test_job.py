@@ -2,14 +2,18 @@ import unittest
 from ..scheduler.job.job import Job, JobImpl, RequestedJob
 from dmod.core.meta_data import TimeRange
 from dmod.communication import NWMRequest, NGENRequest, SchedulerRequestMessage
+from typing import Any, List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from dmod.communication import ModelExecRequest
 
 
 class TestJob(unittest.TestCase):
 
     def setUp(self) -> None:
-        self._example_jobs = []
-        self._model_requests = []
-        self._model_requests_json = []
+        self._example_jobs: List[RequestedJob] = []
+        self._model_requests: List["ModelExecRequest"]= []
+        self._model_requests_json: Dict[str, Any] = []
 
         # Example 0 - simple JobImpl instance based on NWMRequest for model_request value
         self._model_requests_json.append({
