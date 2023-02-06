@@ -221,7 +221,7 @@ class JobStatus(Serializable):
     """
     Representation of a ::class:`Job`'s status as a combination of phase and exec step.
     """
-    _NAME_DELIMITER = ':'
+    _NAME_DELIMITER: ClassVar[str] = ':'
 
     # NOTE: `None` is valid input, default value for field will be used.
     phase: Optional[JobExecPhase] = Field(JobExecPhase.UNKNOWN)
