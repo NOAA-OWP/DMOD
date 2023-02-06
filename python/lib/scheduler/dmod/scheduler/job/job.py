@@ -336,8 +336,7 @@ class JobStatus(Serializable):
 
     @property
     def name(self) -> str:
-        return self.job_exec_phase.name + self._NAME_DELIMITER + self.job_exec_step.name
-
+        return f"{self.job_exec_phase.name}{self._NAME_DELIMITER}{self.job_exec_step.name}"
 
 class Job(Serializable, ABC):
     """
