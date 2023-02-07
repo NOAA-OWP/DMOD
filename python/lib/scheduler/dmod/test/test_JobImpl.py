@@ -1,5 +1,5 @@
 import unittest
-from ..scheduler.job.job import JobImpl
+from ..scheduler.job.job import JobImpl, JobStatus, JobExecPhase, JobExecStep
 from ..scheduler.resources.resource_allocation import ResourceAllocation
 from dmod.communication import NWMRequest
 from uuid import UUID
@@ -191,5 +191,177 @@ class TestJobImpl(unittest.TestCase):
         self.assertLess(initial_last_updated, job.last_updated)
 
     # TODO: add tests for rest of setters that should update last_updated property
+    def test_set_allocation_priority(self):
+        """
+        Update allocation priority.
+        This should implicitly change the instance's `last_updated` field to the current time.
+        """
+        example_index_job = 0
+        job = self._example_jobs[example_index_job]
+        outdated_last_updated = job.last_updated
+        prior_allocation_priority = job.allocation_priority
 
-    # TODO: add tests for status_phase and status_step
+        job.set_allocation_priority(prior_allocation_priority + 1)
+        self.assertEqual(job.allocation_priority, prior_allocation_priority + 1)
+        self.assertGreater(job.last_updated, outdated_last_updated)
+
+    def test_add_allocation(self):
+        """
+        Test that a resource allocation is added and that the instance's `last_updated` field is implicitly updated.
+        """
+        example_index_job = 0
+        job = self._example_jobs[example_index_job]
+        resource_allocation = self._resource_allocations[example_index_job]
+
+        # we should not have any allocations up to this point
+        self.assertIsNone(job.allocations)
+        outdated_last_updated = job.last_updated
+
+        job.add_allocation(resource_allocation)
+
+        self.assertIsNotNone(job.allocations)
+        self.assertIsInstance(job.allocations, tuple)
+        self.assertEqual(len(job.allocations), 1) # type: ignore
+
+        self.assertEqual(job.allocations[0], resource_allocation) # type: ignore
+
+        self.assertGreater(job.last_updated, outdated_last_updated)
+
+    def test_set_allocations(self):
+        """
+        Test setting resource allocations and that the instance's `last_updated` field is implicitly updated.
+        """
+        example_index_job = 0
+        job = self._example_jobs[example_index_job]
+        resource_allocation = self._resource_allocations[example_index_job]
+
+        # we should not have any allocations up to this point
+        self.assertIsNone(job.allocations)
+        outdated_last_updated = job.last_updated
+
+        job.set_allocations((resource_allocation, ))
+
+        self.assertIsNotNone(job.allocations)
+        self.assertIsInstance(job.allocations, tuple)
+        self.assertEqual(len(job.allocations), 1) # type: ignore
+
+        self.assertEqual(job.allocations[0], resource_allocation) # type: ignore
+
+        # assert `last_updated` was updated and is greater than previous value
+        self.assertGreater(job.last_updated, outdated_last_updated)
+
+    def test_set_data_requirements(self):
+        # importing here, not needed elsewhere
+        from dmod.core.meta_data import DataRequirement, DataCategory, DataDomain, DataFormat, DiscreteRestriction, StandardDatasetIndex
+        example_index_job = 0
+        job = self._example_jobs[example_index_job]
+
+        outdated_last_updated = job.last_updated
+
+        domain = DataDomain(
+            data_format=DataFormat.NWM_CONFIG,
+            discrete=[DiscreteRestriction(variable=StandardDatasetIndex.DATA_ID, values=["42"])]
+            )
+        data_reqs = [DataRequirement(category=DataCategory.CONFIG, domain=domain, is_input=True)]
+
+        # data requirements should be an empty list at this point
+        self.assertFalse(job.data_requirements)
+        job.set_data_requirements(data_reqs)
+
+        self.assertTrue(job.data_requirements)
+        self.assertIsInstance(job.data_requirements, list)
+        self.assertEqual(len(job.data_requirements), 1) # type: ignore
+
+        # assert `last_updated` was updated and is greater than previous value
+        self.assertGreater(job.last_updated, outdated_last_updated)
+
+    def test_set_job_id(self):
+        from uuid import UUID
+        example_index_job = 0
+        job = self._example_jobs[example_index_job]
+
+        fake_job_ids = ["00000000-0000-0000-0000-000000000000", UUID("11111111-1111-1111-1111-111111111111")]
+
+        # test setting with `str` and `UUID`
+        for i, job_id in enumerate(fake_job_ids):
+            with self.subTest(i=i):
+                old_last_updated = job.last_updated
+                old_job_id = job.job_id
+
+                self.assertIsInstance(old_job_id, str)
+
+                job.set_job_id(job_id)
+                self.assertEqual(str(job_id), job.job_id)
+
+                # assert `last_updated` was updated and is greater than previous value
+                self.assertGreater(job.last_updated, old_last_updated)
+
+    def test_set_partition_config(self):
+        from dmod.modeldata.hydrofabric import Partition, PartitionConfig
+
+        example_index_job = 0
+        job = self._example_jobs[example_index_job]
+
+        partition_config = PartitionConfig(partitions=[Partition(partition_id=42, catchment_ids=["42"], nexus_ids=["42"])])
+
+        # we should not have any partition configs up to this point
+        self.assertIsNone(job.partition_config)
+        job.set_partition_config(partition_config)
+        self.assertEqual(job.partition_config, partition_config)
+
+    def test_set_rsa_key_pair(self):
+        from ..scheduler.rsa_key_pair import RsaKeyPair
+        from tempfile import TemporaryDirectory
+        example_index_job = 0
+        job = self._example_jobs[example_index_job]
+        outdated_last_updated = job.last_updated
+
+        self.assertIsNone(job.rsa_key_pair)
+
+        with TemporaryDirectory() as dir:
+            key_pair = RsaKeyPair(directory=dir)
+            job.set_rsa_key_pair(key_pair)
+            self.assertEqual(job.rsa_key_pair, key_pair)
+
+            # assert `last_updated` was updated and is greater than previous value
+            self.assertGreater(job.last_updated, outdated_last_updated)
+
+    def test_set_status(self):
+        example_index_job = 0
+        job = self._example_jobs[example_index_job]
+        outdated_last_updated = job.last_updated
+
+        status = JobStatus(phase=None)
+        self.assertNotEqual(status, job.status)
+        job.set_status(status)
+
+        self.assertEqual(status, job.status)
+        self.assertGreater(job.last_updated, outdated_last_updated)
+
+    def test_set_status_phase(self):
+        example_index_job = 0
+        job = self._example_jobs[example_index_job]
+        outdated_last_updated = job.last_updated
+
+        new_status_phase = JobExecPhase.MODEL_EXEC
+        self.assertNotEqual(job.status_phase, new_status_phase)
+
+        job.set_status_phase(new_status_phase)
+        self.assertEqual(job.status_phase, new_status_phase)
+
+        # assert `last_updated` was implicitly updated and is greater than previous value
+        self.assertGreater(job.last_updated, outdated_last_updated)
+
+    def test_set_status_step(self):
+        example_index_job = 0
+        job = self._example_jobs[example_index_job]
+        outdated_last_updated = job.last_updated
+
+        new_status_step = JobExecStep.AWAITING_ALLOCATION
+        self.assertNotEqual(job.status_phase, new_status_step)
+
+        job.set_status_step(new_status_step)
+        self.assertEqual(job.status_step, new_status_step)
+
+        # assert `last_updated` was implicitly updated and is greater than previous value
+        self.assertGreater(job.last_updated, outdated_last_updated)
