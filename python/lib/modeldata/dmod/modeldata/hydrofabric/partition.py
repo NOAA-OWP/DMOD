@@ -118,6 +118,14 @@ class PartitionConfig(Serializable):
     def _sort_partitions(cls, value: FrozenSet[Partition]) -> FrozenSet[Partition]:
         return frozenset(sorted(value))
 
+    class Config:
+        def _serialize_frozenset(value: FrozenSet[Partition]) -> List[Partition]:
+            return list(value)
+
+        field_serializers = {
+                "partitions": _serialize_frozenset
+                }
+
     @classmethod
     def get_serial_property_key_partitions(cls) -> str:
         return "partitions"
