@@ -150,5 +150,5 @@ class PartitionConfig(Serializable):
         int
             Hash of instance
         """
-        return hash(','.join([str(p.__hash__()) for p in sorted(self._partitions)]))
+        return hash(','.join([str(p.__hash__()) for p in sorted(self.partitions)]))
 
