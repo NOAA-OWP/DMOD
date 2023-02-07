@@ -34,8 +34,32 @@ class Partition(Serializable):
             "remote_downstream_nexus_ids": {"alias": "remote-down"},
         }
 
-    def __init__(self, partition_id: int, catchment_ids: Collection[str], nexus_ids: Collection[str],
-                 remote_up_nexuses: Collection[str] = None, remote_down_nexuses: Collection[str] = None, **data):
+        def _serialize_frozenset(value: FrozenSet[str]) -> List[str]:
+            return list(value)
+
+        field_serializers = {
+            "catchment_ids": _serialize_frozenset,
+            "nexus_ids":  _serialize_frozenset,
+            "remote_upstream_nexus_ids":  _serialize_frozenset,
+            "remote_downstream_nexus_ids":  _serialize_frozenset,
+        }
+
+    def __init__(
+            self,
+            # required, but for backwards compatibility, None
+            partition_id: int = None,
+            catchment_ids: Collection[str] = None,
+            nexus_ids: Collection[str] = None,
+            # non-required fields
+            remote_up_nexuses: Collection[str] = None,
+            remote_down_nexuses: Collection[str] = None,
+            **data
+        ):
+        # if data exists, assume fields specified using their alias; no backwards compatibility.
+        if data:
+            super().__init__(**data)
+            return
+
 
         if remote_up_nexuses is None or remote_down_nexuses is None:
             super().__init__(
