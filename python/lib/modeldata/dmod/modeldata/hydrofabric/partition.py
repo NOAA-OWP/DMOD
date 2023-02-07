@@ -1,6 +1,9 @@
-from typing import Collection, Dict, FrozenSet, List, Optional, Tuple, Union
+from typing import Collection, FrozenSet, List, Optional, TYPE_CHECKING, Union
 from pydantic import Field, PrivateAttr, validator
 from dmod.core.serializable import Serializable
+
+if TYPE_CHECKING:
+    from pydantic.typing import AbstractSetIntStr, DictStrAny, MappingIntStrAny
 
 
 class Partition(Serializable):
@@ -158,5 +161,47 @@ class PartitionConfig(Serializable):
         int
             Hash of instance
         """
-        return hash(','.join([str(p.__hash__()) for p in sorted(self.partitions)]))
+        return hash(",".join([str(p.__hash__()) for p in sorted(self.partitions)]))
 
+    def dict(
+        self,
+        *,
+        include: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        exclude: Optional[Union["AbstractSetIntStr", "MappingIntStrAny"]] = None,
+        by_alias: bool = False,
+        skip_defaults: Optional[bool] = None,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False
+    ) -> "DictStrAny":
+        # reasons why dict is overridden here:
+        # pydantic will serialize from inner types outward, serializing each type as a dictionary,
+        # list, or primitive and replacing its previous type with the new "serialized" type.
+        # Consequently, this means hashable container types like tuples and frozensets that contain
+        # values that "serialize" to a non-hashable type (non-primitive, in this case) will raise a
+        # `TypeError: unhashable type: 'dict'`. In the case of PartitionConfig,
+        # FronzenSet[Partition] "serializes" inner Partition types as dictionaries which are not
+        # hashable. To get around this, we will momentarily swap the `partitions` field for a
+        # non-hashable container type, serialize using `.dict()`, and swap back in the original
+        # `partitions` container.
+
+        # 1. take a reference to partitions: FrozenSet[Partition]
+        partitions = self.partitions
+
+        # 2. cast and set partitions to a list, a non-hashable container type
+        self.partitions = list(partitions)
+
+        # 3. serialize
+        serial = super().dict(
+            include=include,
+            exclude=exclude,
+            by_alias=by_alias,
+            skip_defaults=skip_defaults,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none,
+        )
+
+        # 4. replace partitions with its hashable representation
+        self.partitions = partitions
+        return serial
