@@ -30,8 +30,8 @@ class Partition(Serializable):
             "catchment_ids": {"alias": "cat-ids"},
             "partition_id": {"alias": "id"},
             "nexus_ids": {"alias": "nex-ids"},
-            "remote_up_nexuses": {"alias": "remote-up"},
-            "remote_down_nexuses": {"alias": "remote-down"},
+            "remote_upstream_nexus_ids": {"alias": "remote-up"},
+            "remote_downstream_nexus_ids": {"alias": "remote-down"},
         }
 
     def __init__(self, partition_id: int, catchment_ids: Collection[str], nexus_ids: Collection[str],
