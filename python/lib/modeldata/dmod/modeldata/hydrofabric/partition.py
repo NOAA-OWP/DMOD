@@ -1,5 +1,5 @@
-from typing import Collection, Dict, FrozenSet, List, Tuple, Union
-from pydantic import Field, validator
+from typing import Collection, Dict, FrozenSet, List, Optional, Tuple, Union
+from pydantic import Field, PrivateAttr, validator
 from dmod.core.serializable import Serializable
 
 
@@ -23,6 +23,8 @@ class Partition(Serializable):
     remote_upstream_nexus_ids: FrozenSet[str] = Field(default_factory=frozenset)
     remote_downstream_nexus_ids: FrozenSet[str] = Field(default_factory=frozenset)
 
+    _hash_val: Optional[int] = PrivateAttr(None)
+
     class Config:
         fields = {
             "catchment_ids": {"alias": "cat-ids"},
@@ -34,8 +36,6 @@ class Partition(Serializable):
 
     def __init__(self, partition_id: int, catchment_ids: Collection[str], nexus_ids: Collection[str],
                  remote_up_nexuses: Collection[str] = None, remote_down_nexuses: Collection[str] = None, **data):
-
-        self._hash_val = None
 
         if remote_up_nexuses is None or remote_down_nexuses is None:
             super().__init__(
