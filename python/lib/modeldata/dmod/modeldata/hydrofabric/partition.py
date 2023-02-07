@@ -105,7 +105,7 @@ class PartitionConfig(Serializable):
         if not isinstance(other, PartitionConfig):
             return False
         other_partitions_dict = dict()
-        for other_p in other._partitions:
+        for other_p in other.partitions:
             other_partitions_dict[other_p.partition_id] = other_p
 
         other_pids = set([p2.partition_id for p2 in other.partitions])
