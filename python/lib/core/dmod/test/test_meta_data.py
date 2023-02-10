@@ -157,7 +157,7 @@ class TestDataDomain(unittest.TestCase):
         o = DataDomain(
             data_format=DataFormat.AORC_CSV,
             discrete_restrictions=[disc_rest],
-            data_fields=dict(a="str", b="float", c="int", d="datetime"),
+            custom_data_fields=dict(a="str", b="float", c="int", d="datetime"),
         )
         self.assertEqual(o.custom_data_fields["a"], str)
         self.assertEqual(o.custom_data_fields["b"], float)
@@ -207,7 +207,7 @@ class TestDataDomain(unittest.TestCase):
     def test_factory_init_from_restriction_collections(self):
         catchment_id = ["12"]
         o = DataDomain.factory_init_from_restriction_collections(data_format=DataFormat.AORC_CSV, CATCHMENT_ID=catchment_id)
-        self.assertListEqual(o.discrete_restrictions[0].values, catchment_id)
+        self.assertListEqual(o.discrete_restrictions[StandardDatasetIndex.CATCHMENT_ID].values, catchment_id)
 
     def test_factory_init_from_restriction_collections_fail_for_mismatching_index_field(self):
         with self.assertRaises(RuntimeError):
