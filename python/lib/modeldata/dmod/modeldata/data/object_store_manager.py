@@ -560,8 +560,8 @@ class ObjectStoreDatasetManager(DatasetManager):
             response_obj.release_conn()
 
         # If we can safely infer it, make sure the "type" key is set in cases when it is missing
-        if len(self.supported_dataset_types) == 1 and Dataset._KEY_TYPE not in response_data:
-            response_data[Dataset._KEY_TYPE] = list(self.supported_dataset_types)[0].name
+        if len(self.supported_dataset_types) == 1 and "type" not in response_data:
+            response_data["type"] = list(self.supported_dataset_types)[0].name
 
         dataset = Dataset.factory_init_from_deserialized_json(response_data)
         dataset.manager = self
