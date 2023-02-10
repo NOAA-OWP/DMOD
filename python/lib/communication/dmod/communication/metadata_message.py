@@ -30,7 +30,7 @@ class MetadataPurpose(PydanticEnum):
 
 class MetadataSignal(SerializableDict):
     purpose: MetadataPurpose
-    metadata_follows: bool
+    metadata_follows: bool = False
 
     class Config:
         fields = {
