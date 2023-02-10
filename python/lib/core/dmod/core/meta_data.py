@@ -3,7 +3,7 @@ from datetime import datetime
 from .enum import PydanticEnum
 from .serializable import Serializable
 from numbers import Number
-from typing import Any, Dict, List, Literal, Optional, Set, Type, Union
+from typing import Any, Dict, List, Optional, Set, Type, Union, overload
 from collections.abc import Iterable
 from collections import OrderedDict
 from pydantic import root_validator, validator, PyObject, Field, StrictStr, StrictFloat, StrictInt
@@ -505,6 +505,46 @@ class DataDomain(Serializable):
             msg = "Cannot create {} without at least one finite continuous or discrete restriction"
             raise RuntimeError(msg.format(cls.__name__))
         return values
+
+    @overload
+    def __init__(
+        self,
+        *,
+        data_format: DataFormat,
+        continuous: Optional[List[ContinuousRestriction]],
+        discrete: Optional[List[DiscreteRestriction]],
+        data_fields: Optional[Dict[str, Union[str, int, float, Any]]],
+        **data: Dict[str, Any]
+    ): ...
+
+    @overload
+    def __init__(
+        self,
+        data_format: DataFormat,
+        continuous_restrictions: Optional[List[ContinuousRestriction]] = None,
+        discrete_restrictions: Optional[List[DiscreteRestriction]] = None,
+        custom_data_fields: Optional[Dict[str, Type]] = None
+    ): ...
+
+    def __init__(
+        self,
+        data_format: DataFormat,
+        continuous_restrictions: Optional[List[ContinuousRestriction]] = None,
+        discrete_restrictions: Optional[List[DiscreteRestriction]] = None,
+        custom_data_fields: Optional[Dict[str, Type]] = None,
+        **data: Dict[str, Any]
+    ):
+        # assume fields provided by alias
+        if data:
+            super().__init__(data_format=data_format, **data)
+            return
+
+        super().__init__(
+            data_format=data_format,
+            continuous=continuous_restrictions,
+            discrete=discrete_restrictions,
+            custom_data_fields=custom_data_fields,
+        )
 
     @classmethod
     def factory_init_from_restriction_collections(cls, data_format: DataFormat, **kwargs) -> 'DataDomain':
