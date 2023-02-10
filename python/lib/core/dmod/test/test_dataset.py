@@ -67,7 +67,7 @@ class TestDataset(unittest.TestCase):
                                       "uuid": str(self.example_datasets[i].uuid),
                                       "access_location": 'location_{}'.format(i),
                                       "is_read_only": False,
-                                      "created_on": self._created_on, # NOTE: breaking change
+                                      "created_on": self._created_on.strftime(date_fmt),
                                       })
 
     def test_factory_init_from_deserialized_json_0_a(self):
