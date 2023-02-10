@@ -446,14 +446,12 @@ class DataDomain(Serializable):
     data_format: DataFormat = Field(
     description="The format for the data in this domain, which contains details like the indices and other data fields."
     )
-    continuous_restrictions: Optional[List[ContinuousRestriction]] = Field(
+    continuous: Optional[List[ContinuousRestriction]] = Field(
         description="Map of the continuous restrictions defining this domain, keyed by variable name.",
-        alias="continuous",
         default_factory=list
     )
-    discrete_restrictions: Optional[List[DiscreteRestriction]] = Field(
+    discrete: Optional[List[DiscreteRestriction]] = Field(
         description="Map of the discrete restrictions defining this domain, keyed by variable name.",
-        alias="discrete",
         default_factory=list
     )
     # NOTE: remove this field after #239 is merged. will close #245.
@@ -463,13 +461,16 @@ class DataDomain(Serializable):
         alias="data_fields"
     )
 
-    @validator("continuous_restrictions", pre=True, each_item=True)
+    _continuous_restrictions: Optional[Dict[StandardDatasetIndex, ContinuousRestriction]] = PrivateAttr(None)
+    _discrete_restrictions: Optional[Dict[StandardDatasetIndex, DiscreteRestriction]] = PrivateAttr(None)
+
+    @validator("continuous", pre=True, each_item=True)
     def _factory_init_continuous_restrictions(cls, value):
         if isinstance(value, ContinuousRestriction):
             return value
         return ContinuousRestriction.factory_init_from_deserialized_json(value)
 
-    @validator("continuous_restrictions", "discrete_restrictions", always=True)
+    @validator("continuous", "discrete", always=True)
     def _validate_restriction_default(cls, value):
         if value is None:
             return []
@@ -621,6 +622,34 @@ class DataDomain(Serializable):
                 if not self._extends_discrete_restriction(other.discrete_restrictions[index]):
                     return False
             return True
+
+    @property
+    def continuous_restrictions(self) -> Dict[StandardDatasetIndex, ContinuousRestriction]:
+        """
+        Map of the continuous restrictions defining this domain, keyed by variable name.
+
+        Returns
+        -------
+        Dict[str, ContinuousRestriction]
+            Map of the continuous restrictions defining this domain, keyed by variable name.
+        """
+        if self._continuous_restrictions is None:
+                self._continuous_restrictions = {k.variable: k for k in self.continuous} if self.continuous else {}
+        return self._continuous_restrictions
+
+    @property
+    def discrete_restrictions(self) -> Dict[StandardDatasetIndex, DiscreteRestriction]:
+        """
+        Map of the discrete restrictions defining this domain, keyed by variable name.
+
+        Returns
+        -------
+        Dict[str, DiscreteRestriction]
+            Map of the discrete restrictions defining this domain, keyed by variable name.
+        """
+        if self._discrete_restrictions is None:
+            self._discrete_restrictions= {k.variable: k for k in self.discrete} if self.discrete else {}
+        return self._discrete_restrictions
 
     @property
     def data_fields(self) -> Dict[str, Type]:
