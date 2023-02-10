@@ -1,6 +1,4 @@
-from pydantic import Extra
-
-from dmod.core.serializable import Serializable
+from dmod.core.serializable_dict import SerializableDict
 
 from typing import Optional, Union, TYPE_CHECKING
 
@@ -10,21 +8,14 @@ if TYPE_CHECKING:
 UNSUCCESSFUL_JOB = -1
 
 
-class SchedulerRequestResponseBody(Serializable):
+class SchedulerRequestResponseBody(SerializableDict):
     job_id: int = UNSUCCESSFUL_JOB
     output_data_id: Optional[str]
-
-    class Config:
-        # allow extra model fields
-        extra = Extra.allow
 
     def __eq__(self, other: object):
         if isinstance(other, dict):
             return self.to_dict() == other
         return super().__eq__(other)
-
-    def __contains__(self, key: str) -> bool:
-        return key in self.__dict__
 
     def __getattr__(self, key: str):
         return self.__dict__[key]
