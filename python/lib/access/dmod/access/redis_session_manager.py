@@ -227,13 +227,13 @@ class RedisBackendSessionManager(SessionManager, RedisBacked):
         if looked_up is None or looked_up.is_expired() or looked_up.session_secret != session.session_secret:
             return False
         new_last_accessed = datetime.datetime.now()
-        looked_up._last_accessed = new_last_accessed
+        looked_up.last_accessed = new_last_accessed
         # TODO(later): consider adding a maximum session time to cap refreshes
         attr_write_set = {self._session_redis_hash_subkey_last_accessed}
         pipeline = self.redis.pipeline()
         try:
             self._write_session_via_pipeline(session=looked_up, pipeline=pipeline, write_attr_subkeys=attr_write_set)
-            session._last_accessed = new_last_accessed
+            session.last_accessed = new_last_accessed
             return True
         finally:
             pipeline.reset()
