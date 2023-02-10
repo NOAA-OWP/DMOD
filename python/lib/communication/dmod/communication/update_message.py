@@ -41,10 +41,12 @@ class UpdateMessage(AbstractInitRequest):
 
     @validator("object_type", pre=True)
     def _coerce_object_type(cls, value):
-        obj_type = locate(value)
-        if obj_type is None:
-            raise ValueError("could not resolve `object_type`")
-        return obj_type
+        if isinstance(value, str):
+            obj_type = locate(value)
+            if obj_type is None:
+                raise ValueError("could not resolve `object_type`")
+            return obj_type
+        return value
 
     @validator("updated_data")
     def _validate_updated_data_has_keys(cls, value: Dict[str, str]):
