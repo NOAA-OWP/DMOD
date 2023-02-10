@@ -3,10 +3,7 @@ from ..modeldata.hydrofabric.partition import Partition, PartitionConfig
 
 
 class TestPartition(unittest.TestCase):
-    @classmethod
-    @property
-    def partition_instance(cls) -> Partition:
-        return Partition(
+    partition_instance = Partition(
             nexus_ids=["2"],
             catchment_ids=["42"],
             partition_id=0,
@@ -14,10 +11,7 @@ class TestPartition(unittest.TestCase):
             remote_down_nexuses=["3"],
         )
 
-    @classmethod
-    @property
-    def serialized_partition(cls) -> dict:
-        return {
+    serialized_partition = {
             "cat-ids": ["42"],
             "id": 0,
             "remote-up": ["1"],
@@ -100,15 +94,9 @@ class TestPartition(unittest.TestCase):
 
 
 class TestPartitionConfig(unittest.TestCase):
-    @classmethod
-    @property
-    def partition_config_instance(cls) -> PartitionConfig:
-        return PartitionConfig(partitions=[TestPartition.partition_instance])
+    partition_config_instance = PartitionConfig(partitions=[TestPartition.partition_instance])
 
-    @classmethod
-    @property
-    def serialized_partition_config(cls) -> dict:
-        return {"partitions": [TestPartition.serialized_partition]}
+    serialized_partition_config = {"partitions": [TestPartition.serialized_partition]}
 
     def test_programmatically_create_partition(self):
         """Test creating an instance programmatically"""
