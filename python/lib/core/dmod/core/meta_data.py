@@ -229,7 +229,7 @@ class ContinuousRestriction(Serializable):
     subclass: PyObject
 
     @root_validator(pre=True)
-    def coerce_times_if_datetime_pattern(cls, values):
+    def _coerce_times_if_datetime_pattern(cls, values):
         subclass_str = values.get("subclass")
 
         if subclass_str is None:
@@ -254,7 +254,7 @@ class ContinuousRestriction(Serializable):
         return values
 
     @root_validator()
-    def validate_start_before_end(cls, values):
+    def _validate_start_before_end(cls, values):
         if values["begin"] > values["end"]:
             raise RuntimeError("Cannot have {} with begin value larger than end.".format(cls.__name__))
 
@@ -477,7 +477,7 @@ class DataDomain(Serializable):
         return value
 
     @validator("custom_data_fields")
-    def validate_data_fields(cls, values):
+    def _validate_data_fields(cls, values):
         def handle_type_map(t):
             if t == "str" or t == str:
                 return str
@@ -498,9 +498,9 @@ class DataDomain(Serializable):
         return {k: handle_type_map(v) for k, v in values.items()}
 
     @root_validator()
-    def validate_sufficient_restrictions(cls, values):
-        continuous_restrictions = values.get("continuous_restrictions", [])
-        discrete_restrictions = values.get("discrete_restrictions", [])
+    def _validate_sufficient_restrictions(cls, values):
+        continuous_restrictions = values.get("continuous", [])
+        discrete_restrictions = values.get("discrete", [])
         if len(continuous_restrictions) + len(discrete_restrictions) == 0:
             msg = "Cannot create {} without at least one finite continuous or discrete restriction"
             raise RuntimeError(msg.format(cls.__name__))
