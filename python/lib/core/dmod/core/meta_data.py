@@ -3,10 +3,13 @@ from datetime import datetime
 from .enum import PydanticEnum
 from .serializable import Serializable
 from numbers import Number
-from typing import Any, Dict, List, Optional, Set, Type, Union, overload
+from typing import Any, Dict, List, Optional, Set, Type, TYPE_CHECKING, Union, overload
 from collections.abc import Iterable
 from collections import OrderedDict
-from pydantic import root_validator, validator, PyObject, Field, StrictStr, StrictFloat, StrictInt
+from pydantic import root_validator, validator, PyObject, PrivateAttr, Field, StrictStr, StrictFloat, StrictInt
+
+if TYPE_CHECKING:
+    from pydantic.typing import AbstractSetIntStr, MappingIntStrAny
 
 
 class StandardDatasetIndex(PydanticEnum):
