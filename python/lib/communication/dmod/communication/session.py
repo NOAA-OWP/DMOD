@@ -7,8 +7,11 @@ from dmod.core.serializable_dict import SerializableDict
 from dmod.core.enum import PydanticEnum
 from abc import ABC, abstractmethod
 from numbers import Number
-from typing import ClassVar, Dict, Optional, List, Type, Union
+from typing import ClassVar, Dict, Optional, List, Type, TYPE_CHECKING, Union
 from pydantic import Field, IPvAnyAddress, validator, root_validator
+
+if TYPE_CHECKING:
+    from pydantic.fields import ModelField
 
 
 def _generate_secret() -> str:
@@ -56,6 +59,16 @@ class Session(SerializableDict):
     """ list of str: the names of attributes/properties to include when serializing an instance """
 
     _session_timeout_delta: ClassVar[datetime.timedelta] = datetime.timedelta(minutes=30.0)
+
+    @validator("session_secret", pre=True)
+    def _populate_session_secret_if_none(cls, value: Optional[str], field: "ModelField") -> str:
+        # NOTE: pre-pydantic, this field was a computed optional:
+        # (i.e. `__init__(..., session_secret: str = None)`) but if None, a value was generated.
+        # this validator handles that case
+        if value is None:
+            return field.default_factory() # type: ignore
+
+        return value
 
     @validator("created", "last_accessed", pre=True)
     def validate_date(cls, value):
