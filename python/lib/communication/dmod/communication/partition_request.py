@@ -120,15 +120,6 @@ class PartitionResponseBody(SerializableDict):
     data_id: Optional[str]
     dataset_name: Optional[str]
 
-    class Config:
-        extra = Extra.allow
-
-    def __contains__(self, key: str) -> bool:
-        return key in self.__dict__
-
-    def __getitem__(self, key: str):
-        return self.__dict__[key]
-
 class PartitionResponse(Response):
     """
     A response to a ::class:`PartitionRequest`.
