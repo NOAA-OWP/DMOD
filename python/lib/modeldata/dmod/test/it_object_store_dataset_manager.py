@@ -253,7 +253,7 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
 
         data_dict = json.loads(self.manager.get_data(dataset_name, item_name=serial_file_name).decode())
 
-        self.assertEqual(dataset_name, data_dict[Dataset._KEY_NAME])
+        self.assertEqual(dataset_name, data_dict["name"])
 
     def test_list_files_1_a(self):
         """
