@@ -128,6 +128,12 @@ class Dataset(Serializable):
             "last_updated": _serialize_datetime
             }
 
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Dataset) and self.name == other.name and self.category == other.category \
+               and self.dataset_type == other.dataset_type and self.data_domain == other.data_domain \
+               and self.access_location == other.access_location and self.is_read_only == other.is_read_only \
+               and self.created_on == other.created_on
+
     def __hash__(self) -> int:
         return hash(','.join([self.__class__.__name__, self.name, self.category.name, str(hash(self.data_domain)),
                               self.access_location, str(self.is_read_only), str(hash(self.created_on))]))
