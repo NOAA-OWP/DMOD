@@ -790,3 +790,7 @@ class DatasetManager(ABC):
             UUID for this instance.
         """
         return self._uuid
+
+# DatasetManager is a field type of Dataset and is defined after Dataset. As such, it necessary to
+# update forward references after DatasetManager has been defined.
+Dataset.update_forward_refs()
