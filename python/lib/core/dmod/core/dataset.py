@@ -113,13 +113,22 @@ class Dataset(Serializable):
         return values
 
     class Config:
+        def _serialize_datetime(self: "Dataset", value: datetime) -> str:
+            return value.strftime(self.get_datetime_str_format())
+
         # NOTE: re-validate when any field is re-assigned (i.e. `model.foo = 12`)
         # TODO: in future deprecate setting properties unless through a setter method
         validate_assignment = True
         arbitrary_types_allowed = True
-        field_serializers = {"uuid": lambda f: str(f)}
+        field_serializers = {
+            "uuid": lambda f: str(f),
+            "manager_uuid": lambda f: str(f),
+            "expires": _serialize_datetime,
+            "created_on": _serialize_datetime,
+            "last_updated": _serialize_datetime
+            }
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(','.join([self.__class__.__name__, self.name, self.category.name, str(hash(self.data_domain)),
                               self.access_location, str(self.is_read_only), str(hash(self.created_on))]))
 
