@@ -80,7 +80,7 @@ class Dataset(Serializable):
     last_updated: Optional[datetime]
 
     @validator("created_on", "last_updated", "expires", pre=True)
-    def parse_dates(cls, v):
+    def _parse_dates(cls, v):
         if v is None:
             return None
 
@@ -90,18 +90,18 @@ class Dataset(Serializable):
         return datetime.strptime(v, cls.get_datetime_str_format())
 
     @validator("created_on", "last_updated", "expires")
-    def drop_microseconds(cls, v: datetime):
+    def _drop_microseconds(cls, v: datetime):
         return v.replace(microsecond=0)
 
     @validator("manager", pre=True)
-    def drop_manager_if_not_constructed_subtype(cls, value):
+    def _drop_manager_if_not_constructed_subtype(cls, value):
         # manager can only be passed as constructed DatasetManager subtype
         if isinstance(value, DatasetManager):
             return value
         return None
 
     @root_validator()
-    def set_manager_uuid(cls, values) -> dict:
+    def _set_manager_uuid(cls, values) -> dict:
         manager: Optional[DatasetManager] = values["manager"]
         # give preference to `manager.uuid` otherwise use specified `manager_uuid`
         if manager is not None:
