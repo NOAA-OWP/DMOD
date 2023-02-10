@@ -384,10 +384,10 @@ class IntegrationTestRedisBackendSessionManager(unittest.TestCase):
         attr_modified = set()
 
         attr_modified.add(self._session_manager._session_redis_hash_subkey_last_accessed)
-        original_last_accessed = created_session._last_accessed
+        original_last_accessed = created_session.last_accessed
         time.sleep(5)
         updated_last_accessed = datetime.datetime.now()
-        created_session._last_accessed = updated_last_accessed
+        created_session.last_accessed = updated_last_accessed
 
         self._session_manager._write_session_via_pipeline(session=created_session, write_attr_subkeys=attr_modified)
 
@@ -410,10 +410,10 @@ class IntegrationTestRedisBackendSessionManager(unittest.TestCase):
         attr_modified = set()
 
         attr_modified.add(self._session_manager._session_redis_hash_subkey_last_accessed)
-        original_last_accessed = created_session._last_accessed
+        original_last_accessed = created_session.last_accessed
         time.sleep(5)
         updated_last_accessed = datetime.datetime.now()
-        created_session._last_accessed = updated_last_accessed
+        created_session.last_accessed = updated_last_accessed
 
         attr_modified.add(self._session_manager._session_redis_hash_subkey_ip_address)
         original_ip_address = ip_addr
