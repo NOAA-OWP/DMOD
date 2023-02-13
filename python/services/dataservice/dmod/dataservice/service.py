@@ -4,7 +4,7 @@ import json
 import os
 from time import sleep as time_sleep
 from docker.types import Healthcheck, RestartPolicy, ServiceMode
-from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, \
+from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, NGENRequest, \
     ManagementAction, WebSocketInterface
 from dmod.communication.dataset_management_message import DatasetQuery, QueryType
 from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
@@ -15,8 +15,10 @@ from dmod.modeldata.data.object_store_manager import Dataset, DatasetManager, Da
 from dmod.modeldata.data.filesystem_manager import FilesystemDatasetManager
 from dmod.scheduler import SimpleDockerUtil
 from dmod.scheduler.job import Job, JobExecStep, JobUtil
+from ngen.config.realization import CatchmentRealization, NgenRealization
+from ngen.config.formulation import Formulation
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
 from uuid import UUID, uuid4
 from websockets import WebSocketServerProtocol
 
@@ -184,6 +186,68 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
                            timeout=to_nanoseconds(seconds=2),
                            retries=5,
                            start_period=to_nanoseconds(seconds=5))
+
+
+class PartialRealizationConfig:
+    """
+    Private helper class for working with partial realization configs contained within ::class:`NGENRequest` objects.\
+
+    Helper class for working with the serialized formulation configurations ::class:`NGENRequest` messages. Those
+    ::class:`NGENRequest` object only ever contain these configs in a serialized form (i.e., JSON dicts).  This is to
+    avoid requiring related dependencies in anything that pulls in the ``dmod-communication`` package, since the message
+    itself only needs to carry the data, not access it.
+
+    This type contains helper functions for parsing the serialized form or re-serializing it back to a dict.
+
+    The type itself relies on classes from the ``ngen-config`` external package.
+    """
+
+    @classmethod
+    def parse_from_ngen_request(cls, request: NGENRequest) -> 'PartialRealizationConfig':
+        """
+        Extract and deserialize an instance from a ::class:`NGENReqeuest` carrying it in serialized form.
+
+        Parameters
+        ----------
+        request: NGENRequest
+            A request that contains a partial formulation config as a serialized JSON dict.
+
+        Returns
+        -------
+        PartialRealizationConfig
+            The deserialized instance.
+        """
+        if 'catchment_formulations' in request.formulation_configs:
+            catchment_formulations = dict([(cat_id, CatchmentRealization(**v)) for cat_id, v in
+                                           request.formulation_configs['catchment_formulations'].items()])
+        else:
+            catchment_formulations = None
+        return cls(global_formulations=[Formulation(**gf) for gf in request.formulation_configs['global_formulations']],
+                   catchment_formulations=catchment_formulations)
+
+    # TODO: does global need to be optional also?
+    def __init__(self, global_formulations: List[Formulation],
+                 catchment_formulations: Optional[Dict[str, List[CatchmentRealization]]]):
+        self.global_formulations = global_formulations
+        """ The global formulation(s) config, serving as a default once in a full NextGen realization configuration. """
+
+        self.catchment_formulations: Optional[Dict[str, List[CatchmentRealization]]] = catchment_formulations
+        """ The individual catchment formulation configs, if set, keyed by catchment id. """
+
+    def serialize_for_ngen_request(self) -> Dict[str, Any]:
+        """
+        Serialize this instance to the form that appears in ::class:`NGENRequest` object.
+
+        Returns
+        -------
+        Dict[str, Any]
+            The serialized form of this instance.
+        """
+        serialized = {'global_formulations': [f.json() for f in self.global_formulations]}
+        if self.catchment_formulations is not None:
+            serialized['catchment_formulations'] = dict(
+                [(cat_id, [cf.json() for cf in cf_list]) for cat_id, cf_list in self.catchment_formulations.items()])
+        return serialized
 
 
 class ServiceManager(WebSocketInterface):
