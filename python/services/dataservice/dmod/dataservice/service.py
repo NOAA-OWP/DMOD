@@ -15,7 +15,8 @@ from dmod.modeldata.data.object_store_manager import Dataset, DatasetManager, Da
 from dmod.modeldata.data.filesystem_manager import FilesystemDatasetManager
 from dmod.scheduler import SimpleDockerUtil
 from dmod.scheduler.job import Job, JobExecStep, JobUtil
-from ngen.config.realization import CatchmentRealization, NgenRealization
+from ngen.config.configurations import Forcing, Time, Routing
+from ngen.config.realization import CatchmentRealization, NgenRealization, Realization
 from ngen.config.formulation import Formulation
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
@@ -202,6 +203,9 @@ class PartialRealizationConfig:
     The type itself relies on classes from the ``ngen-config`` external package.
     """
 
+    _FROM_ENV_DELIMIT = ':::'
+    _FROM_ENV_PREFIX = 'from_env'
+
     @classmethod
     def parse_from_ngen_request(cls, request: NGENRequest) -> 'PartialRealizationConfig':
         """
@@ -217,22 +221,62 @@ class PartialRealizationConfig:
         PartialRealizationConfig
             The deserialized instance.
         """
-        if 'catchment_formulations' in request.formulation_configs:
-            catchment_formulations = dict([(cat_id, CatchmentRealization(**v)) for cat_id, v in
-                                           request.formulation_configs['catchment_formulations'].items()])
-        else:
-            catchment_formulations = None
-        return cls(global_formulations=[Formulation(**gf) for gf in request.formulation_configs['global_formulations']],
-                   catchment_formulations=catchment_formulations)
+        params = {'global_formulations': [Formulation(**gf) for gf in request.formulation_configs['global_formulations']]}
 
-    # TODO: does global need to be optional also?
+        if 'catchment_formulations' in request.formulation_configs:
+            params['catchment_formulations'] = dict([(cat_id, CatchmentRealization(**v)) for cat_id, v in
+                                                     request.formulation_configs['catchment_formulations'].items()])
+        if 'routing_config' in request.formulation_configs:
+            params['routing_config'] = Routing(**request.formulation_configs['routing_config'])
+
+        if 'forcing_file_pattern' in request.formulation_configs:
+            params['forcing_file_pattern'] = request.formulation_configs['forcing_file_pattern']
+
+        if 'forcing_file_name' in request.formulation_configs:
+            params['forcing_file_name'] = request.formulation_configs['forcing_file_name']
+
+        if 'is_env_workaround' in request.formulation_configs:
+            params['is_env_workaround'] = request.formulation_configs['is_env_workaround']
+
+        return cls(**params)
+
     def __init__(self, global_formulations: List[Formulation],
-                 catchment_formulations: Optional[Dict[str, List[CatchmentRealization]]]):
-        self.global_formulations = global_formulations
+                 catchment_formulations: Optional[Dict[str, CatchmentRealization]] = None,
+                 forcing_file_pattern: Optional[str] = None,
+                 forcing_file_name: Optional[str] = None,
+                 routing_config: Optional[Routing] = None,
+                 is_env_workaround: Optional[bool] = None):
+        self.global_formulations: List[Formulation] = global_formulations
         """ The global formulation(s) config, serving as a default once in a full NextGen realization configuration. """
 
-        self.catchment_formulations: Optional[Dict[str, List[CatchmentRealization]]] = catchment_formulations
+        self.catchment_formulations: Optional[Dict[str, CatchmentRealization]] = catchment_formulations
         """ The individual catchment formulation configs, if set, keyed by catchment id. """
+
+        self.forcing_file_pattern: Optional[str] = forcing_file_pattern
+        """ Optional catchment-id-based pattern string for basename of per-catchment forcing files. """
+
+        self.forcing_file_name: Optional[str] = forcing_file_name
+        """ Optional fixed name for the forcing data file. """
+
+        self.routing_config: Optional[Routing] = routing_config
+        """ Optional routing config object for the partial config. """
+
+        self.is_env_workaround: bool = is_env_workaround
+        """ If this partial config indicated use of the env-supplied local mount workaround for the forcing data. """
+
+        # When not set, examine things to see if they indicate the workaround should be used
+        if self.is_env_workaround is None and forcing_file_pattern is not None:
+            split_str = forcing_file_pattern.split(self._FROM_ENV_DELIMIT)
+            if len(split_str) > 1 and split_str[0] == self._FROM_ENV_PREFIX:
+                self.is_env_workaround = True
+
+        if self.is_env_workaround is None and forcing_file_name is not None:
+            split_str = forcing_file_name.split(self._FROM_ENV_DELIMIT)
+            if len(split_str) > 1 and split_str[0] == self._FROM_ENV_PREFIX:
+                self.is_env_workaround = True
+
+        if self.is_env_workaround is None:
+            self.is_env_workaround = False
 
     def serialize_for_ngen_request(self) -> Dict[str, Any]:
         """
@@ -243,10 +287,18 @@ class PartialRealizationConfig:
         Dict[str, Any]
             The serialized form of this instance.
         """
-        serialized = {'global_formulations': [f.json() for f in self.global_formulations]}
+        serialized = {'global_formulations': [f.json() for f in self.global_formulations],
+                      'is_env_workaround': self.is_env_workaround}
+
         if self.catchment_formulations is not None:
             serialized['catchment_formulations'] = dict(
-                [(cat_id, [cf.json() for cf in cf_list]) for cat_id, cf_list in self.catchment_formulations.items()])
+                [(cat_id, cf.json()) for cat_id, cf in self.catchment_formulations.items()])
+        if self.forcing_file_pattern is not None:
+            serialized['forcing_file_pattern'] = self.forcing_file_pattern
+        if self.forcing_file_name is not None:
+            serialized['forcing_file_name'] = self.forcing_file_name
+        if self.routing_config is not None:
+            serialized['routing_config'] = self.routing_config.json()
         return serialized
 
 
