@@ -607,6 +607,66 @@ class ServiceManager(WebSocketInterface):
         """
         return self._process_query(message)
 
+    def _build_forcing_config_for_realization(self, partial_config: PartialRealizationConfig,
+                                              request: NGENRequest) -> Forcing:
+        """
+        Build a ::class:`Forcing` config object from a partial config to satisfy requirements of this request.
+
+        Function builds a ::class:`Forcing` config object as a part of the steps to create a NextGen realization config
+        for the given request.  The partial config present in that request and its forcing-related data requirement are
+        used to generate the object.
+
+        Parameters
+        ----------
+        partial_config: PartialRealizationConfig
+            A partial realization config extracted for the given request.
+        request: NGENRequest
+            A NextGen request that needs a realization config generate, and as part of that, a forcing config.
+
+        Returns
+        -------
+        Forcing
+            Forcing config object to be used in building a NextGen realization config to satisfy this request.
+        """
+        # A user may work around dataset performance issues by mounting something directly from the host into
+        # containers, using an env var for the mount source (see code in scheduler.py).  We can support this by
+        # expecting a certain prefix (from_env:::) for either the file pattern or the file basename.
+        use_from_env_workaround = False
+
+        forcing_cfg_params = dict()
+
+        # Get the correct forcing dataset from associated requirement
+        # TODO: double check that this is being added when we do data checks
+        forcing_req = [r for r in request.data_requirements if r.category == DataCategory.FORCING][0]
+        forcing_dataset_name = forcing_req.fulfilled_by
+        forcing_dataset = self.get_known_datasets().get(forcing_dataset_name)
+
+        # Figure out the correct provider type from the dataset format
+        # TODO: this may not be the right way to do this to instantiate the object directly (i.e., not through JSON)
+        if forcing_dataset.data_format == DataFormat.NETCDF_FORCING_CANONICAL:
+            forcing_cfg_params['provider'] = 'NetCDF'
+        elif forcing_dataset.data_format == DataFormat.AORC_CSV:
+            forcing_cfg_params['provider'] = 'CsvPerFeature'
+
+        # TODO: (#needs_issue) introduce logic to examine forcing dataset and intelligently assess what the file
+        #  name(s)/pattern(s) should be if they aren't explicitly provided
+
+        if partial_config.forcing_file_pattern is not None:
+            forcing_cfg_params['file_pattern'] = partial_config.forcing_file_pattern
+
+        # Finally, produce the right path
+        # TODO: these come from scheduler.py; may need to centralize somehow
+        forcing_cfg_params['path'] = '/dmod/datasets/'
+        if partial_config.is_env_workaround:
+            forcing_cfg_params['path'] += 'from_env'
+        else:
+            forcing_cfg_params['path'] += '{}/{}/'.format(DataCategory.FORCING.name.lower(), forcing_dataset_name)
+
+        if partial_config.forcing_file_name is not None:
+            forcing_cfg_params['path'] += partial_config.forcing_file_name
+
+        return Forcing(**forcing_cfg_params)
+
     def _build_ngen_realization_config_from_request(self, request: NGENRequest, job: Job) -> NgenRealization:
         """
         Build a NextGen realization config object from current service state and partial config within the job request.
@@ -624,10 +684,21 @@ class ServiceManager(WebSocketInterface):
             The built realization config.
         """
         partial_config = PartialRealizationConfig.parse_from_ngen_request(request)
+        params = dict()
 
-        # TODO: build ngen realization config object properly
+        forcing_config = self._build_forcing_config_for_realization(partial_config=partial_config, request=request)
 
-        raise NotImplementedError("Implementation of _build_ngen_realization_config_from_request function in dataservice {} incomplete".format(self.__class__.__name__))
+        params['global_config'] = Realization(formulations=partial_config.global_formulations, forcing=forcing_config)
+
+        params['time'] = Time(start_time=request.time_range.begin, end_time=request.time_range.end)
+
+        if partial_config.routing_config is not None:
+            params['routing'] = partial_config.routing_config
+
+        if partial_config.catchment_formulations is not None:
+            params['catchments'] = partial_config.catchment_formulations
+
+        return NgenRealization(**params)
 
     def _create_output_datasets(self, job: Job):
         """
@@ -1006,6 +1077,9 @@ class ServiceManager(WebSocketInterface):
         results = []
 
         for req in [r for r in job.data_requirements if r.fulfilled_by is None]:
+            # **********************************************************************************************************
+            # *** NOTE: if/when deriving forcing datasets is supported, make sure this is done before config datasets
+            # **********************************************************************************************************
             # Derive realization config datasets from formulations in message body when necessary
             if req.category == DataCategory.CONFIG and req.domain.data_format == DataFormat.NGEN_REALIZATION_CONFIG:
                 self._derive_realization_config_from_formulations(requirement=req, job=job)
