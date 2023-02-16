@@ -11,8 +11,8 @@ class DmodJobRequest(AbstractInitRequest, ABC):
     The base class underlying all types of messages requesting execution of some kind of workflow job.
     """
 
-    def __int__(self, *args, **kwargs):
-        super(DmodJobRequest, self).__int__(*args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super(DmodJobRequest, self).__init__(*args, **kwargs)
 
     @property
     @abstractmethod
