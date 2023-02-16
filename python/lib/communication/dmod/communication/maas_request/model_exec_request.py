@@ -1,8 +1,5 @@
 from abc import ABC
 
-from typing import Optional, Union
-
-from dmod.core.execution import AllocationParadigm
 from ..message import MessageEventType
 from .dmod_job_request import DmodJobRequest
 from .external_request import ExternalRequest
@@ -42,9 +39,6 @@ class ModelExecRequest(ExternalRequest, DmodJobRequest, ABC):
 
     model_name = None
     """(:class:`str`) The name of the model to be used"""
-
-    _DEFAULT_CPU_COUNT = 1
-    """ The default number of CPUs to assume are being requested for the job, when not explicitly provided. """
 
     @classmethod
     def factory_init_correct_subtype_from_deserialized_json(
@@ -86,35 +80,8 @@ class ModelExecRequest(ExternalRequest, DmodJobRequest, ABC):
         """
         return cls.model_name
 
-    def __init__(
-        self,
-        config_data_id: str,
-        cpu_count: Optional[int] = None,
-        allocation_paradigm: Optional[Union[str, AllocationParadigm]] = None,
-        *args,
-        **kwargs
-    ):
-        """
-        Initialize model-exec-specific attributes and state of this request object common to all model exec requests.
-
-        Parameters
-        ----------
-        session_secret : str
-            The session secret for the right session when communicating with the request handler.
-        """
+    def __init__(self, *args, **kwargs):
         super(ModelExecRequest, self).__init__(*args, **kwargs)
-        self._config_data_id = config_data_id
-        self._cpu_count = (
-            cpu_count if cpu_count is not None else self._DEFAULT_CPU_COUNT
-        )
-        if allocation_paradigm is None:
-            self._allocation_paradigm = AllocationParadigm.get_default_selection()
-        elif isinstance(allocation_paradigm, str):
-            self._allocation_paradigm = AllocationParadigm.get_from_name(
-                allocation_paradigm
-            )
-        else:
-            self._allocation_paradigm = allocation_paradigm
 
     def __eq__(self, other):
         if not self._check_class_compatible_for_equality(other):
@@ -134,39 +101,3 @@ class ModelExecRequest(ExternalRequest, DmodJobRequest, ABC):
                 if req not in other.data_requirements:
                     return False
             return True
-
-    @property
-    def allocation_paradigm(self) -> AllocationParadigm:
-        """
-        The allocation paradigm desired for use when allocating resources for this request.
-
-        Returns
-        -------
-        AllocationParadigm
-            The allocation paradigm desired for use with this request.
-        """
-        return self._allocation_paradigm
-
-    @property
-    def config_data_id(self) -> str:
-        """
-        Value of ``data_id`` index to uniquely identify the dataset with the primary configuration for this request.
-
-        Returns
-        -------
-        str
-            Value of ``data_id`` identifying the dataset with the primary configuration applicable to this request.
-        """
-        return self._config_data_id
-
-    @property
-    def cpu_count(self) -> int:
-        """
-        The number of processors requested for this job.
-
-        Returns
-        -------
-        int
-            The number of processors requested for this job.
-        """
-        return self._cpu_count
