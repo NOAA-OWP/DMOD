@@ -3,26 +3,25 @@ from dmod.core.meta_data import TimeRange
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 from ...message import MessageEventType
-from ...maas_request import ExternalRequestResponse, ModelExecRequestResponse
-from .ngen_request import NGENRequest
+from ...maas_request import ModelExecRequestResponse
+from .ngen_request import ExternalNextGenRequest
 
 
-class NgenCalibrationRequest(NGENRequest):
+class NgenCalibrationRequest(ExternalNextGenRequest):
     """
-    An extension of ::class:`NGENRequest` for requesting ngen-cal calibration jobs.
+    An extension of ::class:`ExternalNextGenRequest` for requesting ngen framework calibration jobs using ngen-cal.
     """
 
     event_type: MessageEventType = MessageEventType.CALIBRATION_REQUEST
-    model_name = 'ngen-cal' #FIXME case sentitivity
+    job_exec_name = 'ngen-cal' #FIXME case sentitivity
 
     # TODO: probably will need to re-examine this
-    _DEFAULT_CPU_COUNT = 1
+    _DEFAULT_CPU_COUNT = super()._DEFAULT_CPU_COUNT
     """ The default number of CPUs to assume are being requested for the job, when not explicitly provided. """
 
     _KEY_CAL_STRATEGY_ALGO = 'strategy_algorithm'
     _KEY_CAL_STRATEGY_OBJ_FUNC = 'strategy_objective_function'
     _KEY_CAL_STRATEGY_TYPE = 'strategy_type'
-    _KEY_EVALUTATION_TIME = 'evaluation_time_range'
     _KEY_IS_OBJ_FUNC_MIN = 'is_obj_func_min'
     _KEY_IS_RESTART = 'is_restart'
     _KEY_ITERATIONS = 'iterations'
@@ -31,30 +30,32 @@ class NgenCalibrationRequest(NGENRequest):
     _KEY_MODEL_STRATEGY = 'model_strategy'
 
     @classmethod
-    def _additional_deserialized_args(cls, json_obj: dict) -> dict:
+    def deserialize_for_init(cls, json_obj: dict) -> dict:
         """
-        Parse any additional, (sub)class-specific deserialization params.
-                
+        Deserialize a JSON representation to the keyword args needed for use with this type's ::method:`__init__`.
+
         Parameters
         ----------
-        json_obj
+        json_obj: dict
+            A serialized JSON representation of an instance.
 
         Returns
         -------
         dict
+            A dictionary containing the keyword args (both required and any contained optional) necessary for
+            initializing an instance, with the values deserialized from the received JSON.
         """
-        additional_kw_args = dict()
-        additional_kw_args['cal_strategy_algorithm'] = json_obj[cls._KEY_CAL_STRATEGY_ALGO]
-        additional_kw_args['cal_strategy_objective_func'] = json_obj[cls._KEY_CAL_STRATEGY_OBJ_FUNC]
-        additional_kw_args['cal_strategy_type'] = json_obj[cls._KEY_CAL_STRATEGY_TYPE]
-        additional_kw_args['evaluation_time_range'] = TimeRange.factory_init_from_deserialized_json(json_obj[cls._KEY_EVALUTATION_TIME])
-        additional_kw_args['is_objective_func_minimized'] = json_obj[cls._KEY_IS_OBJ_FUNC_MIN]
-        additional_kw_args['is_restart'] = json_obj[cls._KEY_IS_RESTART]
-        additional_kw_args['iterations'] = json_obj[cls._KEY_ITERATIONS]
-        additional_kw_args['job_name'] = json_obj[cls._KEY_JOB_NAME]
-        additional_kw_args['model_cal_params'] = json_obj[cls._KEY_MODEL_CAL_PARAMS]
-        additional_kw_args['model_strategy'] = json_obj[cls._KEY_MODEL_STRATEGY]
-        return additional_kw_args
+        deserialized_init_params = super().deserialize_for_init(json_obj)
+        deserialized_init_params['cal_strategy_algorithm'] = json_obj[cls._KEY_CAL_STRATEGY_ALGO]
+        deserialized_init_params['cal_strategy_objective_func'] = json_obj[cls._KEY_CAL_STRATEGY_OBJ_FUNC]
+        deserialized_init_params['cal_strategy_type'] = json_obj[cls._KEY_CAL_STRATEGY_TYPE]
+        deserialized_init_params['is_objective_func_minimized'] = json_obj[cls._KEY_IS_OBJ_FUNC_MIN]
+        deserialized_init_params['is_restart'] = json_obj[cls._KEY_IS_RESTART]
+        deserialized_init_params['iterations'] = json_obj[cls._KEY_ITERATIONS]
+        deserialized_init_params['job_name'] = json_obj[cls._KEY_JOB_NAME]
+        deserialized_init_params['model_cal_params'] = json_obj[cls._KEY_MODEL_CAL_PARAMS]
+        deserialized_init_params['model_strategy'] = json_obj[cls._KEY_MODEL_STRATEGY]
+        return deserialized_init_params
 
     @classmethod
     def factory_init_correct_response_subtype(cls, json_obj: dict) -> 'NgenCalibrationResponse':
@@ -72,18 +73,23 @@ class NgenCalibrationRequest(NGENRequest):
         """
         return NgenCalibrationResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
-    def __init__(self, evaluation_time_range: TimeRange, model_cal_params: Dict[str, Tuple[float, float, float]],
-                 iterations: int, cal_strategy_type: str = 'estimation', cal_strategy_algorithm: str = 'dds',
-                 cal_strategy_objective_func: str = 'nnse', is_objective_func_minimized: bool = True,
-                 model_strategy: str = 'uniform', job_name: Optional[str] = None, is_restart: bool = False, *args,
+    def __init__(self,
+                 model_cal_params: Dict[str, Tuple[float, float, float]],
+                 iterations: int,
+                 cal_strategy_type: str = 'estimation',
+                 cal_strategy_algorithm: str = 'dds',
+                 cal_strategy_objective_func: str = 'nnse',
+                 is_objective_func_minimized: bool = True,
+                 model_strategy: str = 'uniform',
+                 job_name: Optional[str] = None,
+                 is_restart: bool = False,
+                 *args,
                  **kwargs):
         """
         Initialize an instance.
 
         Parameters
         ----------
-        evaluation_time_range : TimeRange
-            The time range for calibration for use within the ngen-cal config for the job.
         model_cal_params : Dict[str, Tuple[float, float, float]]
             A collection of the calibratable params, keyed by name, with a tuple of the min, max, and initial values.
         iterations : int
@@ -130,7 +136,6 @@ class NgenCalibrationRequest(NGENRequest):
             The session secret for the right session when communicating with the MaaS request handler
         """
         super(NgenCalibrationRequest, self).__init__(*args, **kwargs)
-        self.evaluation_time_range = evaluation_time_range
         self.model_cal_params = model_cal_params
         self.iterations = iterations
         self.cal_strategy_type = cal_strategy_type
@@ -145,8 +150,8 @@ class NgenCalibrationRequest(NGENRequest):
         # TODO: may need to modify this to have (realization) config dataset start empty (at least optionally) and apply
 
     def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        serial = super(NgenCalibrationRequest, self).to_dict()
-        serial[self._KEY_EVALUTATION_TIME] = self.evaluation_time_range.to_dict()
+        serial = super().to_dict()
+        serial["name"] = self.job_exec_name
         serial[self._KEY_MODEL_CAL_PARAMS] = self.model_cal_params
         serial[self._KEY_CAL_STRATEGY_TYPE] = self.cal_strategy_type
         serial[self._KEY_CAL_STRATEGY_ALGO] = self.cal_strategy_algorithm
