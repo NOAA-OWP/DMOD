@@ -32,7 +32,7 @@ class TestNGENRequest(unittest.TestCase):
                 '{"allocation_paradigm": "SINGLE_NODE", "bmi_config_data_id": "02468", "config_data_id": "02468", "cpu_count": ' + str(cpu_count_ex_0) + ', '
                 '"hydrofabric_data_id": "9876543210", "hydrofabric_uid": "0123456789", "name": "ngen", "time_range": '
                 + time_range.to_json() + '}, '
-            '"session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
+            '"session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
         self.request_jsons.append({
             'model': {
                 'name': 'ngen',
@@ -44,7 +44,7 @@ class TestNGENRequest(unittest.TestCase):
                 'bmi_config_data_id': '02468',
                 'config_data_id': '02468'
             },
-            'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
+            'session_secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
         })
         self.request_objs.append(
             NGENRequest(session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
@@ -69,7 +69,7 @@ class TestNGENRequest(unittest.TestCase):
                 '{"allocation_paradigm": "ROUND_ROBIN", "bmi_config_data_id": "02468", "catchments": ' + cat_ids_str + ', "config_data_id": "02468", '
                 '"cpu_count": ' + str(cpu_count_ex_1) + ', "hydrofabric_data_id": "9876543210", '
                 '"hydrofabric_uid": "0123456789", "name": "ngen", "time_range": ' + time_range.to_json() + '}, '
-            '"session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
+            '"session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
         self.request_jsons.append({
             'model': {
                 'name': 'ngen',
@@ -82,7 +82,7 @@ class TestNGENRequest(unittest.TestCase):
                 'bmi_config_data_id': '02468',
                 'catchments': cat_ids_list
             },
-            'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
+            'session_secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
         })
         self.request_objs.append(
             NGENRequest(session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
