@@ -75,7 +75,6 @@ class NgenCalRequestClient(ModelExecRequestClient[NgenCalibrationRequest, NgenCa
 
         # NOTE: aaraney this will likely  have to change
         request = NgenCalibrationRequest(
-                                        evaluation_time_range=TimeRange(begin=start, end=end),
                                         # model_cal_params={"fake": (-1, 1, 0)}, # TODO: remove this
                                         model_cal_params=dict(), # TODO: remove this
                                         iterations=2, # TODO: remove this
