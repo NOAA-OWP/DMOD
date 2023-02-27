@@ -72,14 +72,14 @@ class StoredDataset(models.Model):
 
     dataset_type = models.CharField(
         max_length=100,
-        choices=choices.StoredDatasetType.field_choices,
+        choices=choices.StoredDatasetType.field_choices(),
         help_text="The type of data the dataset provides"
     )
     """(:class:`str`) The type of data the dataset provides"""
 
     dataset_format = models.CharField(
         max_length=100,
-        choices=choices.StoredDatasetFormat.field_choices,
+        choices=choices.StoredDatasetFormat.field_choices(),
         help_text="The format of the dataset"
     )
 
