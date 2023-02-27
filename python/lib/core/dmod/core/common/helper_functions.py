@@ -285,8 +285,8 @@ def get_subclasses(base: typing.Type[_CLASS_TYPE]) -> typing.List[typing.Type[_C
 
 def foreach(
     func: typing.Callable[[_CLASS_TYPE], typing.Any],
-    collection: typing.Iterable[_CLASS_TYPE]
-) -> typing.Sequence[typing.Any]:
+    collection: typing.Union[typing.MutableSequence[_CLASS_TYPE], typing.MutableSet[_CLASS_TYPE]]
+) -> typing.Union[typing.MutableSequence[_CLASS_TYPE], typing.MutableSet[_CLASS_TYPE]]:
     """
     Calls the passed in function on every item in the collection
 
@@ -315,13 +315,29 @@ def foreach(
     Returns:
         A collection containing any of the results of the function
     """
-    results: typing.List[typing.Any] = list()
 
-    for element in collection:
-        function_result = func(element)
-        results.append(function_result)
+    if isinstance(collection, typing.MutableSet):
+        results: typing.List[typing.Any] = list()
+        for element in collection:
+            function_result = func(element)
+            results.append(function_result)
 
-    return results
+        collection.clear()
+
+        for element in results:
+            collection.add(element)
+    elif isinstance(collection, typing.MutableSequence):
+        for element_index in range(len(collection)):
+            function_result = func(collection[element_index])
+            collection[element_index] = function_result
+    else:
+        results: typing.List[typing.Any] = list()
+        for element in collection:
+            function_result = func(element)
+            results.append(function_result)
+        return results
+
+    return collection
 
 
 def is_true(value) -> bool:
