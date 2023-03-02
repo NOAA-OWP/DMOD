@@ -18,14 +18,42 @@ class GeoPackageCatchment(Catchment):
     linked object on-demand) to things like a connected nexus for which the nexus object may or may not yet exist.
     """
 
-    __slots__ = ["_cat_id", "_hydrofabric", "_catchments_df", "_nexuses_df", "_realization"]
+    __slots__ = ["_cat_id", "_hydrofabric", "_catchments_df", "_nexuses_df", "_realization", "_col_cat_id",
+                 "_col_nex_id", "_col_to_cat", "_col_to_nex"]
 
     def __init__(self, cat_id: str, hydrofabric: 'GeoPackageHydrofabric', catchments_df: gpd.GeoDataFrame,
-                 nexuses_df: gpd.GeoDataFrame):
+                 nexuses_df: gpd.GeoDataFrame, col_cat_id: str, col_nex_id: str, col_to_cat: str, col_to_nex: str):
+        """
+        Initialize this instance.
+
+        Parameters
+        ----------
+        cat_id : str
+            The id of the represented catchment.
+        hydrofabric : GeoPackageHydrofabric
+            The backing package hydrofabric.
+        catchments_df : gpd.GeoDataFrame
+            The geodataframe from parent hydrofabric specifically containing catchment data (for hydrologic modeling).
+        nexuses_df : gpd.GeoDataFrame
+            The geodataframe from parent hydrofabric specifically containing nexus data.
+        col_cat_id : str
+            The name of the column within ``catchments_df`` that holds catchment ids.
+        col_nex_id : str
+            The name of the column within ``nexuses_df`` that holds nexus ids.
+        col_to_cat : str
+            The name of the column within ``nexuses_df`` that holds reference to downstream catchment (by id).
+        col_to_nex : str
+            The name of the column within ``catchments_df`` that holds reference to downstream catchment (by id).
+        """
         self._cat_id: str = cat_id
         self._hydrofabric: GeoPackageHydrofabric = hydrofabric
         self._catchments_df: gpd.GeoDataFrame = catchments_df
         self._nexuses_df: gpd.GeoDataFrame = nexuses_df
+        self._col_cat_id = col_cat_id
+        self._col_nex_id = col_nex_id
+        self._col_to_cat = col_to_cat
+        self._col_to_nex = col_to_nex
+
         self._realization = None
 
     def _get_conjoined_ids(self) -> List[str]:
@@ -52,16 +80,16 @@ class GeoPackageCatchment(Catchment):
         # TODO: implement properly
         raise NotImplementedError
 
-    def _get_flowpath_record(self) -> gpd.GeoDataFrame:
+    def _get_catchment_record(self) -> gpd.GeoDataFrame:
         """
-        Get the (1-line) sub-dataframe from the flowpaths layer for this particular catchment.
+        Get the (1-line) sub-dataframe from the catchments layer dataframe for this particular catchment.
 
         Returns
         -------
         gpd.GeoDataFrame
-            The (1-line) sub-dataframe from the flowpaths layer for this particular catchment.
+            The (1-line) sub-dataframe from the catchments layer dataframe for this particular catchment.
         """
-        df = self._flowpaths_df.loc[self._flowpaths_df[self._hydrofabric._DIVIDES_CAT_ID_COL] == self._cat_id]
+        df = self._catchments_df.loc[self._catchments_df[self._col_cat_id] == self._cat_id]
         if df.shape[0] == 0:
             msg = 'No backing records in {} data for {} {}'
             raise RuntimeError(msg.format(self._hydrofabric.__class__.__name__, self.__class__.__name__, self._cat_id))
@@ -131,13 +159,13 @@ class GeoPackageCatchment(Catchment):
         Optional[GeoPackageNexus]
             In-flowing connected Nexus.
         """
-        matches_df = self._nexuses_df.loc[self._nexuses_df[self._hydrofabric._NEXUS_TO_CAT_COL] == self._cat_id]
+        matches_df = self._nexuses_df.loc[self._nexuses_df[self._col_to_cat] == self._cat_id]
         if matches_df.shape[0] > 1:
             raise RuntimeError("Invalid catchment {} with multiple inflow nexuses".format(self._cat_id))
         elif matches_df.shape[0] == 0:
             return None
         else:
-            return self._hydrofabric.get_catchment_by_id(matches_df[self._hydrofabric._NEXUS_TO_CAT_COL].values[0])
+            return self._hydrofabric.get_nexus_by_id(matches_df[self._col_to_cat].values[0])
 
     @property
     def outflow(self) -> Optional['GeoPackageNexus']:
@@ -149,7 +177,7 @@ class GeoPackageCatchment(Catchment):
         Optional[GeoPackageNexus]
             Out-flowing connected nexus.
         """
-        nex_id = self._get_flowpath_record()[self._hydrofabric._DIVIDES_TO_NEX_COL].values[0]
+        nex_id = self._get_catchment_record()[self._col_to_nex].values[0]
         return self._hydrofabric.get_nexus_by_id(nex_id)
 
     @property
@@ -179,25 +207,52 @@ class GeoPackageNexus(Nexus):
     exist.
     """
 
-    __slots__ = ["_nex_id", "_hydrofabric", "_catchments_df", "_nexuses_df"]
+    __slots__ = ["_nex_id", "_hydrofabric", "_catchments_df", "_nexuses_df", "_col_cat_id", "_col_nex_id",
+                 "_col_to_cat", "_col_to_nex"]
 
     def __init__(self, nex_id: str, hydrofabric: 'GeoPackageHydrofabric', catchments_df: gpd.GeoDataFrame,
-                 nexuses_df: gpd.GeoDataFrame):
+                 nexuses_df: gpd.GeoDataFrame, col_cat_id: str, col_nex_id: str, col_to_cat: str, col_to_nex: str):
+        """
+        Initialize this instance.
+
+        Parameters
+        ----------
+        nex_id : str
+            The id of the represented nexus.
+        hydrofabric : GeoPackageHydrofabric
+            The backing package hydrofabric.
+        catchments_df : gpd.GeoDataFrame
+            The geodataframe from parent hydrofabric specifically containing catchment data (for hydrologic modeling).
+        nexuses_df : gpd.GeoDataFrame
+            The geodataframe from parent hydrofabric specifically containing nexus data.
+        col_cat_id : str
+            The name of the column within ``catchments_df`` that holds catchment ids.
+        col_nex_id : str
+            The name of the column within ``nexuses_df`` that holds nexus ids.
+        col_to_cat : str
+            The name of the column within ``nexuses_df`` that holds reference to downstream catchment (by id).
+        col_to_nex : str
+            The name of the column within ``catchments_df`` that holds reference to downstream catchment (by id).
+        """
         self._nex_id: str = nex_id
         self._hydrofabric: GeoPackageHydrofabric = hydrofabric
         self._catchments_df: gpd.GeoDataFrame = catchments_df
         self._nexuses_df: gpd.GeoDataFrame = nexuses_df
+        self._col_cat_id = col_cat_id
+        self._col_nex_id = col_nex_id
+        self._col_to_cat = col_to_cat
+        self._col_to_nex = col_to_nex
 
     def _get_nexus_record(self) -> gpd.GeoDataFrame:
         """
-        Get the (1-line) sub-dataframe from the ``nexus`` layer for this particular nexus.
+        Get the (1-line) sub-dataframe from the ``nexus`` layer dataframe for this particular nexus.
 
         Returns
         -------
         gpd.GeoDataFrame
-            The (1-line) ssub-dataframe from the ``nexus`` layer for this particular nexus.
+            The (1-line) ssub-dataframe from the ``nexus`` layer dataframe for this particular nexus.
         """
-        df = self._nexuses_df.loc[self._nexuses_df[self._hydrofabric._NEXUS_NEX_ID_COL] == self._nex_id]
+        df = self._nexuses_df.loc[self._nexuses_df[self._col_nex_id] == self._nex_id]
         if df.shape[0] == 0:
             msg = 'No backing records in {} data for {} {}'
             raise RuntimeError(msg.format(self._hydrofabric.__class__.__name__, self.__class__.__name__, self._nex_id))
@@ -220,7 +275,7 @@ class GeoPackageNexus(Nexus):
         return self._nex_id
 
     @property
-    def receiving_catchments (self) -> Tuple['GeoPackageCatchment']:
+    def receiving_catchments(self) -> Tuple['GeoPackageCatchment']:
         """
         Tuple of GeoPackageCatchment object(s) receiving water from nexus
 
@@ -230,11 +285,11 @@ class GeoPackageNexus(Nexus):
             Tuple of GeoPackageCatchment object(s) receiving water from nexus
         """
         catchments = [self._hydrofabric.get_catchment_by_id(cid) for cid in
-                      self._get_nexus_record()[self._hydrofabric._NEXUS_TO_CAT_COL].values]
+                      self._get_nexus_record()[self._col_to_cat].values]
         return tuple([c for c in catchments if c is not None])
 
     @property
-    def contributing_catchments (self) -> Tuple['GeoPackageCatchment']:
+    def contributing_catchments(self) -> Tuple['GeoPackageCatchment']:
         """
         Tuple of GeoPackageCatchment object(s) contributing water to nexus
 
@@ -243,9 +298,9 @@ class GeoPackageNexus(Nexus):
         Tuple['GeoPackageCatchment']
             Tuple of GeoPackageCatchment object(s) contributing water to nexus
         """
-        cat_rows = self._catchments_df.loc[self._catchments_df[self._hydrofabric._DIVIDES_TO_NEX_COL] == self._nex_id]
+        cat_rows = self._catchments_df.loc[self._catchments_df[self._col_to_nex] == self._nex_id]
         cat_lookups = [self._hydrofabric.get_catchment_by_id(cid) for cid in
-                       cat_rows[self._hydrofabric._DIVIDES_TO_NEX_COL].values]
+                       cat_rows[self._col_to_nex].values]
         return tuple([c for c in cat_lookups if c is not None])
 
 
@@ -296,11 +351,15 @@ class GeoPackageHydrofabric(Hydrofabric):
         divides = self._dataframes[self._DIVIDES_LAYER_NAME]
         nexuses = self._dataframes[self._NEXUS_LAYER_NAME]
 
+        col_args = {'col_cat_id': self._DIVIDES_CAT_ID_COL, 'col_nex_id': self._NEXUS_NEX_ID_COL,
+                    'col_to_cat': self._NEXUS_TO_CAT_COL, 'col_to_nex': self._DIVIDES_TO_NEX_COL}
+
         self._catchments: Dict[str, GeoPackageCatchment] = dict(
-            [(cid, GeoPackageCatchment(cid, self, divides, nexuses)) for cid in self.get_all_catchment_ids()])
+            [(cid, GeoPackageCatchment(cid, self, divides, nexuses, **col_args)) for cid in
+             self.get_all_catchment_ids()])
 
         self._nexuses: Dict[str, GeoPackageNexus] = dict(
-            [(nid, GeoPackageNexus(nid, self, divides, nexuses)) for nid in self.get_all_nexus_ids()])
+            [(nid, GeoPackageNexus(nid, self, divides, nexuses **col_args)) for nid in self.get_all_nexus_ids()])
 
     def __eq__(self, other):
         if not isinstance(other, GeoPackageHydrofabric) or self.uid != other.uid:
