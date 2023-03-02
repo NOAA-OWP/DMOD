@@ -18,13 +18,13 @@ class GeoPackageCatchment(Catchment):
     linked object on-demand) to things like a connected nexus for which the nexus object may or may not yet exist.
     """
 
-    __slots__ = ["_cat_id", "_hydrofabric", "_divides_df", "_nexuses_df", "_realization"]
+    __slots__ = ["_cat_id", "_hydrofabric", "_catchments_df", "_nexuses_df", "_realization"]
 
-    def __init__(self, cat_id: str, hydrofabric: 'GeoPackageHydrofabric', divides_df: gpd.GeoDataFrame,
+    def __init__(self, cat_id: str, hydrofabric: 'GeoPackageHydrofabric', catchments_df: gpd.GeoDataFrame,
                  nexuses_df: gpd.GeoDataFrame):
         self._cat_id: str = cat_id
         self._hydrofabric: GeoPackageHydrofabric = hydrofabric
-        self._divides_df: gpd.GeoDataFrame = divides_df
+        self._catchments_df: gpd.GeoDataFrame = catchments_df
         self._nexuses_df: gpd.GeoDataFrame = nexuses_df
         self._realization = None
 
@@ -179,13 +179,13 @@ class GeoPackageNexus(Nexus):
     exist.
     """
 
-    __slots__ = ["_nex_id", "_hydrofabric", "_divides_df", "_nexuses_df"]
+    __slots__ = ["_nex_id", "_hydrofabric", "_catchments_df", "_nexuses_df"]
 
-    def __init__(self, nex_id: str, hydrofabric: 'GeoPackageHydrofabric', divides_df: gpd.GeoDataFrame,
+    def __init__(self, nex_id: str, hydrofabric: 'GeoPackageHydrofabric', catchments_df: gpd.GeoDataFrame,
                  nexuses_df: gpd.GeoDataFrame):
         self._nex_id: str = nex_id
         self._hydrofabric: GeoPackageHydrofabric = hydrofabric
-        self._divides_df: gpd.GeoDataFrame = divides_df
+        self._catchments_df: gpd.GeoDataFrame = catchments_df
         self._nexuses_df: gpd.GeoDataFrame = nexuses_df
 
     def _get_nexus_record(self) -> gpd.GeoDataFrame:
@@ -243,7 +243,7 @@ class GeoPackageNexus(Nexus):
         Tuple['GeoPackageCatchment']
             Tuple of GeoPackageCatchment object(s) contributing water to nexus
         """
-        cat_rows = self._divides_df.loc[self._divides_df[self._hydrofabric._DIVIDES_TO_NEX_COL] == self._nex_id]
+        cat_rows = self._catchments_df.loc[self._catchments_df[self._hydrofabric._DIVIDES_TO_NEX_COL] == self._nex_id]
         cat_lookups = [self._hydrofabric.get_catchment_by_id(cid) for cid in
                        cat_rows[self._hydrofabric._DIVIDES_TO_NEX_COL].values]
         return tuple([c for c in cat_lookups if c is not None])
