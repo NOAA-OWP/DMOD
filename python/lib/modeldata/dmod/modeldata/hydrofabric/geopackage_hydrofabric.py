@@ -306,7 +306,7 @@ class GeoPackageNexus(Nexus):
 
 class GeoPackageHydrofabric(Hydrofabric):
     """
-    Hydrofabric implementation sourced from and backed by Nextgen hydrofabric GeoPackage artifacts.
+    Hydrofabric implementation sourced from and backed by Nextgen hydrofabric GeoPackage (v1.2) artifacts.
 
     See https://noaa-owp.github.io/hydrofabric/schema.html.
     """
@@ -415,11 +415,26 @@ class GeoPackageHydrofabric(Hydrofabric):
 
         Returns
         -------
-        GeoPackageHydrofabric
+        GeoJsonHydrofabric
             A hydrofabric object that is a subset of this instance as defined by the given param.
         """
-        # TODO: implement later
-        raise NotImplementedError
+        # Note that this is pretty specific to the schema of v1.2, though is probably similar to other versions
+        new_dfs = dict()
+
+        def subset_layer(layer: str, id_search_col: str, applicable_ids: Tuple[str]):
+            dataframe = self._dataframes[layer]
+            new_dfs[layer] = dataframe.loc[dataframe[id_search_col] in applicable_ids]
+
+        subset_layer(layer='flowpaths', id_search_col='realized_catchments', applicable_ids=subset.catchment_ids)
+        subset_layer(layer='divides', id_search_col='id', applicable_ids=subset.catchment_ids)
+        subset_layer(layer='nexus', id_search_col='id', applicable_ids=subset.nexus_ids)
+        subset_layer(layer='flowpath_attributes', id_search_col='id', applicable_ids=new_dfs['flowpaths']['id'])
+        subset_layer(layer='flowpath_edge_list', id_search_col='id', applicable_ids=new_dfs['flowpaths']['id'])
+        subset_layer(layer='crosswalk', id_search_col='id', applicable_ids=new_dfs['flowpaths']['id'])
+        subset_layer(layer='cfe_noahowp_attributes', id_search_col='id', applicable_ids=subset.catchment_ids)
+        subset_layer(layer='forcing_metadata', id_search_col='id', applicable_ids=subset.catchment_ids)
+
+        return GeoPackageHydrofabric(layer_names=self._layer_names, layer_dataframes=new_dfs)
 
     def is_catchment_recognized(self, catchment_id: str) -> bool:
         """
