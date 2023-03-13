@@ -1,0 +1,59 @@
+#base-banner {
+    background: var(--logo) no-repeat left center;
+    background-size: 300px 50px;
+    background-position-x: 10px;
+    height: var(--banner-height);
+    background-color: var(--banner-color);
+}
+
+#base-banner h1 {
+    height: var(--banner-height);
+    line-height: var(--banner-height);
+    font-family: var(--banner-font);
+    text-align: right;
+    padding-right: 20px;
+    font-weight: lighter;
+    color: var(--logo-color);
+    margin: 0;
+}
+
+body {
+    height: 100vh;
+    margin: 0;
+    background-color: #ececec;
+    font-family: sans-serif;
+    overflow-y: hidden;
+}
+
+.pane {
+    background-color: white;
+    border: var(--light-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin: 20px;
+}
+
+legend {
+    padding: 10px;
+    border: var(--fieldset-border);
+    color: var(--logo-color);
+    font-family: var(--banner-font);
+    background-color: var(--banner-color);
+    font-size: larger;
+    font-weight: bold;
+}
+
+.ui-tabs .ui-tabs-nav li.ui-tabs-active {
+    border: 1px solid var(--logo-color);
+    background: var(--logo-color);
+}
+
+:root {
+    --banner-height: 60px;
+    --logo-color: #034694;
+    --banner-color: #afd2e0;
+    --banner-font: serif;
+    --light-border: 1px solid #C5C5C5;
+    --fieldset-border: 2px groove rgb(192, 192, 192);
+    --border: 1px solid black;
+}

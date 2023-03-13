@@ -476,6 +476,10 @@ DEFAULT_LOGGING_CONFIGURATION = {
         DEFAULT_SOCKET_LOGGER_NAME: {
             'handlers': [f"{DEFAULT_SOCKET_LOGGER_NAME}_Handler"],
             'level': get_socket_log_level()
+        },
+        "websockets.client": {
+            "handlers": ['stdout'],
+            "level": logging.INFO
         }
     }
 }

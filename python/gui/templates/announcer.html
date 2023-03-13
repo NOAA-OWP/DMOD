@@ -1,0 +1,33 @@
+{% extends "master.html" %}
+{% load static %}
+
+{% block style %}
+<link rel="stylesheet" href="{% static "css/announcer.css" %}" />
+{% endblock %}
+
+{% block extra %}
+    {% include "programming/code.html" %}
+    {% include "datatables.html" %}
+{% endblock %}
+
+{% block page_script %}
+    <script>
+    const ANNOUNCER_URL = "{{ announcer_url }}";
+    const SENT_TABLE_NAME = "{{ table_name|default:"sent-table" }}";
+    </script>
+    <script type="module" src="{% static "js/announcer.js" %}"></script>
+{% endblock %}
+
+{% block content %}
+    <div id="content" class="pane" style="display: flex; flex-direction: row; justify-content: space-evenly">
+        <fieldset id="announcement-wrapper" style="flex: 2">
+            <legend id="announcement-legend"><label for="announcement-box">Announce</label></legend>
+            <textarea id="announcement-box"></textarea>
+            <button id="send-announcement-button" style="margin-top: 5px; margin-bottom: 5px; width: 100%;">Send</button>
+        </fieldset>
+        <fieldset id="sent-announcement-wrapper" style="flex: 1">
+            <legend id="sent-announcement-legend">Sent</legend>
+            <table id="{{ table_name|default:"sent-table" }}" style="width: 100%" class="dynamic-table"></table>
+        </fieldset>
+    </div>
+{% endblock %}

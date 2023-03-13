@@ -1,0 +1,25 @@
+{% load static %}
+
+<link rel="stylesheet" href="{%  static "CodeMirror/codemirror.min.css" %}" />
+<link rel="stylesheet" href="{% static "CodeMirror/foldgutter.min.css" %}" />
+<link rel="stylesheet" href="{% static "css/programming/code.css" %}" />
+<script src="{% static "CodeMirror/codemirror.min.js" %}"></script>
+<script src="{% static "CodeMirror/matchbrackets.min.js" %}"></script>
+<script src="{% static "CodeMirror/closebrackets.min.js" %}"></script>
+<script src="{% static "CodeMirror/foldcode.min.js" %}"></script>
+<script src="{% static "CodeMirror/brace-fold.min.js" %}"></script>
+<script src="{% static "CodeMirror/foldgutter.min.js" %}"></script>
+<script type="module" src="{% static "js/programming/code.js" %}"></script>
+{% block languageDefinitions %}{% endblock languageDefinitions %}
+<script>
+    {% block codeViewAddition %}
+    {% if code_views %}
+        function addViews() {
+            {% autoescape off %}
+            DMOD.code.views.push.apply(DMOD.code.views, {{ code_views }});
+            {% endautoescape %}
+        }
+        startupScripts.push(addViews);
+    {% endif %}
+    {% endblock codeViewAddition %}
+</script>

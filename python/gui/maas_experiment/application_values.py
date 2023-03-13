@@ -1,3 +1,4 @@
+import json
 import os
 import typing
 import re
@@ -57,6 +58,35 @@ def get_redis_password() -> typing.Optional[str]:
 
     # Fall back to env if no secrets file, further falling back to default if no env value
     return os.environ.get('REDIS_PASS')
+
+
+def get_channel_password() -> typing.Optional[str]:
+    """
+    Attempts to find a password to the core redis instance, first by checking for a secrets file, then by checking
+    an environment variable.
+
+    The optional environment variables that control this are `REDIS_PASSWORD_FILE` for the secret or `REDIS_PASS`
+    for the password on its own.
+
+    Returns:
+        The optional password to the core redis service
+    """
+    password_filename = os.environ.get("CHANNEL_PASSWORD_FILE", "/run/secrets/channel_password")
+
+    # If a password file has been identified, try to get a password from that
+    if os.path.exists(password_filename):
+        try:
+            with open(password_filename, 'r') as channel_password_file:
+                content = channel_password_file.read().strip()
+                # Only go with the password from the file if there WAS a password in the file
+                if len(content) >= 1:
+                    return content
+        except:
+            # Data couldn't be read? Move on to attempting to read it from the environment variable
+            pass
+
+    # Fall back to env if no secrets file, further falling back to default if no env value
+    return os.environ.get('CHANNEL_PASSWORD', REDIS_PASSWORD)
 
 
 def get_full_localtimezone():
@@ -142,8 +172,16 @@ DEBUG = in_debug_mode()
 BASE_DIRECTORY = Path(__file__).resolve().parent.parent
 """The path to the base directory of the service"""
 
-APPLICATION_NAME = os.environ.get("APPLICATION_NAME", "Evaluation Service")
+STATIC_RESOURCE_DIRECTORY = BASE_DIRECTORY / "static" / "resources"
+
+APPLICATION_NAME = os.environ.get("APPLICATION_NAME", "Model as a Service")
 """The name of the service"""
+
+APPLICATION_PREFIX = os.environ.get("APPLICATION_PREFIX", "DMOD")
+"""The prefix used to separate shared variables used by this application from others"""
+
+KEY_SEPARATOR = os.environ.get("KEY_SEPARATOR", "--")
+"""The separator used to delimit elements of generated keys"""
 
 COMMON_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S%z"
 """The default format for datetime strings"""
@@ -151,29 +189,37 @@ COMMON_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S%z"
 CURRENT_TIMEZONE = get_full_localtimezone()
 """The timezone for the service"""
 
-EVALUATION_QUEUE_NAME = os.environ.get("EVALUATION_QUEUE_NAME", "evaluation_jobs")
-"""The name for the redis queue through which to communicate jobs through"""
-
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 """The host of the core redis service"""
 
 REDIS_PORT = int(os.environ.get("REDIS_PORT")) if "REDIS_PORT" in os.environ else 6379
 """The port of the core redis service"""
 
+REDIS_USERNAME = os.environ.get("REDIS_USERNAME", None)
+"""The name of the user to use when connecting to the core redis database"""
+
 REDIS_PASSWORD = get_redis_password()
 """The password to the cored redis service"""
 
-RQ_HOST = os.environ.get("RQ_HOST", REDIS_HOST)
-"""The host of the redis service used for launching jobs"""
+REDIS_DB = os.environ.get("REDIS_DB", "0")
+"""The identifier for the redis database to use on the redis host"""
 
-RQ_PORT = int(os.environ.get("RQ_PORT")) if "RQ_PORT" in os.environ else REDIS_PORT
-"""The port of the redis service used for launching jobs"""
+NOTIFICATION_CHANNEL = os.environ.get("NOTIFICATION_CHANNEL", "notifications")
 
 CHANNEL_HOST = os.environ.get("CHANNEL_HOST", REDIS_HOST)
 """The host of the redis service used for communicating job information"""
 
 CHANNEL_PORT = int(os.environ.get("CHANNEL_PORT")) if "CHANNEL_PORT" in os.environ else REDIS_PORT
 """The port of the redis service used for communicating job information"""
+
+CHANNEL_USERNAME = os.environ.get("CHANNEL_USERNAME", REDIS_USERNAME)
+"""The username used to connect to the redis database used for channels"""
+
+CHANNEL_PASSWORD = get_channel_password()
+"""The password used to connect to a redis service that is used to communicate messages"""
+
+CHANNEL_DB = os.environ.get("CHANNEL_DB", REDIS_DB)
+"""The identifier for the redis database to use on the redis channels host"""
 
 CHANNEL_NAME_PATTERN = r'[\w\-_\.]+'
 """The pattern that redis channel names may follow"""
@@ -183,6 +229,7 @@ CHANNEL_LAYERS = {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
             "hosts": [(CHANNEL_HOST, CHANNEL_PORT)],
+            "prefix": APPLICATION_PREFIX
         },
     },
 }
@@ -197,6 +244,23 @@ DATABASES = {
         'PORT': os.environ.get('SQL_PORT', '5432'),
     }
 }
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': f'redis://{REDIS_HOST}{":" + str(REDIS_PORT) if REDIS_PORT else ""}',
+    }
+}
+
+SOCKET_FORWARDING_CONFIG_PATH = os.environ.get(
+    "SOCKET_FORWARDING_CONFIG_PATH",
+    STATIC_RESOURCE_DIRECTORY / "socket_forwarding.json"
+)
+
+REST_FORWARDING_CONFIG_PATH = os.environ.get(
+    "REST_FORWARDING_CONFIG_PATH",
+    STATIC_RESOURCE_DIRECTORY / "rest_forwarding.json"
+)
 
 REQUIRED_ENVIRONMENT_VARIABLES: typing.List[typing.Dict[str, str]] = [
     {
