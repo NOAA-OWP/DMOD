@@ -3,10 +3,10 @@ import geopandas as gpd
 import hashlib
 from pandas.util import hash_pandas_object
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Tuple, FrozenSet
+from typing import Callable, Dict, FrozenSet, Iterable, List, Optional, Tuple, Union
 from hypy import Catchment, Nexus, Realization
 from .hydrofabric import Hydrofabric
-from .. import SubsetDefinition
+from ..subset import SubsetDefinition
 
 
 class GeoPackageCatchment(Catchment):
@@ -165,7 +165,7 @@ class GeoPackageCatchment(Catchment):
         elif matches_df.shape[0] == 0:
             return None
         else:
-            return self._hydrofabric.get_nexus_by_id(matches_df[self._col_to_cat].values[0])
+            return self._hydrofabric.get_nexus_by_id(matches_df[self._col_nex_id].values[0])
 
     @property
     def outflow(self) -> Optional['GeoPackageNexus']:
@@ -300,7 +300,7 @@ class GeoPackageNexus(Nexus):
         """
         cat_rows = self._catchments_df.loc[self._catchments_df[self._col_to_nex] == self._nex_id]
         cat_lookups = [self._hydrofabric.get_catchment_by_id(cid) for cid in
-                       cat_rows[self._col_to_nex].values]
+                       cat_rows[self._col_cat_id].values]
         return tuple([c for c in cat_lookups if c is not None])
 
 
@@ -359,7 +359,7 @@ class GeoPackageHydrofabric(Hydrofabric):
              self.get_all_catchment_ids()])
 
         self._nexuses: Dict[str, GeoPackageNexus] = dict(
-            [(nid, GeoPackageNexus(nid, self, divides, nexuses **col_args)) for nid in self.get_all_nexus_ids()])
+            [(nid, GeoPackageNexus(nid, self, divides, nexuses, **col_args)) for nid in self.get_all_nexus_ids()])
 
     def __eq__(self, other):
         if not isinstance(other, GeoPackageHydrofabric) or self.uid != other.uid:
@@ -418,21 +418,44 @@ class GeoPackageHydrofabric(Hydrofabric):
         GeoJsonHydrofabric
             A hydrofabric object that is a subset of this instance as defined by the given param.
         """
-        # Note that this is pretty specific to the schema of v1.2, though is probably similar to other versions
+        # Note that this is somewhat specific to the schema of v1.2, though is probably similar to other versions
         new_dfs = dict()
 
-        def subset_layer(layer: str, id_search_col: str, applicable_ids: Tuple[str]):
-            dataframe = self._dataframes[layer]
-            new_dfs[layer] = dataframe.loc[dataframe[id_search_col] in applicable_ids]
+        # A dictionary to encapsulate how to handle subsetting a particular, known layer type
+        # The lambda is to delay evaluation, as in some cases a different layer's subset is needed for deriving a subset
+        #
+        # Basically, define what we should do for layer we could encounter, since it is possible to not always encounter
+        # the same set of layers, even for the same version (e.g., the CONUS v1.2 file doesn't have 'forcing_metadata')
+        #
+        # Key: layer name
+        # Value: Tuple[str, Callable[[], Iterable]]
+            # Value[0]: name of column in this known layer that holds ids, which we will examine for subsetting
+            # Value[1]: callable no arg function, returning collection of ids for records/rows to include in subset
+        subset_query_setups: Dict[str, Tuple[str, Callable[[], Iterable[str]]]] = {
+            'flowpaths': ('realized_catchment', lambda: subset.catchment_ids),
+            'divides': ('id', lambda: subset.catchment_ids),
+            'nexus': ('id', lambda: subset.nexus_ids),
+            'flowpath_attributes': ('id', lambda: new_dfs['flowpaths']['id']),
+            'flowpath_edge_list': ('id', lambda: new_dfs['flowpaths']['id']),
+            'crosswalk': ('id', lambda: new_dfs['flowpaths']['id']),
+            'cfe_noahowp_attributes': ('id', lambda: subset.catchment_ids),
+            'forcing_metadata': ('id', lambda: subset.catchment_ids)
+        }
 
-        subset_layer(layer='flowpaths', id_search_col='realized_catchments', applicable_ids=subset.catchment_ids)
-        subset_layer(layer='divides', id_search_col='id', applicable_ids=subset.catchment_ids)
-        subset_layer(layer='nexus', id_search_col='id', applicable_ids=subset.nexus_ids)
-        subset_layer(layer='flowpath_attributes', id_search_col='id', applicable_ids=new_dfs['flowpaths']['id'])
-        subset_layer(layer='flowpath_edge_list', id_search_col='id', applicable_ids=new_dfs['flowpaths']['id'])
-        subset_layer(layer='crosswalk', id_search_col='id', applicable_ids=new_dfs['flowpaths']['id'])
-        subset_layer(layer='cfe_noahowp_attributes', id_search_col='id', applicable_ids=subset.catchment_ids)
-        subset_layer(layer='forcing_metadata', id_search_col='id', applicable_ids=subset.catchment_ids)
+        # Then, apply this logic to every encountered layer to create subset layer/dataframe to use to init new instance
+        def subset_layer(layer_name: str):
+            dataframe = self._dataframes[layer_name]
+            id_search_col = subset_query_setups[layer_name][0]
+            applicable_ids = subset_query_setups[layer_name][1]()
+            new_dfs[layer_name] = dataframe.loc[dataframe[id_search_col].isin(applicable_ids)]
+
+        # Subset 'flowpaths' layer first; it's ids may be needed for subsetting other things like 'flowpath_edge_list'
+        if 'flowpaths' in self._layer_names:
+            subset_layer('flowpaths')
+
+        # Now, generate the rest of the subset layers/dataframes
+        for layer in [ln for ln in self._layer_names if ln != 'flowpaths']:
+            subset_layer(layer)
 
         return GeoPackageHydrofabric(layer_names=self._layer_names, layer_dataframes=new_dfs)
 
@@ -503,7 +526,7 @@ class GeoPackageHydrofabric(Hydrofabric):
             A unique id for this instance.
         """
         layer_hash_sums = [hash_pandas_object(self._dataframes[ln]).sum() for ln in self._layer_names]
-        return hashlib.sha1(','.join(layer_hash_sums).encode('UTF-8')).hexdigest()
+        return hashlib.sha1(','.join([str(s) for s in layer_hash_sums]).encode('UTF-8')).hexdigest()
 
     def write_file(self, output_file: Union[str, Path], overwrite_existing: bool = False):
         """
@@ -535,7 +558,3 @@ class GeoPackageHydrofabric(Hydrofabric):
 
         for layer_name in self._layer_names:
             self._dataframes[layer_name].to_file(output_file, driver="GPKG", layer=layer_name)
-
-
-
-
