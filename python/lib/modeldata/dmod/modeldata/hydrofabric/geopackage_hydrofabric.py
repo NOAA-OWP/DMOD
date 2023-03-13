@@ -324,7 +324,7 @@ class GeoPackageHydrofabric(Hydrofabric):
     _NEXUS_TO_CAT_COL = 'toid'
 
     @classmethod
-    def from_file(cls, geopackage_file: Union[str, Path]) -> 'GeoPackageHydrofabric':
+    def from_file(cls, geopackage_file: Union[str, Path], vpu: Optional[int] = None, is_conus: bool = False) -> 'GeoPackageHydrofabric':
         """
         Initialize a new instance from a GeoPackage file.
 
@@ -332,6 +332,10 @@ class GeoPackageHydrofabric(Hydrofabric):
         ----------
         geopackage_file: Union[str, Path]
             The source file for data from which to instantiate.
+        vpu: Optional[int]
+            The VPU of the hydrofabric to create, if it is known (defaults to ``None``).
+        is_conus: bool
+            Whether this hydrofabric is for all of CONUS (defaults to ``False``).
 
         Returns
         -------
@@ -340,12 +344,17 @@ class GeoPackageHydrofabric(Hydrofabric):
         """
         layer_names = fiona.listlayers(geopackage_file)
         return cls(layer_names=layer_names,
-                   layer_dataframes=dict([(ln, gpd.read_file(geopackage_file, layer=ln)) for ln in layer_names]))
+                   layer_dataframes=dict([(ln, gpd.read_file(geopackage_file, layer=ln)) for ln in layer_names]),
+                   vpu=vpu,
+                   is_conus=is_conus)
 
-    def __init__(self, layer_names: List[str], layer_dataframes: Dict[str, gpd.GeoDataFrame]):
+    def __init__(self, layer_names: List[str], layer_dataframes: Dict[str, gpd.GeoDataFrame], vpu: Optional[int] = None,
+                 is_conus: bool = False):
         self._layer_names: List[str] = layer_names
         self._dataframes: Dict[str, gpd.GeoDataFrame] = layer_dataframes
         self._roots = None
+        self._vpu = vpu
+        self._is_conus = is_conus
 
         #flowpaths = self._dataframes[self._FLOWPATHS_LAYER_NAME]
         divides = self._dataframes[self._DIVIDES_LAYER_NAME]
@@ -475,6 +484,18 @@ class GeoPackageHydrofabric(Hydrofabric):
         """
         return catchment_id in self._dataframes[self._DIVIDES_LAYER_NAME][self._DIVIDES_CAT_ID_COL].values
 
+    @property
+    def is_conus(self) -> bool:
+        """
+        Whether this hydrofabric represents all of CONUS.
+
+        Returns
+        -------
+        bool
+            Whether this hydrofabric represents all of CONUS.
+        """
+        return self._is_conus
+
     def is_nexus_recognized(self, nexus_id: str) -> bool:
         """
        Test whether a nexus is recognized.
@@ -527,6 +548,18 @@ class GeoPackageHydrofabric(Hydrofabric):
         """
         layer_hash_sums = [hash_pandas_object(self._dataframes[ln]).sum() for ln in self._layer_names]
         return hashlib.sha1(','.join([str(s) for s in layer_hash_sums]).encode('UTF-8')).hexdigest()
+
+    @property
+    def vpu(self) -> Optional[int]:
+        """
+        The VPU of this hydrofabric, if it is known.
+
+        Returns
+        -------
+        Optional[int]
+            The VPU of this hydrofabric, if it is known; otherwise ``None``.
+        """
+        return self._vpu
 
     def write_file(self, output_file: Union[str, Path], overwrite_existing: bool = False):
         """
