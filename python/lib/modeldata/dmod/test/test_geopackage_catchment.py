@@ -1,13 +1,4 @@
-import git
-import hashlib
-import unittest
-from pathlib import Path
-from typing import Dict, List, Optional, Set, Union
-
-import numpy as np
-
-from ..modeldata.hydrofabric import GeoPackageHydrofabric
-from ..modeldata.hydrofabric.geopackage_hydrofabric import GeoPackageCatchment, GeoPackageNexus
+from ..modeldata.hydrofabric.geopackage_hydrofabric import GeoPackageNexus
 from ..test.abstract_geopackage_hydrofabric_tester import AbstractGeoPackageHydrofabricTester
 
 
