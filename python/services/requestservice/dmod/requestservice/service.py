@@ -16,8 +16,8 @@ from dmod.communication import AbstractInitRequest, InvalidMessageResponse, Mess
 from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage
 from dmod.externalrequests import AuthHandler, DatasetRequestHandler, ModelExecRequestHandler, PartitionRequestHandler
 from dmod.externalrequests import EvaluationRequestHandler
-
-from .alternate_service import EvaluationMessage
+from dmod.externalrequests import LaunchEvaluationMessage
+from dmod.externalrequests import OpenEvaluationMessage
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -49,7 +49,8 @@ class RequestService(WebSocketSessionsInterface):
         NGENRequest,
         MaaSDatasetManagementMessage,
         PartitionRequest,
-        EvaluationMessage
+        LaunchEvaluationMessage,
+        OpenEvaluationMessage
     ]
     """ Parseable request types, which are all authenticated ::class:`ExternalRequest` subtypes for this implementation. """
 

@@ -6,12 +6,108 @@ import inspect
 import math
 import json
 import numbers
+import random
+import string
 
 from collections import OrderedDict
 
 
 _CLASS_TYPE = typing.TypeVar('_CLASS_TYPE')
 """A type that points directly to a class. The _CLASS_TYPE of `6`, for example, is `<class 'int'>`"""
+
+
+def generate_identifier(length: int = None) -> str:
+    """
+    Generate a simple random identifier
+
+    Example:
+        >>> generate_identifier()
+        a7Sf6SFs7A
+        >>> generate_identifier(3)
+        Di7
+
+    Args:
+        length: The number of characters in the identifier
+
+    Returns:
+        A random string identifier
+    """
+    if length is None:
+        length = 10
+
+    if not isinstance(length, typing.SupportsInt):
+        raise TypeError(
+            f"Only an integer-like object may be used as the length to generate an identifier. "
+            f"Received '{length}' instead."
+        )
+
+    if not isinstance(length, int) and isinstance(length, typing.SupportsInt):
+        length = int(length)
+
+    if length <= 0:
+        raise ValueError(
+            f"Only positive, nonzero integers may be used to generate identifiers. Received '{length}' instead."
+        )
+
+    return "".join([random.choice(string.ascii_letters + string.digits) for _ in range(length)])
+
+
+def generate_key(phrases: int = None, length: int = None) -> str:
+    """
+    Generate a simple key
+
+    Example:
+        >>> generate_key()
+        s8Sfi-83kSn-SFSNI-a832H-932JS
+        >>> generate_key(3)
+        a9DSi-SF8Wk-SifS2
+        >>> generate_key(length=2)
+        s2-SD-c2-F9-sf
+        >>> generate_key(phrases=2, length=2)
+        f2-SF
+
+    Args:
+        phrases: The number of groups within the key
+        length: The number of characters in each phrase
+
+    Returns:
+        A random key made of a number of phrases of a given length
+    """
+    if phrases is None:
+        phrases = 5
+
+    if length is None:
+        length = 5
+
+    if not isinstance(length, typing.SupportsInt):
+        raise TypeError(
+            f"Only an integer-like object may be used as the number of phrases to generate a key. "
+            f"Received '{phrases}' instead."
+        )
+
+    if not isinstance(phrases, int) and isinstance(phrases, typing.SupportsInt):
+        phrases = int(phrases)
+
+    if phrases <= 0:
+        raise ValueError(
+            f"Only positive, nonzero integers may be used to generate keys. Received '{phrases}' instead."
+        )
+
+    if not isinstance(length, typing.SupportsInt):
+        raise TypeError(
+            f"Only an integer-like object may be used as the length to generate a key. "
+            f"Received '{length}' instead."
+        )
+
+    if not isinstance(length, int) and isinstance(length, typing.SupportsInt):
+        length = int(length)
+
+    if length <= 0:
+        raise ValueError(
+            f"Only positive, nonzero integers may be used to generate identifiers. Received '{length}' instead."
+        )
+
+    return "-".join([generate_identifier(length) for _ in range(phrases)])
 
 
 def get_current_function_name(parent_name: bool = None) -> str:

@@ -1,0 +1,57 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>{{ title|default:"Distributed Model on Demand" }}</title>
+        <link rel="shortcut icon" type="image/gif" href="{% static favicon|default:'img/favicon.gif' %}"/>
+        <script src="{% static "jQuery/jquery.min.js" %}"></script>
+        <script src="{% static "jQuery/jquery-ui.min.js" %}"></script>
+        <link rel="stylesheet" href="{% static "jQuery/jquery-ui.min.css" %}">
+        <link rel="stylesheet" type="text/css" href="{% static 'css/master.css' %}">
+        <script src="{% static 'js/master.js' %}"></script>
+        <script>
+            const SHARED_STATE = {};
+            {% if shared_state %}
+            {% autoescape off %}
+            Object.assign(SHARED_STATE, {{ shared_state }});
+            {% endautoescape %}
+            {% endif %}
+            {% for import_module in modules_to_import %}
+            MODULES_TO_IMPORT.push("{{ import_module }}");
+            {% endfor %}
+        </script>
+        <style>
+            :root {
+                --logo: url({% static logo|default:"img/owp.png" %});
+            {% autoescape off %}
+            {% for style_variable_name, style_variable_value in style_variables.items %}
+                {{ style_variable_name }}: {{ style_variable_value }};
+            {% endfor %}
+            {% endautoescape %}
+            }
+        </style>
+        {% block style %}{% endblock style %}
+        {% block scripts %}{% endblock scripts %}
+        {% block extra %}{% endblock extra %}
+        {% block page_script %}{% endblock page_script %}
+    </head>
+    <body>
+        <header id="base-header">
+            <div id="base-banner">
+                {% block bannercontent %}
+                    <h1>{{ banner_title|default:"Distributed Model on Demand" }}</h1>
+                {% endblock bannercontent %}
+            </div>
+            {% block navbar %}{% endblock navbar %}
+        </header>
+        <div id="base-content-wrapper">
+            {% block content %}
+            {% endblock content %}
+        </div>
+        <footer class="base-footer">
+            {% block footer %}{% endblock footer %}
+        </footer>
+        {% include "notifier.html" %}
+    </body>
+</html>

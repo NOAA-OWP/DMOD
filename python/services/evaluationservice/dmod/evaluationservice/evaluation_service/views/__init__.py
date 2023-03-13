@@ -1,4 +1,5 @@
 from .evaluations import EvaluationList
+from .evaluations import EvaluationDetails
 from .status import EvaluationStatus
 from .listen import Listen
 from .launch import ReadyEvaluation

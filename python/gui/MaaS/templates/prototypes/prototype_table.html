@@ -1,0 +1,25 @@
+{% extends 'master.html' %}
+
+{% load static %}
+
+{% block style %}
+<link rel="stylesheet" type="text/css" href="{% static 'prototypes/css/prototype_table.css' %}">
+
+<link rel="stylesheet" type="text/css" href="{% static 'DataTables/datatables.min.css' %}"/>
+{% endblock style %}
+
+{% block scripts %}
+<script src="{% static 'prototypes/js/prototype_table.js' %}"></script>
+<script src="{% static 'common/js/tables.js' %}"></script>
+<script type="text/javascript" src="{% static 'DataTables/datatables.min.js' %}"></script>
+<script>
+    const TABLE_NAME = "{{ table_name|default:"Prototype-Table" }}";
+</script>
+{% endblock scripts %}
+
+{% block content %}
+<div id="content" class="pane">
+    <table id='{{ table_name|default:"Prototype-Table" }}' class="dynamic-table" style="width: 100%">
+    </table>
+</div>
+{% endblock content %}

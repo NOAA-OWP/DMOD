@@ -1,0 +1,13 @@
+{% load static %}
+
+<link rel="stylesheet" type="text/css" href="{% static 'DataTables/datatables.min.css' %}"/>
+<script type="module" src="{% static "js/utilities.js" %}"></script>
+<script type="module" src="{% static "js/table/TableEnumerations.js" %}"></script>
+<script type="module" src="{% static "js/table/DataTableOptions.js" %}"></script>
+<script type="text/javascript" src="{% static 'DataTables/datatables.min.js' %}"></script>
+<script type="module" src="{% static 'js/table/DMODTable.js' %}"></script>
+<script>
+    if (typeof MODULES_TO_IMPORT != 'undefined' && Array.isArray(MODULES_TO_IMPORT)) {
+        MODULES_TO_IMPORT.push("{% static 'js/table/DMODTable.js' %}");
+    }
+</script>

@@ -16,6 +16,7 @@ urlpatterns = [
     re_path(r'build$', views.ReadyEvaluation.as_view(), name="Build"),
     re_path(r'build_async$', views.ReadyListenEvaluation.as_view(), name="BuildAndRun"),
     re_path(r'^$', views.EvaluationList.as_view(), name="EvaluationList"),
+    re_path(r'details$', views.EvaluationDetails.as_view(), name="EvaluationDetails"),
     re_path(r'clean$', views.Clean.as_view(), name="Clean"),
     re_path(f'output/(?P<evaluation_name>{CHANNEL_NAME_PATTERN})/?$', views.helpers.GetOutput.as_view(), name="Output"),
     re_path('geometry/?$', views.GetGeometryDatasets.as_view(), name="GeometryList"),
