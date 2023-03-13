@@ -8,13 +8,13 @@ import types
 import importlib
 import logging
 
-from pprint import pprint
-
 from abc import ABC
 from abc import abstractmethod
 
 from django.http import HttpRequest
 from rest_framework.request import Request
+
+import redis
 
 
 class ObjectWrapper(ABC):
@@ -114,7 +114,7 @@ def get_neighbor_modules(
         logger: logging.Logger = None
 ) -> typing.Dict[str, types.ModuleType]:
     """
-    Gets references to all appropriate modules within the the given package
+    Gets references to all appropriate modules within the given package
 
     Parameters
     ----------

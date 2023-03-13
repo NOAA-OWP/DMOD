@@ -11,6 +11,8 @@ from .helper_functions import truncate
 from .helper_functions import is_true
 from .helper_functions import to_json
 from .helper_functions import order_dictionary
+from .helper_functions import generate_identifier
+from .helper_functions import generate_key
 from .tasks import wait_on_task
 from .tasks import cancel_task
 from .tasks import cancel_tasks

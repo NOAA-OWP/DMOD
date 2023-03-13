@@ -1,0 +1,290 @@
+{% extends 'master.html' %}
+
+{% load static %}
+
+{% block scripts %}
+<script src="{% static 'common/js/active_map.js' %}"></script>
+<link rel="stylesheet" href="{% static "Leaflet/leaflet.css" %}"/>
+<script src="{% static "Leaflet/leaflet.js" %}"></script>
+<script>
+    const LAUNCH_URL = "{{ launch_url }}";
+    const METRICS_URL = "{{ metrics_url }}";
+    // The endpoint for where to get geometry
+    let GEOMETRY_URL = "{{ geometry_url }}";
+    const PAGE_IDENTIFIER = "{{ page_identifier }}";
+    const PAGE_KEY = "{{ page_key }}";
+</script>
+{% endblock scripts %}
+{% block style %}
+    <link rel="stylesheet" type="text/css" href="{% static 'maas/css/ready_evaluation.css' %}">
+{% endblock style %}
+{% block extra %}
+    {% include "programming/javascript.html" %}
+{% endblock extra %}
+{% block page_script %}
+    <script type="module" src="{% static 'maas/js/ready_evaluation.js' %}"></script>
+{% endblock page_script %}
+{% block bannercontent %}
+    <h1>Evaluation</h1>
+{% endblock bannercontent %}
+{% block content %}
+    <div id="content" class="pane">
+        {% if production %}
+        <div id="launch-warning">
+            <p>
+                This page is for testing the evaluation service - use in production should be initiated directly via the
+                API, not here
+            </p>
+        </div>
+        {% endif %}
+        <div id="general-error-box" class="error-box">
+            <p id="error-message"></p>
+            <img id="acknowledge-error-icon" src="{% static 'evaluation_service/img/error.png' %}"
+                 alt="I am aware of this error">
+        </div>
+        <div id="tabs">
+            <ul>
+                <li>
+                    <a id="instruction-tab-button" class="tablinks" href="#edit-div">Instructions</a>
+                </li>
+                <li>
+                    <a id="messages-tab-button" class="tablinks" href="#message-div">
+                        Messages
+                    </a>
+                </li>
+                <li>
+                    <a id="map-tab-button" class="tablinks" href="#map-div">
+                        Map
+                    </a>
+                <li>
+                    <a id="digest-tab-button" class="tablinks" href="#digest-div">
+                        Digest
+                    </a>
+                </li>
+            </ul>
+            <div id="edit-div" class="tab">
+                <div id="editor-header" class="tab-header">
+                    <label for="evaluation_id">Evaluation ID:</label>
+                    <input id="evaluation_id" name="evaluation_id" type="text" maxlength="100"
+                           minlength="10" pattern="{{ evaluation_id_pattern }}" style="width: 400px; margin-left: 10px;"
+                           value="{{ generated_evaluation_id }}" required>
+                    <button id="search-button">Search</button>
+                </div>
+                <div id="editor-content" class="tab-content codeview-container">
+                    <textarea id="instructions" name="instructions" required>{{ evaluation_template }}</textarea>
+                </div>
+                <div id="editor-footer" class="tab-footer">
+                    <div id="connected-edit-buttons" style="display: none;">
+                        <button id="evaluation-submit">Start Evaluation</button>
+                        <button id="evaluation-save">Save</button>
+                    </div>
+                    <div id="disconnected-edit-buttons">
+                        <button id="reconnect-button">Connect</button>
+                    </div>
+                </div>
+            </div>
+            <div id="message-div" class="tab">
+                <div id="message-header" class="tab-header">
+                    <h3>Responses</h3>
+                </div>
+                <div id="message-content" class="tab-content">
+                    <p id="message-details">
+                        <span>Message Count: <span id="message-count" class="session-details">0</span></span>
+                        <br>
+                        <span>Last Updated: <span id="last-updated" class="session-details"></span></span>
+                        <br>
+                        <label for="record-messages">Record Messages</label>
+                        <input type="checkbox" id="record-messages" checked>
+                    </p>
+                    <div id="message-area" class="codeview-container">
+                        <textarea name="messages" id="messages"></textarea>
+                    </div>
+                </div>
+                <div id="message-footer" class="tab-footer">
+                    <button id="clear-button">Clear Output</button>
+                    <button id="clear-digest">Clear Digest</button>
+                    <button id="get-digest">Get Digest</button>
+                </div>
+            </div>
+            <script>
+                const mapOptions = {};
+                {% if mapOptions %}
+                Object.assign(mapOptions, {{ mapOptions }});
+                {% endif %}
+
+                // The color representing the lowest possible value on the map
+                let lowestColor = "{{ lowestColor|default:"d9040b" }}"
+                // The color representing the highest possible value on the map
+                let highestColor = "{{ highestColor|default:"00a80e" }}"
+
+                {% if layerStyle %}
+                    {% for style_name, value in layerStyle.items %}
+                        startupScripts.push(
+                            function() {
+                                layerStyle["{{ style_name }}"] = "{{ value }}";
+                            }
+                        );
+                    {% endfor %}
+                {% endif %}
+
+                {% if lineStyle %}
+                    {% for style_name, value in lineStyle.items %}
+                        startupScripts.push(
+                            function() {
+                                lineStyle[{{ style_name }}] = "{{ value }}";
+                            }
+                        );
+                    {% endfor %}
+                {% endif %}
+        </script>
+        <div id="map-div" class="tab">
+            <div id="map-header" class="tab-header">
+                <fieldset id="map-geometry-selector-group">
+                    <legend id="map-geometry-legend">Geometry</legend>
+                    <select id="map-geometry-selector"></select>
+                    <button id="map-geometry-button">Load</button>
+                </fieldset>
+            </div>
+            <div id="map-content" class="tab-content">
+                <div id="map"></div>
+            </div>
+            <div id="map-footer" class="tab-footer"></div>
+        </div>
+        <div id="digest-div" class="tab">
+            <div id="digest-header" class="tab-header"></div>
+            <div id="digest-content" class="tab-content">
+                <div id="digest-area" class="codeview-container">
+                    <textarea id="digest-text"></textarea>
+                </div>
+            </div>
+            <div id="digest-footer" class="tab-footer"></div>
+        </div>
+    </div>
+    <div id="page-modal">
+        <div id="save-dialog" class="popup">
+            <div id="save-header" class="popup-header">
+                <b>Save Evaluation Definition</b>
+            </div>
+            <div class="popup-contents">
+                <div id="save-errors" class="error-box">
+                    <p id="save-error-message"></p>
+                </div>
+                <div id="save-fields" class="popup-fields" style="display: grid">
+                    <label for="author" style="grid-column: 1; grid-row: 1">Author:</label>
+                    <input type="text" placeholder="Your name..." style="grid-column: 2; grid-row: 1" id="author"
+                        minlength="10" maxlength="255" required>
+                    <br>
+
+                        <label for="evaluation_name" style="grid-column: 1; grid-row: 2">Configuration Name:</label>
+                        <input name="evaluation_name" style="grid-column: 2; grid-row: 2" id="evaluation_name"
+                               type="text" minlength="5" maxlength="255" required
+                               value="{{ generated_evaluation_id }}">
+                        <br>
+                        <label for="description" style="grid-column: 1; grid-row: 3">Description:</label><br>
+                        <textarea id="description" style="grid-column: 1 / span 2; grid-row: 4; resize: none"
+                                  cols="80" rows="10"
+                                  placeholder="Enter a description for what your evaluation intends to measure">
+
+                        </textarea>
+                    </div>
+                    <div id="save-actions" class="popup-actions">
+                        <button id="save-definition">Save</button>
+                        <button id="close-save-popup-button">Close</button>
+                    </div>
+                </div>
+            </div>
+            <div id="connecting-modal" class="popup">
+                <div id="connecting-header" class="popup-header">
+                    <b>Connecting</b>
+                </div>
+                <div id="connecting-errors" class="error-box">
+                    <p id="connecting-error-message"></p>
+                </div>
+                <div id="connecting-fields" class="popup-fields">
+                    <p>Connecting to server. Please wait.</p>
+                </div>
+            </div>
+            <div id="waiting-popup" class="popup">
+                <div id="waiting-header" class="popup-header">
+                    <b>Waiting...</b>
+                </div>
+                <div class="popup-contents">
+                    <p id="waiting-for"></p>
+                </div>
+                <div id="waiting-actions" class="popup-actions">
+                    <button id="close-waiting-button">Close</button>
+                </div>
+            </div>
+            <div id="search-popup" class="popup">
+                <div id="search-header" class="popup-header">
+                    <b>Search</b>
+                </div>
+                <div class="popup-contents">
+                    <div class="error-box" id="search-errors">
+                        <p id="search-error-message"></p>
+                    </div>
+                    <div id="search-fields" class="popup-fields">
+                        <input type="hidden" value="" id="selected-definition">
+                        <table id="search-table" width="100%">
+                            <thead>
+                                <tr id="search-header-row">
+                                    <th>Author</th>
+                                    <th>Name</th>
+                                    <th>Description</th>
+                                    <th>Last Modified</th>
+                                </tr>
+                                <tr id="search-filter-row">
+                                    <td>
+                                        <div class="filter-wrapper">
+                                            <input type="text" id="search-by-author" placeholder="Author Name">
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="filter-wrapper">
+                                            <input type="text" id="search-by-name" placeholder="Definition Name">
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="filter-wrapper">
+                                            <input type="text" id="search-by-description"
+                                                   placeholder="Description Phrase">
+                                        </div>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                            </thead>
+                            <tbody id="search-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="search-actions" class="popup-actions">
+                    <button id="select-search-button" disabled>
+                        Select
+                    </button>
+                    <button id="close-search-button">Close</button>
+                </div>
+            </div>
+            <div id="digest-modal" class="popup">
+                <div id="digest-modal-header" class="popup-header">
+                    <b>Get Digest</b>
+                </div>
+                <div class="popup-contents">
+                    <div id="digest-errors" class="error-box">
+                        <p id="digest-error-message"></p>
+                    </div>
+                    <div id="digest-fields" class="popup-fields">
+                        <span id="digest-explanation" class="popup-field-explanation">
+                            Select what events to save
+                        </span>
+                        <div id="digest-event-selectors">
+                        </div>
+                    </div>
+                    <div id="digest-actions" class="popup-actions">
+                        <button id="download-digest-button">Download</button>
+                        <button id="close-digest-popup-button">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock content %}

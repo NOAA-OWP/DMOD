@@ -1,0 +1,24 @@
+{% load static %}
+
+{% if notifiers %}
+<script>
+    const NOTIFIERS = [];
+
+    {% autoescape off %}
+    {% for details in notifiers %}
+        NOTIFIERS.push({
+            id: "{{ details.id }}",
+            url: "{{ details.url }}",
+            title: "{{ details.title }}"
+        });
+    {% endfor %}
+    {% endautoescape %}
+</script>
+<script type="module" src="{% static "js/notifier.js" %}"></script>
+
+{% for details in notifiers %}
+    <div id="{{ details.id }}" title="{{ details.title }}" class="notifier">
+        <p id="{{ details.id }}-message-space" class="notification-message"></p>
+    </div>
+{% endfor %}
+{% endif %}

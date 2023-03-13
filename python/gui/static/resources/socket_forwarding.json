@@ -1,0 +1,18 @@
+[
+  {
+    "name": "RequestService",
+    "route": "proxy/requestservice",
+    "url": "127.0.0.1",
+    "port": 32154,
+    "certificate_path": "../../../ssl/requestservice/certificate.pem",
+    "use_ssl": true
+  },
+  {
+    "name": "EvaluationService",
+    "route": "proxy/evaluationservice",
+    "url": "127.0.0.1",
+    "port": 9431,
+    "path": "evaluation_service/ws/launch",
+    "use_ssl": false
+  }
+]

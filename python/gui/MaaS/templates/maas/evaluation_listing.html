@@ -1,0 +1,28 @@
+{% extends 'master.html' %}
+
+{% load static %}
+
+{% block style %}
+<link rel="stylesheet" type="text/css" href="{% static 'maas/css/evaluation_listing.css' %}">
+<link rel="stylesheet" type="text/css"
+      href="https://cdn.datatables.net/v/ju/dt-1.13.1/fh-3.3.1/sb-1.4.0/sp-2.1.0/sl-1.5.0/datatables.min.css"/>
+{% endblock style %}
+
+{% block scripts %}
+{% include "datatables.html" %}
+<script>
+    const LISTING_URL = "{{ listing_url }}";
+    const TABLE_NAME = "{{ table_name }}";
+</script>
+{% endblock scripts %}
+
+{% block page_script %}
+<script src="{% static 'maas/js/evaluation_listing.js' %}"></script>
+{% endblock %}
+
+{% block content %}
+<div id="content" class="pane">
+    <table id="{{ table_name }}" class="display" style="width: 100%">
+    </table>
+</div>
+{% endblock content %}
