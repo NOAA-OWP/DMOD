@@ -2,7 +2,7 @@
 
 import logging
 from requests.exceptions import ReadTimeout
-from dmod.communication import MessageEventType, NGENRequest, NWMRequest
+from dmod.communication import MessageEventType, NGENRequest, NWMRequest, NgenCalibrationRequest
 from dmod.core.exception import DmodRuntimeError
 from dmod.core.meta_data import DataCategory, DataFormat
 from os import getenv
@@ -380,13 +380,13 @@ class Launcher(SimpleDockerUtil):
         https://docs.docker.com/engine/reference/builder/#understand-how-cmd-and-entrypoint-interact
         """
         # TODO (later): handle non-model-exec jobs in the future
-        if job.model_request.event_type != MessageEventType.MODEL_EXEC_REQUEST:
+        if job.model_request.event_type != MessageEventType.MODEL_EXEC_REQUEST and job.model_request.event_type != MessageEventType.CALIBRATION_REQUEST:
             raise RuntimeError("Unsupported requested job event type {}; cannot generate Docker CMD arg values".format(
                 job.model_request.get_message_event_type()))
 
         # TODO (later): have something more intelligent than class type to determine right entrypoint format and
         #  values, but for now assume/require a "standard" image
-        if not (isinstance(job.model_request, NWMRequest) or isinstance(job.model_request, NGENRequest)):
+        if not (isinstance(job.model_request, NWMRequest) or isinstance(job.model_request, NGENRequest) or isinstance(job.model_request, NgenCalibrationRequest)):
             raise RuntimeError("Unexpected request type {}: cannot build Docker CMD arg list".format(
                 job.model_request.__class__.__name__))
 
@@ -395,6 +395,7 @@ class Launcher(SimpleDockerUtil):
         # TODO (later): probably need to move all types to recognize and use explicit flags rather than order arguments
         docker_cmd_args = [str(len(job.allocations)), self.build_host_list(job), job.job_id]
 
+        # TODO: need to differentiate on NgenCalibrationRequest a little here
         if isinstance(job.model_request, NGENRequest):
             # $4 is the worker index (where index 0 is assumed to be the lead node)
             docker_cmd_args.append(str(worker_index))
@@ -435,6 +436,13 @@ class Launcher(SimpleDockerUtil):
 
             # Also do a sanity check here to ensure there is at least one forcing dataset
             self._ds_names_helper(job, worker_index, DataCategory.FORCING)
+
+            # $10 is the name of the calibration config dataset (which will imply a directory location)
+            # TODO: this *might* need to be added depending on how we decide to handle calibration
+            # configs. meaning if they are datasets or not.
+            # calibration_config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1,
+            #                                                     data_format=DataFormat.NGEN_CAL_CONFIG)
+            # docker_cmd_args.append(calibration_config_dataset_names[0])
 
         return docker_cmd_args
 
@@ -501,6 +509,15 @@ class Launcher(SimpleDockerUtil):
         str
             String name, including tag, of the appropriate Docker image for this job.
         """
+        # For now, these are the only two requests supported
+        # NOTE: NgenCalibrationRequest needs to come first, because it is a subclass of NGENRequest.
+        # In the future, we should refactor this so this method doesn't need to know about this
+        # subclass relationship.
+
+        # TODO: move registry name into environment variable other other more appropriate place
+        if isinstance(job.model_request, NgenCalibrationRequest):
+            return "127.0.0.1:5000/ngen-cal:latest"
+
         if isinstance(job.model_request, NGENRequest):
             return "127.0.0.1:5000/ngen:latest"
         else:
