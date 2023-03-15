@@ -128,9 +128,11 @@ services:
       - LISTEN_PORT=${DOCKER_SUBSET_CONTAINER_PORT:-5000}
       - SERVICE_PACKAGE_NAME=${PYTHON_PACKAGE_NAME_SUBSET_SERVICE:?}
       - FILES_DIRECTORY=/hydrofabric_data
+      - PYCHARM_REMOTE_DEBUG_ACTIVE=${PYCHARM_REMOTE_DEBUG_SUBSET_SERVICE_ACTIVE:-false}
+      - PYCHARM_REMOTE_DEBUG_SERVER_HOST=${PYCHARM_REMOTE_DEBUG_SERVER_HOST:-host.docker.internal}
+      - PYCHARM_REMOTE_DEBUG_SERVER_PORT=${PYCHARM_REMOTE_DEBUG_SERVER_PORT_SUBSET_SERVICE:-55874}
       # This typically needs to be commented out; intended for development use (see related 'volume' config below)
       #- UPDATED_PACKAGES_DIR=${UPDATED_PACKAGES_CONTAINER_DIR:?Updated packages directory not set, make sure this should be active}
-    entrypoint: ["python3", "-m", "${PYTHON_PACKAGE_NAME_SUBSET_SERVICE:?}"]
     command: ["--files-directory", "/hydrofabric_data",
               "--port", "${DOCKER_SUBSET_CONTAINER_PORT:-5000}",
               "--crosswalk-file", "${HYRDOFABRIC_CROSSWALK_FILE_BASENAME:-crosswalk.json}"]
