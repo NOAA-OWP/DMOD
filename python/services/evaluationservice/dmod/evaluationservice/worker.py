@@ -175,7 +175,8 @@ def evaluate(evaluation_id: str, definition_json: str, arguments: Arguments = No
         verbosity=verbosity,
         host=redis_host,
         port=redis_port,
-        password=redis_password
+        password=redis_password,
+        include_timestamp=False
     )
 
     error_key = utilities.key_separator().join([utilities.redis_prefix(), evaluation_id, "ERRORS"])

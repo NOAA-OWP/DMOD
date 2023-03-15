@@ -106,7 +106,7 @@ button:hover {
     flex-direction: column;
 }
 
-#message-area {
+.codeview-container {
     height: 100%;
 }
 
