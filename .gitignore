@@ -117,3 +117,6 @@ schedulerservice/test/test_scheduler.py_old
 *.db
 *.sqlite3
 *.log.*
+
+# Write *.shell scripts for local helper scripts that you don't want in the repo
+*.shell

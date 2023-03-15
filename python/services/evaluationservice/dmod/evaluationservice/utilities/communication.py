@@ -457,7 +457,6 @@ class RedisCommunicator(communication.Communicator):
         )
         self.__core_key = make_key(redis_prefix(), communicator_id)
         self.__channel_name = get_channel_key(communicator_id)
-        print("Publishing to " + self.__channel_name)
         self.__info_key = get_evaluation_pointers(communicator_id)['info_key']
         self.__error_key = get_evaluation_pointers(communicator_id)['error_key']
         self.__host = host
@@ -468,7 +467,7 @@ class RedisCommunicator(communication.Communicator):
         self.__listener = None
         self.__timeout = timeout or 0
         self.__has_sunset = False
-        self.__include_timestamp = include_timestamp is None or include_timestamp
+        self.__include_timestamp = include_timestamp if include_timestamp is not None else False
         self.__timestamp_format = timestamp_format or application_values.COMMON_DATETIME_FORMAT
 
         if 'receive' in self._handlers:

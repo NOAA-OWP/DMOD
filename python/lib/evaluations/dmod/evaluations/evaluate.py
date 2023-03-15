@@ -289,7 +289,7 @@ class Evaluator:
 
             additional_information = list()
 
-            common.foreach(
+            common.on_each(
                 lambda cross: additional_information.append(f"No crosswalk data was found at {str(cross)}"),
                 self._instructions.crosswalks
             )
@@ -530,12 +530,13 @@ class Evaluator:
         scores: typing.Dict[typing.Tuple[str, str], metrics.MetricResults] = dict()
 
         for identifiers, group in data_to_evaluate.groupby(by=groupby_columns):  # type: tuple, pandas.DataFrame
-            location_identifier = identifiers[0]
-            location_thresholds = thresholds.get(location_identifier)
+            observed_location, predicted_location = identifiers     # type: str, str
+
+            location_thresholds = thresholds.get(observed_location)
 
             metadata = {
-                "observed_location": identifiers[0],
-                "predicted_location": identifiers[1],
+                "observed_location": observed_location,
+                "predicted_location": predicted_location,
             }
 
             self._communicators.info(
@@ -568,8 +569,8 @@ class Evaluator:
                 scores[identifiers] = location_scores
                 if self._verbosity == Verbosity.ALL:
                     data = {
-                        "observed_location": identifiers[0],
-                        "predicted_location": identifiers[1],
+                        "observed_location": observed_location,
+                        "predicted_location": predicted_location,
                         "scores": location_scores.to_dict(),
                     }
                     reason = "location_scores"
