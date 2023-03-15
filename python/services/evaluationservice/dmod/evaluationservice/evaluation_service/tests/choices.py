@@ -1,9 +1,9 @@
 from django.test import TestCase
+import enum
 
 # Create your tests here.
 
 from evaluation_service.choices import *
-
 
 class FieldChoicesTest(TestCase):
     def test_StoredDatasetType(self):

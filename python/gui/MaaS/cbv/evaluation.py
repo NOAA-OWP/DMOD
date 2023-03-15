@@ -83,7 +83,7 @@ class ReadyListenEvaluation(View):
         editors.add(
             name="digest",
             tab="digest-div",
-            container="digest-content",
+            container="digest-area",
             textarea="#digest-text",
             config={
                 "mode": "javascript",

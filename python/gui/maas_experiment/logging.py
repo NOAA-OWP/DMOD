@@ -480,6 +480,10 @@ DEFAULT_LOGGING_CONFIGURATION = {
         "websockets.client": {
             "handlers": ['stdout'],
             "level": logging.INFO
+        },
+        "daphne": {
+            "handlers": ['stdout'],
+            "level": logging.INFO
         }
     }
 }

@@ -379,12 +379,12 @@ def get_subclasses(base: typing.Type[_CLASS_TYPE]) -> typing.List[typing.Type[_C
     return concrete_classes
 
 
-def foreach(
+def on_each(
     func: typing.Callable[[_CLASS_TYPE], typing.Any],
-    collection: typing.Union[typing.MutableSequence[_CLASS_TYPE], typing.MutableSet[_CLASS_TYPE]]
-) -> typing.Union[typing.MutableSequence[_CLASS_TYPE], typing.MutableSet[_CLASS_TYPE]]:
+    collection: typing.Iterable[_CLASS_TYPE]
+) -> typing.NoReturn:
     """
-    Calls the passed in function on every item in the collection
+    Calls the passed in function on every item in the collection. The input collection is not mutated
 
     Why use this instead of the builtin map function(s)? The builtin functions create generators rather than actually
     performing the requested actions, meaning you have to iterate over the generated map, rather than the call just
@@ -394,12 +394,13 @@ def foreach(
         >>>     print(obj)
         >>> example_collection = [1, 2, 3]
         >>> map(p, example_collection) # Doesn't actually do anything; just creates a collection and throws it away
+        >>> operation = None
         >>> # Calls print on every element in the collection and assigns the results to the `results` collection
         >>> map_results = [operation for operation in map(p, example_collection)]
         1
         2
         3
-        >>> foreach(p, example_collection) # Just calls print on every element in the collection
+        >>> on_each(p, example_collection) # Just calls print on every element in the collection
         1
         2
         3
@@ -407,33 +408,9 @@ def foreach(
     Args:
         collection: The items to use as arguments for each function
         func: The function to call on each element
-
-    Returns:
-        A collection containing any of the results of the function
     """
-
-    if isinstance(collection, typing.MutableSet):
-        results: typing.List[typing.Any] = list()
-        for element in collection:
-            function_result = func(element)
-            results.append(function_result)
-
-        collection.clear()
-
-        for element in results:
-            collection.add(element)
-    elif isinstance(collection, typing.MutableSequence):
-        for element_index in range(len(collection)):
-            function_result = func(collection[element_index])
-            collection[element_index] = function_result
-    else:
-        results: typing.List[typing.Any] = list()
-        for element in collection:
-            function_result = func(element)
-            results.append(function_result)
-        return results
-
-    return collection
+    for element in collection:
+        func(element)
 
 
 def is_true(value) -> bool:
@@ -581,7 +558,7 @@ def order_dictionary(dictionary: typing.Mapping) -> dict:
 
 
 def truncate_numbers_in_dictionary(dictionary: dict, places: int, copy: bool = False) -> typing.Mapping:
-    if places <= 0:
+    if places is None or places <= 0:
         return dictionary
 
     dictionary = dictionary.copy() if copy else dictionary

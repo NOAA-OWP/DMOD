@@ -402,7 +402,7 @@ class ScoreDescription:
         self.__scaled_value: int = 0
         self.__metric_name = None
 
-        common.foreach(self.add_score, scores)
+        common.on_each(self.add_score, scores)
 
         self.update_scaled_value()
 

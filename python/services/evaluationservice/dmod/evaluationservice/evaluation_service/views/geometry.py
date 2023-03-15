@@ -122,13 +122,13 @@ class GetGeometryDatasets(APIView):
     @staticmethod
     def _load_geometry_names() -> typing.List[typing.Dict[str, typing.Union[str, int]]]:
         geometry_names: typing.List[typing.Dict[str, typing.Union[str, int]]] = list()
-        geometry_type = choices.StoredDatasetType.geometry.lower()
 
-        for dataset in models.StoredDataset.objects.filter(dataset_type=geometry_type):  # type: models.StoredDataset
-            geometry_names.append({
-                "value": dataset.pk,
-                "name": dataset.name
-            })
+        for dataset in models.StoredDataset.objects.all():  # type: models.StoredDataset
+            if dataset.dataset_type == choices.StoredDatasetType.geometry():
+                geometry_names.append({
+                    "value": dataset.pk,
+                    "name": dataset.name
+                })
 
         return geometry_names
 

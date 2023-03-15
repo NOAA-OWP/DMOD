@@ -26,7 +26,7 @@ def output_environment_variables() -> typing.Dict[str, typing.Any]:
 
 
 def get_default_writing_location() -> str:
-    directory = "evaluation_results"
+    directory = os.environ.get("EVALUATION_OUTPUT_PATH", "evaluation_results")
 
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -103,7 +103,7 @@ def get_destination_parameters(evaluation_id: str, output_format: str = None, **
         if key not in parameters
     })
 
-    if 'destination' not in parameters:
+    if not parameters.get("destination"):
         parameters['destination'] = os.path.join(get_default_writing_location(), parameters['name'])
 
     return parameters

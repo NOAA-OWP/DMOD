@@ -12,8 +12,6 @@ A list of tuples, the first entry being the value stored in the database,
 the second entry being the value provided to the user
 """
 
-VALUE_TYPE = typing.TypeVar("VALUE_TYPE")
-
 
 VALID_CHOICE_VALUE_TYPES = (
     str,
@@ -22,48 +20,55 @@ VALID_CHOICE_VALUE_TYPES = (
     bool
 )
 
-TEXT_FIELD = "text"
-VALUE_FIELD = "value"
-ENTRY_FIELD = "entry"
-DESCRIPTION_FIELD = "description"
-
 
 class ChoiceException(Exception):
     pass
 
 
-def make_choice(text: str, value: VALUE_TYPE, description: str = None) -> typing.Callable[[], VALUE_TYPE]:
-    """
-    Creates a decorated static function that returns the given value, with attributes detailing the Django choice
-    associated with it, the function's value, the function's text, along with an optional description
+class Choice:
+    def __init__(self, text: str, value: typing.Any, description: str = None, ensured_type: typing.Type = None):
+        if not isinstance(value, VALID_CHOICE_VALUE_TYPES):
+            raise ChoiceException(
+                f"Choices must be one of the following types: "
+                f"{', '.join([str(valid_type) for valid_type in VALID_CHOICE_VALUE_TYPES])}. "
+                f"Received {type(value)} for {text}"
+            )
 
-    Args:
-        text: The name of the choice that should appear on the screen
-        value: Some value that the choice should allude to
-        description: An optional description detailing what the choice means
+        if ensured_type:
+            if not isinstance(value, ensured_type):
+                raise ChoiceException(
+                    f"The value for {text} must be a {str(ensured_type)}, but received a {type(value)}"
+                )
 
-    Returns:
-        A decorated method with no parameters
-    """
-    if not isinstance(value, VALID_CHOICE_VALUE_TYPES):
-        valid_types = f"[{', '.join([str(valid_type) for valid_type in VALID_CHOICE_VALUE_TYPES])}]"
-        raise ChoiceException(
-            f"The value {text}=`{str(value)}` cannot be created. "
-            f"Received a value of type `{type(value)}` and only the following types are allowed: {valid_types}"
-        )
+        self.__text = text
+        self.__value = value
+        self.__description = description
+        self.__entry = (self.__value, self.__text)
 
-    def get_value():
-        return value
+    @property
+    def text(self):
+        return self.__text
 
-    get_value = staticmethod(get_value)
-    setattr(get_value, TEXT_FIELD, text)
-    setattr(get_value, VALUE_FIELD, value)
-    setattr(get_value, ENTRY_FIELD, (value, text))
+    @property
+    def value(self):
+        return self.__value
 
-    if description:
-        setattr(get_value, DESCRIPTION_FIELD, description)
+    @property
+    def description(self):
+        return self.__description
 
-    return get_value
+    @property
+    def entry(self):
+        return self.__entry[0], self.__entry[1]
+
+    def __str__(self):
+        return self.__description or self.__text
+
+    def __repr__(self):
+        return f"{self.__text}: {self.__value}"
+
+    def __eq__(self, other):
+        return self.__value == other
 
 
 class _Choices(abc.ABC):
@@ -86,48 +91,24 @@ class _Choices(abc.ABC):
         Returns the value of all classmethod properties in a CHOICES format with the name of the
         property as the first element and the value of the property as the second value
         """
-        filtered_entries = [
-            (method_name, method) for method_name, method in cls.__dict__.items()
-            if isinstance(method, staticmethod)
-               and len(inspect.signature(method).parameters) == 0
-               and hasattr(method, ENTRY_FIELD)
-               and hasattr(method, VALUE_FIELD)
-               and isinstance(getattr(method, VALUE_FIELD), cls.get_choice_type())
+        filtered_entries: typing.List[typing.Callable[[typing.Type[cls]], Choice]] = [
+            getattr(method, '__func__')
+            for method_name, method in cls.__dict__.items()
+            if not method_name.startswith("_")
+               and isinstance(method, classmethod)
         ]
 
-        choices: CHOICES = list()
-        texts: typing.Dict[str, str] = dict()
+        filtered_entries = [
+            method
+            for method in filtered_entries
+            if len(inspect.signature(method).parameters) == 1
+               and inspect.signature(method).return_annotation == Choice
+        ]
 
-        for method_name, choice_method in filtered_entries:
-            try:
-                entry = getattr(choice_method, ENTRY_FIELD)
+        if len(filtered_entries) == 0:
+            raise ChoiceException(f"Something went wrong when trying to find available choices for {cls.__name__}")
 
-                is_entry_type = isinstance(entry, tuple) and len(entry) == 2
-                if not (is_entry_type and isinstance(entry[1], str) and isinstance(entry[0], VALID_CHOICE_VALUE_TYPES)):
-                    continue
-
-                text = getattr(choice_method, TEXT_FIELD)
-                value = getattr(choice_method, VALUE_FIELD)
-
-                if getattr(choice_method, TEXT_FIELD) in texts:
-                    raise ChoiceException(
-                        f"Cannot define the field `{method_name} = ({text}, {str(value)})`. "
-                        f"There is already a field with the text '{text}' bound "
-                        f"to {cls.__class__.__name__}.{texts[text]}"
-                    )
-
-                if not (isinstance(value, cls.get_choice_type()) or value is None):
-                    raise ChoiceException(
-                        f"The value for the {text} variable should be a `{str(cls.get_choice_type())}` but "
-                        f"'{str(value)}' (a {str(type(value))}) was encountered instead"
-                    )
-
-                choices.append(entry)
-                texts[text] = method_name
-            except Exception as e:
-                pass
-
-        return choices
+        return [method(cls).entry for method in filtered_entries]
 
 
 class StringChoices(_Choices, abc.ABC):
@@ -140,15 +121,23 @@ class StoredDatasetType(StringChoices):
     """
     Provides choices for what a stored dataset might contain
     """
-    geometry = make_choice(text="Geometry", value="geometry")
+    @classmethod
+    def geometry(cls) -> Choice:
+        return Choice("Geometry", "geometry", ensured_type=cls.get_choice_type())
 
 
 class StoredDatasetFormat(StringChoices):
     """
     Provides choices for what a stored dataset might exist as
     """
-    gpkg = make_choice(text="GeoPackage", value="gpkg")
+    @classmethod
+    def gpkg(cls) -> Choice:
+        return Choice("GeoPackage", "gpkg", ensured_type=cls.get_choice_type())
 
-    json = make_choice(text="JSON", value="json")
+    @classmethod
+    def json(cls) -> Choice:
+        return Choice("JSON", "json", ensured_type=cls.get_choice_type())
 
-    geojson = make_choice(text="GeoJSON", value="geojson")
+    @classmethod
+    def geojson(cls) -> Choice:
+        return Choice("GeoJSON", "geojson", ensured_type=cls.get_choice_type())
