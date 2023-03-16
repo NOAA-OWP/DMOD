@@ -303,9 +303,8 @@ class ContinuousRestriction(Serializable):
         else:
             return False
 
-    def __hash__(self):
-        str_func = lambda x: str(x) if self._datetime_pattern is None else datetime.strptime(x, self._datetime_pattern)
-        hash('{}-{}-{}'.format(self.variable.name, str_func(self.begin), str_func(self.end)))
+    def __hash__(self) -> int:
+        return hash((self.variable.name, self.begin, self.end))
 
     def contains(self, other: 'ContinuousRestriction') -> bool:
         """
@@ -377,8 +376,8 @@ class DiscreteRestriction(Serializable):
         else:
             return False
 
-    def __hash__(self):
-        hash('{}-{}'.format(self.variable.name, ','.join([str(v) for v in self.values])))
+    def __hash__(self) -> int:
+        return hash((self.variable.name, *self.values))
 
     def contains(self, other: 'DiscreteRestriction') -> bool:
         """
@@ -543,16 +542,13 @@ class DataDomain(Serializable):
                and self.discrete_restrictions == other.discrete_restrictions \
                and self._custom_data_fields == other._custom_data_fields
 
-    def __hash__(self):
-        if self._custom_data_fields is None:
-            cu = ''
-        else:
-            cu = ','.join(['{}:{}'.format(f, self._custom_data_fields[f]) for f in sorted(self._custom_data_fields)])
-        return hash('{}-{}-{}-{}'.format(
-            self.data_format,
-            ','.join([str(hash(self.continuous_restrictions[k])) for k in sorted(self.continuous_restrictions)]),
-            ','.join([str(hash(self.discrete_restrictions[k])) for k in sorted(self.discrete_restrictions)]),
-            cu))
+    def __hash__(self) -> int:
+        cu = [] if self._custom_data_fields is None else [tup for tup in sorted(self._custom_data_fields.items())]
+        return hash((self.data_format.name,
+                     *[v for _, v in sorted(self.continuous_restrictions.items(), key=lambda dt: dt[0].name)],
+                     *[v for _, v in sorted(self.discrete_restrictions.items(), key=lambda dt: dt[0].name)],
+                     *cu
+                     ))
 
     def __init__(self, data_format: DataFormat, continuous_restrictions: Optional[List[ContinuousRestriction]] = None,
                  discrete_restrictions: Optional[List[DiscreteRestriction]] = None,
@@ -798,7 +794,7 @@ class DataRequirement(Serializable):
                and self.category == other.category
 
     def __hash__(self):
-        return hash('{}-{}-{}'.format(hash(self.domain), self.is_input, self.category))
+        return hash((self.domain, self.is_input, self.category))
 
     def __init__(self, domain: DataDomain, is_input: bool, category: DataCategory, size: Optional[int] = None,
                  fulfilled_by: Optional[str] = None, fulfilled_access_at: Optional[str] = None):
