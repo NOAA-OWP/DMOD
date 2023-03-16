@@ -2,7 +2,7 @@
 
 import logging
 from requests.exceptions import ReadTimeout
-from dmod.communication import MessageEventType, NGENRequest, NWMRequest, NgenCalibrationRequest
+from dmod.communication import AbstractNextGenRequest, MessageEventType, NGENRequest, NWMRequest, NgenCalibrationRequest
 from dmod.core.exception import DmodRuntimeError
 from dmod.core.meta_data import DataCategory, DataFormat
 from os import getenv
@@ -380,71 +380,107 @@ class Launcher(SimpleDockerUtil):
         https://docs.docker.com/engine/reference/builder/#understand-how-cmd-and-entrypoint-interact
         """
         # TODO (later): handle non-model-exec jobs in the future
-        if job.model_request.event_type != MessageEventType.MODEL_EXEC_REQUEST and job.model_request.event_type != MessageEventType.CALIBRATION_REQUEST:
+        valid_event_types = {MessageEventType.MODEL_EXEC_REQUEST, MessageEventType.CALIBRATION_REQUEST}
+        if job.model_request.event_type not in valid_event_types:
             raise RuntimeError("Unsupported requested job event type {}; cannot generate Docker CMD arg values".format(
                 job.model_request.get_message_event_type()))
 
         # TODO (later): have something more intelligent than class type to determine right entrypoint format and
         #  values, but for now assume/require a "standard" image
-        if not (isinstance(job.model_request, NWMRequest) or isinstance(job.model_request, NGENRequest) or isinstance(job.model_request, NgenCalibrationRequest)):
+        if not (isinstance(job.model_request, NWMRequest) or isinstance(job.model_request, AbstractNextGenRequest)):
             raise RuntimeError("Unexpected request type {}: cannot build Docker CMD arg list".format(
                 job.model_request.__class__.__name__))
 
         # For now at least, all image arg lists start the same way (first 3 args: node count, host string, and job id)
         # TODO: this probably should be a documented standard for any future entrypoints
         # TODO (later): probably need to move all types to recognize and use explicit flags rather than order arguments
-        docker_cmd_args = [str(len(job.allocations)), self.build_host_list(job), job.job_id]
+        docker_cmd_args = [str(len(job.allocations)), self.build_host_list(job), str(job.job_id)]
 
-        # TODO: need to differentiate on NgenCalibrationRequest a little here
-        if isinstance(job.model_request, NGENRequest):
-            # $4 is the worker index (where index 0 is assumed to be the lead node)
-            docker_cmd_args.append(str(worker_index))
-
-            # $5 is the name of the output dataset (which will imply a directory location)
-            output_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.OUTPUT, max_count=1)
-            docker_cmd_args.append(output_dataset_names[0])
-
-            # $6 is the name of the hydrofabric dataset (which will imply a directory location)
-            hydrofabric_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.HYDROFABRIC, max_count=1)
-            docker_cmd_args.append(hydrofabric_dataset_names[0])
-
-            # $7 is the name of the realization configuration dataset (which will imply a directory location)
-            realization_cfg_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1,
-                                                                  data_format=DataFormat.NGEN_REALIZATION_CONFIG)
-            docker_cmd_args.append(realization_cfg_dataset_names[0])
-
-            # $8 is the name of the BMI config dataset (which will imply a directory location)
-            bmi_config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1,
-                                                             data_format=DataFormat.BMI_CONFIG)
-            docker_cmd_args.append(bmi_config_dataset_names[0])
-
-            # $9 is the name of the partition config dataset (which will imply a directory location)
-            # TODO: this probably will eventually break things if $10 is added for calibration config dataset
-            # TODO: need to overhaul entrypoint for ngen and ngen-calibration images with flag-based args
-            if job.cpu_count > 1:
-                partition_config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG,
-                                                                       max_count=1,
-                                                                       data_format=DataFormat.NGEN_PARTITION_CONFIG)
-                docker_cmd_args.append(partition_config_dataset_names[0])
-
-            # $10 is the name of the calibration config dataset (which will imply a directory location)
-            # TODO: this *might* need to be added depending on how we decide to handle calibration
-            # configs. meaning if they are datasets or not.
-            # calibration_config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1,
-            #                                                     data_format=DataFormat.NGEN_CAL_CONFIG)
-            # docker_cmd_args.append(calibration_config_dataset_names[0])
-
-            # Also do a sanity check here to ensure there is at least one forcing dataset
-            self._ds_names_helper(job, worker_index, DataCategory.FORCING)
-
-            # $10 is the name of the calibration config dataset (which will imply a directory location)
-            # TODO: this *might* need to be added depending on how we decide to handle calibration
-            # configs. meaning if they are datasets or not.
-            # calibration_config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1,
-            #                                                     data_format=DataFormat.NGEN_CAL_CONFIG)
-            # docker_cmd_args.append(calibration_config_dataset_names[0])
+        if isinstance(job.model_request, AbstractNextGenRequest):
+            docker_cmd_args.extend(self._generate_nextgen_job_docker_cmd_args(job, worker_index))
 
         return docker_cmd_args
+
+    def _generate_nextgen_job_docker_cmd_args(self, job: 'Job', worker_index: int) -> List[str]:
+        """
+        Prepare the specific Docker CMD arg applicable to Nextgen-based jobs, which start with the 4th positional arg.
+
+        Generate the necessary Docker CMD arguments required for starting a specified worker container that is part of a
+        Nextgen-based job executed within Docker.  In general, this function should not be used except when called by
+        ::method:`_generate_docker_cmd_args`. Further, it only applies to Nextgen-based jobs:  i.e., ngen model exec or
+        ngen calibration jobs.
+
+        Since the general form of the required Docker CMD args (i.e., for any type, not only Nextgen-based jobs)
+        generated by ::method:`_generate_docker_cmd_args` always begins with the same 3 positional args, this function
+        effectively starts by producing positional argument number 4 and generates the remaining necessary CMD args.
+
+        Parameters
+        ----------
+        job : Job
+            The job to have worker Docker services started, with those services needing "CMD" arguments generated.
+        worker_index : int
+            The particular worker service index in question, which will have a specific set of data requirements.
+
+        Returns
+        -------
+        List[str]
+            The sublist (with index ``0`` of the sublist corresponding to index ``3`` of the final list) of Docker CMD
+            args for the associated job worker container.
+
+        See Also
+        -------
+        _generate_docker_cmd_args
+        """
+        # Start with a sanity check
+        if not isinstance(job.model_request, AbstractNextGenRequest):
+            msg = "Cannot generate Nextgen-base Docker job CMD args for job {} with request of {} type"
+            raise RuntimeError(msg.format(str(job.job_id), job.model_request.__class__.__name__))
+
+        # Remember, this list will start with $4 in the eventual complete Docker CMD list
+        ngen_cmd_args = []
+
+        # $4 is the worker index (where index 0 is assumed to be the lead node)
+        ngen_cmd_args.append(str(worker_index))
+
+        # $5 is the name of the output dataset (which will imply a directory location)
+        output_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.OUTPUT, max_count=1)
+        ngen_cmd_args.append(output_dataset_names[0])
+
+        # $6 is the name of the hydrofabric dataset (which will imply a directory location)
+        hydrofabric_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.HYDROFABRIC, max_count=1)
+        ngen_cmd_args.append(hydrofabric_dataset_names[0])
+
+        # $7 is the name of the realization configuration dataset (which will imply a directory location)
+        realization_cfg_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1,
+                                                              data_format=DataFormat.NGEN_REALIZATION_CONFIG)
+        ngen_cmd_args.append(realization_cfg_dataset_names[0])
+
+        # $8 is the name of the BMI config dataset (which will imply a directory location)
+        bmi_config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1,
+                                                         data_format=DataFormat.BMI_CONFIG)
+        ngen_cmd_args.append(bmi_config_dataset_names[0])
+
+        # $9 is the name of the partition config dataset (which will imply a directory location)
+        # TODO: this probably will eventually break things if $10 is added for calibration config dataset
+        # TODO: need to overhaul entrypoint for ngen and ngen-calibration images with flag-based args
+        if job.cpu_count > 1:
+            partition_config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1,
+                                                                   data_format=DataFormat.NGEN_PARTITION_CONFIG)
+            ngen_cmd_args.append(partition_config_dataset_names[0])
+
+        # Also do a sanity check here to ensure there is at least one forcing dataset
+        self._ds_names_helper(job, worker_index, DataCategory.FORCING)
+
+        # TODO: account for differences between regular ngen execution and calibration job
+
+        # $10 is the name of the calibration config dataset (which will imply a directory location)
+        # TODO: this *might* need to be added depending on how we decide to handle calibration
+        # configs. meaning if they are datasets or not.
+        # calibration_config_dataset_names = self._ds_names_helper(job, worker_index, DataCategory.CONFIG, max_count=1,
+        #                                                     data_format=DataFormat.NGEN_CAL_CONFIG)
+        # ngen_cmd_args.append(calibration_config_dataset_names[0])
+
+        return ngen_cmd_args
 
     def _get_required_obj_store_datasets_arg_strings(self, job: 'Job', worker_index: int) -> List[str]:
         """
@@ -510,10 +546,6 @@ class Launcher(SimpleDockerUtil):
             String name, including tag, of the appropriate Docker image for this job.
         """
         # For now, these are the only two requests supported
-        # NOTE: NgenCalibrationRequest needs to come first, because it is a subclass of NGENRequest.
-        # In the future, we should refactor this so this method doesn't need to know about this
-        # subclass relationship.
-
         # TODO: move registry name into environment variable other other more appropriate place
         if isinstance(job.model_request, NgenCalibrationRequest):
             return "127.0.0.1:5000/ngen-cal:latest"
