@@ -15,10 +15,6 @@ class NgenCalibrationRequest(ExternalNextGenRequest):
     event_type: MessageEventType = MessageEventType.CALIBRATION_REQUEST
     job_exec_name = 'ngen-cal' #FIXME case sentitivity
 
-    # TODO: probably will need to re-examine this
-    _DEFAULT_CPU_COUNT = super()._DEFAULT_CPU_COUNT
-    """ The default number of CPUs to assume are being requested for the job, when not explicitly provided. """
-
     _KEY_CAL_STRATEGY_ALGO = 'strategy_algorithm'
     _KEY_CAL_STRATEGY_OBJ_FUNC = 'strategy_objective_function'
     _KEY_CAL_STRATEGY_TYPE = 'strategy_type'
