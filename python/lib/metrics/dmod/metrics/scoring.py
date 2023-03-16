@@ -460,7 +460,7 @@ class ScoreDescription:
         return self.__maximum_metric_value
 
     @property
-    def thresholds(self) -> typing.Dict[Threshold, dict]:
+    def thresholds(self) -> typing.Dict[str, dict]:
         return self.__thresholds
 
     def __repr__(self):
