@@ -62,10 +62,10 @@ class AbstractNextGenRequest(DmodJobRequest, ABC):
         """
         deserialized_kwargs = dict()
         deserialized_kwargs["time_range"] = TimeRange.factory_init_from_deserialized_json(json_obj["time_range"])
-        deserialized_kwargs["hydrofabric_uid"] = json_obj["hydrofabric_uid"],
-        deserialized_kwargs["hydrofabric_data_id"] = json_obj["hydrofabric_data_id"],
-        deserialized_kwargs["config_data_id"] = json_obj["config_data_id"],
-        deserialized_kwargs["bmi_cfg_data_id"] = json_obj["bmi_config_data_id"],
+        deserialized_kwargs["hydrofabric_uid"] = json_obj["hydrofabric_uid"]
+        deserialized_kwargs["hydrofabric_data_id"] = json_obj["hydrofabric_data_id"]
+        deserialized_kwargs["config_data_id"] = json_obj["config_data_id"]
+        deserialized_kwargs["bmi_cfg_data_id"] = json_obj["bmi_config_data_id"]
 
         if "cpu_count" in json_obj:
             deserialized_kwargs["cpu_count"] = json_obj["cpu_count"]
