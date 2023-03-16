@@ -840,7 +840,7 @@ class LaunchConsumer(AsyncWebsocketConsumer):
                 "action": name,
                 "action_parameters": {
                     parameter_name: parameter_type
-                    for parameter_name, parameter_type in function.required_parameters.items()
+                    for parameter_name, parameter_type in getattr(function, 'required_parameters').items()
                 }
             }
             actions.append(descriptor)
