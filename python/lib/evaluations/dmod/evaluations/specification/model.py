@@ -160,13 +160,14 @@ def convert_value(value: typing.Any, parameter: typing.Union[inspect.Parameter, 
     return value
 
 
-def create_class_instance(cls, data, decoder: json.JSONDecoder = None):
+def create_class_instance(cls, data, template_manager: TemplateManager = None, decoder: json.JSONDecoder = None):
     """
     Dynamically creates a class based on the type of class and the given parameters
 
     Args:
         cls: The type of class to construct
         data: The data that provides construction arguments
+        template_manager: A template manager that can help apply templates to generated classes
         decoder: An optional json decoder that will help deserialize any json inputs
 
     Returns:
@@ -257,6 +258,11 @@ def create_class_instance(cls, data, decoder: json.JSONDecoder = None):
             }
         )
 
+        instance = cls(**arguments)
+
+        if isinstance(instance, TemplatedSpecification):
+            instance.apply_template(template_manager=template_manager)
+
         return cls(**arguments)
 
     raise ValueError(f"Type '{type(data)}' cannot be read as JSON")
@@ -283,18 +289,24 @@ class Specification(abc.ABC):
         return cls.__name__
 
     @classmethod
-    def create(cls, data: typing.Union[str, dict, typing.IO, bytes, typing.Sequence], decoder: json.JSONDecoder = None):
+    def create(
+        cls,
+        data: typing.Union[str, dict, typing.IO, bytes, typing.Sequence],
+        template_manager: TemplateManager = None,
+        decoder: json.JSONDecoder = None
+    ):
         """
         A factory for the given specification
 
         Args:
             data: Parameters used to instantiate the specification
+            template_manager: A manager for any template specifications that can help apply template values
             decoder: an optional json decoder used to deserialize the specification
 
         Returns:
             An instance of the specified specification class
         """
-        instance = create_class_instance(cls, data, decoder)
+        instance = create_class_instance(cls=cls, data=data, template_manager=template_manager, decoder=decoder)
 
         messages = list()
 
@@ -405,8 +417,21 @@ class TemplatedSpecification(Specification, abc.ABC):
     def template_name(self) -> typing.Optional[str]:
         return self.__template_name
 
+    def apply_template(self, template_manager: TemplateManager, decoder: json.JSONDecoder = None):
+        if not self.template_name:
+            return
+
+        template = template_manager.get_template(self.get_specification_type(), self.template_name)
+
+        if not template:
+            raise Exception(
+                f"The '[{self.get_specification_type()}] {self.template_name}' template is missing. "
+                f"A {self.get_specification_type()} cannot be built."
+            )
+        self.apply_fields(template=template, template_manager=template_manager, decoder=decoder)
+
     @abc.abstractmethod
-    def apply_template(self, template_manager: TemplateManager):
+    def apply_fields(self, template: dict, template_manager: TemplateManager, decoder: json.JSONDecoder = None):
         pass
 
 
@@ -499,13 +524,44 @@ class UnitDefinition(Specification):
         return ".".join(self.__path)
 
 
-class ThresholdDefinition(Specification):
+class ThresholdDefinition(TemplatedSpecification):
     """
     A definition of a single threshold, the field that it comes from, and its significance
     """
 
+    def apply_fields(self, template: dict, template_manager: TemplateManager, decoder: json.JSONDecoder = None):
+        if self.__name is None:
+            self.__name = template.get("name")
+
+        if self.__field is None or len(self.__field) == 0:
+            self.__set_field(template.get("field"))
+
+        if self.__weight is None:
+            self.__weight = template.get("weight")
+
+        if self.__unit is None and "unit" in template:
+            self.__unit = UnitDefinition.create(
+                data=template.get("unit"),
+                template_manager=template_manager,
+                decoder=decoder
+            )
+
     def validate(self) -> typing.Sequence[str]:
-        return list()
+        validation_messages = list()
+
+        if not isinstance(self.__unit, UnitDefinition):
+            validation_messages.append(f"{self.get_specification_type()} is missing a unit definition")
+
+        if not isinstance(self.__weight, (str, float)):
+            validation_messages.append(f"{self.get_specification_type()} is missing a weight value")
+
+        if not isinstance(self.__field, typing.Iterable):
+            validation_messages.append(f"{self.get_specification_type()} is missing a field indication")
+
+        if not isinstance(self.__name, str):
+            validation_messages.append(f"{self.get_specification_type()} is missing a name")
+
+        return validation_messages
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         return {
@@ -520,16 +576,36 @@ class ThresholdDefinition(Specification):
 
     def __init__(
         self,
-        name: typing.Union[str, bytes],
-        field: typing.Union[str, bytes, typing.Sequence[str]],
-        weight: typing.Union[str, float],
-        unit: typing.Union[UnitDefinition, str, dict],
+        name: typing.Union[str, bytes] = None,
+        field: typing.Union[str, bytes, typing.Sequence[str]] = None,
+        weight: typing.Union[str, float] = None,
+        unit: typing.Union[UnitDefinition, str, dict] = None,
         properties: typing.Union[typing.Dict[str, typing.Any], str] = None,
         **kwargs
     ):
         super().__init__(properties, **kwargs)
 
         self.__name = name.decode() if isinstance(name, bytes) else name
+        self.__field: typing.Optional[typing.Sequence[str]] = None
+
+        self.__set_field(field)
+
+        self.__weight = weight
+
+        self.__unit: typing.Optional[UnitDefinition] = None
+        self.__set_unit_definition(unit)
+
+    def __set_unit_definition(self, unit: typing.Union[UnitDefinition, str, dict]):
+        if isinstance(unit, str):
+            unit = UnitDefinition(value=unit)
+        elif isinstance(unit, dict):
+            unit = UnitDefinition.create(unit)
+
+        self.__unit = unit
+
+    def __set_field(self, field: typing.Union[str, bytes, typing.Sequence[str]] = None):
+        if field is None:
+            return
 
         if isinstance(field, bytes):
             field = field.decode()
@@ -539,14 +615,7 @@ class ThresholdDefinition(Specification):
         else:
             self.__field = field
 
-        self.__weight = weight
 
-        if isinstance(unit, str):
-            unit = UnitDefinition(value=unit)
-        elif isinstance(unit, dict):
-            unit = UnitDefinition.create(unit)
-
-        self.__unit = unit
 
     @property
     def name(self) -> str:
@@ -630,7 +699,7 @@ class BackendSpecification(Specification):
     @property
     def format(self) -> str:
         """
-        The type of data to be interpretted
+        The type of data to be interpreted
 
         A single backend type may have more than one format. A `file` may be json, csv, netcdf, etc
         """
@@ -1490,7 +1559,20 @@ class MetricSpecification(Specification):
         return description
 
 
-class SchemeSpecification(Specification):
+class SchemeSpecification(TemplatedSpecification):
+    def apply_fields(self, template: dict, template_manager: TemplateManager, decoder: json.JSONDecoder = None):
+        metric_definitions: typing.Sequence[dict] = template.get("metrics", [])
+
+        for definition in metric_definitions:
+            metric = MetricSpecification.create(
+                data=definition,
+                template_manager=template_manager,
+                decoder=decoder
+            )
+
+            if not [previous_metric for previous_metric in self.__metrics if previous_metric.name == metric.name]:
+                self.__metrics.append(metric)
+
     def validate(self) -> typing.Sequence[str]:
         messages = list()
 
@@ -1519,7 +1601,7 @@ class SchemeSpecification(Specification):
     ):
         super().__init__(properties, **kwargs)
 
-        self.__metrics = metrics
+        self.__metrics = [metric for metric in metrics]
 
     @property
     def metric_functions(self) -> typing.Sequence[MetricSpecification]:
