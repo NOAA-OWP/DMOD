@@ -55,6 +55,46 @@ class SpecificationTemplate(models.Model, TemplateDetails):
         return self.template_description
 
 
+class SpecificationTemplate(models.Model, TemplateDetails):
+    class Meta:
+        constraints = [
+            UniqueConstraint(name="unique_template_idx", fields=["template_name", "template_specification_type"])
+        ]
+    template_name = models.CharField(verbose_name="name", max_length=100, help_text="The name of the template")
+    template_specification_type = models.CharField(
+        max_length=50,
+        help_text="The type of specification that this template pertains to"
+    )
+    template_configuration = models.CharField(
+        max_length=30000,
+        help_text="The configuration that should be applied to a given specification type"
+    )
+    template_description = models.CharField(
+        max_length=500,
+        null=True,
+        blank=True,
+        help_text="A description of what the template does"
+    )
+
+    author = models.ForeignKey(to=User, on_delete=models.CASCADE, help_text="The user who created this template")
+
+    @property
+    def name(self) -> str:
+        return self.template_name
+
+    @property
+    def specification_type(self) -> str:
+        return self.template_specification_type
+
+    @property
+    def configuration(self) -> dict:
+        return json.loads(self.template_configuration)
+
+    @property
+    def description(self) -> typing.Optional[str]:
+        return self.template_description
+
+
 class EvaluationDefinition(models.Model):
     """
     Represents a definition for an evaluation that may be stored for reuse
