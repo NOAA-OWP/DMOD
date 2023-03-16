@@ -23,6 +23,8 @@ import dmod.metrics.metric as metric_functions
 import dmod.core.common as common
 
 from .. import util
+from .template import TemplateManager
+from .template import TemplateDetails
 
 logging.basicConfig(
     filename='evaluation.log',
@@ -267,6 +269,20 @@ class Specification(abc.ABC):
     __slots__ = ['__properties']
 
     @classmethod
+    def get_specification_type(cls) -> str:
+        """
+        Shortcut method for getting the name for the specification class
+        """
+        return cls.__name__
+
+    @classmethod
+    def get_specification_description(cls) -> str:
+        """
+        Get a human friendly name for this type of specification
+        """
+        return cls.__name__
+
+    @classmethod
     def create(cls, data: typing.Union[str, dict, typing.IO, bytes, typing.Sequence], decoder: json.JSONDecoder = None):
         """
         A factory for the given specification
@@ -376,6 +392,22 @@ class Specification(abc.ABC):
                 for key in self.__slots__
             }
         )
+
+
+class TemplatedSpecification(Specification, abc.ABC):
+    __slots__ = ["__template_name"]
+
+    def __init__(self, template_name: str = None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__template_name = template_name
+
+    @property
+    def template_name(self) -> typing.Optional[str]:
+        return self.__template_name
+
+    @abc.abstractmethod
+    def apply_template(self, template_manager: TemplateManager):
+        pass
 
 
 class UnitDefinition(Specification):
