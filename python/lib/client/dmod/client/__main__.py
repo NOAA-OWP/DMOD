@@ -5,9 +5,10 @@ from dmod.core.execution import AllocationParadigm
 from . import name as package_name
 from .dmod_client import YamlClientConfig, DmodClient
 from dmod.communication.client import get_or_create_eventloop
-from dmod.core.meta_data import ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction
+from dmod.core.meta_data import ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction, \
+    TimeRange
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 DEFAULT_CLIENT_CONFIG_BASENAME = '.dmod_client_config.yml'
 
@@ -17,6 +18,52 @@ class DmodCliArgumentError(ValueError):
     Trivial, but distinct, error type for errors involving bad args to the DMOD CLI client.
     """
     pass
+
+
+def _create_ngen_based_exec_parser(subcommand_container: Any, parser_name: str,
+                                   default_alloc_paradigm: AllocationParadigm) -> argparse.ArgumentParser:
+    """
+    Helper function to create a nested parser under the ``exec`` command for different NextGen-related workflows.
+
+    Parameters
+    ----------
+    subcommand_container
+        The ``workflow`` subcommand "special action object" created by ::method:`ArgumentParser.add_subparsers`, which
+        is a child of the ``exec`` parser, and to which the new nested parser is to be added.
+    parser_name : str
+        The name to give to the new parser to be added.
+    default_alloc_paradigm : AllocationParadigm
+        The default ::class:`AllocationParadigm` value to use when adding the ``--allocation-paradigm`` argument to the
+        parser.
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        The newly created and associated subparser.
+    """
+    new_parser = subcommand_container.add_parser(parser_name)
+    new_parser.add_argument('--partition-config-data-id', dest='partition_cfg_data_id', default=None,
+                            help='Provide data_id for desired partition config dataset.')
+    new_parser.add_argument('--allocation-paradigm',
+                            dest='allocation_paradigm',
+                            type=AllocationParadigm.get_from_name,
+                            choices=[val.name.lower() for val in AllocationParadigm],
+                            default=default_alloc_paradigm,
+                            help='Specify job resource allocation paradigm to use.')
+    new_parser.add_argument('--catchment-ids', dest='catchments', nargs='+', help='Specify catchment subset.')
+
+    date_format = DataDomain.get_datetime_str_format()
+    print_date_format = 'YYYY-mm-dd HH:MM:SS'
+
+    new_parser.add_argument('time_range', type=TimeRange.parse_from_string,
+                            help='Model time range ({} to {})'.format(print_date_format, print_date_format))
+    new_parser.add_argument('hydrofabric_data_id', help='Identifier of dataset of required hydrofabric')
+    new_parser.add_argument('hydrofabric_uid', help='Unique identifier of required hydrofabric')
+    new_parser.add_argument('config_data_id', help='Identifier of dataset of required realization config')
+    new_parser.add_argument('bmi_cfg_data_id', help='Identifier of dataset of required BMI init configs')
+    new_parser.add_argument('cpu_count', type=int, help='Provide the desired number of processes for the execution')
+
+    return new_parser
 
 
 def _handle_config_command_args(parent_subparsers_container):
@@ -43,6 +90,10 @@ def _handle_exec_command_args(parent_subparsers_container):
     parent_subparsers_container
         The top-level parent container for subparsers of various commands, including the 'exec' command, to which
         some numbers of nested subparser containers and parsers will be added.
+
+    See Also
+    ----------
+    _create_ngen_based_exec_subparser
     """
     # A parser for the 'exec' command itself, underneath the parent 'command' subparsers container
     command_parser = parent_subparsers_container.add_parser('exec')
@@ -52,44 +103,66 @@ def _handle_exec_command_args(parent_subparsers_container):
     workflow_subparsers.required = True
 
     # Nested parser for the 'ngen' action
-    parser_ngen = workflow_subparsers.add_parser('ngen')
+    parser_ngen = _create_ngen_based_exec_parser(subcommand_container=workflow_subparsers, parser_name='ngen',
+                                                 default_alloc_paradigm=AllocationParadigm.get_default_selection())
 
-    parser_ngen_cal = workflow_subparsers.add_parser('ngen_cal')
-    # parser_ngen_cal.add_argument('--allocation-paradigm',
-    #                          dest='allocation_paradigm',
-    #                          type=AllocationParadigm.get_from_name,
-    #                          choices=[val.name.lower() for val in AllocationParadigm],
-    #                          default=AllocationParadigm.get_default_selection(),
-    #                          help='Specify job resource allocation paradigm to use.')
-    parser_ngen_cal.add_argument('realization_cfg_data_id', help='Identifier of dataset of required realization config')
-    # parser_ngen_cal.add_argument('cpu_count', type=int, help='Provide the desired number of processes for the execution')
+    # TODO: default alloc paradigm needs to be GROUPED_SINGLE_NODE once that has been approved and added
+    # Nested parser for the 'ngen_cal' action, which is very similar to the 'ngen' parser
+    parser_ngen_cal = _create_ngen_based_exec_parser(subcommand_container=workflow_subparsers, parser_name='ngen_cal',
+                                                     default_alloc_paradigm=AllocationParadigm.get_default_selection())
 
-
-    parser_ngen.add_argument('--partition-config-data-id', dest='partition_cfg_data_id', default=None,
-                             help='Provide data_id for desired partition config dataset.')
-    parser_ngen.add_argument('--allocation-paradigm',
-                             dest='allocation_paradigm',
-                             type=AllocationParadigm.get_from_name,
-                             choices=[val.name.lower() for val in AllocationParadigm],
-                             default=AllocationParadigm.get_default_selection(),
-                             help='Specify job resource allocation paradigm to use.')
-    parser_ngen.add_argument('--catchment-ids', dest='cat_ids', nargs='+', help='Specify catchment subset.')
-    date_format = DataDomain.get_datetime_str_format()
-    printable_date_format = 'YYYY-mm-dd HH:MM:SS'
-
-    def date_parser(date_time_str: str) -> datetime.datetime:
+    # Calibration parser needs a few more calibration-specific items
+    def positive_int(arg_val: str):
         try:
-            return datetime.datetime.strptime(date_time_str, date_format)
+            arg_as_int = int(arg_val)
         except ValueError:
-            raise argparse.ArgumentTypeError("Not a valid date: {}".format(date_time_str))
+            raise argparse.ArgumentTypeError("Non-integer value '%s' provided when positive integer expected" % arg_val)
+        if arg_as_int <= 0:
+            raise argparse.ArgumentTypeError("Invalid value '%s': expected integer greater than 0" % arg_val)
+        return arg_as_int
 
-    parser_ngen.add_argument('start', type=date_parser, help='Model start date and time ({})'.format(printable_date_format))
-    parser_ngen.add_argument('end', type=date_parser, help='Model end date and time ({})'.format(printable_date_format))
-    parser_ngen.add_argument('hydrofabric_data_id', help='Identifier of dataset of required hydrofabric')
-    parser_ngen.add_argument('hydrofabric_uid', help='Unique identifier of required hydrofabric')
-    parser_ngen.add_argument('realization_cfg_data_id', help='Identifier of dataset of required realization config')
-    parser_ngen.add_argument('bmi_cfg_data_id', help='Identifier of dataset of required BMI init configs')
-    parser_ngen.add_argument('cpu_count', type=int, help='Provide the desired number of processes for the execution')
+    def model_calibration_param(arg_val: str):
+        split_arg = arg_val.split(',')
+        try:
+            if len(split_arg) != 4:
+                raise RuntimeError
+            # Support float args in any order by sorting, since min, max, and other/init will always be self-evident
+            float_values = sorted([float(split_arg[i]) for i in [1, 2, 3]])
+            # Return is (param, (min, max, init))
+            return split_arg[0], (float_values[0], float_values[2], float_values[1])
+        except:
+            raise argparse.ArgumentTypeError("Invalid arg '%s'; format must be <str>,<float>,<float>,<float>" % arg_val)
+
+    parser_ngen_cal.add_argument('--calibrated-param', dest='model_cal_params', type=model_calibration_param,
+                                 nargs='+', metavar='PARAM_NAME,MIN_VAL,MAX_VAL,INIT_VAL',
+                                 help='Description of parameters to calibrate, as comma delimited string')
+
+    parser_ngen_cal.add_argument('--job-name', default=None, dest='job_name', help='Optional job name.')
+    # TODO (later): add more choices once available
+    parser_ngen_cal.add_argument('--strategy', default='estimation', dest='cal_strategy_type',
+                                 choices=['estimation'], help='The ngen_cal calibration strategy.')
+    # TODO (later): need to add other supported algorithms (there should be a few more now)
+    parser_ngen_cal.add_argument('--algorithm', type=str, default='dds', dest='cal_strategy_algorithm',
+                                 choices=['dds'], help='The ngen_cal parameter search algorithm.')
+    parser_ngen_cal.add_argument('--objective-function', default='nnse', dest='cal_strategy_objective_func',
+                                 choices=["kling_gupta", "nnse", "custom", "single_peak", "volume"],
+                                 help='The ngen_cal objective function.')
+    parser_ngen_cal.add_argument('--is-objective-func-minimized', type=bool, default=True,
+                                 dest='is_objective_func_minimized',
+                                 help='Whether the target of objective function is minimized or maximized.')
+    parser_ngen_cal.add_argument('--iterations', type=positive_int, default=100, dest='iterations',
+                                 help='The number of ngen_cal iterations.')
+    # TODO (later): in the future, figure out how to best handle this kind of scenario
+    #parser_ngen_cal.add_argument('--is-restart', action='store_true', dest='is_restart',
+    #                             help='Whether this is restarting a previous job.')
+    #ngen calibration strategies include
+    #uniform: Each catchment shares the same parameter space, evaluates at one observable nexus
+    #independet: Each catchment upstream of observable nexus gets its own permuated parameter space, evalutates at one observable nexus
+    #explicit: only calibrates basins in the realization_config with a "calibration" definition and an observable nexus
+    # TODO: add this kind of information to the help message
+    parser_ngen_cal.add_argument('--model-strategy', default='uniform', dest='model_strategy',
+                                 choices=["uniform", "independent", "explicit"],
+                                 help='The model calibration strategy used by ngen_cal.')
 
 
 def _handle_dataset_command_args(parent_subparsers_container):
@@ -465,7 +538,7 @@ def execute_workflow_command(args, client: DmodClient):
         result = async_loop.run_until_complete(client.submit_ngen_request(**(vars(args))))
         print(result)
     elif args.workflow == "ngen_cal":
-        result = async_loop.run_until_complete(client.submit_ngen_cal_request(realization_cfg_data_id=args.realization_cfg_data_id))
+        result = async_loop.run_until_complete(client.submit_ngen_cal_request(**(vars(args))))
         print(result)
     else:
         print("ERROR: Unsupported execution workflow {}".format(args.workflow))

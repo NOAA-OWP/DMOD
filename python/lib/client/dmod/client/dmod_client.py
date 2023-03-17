@@ -244,17 +244,13 @@ class DmodClient:
                                                            cpu_count, realization_cfg_data_id, bmi_cfg_data_id,
                                                            partition_cfg_data_id, cat_ids, allocation_paradigm)
 
-    # async def submit_ngen_cal_request(self, start: datetime, end: datetime, hydrofabric_data_id: str, hydrofabric_uid: str,
-    #                               cpu_count: int, realization_cfg_data_id: str, bmi_cfg_data_id: str,
-    #                               partition_cfg_data_id: Optional[str] = None, cat_ids: Optional[List[str]] = None,
-    #                               allocation_paradigm: Optional[AllocationParadigm] = None, *args, **kwargs):
-    async def submit_ngen_cal_request(self, realization_cfg_data_id: str):
-
-        return await self.ngen_cal_request_client.request_exec(realization_cfg_data_id=realization_cfg_data_id)
-
-        # return await self.ngen_cal_request_client.request_exec(start, end, hydrofabric_data_id, hydrofabric_uid,
-        #                                                    cpu_count, realization_cfg_data_id, bmi_cfg_data_id,
-        #                                                    partition_cfg_data_id, cat_ids, allocation_paradigm)
+    async def submit_ngen_cal_request(self, start: datetime, end: datetime, hydrofabric_data_id: str, hydrofabric_uid: str,
+                                  cpu_count: int, realization_cfg_data_id: str, bmi_cfg_data_id: str, ngen_cal_cfg_data_id: str,
+                                  partition_cfg_data_id: Optional[str] = None, cat_ids: Optional[List[str]] = None,
+                                  allocation_paradigm: Optional[AllocationParadigm] = None, *args, **kwargs):
+        return await self.ngen_cal_request_client.request_exec(start, end, hydrofabric_data_id, hydrofabric_uid,
+                                                               cpu_count, realization_cfg_data_id, bmi_cfg_data_id, ngen_cal_cfg_data_id,
+                                                               partition_cfg_data_id, cat_ids, allocation_paradigm)
 
     def print_config(self):
         print(self.client_config.print_config())
