@@ -47,9 +47,8 @@ class SpecificationTemplate(models.Model, TemplateDetails):
     def specification_type(self) -> str:
         return self.template_specification_type
 
-    @property
-    def configuration(self) -> dict:
-        return json.loads(self.template_configuration)
+    def get_configuration(self, decoder_type: typing.Type[json.JSONDecoder] = None):
+        return json.loads(self.template_configuration, cls=decoder_type)
 
     @property
     def description(self) -> typing.Optional[str]:
