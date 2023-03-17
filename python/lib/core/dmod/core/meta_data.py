@@ -730,6 +730,47 @@ class TimeRange(ContinuousRestriction):
     Encapsulated representation of a time range.
     """
 
+    @classmethod
+    def parse_from_string(cls, as_string: str, dt_format: Optional[str] = None, dt_str_length: int = 19) -> 'TimeRange':
+        """
+        Parse a colloquial string representation of a time range to an object.
+
+        Parse a string representation to an instance.  Any string that begins and ends with independent, valid date+time
+        substrings qualifies; e.g., "<datetime> to <datetime>" or "<datetime> - <datetime>".
+
+        Parameters
+        ----------
+        as_string: str
+            The representation of an instance in the form of a begin and end datetime string.
+        dt_format: Optional[str]
+            The optional datetime parsing format pattern, ``None`` by default, which is replaced with the pattern
+            returned by ::method:`get_datetime_str_format`.
+        dt_str_length: int
+            The length of a valid date+time substring, needed for individually parsing it, which should correspond to
+            the current ``dt_format`` (default: 19).
+
+        Returns
+        -------
+        TimeRange
+            The parsed instance.
+        """
+        if dt_format is None:
+            dt_format = cls.get_datetime_str_format()
+
+        # This can't be valid, so sanity check for it
+        if dt_str_length < len(dt_format):
+            raise ValueError("Invalid datetime substring length of {} for format {}".format(dt_str_length, dt_format))
+
+        # This is an absolute min
+        if len(as_string) < dt_str_length * 2:
+            raise ValueError("String '{}' cannot contain two datetime substrings".format(as_string))
+
+        try:
+            return cls(begin=datetime.strptime(as_string[:dt_str_length], dt_format),
+                       end=datetime.strptime(as_string[(-1 * dt_str_length):], dt_format))
+        except:
+            raise ValueError
+
     def __init__(self, begin: Union[str, datetime], end: Union[str, datetime], datetime_pattern: Optional[str] = None,
                  **kwargs):
         dt_ptrn = self.get_datetime_str_format() if datetime_pattern is None else datetime_pattern
