@@ -2,6 +2,7 @@
 Provides classes that enable the representation and discovery of specification templates
 """
 import abc
+import json
 import typing
 
 
@@ -25,11 +26,10 @@ class TemplateDetails(abc.ABC):
         """
         pass
 
-    @property
     @abc.abstractmethod
-    def configuration(self) -> dict:
+    def get_configuration(self, decoder_type: typing.Type[json.JSONDecoder] = None) -> dict:
         """
-        The configuration for this template
+        Get the deserialized configuration
         """
         pass
 
@@ -44,7 +44,7 @@ class TemplateDetails(abc.ABC):
     @property
     def field_choice(self) -> typing.Tuple[str, str]:
         """
-        A value-name pair that allows for templates to be selected from a drop down
+        A value-name pair that allows for templates to be selected from a dropdown
         """
         return self.name, self.name
 
@@ -66,7 +66,8 @@ class TemplateManager(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_templates(self, specification_type: str) -> typing.Sequence[TemplateDetails]:
+    def get_templates(self, specification_type: str
+    ) -> typing.Sequence[TemplateDetails]:
         """
         Get all templates of a given specification type
 
@@ -78,19 +79,25 @@ class TemplateManager(abc.ABC):
         """
         pass
 
-    def get_template(self, specification_type: str, name: str) -> typing.Optional[dict]:
+    def get_template(
+        self,
+        specification_type: str,
+        name: str,
+        decoder_type: typing.Type[json.JSONDecoder] = None
+    ) -> typing.Optional[dict]:
         """
         Get the raw configuration for a template based on the type of specification and its name
 
         Args:
-            specification_type: The type of configuraiton specification that the desired template pertains to
+            specification_type: The type of configuration specification that the desired template pertains to
             name: The name of the template to use
+            decoder_type: a custom JSON Decoder used to overwrite json decoding for stored templates
 
         Returns:
             The dictionary containing the basic configuration details for a template
         """
         matches = [
-            template.configuration
+            template.get_configuration(decoder_type=decoder_type)
             for template in self.get_templates(specification_type)
             if template.name == name
         ]

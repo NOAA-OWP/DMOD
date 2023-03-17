@@ -260,7 +260,7 @@ def create_class_instance(cls, data, template_manager: TemplateManager = None, d
 
         instance = cls(**arguments)
 
-        if isinstance(instance, TemplatedSpecification):
+        if isinstance(instance, TemplatedSpecification) and template_manager:
             instance.apply_template(template_manager=template_manager)
 
         return cls(**arguments)
@@ -418,7 +418,7 @@ class TemplatedSpecification(Specification, abc.ABC):
         return self.__template_name
 
     def apply_template(self, template_manager: TemplateManager, decoder: json.JSONDecoder = None):
-        if not self.template_name:
+        if not self.template_name or not template_manager:
             return
 
         template = template_manager.get_template(self.get_specification_type(), self.template_name)
