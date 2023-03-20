@@ -1,7 +1,8 @@
 import fiona
 import geopandas as gpd
 import hashlib
-from pandas.util import hash_pandas_object
+from pandas.util import hash_array
+import numpy as np
 from pathlib import Path
 from typing import Callable, Dict, FrozenSet, Iterable, List, Optional, Tuple, Union
 from hypy import Catchment, Nexus, Realization
@@ -538,16 +539,15 @@ class GeoPackageHydrofabric(Hydrofabric):
         """
         Get a unique id for this instance.
 
-        Ids are generated from the same string generated to perform internal object hashing, but then passed to the
-        standard SHA1 algorithm.
+        Ids are generated from in a deterministic manner from the underlying data.
 
         Returns
         -------
         int
             A unique id for this instance.
         """
-        layer_hash_sums = [hash_pandas_object(self._dataframes[ln]).sum() for ln in self._layer_names]
-        return hashlib.sha1(','.join([str(s) for s in layer_hash_sums]).encode('UTF-8')).hexdigest()
+        layer_hashes = [np.apply_along_axis(hash_array, 0, self._dataframes[l].values).sum() for l in self._layer_names]
+        return hashlib.sha1(','.join([str(h) for h in layer_hashes]).encode('UTF-8')).hexdigest()
 
     @property
     def vpu(self) -> Optional[int]:
