@@ -15,12 +15,12 @@ from ..dmod_job_request import DmodJobRequest
 from ..model_exec_request import ExternalRequest
 
 
-class AbstractNextGenRequest(DmodJobRequest, ABC):
+class AbstractNgenRequest(DmodJobRequest, ABC):
     """
-    Abstract extension of ::class:`DmodJobRequest` for requesting some kind of NextGen-specific job.
+    Abstract extension of ::class:`DmodJobRequest` for requesting some kind of job involving the ngen framework.
 
-    A representation of request for a job involving NextGen.  As such it contains attributes/properties inherent to
-    using the NextGen framework within DMOD:
+    A representation of request for a job involving the ngen framework.  As such it contains attributes/properties
+    inherent to running ngen within DMOD:
 
         - execution time range
         - hydrofabric UID, dataset id, and ::class:`DataRequirement`
@@ -79,7 +79,7 @@ class AbstractNextGenRequest(DmodJobRequest, ABC):
         return deserialized_kwargs
 
     @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict) -> Optional["AbstractNextGenRequest"]:
+    def factory_init_from_deserialized_json(cls, json_obj: dict) -> Optional["AbstractNgenRequest"]:
         """
         Deserialize request formated as JSON to an instance.
 
@@ -164,7 +164,7 @@ class AbstractNextGenRequest(DmodJobRequest, ABC):
         session_secret : str
             The session secret for the right session when communicating with the MaaS request handler
         """
-        super(AbstractNextGenRequest, self).__init__(*args, **kwargs)
+        super(AbstractNgenRequest, self).__init__(*args, **kwargs)
         self._time_range = time_range
         self._hydrofabric_uid = hydrofabric_uid
         self._hydrofabric_data_id = hydrofabric_data_id
@@ -571,13 +571,13 @@ class AbstractNextGenRequest(DmodJobRequest, ABC):
         pass
 
 
-class ExternalNextGenRequest(ExternalRequest, AbstractNextGenRequest, ABC):
+class ExternalAbstractNgenRequest(ExternalRequest, AbstractNgenRequest, ABC):
     """
-    Abstract extension of both ::class:`AbstractNextGenRequest` and ::class:`ExternalRequest`.
+    Abstract extension of both ::class:`AbstractNgenRequest` and ::class:`ExternalRequest`.
 
-    An abstract subclass of ::class:`AbstractNextGenRequest` and ::class:`ExternalRequest` that, due to the latter,
+    An abstract subclass of ::class:`AbstractNgenRequest` and ::class:`ExternalRequest` that, due to the latter,
     contains a ::attribute:`session_secret` property.  As such, the implementations of several functions from
-    ::class:`AbstractNextGenRequest` are extended to properly account for this property (e.g., ::method:`__eq__`).
+    ::class:`AbstractNgenRequest` are extended to properly account for this property (e.g., ::method:`__eq__`).
     """
 
     @classmethod
