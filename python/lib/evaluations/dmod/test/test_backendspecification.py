@@ -1,7 +1,7 @@
 import unittest
 import typing
 
-from ..evaluations.specification import model
+from ..evaluations import specification
 from .common import ConstructionTest
 
 
@@ -52,8 +52,8 @@ class TestBackendSpecificationConstruction(ConstructionTest, unittest.TestCase):
 
 
     @classmethod
-    def get_model_to_construct(cls) -> typing.Type[model.Specification]:
-        return model.BackendSpecification
+    def get_model_to_construct(cls) -> typing.Type[specification.Specification]:
+        return specification.BackendSpecification
 
     @property
     def params(self) -> typing.Dict[str, typing.Any]:
@@ -67,10 +67,10 @@ class TestBackendSpecificationConstruction(ConstructionTest, unittest.TestCase):
     def make_assertion_for_single_definition(
             cls,
             test: typing.Union[ConstructionTest, unittest.TestCase],
-            parameters: typing.Union[typing.Dict[str, typing.Any], model.BackendSpecification],
-            definition: model.BackendSpecification
+            parameters: typing.Union[typing.Dict[str, typing.Any], specification.BackendSpecification],
+            definition: specification.BackendSpecification
     ):
-        if isinstance(parameters, model.BackendSpecification):
+        if isinstance(parameters, specification.BackendSpecification):
             test.assertEqual(definition.type, parameters.type)
             test.assertEqual(definition.address, parameters.address)
             test.assertEqual(definition.format, parameters.format)

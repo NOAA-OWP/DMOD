@@ -2,13 +2,13 @@ import os.path
 import unittest
 import typing
 
-from ...evaluations.specification import model
+from ...evaluations import specification
 from ..common import ConstructionTest
 
 
 class TestUnitDefinitionConstruction(ConstructionTest, unittest.TestCase):
-    def get_model_to_construct(cls) -> typing.Type[model.Specification]:
-        return model.UnitDefinition
+    def get_model_to_construct(cls) -> typing.Type[specification.Specification]:
+        return specification.UnitDefinition
 
     @property
     def params(self) -> typing.Dict[str, typing.Any]:
@@ -40,11 +40,11 @@ class TestUnitDefinitionConstruction(ConstructionTest, unittest.TestCase):
             cls,
             test: typing.Union[ConstructionTest, unittest.TestCase],
             parameters: typing.Union[str, typing.Dict[str, typing.Any]],
-            definition: model.UnitDefinition
+            definition: specification.UnitDefinition
     ):
         if isinstance(parameters, str):
             test.assertEqual(definition.value, parameters)
-        elif isinstance(parameters, model.UnitDefinition):
+        elif isinstance(parameters, specification.UnitDefinition):
             test.assertEqual(definition, parameters)
         elif isinstance(parameters, dict):
             test.assertEqual(definition.value, parameters.get("value"))

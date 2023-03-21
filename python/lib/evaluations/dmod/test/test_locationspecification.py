@@ -1,7 +1,7 @@
 import unittest
 import typing
 
-from ..evaluations.specification import model
+from ..evaluations import specification
 from .common import ConstructionTest
 
 
@@ -11,7 +11,7 @@ class TestLocationSpecificationConstruction(ConstructionTest, unittest.TestCase)
             cls,
             test: typing.Union[ConstructionTest, unittest.TestCase],
             parameters: typing.Dict[str, typing.Any],
-            definition: model.LocationSpecification
+            definition: specification.LocationSpecification
     ):
         if isinstance(parameters, dict):
             test.assertEqual(definition.should_identify, parameters.get('identify', False))
@@ -40,7 +40,7 @@ class TestLocationSpecificationConstruction(ConstructionTest, unittest.TestCase)
 
             test.assertIsNone(definition.get("NonExistentProperty"))
             test.assertTrue(definition.get("NonExistentProperty", True))
-        elif isinstance(parameters, model.LocationSpecification):
+        elif isinstance(parameters, specification.LocationSpecification):
             test.assertEqual(definition, parameters)
         else:
             raise TypeError(f"The passed parameters are not valid: {parameters}")
@@ -103,8 +103,8 @@ class TestLocationSpecificationConstruction(ConstructionTest, unittest.TestCase)
         ]
 
     @classmethod
-    def get_model_to_construct(cls) -> typing.Type[model.Specification]:
-        return model.LocationSpecification
+    def get_model_to_construct(cls) -> typing.Type[specification.Specification]:
+        return specification.LocationSpecification
 
     @property
     def params(self) -> typing.Dict[str, typing.Any]:

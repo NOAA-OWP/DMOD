@@ -1,7 +1,7 @@
 import typing
 import unittest
 
-from ...evaluations.specification import model
+from ...evaluations import specification
 from ..common import ConstructionTest
 from ..common import OuterConstructionTest
 
@@ -17,7 +17,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
             cls,
             test: typing.Union[ConstructionTest, unittest.TestCase],
             parameters: typing.Dict[str, typing.Any],
-            definition: model.DataSourceSpecification
+            definition: specification.DataSourceSpecification
     ):
         TestBackendSpecificationConstruction.make_assertion_for_single_definition(
                 test,
@@ -58,7 +58,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
         self.__full_object_parameters = {
             "value_field": "sads",
             "unit": "feet",
-            "backend": model.BackendSpecification(
+            "backend": specification.BackendSpecification(
                     backend_type="file",
                     address="path/to/file",
                     data_format="json",
@@ -68,7 +68,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                     prop1=6,
                     prop2=7
             ),
-            "locations": model.LocationSpecification(
+            "locations": specification.LocationSpecification(
                     identify=True,
                     from_field="field",
                     pattern="safsd*",
@@ -80,50 +80,50 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                     prope32="test"
             ),
             "field_mapping": [
-                model.FieldMappingSpecification(
+                specification.FieldMappingSpecification(
                         value="Value1",
                         map_type="test",
                         field="Field1"
                 ),
-                model.FieldMappingSpecification(
+                specification.FieldMappingSpecification(
                         value="Value2",
                         map_type="column",
                         field="Field2"
                 ),
-                model.FieldMappingSpecification(
+                specification.FieldMappingSpecification(
                         value="Value3",
                         map_type="test56",
                         field="Field3"
                 )
             ],
             "value_selectors": [
-                model.ValueSelector(
+                specification.ValueSelector(
                         name="array",
                         where="key",
                         origin="path/to/array",
                         prop1=5
                 ),
-                model.ValueSelector(
+                specification.ValueSelector(
                         name="site_no",
                         where="value:*/site_no",
                         path="/path/to/value",
                         associated_fields=[
-                            model.AssociatedField(
+                            specification.AssociatedField(
                                     name="two",
                                     datatype="int"
                             ),
-                            model.AssociatedField(
+                            specification.AssociatedField(
                                     name="three",
                                     datatype="datetime",
                                     prop1=3
                             ),
-                            model.AssociatedField(
+                            specification.AssociatedField(
                                     name="four",
                                     datatype="string"
                             )
                         ]
                 ),
-                model.ValueSelector(
+                specification.ValueSelector(
                         name="name",
                         where="filename",
                         path="dunno",
@@ -143,11 +143,11 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                 {
                     "value_field": "x",
                     "name": "y",
-                    "unit": model.UnitDefinition(
+                    "unit": specification.UnitDefinition(
                             path="path/to/value"
                     ),
                     "x_axis": "time",
-                    "backend": model.BackendSpecification(
+                    "backend": specification.BackendSpecification(
                             backend_type="service",
                             address="https://example.com",
                             data_format="xml",
@@ -157,7 +157,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                             },
                             prop1=8
                     ),
-                    "locations": model.LocationSpecification(
+                    "locations": specification.LocationSpecification(
                             identify=True,
                             from_field=None,
                             pattern=None,
@@ -177,25 +177,25 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                             prop2="one"
                     ),
                     "field_mapping": [
-                        model.FieldMappingSpecification(
+                        specification.FieldMappingSpecification(
                                 value="Val45ue2",
                                 map_type="cfrtolumn",
                                 field="Fielhdd2"
                         ),
-                        model.FieldMappingSpecification(
+                        specification.FieldMappingSpecification(
                                 value="Valudfe3",
                                 map_type="tegst56",
                                 field="Fieldfd3"
                         )
                     ],
                     "value_selectors": [
-                        model.ValueSelector(
+                        specification.ValueSelector(
                                 name="example",
                                 where="kezfdgy",
                                 origin="path/tofdz/array",
                                 prop1=55
                         ),
-                        model.ValueSelector(
+                        specification.ValueSelector(
                                 name="otherExample",
                                 where="filzdfgename",
                                 path="zfdunno",
@@ -212,7 +212,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
 
         self.__full_object_parameter_list.append(
                 {
-                    "backend": model.BackendSpecification(
+                    "backend": specification.BackendSpecification(
                             backend_type="pubsub",
                             address="ws://dangerous.site.ru",
                             data_format="websocket",
@@ -223,10 +223,10 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                     "x_axis": "time",
                     "name": "timmy",
                     "value_field": "y",
-                    "unit": model.UnitDefinition(
+                    "unit": specification.UnitDefinition(
                             field="unit"
                     ),
-                    "locations": model.LocationSpecification(
+                    "locations": specification.LocationSpecification(
                             identify=False,
                             from_field=None,
                             pattern=None,
@@ -236,14 +236,14 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                             prop3=False
                     ),
                     "field_mapping": [
-                        model.FieldMappingSpecification(
+                        specification.FieldMappingSpecification(
                                 value="Valudee1",
                                 map_type="tedest",
                                 field="Fielxzxd1"
                         )
                     ],
                     "value_selectors": [
-                        model.ValueSelector(
+                        specification.ValueSelector(
                                 where="filcxdfbgename",
                                 path="dundxfno",
                                 name="sdhfsdhfh"
@@ -258,7 +258,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
         )
 
         self.__partial_object_parameters = {
-            "backend": model.BackendSpecification(
+            "backend": specification.BackendSpecification(
                     backend_type="file",
                     address="path/to/file",
                     data_format="json",
@@ -271,7 +271,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
             "name": "partial_object_parameters",
             "x_axis": "x",
             "value_field": "y",
-            "unit": model.UnitDefinition(
+            "unit": specification.UnitDefinition(
                     field="unit"
             ),
             "locations": {
@@ -291,7 +291,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                     "map_type": "test",
                     "field": "Field1"
                 },
-                model.FieldMappingSpecification(
+                specification.FieldMappingSpecification(
                         value="Value2",
                         map_type="column",
                         field="Field2"
@@ -303,7 +303,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                 }
             ],
             "value_selectors": [
-                model.ValueSelector(
+                specification.ValueSelector(
                         where="key",
                         origin="path/to/array",
                         prop1=5,
@@ -323,13 +323,13 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                             "datatype": "datetime",
                             "prop1": 3
                         },
-                        model.AssociatedField(
+                        specification.AssociatedField(
                                 name="four",
                                 datatype="string"
                         )
                     ]
                 },
-                model.ValueSelector(
+                specification.ValueSelector(
                         where="filename",
                         path="dunno",
                         datatype="datetime",
@@ -361,10 +361,10 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                     "x_axis": "duration",
                     "name": "George",
                     "value_field": "x",
-                    "unit": model.UnitDefinition(
+                    "unit": specification.UnitDefinition(
                             path=["one", "two", "three"]
                     ),
-                    "locations": model.LocationSpecification(
+                    "locations": specification.LocationSpecification(
                             identify=True,
                             ids=[
                                 "Fred",
@@ -382,7 +382,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                             prop3=False
                     ),
                     "value_selectors": [
-                        model.ValueSelector(
+                        specification.ValueSelector(
                                 where="kezfdgy",
                                 origin="path/tofdz/array",
                                 prop1=55,
@@ -401,7 +401,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                                 "map_type": "cfrtolumn",
                                 "field": "Fielhdd2"
                         },
-                        model.FieldMappingSpecification(
+                        specification.FieldMappingSpecification(
                                 value="Valudfe3",
                                 map_type="tegst56",
                                 field="Fieldfd3"
@@ -429,7 +429,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                     },
                     "name": "partial_object",
                     "value_field": "x",
-                    "unit": model.UnitDefinition(
+                    "unit": specification.UnitDefinition(
                             field="unit"
                     ),
                     "locations": {
@@ -444,7 +444,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                         }
                     },
                     "field_mapping": [
-                        model.FieldMappingSpecification(
+                        specification.FieldMappingSpecification(
                                 value="Valudee1",
                                 map_type="tedest",
                                 field="Fielxzxd1"
@@ -689,8 +689,8 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
         return self.__partial_object_parameter_list
 
     @classmethod
-    def get_model_to_construct(cls) -> typing.Type[model.Specification]:
-        return model.DataSourceSpecification
+    def get_model_to_construct(cls) -> typing.Type[specification.Specification]:
+        return specification.DataSourceSpecification
 
     @property
     def params(self) -> typing.Dict[str, typing.Any]:
