@@ -4,12 +4,12 @@ from typing import Dict, List, Optional, Set, Tuple, Union
 
 from ...message import MessageEventType
 from ...maas_request import ModelExecRequestResponse
-from .ngen_request import ExternalNextGenRequest
+from .ngen_request import ExternalAbstractNgenRequest
 
 
-class NgenCalibrationRequest(ExternalNextGenRequest):
+class NgenCalibrationRequest(ExternalAbstractNgenRequest):
     """
-    An extension of ::class:`ExternalNextGenRequest` for requesting ngen framework calibration jobs using ngen-cal.
+    An extension of ::class:`ExternalAbstractNgenRequest` for requesting ngen framework calibration jobs using ngen-cal.
     """
 
     event_type: MessageEventType = MessageEventType.CALIBRATION_REQUEST
