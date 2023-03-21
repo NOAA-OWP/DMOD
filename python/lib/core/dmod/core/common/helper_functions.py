@@ -554,6 +554,40 @@ def find(
     return next(filter(predicate, iterable), default)
 
 
+def find(
+    iterable: typing.Iterable[_CLASS_TYPE],
+    predicate: typing.Callable[[_CLASS_TYPE], bool]
+) -> typing.Optional[_CLASS_TYPE]:
+    """
+    Find the first value in an iterable that complies with the give predicate
+
+    The pythonic approach to this is:
+
+        >>> next(filter(lambda val: val == 999, range(1000000)), None)
+
+    But this doesn't short circuit and is a bit complicated at first glance. As a result, it may take a long time to
+    complete, especially when done many times. This function, however, short circuits resulting in a potentially
+    MUCH shorter runtime.
+
+    This results in lower cognitive overload and better performance
+
+    Args:
+        iterable: The collection to search
+        predicate: A check to see if the encountered value matches the desired value
+
+    Returns:
+        The first value matching the value, None if a matching value isn't found.
+    """
+    if not iterable:
+        return None
+
+    for value in iterable:
+        if predicate(value):
+            return value
+
+    return None
+
+
 def is_true(value) -> bool:
     """
     Check to see what the boolean value of a value is
