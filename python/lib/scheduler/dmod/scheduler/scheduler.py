@@ -2,7 +2,7 @@
 
 import logging
 from requests.exceptions import ReadTimeout
-from dmod.communication import AbstractNextGenRequest, MessageEventType, NGENRequest, NWMRequest, NgenCalibrationRequest
+from dmod.communication import AbstractNgenRequest, MessageEventType, NGENRequest, NWMRequest, NgenCalibrationRequest
 from dmod.core.exception import DmodRuntimeError
 from dmod.core.meta_data import DataCategory, DataFormat
 from os import getenv
@@ -387,7 +387,7 @@ class Launcher(SimpleDockerUtil):
 
         # TODO (later): have something more intelligent than class type to determine right entrypoint format and
         #  values, but for now assume/require a "standard" image
-        if not (isinstance(job.model_request, NWMRequest) or isinstance(job.model_request, AbstractNextGenRequest)):
+        if not (isinstance(job.model_request, NWMRequest) or isinstance(job.model_request, AbstractNgenRequest)):
             raise RuntimeError("Unexpected request type {}: cannot build Docker CMD arg list".format(
                 job.model_request.__class__.__name__))
 
@@ -396,7 +396,7 @@ class Launcher(SimpleDockerUtil):
         # TODO (later): probably need to move all types to recognize and use explicit flags rather than order arguments
         docker_cmd_args = [str(len(job.allocations)), self.build_host_list(job), str(job.job_id)]
 
-        if isinstance(job.model_request, AbstractNextGenRequest):
+        if isinstance(job.model_request, AbstractNgenRequest):
             docker_cmd_args.extend(self._generate_nextgen_job_docker_cmd_args(job, worker_index))
 
         return docker_cmd_args
@@ -432,7 +432,7 @@ class Launcher(SimpleDockerUtil):
         _generate_docker_cmd_args
         """
         # Start with a sanity check
-        if not isinstance(job.model_request, AbstractNextGenRequest):
+        if not isinstance(job.model_request, AbstractNgenRequest):
             msg = "Cannot generate Nextgen-base Docker job CMD args for job {} with request of {} type"
             raise RuntimeError(msg.format(str(job.job_id), job.model_request.__class__.__name__))
 
