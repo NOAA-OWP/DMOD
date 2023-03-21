@@ -22,9 +22,12 @@ import websockets
 class NgenRequestClient(ModelExecRequestClient[NGENRequest, NGENRequestResponse]):
 
     # In particular needs - endpoint_uri: str, ssl_directory: Path
-    def __init__(self, *args, **kwargs):
+    def __init__(self, cached_session_file: Optional[Path] = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._cached_session_file = Path.home().joinpath('.dmod_client_session')
+        if cached_session_file is None:
+            self._cached_session_file = Path.home().joinpath('.dmod_client_session')
+        else:
+            self._cached_session_file = cached_session_file
 
     # TODO: need some integration tests for this and CLI main and arg parsing
     async def request_exec(self, *args, **kwargs) -> NGENRequestResponse:
@@ -36,9 +39,12 @@ class NgenRequestClient(ModelExecRequestClient[NGENRequest, NGENRequestResponse]
 class NgenCalRequestClient(ModelExecRequestClient[NgenCalibrationRequest, NgenCalibrationResponse]):
 
     # In particular needs - endpoint_uri: str, ssl_directory: Path
-    def __init__(self, *args, **kwargs):
+    def __init__(self, cached_session_file: Optional[Path] = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._cached_session_file = Path.home().joinpath('.dmod_client_session')
+        if cached_session_file is None:
+            self._cached_session_file = Path.home().joinpath('.dmod_client_session')
+        else:
+            self._cached_session_file = cached_session_file
 
     # TODO: need some integration tests for this and CLI main and arg parsing
     async def request_exec(self, *args, **kwargs) -> NgenCalibrationResponse:
