@@ -4,12 +4,12 @@ from typing import Dict, List, Optional, Set, Union
 
 from dmod.core.meta_data import TimeRange
 from ...message import MessageEventType
-from .abstract_nextgen_request import ExternalNextGenRequest
+from .abstract_nextgen_request import ExternalAbstractNgenRequest
 from ..model_exec_request import ModelExecRequest
 from ..model_exec_request_response import ModelExecRequestResponse
 
 
-class NGENRequest(ModelExecRequest, ExternalNextGenRequest):
+class NGENRequest(ModelExecRequest, ExternalAbstractNgenRequest):
 
     event_type = MessageEventType.MODEL_EXEC_REQUEST
     """(:class:`MessageEventType`) The type of event for this message"""
