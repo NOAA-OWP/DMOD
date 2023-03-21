@@ -1,14 +1,14 @@
 import unittest
 import typing
 
-from ..evaluations.specification import model
+from ..evaluations import specification
 from .specification.test_unitdefinition import TestUnitDefinitionConstruction
 from .common import ConstructionTest
 
 
 class TestThresholdDefinitionConstruction(ConstructionTest, unittest.TestCase):
-    def get_model_to_construct(cls) -> typing.Type[model.Specification]:
-        return model.ThresholdDefinition
+    def get_model_to_construct(cls) -> typing.Type[specification.Specification]:
+        return specification.ThresholdDefinition
 
     @property
     def params(self) -> typing.Dict[str, typing.Any]:
@@ -75,7 +75,7 @@ class TestThresholdDefinitionConstruction(ConstructionTest, unittest.TestCase):
             cls,
             test: typing.Union[ConstructionTest, unittest.TestCase],
             parameters: typing.Dict[str, typing.Any],
-            definition: model.ThresholdDefinition
+            definition: specification.ThresholdDefinition
     ):
         if isinstance(parameters, dict):
             test.assertEqual(definition.name, parameters['name'])
@@ -101,7 +101,7 @@ class TestThresholdDefinitionConstruction(ConstructionTest, unittest.TestCase):
                     parameters['unit'],
                     definition.unit
             )
-        elif isinstance(parameters, model.ThresholdDefinition):
+        elif isinstance(parameters, specification.ThresholdDefinition):
             test.assertEqual(definition, parameters)
         else:
             raise TypeError(f"The passed parameters are not valid")

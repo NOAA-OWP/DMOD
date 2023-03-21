@@ -2,13 +2,13 @@ import os.path
 import unittest
 import typing
 
-from ..evaluations.specification import model
+from ..evaluations import specification
 from .common import ConstructionTest
 
 
 class TestMetricSpecificationConstruction(ConstructionTest, unittest.TestCase):
-    def get_model_to_construct(cls) -> typing.Type[model.Specification]:
-        return model.MetricSpecification
+    def get_model_to_construct(cls) -> typing.Type[specification.Specification]:
+        return specification.MetricSpecification
 
     @property
     def params(self) -> typing.Dict[str, typing.Any]:
@@ -63,7 +63,7 @@ class TestMetricSpecificationConstruction(ConstructionTest, unittest.TestCase):
             cls,
             test: typing.Union[ConstructionTest, unittest.TestCase],
             parameters: typing.Dict[str, typing.Any],
-            definition: model.MetricSpecification
+            definition: specification.MetricSpecification
     ):
         test.assertEqual(definition.name, parameters['name'])
         test.assertEqual(definition.weight, parameters['weight'])

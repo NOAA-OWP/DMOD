@@ -1,7 +1,7 @@
 import typing
 import unittest
 
-from ..evaluations.specification import model
+from ..evaluations import specification
 from .common import ConstructionTest
 from .common import OuterConstructionTest
 
@@ -16,7 +16,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
             cls,
             test: typing.Union[ConstructionTest, unittest.TestCase],
             parameters: typing.Dict[str, typing.Any],
-            definition: model.ThresholdSpecification
+            definition: specification.ThresholdSpecification
     ):
         TestBackendSpecificationConstruction.make_assertion_for_single_definition(
                 test,
@@ -36,7 +36,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
 
     def setUp(self) -> None:
         self.__full_object_parameters = {
-            "backend": model.BackendSpecification(
+            "backend": specification.BackendSpecification(
                     backend_type="file",
                     address="path/to/file",
                     data_format="json",
@@ -46,7 +46,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                     prop1=6,
                     prop2=7
             ),
-            "locations": model.LocationSpecification(
+            "locations": specification.LocationSpecification(
                     identify=True,
                     from_field="field",
                     pattern="safsd*",
@@ -58,10 +58,10 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                     prope32="test"
             ),
             "definitions": [
-                model.ThresholdDefinition(
+                specification.ThresholdDefinition(
                         name="Test1",
                         field="test_field1",
-                        unit=model.UnitDefinition(
+                        unit=specification.UnitDefinition(
                                 value="miles"
                         ),
                         weight=5,
@@ -71,7 +71,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                         },
                         prop3=True
                 ),
-                model.ThresholdDefinition(
+                specification.ThresholdDefinition(
                         name="Test2",
                         weight=6,
                         field="test_field2",
@@ -80,15 +80,15 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                             "prop2": 9,
                             "prop3": False
                         },
-                        unit=model.UnitDefinition(
+                        unit=specification.UnitDefinition(
                                 value="inches"
                         )
                 ),
-                model.ThresholdDefinition(
+                specification.ThresholdDefinition(
                         name="Test3",
                         weight=7,
                         field="test_field3",
-                        unit=model.UnitDefinition(
+                        unit=specification.UnitDefinition(
                             value="years"
                         ),
                         prop1=10,
@@ -107,7 +107,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
         self.__full_object_parameter_list.append(self.__full_object_parameters)
         self.__full_object_parameter_list.append(
                 {
-                    "backend": model.BackendSpecification(
+                    "backend": specification.BackendSpecification(
                             backend_type="service",
                             address="https://example.com",
                             data_format="xml",
@@ -117,7 +117,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                             },
                             prop1=8
                     ),
-                    "locations": model.LocationSpecification(
+                    "locations": specification.LocationSpecification(
                             identify=True,
                             from_field=None,
                             pattern=None,
@@ -137,8 +137,8 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                             prop2="one"
                     ),
                     "definitions": [
-                        model.ThresholdDefinition(
-                                unit=model.UnitDefinition(
+                        specification.ThresholdDefinition(
+                                unit=specification.UnitDefinition(
                                         value="feet",
                                 ),
                                 name="Terdfst1",
@@ -150,8 +150,8 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                                     "prop3": True
                                 }
                         ),
-                        model.ThresholdDefinition(
-                                unit=model.UnitDefinition(
+                        specification.ThresholdDefinition(
+                                unit=specification.UnitDefinition(
                                         field="cheese"
                                 ),
                                 name="Test4",
@@ -174,7 +174,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
 
         self.__full_object_parameter_list.append(
                 {
-                    "backend": model.BackendSpecification(
+                    "backend": specification.BackendSpecification(
                             backend_type="pubsub",
                             address="ws://dangerous.site.ru",
                             data_format="websocket",
@@ -182,7 +182,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                             prop2=11,
                             prop3=True
                     ),
-                    "locations": model.LocationSpecification(
+                    "locations": specification.LocationSpecification(
                             identify=False,
                             from_field=None,
                             pattern=None,
@@ -192,7 +192,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                             prop3=False
                     ),
                     "definitions": [
-                        model.ThresholdDefinition(
+                        specification.ThresholdDefinition(
                                 name="Terdfst1",
                                 weight=2,
                                 field="test_field",
@@ -201,7 +201,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                                 },
                                 prop1=4,
                                 prop2=3,
-                                unit=model.UnitDefinition(
+                                unit=specification.UnitDefinition(
                                         path="path/to/whatever"
                                 )
                         )
@@ -215,7 +215,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
         )
 
         self.__partial_object_parameters = {
-            "backend": model.BackendSpecification(
+            "backend": specification.BackendSpecification(
                     backend_type="file",
                     address="path/to/file",
                     data_format="json",
@@ -250,7 +250,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                         "path": "path/from/x"
                     }
                 },
-                model.ThresholdDefinition(
+                specification.ThresholdDefinition(
                         name="Test2",
                         weight=6,
                         field="test_field2",
@@ -259,18 +259,18 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                             "prop2": 9,
                             "prop3": False
                         },
-                        unit=model.UnitDefinition(
+                        unit=specification.UnitDefinition(
                                 value="x"
                         )
                 ),
-                model.ThresholdDefinition(
+                specification.ThresholdDefinition(
                         name="Test3",
                         weight=7,
                         field="test_field3",
                         prop1=10,
                         prop2=11,
                         prop3=True,
-                        unit=model.UnitDefinition(
+                        unit=specification.UnitDefinition(
                                 field="sdsdf"
                         )
                 )
@@ -297,7 +297,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                             "prop3": False
                         }
                     },
-                    "locations": model.LocationSpecification(
+                    "locations": specification.LocationSpecification(
                             identify=True,
                             ids=[
                                 "Fred",
@@ -372,7 +372,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                         }
                     },
                     "definitions": [
-                        model.ThresholdDefinition(
+                        specification.ThresholdDefinition(
                                 name="Terdfst1",
                                 weight=2,
                                 field="test_field",
@@ -589,8 +589,8 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
         return self.__partial_object_parameter_list
 
     @classmethod
-    def get_model_to_construct(cls) -> typing.Type[model.Specification]:
-        return model.ThresholdSpecification
+    def get_model_to_construct(cls) -> typing.Type[specification.Specification]:
+        return specification.ThresholdSpecification
 
     @property
     def params(self) -> typing.Dict[str, typing.Any]:

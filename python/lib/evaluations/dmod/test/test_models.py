@@ -3,7 +3,7 @@ import typing
 import json
 import io
 
-from ..evaluations.specification import model
+from ..evaluations import specification
 
 
 class TestModelConstruction(unittest.TestCase):
@@ -20,7 +20,7 @@ class TestModelConstruction(unittest.TestCase):
             }
         }
 
-        definition: model.BackendSpecification = model.BackendSpecification.create(params)
+        definition: specification.BackendSpecification = specification.BackendSpecification.create(params)
         self.assertEqual(definition.type, "file")
         self.assertEqual(definition.address, "path/to/file")
         self.assertEqual(definition.format, "json")
@@ -41,7 +41,7 @@ class TestModelConstruction(unittest.TestCase):
 
         text_params = json.dumps(params)
 
-        definition: model.BackendSpecification = model.BackendSpecification.create(text_params)
+        definition: specification.BackendSpecification = specification.BackendSpecification.create(text_params)
         self.assertEqual(definition.type, "file")
         self.assertEqual(definition.address, "path/to/file")
         self.assertEqual(definition.format, "json")
@@ -62,7 +62,7 @@ class TestModelConstruction(unittest.TestCase):
 
         bytes_params = text_params.encode()
 
-        definition: model.BackendSpecification = model.BackendSpecification.create(bytes_params)
+        definition: specification.BackendSpecification = specification.BackendSpecification.create(bytes_params)
         self.assertEqual(definition.type, "file")
         self.assertEqual(definition.address, "path/to/file")
         self.assertEqual(definition.format, "json")
@@ -85,7 +85,7 @@ class TestModelConstruction(unittest.TestCase):
         buffer.write(bytes_params)
         buffer.seek(0)
 
-        definition: model.BackendSpecification = model.BackendSpecification.create(buffer)
+        definition: specification.BackendSpecification = specification.BackendSpecification.create(buffer)
         self.assertEqual(definition.type, "file")
         self.assertEqual(definition.address, "path/to/file")
         self.assertEqual(definition.format, "json")
@@ -108,7 +108,7 @@ class TestModelConstruction(unittest.TestCase):
         buffer.write(text_params)
         buffer.seek(0)
 
-        definition: model.BackendSpecification = model.BackendSpecification.create(buffer)
+        definition: specification.BackendSpecification = specification.BackendSpecification.create(buffer)
         self.assertEqual(definition.type, "file")
         self.assertEqual(definition.address, "path/to/file")
         self.assertEqual(definition.format, "json")
@@ -139,7 +139,7 @@ class TestModelConstruction(unittest.TestCase):
             }
         }
 
-        definition: model.FieldMappingSpecification = model.FieldMappingSpecification.create(params)
+        definition: specification.FieldMappingSpecification = specification.FieldMappingSpecification.create(params)
         self.assertEqual(definition.value, "observation")
         self.assertEqual(definition.map_type, "field")
         self.assertEqual(definition.field, "value")
@@ -160,7 +160,7 @@ class TestModelConstruction(unittest.TestCase):
 
         text_params = json.dumps(params)
 
-        definition: model.FieldMappingSpecification = model.FieldMappingSpecification.create(text_params)
+        definition: specification.FieldMappingSpecification = specification.FieldMappingSpecification.create(text_params)
         self.assertEqual(definition.value, "observation")
         self.assertEqual(definition.map_type, "field")
         self.assertEqual(definition.field, "value")
@@ -181,7 +181,7 @@ class TestModelConstruction(unittest.TestCase):
 
         bytes_params = text_params.encode()
 
-        definition: model.FieldMappingSpecification = model.FieldMappingSpecification.create(bytes_params)
+        definition: specification.FieldMappingSpecification = specification.FieldMappingSpecification.create(bytes_params)
         self.assertEqual(definition.value, "observation")
         self.assertEqual(definition.map_type, "field")
         self.assertEqual(definition.field, "value")
@@ -204,7 +204,7 @@ class TestModelConstruction(unittest.TestCase):
         buffer.write(bytes_params)
         buffer.seek(0)
 
-        definition: model.FieldMappingSpecification = model.FieldMappingSpecification.create(buffer)
+        definition: specification.FieldMappingSpecification = specification.FieldMappingSpecification.create(buffer)
         self.assertEqual(definition.value, "observation")
         self.assertEqual(definition.map_type, "field")
         self.assertEqual(definition.field, "value")
@@ -227,7 +227,7 @@ class TestModelConstruction(unittest.TestCase):
         buffer.write(text_params)
         buffer.seek(0)
 
-        definition: model.FieldMappingSpecification = model.FieldMappingSpecification.create(buffer)
+        definition: specification.FieldMappingSpecification = specification.FieldMappingSpecification.create(buffer)
         self.assertEqual(definition.value, "observation")
         self.assertEqual(definition.map_type, "field")
         self.assertEqual(definition.field, "value")
@@ -247,37 +247,37 @@ class TestModelConstruction(unittest.TestCase):
         self.assertTrue(definition.get("prop4", True))
 
     def test_unitdefinition(self):
-        definition: model.UnitDefinition = model.UnitDefinition.create("mile")
+        definition: specification.UnitDefinition = specification.UnitDefinition.create("mile")
 
         self.assertEqual("mile", definition.value)
         self.assertIsNone(definition.path)
         self.assertIsNone(definition.field)
 
-        definition = model.UnitDefinition.create(definition.to_dict())
+        definition = specification.UnitDefinition.create(definition.to_dict())
 
         self.assertEqual("mile", definition.value)
         self.assertIsNone(definition.path)
         self.assertIsNone(definition.field)
 
-        definition: model.UnitDefinition = model.UnitDefinition.create({"value": "mile"})
+        definition: specification.UnitDefinition = specification.UnitDefinition.create({"value": "mile"})
 
         self.assertEqual("mile", definition.value)
         self.assertIsNone(definition.path)
         self.assertIsNone(definition.field)
 
-        definition = model.UnitDefinition.create(definition.to_dict())
+        definition = specification.UnitDefinition.create(definition.to_dict())
 
         self.assertEqual("mile", definition.value)
         self.assertIsNone(definition.path)
         self.assertIsNone(definition.field)
 
-        definition = model.UnitDefinition.create('{"path": "path/to/value"}')
+        definition = specification.UnitDefinition.create('{"path": "path/to/value"}')
 
         self.assertSequenceEqual(["path", "to", "value"], definition.path)
         self.assertIsNone(definition.value)
         self.assertIsNone(definition.field)
 
-        definition = model.UnitDefinition.create(definition.to_dict())
+        definition = specification.UnitDefinition.create(definition.to_dict())
 
         self.assertSequenceEqual(["path", "to", "value"], definition.path)
         self.assertIsNone(definition.value)
@@ -285,13 +285,13 @@ class TestModelConstruction(unittest.TestCase):
 
         byte_params = '{"path": "path/to/value"}'.encode()
 
-        definition = model.UnitDefinition.create(byte_params)
+        definition = specification.UnitDefinition.create(byte_params)
 
         self.assertSequenceEqual(["path", "to", "value"], definition.path)
         self.assertIsNone(definition.value)
         self.assertIsNone(definition.field)
 
-        definition = model.UnitDefinition.create(definition.to_dict())
+        definition = specification.UnitDefinition.create(definition.to_dict())
 
         self.assertSequenceEqual(["path", "to", "value"], definition.path)
         self.assertIsNone(definition.value)
@@ -301,13 +301,13 @@ class TestModelConstruction(unittest.TestCase):
         buffer.write('{"field": "unit_field"}'.encode())
         buffer.seek(0)
 
-        definition = model.UnitDefinition.create(buffer)
+        definition = specification.UnitDefinition.create(buffer)
 
         self.assertEqual("unit_field", definition.field)
         self.assertIsNone(definition.path)
         self.assertIsNone(definition.value)
 
-        definition = model.UnitDefinition.create(definition.to_dict())
+        definition = specification.UnitDefinition.create(definition.to_dict())
 
         self.assertEqual("unit_field", definition.field)
         self.assertIsNone(definition.path)
@@ -325,7 +325,7 @@ class TestModelConstruction(unittest.TestCase):
             }
         }
 
-        definition: model.ValueSelector = model.ValueSelector.create(params)
+        definition: specification.ValueSelector = specification.ValueSelector.create(params)
         self.assertEqual(definition.where, "value")
         self.assertSequenceEqual(definition.origin, ["$"])
         self.assertSequenceEqual(definition.path, ["path", "to", "field"])
@@ -346,7 +346,7 @@ class TestModelConstruction(unittest.TestCase):
 
         text_params = json.dumps(params)
 
-        definition: model.ValueSelector = model.ValueSelector.create(text_params)
+        definition: specification.ValueSelector = specification.ValueSelector.create(text_params)
         self.assertEqual(definition.where, "value")
         self.assertSequenceEqual(["$"], definition.origin)
         self.assertSequenceEqual(definition.path, ["path", "to", "field"])
@@ -367,7 +367,7 @@ class TestModelConstruction(unittest.TestCase):
 
         bytes_params = text_params.encode()
 
-        definition: model.ValueSelector = model.ValueSelector.create(bytes_params)
+        definition: specification.ValueSelector = specification.ValueSelector.create(bytes_params)
         self.assertEqual(definition.where, "value")
         self.assertSequenceEqual(definition.path, ["path", "to", "field"])
         self.assertSequenceEqual(['$'], definition.origin)
@@ -390,7 +390,7 @@ class TestModelConstruction(unittest.TestCase):
         buffer.write(bytes_params)
         buffer.seek(0)
 
-        definition: model.ValueSelector = model.ValueSelector.create(buffer)
+        definition: specification.ValueSelector = specification.ValueSelector.create(buffer)
         self.assertEqual(definition.where, "value")
         self.assertEqual(definition.path, ["path", "to", "field"])
         self.assertSequenceEqual(["$"], definition.origin)
@@ -413,7 +413,7 @@ class TestModelConstruction(unittest.TestCase):
         buffer.write(text_params)
         buffer.seek(0)
 
-        definition: model.ValueSelector = model.ValueSelector.create(buffer)
+        definition: specification.ValueSelector = specification.ValueSelector.create(buffer)
         self.assertEqual(definition.where, "value")
         self.assertSequenceEqual(definition.path, ["path", "to", "field"])
         self.assertSequenceEqual(['$'], definition.origin)

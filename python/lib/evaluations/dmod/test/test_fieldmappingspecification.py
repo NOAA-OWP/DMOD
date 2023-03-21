@@ -1,13 +1,13 @@
 import unittest
 import typing
 
-from ..evaluations.specification import model
+from ..evaluations import specification
 from .common import ConstructionTest
 
 
 class TestFieldMappingSpecificationConstruction(ConstructionTest, unittest.TestCase):
-    def get_model_to_construct(cls) -> typing.Type[model.Specification]:
-        return model.FieldMappingSpecification
+    def get_model_to_construct(cls) -> typing.Type[specification.Specification]:
+        return specification.FieldMappingSpecification
 
     @property
     def params(self) -> typing.Dict[str, typing.Any]:
@@ -65,8 +65,8 @@ class TestFieldMappingSpecificationConstruction(ConstructionTest, unittest.TestC
     def make_assertion_for_single_definition(
             cls,
             test: typing.Union[ConstructionTest, unittest.TestCase],
-            parameters: typing.Union[typing.Dict[str, typing.Any], model.FieldMappingSpecification],
-            definition: model.FieldMappingSpecification
+            parameters: typing.Union[typing.Dict[str, typing.Any], specification.FieldMappingSpecification],
+            definition: specification.FieldMappingSpecification
     ):
         if isinstance(parameters, dict):
             test.assertEqual(definition.field, parameters['field'])

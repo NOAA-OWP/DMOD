@@ -2,14 +2,14 @@ import os.path
 import unittest
 import typing
 
-from ..evaluations.specification import model
+from ..evaluations import specification
 from .common import ConstructionTest
 from .test_indexfield import TestIndexFieldConstruction
 
 
 class TestValueSelectorConstruction(ConstructionTest, unittest.TestCase):
-    def get_model_to_construct(cls) -> typing.Type[model.Specification]:
-        return model.ValueSelector
+    def get_model_to_construct(cls) -> typing.Type[specification.Specification]:
+        return specification.ValueSelector
 
     @property
     def params(self) -> typing.Dict[str, typing.Any]:
@@ -105,8 +105,8 @@ class TestValueSelectorConstruction(ConstructionTest, unittest.TestCase):
     def make_assertion_for_single_definition(
             cls,
             test: typing.Union[ConstructionTest, unittest.TestCase],
-            parameters: typing.Union[typing.Dict[str, typing.Any], model.ValueSelector],
-            definition: model.ValueSelector
+            parameters: typing.Union[typing.Dict[str, typing.Any], specification.ValueSelector],
+            definition: specification.ValueSelector
     ):
         if isinstance(parameters, dict):
             test.assertEqual(parameters.get('where'), definition.where)

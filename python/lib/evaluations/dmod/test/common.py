@@ -7,7 +7,7 @@ import json
 import io
 import pathlib
 
-from ..evaluations.specification import model
+from ..evaluations import specification
 
 
 def get_resource_directory() -> pathlib.Path:
@@ -65,7 +65,7 @@ EPSILON = 0.00001
 class ConstructionTest(abc.ABC):
     @classmethod
     @abc.abstractmethod
-    def get_model_to_construct(cls) -> typing.Type[model.Specification]:
+    def get_model_to_construct(cls) -> typing.Type[specification.Specification]:
         pass
 
     @property
@@ -117,14 +117,14 @@ class ConstructionTest(abc.ABC):
 
     def test_multiple_basic_construction(self):
 
-        definitions: typing.List[model.Specification] = self.get_model_to_construct().create(self.param_list)
+        definitions: typing.List[specification.Specification] = self.get_model_to_construct().create(self.param_list)
 
         self.make_assertions_for_multiple_definitions(self, definitions)
 
     def test_multiple_string_construction(self):
         text_params = json.dumps(self.param_list)
 
-        definitions: typing.List[model.Specification] = self.get_model_to_construct().create(text_params)
+        definitions: typing.List[specification.Specification] = self.get_model_to_construct().create(text_params)
 
         self.make_assertions_for_multiple_definitions(self, definitions)
 
@@ -161,7 +161,7 @@ class ConstructionTest(abc.ABC):
     def make_assertions_for_multiple_definitions(
             cls,
             test: typing.Union["ConstructionTest", unittest.TestCase],
-            definitions: typing.Sequence[model.Specification],
+            definitions: typing.Sequence[specification.Specification],
             parameter_list: typing.Sequence[typing.Dict[str, typing.Any]] = None
     ):
         if parameter_list is None:
@@ -180,7 +180,7 @@ class ConstructionTest(abc.ABC):
             cls,
             test: "ConstructionTest",
             parameters: typing.Dict[str, typing.Any],
-            definition: model.Specification
+            definition: specification.Specification
     ):
         pass
 
@@ -213,7 +213,7 @@ class OuterConstructionTest(ConstructionTest, abc.ABC):
 
     def test_full_object_multiple_basic_construction(self):
 
-        definitions: typing.List[model.Specification] = self.get_model_to_construct().create(self.full_object_parameter_list)
+        definitions: typing.List[specification.Specification] = self.get_model_to_construct().create(self.full_object_parameter_list)
 
         self.make_assertions_for_multiple_definitions(self, definitions, self.full_object_parameter_list)
 
@@ -224,6 +224,6 @@ class OuterConstructionTest(ConstructionTest, abc.ABC):
 
     def test_partial_object_multiple_basic_construction(self):
 
-        definitions: typing.List[model.Specification] = self.get_model_to_construct().create(self.partial_object_parameter_list)
+        definitions: typing.List[specification.Specification] = self.get_model_to_construct().create(self.partial_object_parameter_list)
 
         self.make_assertions_for_multiple_definitions(self, definitions, self.partial_object_parameter_list)

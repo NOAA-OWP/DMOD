@@ -1,7 +1,7 @@
 import typing
 import unittest
 
-from ...evaluations.specification import model
+from ...evaluations import specification
 from ..common import ConstructionTest
 from ..common import OuterConstructionTest
 
@@ -15,7 +15,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
             cls,
             test: typing.Union[ConstructionTest, unittest.TestCase],
             parameters: typing.Dict[str, typing.Any],
-            definition: model.CrosswalkSpecification
+            definition: specification.CrosswalkSpecification
     ):
 
         origin = parameters.get("origin")
@@ -53,7 +53,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
 
     def setUp(self) -> None:
         self.__full_object_parameters = {
-            "backend": model.BackendSpecification(
+            "backend": specification.BackendSpecification(
                     backend_type="file",
                     address="path/to/file",
                     data_format="json",
@@ -66,14 +66,14 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
             "entity_path": "path/to/start",
             "prediction_field_name": "prediction_location",
             "observation_field_name": "observation_location",
-            "field": model.ValueSelector(
+            "field": specification.ValueSelector(
                     name="prediction_location",
                     where="key",
                     path=["* where site_no"],
                     origin="$",
                     datatype="string",
                     associated_fields=[
-                        model.AssociatedField(
+                        specification.AssociatedField(
                                 name="observation_location",
                                 path="site_no",
                                 datatype="string"
@@ -91,7 +91,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
         self.__full_object_parameter_list.append(self.__full_object_parameters)
         self.__full_object_parameter_list.append(
                 {
-                    "backend": model.BackendSpecification(
+                    "backend": specification.BackendSpecification(
                             backend_type="service",
                             address="https://example.com",
                             data_format="xml",
@@ -104,7 +104,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
                     "entity_path": "padrth/tdo/stfgrtart",
                     "prediction_field_name": "prediction_field",
                     "observation_field_name": "observation_field",
-                    "field": model.ValueSelector(
+                    "field": specification.ValueSelector(
                             name="x",
                             where="key"
                     ),
@@ -118,7 +118,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
 
         self.__full_object_parameter_list.append(
                 {
-                    "backend": model.BackendSpecification(
+                    "backend": specification.BackendSpecification(
                             backend_type="pubsub",
                             address="ws://dangerous.site.ru",
                             data_format="websocket",
@@ -143,7 +143,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
         )
 
         self.__partial_object_parameters = {
-            "backend": model.BackendSpecification(
+            "backend": specification.BackendSpecification(
                     backend_type="file",
                     address="path/to/file",
                     data_format="json",
@@ -155,7 +155,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
             ),
             "entity_path": "path/to/start",
             "prediction_field_name": "prediction_location",
-            "field": model.ValueSelector(
+            "field": specification.ValueSelector(
                     name="z",
                     where='one/two/three'
             ),
@@ -209,7 +209,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
                             "prop3": True
                         }
                     },
-                    "field": model.ValueSelector(
+                    "field": specification.ValueSelector(
                             name="cobb",
                             where="salad"
                     ),
@@ -328,8 +328,8 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
         return self.__partial_object_parameter_list
 
     @classmethod
-    def get_model_to_construct(cls) -> typing.Type[model.Specification]:
-        return model.CrosswalkSpecification
+    def get_model_to_construct(cls) -> typing.Type[specification.Specification]:
+        return specification.CrosswalkSpecification
 
     @property
     def params(self) -> typing.Dict[str, typing.Any]:

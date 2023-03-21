@@ -2,13 +2,13 @@ import os.path
 import unittest
 import typing
 
-from ..evaluations.specification import model
+from ..evaluations import specification
 from .common import ConstructionTest
 
 
 class TestIndexFieldConstruction(ConstructionTest, unittest.TestCase):
-    def get_model_to_construct(cls) -> typing.Type[model.Specification]:
-        return model.AssociatedField
+    def get_model_to_construct(cls) -> typing.Type[specification.Specification]:
+        return specification.AssociatedField
 
     @property
     def params(self) -> typing.Dict[str, typing.Any]:
@@ -49,10 +49,10 @@ class TestIndexFieldConstruction(ConstructionTest, unittest.TestCase):
     def make_assertion_for_single_definition(
             cls,
             test: typing.Union[ConstructionTest, unittest.TestCase],
-            parameters: typing.Union[typing.Dict[str, typing.Any], model.AssociatedField],
-            definition: model.AssociatedField
+            parameters: typing.Union[typing.Dict[str, typing.Any], specification.AssociatedField],
+            definition: specification.AssociatedField
     ):
-        if isinstance(parameters, model.AssociatedField):
+        if isinstance(parameters, specification.AssociatedField):
             test.assertEqual(definition.name, parameters.name)
             test.assertEqual(definition.datatype, parameters.datatype)
 
