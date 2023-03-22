@@ -401,7 +401,7 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
         DataRequirement
             A requirement object defining of the partitioning configuration data needed to execute this request.
         """
-        if self._partition_cfg_data_requirement is None:
+        if self._partition_cfg_data_requirement is None and self.use_parallel_ngen:
             d_restricts = []
 
             # Add restriction on hydrofabric
