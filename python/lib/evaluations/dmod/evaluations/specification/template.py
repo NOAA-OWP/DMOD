@@ -3,7 +3,10 @@ Provides classes that enable the representation and discovery of specification t
 """
 import abc
 import json
+import pathlib
 import typing
+
+from ..util import clean_name
 
 
 class TemplateDetails(abc.ABC):
@@ -66,8 +69,7 @@ class TemplateManager(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_templates(self, specification_type: str
-    ) -> typing.Sequence[TemplateDetails]:
+    def get_templates(self, specification_type: str) -> typing.Sequence[TemplateDetails]:
         """
         Get all templates of a given specification type
 
@@ -121,3 +123,79 @@ class TemplateManager(abc.ABC):
             detail.field_choice
             for detail in self.get_templates(specification_type)
         ]
+
+
+class FileTemplateDetails(TemplateDetails):
+    def __init__(self, name: str, specification_type: str, description: str, path: pathlib.Path):
+        self.__name = name
+        self.__specification_type = specification_type
+        self.__description = description
+        self.__path = path
+
+    @property
+    def name(self) -> str:
+        return self.__name
+
+    @property
+    def specification_type(self) -> str:
+        return self.__specification_type
+
+    def get_configuration(self, decoder_type: typing.Type[json.JSONDecoder] = None) -> dict:
+        with self.__path.open('r') as configuration_file:
+            return json.load(fp=configuration_file, cls=decoder_type)
+
+    @property
+    def description(self) -> typing.Optional[str]:
+        return self.__description
+
+
+class FileTemplateManager(TemplateManager):
+    def __init__(self, manifest_path: typing.Union[str, pathlib.Path]):
+        self.__manifest: typing.Dict[str, typing.Dict[str, FileTemplateDetails]] = dict()
+        self.__load_manifest(manifest_path)
+
+    def __load_manifest(self, path: typing.Union[str, pathlib.Path]):
+        manifest_path = pathlib.Path(path) if isinstance(path, str) else path
+
+        with open(manifest_path, 'r') as manifest_file:
+            manifest = json.load(manifest_file)
+
+        for specification_name, template_details in manifest.items():  # type: str, typing.List[typing.Dict[str, str]]
+            if specification_name not in self.__manifest:
+                self.__manifest[specification_name]: typing.Dict[str, FileTemplateDetails] = dict()
+
+            for details in template_details:  # type: typing.Dict[str, str]
+                name = details['name']
+                path = pathlib.Path(details['path']).resolve()
+
+                if not path.exists():
+                    raise ValueError(f"File Template Manifest cannot find the template named {name}")
+
+                description = details.get("description")
+
+                self.__manifest[specification_name][name] = FileTemplateDetails(
+                    name=name,
+                    specification_type=specification_name,
+                    path=path,
+                    description=description
+                )
+
+    def get_specification_types(self) -> typing.Sequence[typing.Tuple[str, str]]:
+        types: typing.List[typing.Tuple[str, str]] = list()
+
+        for specification_type in self.__manifest:
+            types.append(
+                (specification_type, clean_name(specification_type))
+            )
+
+        return types
+
+    def get_templates(self, specification_type: str) -> typing.Sequence[TemplateDetails]:
+        if specification_type not in self.__manifest:
+            raise ValueError(f"There are no {specification_type}s configured within the File Template Manager")
+
+        return [
+            details
+            for details in self.__manifest[specification_type].values()
+        ]
+
