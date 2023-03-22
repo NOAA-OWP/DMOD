@@ -1364,7 +1364,7 @@ class RequestedJob(JobImpl):
         return cls(job_request=job_request, cpu_count=job_request.cpus, memory_size=job_request.memory,
                    allocation_paradigm=job_request.allocation_paradigm)
 
-    def __init__(self, job_request: SchedulerRequestMessage, *args, **kwargs):
+    def __init__(self, job_request: SchedulerRequestMessage, **kwargs):
         """
         Initialize this instance.
 
@@ -1382,7 +1382,14 @@ class RequestedJob(JobImpl):
         allocation_paradigm
         alloc_priority
         """
-        super(RequestedJob, self).__init__(model_request=job_request.model_request, *args, **kwargs)
+        if 'cpu_count' not in kwargs:
+            kwargs['cpu_count'] = job_request.cpus
+        if 'memory_size' not in kwargs:
+            kwargs['memory_size'] = job_request.memory
+        if 'allocation_paradigm' not in kwargs:
+            kwargs['allocation_paradigm'] = job_request.allocation_paradigm
+
+        super().__init__(model_request=job_request.model_request, **kwargs)
         self._originating_request = job_request
         self.data_requirements = job_request.model_request.data_requirements
 
