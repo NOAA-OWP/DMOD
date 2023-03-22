@@ -79,6 +79,7 @@ class NgenCalibrationRequest(ExternalAbstractNgenRequest):
                  model_strategy: str = 'uniform',
                  job_name: Optional[str] = None,
                  is_restart: bool = False,
+                 parallel: Optional[int] = None,
                  *args,
                  **kwargs):
         """
@@ -110,6 +111,8 @@ class NgenCalibrationRequest(ExternalAbstractNgenRequest):
             Optional job name for the calibration run, which can be used by ngen-cal when generating files.
         is_restart : bool
             Whether this represents restarting a previous job; ``False`` by default.
+        parallel: Optional[int]
+            Optional setting for number of parallel ngen processes used by ngen-cal.
 
         Keyword Args
         -----------
@@ -140,6 +143,7 @@ class NgenCalibrationRequest(ExternalAbstractNgenRequest):
         self.is_objective_func_minimized = is_objective_func_minimized
         self.model_strategy = model_strategy
         self.job_name = job_name
+        self.parallel = parallel
 
         self.is_restart = is_restart
 
@@ -158,6 +162,10 @@ class NgenCalibrationRequest(ExternalAbstractNgenRequest):
         serial[self._KEY_MODEL_STRATEGY] = self.model_strategy
         serial[self._KEY_IS_RESTART] = self.is_restart
         return serial
+
+    @property
+    def use_serial_ngen(self) -> bool:
+        return self.parallel is None or self.parallel < 2
 
     # TODO: This should likely be created or determined if it already exsits on the fly
     # @property
