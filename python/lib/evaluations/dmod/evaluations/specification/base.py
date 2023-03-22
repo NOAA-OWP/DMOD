@@ -1,5 +1,5 @@
 """
-Put a module wide description here
+@TODO: Put a module wide description here
 """
 import typing
 import json
@@ -7,28 +7,57 @@ import logging
 import inspect
 import abc
 import os
-import collections
-import itertools
 
 import dmod.core.common as common
 
 from .template import TemplateManager
-from .template import TemplateDetails
 
 from .. import util
 
 from .helpers import is_a_value
 
+_CLASS_TYPE = typing.TypeVar("_CLASS_TYPE")
 
-def get_constructor_parameters(cls) -> typing.Mapping[str, inspect.Parameter]:
+
+def get_constructor_parameters(cls: typing.Type[_CLASS_TYPE]) -> typing.Mapping[str, inspect.Parameter]:
+    """
+    Get a mapping for every constructor in a classes MRO chain
+
+    Args:
+        cls: The class whose entire MRO chain to get parameters for
+    """
     try:
         classes = inspect.getmro(cls)
     except:
         classes = [cls]
 
-    total_parameters = [inspect.signature(constructor).parameters for constructor in classes]
+    total_parameters: typing.List[typing.Mapping[str, inspect.Parameter]] = list()
+
+    for constructor in classes:
+        try:
+            parameters = inspect.signature(constructor).parameters
+
+            total_parameters.append(parameters)
+
+            kwarg_parameter = common.find(
+                parameters.values(),
+                lambda constructor_parameter: constructor_parameter.kind == constructor_parameter.VAR_KEYWORD
+            )
+
+            if kwarg_parameter is None:
+                # If a signature lacks a parameter for key-value pairs, all possible  arguments have passed
+                # through. Break the loop and carry on in order to avoid a situation where a value might be given for
+                # a parent class constructor but there is no way to get that parameter to the parameter constructor
+                # through the class of interest's constructor
+                break
+        except:
+            # Go ahead and try to use the next constructor if this call failed
+            pass
+
     constructor_parameters: typing.Dict[str, inspect.Parameter] = dict()
 
+    # Loop through the constructor parameters of each encountered class in the MRO chain and add firmly
+    # named parameters to the final mapping of string to parameter
     for parameters in total_parameters:
         for parameter_key, parameter in parameters.items():
             if parameter.kind not in (parameter.VAR_KEYWORD, parameter.VAR_POSITIONAL):
@@ -38,11 +67,11 @@ def get_constructor_parameters(cls) -> typing.Mapping[str, inspect.Parameter]:
 
 
 def create_class_instance(
-    cls,
+    cls: typing.Type[_CLASS_TYPE],
     data,
     template_manager: TemplateManager = None,
     decoder_type: typing.Type[json.JSONDecoder] = None
-):
+) -> _CLASS_TYPE:
     """
     Dynamically creates a class based on the type of class and the given parameters
 
@@ -120,8 +149,6 @@ def create_class_instance(
 
             data: dict = template_manager.get_template(cls.__name__, name=template_name, decoder_type=decoder_type)
 
-        #you can't just iterate over this signature's parameters - you gotta climb the mro and use all of those parameters
-
         constructor_parameters = get_constructor_parameters(cls)
 
         for parameter in constructor_parameters.values():  # type: inspect.Parameter
@@ -131,7 +158,12 @@ def create_class_instance(
             try:
                 value = data[parameter.name]
 
-                value = convert_value(value, parameter)
+                value = convert_value(
+                    value=value,
+                    parameter=parameter,
+                    template_manager=template_manager,
+                    decoder_type=decoder_type
+                )
 
                 arguments[parameter.name] = value
             except KeyError:
@@ -444,13 +476,20 @@ def get_specifications(base_specification: typing.Type = None) -> typing.List[ty
     return subclasses
 
 
-def convert_value(value: typing.Any, parameter: typing.Union[inspect.Parameter, typing.Type]) -> typing.Any:
+def convert_value(
+    value: typing.Any,
+    parameter: typing.Union[inspect.Parameter, typing.Type],
+    template_manager: TemplateManager,
+    decoder_type: typing.Type[json.JSONDecoder] = None
+) -> typing.Any:
     """
     Attempts to convert a given value to the type expected by the parameter
 
     Args:
         value: The value to convert
         parameter: The function parameter that may or may not dictate what to cast the value as
+        template_manager: The manager responsible for finding templating information
+        decoder_type: An optional type of decoder to use when deserializing a template
 
     Returns:
         An attempted conversion if a parameter type is given; just the original value otherwise
@@ -464,7 +503,11 @@ def convert_value(value: typing.Any, parameter: typing.Union[inspect.Parameter, 
         return value
 
     if parameter_type in common.get_subclasses(Specification):
-        return parameter_type.create(value)
+        return parameter_type.create(
+            data=value,
+            template_manager=template_manager,
+            decoder_type=decoder_type
+        )
 
     if isinstance(value, str) and util.value_is_number(value) and util.type_is_number(parameter_type):
         return float(value)
@@ -473,7 +516,12 @@ def convert_value(value: typing.Any, parameter: typing.Union[inspect.Parameter, 
     elif not (isinstance(value, str) or isinstance(value, bytes)) and isinstance(value, typing.Sequence):
         expected_type = typing.get_args(parameter_type)
         converted_values = [
-            convert_value(member, expected_type[0])
+            convert_value(
+                value=member,
+                parameter=expected_type[0],
+                template_manager=template_manager,
+                decoder_type=decoder_type
+            )
             for member in value
         ]
         return converted_values
