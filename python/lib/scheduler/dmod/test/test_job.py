@@ -81,7 +81,7 @@ class TestJob(unittest.TestCase):
                 'bmi_config_data_id': '02468',
                 'config_data_id': '02468'
             },
-            'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
+            'session_secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
         })
         scheduler_request = SchedulerRequestMessage(
             model_request=NGENRequest.factory_init_from_deserialized_json(self._model_requests_json[2]),
