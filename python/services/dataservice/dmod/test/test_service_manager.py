@@ -163,7 +163,7 @@ class TestServiceManager(unittest.TestCase):
                                 "variable": "TIME"
                             }
                         },
-                        "session-secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
+                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
                     },
                     "user_id": "someone"
                 },
@@ -223,7 +223,7 @@ class TestServiceManager(unittest.TestCase):
                                 "variable": "TIME"
                             }
                         },
-                        "session-secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
+                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
                     },
                     "user_id": "someone"
                 },
@@ -289,7 +289,7 @@ class TestServiceManager(unittest.TestCase):
                                 "variable": "TIME"
                             }
                         },
-                        "session-secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
+                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
                     },
                     "user_id": "someone"
                 },
@@ -353,7 +353,7 @@ class TestServiceManager(unittest.TestCase):
                                 "variable": "TIME"
                             }
                         },
-                        "session-secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
+                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
                     },
                     "user_id": "someone"
                 },
@@ -423,7 +423,7 @@ class TestServiceManager(unittest.TestCase):
                                 "variable": "TIME"
                             }
                         },
-                        "session-secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
+                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
                     },
                     "user_id": "someone"
                 },
@@ -581,7 +581,7 @@ class TestServiceManager(unittest.TestCase):
                                 "variable": "TIME"
                             }
                         },
-                        "session-secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
+                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
                     },
                     "user_id": "someone"
                 },
@@ -733,7 +733,7 @@ class TestServiceManager(unittest.TestCase):
                                 "variable": "TIME"
                             }
                         },
-                        "session-secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
+                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
                     },
                     "user_id": "someone"
                 },
