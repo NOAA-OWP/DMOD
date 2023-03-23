@@ -91,6 +91,29 @@ class TestSchedulerRequestMessage(unittest.TestCase):
         obj = SchedulerRequestMessage.factory_init_from_deserialized_json(self.request_jsons[example_index])
         self.assertEqual(obj, self.request_objs[example_index])
 
+    def test_config_data_id_1_a(self):
+        """
+        Test that the ``config_data_id`` of the object matches the same value within the nested model request.
+        """
+        example_index = 1
+        ex_obj = self.request_objs[example_index]
+        self.assertEqual(ex_obj.model_request.config_data_id, ex_obj.config_data_id)
+
+    def test_config_data_id_1_b(self):
+        """
+        Test that an instance will not create if we try to init with a non-matching ``config_data_id``.
+        """
+        example_index = 1
+        ex_obj = self.request_objs[example_index]
+        bogus_config_data_id = ex_obj.model_request.config_data_id + "_bogus_text_non_matching"
+
+        self.assertRaises(ValueError, SchedulerRequestMessage,
+                          model_request=ex_obj.model_request,
+                          user_id=ex_obj.user_id,
+                          config_data_id=bogus_config_data_id,
+                          cpus=ex_obj.cpus, mem=ex_obj.memory,
+                          allocation_paradigm=ex_obj.allocation_paradigm)
+
     def test_to_dict_0_a(self):
         """
         Assert that the example object at the 0th index serializes to a dict as expected by comparing to the pre-set
