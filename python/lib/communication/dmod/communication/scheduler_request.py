@@ -64,6 +64,10 @@ class SchedulerRequestMessage(DmodJobRequest):
     # TODO: may need to generalize the underlying request to support, say, scheduling evaluation jobs
     def __init__(self, model_request: ModelExecRequest, user_id: str, cpus: Optional[int] = None, mem: Optional[int] = None,
                  allocation_paradigm: Optional[Union[str, AllocationParadigm]] = None, *args, **kwargs):
+        if 'config_data_id' not in kwargs and len(args) == 0:
+            kwargs['config_data_id'] = model_request.config_data_id
+        elif (args[0] if len(args) > 0 else kwargs['config_data_id']) != model_request.config_data_id:
+            raise ValueError('Bad init value for "config_data_id" that does not match model_request')
         super(SchedulerRequestMessage, self).__init__(*args, **kwargs)
         self._model_request = model_request
         self._user_id = user_id
