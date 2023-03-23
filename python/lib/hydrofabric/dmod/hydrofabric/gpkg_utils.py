@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 
 @dataclass
-class TableInfo:
+class ColumnInfo:
     """Table schema of sqlite PRAGMA table_info(<table_name>)"""
 
     cid: int
@@ -39,13 +39,13 @@ def attribute_table_names(conn: sqlite3.Connection) -> List[str]:
         return [t[0] for t in result.fetchall()]
 
 
-def table_info(table_name: str, conn: sqlite3.Connection) -> List[TableInfo]:
+def table_info(table_name: str, conn: sqlite3.Connection) -> List[ColumnInfo]:
     """PRAGMA table_info(<table_name>) wrapper"""
     assert type(table_name) == str
     with cursor_context(conn) as cursor:
         result = cursor.execute(f"PRAGMA table_info({table_name})")
         results = result.fetchall()
-    return [TableInfo(*result) for result in results]
+    return [ColumnInfo(*result) for result in results]
 
 
 def catchment_ids(conn: sqlite3.Connection) -> List[str]:
