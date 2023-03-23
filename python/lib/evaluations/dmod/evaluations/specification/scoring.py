@@ -8,14 +8,22 @@ import dmod.metrics as metrics
 import dmod.metrics.metric as metric_functions
 
 from dmod.core.common import find
+from dmod.core.common import contents_are_equivalent
 
-from .base import Specification
 from .base import TemplatedSpecification
 
 from .template import TemplateManager
 
 
 class MetricSpecification(TemplatedSpecification):
+    def __eq__(self, other: "MetricSpecification") -> bool:
+        if not super().__eq__(other):
+            return False
+        if not hasattr(other, "name") or self.name != other.name:
+            return False
+
+        return hasattr(other, 'weight') and self.weight == other.weight
+
     def extract_fields(self) -> typing.Dict[str, typing.Any]:
         fields = super().extract_fields()
         fields['weight'] = self.weight
@@ -42,8 +50,8 @@ class MetricSpecification(TemplatedSpecification):
     def __str__(self) -> str:
         description = f"{self.name} = {self.__weight}"
 
-        if self.__properties:
-            description += f" ({str(self.__properties)}"")"
+        if self.properties:
+            description += f" ({str(self.properties)}"")"
 
         return description
 
@@ -58,6 +66,12 @@ class MetricSpecification(TemplatedSpecification):
 
 
 class SchemeSpecification(TemplatedSpecification):
+    def __eq__(self, other: "SchemeSpecification") -> bool:
+        if not super().__eq__(other):
+            return False
+
+        return hasattr(other, "metrics") and contents_are_equivalent(self.metric_functions, other.metric_functions)
+
     def extract_fields(self) -> typing.Dict[str, typing.Any]:
         fields = super().extract_fields()
         fields.update({

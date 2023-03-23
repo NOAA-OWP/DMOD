@@ -376,10 +376,17 @@ class Specification(abc.ABC):
     def __contains__(self, key: str) -> bool:
         return key in self.__properties
 
+    @abc.abstractmethod
+    def __eq__(self, other) -> bool:
+        if other is None or not hasattr(other, "properties"):
+            return False
+
+        return self.properties == other.properties
+
     def __repr__(self) -> str:
         return str(
             {
-                key.replace("__", ""): getattr(self, key)
+                key.replace("__", ""): getattr(self, key, getattr(self, key.replace("__", "")))
                 for key in self.__slots__
             }
         )

@@ -6,6 +6,7 @@ import inspect
 import math
 import json
 import numbers
+import collections.abc as abstract_collections
 import random
 import string
 
@@ -144,6 +145,117 @@ def get_current_function_name(parent_name: bool = None) -> str:
 
     caller_info: inspect.FrameInfo = stack[frame_index]
     return caller_info.function
+
+
+def contents_are_equivalent(first, second):
+    """
+    Checks to see whether two objects match based on rules for collections
+
+    To access the specialized container equivalence, both first and second must be sized and iterable,
+    and either both or neither are mappings, otherwise a standard equivalence check is used.
+
+    If they are not both the same length, return False
+
+    If either are bytes, they are converted to strings.
+
+    If one is a string, a standard equivalence check is performed
+
+    If they are mappings, check to make sure both have the same keys and values for those keys
+
+    If they are sequences, check to make sure each has the same element in the same position
+
+    Otherwise check to make sure all the elements in one are in the other the same number of times
+
+    Why use this?:
+        [1, 2, 3, 4] and (1, 2, 3, 4) may both be a sequence of the same values, but they won't pass equivalence testing
+
+    Args:
+        first: The first object to compare
+        second: The second object to compare
+
+    Returns:
+        Whether first and second are equivalent objects
+    """
+    if first is None and second is None:
+        return True
+
+    if (first is None) ^ (second is None):
+        return False
+
+    # You can't check length if one isn't sized, so default to standard equivalence
+    if not isinstance(first, typing.Sized) or not isinstance(second, typing.Sized):
+        return first == second
+
+    # They aren't equal if they have different sizes
+    if len(first) != len(second):
+        return False
+
+    # Proper mapping equivalence can't be performed if one is a map and the other isn't. Fall back to standard
+    # equivalence if only one is a map
+    if isinstance(first, typing.Mapping) ^ isinstance(second, typing.Mapping):
+        return first == second
+
+    # If they aren't iterable, go ahead and perform a standard equivalence
+    if not isinstance(first, typing.Iterable) or not isinstance(second, typing.Iterable):
+        return first == second
+
+    # If the first element is a set of bytes, normalize the values by decoding
+    if isinstance(first, bytes):
+        first = first.decode()
+
+    # If the second element is a set of bytes, normalize the values by decoding
+    if isinstance(second, bytes):
+        second = second.decode()
+
+    # If one is a string, perform a standard equivalence
+    if isinstance(first, str) or isinstance(second, str):
+        return first == second
+    elif isinstance(first, typing.Mapping) and isinstance(second, typing.Mapping):
+        for key_in_first, value_in_first in first.items():
+            if key_in_first not in second.keys():
+                return False
+            elif value_in_first != second[key_in_first]:
+                return False
+        return True
+    elif isinstance(first, typing.Sequence) and isinstance(second, typing.Sequence):
+        for element_index in range(len(first)):
+            if first[element_index] != second[element_index]:
+                return False
+        return True
+
+    # Create a copy of the second collection so that matched values may be removed
+    second_copy = [element for element in second]
+
+    # Loop through the first collection and remove anything in the second that matches.
+    # Fail if a value couldn't be removed
+    for element_in_first in first:
+        found_value = False
+        for element_in_second in second_copy:
+            if element_in_first == element_in_second:
+                second_copy.remove(element_in_second)
+                found_value = True
+                break
+        if not found_value:
+            return False
+
+    # Fail if not all values weren't removed from the copy of second
+    if len(second_copy) > 0:
+        return False
+
+    # Repeat the above steps with the second collection to ensure that all possible edge cases are covered
+    first_copy = [element for element in first]
+
+    for element_in_second in second:
+        found_value = False
+        for element_in_first in first_copy:
+            if element_in_first == element_in_second:
+                first_copy.remove(element_in_first)
+                found_value = True
+                break
+        if not found_value:
+            return False
+
+    return True
 
 
 def is_sequence_type(value: typing.Any) -> bool:

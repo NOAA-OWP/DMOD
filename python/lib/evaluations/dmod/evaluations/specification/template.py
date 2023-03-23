@@ -157,8 +157,13 @@ class FileTemplateManager(TemplateManager):
     def __load_manifest(self, path: typing.Union[str, pathlib.Path]):
         manifest_path = pathlib.Path(path) if isinstance(path, str) else path
 
-        with open(manifest_path, 'r') as manifest_file:
+        if not manifest_path.exists():
+            raise Exception(f"No template manifest could be found at '{manifest_path}'")
+
+        with manifest_path.open('r') as manifest_file:
             manifest = json.load(manifest_file)
+
+        manifest_directory = manifest_path.parent
 
         for specification_name, template_details in manifest.items():  # type: str, typing.List[typing.Dict[str, str]]
             if specification_name not in self.__manifest:
@@ -166,9 +171,10 @@ class FileTemplateManager(TemplateManager):
 
             for details in template_details:  # type: typing.Dict[str, str]
                 name = details['name']
-                path = pathlib.Path(details['path']).resolve()
+                template_path = manifest_directory / pathlib.Path(details['path'])
+                template_path = template_path.resolve()
 
-                if not path.exists():
+                if not template_path.exists():
                     raise ValueError(f"File Template Manifest cannot find the template named {name}")
 
                 description = details.get("description")
@@ -176,7 +182,7 @@ class FileTemplateManager(TemplateManager):
                 self.__manifest[specification_name][name] = FileTemplateDetails(
                     name=name,
                     specification_type=specification_name,
-                    path=path,
+                    path=template_path,
                     description=description
                 )
 

@@ -14,6 +14,15 @@ class BackendSpecification(TemplatedSpecification):
     A specification of how data should be loaded
     """
 
+    def __eq__(self, other) -> bool:
+        parents_match = super().__eq__(other=other)
+        has_fields = hasattr(other, "type") or hasattr(other, "address") or hasattr(other, "format")
+
+        if not parents_match or not has_fields:
+            return False
+
+        return self.type == other.type and self.address == other.address and self.format == other.format
+
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
@@ -131,3 +140,7 @@ class LoaderSpecification(TemplatedSpecification, abc.ABC):
                     template_manager=template_manager,
                     decoder_type=decoder_type
                 )
+
+    @abc.abstractmethod
+    def __eq__(self, other):
+        return super().__eq__(other) and self.backend == other.backend

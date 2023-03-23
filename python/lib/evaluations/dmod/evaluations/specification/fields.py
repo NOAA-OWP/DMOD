@@ -14,6 +14,7 @@ import pytz
 from dateutil.parser import parse as parse_date
 
 from dmod.core.common import find
+from dmod.core.common import contents_are_equivalent
 
 from . import TemplateManager
 from .base import TemplatedSpecification
@@ -24,6 +25,16 @@ class FieldMappingSpecification(TemplatedSpecification):
     """
     Details on how a field should be aliased
     """
+
+    def __eq__(self, other: "FieldMappingSpecification") -> bool:
+        if not super().__eq__(other):
+            return False
+        elif not hasattr(other, "field") or self.field != other.field:
+            return False
+        elif not hasattr(other, "map_type") or self.map_type != other.map_type:
+            return False
+
+        return hasattr(other, "value") and self.value == other.value
 
     def extract_fields(self) -> typing.Dict[str, typing.Any]:
         fields = super().extract_fields()
@@ -91,6 +102,16 @@ class AssociatedField(TemplatedSpecification):
     A specification for additional data that should accompany selected data
     (retrieved measurements? Also get their dates)
     """
+
+    def __eq__(self, other: "AssociatedField") -> bool:
+        if not super().__eq__(other):
+            return False
+        elif not hasattr(other, "name") or self.name != other.name:
+            return False
+        elif not hasattr(other, "path") or self.path != other.path:
+            return False
+
+        return hasattr(other, "datatype") and self.datatype == other.datatype
 
     def extract_fields(self) -> typing.Dict[str, typing.Any]:
         fields = super().extract_fields()
@@ -217,13 +238,29 @@ class AssociatedField(TemplatedSpecification):
         return str
 
     def __str__(self):
-        return f"{self.__name}: {self.__datatype}"
+        return f"{self.name}: {self.__datatype}"
 
 
 class ValueSelector(TemplatedSpecification):
     """
     Instructions for how to retrieve values from a data source
     """
+
+    def __eq__(self, other: "ValueSelector") -> bool:
+        if not super().__eq__(other):
+            return False
+        elif not hasattr(other, "name") or self.name != other.name:
+            return False
+        elif not hasattr(other, "where") or self.where != other.where:
+            return False
+        elif not hasattr(other, "origin") or self.origin != other.origin:
+            return False
+        elif not hasattr(other, "path") or self.path != other.path:
+            return False
+        elif not hasattr(other, "associated_fields"):
+            return False
+
+        return contents_are_equivalent(self.associated_fields, other.associated_fields)
 
     def extract_fields(self) -> typing.Dict[str, typing.Any]:
         fields = super().extract_fields()

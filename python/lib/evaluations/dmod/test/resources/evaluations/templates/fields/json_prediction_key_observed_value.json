@@ -1,0 +1,14 @@
+{
+    "name": "prediction_location",
+    "where": "key",
+    "path": ["* where site_no"],
+    "origin": "$",
+    "datatype": "string",
+    "associated_fields": [
+        {
+            "name": "observation_location",
+            "path": "site_no",
+            "datatype": "string"
+        }
+    ]
+}

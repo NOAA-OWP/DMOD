@@ -1,0 +1,48 @@
+{
+    "name": "Predictions",
+    "value_field": "prediction",
+    "value_selectors": [
+        {
+            "name": "predicted",
+            "where": "column",
+            "associated_fields": [
+                {
+                    "name": "date",
+                    "datatype": "datetime"
+                }
+            ]
+        }
+    ],
+    "backend": {
+        "backend_type": "file",
+        "data_format": "csv",
+        "address": "resources/cat.*cfs.csv",
+        "parse_dates": ["date"]
+    },
+    "locations": {
+        "identify": true,
+        "from_field": "filename",
+        "pattern": "cat-\\d\\d"
+    },
+    "field_mapping": [
+        {
+            "field": "prediction",
+            "map_type": "column",
+            "value": "predicted"
+        },
+        {
+            "field": "prediction_location",
+            "map_type": "column",
+            "value": "location"
+        },
+        {
+            "field": "value_date",
+            "map_type": "column",
+            "value": "date"
+        }
+    ],
+    "unit": {
+        "value": "ft^3/s"
+    },
+    "x_axis": "value_date"
+}

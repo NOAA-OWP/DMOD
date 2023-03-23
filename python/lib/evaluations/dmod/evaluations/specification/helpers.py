@@ -52,6 +52,11 @@ def value_matches_parameter_type(value, parameter: typing.Union[inspect.Paramete
     if isinstance(parameter, inspect.Parameter):
         parameter = parameter.annotation
 
+    # Static code analyzers aren't huge fans of _GenericAlias and _UnionGenericAlias. These are the internal
+    # descriptors of typing objects that aren't described in typing.__all__. They are needed to determine if a
+    # type is generic. You can't perform `isinstance(value, typing.Union[type1, type2])`, so if you need to check
+    # if the prescribed types corresponds with what was given, you have to check to see if they are generic types and
+    # peel away the exterior in order to get the inner details
     is_typing_class = isinstance(parameter, typing._GenericAlias)
     is_union = is_typing_class and isinstance(parameter, typing._UnionGenericAlias)
     parameter_is_number = util.type_is_number(parameter)
