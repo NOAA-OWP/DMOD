@@ -275,7 +275,14 @@ class Specification(abc.ABC):
         Returns:
             Specification specific fields that will fit within a final serialized representation
         """
-        return dict()
+        fields = {
+            "properties": self.properties.copy() if self.properties else dict()
+        }
+
+        if self.name:
+            fields['name'] = self.name
+
+        return fields
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         """

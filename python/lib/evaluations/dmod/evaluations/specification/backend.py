@@ -114,7 +114,7 @@ class LoaderSpecification(TemplatedSpecification, abc.ABC):
 
     @abc.abstractmethod
     def extract_fields(self) -> typing.Dict[str, typing.Any]:
-        fields = super().to_dict()
+        fields = super().extract_fields()
         fields['backend'] = self.backend.to_dict()
         return fields
 

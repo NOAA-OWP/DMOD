@@ -56,7 +56,8 @@ class DataSourceSpecification(LoaderSpecification):
             "locations": self.__locations.to_dict(),
             "field_mapping": [mapping.to_dict() for mapping in self.__field_mapping],
             "unit": self.__unit.to_dict(),
-            "x_axis": self.__x_axis
+            "x_axis": self.__x_axis,
+            "value_field": self.__value_field
         })
         return fields
 

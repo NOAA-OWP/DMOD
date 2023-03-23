@@ -12,6 +12,15 @@ from ..test_thresholddefinition import TestThresholdDefinitionConstruction
 
 
 class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.TestCase):
+    def test_extract_fields(self):
+        definition = self.get_model_to_construct().create(self.params)
+
+        extracted_fields = definition.extract_fields()
+
+        new_definition = self.get_model_to_construct().create(extracted_fields)
+
+        self.assertEqual(definition, new_definition)
+
     def check_equality_among_many(self, models: typing.Sequence[specification.Specification]):
         for model in models:
             self.assertEqual(model, model, f"'{str(model)}' is not considered equal to itself")

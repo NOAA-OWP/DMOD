@@ -194,7 +194,7 @@ class CrosswalkSpecification(LoaderSpecification):
         fields = super().extract_fields()
         fields.update({
             "backend": self._backend.to_dict(),
-            "entity_path": self.entity_path,
+            "origin": self.entity_path,
             "field": self.__field.to_dict(),
             "prediction_field_name": self.__prediction_field_name,
             "observation_field_name": self.__observation_field_name
