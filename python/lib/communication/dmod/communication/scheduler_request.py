@@ -64,7 +64,7 @@ class SchedulerRequestMessage(DmodJobRequest):
     # TODO: may need to generalize the underlying request to support, say, scheduling evaluation jobs
     def __init__(self, model_request: ModelExecRequest, user_id: str, cpus: Optional[int] = None, mem: Optional[int] = None,
                  allocation_paradigm: Optional[Union[str, AllocationParadigm]] = None, *args, **kwargs):
-        super(SchedulerRequestMessage, self).__init__(*args, *kwargs)
+        super(SchedulerRequestMessage, self).__init__(*args, **kwargs)
         self._model_request = model_request
         self._user_id = user_id
         self._cpus = cpus
