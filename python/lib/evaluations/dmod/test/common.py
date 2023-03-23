@@ -180,6 +180,10 @@ class ConstructionTest(abc.ABC):
         self.make_assertions_for_multiple_definitions(self, definitions)
 
     @abc.abstractmethod
+    def test_extract_fields(self):
+        pass
+
+    @abc.abstractmethod
     def check_equality_for_one(self, model: specification.Specification):
         pass
 
