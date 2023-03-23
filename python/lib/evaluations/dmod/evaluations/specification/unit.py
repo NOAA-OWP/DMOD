@@ -4,6 +4,8 @@
 import json
 import typing
 
+from dmod.core.common import contents_are_equivalent
+
 from . import TemplateManager
 from .base import TemplatedSpecification
 
@@ -12,6 +14,16 @@ class UnitDefinition(TemplatedSpecification):
     """
     A definition of what a measurement unit is or where to find it
     """
+
+    def __eq__(self, other) -> bool:
+        if not super().__eq__(other):
+            return False
+        elif not hasattr(other, "value") or self.value != other.value:
+            return False
+        elif not hasattr(other, "path") or not contents_are_equivalent(self.path, other.path):
+            return False
+
+        return hasattr(other, "field") and self.field == other.field
 
     def extract_fields(self) -> typing.Dict[str, typing.Any]:
         fields = super().extract_fields()
@@ -110,4 +122,4 @@ class UnitDefinition(TemplatedSpecification):
         if self.__field:
             return self.__field
 
-        return ".".join(self.__path)
+        return ".".join(self.__path) if self.__path else self.value

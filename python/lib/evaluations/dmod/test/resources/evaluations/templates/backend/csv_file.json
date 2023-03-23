@@ -1,0 +1,5 @@
+{
+    "name": "CSV File",
+    "backend_type": "file",
+    "data_format": "csv"
+}

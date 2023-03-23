@@ -1,0 +1,171 @@
+{
+    "EvaluationSpecification": [
+        {
+            "name": "no-template",
+            "path": "evaluation/untemplated_configuration.json",
+            "description": "Configuration with no uses of templates"
+        }
+    ],
+    "SchemeSpecification": [
+        {
+            "name": "Prefer Pearson, then Nash and Kling, then POD and FAR",
+            "path": "scoring/prefer_pearson.json",
+            "description": "Prefer Pearson, then Nash and Kling, then POD and FAR"
+        }
+    ],
+    "ThresholdDefinition": [
+        {
+            "name": "75th Percentile",
+            "path": "thresholds/p75_va.json",
+            "description": "75th Percentile"
+        },
+        {
+            "name": "80th Percentile",
+            "path": "thresholds/p80_va.json",
+            "description": "80th Percentile"
+        },
+        {
+            "name": "Median",
+            "path": "thresholds/p80_va.json",
+            "description": "Median (50th Percentile)"
+        }
+    ],
+    "ThresholdSpecification": [
+        {
+            "name": "NWIS Stat Percentiles",
+            "path": "thresholds/nwis_stat_thresholds.json",
+            "description": "NWIS Daily Percentiles"
+        }
+    ],
+    "LocationSpecification": [
+        {
+            "name": "Site Number Column",
+            "path": "locations/site_no_column.json",
+            "description": "Site Number Column"
+        },
+        {
+            "name": "cat-## Filenames",
+            "path": "locations/cat_filenames.json",
+            "description": "cat-## Filenames"
+        },
+        {
+            "name": "From Value",
+            "path": "locations/value.json",
+            "description": "From Value"
+        }
+    ],
+    "DataSourceSpecification": [
+        {
+            "name": "Observations",
+            "path": "datasource/observation_datasource.json",
+            "description": "NWIS File Observations"
+        },
+        {
+            "name": "REST Observations",
+            "path": "datasource/observation_datasource.json",
+            "description": "NWIS REST Observations"
+        },
+        {
+            "name": "Predictions",
+            "path": "datasource/observation_datasource.json",
+            "description": "Legacy NextGen Output"
+        }
+    ],
+    "FieldMappingSpecification": [
+        {
+            "name": "Predicted to Prediction",
+            "path": "fields/predicted_to_prediction.json",
+            "description": "Predicted to Prediction"
+        },
+        {
+            "name": "Location to Prediction Location",
+            "path": "fields/location_to_prediction_location.json",
+            "description": "Predicted to Prediction"
+        },
+        {
+            "name": "Date to Value Date",
+            "path": "fields/date_to_value_date.json",
+            "description": "Date to Value Date"
+        }
+    ],
+    "ValueSelector": [
+        {
+            "name": "Prediction Key to Observed Site Crosswalk",
+            "path": "fields/json_prediction_key_observed_value.json",
+            "description": "Prediction Key to Observed Site Crosswalk"
+        },
+        {
+            "name": "NWIS Record",
+            "path": "fields/nwis_record.json",
+            "description": "NWIS Record"
+        },
+        {
+            "name": "Predicted Column",
+            "path": "fields/predicted_column.json",
+            "description": "Predicted Column"
+        }
+    ],
+    "CrosswalkSpecification": [
+        {
+            "name": "Crosswalk",
+            "path": "crosswalk/json_crosswalk.json",
+            "description": "Read Crosswalk from JSON Source"
+        }
+    ],
+    "BackendSpecification": [
+        {
+            "name": "NWIS REST",
+            "path": "backend/rest_nwis.json",
+            "description": "NWIS Data through REST"
+        },
+        {
+            "name": "NWIS Stat Thresholds",
+            "path": "backend/nwis_stat_thresholds.json",
+            "description": "Daily Statistical Thresholds from NWIS"
+        },
+        {
+            "name": "JSON File",
+            "path": "backend/json_file.json",
+            "description": "JSON File"
+        },
+        {
+            "name": "CSV File",
+            "path": "backend/csv_file.json",
+            "description": "CSV File"
+        }
+    ],
+    "AssociatedField": [
+        {
+            "name": "NWIS Value Date",
+            "path": "fields/nwis_value_date.json",
+            "description": "The value date for NWIS input"
+        },
+        {
+            "name": "NWIS Observation Location",
+            "path": "fields/nwis_observation_location.json",
+            "description": "The location identifier for NWIS input"
+        },
+        {
+            "name": "NWIS Unit",
+            "path": "fields/nwis_unit.json",
+            "description": "The unit identifier for NWIS input"
+        },
+        {
+            "name": "Columnar Date",
+            "path": "fields/columnar_date.json",
+            "description": "The Date Column"
+        },
+        {
+            "name": "Observed Site Number JSON Value",
+            "path": "fields/json_value_observed_site_no.json",
+            "description": "Observed Site Number JSON Value"
+        }
+    ],
+    "ThresholdApplicationRules": [
+        {
+            "name": "Date to Day",
+            "path": "thresholds/date_to_day.json",
+            "description": "Apply thresholds to observed values by day"
+        }
+    ]
+}

@@ -5,6 +5,7 @@ import json
 import typing
 
 from dmod.core.common import is_true
+from dmod.core.common import contents_are_equivalent
 
 from .template import TemplateManager
 from .base import TemplatedSpecification
@@ -19,6 +20,18 @@ class LocationSpecification(TemplatedSpecification):
     """
     A specification for where location data should be found
     """
+
+    def __eq__(self, other: "LocationSpecification") -> bool:
+        if not super().__eq__(other):
+            return False
+        elif not hasattr(other, "ids") or not contents_are_equivalent(self.ids, other.ids):
+            return False
+        elif not hasattr(other, "from_field") or self.from_field != other.from_field:
+            return False
+        elif not hasattr(other, "pattern") or not contents_are_equivalent(self.pattern, other.pattern):
+            return False
+
+        return hasattr(other, "identify") and self.identify == other.identify
 
     def apply_configuration(
         self,
@@ -41,20 +54,23 @@ class LocationSpecification(TemplatedSpecification):
         self.__should_identify(configuration.get("identify", self.__identify))
 
     def validate(self) -> typing.Sequence[str]:
-        return list()
+        messages = list()
 
-    def to_dict(self) -> typing.Dict[str, typing.Any]:
-        dictionary = {
-            "identify": self.__identify,
-            "from_field": self.__from_field,
-            "pattern": self.__pattern,
-            "ids": self.__ids
-        }
+        if self.identify and not (self.from_field or self.pattern or self.ids):
+            messages.append(
+                "A from_field, a pattern, or a list of ids are required if locations are supposed to be identified"
+            )
 
-        if self.__properties:
-            dictionary['properties'] = self.__properties
+        if self.pattern and not self.from_field:
+            messages.append(
+                "A from_field is required if a location is to be found from a pattern"
+            )
+        elif self.from_field and self.ids:
+            messages.append(
+                "Locations may be discovered from a static list or a field, but not both"
+            )
 
-        return dictionary
+        return messages
 
     __slots__ = ["__identify", "__from_field", "__pattern", "__ids"]
 
@@ -72,20 +88,6 @@ class LocationSpecification(TemplatedSpecification):
             ids = list(ids)
         elif ids is None:
             ids = list()
-
-        if identify and not (from_field or pattern or ids):
-            raise ValueError(
-                "A from_field, a pattern, or a list of ids are required if locations are supposed to be identified"
-            )
-
-        if pattern and not from_field:
-            raise ValueError(
-                "A from_field is required if a location is to be found from a pattern"
-            )
-        elif from_field and ids:
-            raise ValueError(
-                "Locations may be discovered from a static list or a field, but not both"
-            )
 
         if from_field or ids:
             identify = True
@@ -143,7 +145,7 @@ class LocationSpecification(TemplatedSpecification):
         return self.__pattern
 
     @property
-    def should_identify(self) -> bool:
+    def identify(self) -> bool:
         """
         Whether locations should even be attempted to be identified
 
@@ -175,6 +177,18 @@ class CrosswalkSpecification(LoaderSpecification):
     """
     Specifies how locations in the observations should be linked to locations in the predictions
     """
+
+    def __eq__(self, other: "CrosswalkSpecification"):
+        if not super().__eq__(other):
+            return False
+        elif not hasattr(other, "field") or self.field != other.field:
+            return False
+        elif not hasattr(other, 'prediction_field_name') or self.prediction_field_name != other.prediction_field_name:
+            return False
+        elif not hasattr(other, "observation_field_name") or self.observation_field_name != other.observation_field_name:
+            return False
+
+        return hasattr(other, "entity_path") and contents_are_equivalent(self.entity_path, other.entity_path)
 
     def extract_fields(self) -> typing.Dict[str, typing.Any]:
         fields = super().extract_fields()

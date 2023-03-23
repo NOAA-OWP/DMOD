@@ -5,6 +5,7 @@ import typing
 import json
 
 from dmod.core.common import find
+from dmod.core.common import contents_are_equivalent
 
 from .base import TemplatedSpecification
 from .template import TemplateManager
@@ -22,6 +23,16 @@ class ThresholdDefinition(TemplatedSpecification):
     """
     A definition of a single threshold, the field that it comes from, and its significance
     """
+
+    def __eq__(self, other) -> bool:
+        if not super().__eq__(other):
+            return False
+        elif not hasattr(other, "field") or self.field != other.field:
+            return False
+        elif not hasattr(other, "unit") or self.unit != other.unit:
+            return False
+
+        return hasattr(other, "weight") and self.weight == other.weight
 
     def extract_fields(self) -> typing.Dict[str, typing.Any]:
         fields = super().extract_fields()
@@ -140,8 +151,25 @@ class ThresholdDefinition(TemplatedSpecification):
 
 class ThresholdApplicationRules(TemplatedSpecification):
     """
-    Added rules for how thresholds should be applied
+    Added rules for how thresholds should be applied.
+
+    One example for use is transforming one or more values in a threshold and one or more values in the
+    observations to put all values needed to apply thresholds to values equivalent.
+
+    If a threshold is described as being on a month or day and an observation is taken at a date and time,
+    the threshold month and day will need to be transformed into a new 'Day' object field while the date field on the
+    observations will need to be converted to a `Day` object
     """
+
+    def __eq__(self, other: "ThresholdApplicationRules") -> bool:
+        if not super().__eq__(other):
+            return False
+        elif not hasattr(other, "threshold_field") or self.threshold_field != other.threshold_field:
+            return False
+        elif not hasattr(other, "observation_field") or self.observation_field != other.observation_field:
+            return False
+
+        return hasattr(other, "prediction_field") and self.prediction_field == other.prediction_field
 
     def apply_configuration(
         self,
@@ -269,6 +297,18 @@ class ThresholdApplicationRules(TemplatedSpecification):
 
 
 class ThresholdSpecification(LoaderSpecification):
+    def __eq__(self, other: "ThresholdSpecification"):
+        if not super().__eq__(other):
+            return False
+        elif not hasattr(other, "locations") or self.locations != other.locations:
+            return False
+        elif not hasattr(other, "origin") or not contents_are_equivalent(self.origin, other.origin):
+            return False
+        elif not hasattr(other, "definitions") or not contents_are_equivalent(self.definitions, other.definitions):
+            return False
+
+        return hasattr(other, "application_rules") and self.application_rules == other.application_rules
+
     def extract_fields(self) -> typing.Dict[str, typing.Any]:
         fields = super().extract_fields()
         fields.update({
@@ -470,7 +510,7 @@ class ThresholdSpecification(LoaderSpecification):
 
         return False
 
-    def __getitem__(self, definition_name) -> typing.Optional[ThresholdDefinition]:
+    def __getitem__(self, definition_name: str) -> typing.Optional[ThresholdDefinition]:
         matching_definitions = [
             definition
             for definition in self.__definitions

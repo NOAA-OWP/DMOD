@@ -1,0 +1,51 @@
+{
+    "name": "REST Observations",
+    "value_field": "observation",
+    "value_selectors": [
+        {
+            "name": "observation",
+            "where": "value",
+            "path": ["values[*]", "value[*]", "value"],
+            "datatype": "float",
+            "origin": ["$", "value", "timeSeries[*]"],
+            "associated_fields": [
+                {
+                    "name":"value_date",
+                    "path": ["values[*]", "value[*]", "dateTime"],
+                    "datatype": "datetime"
+                },
+                {
+                    "name":"observation_location",
+                    "path": ["sourceInfo", "siteCode", "[0]", "value"],
+                    "datatype": "string"
+                },
+                {
+                    "name":"unit",
+                    "path": ["variable", "unit", "unitCode"],
+                    "datatype": "string"
+                }
+            ]
+        }
+    ],
+    "backend": {
+        "backend_type": "rest",
+        "data_format": "json",
+        "address": "https://nwis.waterservices.usgs.gov/nwis/iv",
+        "params": {
+            "format": "json",
+            "indent": "on",
+            "sites": "0214657975,0214655255",
+            "startDT": "2022-12-01T00:00%2b0000",
+            "endDT": "2022-12-31T00:00%2b0000",
+            "parameterCd": "00060"
+        }
+    },
+    "locations": {
+        "identify": true,
+        "from_field": "value"
+    },
+    "unit": {
+        "field": "unit"
+    },
+    "x_axis": "value_date"
+}

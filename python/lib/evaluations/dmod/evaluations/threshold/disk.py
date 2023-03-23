@@ -204,12 +204,12 @@ class FrameThresholdRetriever(retrieval.Retriever):
 
             # TODO: This is missing handling for value units
 
-            if self.definition.locations.should_identify and self.definition.locations.from_field.lower() == 'column':
+            if self.definition.locations.identify and self.definition.locations.from_field.lower() == 'column':
                 column_names.append(self.definition.locations.pattern[-1])
 
             table: pandas.DataFrame = document[column_names]
 
-            if self.definition.locations.should_identify and self.definition.locations.from_field.lower() == 'filename':
+            if self.definition.locations.identify and self.definition.locations.from_field.lower() == 'filename':
                 file_name_without_extension = os.path.splitext(os.path.basename(source))[0]
 
                 full_pattern = os.pathsep.join(self.definition.locations.pattern)

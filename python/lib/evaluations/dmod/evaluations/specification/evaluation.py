@@ -25,6 +25,20 @@ from .threshold import ThresholdSpecification
 
 
 class EvaluationSpecification(TemplatedSpecification):
+    def __eq__(self, other: "EvaluationSpecification") -> bool:
+        if not super().__eq__(other):
+            return False
+        if not hasattr(other, "observations") or not common.contents_are_equivalent(self.observations, other.observations):
+            return False
+        if not hasattr(other, "predictions") or not common.contents_are_equivalent(self.predictions, other.predictions):
+            return False
+        elif not hasattr(other, "crosswalks") or not common.contents_are_equivalent(self.crosswalks, other.crosswalks):
+            return False
+        elif not hasattr(other, "thresholds") or not common.contents_are_equivalent(self.thresholds, other.thresholds):
+            return False
+
+        return hasattr(other, "scheme") and self.scheme == other.scheme
+
     def extract_fields(self) -> typing.Dict[str, typing.Any]:
         fields = super().extract_fields()
         if self.observations:

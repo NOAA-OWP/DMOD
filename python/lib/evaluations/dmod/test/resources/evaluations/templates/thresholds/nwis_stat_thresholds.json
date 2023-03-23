@@ -1,0 +1,56 @@
+{
+    "name": "NWIS Stat Percentiles",
+    "backend": {
+        "backend_type": "file",
+        "data_format": "rdb",
+        "address": "resources/nwis_stat_thresholds.rdb"
+    },
+    "locations": {
+        "identify": true,
+        "from_field": "column",
+        "pattern": "site_no"
+    },
+    "application_rules": {
+        "threshold_field": {
+            "name": "threshold_day",
+            "path": [
+                "month_nu",
+                "day_nu"
+            ],
+            "datatype": "Day"
+        },
+        "observation_field": {
+            "name": "threshold_day",
+            "path": [
+                "value_date"
+            ],
+            "datatype": "Day"
+        }
+    },
+    "definitions": [
+        {
+            "name": "75th Percentile",
+            "field": "p75_va",
+            "weight": 10,
+            "unit": {
+                "value": "ft^3/s"
+            }
+        },
+        {
+            "name": "80th Percentile",
+            "field": "p80_va",
+            "weight": 5,
+            "unit": {
+                "value": "ft^3/s"
+            }
+        },
+        {
+            "name": "Median",
+            "field": "p50_va",
+            "weight": 1,
+            "unit": {
+                "value": "ft^3/s"
+            }
+        }
+    ]
+}

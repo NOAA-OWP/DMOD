@@ -23,6 +23,31 @@ class DataSourceSpecification(LoaderSpecification):
     Specification for where to get the actual data for evaluation
     """
 
+    def __eq__(self, other: "DataSourceSpecification"):
+        if not super().__eq__(other):
+            return False
+        elif not hasattr(other, "value_field"):
+            return False
+        elif not hasattr(other, "locations"):
+            return False
+        elif not hasattr(other, "field_mapping"):
+            return False
+        elif not hasattr(other, "unit"):
+            return False
+        elif not hasattr(other, "x_axis"):
+            return False
+
+        if self.value_field != other.value_field:
+            return False
+        elif self.locations != other.locations:
+            return False
+        elif not common.contents_are_equivalent(self.field_mapping, other.field_mapping):
+            return False
+        elif self.unit != other.unit:
+            return False
+
+        return self.x_axis == other.x_axis
+
     def extract_fields(self) -> typing.Dict[str, typing.Any]:
         fields = super().extract_fields()
         fields.update({

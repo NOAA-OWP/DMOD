@@ -58,6 +58,23 @@ def get_resource_path(resource_name: str) -> pathlib.Path:
     return possible_matches[closest_file]
 
 
+def create_model_permutation_pairs(
+    models: typing.Sequence[specification.Specification]
+) -> typing.Sequence[typing.Tuple[specification.Specification, specification.Specification]]:
+    permutations: typing.List[typing.Tuple[specification.Specification, specification.Specification]] = list()
+
+    for left_model_index in range(len(models)):
+        for right_model_index in range(len(models)):
+            if left_model_index == right_model_index:
+                continue
+
+            permutations.append(
+                (models[left_model_index], models[right_model_index])
+            )
+
+    return permutations
+
+
 RESOURCE_DIRECTORY = get_resource_directory()
 EPSILON = 0.00001
 
@@ -82,6 +99,7 @@ class ConstructionTest(abc.ABC):
         definition = self.get_model_to_construct().create(self.params)
 
         self.make_assertion_for_single_definition(self, self.params, definition)
+        self.check_equality_for_one(definition)
 
     def test_string_construction(self):
         text_params = json.dumps(self.params)
@@ -89,6 +107,7 @@ class ConstructionTest(abc.ABC):
         definition = self.get_model_to_construct().create(text_params)
 
         self.make_assertion_for_single_definition(self, self.params, definition)
+        self.check_equality_for_one(definition)
 
     def test_bytes_construction(self):
         bytes_params = json.dumps(self.params).encode()
@@ -96,6 +115,7 @@ class ConstructionTest(abc.ABC):
         definition = self.get_model_to_construct().create(bytes_params)
 
         self.make_assertion_for_single_definition(self, self.params, definition)
+        self.check_equality_for_one(definition)
 
     def test_byte_buffer_construction(self):
         buffer = io.BytesIO()
@@ -105,6 +125,7 @@ class ConstructionTest(abc.ABC):
         definition = self.get_model_to_construct().create(buffer)
 
         self.make_assertion_for_single_definition(self, self.params, definition)
+        self.check_equality_for_one(definition)
 
     def test_string_buffer_construction(self):
         buffer = io.StringIO()
@@ -114,6 +135,7 @@ class ConstructionTest(abc.ABC):
         definition = self.get_model_to_construct().create(buffer)
 
         self.make_assertion_for_single_definition(self, self.params, definition)
+        self.check_equality_for_one(definition)
 
     def test_multiple_basic_construction(self):
 
@@ -157,6 +179,14 @@ class ConstructionTest(abc.ABC):
 
         self.make_assertions_for_multiple_definitions(self, definitions)
 
+    @abc.abstractmethod
+    def check_equality_for_one(self, model: specification.Specification):
+        pass
+
+    @abc.abstractmethod
+    def check_equality_among_many(self, models: typing.Sequence[specification.Specification]):
+        pass
+
     @classmethod
     def make_assertions_for_multiple_definitions(
             cls,
@@ -172,7 +202,10 @@ class ConstructionTest(abc.ABC):
         for definition in definitions:
             params = parameter_list[parameter_index]
             cls.make_assertion_for_single_definition(test, params, definition)
+            test.check_equality_for_one(definition)
             parameter_index += 1
+
+        test.check_equality_among_many(definitions)
 
     @classmethod
     @abc.abstractmethod
@@ -210,6 +243,7 @@ class OuterConstructionTest(ConstructionTest, abc.ABC):
         definition = self.get_model_to_construct().create(self.full_object_parameters)
 
         self.make_assertion_for_single_definition(self, self.full_object_parameters, definition)
+        self.check_equality_for_one(definition)
 
     def test_full_object_multiple_basic_construction(self):
 
@@ -221,6 +255,7 @@ class OuterConstructionTest(ConstructionTest, abc.ABC):
         definition = self.get_model_to_construct().create(self.partial_object_parameters)
 
         self.make_assertion_for_single_definition(self, self.partial_object_parameters, definition)
+        self.check_equality_for_one(definition)
 
     def test_partial_object_multiple_basic_construction(self):
 
