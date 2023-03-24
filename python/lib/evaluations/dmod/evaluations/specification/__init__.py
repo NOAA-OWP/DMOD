@@ -19,3 +19,14 @@ from .unit import UnitDefinition
 from .threshold import ThresholdApplicationRules
 from .evaluation import EvaluationResults
 from .backend import LoaderSpecification
+
+import typing
+
+
+def get_specification_options() -> typing.Sequence[typing.Tuple[str, str]]:
+    from .base import get_subclasses
+
+    return [
+        (cls.get_specification_type(), cls.get_specification_description())
+        for cls in get_subclasses(TemplatedSpecification)
+    ]

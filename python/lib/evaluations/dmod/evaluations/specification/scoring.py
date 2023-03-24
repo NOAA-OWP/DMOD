@@ -9,6 +9,7 @@ import dmod.metrics.metric as metric_functions
 
 from dmod.core.common import find
 from dmod.core.common import contents_are_equivalent
+from dmod.core.common import Bag
 
 from .base import TemplatedSpecification
 
@@ -69,8 +70,10 @@ class SchemeSpecification(TemplatedSpecification):
     def __eq__(self, other: "SchemeSpecification") -> bool:
         if not super().__eq__(other):
             return False
+        elif not hasattr(other, "metric_functions"):
+            return False
 
-        return hasattr(other, "metrics") and contents_are_equivalent(self.metric_functions, other.metric_functions)
+        return contents_are_equivalent(Bag(self.metric_functions), Bag(other.metric_functions))
 
     def extract_fields(self) -> typing.Dict[str, typing.Any]:
         fields = super().extract_fields()
@@ -94,7 +97,7 @@ class SchemeSpecification(TemplatedSpecification):
                 continue
 
             matching_definition = find(
-                self.__metrics,
+                self.__metric_functions,
                 predicate=lambda metric_definition: metric_definition.name == name
             )
 
@@ -105,7 +108,7 @@ class SchemeSpecification(TemplatedSpecification):
                     decoder_type=decoder_type
                 )
             else:
-                self.__metrics.append(
+                self.__metric_functions.append(
                     MetricSpecification.create(
                         data=definition,
                         template_manager=template_manager,
@@ -116,12 +119,12 @@ class SchemeSpecification(TemplatedSpecification):
     def validate(self) -> typing.Sequence[str]:
         messages = list()
 
-        for metric in self.__metrics:
+        for metric in self.__metric_functions:
             messages.extend(metric.validate())
 
         return messages
 
-    __slots__ = ["__metrics"]
+    __slots__ = ["__metric_functions"]
 
     def __init__(
         self,
@@ -130,20 +133,20 @@ class SchemeSpecification(TemplatedSpecification):
     ):
         super().__init__(**kwargs)
 
-        self.__metrics = [metric for metric in metrics]
+        self.__metric_functions = [metric for metric in metrics]
 
     @property
     def metric_functions(self) -> typing.Sequence[MetricSpecification]:
-        return [metric for metric in self.__metrics]
+        return [metric for metric in self.__metric_functions]
 
     @property
     def total_weight(self) -> float:
-        return sum([metric.weight for metric in self.__metrics])
+        return sum([metric.weight for metric in self.__metric_functions])
 
     def generate_scheme(self, communicators: metrics.CommunicatorGroup = None) -> metrics.ScoringScheme:
         generated_metrics: typing.List[metrics.Metric] = [
             metric_functions.get_metric(metric.name, metric.weight)
-            for metric in self.__metrics
+            for metric in self.__metric_functions
         ]
         return metrics.ScoringScheme(
             metrics=generated_metrics,
@@ -152,7 +155,7 @@ class SchemeSpecification(TemplatedSpecification):
 
     def __str__(self) -> str:
         details = {
-            "metrics": [str(metric) for metric in self.__metrics],
+            "metrics": [str(metric) for metric in self.__metric_functions],
         }
 
         if self.__properties:

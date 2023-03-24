@@ -15,6 +15,7 @@ from dateutil.parser import parse as parse_date
 
 from dmod.core.common import find
 from dmod.core.common import contents_are_equivalent
+from dmod.core.common import Bag
 
 from . import TemplateManager
 from .base import TemplatedSpecification
@@ -260,7 +261,7 @@ class ValueSelector(TemplatedSpecification):
         elif not hasattr(other, "associated_fields"):
             return False
 
-        return contents_are_equivalent(self.associated_fields, other.associated_fields)
+        return contents_are_equivalent(Bag(self.associated_fields), Bag(other.associated_fields))
 
     def extract_fields(self) -> typing.Dict[str, typing.Any]:
         fields = super().extract_fields()
@@ -467,6 +468,10 @@ class ValueSelector(TemplatedSpecification):
             return util.Day(value)
 
         return value
+
+    @property
+    def datatype(self) -> typing.Optional[str]:
+        return self.__datatype
 
     @property
     def where(self) -> str:

@@ -1,0 +1,20 @@
+{
+    "name": "Observations from Templates",
+    "value_field": "observation",
+    "value_selectors": [
+        {
+            "template_name": "NWIS Record"
+        }
+    ],
+    "backend": {
+        "template_name": "JSON File",
+        "address": "resources/observations.json"
+    },
+    "locations": {
+        "template_name": "From Value"
+    },
+    "unit": {
+        "field": "unit"
+    },
+    "x_axis": "value_date"
+}

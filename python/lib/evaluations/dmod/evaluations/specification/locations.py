@@ -6,6 +6,7 @@ import typing
 
 from dmod.core.common import is_true
 from dmod.core.common import contents_are_equivalent
+from dmod.core.common import Bag
 
 from .template import TemplateManager
 from .base import TemplatedSpecification
@@ -24,7 +25,7 @@ class LocationSpecification(TemplatedSpecification):
     def __eq__(self, other: "LocationSpecification") -> bool:
         if not super().__eq__(other):
             return False
-        elif not hasattr(other, "ids") or not contents_are_equivalent(self.ids, other.ids):
+        elif not hasattr(other, "ids") or not contents_are_equivalent(Bag(self.ids), Bag(other.ids)):
             return False
         elif not hasattr(other, "from_field") or self.from_field != other.from_field:
             return False
@@ -188,13 +189,13 @@ class CrosswalkSpecification(LoaderSpecification):
         elif not hasattr(other, "observation_field_name") or self.observation_field_name != other.observation_field_name:
             return False
 
-        return hasattr(other, "entity_path") and contents_are_equivalent(self.entity_path, other.entity_path)
+        return hasattr(other, "origin") and contents_are_equivalent(self.origin, other.origin)
 
     def extract_fields(self) -> typing.Dict[str, typing.Any]:
         fields = super().extract_fields()
         fields.update({
             "backend": self._backend.to_dict(),
-            "origin": self.entity_path,
+            "origin": self.origin,
             "field": self.__field.to_dict(),
             "prediction_field_name": self.__prediction_field_name,
             "observation_field_name": self.__observation_field_name
@@ -293,7 +294,7 @@ class CrosswalkSpecification(LoaderSpecification):
         return self.__observation_field_name
 
     @property
-    def entity_path(self) -> typing.Sequence[str]:
+    def origin(self) -> typing.Sequence[str]:
         return self.__origin
 
     def __str__(self) -> str:

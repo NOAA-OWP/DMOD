@@ -1,0 +1,18 @@
+{
+    "name": "observation",
+    "where": "value",
+    "path": ["values[*]", "value[*]", "value"],
+    "datatype": "float",
+    "origin": ["$", "value", "timeSeries[*]"],
+    "associated_fields": [
+        {
+            "template_name": "NWIS Value Date"
+        },
+        {
+            "template_name": "NWIS Observation Location"
+        },
+        {
+            "template_name": "NWIS Unit"
+        }
+    ]
+}

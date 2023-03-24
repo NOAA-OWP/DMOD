@@ -6,6 +6,7 @@ import inspect
 import math
 import json
 import numbers
+import re
 import collections.abc as abstract_collections
 import random
 import string
@@ -732,3 +733,201 @@ def to_json(obj, encoder: json.JSONEncoder = None, indent: int = 4, truncate_dig
     second_layer: str = json.dumps(ordered_dictionary, cls=encoder, indent=indent)
 
     return second_layer
+
+
+def humanize_text(
+    text: typing.Union[str, bytes],
+    exclude_phrases: typing.Union[typing.Iterable[str], str, bytes] = None
+) -> typing.Optional[str]:
+    """
+    Reformat text to be more visually informative for people
+
+    Example:
+        >>> word_to_fix = "word1NWC nationalWeather\tservice "
+        >>> fixed_word = humanize_text(word_to_fix)
+        >>> print(fixed_word)
+        Word 1 NWC National Weather Service
+        >>> word_to_fix = "DataSourceSpecification"
+        >>> fixed_word = humanize_text(word_to_fix, exclude_phrases=["spEcIfIcAtiOn"])
+        >>> print(fixed_word)
+        Data Source
+        >>> word_to_fix = "iNeedAAABatteriesNotAA"
+        >>> fixed_word = humanize_text(word_to_fix)
+        >>> print(fixed_word)
+        I Need AAA Batteries Not AA
+        >>> word_to_fix = "  my   removeRemoveThis This text  "
+        >>> fixed_word = humanize_text(word_to_fix, exclude_phrases=["Remove This"])
+        >>> print(fixed_word)
+        My Text
+
+    Note:
+        Special whitespace characters are not maintained and will just be replaces by a single space
+
+    Args:
+        text: The text to make friendlier for people
+        exclude_phrases: Phrases to remove from the given text. Removals are case-insensitive.
+            Regex patterns will yield unpredictable results
+
+    Returns:
+        A reformatted string that appeals more to people
+    """
+    if not text:
+        return text
+
+    if exclude_phrases is None:
+        exclude_phrases = list()
+    elif isinstance(exclude_phrases, bytes):
+        exclude_phrases = exclude_phrases.decode()
+
+    if isinstance(exclude_phrases, str):
+        exclude_phrases = [exclude_phrases]
+
+    if isinstance(text, bytes):
+        text = text.decode()
+
+    # Since '_' is often a replacement for whitespace separators, convert '_' to ' ' to offer a consistent look
+    text = text.replace("_", " ")
+
+    text = text.strip()
+
+    phrase_exclusion_patterns: typing.Dict[str, re.Pattern] = dict()
+
+    # Loop through excluded phrases and remove anything that isn't supposed to be there
+    for phrase in exclude_phrases or list():
+        pattern = phrase_exclusion_patterns.get(phrase.lower())
+
+        if not pattern:
+            # Create a regex pattern that will match on characters, case-insensitive
+            # The pattern is case-insensitive so instances are still removed even if a prior attempt removed it
+            finder_string = ""
+
+            # Loop through each individual character to make sure different cases of alphabetical
+            # characters are identified
+            for character in phrase:
+                # If an alphabetical character is identified, add it to the finder string in a pattern that covers
+                # both the upper and lower case. "s" will be added to the finder string as "[Ss]"
+                if character.isalpha():
+                    finder_string += f"[{character.upper()}{character.lower()}]"
+                elif character in ".+?$^*(){}[]":
+                    # Escape any characters that might form a regex expression
+                    finder_string += f"\\{character}"
+                else:
+                    # Otherwise just add the character since case is not a concern
+                    finder_string += character
+
+            # If the phrase was "Phrase + Other Phrase (Explanation for Phrase 55)*", the pattern will be
+            # "[Pp][Hh][Rr][Aa][Ss][Ee] \+ [Oo][Tt][Hh][Ee][Rr] [Pp][Hh][Rr][Aa][Ss][Ee] \([Ee][Xx][Pp][Ll][Aa][Nn][Aa][Tt][Ii][Oo][Nn] [Ff][Oo][Rr] [Pp][Hh][Rr][Aa][Ss][Ee] 55\)\*"
+            pattern = re.compile(finder_string)
+
+            phrase_exclusion_patterns[phrase.lower()] = pattern
+
+        # Remove all possible instances of the pattern
+        # Loop to make sure that new instances that are created are also removed,
+        # like for "My ReRemove Thismove This Text" which will first become "My Remove This Text" then "My Text"
+        # if the phrase to exclude was "Remove This"
+        while pattern.search(text):
+            text = pattern.sub("", text)
+
+    text = re.sub("  +", " ", text)
+
+    text = text.strip()
+
+    # Start out by putting the capitalized first character into the container for the string
+    humanized_text: str = text[0].upper()
+
+    # Loop through all but the last letter index to find what character to add next.
+    # The range is to len(text) - 1 because index + 1 will be one of the most important values
+    for letter_index in range(len(text) - 1):
+        # Assign the current and next characters to make referencing cleared
+        current_character = text[letter_index]
+        next_character = text[letter_index + 1]
+        further_character = text[letter_index + 2] if letter_index + 2 < len(text) else None
+
+        # If the current character is whitespace we can just add the next one as an upper case,
+        # marking a new phrase in the output text
+        if current_character.isspace():
+            humanized_text += next_character.upper()
+            continue
+
+        # If the next character is whitespace we can just add whitespace. Special whitespace won't be considered
+        if next_character.isspace():
+            humanized_text += " "
+            continue
+
+        # Store general information to be used in if clauses into more direct language to reduce cognitive complexity
+        current_character_is_uppercase = current_character.isupper()
+        current_character_is_lowercase = current_character.islower()
+        current_character_is_digit = current_character.isdigit()
+        current_character_is_letter = current_character_is_lowercase or current_character_is_uppercase
+
+        next_character_is_uppercase = next_character.isupper()
+        next_character_is_lowercase = next_character.islower()
+        next_character_is_digit = next_character.isdigit()
+        next_character_is_letter = next_character_is_lowercase or next_character_is_uppercase
+
+        # Store general information to be used in if clauses into more direct language to reduce cognitive complexity
+        further_character_is_uppercase = further_character.isupper() if further_character else False
+        further_character_is_lowercase = further_character.islower() if further_character else False
+        further_character_is_whitespace = further_character.isspace() if further_character else False
+        further_character_is_digit = further_character.isdigit() if further_character else False
+
+        if current_character_is_uppercase and next_character_is_uppercase and further_character_is_uppercase:
+            # Insert the next character as-is if a pattern like "DDI" is detected, resulting in "DD",
+            # which might result in "DDI" or "DD I"
+            humanized_text += next_character
+        elif not further_character and current_character_is_uppercase and next_character_is_uppercase:
+            # Insert the next character as-is if a pattern like "DD" is detected and there are no letters after the
+            # next, resulting in "DD"
+            humanized_text += next_character
+        elif further_character_is_lowercase and current_character_is_uppercase and next_character_is_uppercase:
+            # Insert whitespace and the next character as is if a pattern like "ERe" is detected, resulting in "E R",
+            # which will result in "E Re"
+            humanized_text += " "
+            humanized_text += next_character
+        elif further_character_is_digit and current_character_is_uppercase and next_character_is_uppercase:
+            # Insert the next character as-is if a pattern like "DB1", resulting in "DB", which will result in "DB 1"
+            humanized_text += next_character
+        elif further_character_is_whitespace and current_character_is_uppercase and next_character_is_uppercase:
+            # Insert the next character as-is if a pattern like "BB " is detected, which will maintain why might be an
+            # acronym
+            humanized_text += next_character
+        elif current_character_is_lowercase and next_character_is_uppercase:
+            # Insert whitespace and the next character if a pattern like "dB" is detected, resulting in "d B"
+            humanized_text += " "
+            humanized_text += next_character
+        elif current_character_is_letter and next_character_is_digit:
+            # Insert whitespace and the next character if a pattern like "s4" or "B8" is detected,
+            # resulting in "s 4" or "B 8"
+            humanized_text += " "
+            humanized_text += next_character
+        elif current_character_is_digit and next_character_is_letter:
+            # Insert whitespace and a capitalized next character if a pattern like "3s" or "8J" is detected,
+            # resulting in "3 S" or "8 J"
+            humanized_text += " "
+            humanized_text += next_character.upper()
+        else:
+            # Just add a lower cased version of the next character if a new phrase isn't detected
+            humanized_text += next_character.lower()
+
+    # Loop through excluded phrases again and remove anything that isn't supposed to be there that might have
+    # been inserted through the text manipulation process. If a phrase to exclude was "Remove This" and the original
+    # text was "My removeThis Text", the humanization process will result in "My Remove This Text",
+    # which should be "My Text"
+    for phrase in exclude_phrases or list():
+        # New patterns don't have to be formed since they would have been formed above
+        pattern = phrase_exclusion_patterns.get(phrase.lower())
+
+        # Remove all possible instances of the pattern
+        # Loop to make sure that new instances that are created are also removed,
+        # like for "My ReRemove Thismove This Text" which will first become "My Remove This Text" then "My  Text"
+        # if the phrase to exclude was "Remove This"
+        while pattern.search(humanized_text):
+            humanized_text = pattern.sub("", humanized_text)
+
+    # Remove any possible double spaces that were added as a result of string manipulation.
+    # If fixing "My removeThis Text" yielded "My Remove This Text", then yielded "My  Text",
+    # this replacement will result in "My Text"
+    humanized_text = re.sub("  +", " ", humanized_text)
+    humanized_text = humanized_text.strip()
+
+    return humanized_text

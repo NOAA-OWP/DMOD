@@ -6,6 +6,7 @@ import json
 
 from dmod.core.common import find
 from dmod.core.common import contents_are_equivalent
+from dmod.core.common import Bag
 
 from .base import TemplatedSpecification
 from .template import TemplateManager
@@ -257,7 +258,7 @@ class ThresholdApplicationRules(TemplatedSpecification):
 
     def __init__(
         self,
-        threshold_field: AssociatedField,
+        threshold_field: AssociatedField = None,
         observation_field: AssociatedField = None,
         prediction_field: AssociatedField = None,
         **kwargs
@@ -304,7 +305,9 @@ class ThresholdSpecification(LoaderSpecification):
             return False
         elif not hasattr(other, "origin") or not contents_are_equivalent(self.origin, other.origin):
             return False
-        elif not hasattr(other, "definitions") or not contents_are_equivalent(self.definitions, other.definitions):
+        elif not hasattr(other, "definitions"):
+            return False
+        elif not contents_are_equivalent(Bag(self.definitions), Bag(other.definitions)):
             return False
 
         return hasattr(other, "application_rules") and self.application_rules == other.application_rules
