@@ -56,7 +56,7 @@ class TestTemplateManager(unittest.TestCase):
             specification_type=specification_type
         )
 
-        self.assertEqual(len(options), 1)
+        self.assertEqual(len(options), 2)
 
         value_name, text_name = options[0]
 
@@ -67,24 +67,36 @@ class TestTemplateManager(unittest.TestCase):
             specification_type=specification_type
         )
 
-        self.assertEqual(len(templates), 1)
+        self.assertEqual(len(templates), 2)
 
-        first_template = templates[0]
+        self.template_matches(
+            specification_type=specification_type,
+            template=templates[0],
+            template_name='no-template'
+        )
 
+        self.template_matches(
+            specification_type=specification_type,
+            template=templates[1],
+            template_name='Templated Evaluation'
+        )
+
+
+    def template_matches(self, specification_type: str, template: specification.TemplateDetails, template_name: str):
         self.assertEqual(
-            first_template.specification_type,
+            template.specification_type,
             specification_type
         )
 
         self.assertEqual(
-            first_template.name,
-            "no-template"
+            template.name,
+            template_name
         )
 
-        configuration_from_details: dict = first_template.get_configuration(decoder_type=TEST_DECODER)
+        configuration_from_details: dict = template.get_configuration(decoder_type=TEST_DECODER)
         configuration_from_manager: dict = self.template_manager.get_template(
             specification_type=specification_type,
-            name=first_template.name,
+            name=template.name,
             decoder_type=TEST_DECODER
         )
 
