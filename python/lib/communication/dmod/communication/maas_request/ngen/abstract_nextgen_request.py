@@ -1,5 +1,6 @@
+import json
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Set, Union
 from pydantic import PrivateAttr
 
 from dmod.core.meta_data import (
@@ -166,6 +167,21 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
             kwargs["exclude"] = {f for f in ("catchments", "partition_cfg_data_id") if not self.__getattribute__(f)}
         return super().dict(**kwargs)
 
+    @property
+    def formulation_configs(self) -> Optional[Dict[str, Any]]:
+        """
+        Optional, partial ngen realization config with catchment formulations but not other things like forcings.
+
+        When present, this carries a partial realization config, with information provided by user input.  It is
+        subsequently used by DMOD to generate a full realization config for the requested job.
+
+        Returns
+        -------
+        Optional[Dict[str, Any]]
+            The user-supplied pieces of the ngen realization config to use for this request.
+        """
+        return self.request_body.formulation_configs
+
     # TODO: #needs_issue - Account for option when forcing dataset is explicitly provided
     @property
     def forcing_data_requirement(self) -> DataRequirement:
@@ -245,6 +261,21 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
             The unique id of the hydrofabric for this modeling request.
         """
         return self.request_body.hydrofabric_uid
+
+    @property
+    def is_intelligent_request(self) -> bool:
+        """
+        Whether this request requires some of DMOD's intelligent automation.
+
+        Whether this request required some intelligence be applied by DMOD, as the details of the requirements are only
+        partially explicitly defined, but can (in principle) be determined by examine the currently stored datasets.
+
+        Returns
+        -------
+        bool
+            Whether this request requires some of DMOD's intelligent automation.
+        """
+        return self.formulation_configs is not None
 
     # TODO: #needs_issue - this probably needs to be in the NgenRequest implementation, with the ngen-cal request having
     #  its own specific output format(s)
