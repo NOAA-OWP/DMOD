@@ -51,6 +51,23 @@ class DmodJobRequest(AbstractInitRequest, ABC):
         pass
 
     @property
+    def is_intelligent_request(self) -> bool:
+        """
+        Whether this request requires some of DMOD's intelligent automation.
+
+        Whether this request required some intelligence be applied by DMOD, as the details of the requirements are only
+        partially explicitly defined, but can (in principle) be determined by examine the currently stored datasets.
+
+        In the default, base implementation, this is ``False``. It should be overridden when/as appropriate in subtypes.
+
+        Returns
+        -------
+        bool
+            Whether this request requires some of DMOD's intelligent automation.
+        """
+        return False
+
+    @property
     @abstractmethod
     def output_formats(self) -> List[DataFormat]:
         """
