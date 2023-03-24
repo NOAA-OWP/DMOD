@@ -9,6 +9,8 @@ import abc
 import os
 
 import dmod.core.common as common
+from dmod.core.common import get_subclasses
+from dmod.core.common import humanize_text
 
 from .template import TemplateManager
 
@@ -139,7 +141,7 @@ def create_class_instance(
     missing_parameters = list()
 
     if hasattr(data, "__getitem__") and not isinstance(data, typing.Sequence):
-        treat_as_template_configuration = cls in TemplatedSpecification.__subclasses__() and "template_name" in data
+        treat_as_template_configuration = cls in get_subclasses(TemplatedSpecification) and "template_name" in data
 
         overlay = None
 
@@ -218,7 +220,7 @@ class Specification(abc.ABC):
         """
         Get a human friendly name for this type of specification
         """
-        return cls.__name__
+        return humanize_text(cls.__name__, exclude_phrases=['Specification'])
 
     @classmethod
     def create(
@@ -445,7 +447,7 @@ class TemplatedSpecification(Specification, abc.ABC):
                 configuration['properties']
             )
 
-        self.overlay_configuration(
+        self.apply_configuration(
             configuration=configuration,
             template_manager=template_manager,
             decoder_type=decoder_type
@@ -462,32 +464,6 @@ class TemplatedSpecification(Specification, abc.ABC):
         Overlay configured values from another configuration onto this
         """
         pass
-
-
-def get_specifications(base_specification: typing.Type = None) -> typing.List[typing.Type[Specification]]:
-    """
-    Returns:
-        All implemented specifications
-    """
-    if base_specification is None:
-        base_specification = Specification
-
-    subclasses = [
-        cls
-        for cls in base_specification.__subclasses__()
-        if not inspect.isabstract(cls)
-    ]
-
-    abstract_subclasses = [
-        cls
-        for cls in base_specification.__subclasses__()
-        if inspect.isabstract(cls)
-    ]
-
-    for abstract_class in abstract_subclasses:
-        subclasses.extend(get_specifications(abstract_class))
-
-    return subclasses
 
 
 def convert_value(

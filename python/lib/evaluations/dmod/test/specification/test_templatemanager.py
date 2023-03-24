@@ -17,19 +17,42 @@ TEMPLATE_MANIFEST_PATH = os.path.join(
 TEST_DECODER = None
 
 
-class TestSpecificationDeserialization(unittest.TestCase):
+class TestTemplateManager(unittest.TestCase):
     def setUp(self) -> None:
-        self.__template_manager: specification.TemplateManager = specification.FileTemplateManager(
+        self.template_manager: specification.TemplateManager = specification.FileTemplateManager(
             manifest_path=TEMPLATE_MANIFEST_PATH
         )
 
     def test_manager(self):
-        specification_types: typing.Sequence[typing.Tuple[str, str]] = self.__template_manager.get_specification_types()
+        specification_types: typing.Sequence[typing.Tuple[str, str]] = self.template_manager.get_specification_types()
+
+        expected_types = [
+            ('EvaluationSpecification', 'Evaluation'),
+            ('SchemeSpecification', 'Scheme'),
+            ('ThresholdDefinition', 'Threshold Definition'),
+            ('ThresholdSpecification', 'Threshold'),
+            ('LocationSpecification', 'Location'),
+            ('DataSourceSpecification', 'Data Source'),
+            ('FieldMappingSpecification', 'Field Mapping'),
+            ('ValueSelector', 'Value Selector'),
+            ('CrosswalkSpecification', 'Crosswalk'),
+            ('BackendSpecification', 'Backend'),
+            ('AssociatedField', 'Associated Field'),
+            ('ThresholdApplicationRules', 'Threshold Application Rules')
+        ]
+        self.assertEqual(len(specification_types), len(expected_types))
+
+        for type_pair in expected_types:
+            self.assertIn(
+                type_pair,
+                specification_types,
+                f"The specification type pair of ({type_pair[0]}, {type_pair[1]}) wasn't returned from the template manager"
+            )
 
     def test_evaluationspecification(self):
         specification_type = specification.EvaluationSpecification.get_specification_type()
 
-        options: typing.Sequence[typing.Tuple[str, str]] = self.__template_manager.get_options(
+        options: typing.Sequence[typing.Tuple[str, str]] = self.template_manager.get_options(
             specification_type=specification_type
         )
 
@@ -40,7 +63,7 @@ class TestSpecificationDeserialization(unittest.TestCase):
         self.assertEqual(value_name, "no-template")
         self.assertEqual(text_name, "no-template")
 
-        templates: typing.Sequence[specification.TemplateDetails] = self.__template_manager.get_templates(
+        templates: typing.Sequence[specification.TemplateDetails] = self.template_manager.get_templates(
             specification_type=specification_type
         )
 
@@ -59,7 +82,7 @@ class TestSpecificationDeserialization(unittest.TestCase):
         )
 
         configuration_from_details: dict = first_template.get_configuration(decoder_type=TEST_DECODER)
-        configuration_from_manager: dict = self.__template_manager.get_template(
+        configuration_from_manager: dict = self.template_manager.get_template(
             specification_type=specification_type,
             name=first_template.name,
             decoder_type=TEST_DECODER

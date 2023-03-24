@@ -4,6 +4,11 @@
             "name": "no-template",
             "path": "evaluation/untemplated_configuration.json",
             "description": "Configuration with no uses of templates"
+        },
+        {
+            "name": "Templated Evaluation",
+            "path": "evaluation/full_templated_evaluation.json",
+            "description": "Configuration using as many templates as possible"
         }
     ],
     "SchemeSpecification": [
@@ -26,7 +31,7 @@
         },
         {
             "name": "Median",
-            "path": "thresholds/p80_va.json",
+            "path": "thresholds/p50_va.json",
             "description": "Median (50th Percentile)"
         }
     ],
@@ -35,6 +40,11 @@
             "name": "NWIS Stat Percentiles",
             "path": "thresholds/nwis_stat_thresholds.json",
             "description": "NWIS Daily Percentiles"
+        },
+        {
+            "name": "All Templates for NWIS Stat Percentiles",
+            "path": "thresholds/full_template_nwis_stat.json",
+            "description": "The same for NWIS Daily Percentiles, but utilizing templates"
         }
     ],
     "LocationSpecification": [
@@ -61,13 +71,18 @@
             "description": "NWIS File Observations"
         },
         {
+            "name": "Observations from Templates",
+            "path": "datasource/observation_datasource.json",
+            "description": "NWIS File Observations Using Templates"
+        },
+        {
             "name": "REST Observations",
             "path": "datasource/observation_datasource.json",
             "description": "NWIS REST Observations"
         },
         {
             "name": "Predictions",
-            "path": "datasource/observation_datasource.json",
+            "path": "datasource/prediction_datasource.json",
             "description": "Legacy NextGen Output"
         }
     ],
@@ -100,6 +115,11 @@
             "description": "NWIS Record"
         },
         {
+            "name": "Templated NWIS Record",
+            "path": "fields/templated_nwis_record.json",
+            "description": "NWIS Record using Templates"
+        },
+        {
             "name": "Predicted Column",
             "path": "fields/predicted_column.json",
             "description": "Predicted Column"
@@ -110,6 +130,11 @@
             "name": "Crosswalk",
             "path": "crosswalk/json_crosswalk.json",
             "description": "Read Crosswalk from JSON Source"
+        },
+        {
+            "name": "Templated Crosswalk",
+            "path": "crosswalk/templated_json_crosswalk.json",
+            "description": "Read Crosswalk from JSON Source based on a Template"
         }
     ],
     "BackendSpecification": [

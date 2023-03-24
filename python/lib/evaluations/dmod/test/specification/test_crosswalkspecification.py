@@ -49,12 +49,12 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
             if isinstance(origin, str):
                 origin = origin.split("/")
 
-            test.assertEqual(len(definition.entity_path), len(origin))
+            test.assertEqual(len(definition.origin), len(origin))
 
             for value in origin:
-                test.assertIn(value, definition.entity_path)
+                test.assertIn(value, definition.origin)
         else:
-            test.assertSequenceEqual(definition.entity_path, ["$"])
+            test.assertSequenceEqual(definition.origin, ["$"])
 
         TestBackendSpecificationConstruction.make_assertion_for_single_definition(
                 test,

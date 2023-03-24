@@ -6,7 +6,14 @@ import json
 import pathlib
 import typing
 
-from ..util import clean_name
+from dmod.core.common import humanize_text
+
+
+@typing.runtime_checkable
+class GetSpecificationTypeProtocol(typing.Protocol):
+    @classmethod
+    def get_specification_type(cls) -> str:
+        pass
 
 
 class TemplateDetails(abc.ABC):
@@ -83,7 +90,7 @@ class TemplateManager(abc.ABC):
 
     def get_template(
         self,
-        specification_type: str,
+        specification_type: typing.Union[str, GetSpecificationTypeProtocol],
         name: str,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ) -> typing.Optional[dict]:
@@ -98,6 +105,9 @@ class TemplateManager(abc.ABC):
         Returns:
             The dictionary containing the basic configuration details for a template
         """
+        if isinstance(specification_type, GetSpecificationTypeProtocol):
+            specification_type = specification_type.get_specification_type()
+
         matches = [
             template.get_configuration(decoder_type=decoder_type)
             for template in self.get_templates(specification_type)
@@ -179,19 +189,24 @@ class FileTemplateManager(TemplateManager):
 
                 description = details.get("description")
 
-                self.__manifest[specification_name][name] = FileTemplateDetails(
-                    name=name,
-                    specification_type=specification_name,
-                    path=template_path,
-                    description=description
-                )
+                try:
+                    manifest_entry = FileTemplateDetails(
+                        name=name,
+                        specification_type=specification_name,
+                        path=template_path,
+                        description=description
+                    )
+                    self.__manifest[specification_name][name] = manifest_entry
+                except:
+                    pass
+                    raise
 
     def get_specification_types(self) -> typing.Sequence[typing.Tuple[str, str]]:
         types: typing.List[typing.Tuple[str, str]] = list()
 
         for specification_type in self.__manifest:
             types.append(
-                (specification_type, clean_name(specification_type))
+                (specification_type, humanize_text(specification_type, exclude_phrases='Specification'))
             )
 
         return types

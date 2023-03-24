@@ -10,7 +10,10 @@ import pandas
 
 import dmod.metrics as metrics
 
-from dmod.core import common
+from dmod.core.common import find
+from dmod.core.common import truncate
+from dmod.core.common import contents_are_equivalent
+from dmod.core.common import Bag
 
 from . import TemplateManager
 from .base import TemplatedSpecification
@@ -28,13 +31,22 @@ class EvaluationSpecification(TemplatedSpecification):
     def __eq__(self, other: "EvaluationSpecification") -> bool:
         if not super().__eq__(other):
             return False
-        if not hasattr(other, "observations") or not common.contents_are_equivalent(self.observations, other.observations):
+        if not hasattr(other, "observations"):
             return False
-        if not hasattr(other, "predictions") or not common.contents_are_equivalent(self.predictions, other.predictions):
+        if not hasattr(other, "predictions"):
             return False
-        elif not hasattr(other, "crosswalks") or not common.contents_are_equivalent(self.crosswalks, other.crosswalks):
+        elif not hasattr(other, "crosswalks"):
             return False
-        elif not hasattr(other, "thresholds") or not common.contents_are_equivalent(self.thresholds, other.thresholds):
+        elif not hasattr(other, "thresholds"):
+            return False
+
+        if not contents_are_equivalent(Bag(self.observations), Bag(other.observations)):
+            return False
+        elif not contents_are_equivalent(Bag(self.predictions), Bag(other.predictions)):
+            return False
+        elif not contents_are_equivalent(Bag(self.crosswalks), Bag(other.crosswalks)):
+            return False
+        elif not contents_are_equivalent(Bag(self.thresholds), Bag(other.thresholds)):
             return False
 
         return hasattr(other, "scheme") and self.scheme == other.scheme
@@ -74,7 +86,7 @@ class EvaluationSpecification(TemplatedSpecification):
     ):
         if 'observations' in configuration:
             for observation_configuration in configuration.get("observations"):
-                matching_observations = common.find(
+                matching_observations = find(
                     self.__observations,
                     lambda observations: observations.name == observation_configuration.get("name")
                 )
@@ -96,7 +108,7 @@ class EvaluationSpecification(TemplatedSpecification):
 
         if 'predictions' in configuration:
             for prediction_configuration in configuration.get("predictions"):
-                matching_predictions = common.find(
+                matching_predictions = find(
                     self.__predictions,
                     lambda predictions: predictions.name == prediction_configuration.get("name")
                 )
@@ -123,7 +135,7 @@ class EvaluationSpecification(TemplatedSpecification):
                 crosswalk_configurations = [crosswalk_configurations]
 
             for configuration in crosswalk_configurations:
-                matching_crosswalk = common.find(
+                matching_crosswalk = find(
                     self.crosswalks,
                     lambda crosswalk: crosswalk.identities_match(configuration)
                 )
@@ -150,7 +162,7 @@ class EvaluationSpecification(TemplatedSpecification):
                 thresholds = [thresholds]
 
             for threshold_specification in thresholds:
-                matching_specification = common.find(
+                matching_specification = find(
                     self.__thresholds,
                     lambda threshold: threshold.identities_match(threshold_specification)
                 )
@@ -450,7 +462,7 @@ class EvaluationResults:
         """
         The total weighted grade percentage result across all location pairings. Scales from 0.0 to 100.0
         """
-        return common.truncate(self.performance * 100.0, 2)
+        return truncate(self.performance * 100.0, 2)
 
     @property
     def mean(self) -> float:

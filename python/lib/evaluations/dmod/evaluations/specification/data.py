@@ -4,7 +4,10 @@
 import json
 import typing
 
-import dmod.core.common as common
+from dmod.core.common import find
+from dmod.core.common import contents_are_equivalent
+from dmod.core.common import Bag
+from dmod.core.common import is_sequence_type
 
 from . import TemplateManager
 from .backend import BackendSpecification
@@ -34,6 +37,8 @@ class DataSourceSpecification(LoaderSpecification):
             return False
         elif not hasattr(other, "unit"):
             return False
+        elif not hasattr(other, "value_selectors"):
+            return False
         elif not hasattr(other, "x_axis"):
             return False
 
@@ -41,9 +46,11 @@ class DataSourceSpecification(LoaderSpecification):
             return False
         elif self.locations != other.locations:
             return False
-        elif not common.contents_are_equivalent(self.field_mapping, other.field_mapping):
+        elif not contents_are_equivalent(Bag(self.field_mapping), Bag(other.field_mapping)):
             return False
         elif self.unit != other.unit:
+            return False
+        elif not contents_are_equivalent(Bag(self.value_selectors), Bag(other.value_selectors)):
             return False
 
         return self.x_axis == other.x_axis
@@ -84,7 +91,7 @@ class DataSourceSpecification(LoaderSpecification):
         self.__value_field = configuration.get("value_field", self.__value_field)
 
         for selector in configuration.get("value_selectors", list()):
-            matching_selector = common.find(
+            matching_selector = find(
                 self.__value_selectors,
                 lambda value_selector: value_selector.name == selector['name']
             )
@@ -126,7 +133,7 @@ class DataSourceSpecification(LoaderSpecification):
                 )
 
         for mapping in configuration.get("field_mapping", list()):
-            matching_mapping = common.find(
+            matching_mapping = find(
                 self.__field_mapping,
                 lambda field_mapping: field_mapping.field == mapping.get("field")
             )
@@ -229,7 +236,7 @@ class DataSourceSpecification(LoaderSpecification):
                     options[key] = value
                 elif isinstance(options[key], dict):
                     options[key].update(value)
-                elif common.is_sequence_type(options[key]):
+                elif is_sequence_type(options[key]):
                     for entry in value:
                         if entry not in options[key]:
                             options[key].append(entry)
