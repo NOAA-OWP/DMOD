@@ -16,7 +16,8 @@ class GetSpecificationTypeProtocol(typing.Protocol):
         pass
 
 
-class TemplateDetails(abc.ABC):
+@typing.runtime_checkable
+class TemplateDetails(typing.Protocol):
     """
     A base class prescribing basic details about a template for specification objects
     """
@@ -189,17 +190,13 @@ class FileTemplateManager(TemplateManager):
 
                 description = details.get("description")
 
-                try:
-                    manifest_entry = FileTemplateDetails(
-                        name=name,
-                        specification_type=specification_name,
-                        path=template_path,
-                        description=description
-                    )
-                    self.__manifest[specification_name][name] = manifest_entry
-                except:
-                    pass
-                    raise
+                manifest_entry = FileTemplateDetails(
+                    name=name,
+                    specification_type=specification_name,
+                    path=template_path,
+                    description=description
+                )
+                self.__manifest[specification_name][name] = manifest_entry
 
     def get_specification_types(self) -> typing.Sequence[typing.Tuple[str, str]]:
         types: typing.List[typing.Tuple[str, str]] = list()

@@ -9,21 +9,23 @@ from django.db.models import UniqueConstraint
 
 from . import choices
 
-from dmod.evaluations.specification.template import TemplateDetails
+from dmod.evaluations.specification import get_specification_options
 
 # Create your models here.
 
 _BOX_TYPE = typing.Union[typing.Tuple[int, int, int, int], geopandas.GeoDataFrame, geopandas.GeoSeries]
 
 
-class SpecificationTemplate(models.Model, TemplateDetails):
+class SpecificationTemplate(models.Model):
     class Meta:
         constraints = [
             UniqueConstraint(name="unique_template_idx", fields=["template_name", "template_specification_type"])
         ]
+
     template_name = models.CharField(verbose_name="name", max_length=100, help_text="The name of the template")
     template_specification_type = models.CharField(
         max_length=50,
+        choices=get_specification_options(),
         help_text="The type of specification that this template pertains to"
     )
     template_configuration = models.CharField(
@@ -53,6 +55,9 @@ class SpecificationTemplate(models.Model, TemplateDetails):
     @property
     def description(self) -> typing.Optional[str]:
         return self.template_description
+
+    def __str__(self):
+        return f"[{self.specification_type}] {self.name}{':' + self.description if self.description else ''}"
 
 
 class SpecificationTemplate(models.Model, TemplateDetails):

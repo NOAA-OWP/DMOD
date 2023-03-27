@@ -18,6 +18,8 @@ import redis.client as redis_client
 
 from channels.generic.websocket import AsyncWebsocketConsumer
 
+from dmod.evaluations.specification import EvaluationSpecification
+
 import utilities
 
 from service.application_values import COMMON_DATETIME_FORMAT
@@ -27,6 +29,8 @@ from service.application_values import EVALUATION_QUEUE_NAME
 
 from service import logging as common_logging
 from evaluation_service import models
+
+from ..specification import SpecificationTemplateManager
 
 
 LOGGER = common_logging.get_logger()
@@ -506,6 +510,7 @@ class LaunchConsumer(AsyncWebsocketConsumer):
         self.listener: typing.Optional[redis.client.PubSubWorkerThread] = None
         self.connection_group_id: typing.Optional[str] = None
         self.channel_name: typing.Optional[str] = None
+        self.template_manager: SpecificationTemplateManager = SpecificationTemplateManager()
         self.__scope: typing.Optional[ConcreteScope] = None
 
     @property
@@ -822,6 +827,53 @@ class LaunchConsumer(AsyncWebsocketConsumer):
                       f"'{str(payload['identifier'])}'"
             SOCKET_LOGGER.error(message=message, exception=exception)
             await self.send_error(message, event="get_saved_definition")
+
+    @required_parameters()
+    async def get_template_specification_types(self, payload: typing.Dict[str, typing.Any] = None):
+        message = {
+            "specification_types": self.template_manager.get_specification_types()
+        }
+        await self.send_message(result=message, event="get_template_specification_types", logger=SOCKET_LOGGER)
+
+    @required_parameters(specification_type="string")
+    async def get_templates(self, payload: typing.Dict[str, typing.Any] = None):
+        message = {
+            "templates": [
+                {
+                    "name": template.name,
+                    "specification_type": template.specification_type,
+                    "description": template.description
+                }
+                for template in self.template_manager.get_templates(payload.get("specification_type"))
+            ]
+        }
+        await self.send_message(result=message, event="get_templates", logger=SOCKET_LOGGER)
+
+    @required_parameters(configuration="string")
+    async def validate_configuration(self, payload: typing.Dict[str, typing.Any] = None):
+        evaluation_specification = EvaluationSpecification.create(
+            payload['configuration'],
+            self.template_manager,
+            validate=False
+        )
+
+        message = {
+            "validation_messages": EvaluationSpecification.form_validation_messages(evaluation_specification)
+        }
+
+        await self.send_message(result=message, event="validate_configuration", logger=SOCKET_LOGGER)
+
+    @required_parameters(specification_type="string", name="string", author="string")
+    async def get_template(self, payload: typing.Dict[str, typing.Any] = None):
+        template = self.template_manager.get_template(
+            specification_type=payload.get("specification_type"),
+            name=payload.get("name")
+        )
+        template_message = {
+            "template": json.dumps(template, indent=4)
+        }
+
+        await self.send_message(result=template_message, event="get_template", logger=SOCKET_LOGGER)
 
     @required_parameters()
     async def get_actions(self, payload: typing.Dict[str, typing.Any] = None):

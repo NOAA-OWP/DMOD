@@ -3,7 +3,7 @@ Provides classes and functions used to manipulated Evaluation specifications
 """
 import typing
 
-from dmod.evaluations.specification import model
+from dmod.evaluations import specification
 from dmod.evaluations.specification.template import TemplateManager, TemplateDetails
 
 from .models import SpecificationTemplate
@@ -16,7 +16,7 @@ class SpecificationTemplateManager(TemplateManager):
     def get_specification_types(self) -> typing.Sequence[typing.Tuple[str, str]]:
         types: typing.List[typing.Tuple[str, str]] = list()
 
-        for subclass in model.TemplatedSpecification.__subclasses__():
+        for subclass in specification.TemplatedSpecification.__subclasses__():
             types.append((subclass.get_specification_type(), subclass.get_specification_type()))
 
         return types
