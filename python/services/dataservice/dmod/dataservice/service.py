@@ -240,12 +240,17 @@ class PartialRealizationConfig:
 
         return cls(**params)
 
-    def __init__(self, global_formulations: List[Formulation],
+    def __init__(self,
+                 hydrofabric_uid: str,
+                 global_formulations: List[Formulation],
                  catchment_formulations: Optional[Dict[str, CatchmentRealization]] = None,
                  forcing_file_pattern: Optional[str] = None,
                  forcing_file_name: Optional[str] = None,
                  routing_config: Optional[Routing] = None,
                  is_env_workaround: Optional[bool] = None):
+        self.hydrofabric_uid: str = hydrofabric_uid
+        """ The unique id of hydrofabric associated with the catchments to which the contained formulations apply. """
+
         self.global_formulations: List[Formulation] = global_formulations
         """ The global formulation(s) config, serving as a default once in a full NextGen realization configuration. """
 
