@@ -193,12 +193,12 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
 
 class PartialRealizationConfig(BaseModel):
     """
-    Private helper class for working with partial realization configs contained within ::class:`NGENRequest` objects.\
+    Helper class for working with partial realization configs contained within ngen job request objects.
 
-    Helper class for working with the serialized formulation configurations ::class:`NGENRequest` messages. Those
-    ::class:`NGENRequest` object only ever contain these configs in a serialized form (i.e., JSON dicts).  This is to
-    avoid requiring related dependencies in anything that pulls in the ``dmod-communication`` package, since the message
-    itself only needs to carry the data, not access it.
+    Helper class for working with the serialized formulation configurations ::class:`AbstractNgenRequest` messages.
+    Those ::class:`AbstractNgenRequest` objects only ever contain these configs in a serialized form (i.e., JSON dicts).
+    This is to avoid requiring related dependencies in anything that pulls in the ``dmod-communication`` package, since
+    the message itself only needs to carry the data, not access it.
 
     The type relies on classes from the ``ngen-config`` external package and the transitive ``pydantic`` dependency.
     """
@@ -603,7 +603,7 @@ class ServiceManager(WebSocketInterface):
 
         return Forcing(**forcing_cfg_params)
 
-    def _build_ngen_realization_config_from_request(self, request: NGENRequest, job: Job) -> NgenRealization:
+    def _build_ngen_realization_config_from_request(self, request: AbstractNgenRequest, job: Job) -> NgenRealization:
         """
         Build a NextGen realization config object from current service state and partial config within the job request.
 
@@ -696,7 +696,7 @@ class ServiceManager(WebSocketInterface):
         job
         """
         request = job.model_request
-        if isinstance(request, NGENRequest):
+        if isinstance(request, AbstractNgenRequest):
             real_config_obj = self._build_ngen_realization_config_from_request(request=request, job=job)
 
             # Create a new dataset
@@ -974,7 +974,7 @@ class ServiceManager(WebSocketInterface):
             return False
 
         request = job.model_request
-        if isinstance(request, NGENRequest) and request.is_intelligent_request:
+        if isinstance(request, AbstractNgenRequest) and request.is_intelligent_request:
             # Make sure the formulation config is valid
             deserialized_formulations = PartialRealizationConfig(**request.formulation_configs)
             return isinstance(deserialized_formulations, PartialRealizationConfig)
