@@ -8,6 +8,7 @@ import geopandas
 from django.db.models import UniqueConstraint
 
 from . import choices
+from .wrapper import ModelWrapper
 
 from dmod.evaluations.specification import get_specification_options
 
@@ -194,3 +195,18 @@ class StoredDataset(models.Model):
     def __repr__(self) -> str:
         return f"{self.name} => {self.path}"
 
+
+SpecificationTemplateCommunicator = ModelWrapper.for_model(SpecificationTemplate)
+"""
+A specialized handler for SpecificationTemplate database operations that should work the same in sync and async contexts
+"""
+
+EvaluationDefinitionCommunicator = ModelWrapper.for_model(EvaluationDefinition)
+"""
+A specialized handler for EvaluationDefinition database operations that should work the same in sync and async contexts
+"""
+
+StoredDatasetCommunicator = ModelWrapper.for_model(StoredDataset)
+"""
+A specialized handler for StoredDataset database operations that should work the same in sync and async contexts
+"""

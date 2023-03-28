@@ -1,5 +1,5 @@
 """
-Defines specification classes for how to read, define, interpret, 
+Defines specification classes for how to read, define, interpret,
 and transform data for evaluations
 """
 import json

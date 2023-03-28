@@ -21,6 +21,8 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from dmod.evaluations.specification import EvaluationSpecification
 
 import utilities
+from evaluation_service.models import EvaluationDefinition
+from evaluation_service.models import EvaluationDefinitionCommunicator
 
 from service.application_values import COMMON_DATETIME_FORMAT
 from service.application_values import START_DELAY
@@ -30,59 +32,64 @@ from service.application_values import EVALUATION_QUEUE_NAME
 from service import logging as common_logging
 from evaluation_service import models
 
-from ..specification import SpecificationTemplateManager
+from evaluation_service.specification import SpecificationTemplateManager
 
 
 LOGGER = common_logging.get_logger()
 SOCKET_LOGGER = common_logging.get_logger(common_logging.DEFAULT_SOCKET_LOGGER_NAME)
 
 
-_T = typing.TypeVar("_T")
-LAZY_RETRIEVER = typing.Callable[[typing.Any, ...], typing.Optional[QuerySet[_T]]]
+class __RequiredParameterType:
+    @property
+    def text(self) -> str:
+        return "text"
+
+    @property
+    def number(self) -> str:
+        return "number"
+
+    @property
+    def boolean(self) -> str:
+        return "checkbox"
+
+    @property
+    def color(self) -> str:
+        return "color"
+
+    @property
+    def date(self) -> str:
+        return "date"
+
+    @property
+    def datetime(self) -> str:
+        return "datetime-local"
+
+    @property
+    def month(self) -> str:
+        return "month"
+
+    @property
+    def password(self) -> str:
+        return "password"
+
+    @property
+    def time(self) -> str:
+        return "time"
+
+    @property
+    def week(self) -> str:
+        return "week"
+
+    @property
+    def file(self) -> str:
+        return "file"
+
+    @property
+    def image(self) -> str:
+        return "image"
 
 
-def get_values_eagerly(function: LAZY_RETRIEVER, *args, **kwargs) -> typing.Optional[typing.Sequence[_T]]:
-    """
-    Loads all values from a function that retrieves a queryset
-
-    Django QuerySets are lazy, meaning that data is only retrieved when immediately referenced. All data must be
-    retrieved at once if Django ORM data is to be used in asynchronous functions.
-
-    MUST BE CALLED IF RETRIEVING DATA VIA THE DJANGO ORM.
-
-    :param function: A function that returns a queryset
-    :param args: Positional arguments passed to the function
-    :param kwargs: Keyword arguments passed to the function
-    :return: All values that would have been loaded through the lazy load
-    """
-    result: typing.Optional[QuerySet] = function(*args, **kwargs)
-
-    if result and isinstance(result, QuerySet):
-        return list(model for model in result)
-
-    return result
-
-
-async def communicate_with_database(function: typing.Callable[[typing.Any, ...], _T], *args, **kwargs) -> _T:
-    """
-    Use a function that has to use the Django database.
-
-    Async functions can't typically communicate with the django database due to a safeguard used for protecting data
-    in databases with a high volume of transactions. The general solution is to call a service that schedules the
-    function execution. Instead of contacting a service, this will call the function in another thread and await the
-    result.
-
-    Args:
-        function: The function to call
-        *args: Positional arguments to use in the function call
-        **kwargs: Keyword arguments to use in the function call
-
-    Returns:
-        The results of the function
-    """
-    prepared_function = functools.partial(get_values_eagerly, function, *args, **kwargs)
-    result = await asyncio.get_running_loop().run_in_executor(None, prepared_function)
-    return result
+REQUIRED_PARAMETER_TYPES = __RequiredParameterType()
 
 
 def inner_data_is_wrapper(possible_wrapper: dict) -> bool:
@@ -596,7 +603,7 @@ class LaunchConsumer(AsyncWebsocketConsumer):
         await super().accept()
         await self.send_message(event="connect", result=f"Connection accepted")
 
-    @required_parameters(evaluation_name="string")
+    @required_parameters(evaluation_name=REQUIRED_PARAMETER_TYPES.text)
     async def subscribe_to_channel(self, payload: typing.Dict[str, typing.Any] = None):
         """
         Subscribe to a redis channel
@@ -716,7 +723,7 @@ class LaunchConsumer(AsyncWebsocketConsumer):
             await self.send_error(message=exception, event=action)
             SOCKET_LOGGER.error(message=exception)
 
-    @required_parameters(evaluation_name="string", instructions="string")
+    @required_parameters(evaluation_name=REQUIRED_PARAMETER_TYPES.text, instructions=REQUIRED_PARAMETER_TYPES.text)
     async def launch(self, payload: typing.Dict[str, typing.Any] = None):
         """
         Launch an evaluation
@@ -787,8 +794,7 @@ class LaunchConsumer(AsyncWebsocketConsumer):
             if 'name' in payload:
                 filter_arguments['name__icontains'] = payload['name']
 
-            saved_definitions: QuerySet[models.EvaluationDefinition] = await communicate_with_database(
-                models.EvaluationDefinition.objects.filter,
+            saved_definitions: typing.Sequence[EvaluationDefinition] = EvaluationDefinitionCommunicator.filter(
                 **filter_arguments
             )
 
@@ -809,14 +815,13 @@ class LaunchConsumer(AsyncWebsocketConsumer):
             SOCKET_LOGGER.error(message, exception)
             await self.send_error(event="search", message=message)
 
-    @required_parameters(identifier="integer")
+    @required_parameters(identifier=REQUIRED_PARAMETER_TYPES.number)
     async def get_saved_definition(self, payload: typing.Dict[str, typing.Any] = None):
         try:
             identifier = int(float(payload['identifier']))
-            saved_definition: models.EvaluationDefinition = await communicate_with_database(
-                models.EvaluationDefinition.objects.get,
-                pk=identifier
-            )
+
+            saved_definition: EvaluationDefinition = EvaluationDefinitionCommunicator.get(pk=identifier)
+
             payload = {
                 "name": saved_definition.name,
                 "definition": saved_definition.definition
@@ -835,21 +840,22 @@ class LaunchConsumer(AsyncWebsocketConsumer):
         }
         await self.send_message(result=message, event="get_template_specification_types", logger=SOCKET_LOGGER)
 
-    @required_parameters(specification_type="string")
+    @required_parameters(specification_type=REQUIRED_PARAMETER_TYPES.text)
     async def get_templates(self, payload: typing.Dict[str, typing.Any] = None):
         message = {
-            "templates": [
-                {
-                    "name": template.name,
-                    "specification_type": template.specification_type,
-                    "description": template.description
-                }
-                for template in self.template_manager.get_templates(payload.get("specification_type"))
-            ]
+            "templates": list()
         }
+
+        for template in self.template_manager.get_templates(payload.get("specification_type")):
+            message['templates'].append({
+                "name": template.name,
+                "specification_type": template.specification_type,
+                "description": template.description
+            })
+
         await self.send_message(result=message, event="get_templates", logger=SOCKET_LOGGER)
 
-    @required_parameters(configuration="string")
+    @required_parameters(configuration=REQUIRED_PARAMETER_TYPES.text)
     async def validate_configuration(self, payload: typing.Dict[str, typing.Any] = None):
         evaluation_specification = EvaluationSpecification.create(
             payload['configuration'],
@@ -863,7 +869,11 @@ class LaunchConsumer(AsyncWebsocketConsumer):
 
         await self.send_message(result=message, event="validate_configuration", logger=SOCKET_LOGGER)
 
-    @required_parameters(specification_type="string", name="string", author="string")
+    @required_parameters(
+        specification_type=REQUIRED_PARAMETER_TYPES.text,
+        name=REQUIRED_PARAMETER_TYPES.text,
+        author=REQUIRED_PARAMETER_TYPES.text
+    )
     async def get_template(self, payload: typing.Dict[str, typing.Any] = None):
         template = self.template_manager.get_template(
             specification_type=payload.get("specification_type"),
@@ -888,8 +898,16 @@ class LaunchConsumer(AsyncWebsocketConsumer):
         for name, function in self.get_action_handlers().items():
             # `function` will be a function like `(dict) => Coroutine`, where the function will have a dictionary
             # mapping the name of required parameters for each handler to a human friendly description of its type
+            documentation = ""
+
+            if function.__doc__:
+                split_documentation = function.__doc__.strip().split("\n")
+                if len(split_documentation) > 0:
+                    documentation = split_documentation[0]
+
             descriptor = {
                 "action": name,
+                "documentation": documentation,
                 "action_parameters": {
                     parameter_name: parameter_type
                     for parameter_name, parameter_type in function.required_parameters.items()
@@ -898,7 +916,12 @@ class LaunchConsumer(AsyncWebsocketConsumer):
             actions.append(descriptor)
         await self.send_message(result=actions, event="get_actions", logger=SOCKET_LOGGER)
 
-    @required_parameters(name="string", description="string", author="string", instructions="string")
+    @required_parameters(
+        name=REQUIRED_PARAMETER_TYPES.text,
+        description=REQUIRED_PARAMETER_TYPES.text,
+        author=REQUIRED_PARAMETER_TYPES.text,
+        instructions=REQUIRED_PARAMETER_TYPES.text
+    )
     async def save(self, payload: typing.Dict[str, typing.Any] = None):
         """
         Saves the configured evaluation for later use
@@ -994,8 +1017,6 @@ class LaunchConsumer(AsyncWebsocketConsumer):
         """
         Send a message specifically formatted for errors through the socket
 
-        TODO: Determine whether or not this should end up going through `send_message`
-
         Args:
             message: Information about the error
             event: The event within which the error occurred
@@ -1009,14 +1030,11 @@ class LaunchConsumer(AsyncWebsocketConsumer):
         if not isinstance(message, (str, dict)):
             message = str(message)
 
-        response = make_websocket_message(
+        await self.send_message(
+            result=message,
             event=event,
-            response_type="error",
-            data=message,
-            logger=SOCKET_LOGGER
+            response_type="error"
         )
-
-        await self.send(response)
 
     async def disconnect(self, close_code):
         """
