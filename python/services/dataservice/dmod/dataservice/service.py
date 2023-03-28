@@ -209,7 +209,7 @@ class PartialRealizationConfig(BaseModel):
     hydrofabric_uid: str
     """ The unique id of hydrofabric associated with the catchments to which the contained formulations apply. """
 
-    global_formulations: List[Formulation]
+    global_formulations: Optional[List[Formulation]] = None
     """ The global formulation(s) config, serving as a default once in a full NextGen realization configuration. """
 
     catchment_formulations: Optional[Dict[str, CatchmentRealization]] = None
@@ -236,6 +236,18 @@ class PartialRealizationConfig(BaseModel):
             return field_name in values and values[field_name].split(cls._FROM_ENV_DELIMIT)[0] == cls._FROM_ENV_PREFIX
 
         return has_indicator('forcing_file_pattern') or has_indicator('forcing_file_name')
+
+    @validator('catchment_formulations', pre=True, always=True)
+    def validate_formulations(cls, v, values):
+        # If a non-empty dict was passed for catchment_formulations, then we are good (so return it)
+        if v:
+            return v
+        # Alternatively, if we received a non-empty global_formulations, then we are also good (so return the value)
+        elif 'global_formulations' in values and values['global_formulations']:
+            return v
+        # But if we got neither a global formulation or individual catchment formulations, that is a problem
+        else:
+            raise ValueError('Catchment formulations must be provided if no global formulation is present')
 
 
 class ServiceManager(WebSocketInterface):
