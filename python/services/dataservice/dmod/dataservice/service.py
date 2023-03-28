@@ -228,14 +228,14 @@ class PartialRealizationConfig(BaseModel):
     """ If this partial config indicated use of the env-supplied local mount workaround for the forcing data. """
 
     @validator('is_env_workaround', pre=True, always=True)
-    def default_is_env_workaround(cls, v, *, values, **kwargs):
+    def default_is_env_workaround(cls, v, values):
         if v is not None:
             return v
 
-        def has_indicator(str_val: Optional[str]):
-            return str_val and str_val.split(cls._FROM_ENV_DELIMIT)[0] == cls._FROM_ENV_PREFIX
+        def has_indicator(field_name: str):
+            return field_name in values and values[field_name].split(cls._FROM_ENV_DELIMIT)[0] == cls._FROM_ENV_PREFIX
 
-        return has_indicator(values.get('forcing_file_pattern')) or has_indicator(values.get('forcing_file_name'))
+        return has_indicator('forcing_file_pattern') or has_indicator('forcing_file_name')
 
 
 class ServiceManager(WebSocketInterface):
