@@ -4,11 +4,12 @@ import json
 import os
 from time import sleep as time_sleep
 from docker.types import Healthcheck, RestartPolicy, ServiceMode
-from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, NGENRequest, \
+from dmod.communication import AbstractNgenRequest, DatasetManagementMessage, DatasetManagementResponse, NGENRequest, \
     ManagementAction, WebSocketInterface
 from dmod.communication.dataset_management_message import DatasetQuery, QueryType
 from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
-from dmod.core.meta_data import DataCategory, DataDomain, DataRequirement, DiscreteRestriction, StandardDatasetIndex
+from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement, DiscreteRestriction, \
+    StandardDatasetIndex
 from dmod.core.serializable import ResultIndicator, BasicResultIndicator
 from dmod.core.exception import DmodRuntimeError
 from dmod.modeldata.data.object_store_manager import Dataset, DatasetManager, DatasetType, ObjectStoreDatasetManager
@@ -19,7 +20,8 @@ from ngen.config.configurations import Forcing, Time, Routing
 from ngen.config.realization import CatchmentRealization, NgenRealization, Realization
 from ngen.config.formulation import Formulation
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
+from pydantic import BaseModel, validator
+from typing import ClassVar, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
 from uuid import UUID, uuid4
 from websockets import WebSocketServerProtocol
 
@@ -189,7 +191,7 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
                            start_period=to_nanoseconds(seconds=5))
 
 
-class PartialRealizationConfig:
+class PartialRealizationConfig(BaseModel):
     """
     Private helper class for working with partial realization configs contained within ::class:`NGENRequest` objects.\
 
@@ -198,113 +200,42 @@ class PartialRealizationConfig:
     avoid requiring related dependencies in anything that pulls in the ``dmod-communication`` package, since the message
     itself only needs to carry the data, not access it.
 
-    This type contains helper functions for parsing the serialized form or re-serializing it back to a dict.
-
-    The type itself relies on classes from the ``ngen-config`` external package.
+    The type relies on classes from the ``ngen-config`` external package and the transitive ``pydantic`` dependency.
     """
 
-    _FROM_ENV_DELIMIT = ':::'
-    _FROM_ENV_PREFIX = 'from_env'
+    _FROM_ENV_DELIMIT: ClassVar[str] = ':::'
+    _FROM_ENV_PREFIX: ClassVar[str] = 'from_env'
 
-    @classmethod
-    def parse_from_ngen_request(cls, request: NGENRequest) -> 'PartialRealizationConfig':
-        """
-        Extract and deserialize an instance from a ::class:`NGENReqeuest` carrying it in serialized form.
+    hydrofabric_uid: str
+    """ The unique id of hydrofabric associated with the catchments to which the contained formulations apply. """
 
-        Parameters
-        ----------
-        request: NGENRequest
-            A request that contains a partial formulation config as a serialized JSON dict.
+    global_formulations: List[Formulation]
+    """ The global formulation(s) config, serving as a default once in a full NextGen realization configuration. """
 
-        Returns
-        -------
-        PartialRealizationConfig
-            The deserialized instance.
-        """
-        params = {'global_formulations': [Formulation(**gf) for gf in request.formulation_configs['global_formulations']]}
+    catchment_formulations: Optional[Dict[str, CatchmentRealization]] = None
+    """ The individual catchment formulation configs, if set, keyed by catchment id. """
 
-        if 'catchment_formulations' in request.formulation_configs:
-            params['catchment_formulations'] = dict([(cat_id, CatchmentRealization(**v)) for cat_id, v in
-                                                     request.formulation_configs['catchment_formulations'].items()])
-        if 'routing_config' in request.formulation_configs:
-            params['routing_config'] = Routing(**request.formulation_configs['routing_config'])
+    forcing_file_pattern: Optional[str] = None
+    """ Optional catchment-id-based pattern string for basename of per-catchment forcing files. """
 
-        if 'forcing_file_pattern' in request.formulation_configs:
-            params['forcing_file_pattern'] = request.formulation_configs['forcing_file_pattern']
+    forcing_file_name: Optional[str] = None
+    """ Optional fixed name for the forcing data file. """
 
-        if 'forcing_file_name' in request.formulation_configs:
-            params['forcing_file_name'] = request.formulation_configs['forcing_file_name']
+    routing_config: Optional[Routing] = None
+    """ Optional routing config object for the partial config. """
 
-        if 'is_env_workaround' in request.formulation_configs:
-            params['is_env_workaround'] = request.formulation_configs['is_env_workaround']
+    is_env_workaround: bool = None
+    """ If this partial config indicated use of the env-supplied local mount workaround for the forcing data. """
 
-        return cls(**params)
+    @validator('is_env_workaround', pre=True, always=True)
+    def default_is_env_workaround(cls, v, *, values, **kwargs):
+        if v:
+            return v
 
-    def __init__(self,
-                 hydrofabric_uid: str,
-                 global_formulations: List[Formulation],
-                 catchment_formulations: Optional[Dict[str, CatchmentRealization]] = None,
-                 forcing_file_pattern: Optional[str] = None,
-                 forcing_file_name: Optional[str] = None,
-                 routing_config: Optional[Routing] = None,
-                 is_env_workaround: Optional[bool] = None):
-        self.hydrofabric_uid: str = hydrofabric_uid
-        """ The unique id of hydrofabric associated with the catchments to which the contained formulations apply. """
+        def has_indicator(str_val: Optional[str]):
+            return str_val and str_val.split(cls._FROM_ENV_DELIMIT)[0] == cls._FROM_ENV_PREFIX
 
-        self.global_formulations: List[Formulation] = global_formulations
-        """ The global formulation(s) config, serving as a default once in a full NextGen realization configuration. """
-
-        self.catchment_formulations: Optional[Dict[str, CatchmentRealization]] = catchment_formulations
-        """ The individual catchment formulation configs, if set, keyed by catchment id. """
-
-        self.forcing_file_pattern: Optional[str] = forcing_file_pattern
-        """ Optional catchment-id-based pattern string for basename of per-catchment forcing files. """
-
-        self.forcing_file_name: Optional[str] = forcing_file_name
-        """ Optional fixed name for the forcing data file. """
-
-        self.routing_config: Optional[Routing] = routing_config
-        """ Optional routing config object for the partial config. """
-
-        self.is_env_workaround: bool = is_env_workaround
-        """ If this partial config indicated use of the env-supplied local mount workaround for the forcing data. """
-
-        # When not set, examine things to see if they indicate the workaround should be used
-        if self.is_env_workaround is None and forcing_file_pattern is not None:
-            split_str = forcing_file_pattern.split(self._FROM_ENV_DELIMIT)
-            if len(split_str) > 1 and split_str[0] == self._FROM_ENV_PREFIX:
-                self.is_env_workaround = True
-
-        if self.is_env_workaround is None and forcing_file_name is not None:
-            split_str = forcing_file_name.split(self._FROM_ENV_DELIMIT)
-            if len(split_str) > 1 and split_str[0] == self._FROM_ENV_PREFIX:
-                self.is_env_workaround = True
-
-        if self.is_env_workaround is None:
-            self.is_env_workaround = False
-
-    def serialize_for_ngen_request(self) -> Dict[str, Any]:
-        """
-        Serialize this instance to the form that appears in ::class:`NGENRequest` object.
-
-        Returns
-        -------
-        Dict[str, Any]
-            The serialized form of this instance.
-        """
-        serialized = {'global_formulations': [f.json() for f in self.global_formulations],
-                      'is_env_workaround': self.is_env_workaround}
-
-        if self.catchment_formulations is not None:
-            serialized['catchment_formulations'] = dict(
-                [(cat_id, cf.json()) for cat_id, cf in self.catchment_formulations.items()])
-        if self.forcing_file_pattern is not None:
-            serialized['forcing_file_pattern'] = self.forcing_file_pattern
-        if self.forcing_file_name is not None:
-            serialized['forcing_file_name'] = self.forcing_file_name
-        if self.routing_config is not None:
-            serialized['routing_config'] = self.routing_config.json()
-        return serialized
+        return has_indicator(values.get('forcing_file_pattern')) or has_indicator(values.get('forcing_file_name'))
 
 
 class ServiceManager(WebSocketInterface):
@@ -688,7 +619,7 @@ class ServiceManager(WebSocketInterface):
         NgenRealization
             The built realization config.
         """
-        partial_config = PartialRealizationConfig.parse_from_ngen_request(request)
+        partial_config = PartialRealizationConfig(**request.formulation_configs)
         params = dict()
 
         forcing_config = self._build_forcing_config_for_realization(partial_config=partial_config, request=request)
@@ -1045,7 +976,7 @@ class ServiceManager(WebSocketInterface):
         request = job.model_request
         if isinstance(request, NGENRequest) and request.is_intelligent_request:
             # Make sure the formulation config is valid
-            deserialized_formulations = PartialRealizationConfig.parse_from_ngen_request(request)
+            deserialized_formulations = PartialRealizationConfig(**request.formulation_configs)
             return isinstance(deserialized_formulations, PartialRealizationConfig)
         else:
             return False
