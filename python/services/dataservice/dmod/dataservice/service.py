@@ -229,7 +229,7 @@ class PartialRealizationConfig(BaseModel):
 
     @validator('is_env_workaround', pre=True, always=True)
     def default_is_env_workaround(cls, v, *, values, **kwargs):
-        if v:
+        if v is not None:
             return v
 
         def has_indicator(str_val: Optional[str]):
