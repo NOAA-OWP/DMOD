@@ -1,6 +1,6 @@
-import json
+from .partial_realization_config import PartialRealizationConfig
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import List, Optional
 from pydantic import PrivateAttr
 
 from dmod.core.meta_data import (
@@ -168,7 +168,7 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
         return super().dict(**kwargs)
 
     @property
-    def formulation_configs(self) -> Optional[Dict[str, Any]]:
+    def formulation_configs(self) -> Optional[PartialRealizationConfig]:
         """
         Optional, partial ngen realization config with catchment formulations but not other things like forcings.
 
@@ -177,7 +177,7 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
 
         Returns
         -------
-        Optional[Dict[str, Any]]
+        Optional[PartialRealizationConfig]
             The user-supplied pieces of the ngen realization config to use for this request.
         """
         return self.request_body.formulation_configs
