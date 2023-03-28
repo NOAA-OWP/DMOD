@@ -23,10 +23,13 @@ from .backend import LoaderSpecification
 import typing
 
 
-def get_specification_options() -> typing.Sequence[typing.Tuple[str, str]]:
+def get_specification_options(*args, **kwargs) -> typing.Sequence[typing.Tuple[str, str]]:
     from .base import get_subclasses
 
     return [
         (cls.get_specification_type(), cls.get_specification_description())
         for cls in get_subclasses(TemplatedSpecification)
     ]
+
+
+setattr(TemplateManager, "get_specification_types", get_specification_options)
