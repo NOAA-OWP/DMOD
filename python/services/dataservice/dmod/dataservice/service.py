@@ -495,26 +495,24 @@ class ServiceManager(WebSocketInterface):
         """
         return self._process_query(message)
 
-    def _build_forcing_config_for_realization(self, partial_config: PartialRealizationConfig,
-                                              request: NGENRequest) -> Forcing:
+    def _build_forcing_config_for_realization(self, request: AbstractNgenRequest) -> Forcing:
         """
-        Build a ::class:`Forcing` config object from a partial config to satisfy requirements of this request.
+        Build a ::class:`Forcing` config object from to satisfy requirements of this request.
 
-        Function builds a ::class:`Forcing` config object as a part of the steps to create a NextGen realization config
-        for the given request.  The partial config present in that request and its forcing-related data requirement are
-        used to generate the object.
+        Function builds a ::class:`Forcing` config object as a part of the steps to create a ngen realization config
+        for the given request.  It is typically expected that the provided request will include a partial realization
+        config object that includes certain details.
 
         Parameters
         ----------
-        partial_config: PartialRealizationConfig
-            A partial realization config extracted for the given request.
-        request: NGENRequest
-            A NextGen request that needs a realization config generate, and as part of that, a forcing config.
+        request: AbstractNgenRequest
+            An AbstractNgenRequest request that needs a realization config generated, and as part of that, a forcing
+            config.
 
         Returns
         -------
         Forcing
-            Forcing config object to be used in building a NextGen realization config to satisfy this request.
+            Forcing config object to be used in building a ngen realization config to satisfy this request.
         """
         # A user may work around dataset performance issues by mounting something directly from the host into
         # containers, using an env var for the mount source (see code in scheduler.py).  We can support this by
@@ -539,25 +537,25 @@ class ServiceManager(WebSocketInterface):
         # TODO: (#needs_issue) introduce logic to examine forcing dataset and intelligently assess what the file
         #  name(s)/pattern(s) should be if they aren't explicitly provided
 
-        if partial_config.forcing_file_pattern is not None:
-            forcing_cfg_params['file_pattern'] = partial_config.forcing_file_pattern
+        if request.formulation_configs is not None and request.formulation_configs.forcing_file_pattern is not None:
+            forcing_cfg_params['file_pattern'] = request.formulation_configs.forcing_file_pattern
 
         # Finally, produce the right path
         # TODO: these come from scheduler.py; may need to centralize somehow
         forcing_cfg_params['path'] = '/dmod/datasets/'
-        if partial_config.is_env_workaround:
+        if request.formulation_configs is not None and request.formulation_configs.is_env_workaround:
             forcing_cfg_params['path'] += 'from_env'
         else:
             forcing_cfg_params['path'] += '{}/{}/'.format(DataCategory.FORCING.name.lower(), forcing_dataset_name)
 
-        if partial_config.forcing_file_name is not None:
-            forcing_cfg_params['path'] += partial_config.forcing_file_name
+        if request.formulation_configs is not None and request.formulation_configs.forcing_file_name is not None:
+            forcing_cfg_params['path'] += request.formulation_configs.forcing_file_name
 
         return Forcing(**forcing_cfg_params)
 
     def _build_ngen_realization_config_from_request(self, request: AbstractNgenRequest, job: Job) -> NgenRealization:
         """
-        Build a NextGen realization config object from current service state and partial config within the job request.
+        Build a ngen realization config object from current service state and partial config within the job request.
 
         Parameters
         ----------
@@ -571,20 +569,19 @@ class ServiceManager(WebSocketInterface):
         NgenRealization
             The built realization config.
         """
-        partial_config = PartialRealizationConfig(**request.formulation_configs)
         params = dict()
 
-        forcing_config = self._build_forcing_config_for_realization(partial_config=partial_config, request=request)
-
-        params['global_config'] = Realization(formulations=partial_config.global_formulations, forcing=forcing_config)
+        if request.formulation_configs.global_formulations is not None:
+            params['global_config'] = Realization(formulations=request.formulation_configs.global_formulations,
+                                                  forcing=self._build_forcing_config_for_realization(request))
 
         params['time'] = Time(start_time=request.time_range.begin, end_time=request.time_range.end)
 
-        if partial_config.routing_config is not None:
-            params['routing'] = partial_config.routing_config
+        if request.formulation_configs.routing_config is not None:
+            params['routing'] = request.formulation_configs.routing_config
 
-        if partial_config.catchment_formulations is not None:
-            params['catchments'] = partial_config.catchment_formulations
+        if request.formulation_configs.catchment_formulations is not None:
+            params['catchments'] = request.formulation_configs.catchment_formulations
 
         return NgenRealization(**params)
 
@@ -926,12 +923,8 @@ class ServiceManager(WebSocketInterface):
             return False
 
         request = job.model_request
-        if isinstance(request, AbstractNgenRequest) and request.is_intelligent_request:
-            # Make sure the formulation config is valid
-            deserialized_formulations = PartialRealizationConfig(**request.formulation_configs)
-            return isinstance(deserialized_formulations, PartialRealizationConfig)
-        else:
-            return False
+        return (isinstance(request, AbstractNgenRequest) and request.is_intelligent_request
+                and isinstance(request.formulation_configs, PartialRealizationConfig))
 
     async def derive_datasets(self, job: Job) -> List[DataRequirement]:
         """
