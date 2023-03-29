@@ -10,6 +10,15 @@ class PartialRealizationConfig(BaseModel):
     Helper class for working with the serialized formulation configurations ::class:`AbstractNgenRequest` messages.
 
     The type relies on classes from the ``ngen-config`` external package and the transitive ``pydantic`` dependency.
+
+    Note that this type has two optional forcing-config-related fields. These are expected to be used infrequently, as
+    generally DMOD will automatically determine the correct forcing dataset. They do allow for optional user control,
+    but the more specific and essential need (which does rely on such control being available) is to support a
+    workaround for reading forcing data directly from the Docker host via a bind mount. This functionality is handled by
+    the scheduling logic, but the generated realization config must properly reflect it.
+
+    The workaround is triggered by adding specific prefix (::attribute:`_FROM_ENV_PREFIX`) and delimiter
+    (::attribute:`_FROM_ENV_DELIMIT`) substrings to either of the forcing config fields.
     """
 
     _FROM_ENV_DELIMIT: ClassVar[str] = ':::'
