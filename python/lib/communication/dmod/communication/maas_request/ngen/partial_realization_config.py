@@ -51,7 +51,7 @@ class PartialRealizationConfig(BaseModel):
             return v
 
         def has_indicator(field_name: str):
-            return field_name in values and values[field_name].split(cls._FROM_ENV_DELIMIT)[0] == cls._FROM_ENV_PREFIX
+            return values.get(field_name) and values[field_name].split(cls._FROM_ENV_DELIMIT)[0] == cls._FROM_ENV_PREFIX
 
         return has_indicator('forcing_file_pattern') or has_indicator('forcing_file_name')
 
