@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Mapping, Optional
 from pathlib import Path
 
 
+@unittest.skip("Skipping for dependency issue; see DMOD Github issue #317")
 class TestPartialRealizationConfig(unittest.TestCase):
 
     @classmethod
