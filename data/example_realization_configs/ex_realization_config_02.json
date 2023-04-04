@@ -5,7 +5,7 @@
         "name": "bmi_multi",
         "params": {
           "name": "bmi_multi",
-          "model_type_name": "bmi_multi_noahowp_cfe",
+          "model_type_name": "BMIMulti",
           "forcing_file": "",
           "init_config": "",
           "allow_exceed_end_time": true,
@@ -15,7 +15,7 @@
               "name": "bmi_c++",
               "params": {
                 "name": "bmi_c++",
-                "model_type_name": "bmi_c++_sloth",
+                "model_type_name": "SLOTH",
                 "library_file": "./extern/sloth/cmake_build/libslothmodel",
                 "init_config": "/dev/null",
                 "allow_exceed_end_time": true,
@@ -32,7 +32,7 @@
               "name": "bmi_fortran",
               "params": {
                 "name": "bmi_fortran",
-                "model_type_name": "bmi_fortran_noahowp",
+                "model_type_name": "NoahOWP",
                 "library_file": "./extern/noah-owp-modular/cmake_build/libsurfacebmi",
                 "forcing_file": "",
                 "init_config": "./data/bmi/fortran/noah-owp-modular-init-{{id}}.namelist.input",
@@ -55,7 +55,7 @@
               "name": "bmi_c",
               "params": {
                 "name": "bmi_c",
-                "model_type_name": "bmi_c_cfe",
+                "model_type_name": "CFE",
                 "library_file": "./extern/cfe/cmake_build/libcfebmi",
                 "forcing_file": "",
                 "init_config": "./data/bmi/c/cfe/{{id}}_bmi_config.ini",
@@ -104,7 +104,7 @@
           "name": "bmi_multi",
           "params": {
             "name": "bmi_multi",
-            "model_type_name": "bmi_multi_noahowp_pet_cfe",
+            "model_type_name": "BMIMulti",
             "forcing_file": "",
             "init_config": "",
             "allow_exceed_end_time": true,
@@ -114,7 +114,7 @@
                 "name": "bmi_c++",
                 "params": {
                   "name": "bmi_c++",
-                  "model_type_name": "bmi_c++_sloth",
+                  "model_type_name": "SLOTH",
                   "library_file": "./extern/sloth/cmake_build/libslothmodel.so",
                   "init_config": "/dev/null",
                   "allow_exceed_end_time": true,
@@ -131,7 +131,7 @@
                 "name": "bmi_fortran",
                 "params": {
                   "name": "bmi_fortran",
-                  "model_type_name": "bmi_fortran_noahowp",
+                  "model_type_name": "NoahOWP",
                   "library_file": "./extern/noah-owp-modular/cmake_build/libsurfacebmi",
                   "forcing_file": "",
                   "init_config": "./data/bmi/fortran/noah-owp-modular-init-{{id}}.namelist.input",
@@ -154,7 +154,7 @@
                 "name": "bmi_c",
                 "params": {
                   "name": "bmi_c",
-                  "model_type_name": "bmi_c_pet",
+                  "model_type_name": "PET",
                   "library_file": "./extern/evapotranspiration/evapotranspiration/cmake_build/libpetbmi",
                   "forcing_file": "",
                   "init_config": "./data/bmi/c/pet/{{id}}_bmi_config.ini",
@@ -171,7 +171,7 @@
                 "name": "bmi_c",
                 "params": {
                   "name": "bmi_c",
-                  "model_type_name": "bmi_c_cfe",
+                  "model_type_name": "CFE",
                   "library_file": "./extern/cfe/cmake_build/libcfebmi",
                   "forcing_file": "",
                   "init_config": "./data/bmi/c/cfe/{{id}}_bmi_config.ini",
@@ -206,7 +206,7 @@
           "name": "bmi_c",
           "params": {
             "name": "bmi_c",
-            "model_type_name": "bmi_topmodel",
+            "model_type_name": "TOPMODEL",
             "library_file": "extern/alt-modular/cmake_am_libs/libtopmodelbmi.dylib",
             "init_config": "./catchment_bmi_configs/cat-3872/topmod.run",
             "main_output_variable": "Qout",
