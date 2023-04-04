@@ -49,6 +49,7 @@ class TestPartialRealizationConfig(unittest.TestCase):
         List[NgenRealization]
             A list of example realization config objects read from files in the local repo tree.
         """
+        realization_config = list()
         config_files_dir = cls.find_project_root() / "data" / "example_realization_configs"
         if not config_files_dir.is_dir():
             msg = "Expected dir with example realization configs for {} setup not found at {}"
@@ -56,8 +57,10 @@ class TestPartialRealizationConfig(unittest.TestCase):
 
         # See docstring for the basic makeup of each of the contained configs
         files = ["ex_realization_config_01.json", "ex_realization_config_02.json"]
-        config_paths = [config_files_dir.joinpath(f) for f in files]
-        return [NgenRealization(**json.load(cfg_path.open())) for cfg_path in config_paths]
+        for p in [config_files_dir.joinpath(f) for f in files]:
+            with open(p) as config_data:
+                realization_config.append(NgenRealization(**json.load(config_data)))
+        return realization_config
 
     def setUp(self) -> None:
         # Base examples on data sourced from some actual realization config files; start by reading those
