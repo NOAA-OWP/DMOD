@@ -95,7 +95,7 @@
   },
   "routing": {
     "t_route_connection_path": "extern/t-route/src/ngen_routing/src",
-    "t_route_config_file_with_path": "extern/t-route/test/input/yaml/ngen.yaml"
+    "t_route_config_file_with_path": "../../../data/example_troute_configs/ngen_t-route.yaml"
   },
   "catchments": {
     "cat-27": {
