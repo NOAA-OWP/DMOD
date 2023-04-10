@@ -496,6 +496,14 @@ COPY --chown=${USER} --from=rocky_build_troute ${WORKDIR}/t-route/wheels /tmp/t-
 COPY --chown=${USER} --from=rocky_build_troute ${WORKDIR}/t-route/requirements.txt /tmp/t-route-requirements.txt
 ENV BOOST_ROOT=${WORKDIR}/boost
 
+USER root
+# Note that while nothing is installed in /usr/local/lib/python3, pip apparently checks here to see if it has permissions before installing in the global site.
+RUN if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
+        chgrp -R ${USER} /usr/local/lib*/python3.* \
+        && chmod -R g+sw /usr/local/lib*/python3.* ; \
+    fi
+USER ${USER}
+
 RUN cd ${WORKDIR}/ngen \
     && if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
         pip3 install -r extern/test_bmi_py/requirements.txt; \
