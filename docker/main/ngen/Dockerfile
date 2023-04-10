@@ -339,7 +339,7 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && cd netcdf-fortran \
     && export NCDIR=/usr NFDIR=/usr \
     && LD_LIBRARY_PATH=/usr/lib CPPFLAGS=-I/usr/include LDFLAGS=-L/usr/lib ./configure --prefix=/usr \
-    && make -j $(nproc) && make install \
+    && make -j ${BUILD_PARALLEL_JOBS} && make install \
     ##### Build and install NetCDF C++ \
     && cd /tmp/ngen-deps \
     && mkdir netcdf-cxx4 \
@@ -353,7 +353,7 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && make install \
     # Install required python dependency packages with Pip \
     && pip3 install numpy pandas pyyaml bmipy Cython blosc2 netCDF4 wheel packaging \
-    && HDF5_DIR=/usr pip3 install --install-option="\'--hdf5 \${HDF5_DIR}\'" --install-option="\'--jobs=$(nproc) \'"  --no-build-isolation tables \
+    && HDF5_DIR=/usr pip3 install --install-option="\'--hdf5 \${HDF5_DIR}\'" --install-option="\'--jobs=${BUILD_PARALLEL_JOBS} \'"  --no-build-isolation tables \
     # Make aliases for convenience \
     && alias pip='pip3' \
     && echo "alias pip='pip3'" >> /etc/profile \
