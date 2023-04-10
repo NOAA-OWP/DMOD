@@ -145,9 +145,15 @@ FROM rockylinux:8.5 AS download_boost
 # Redeclaring inside this stage to get default from before first FROM
 ARG BOOST_VERSION
 
-RUN curl -L -o boost_${BOOST_VERSION//./_}.tar.bz2 https://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION//./_}.tar.bz2/download \
-    && mkdir /boost \
-    && mv boost_${BOOST_VERSION//./_}.tar.bz2 /boost/.
+# Copy of entrypoint.sh here is just to avoid failure if there is no boost_*.tar.* present,,,
+COPY entrypoint.sh boost_*.tar.* ${WORKDIR}
+
+RUN mkdir ${WORKDIR}/boost \
+    && if compgen -G "./boost_*.tar.*" > /dev/null; then \
+        mv ${WORKDIR}/boost_*.tar.* ${WORKDIR}/boost/boost_tarball.blob ; \
+    else \
+        curl -L -o ${WORKDIR}/boost/boost_tarball.blob https://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION//./_}.tar.bz2/download ; \
+    fi
 
 ################################################################################################################
 ################################################################################################################
@@ -360,9 +366,9 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && echo "alias python='python3'" >> /etc/profile \
     # Also set up boost here, since we copied the download but only just installed bzip2 to work with it \
     && cd ${BOOST_ROOT} \
-    && tar -xjf boost_${BOOST_VERSION//./_}.tar.bz2 \
-    && rm boost_${BOOST_VERSION//./_}.tar.bz2 \
-    # Set the regular user as the owner
+    && tar -xf boost_tarball.blob \
+    && rm boost_tarball.blob \
+    # Set the regular user as the owner \
     && chown -R ${USER}:${USER} ${BOOST_ROOT} \
     && rm -rf /tmp/ngen-deps
 
