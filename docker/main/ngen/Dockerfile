@@ -25,7 +25,7 @@ ARG COMMIT
 ARG WORKDIR=/ngen
 
 ARG TROUTE_REPO_URL=https://github.com/NOAA-OWP/t-route.git
-ARG TROUTE_BRANCH=ngen
+ARG TROUTE_BRANCH=master
 ARG TROUTE_COMMIT
 
 ARG NGEN_CAL_BRANCH=master
@@ -263,7 +263,7 @@ ARG ROCKY_NGEN_DEPS_REQUIRED
 USER root
 RUN dnf update -y && dnf install -y ${ROCKY_NGEN_DEPS_REQUIRED} \
     && pip3 install --upgrade pip \
-    && if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then pip3 install numpy; fi
+    && if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then pip3 install numpy; fi 
 USER ${USER}
 
 ################################################################################################################
@@ -442,21 +442,18 @@ USER ${USER}
 RUN cd ${WORKDIR}/t-route \
     && mkdir wheels \
     && pip3 install -r ./requirements.txt \
-    && pip3 install wheel deprecated dask \
+    && pip3 install wheel deprecated dask pyarrow geopandas \
     && cd ${WORKDIR}/t-route \
-    && cd ./src/python_routing_v02 \
     && ./compiler.sh \
+    && cd ./src/troute-network \
     && python3 setup.py bdist_wheel \
     && cp dist/*.whl ${WORKDIR}/t-route/wheels/ \
-    && cd ../python_framework_v02 \
+    && cd ../troute-routing \
     && python3 setup.py bdist_wheel \
     && cp dist/*.whl ${WORKDIR}/t-route/wheels/ \
-    && cd ../nwm_routing \
+    && cd ../troute-nwm \
     && python3 setup.py bdist_wheel \
-    && cp dist/*.whl ${WORKDIR}/t-route/wheels/ \
-    && cd ../ngen_routing \
-    && python3 setup.py bdist_wheel \
-    && cp dist/*.whl ${WORKDIR}/t-route/wheels/
+    && cp dist/*.whl ${WORKDIR}/t-route/wheels/ 
 
 USER root
 RUN rm /usr/bin/python
