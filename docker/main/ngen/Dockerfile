@@ -262,7 +262,7 @@ ARG ROCKY_NGEN_DEPS_REQUIRED
 # Note that this includes numpy, which is needed for Python BMI support, regardless of BMI module 
 USER root
 RUN dnf update -y && dnf install -y ${ROCKY_NGEN_DEPS_REQUIRED} \
-    && pip3 install --upgrade pip \
+    && pip3 install "pip>=23.0,<23.1" wheel packaging \
     && if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then pip3 install numpy; fi 
 USER ${USER}
 
@@ -443,13 +443,14 @@ RUN cd ${WORKDIR}/t-route \
     && mkdir wheels \
     && pip3 install -r ./requirements.txt \
     && pip3 install wheel deprecated dask pyarrow geopandas \
+    && export FC=gfortran \
     && cd ${WORKDIR}/t-route \
     && ./compiler.sh \
     && cd ./src/troute-network \
-    && python3 setup.py bdist_wheel \
+    && python3 setup.py --use-cython bdist_wheel \
     && cp dist/*.whl ${WORKDIR}/t-route/wheels/ \
     && cd ../troute-routing \
-    && python3 setup.py bdist_wheel \
+    && python3 setup.py --use-cython bdist_wheel \
     && cp dist/*.whl ${WORKDIR}/t-route/wheels/ \
     && cd ../troute-nwm \
     && python3 setup.py bdist_wheel \
