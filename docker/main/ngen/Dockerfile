@@ -321,20 +321,20 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && tar xfz mpich-${MPICH_VERSION}.tar.gz  \
     && cd mpich-${MPICH_VERSION} \
     && ./configure ${MPICH_CONFIGURE_OPTIONS} \
-    && make -j $(nproc) ${MPICH_MAKE_OPTIONS} && make install \
+    && make -j ${BUILD_PARALLEL_JOBS} ${MPICH_MAKE_OPTIONS} && make install \
     ##### Build and install HDF5 \
     && cd /tmp/ngen-deps \
     && tar -xzf hdf5-${HD5_VERSION}.tar.gz \
     && cd hdf5-${HD5_VERSION} \
     && ./configure --enable-parallel --prefix=/usr \
-    && make -j $(nproc) && make install \
+    && make -j ${BUILD_PARALLEL_JOBS} && make install \
     ##### Build and install NetCDF C \
     && cd /tmp/ngen-deps \
     && mkdir netcdf \
     && tar -xzf netcdf-${NETCDF_C_VERSION}.tar.gz -C netcdf --strip 1 \
     && cd netcdf \
     && LIBS=curl && ./configure --prefix=/usr \
-    && make -j $(nproc) && make install \
+    && make -j ${BUILD_PARALLEL_JOBS} && make install \
     # TODO: if we run into any problem, might need to reactivate this \
     #&& make check \
     ##### Build and install NetCDF Fortran \
@@ -352,7 +352,7 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && mkdir netcdf-cxx4/build \
     && cd netcdf-cxx4/build \
     && cmake .. \
-    && make \
+    && make -j ${BUILD_PARALLEL_JOBS} \
     # TODO: if we run into any problem, might need to reactivate this \
     # && ctest \
     && make install \
