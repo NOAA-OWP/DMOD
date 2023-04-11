@@ -495,7 +495,6 @@ COPY --chown=${USER} --from=rocky_build_troute ${WORKDIR}/t-route/requirements.t
 ENV BOOST_ROOT=${WORKDIR}/boost
 
 USER root
-# Note that while nothing is installed in /usr/local/lib/python3, pip apparently checks here to see if it has permissions before installing in the global site.
 RUN if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
         chgrp -R ${USER} /usr/local/lib*/python3.* \
         && chmod -R g+sw /usr/local/lib*/python3.* ; \
