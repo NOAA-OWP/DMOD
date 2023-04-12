@@ -10,6 +10,9 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import NgenRealizationSchema from "../../schemas/NgenRealization.schema.json";
 import RealizationSchema from "../../schemas/Realization.schema.json";
+import NgenCalSchema from "../../schemas/General.schema.json";
+import NgenUniformSchema from "../../schemas/NgenUniformSingle.schema.json";
+import NgenRealizationSingleSchema from "../../schemas/NgenRealizationSingle.schema.json";
 import subsetSchema from "../../utils/subsetSchema";
 
 const Map = dynamic(() => import("../HydrofabricMap"), {
@@ -23,6 +26,43 @@ interface FormStep {
 }
 
 const HIDE = { "ui:widget": "hidden" };
+
+// global.formulations.params.modules[0].params.variables_names_map;
+// based on model type name, set `variables_names_map`
+
+const default_variable_names_map = {
+  CFE: { atmosphere_water__liquid_equivalent_precipitation_rate: "QINSUR" },
+  NoahOWP: {
+    PRCPNONC: "atmosphere_water__liquid_equivalent_precipitation_rate",
+    Q2: "atmosphere_air_water~vapor__relative_saturation",
+    SFCTMP: "land_surface_air__temperature",
+    UU: "land_surface_wind__x_component_of_velocity",
+    VV: "land_surface_wind__y_component_of_velocity",
+    LWDN: "land_surface_radiation~incoming~longwave__energy_flux",
+    SOLDN: "land_surface_radiation~incoming~shortwave__energy_flux",
+    SFCPRS: "land_surface_air__pressure",
+  },
+  LSTM: {
+    atmosphere_water__time_integral_of_precipitation_mass_flux: "RAINRATE",
+  },
+  TOPMODEL: {
+    atmosphere_water__liquid_equivalent_precipitation_rate: "QINSUR",
+  },
+  PET: {
+    water_potential_evaporation_flux: "water_potential_evaporation_flux",
+  },
+};
+
+function handleDefaultVariableNameMapping(formData: object) {
+  formData?.global?.formulations?.params?.modules?.forEach((m) => {
+    const model_name = m?.params?.model_type_name;
+
+    if (m?.params?.variables_names_map) {
+      m.params.variables_names_map = default_variable_names_map[model_name];
+    }
+  });
+  return formData;
+}
 
 const steps: FormStep[] = [
   {
@@ -40,7 +80,19 @@ const steps: FormStep[] = [
     },
   },
   {
-    label: "Configure Calibration",
+    label: "Configure Formulations",
+    schema: subsetSchema(NgenRealizationSingleSchema as RJSFSchema, ["global"]),
+    ui_schema: {
+      time: HIDE,
+      routing: HIDE,
+      global: {
+        forcing: HIDE,
+      },
+      catchments: HIDE,
+    },
+  },
+  {
+    label: "Select Calibration Type",
     schema: {
       properties: {
         strategy: {
@@ -58,35 +110,56 @@ const steps: FormStep[] = [
     },
   },
   {
+    label: "Configure Calibration",
+    schema: NgenCalSchema as RJSFSchema,
+    ui_schema: {
+      start_iteration: HIDE,
+      evaluation_start: HIDE,
+      evaluation_stop: HIDE,
+      log_file: HIDE,
+      workdir: HIDE,
+      restart: HIDE,
+      parameter_log_file: HIDE,
+      objective_log_file: HIDE,
+    },
+  },
+  {
+    label: "Configure Calibration Parameters",
+    schema: NgenUniformSchema as RJSFSchema,
+    // ui_schema: {
+    //   hydrofabric_element: HIDE,
+    // },
+  },
+  {
     label: "Choose Forcing and Modeling Duration",
     schema: subsetSchema(NgenRealizationSchema as RJSFSchema, ["time"]),
   },
-  {
-    label: "Configure Realizations",
-    schema: RealizationSchema as RJSFSchema,
-    ui_schema: {
-      formulations: {
-        params: {
-          init_config: HIDE,
-          allow_exceed_end_time: HIDE,
-          fixed_time_step: HIDE,
-          uses_forcing_file: HIDE,
-          output_headers: HIDE,
-          library_file: HIDE,
-          registration_function: HIDE,
-        },
-      },
-    },
-  },
-  {
-    label: "Configure Routing",
-    schema: NgenRealizationSchema as RJSFSchema,
-    ui_schema: {
-      global: HIDE,
-      time: HIDE,
-      catchments: HIDE,
-    },
-  },
+  // {
+  //   label: "Configure Realizations",
+  //   schema: RealizationSchema as RJSFSchema,
+  //   ui_schema: {
+  //     formulations: {
+  //       params: {
+  //         init_config: HIDE,
+  //         allow_exceed_end_time: HIDE,
+  //         fixed_time_step: HIDE,
+  //         uses_forcing_file: HIDE,
+  //         output_headers: HIDE,
+  //         library_file: HIDE,
+  //         registration_function: HIDE,
+  //       },
+  //     },
+  //   },
+  // },
+  // {
+  //   label: "Configure Routing",
+  //   schema: NgenRealizationSchema as RJSFSchema,
+  //   ui_schema: {
+  //     global: HIDE,
+  //     time: HIDE,
+  //     catchments: HIDE,
+  //   },
+  // },
 ];
 
 // refactor to use FormWizard component
@@ -128,6 +201,9 @@ export const CalibrationWizard = () => {
         schema={steps[currentStep].schema}
         uiSchema={{ ...base_ui_schema, ...steps[currentStep].ui_schema }}
         formData={data}
+        onChange={({ formData }) => {
+          setData(handleDefaultVariableNameMapping(formData));
+        }}
         onSubmit={({ formData }) => {
           setData((curr) => ({ ...formData, ...curr }));
 
@@ -143,6 +219,8 @@ export const CalibrationWizard = () => {
       />
       {currentStep > 0 && (
         <Button
+          sx={{ marginTop: "0.5em" }}
+          variant="contained"
           onClick={() => {
             setCurrentStep((curr) => {
               return curr - 1;
