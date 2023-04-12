@@ -495,8 +495,12 @@ ENV BOOST_ROOT=${WORKDIR}/boost
 
 USER root
 RUN if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
-        chgrp -R ${USER} /usr/local/lib*/python3.* \
-        && chmod -R g+sw /usr/local/lib*/python3.* ; \
+        chgrp -R ${USER} /usr/local/lib*/python3.* ; \
+        chmod -R g+sw /usr/local/lib*/python3.* ; \
+    fi \
+    && if [ "${NGEN_ROUTING_ACTIVE}" == "ON" ]; then \
+        # These packages install command line tools, which try to go in /usr/local/bin \
+        pip3 install pyarrow pyproj fiona; \
     fi
 USER ${USER}
 
@@ -504,7 +508,9 @@ RUN cd ${WORKDIR}/ngen \
     && if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
         pip3 install -r extern/test_bmi_py/requirements.txt; \
         if [ "${NGEN_ROUTING_ACTIVE}" == "ON" ] ; then \
-            pip3 install /tmp/t-route-wheels/*.whl; pip3 install -r /tmp/t-route-requirements.txt; \
+            pip3 install /tmp/t-route-wheels/*.whl; \
+            pip3 install -r /tmp/t-route-requirements.txt; \
+            pip3 install deprecated geopandas ; \
             fi; \
         fi \
     &&  if [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ]; then \
