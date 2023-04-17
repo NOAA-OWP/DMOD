@@ -1,0 +1,106 @@
+:root {
+    --tree-view-selected-background: #ceebf7;
+    --tree-view-hover-background: #ffffbb;
+}
+
+ul.tree-view {
+  --spacing : 1.5rem;
+  --radius  : 10px;
+  line-height: 2;
+}
+
+ul.tree-view summary {
+  line-height: 1.3;
+}
+
+ul.tree-view li{
+  display      : block;
+  position     : relative;
+  padding-left : calc(2 * var(--spacing) - var(--radius) - 2px);
+}
+
+ul.tree-view, ul.tree-view ul {
+  margin-left  : calc(var(--radius) - var(--spacing));
+  padding-left : 0;
+}
+
+ul.tree-view li, ul.tree-view ul li{
+  border-left : 2px solid #ddd;
+}
+
+ul.tree-view li:last-child, ul.tree-view ul li:last-child {
+  border-color : transparent;
+}
+
+ul.tree-view li::before, ul.tree-view ul li:before {
+  content      : '';
+  display      : block;
+  position     : absolute;
+  top          : calc(var(--spacing) / -2);
+  left         : -2px;
+  width        : calc(var(--spacing) + 2px);
+  height       : calc(var(--spacing) + 1px);
+  border       : solid #ddd;
+  border-width : 0 0 2px 2px;
+}
+
+ul.tree-view summary{
+  display : block;
+  cursor  : pointer;
+}
+
+ul.tree-view summary::marker,
+ul.tree-view summary::-webkit-details-marker{
+  display : none;
+}
+
+ul.tree-view summary:focus{
+  outline : none;
+}
+
+ul.tree-view summary:focus-visible{
+  outline : 1px dotted #000;
+}
+
+ul.tree-view li.tree-view-node-parent::after,
+ul.tree-view summary::before{
+  content       : '';
+  display       : block;
+  position      : absolute;
+  top           : calc((var(--spacing) + 3px) / 2 - var(--radius));
+  left          : calc(var(--spacing) - var(--radius) - 1px);
+  width         : calc(2 * var(--radius));
+  height        : calc(2 * var(--radius));
+  border-radius : 50%;
+  background    : #ddd;
+}
+
+ul.tree-view summary::before{
+  content     : '+';
+  z-index     : 1;
+  background  : black;
+  color       : #fff;
+  line-height : calc(2 * var(--radius) - 2px);
+  text-align  : center;
+}
+
+ul.tree-view details[open] > summary::before{
+  content : '−';
+}
+
+.tree-view-node > span {
+  cursor: pointer;
+}
+
+.tree-view-node > span:hover, .tree-view-node > details > summary:hover {
+  background-color: var(--tree-view-hover-background);
+}
+
+.selected-tree-view-node span {
+  font-weight: bolder;
+  background-color: var(--tree-view-selected-background);
+}
+
+.tree-view-node > span, .tree-view-node > details > summary {
+    padding: 5px;
+}

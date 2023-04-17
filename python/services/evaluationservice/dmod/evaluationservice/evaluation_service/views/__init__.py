@@ -9,3 +9,6 @@ from .helpers import Clean
 from .helpers import Metrics
 from .geometry import GetGeometry
 from .geometry import GetGeometryDatasets
+from .library import GetLibrary
+from .library import GetLibraryOptions
+from .library import LibrarySelector

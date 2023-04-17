@@ -30,9 +30,16 @@ class Notifier:
         return self.__url
 
 
-
 class Payload:
-    def __init__(self, request: HttpRequest = None, context: QueryDict = None, notifier_url: str = None, style_variables: typing.Dict[str, str] = None, notifiers: typing.List[Notifier] = None, **kwargs):
+    def __init__(
+        self,
+        request: HttpRequest = None,
+        context: QueryDict = None,
+        notifier_url: str = None,
+        style_variables: typing.Dict[str, str] = None,
+        notifiers: typing.List[Notifier] = None,
+        **kwargs
+    ):
         self.__style_variables: typing.Dict[str, str] = style_variables or dict()
         self.__notifier_url: typing.Optional[str] = notifier_url
         self.__context: typing.Dict[str, typing.Any] = dict()
@@ -77,6 +84,10 @@ class Payload:
         return application_values.DEBUG
 
     @property
+    def production(self):
+        return not self.debug
+
+    @property
     def notifiers(self):
         return self.__notifiers.copy()
 
@@ -92,6 +103,7 @@ class Payload:
             "notifier_url": self.notifier_url,
             "shared_state": self.shared_state,
             "debug": self.debug,
+            "production": self.production,
             "notifiers": self.notifiers
         }
 

@@ -56,7 +56,7 @@ class TestTemplateManager(unittest.TestCase):
             specification_type=specification_type
         )
 
-        self.assertEqual(len(options), 2)
+        self.assertEqual(len(options), 5)
 
         value_name, text_name = options[0]
 
@@ -67,7 +67,7 @@ class TestTemplateManager(unittest.TestCase):
             specification_type=specification_type
         )
 
-        self.assertEqual(len(templates), 2)
+        self.assertEqual(len(templates), 5)
 
         self.template_matches(
             specification_type=specification_type,
@@ -79,6 +79,24 @@ class TestTemplateManager(unittest.TestCase):
             specification_type=specification_type,
             template=templates[1],
             template_name='Templated Evaluation'
+        )
+
+        self.template_matches(
+            specification_type=specification_type,
+            template=templates[2],
+            template_name="Top Half"
+        )
+
+        self.template_matches(
+            specification_type=specification_type,
+            template=templates[3],
+            template_name="Bottom Half"
+        )
+
+        self.template_matches(
+            specification_type=specification_type,
+            template=templates[4],
+            template_name="Multi-Template"
         )
 
 

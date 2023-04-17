@@ -9,6 +9,21 @@
             "name": "Templated Evaluation",
             "path": "evaluation/full_templated_evaluation.json",
             "description": "Configuration using as many templates as possible"
+        },
+        {
+            "name": "Top Half",
+            "path": "evaluation/tophalf.json",
+            "description": "Configuration only containing observations, predictions, and crosswalks"
+        },
+        {
+            "name": "Bottom Half",
+            "path": "evaluation/bottomhalf.json",
+            "description": "Configuration containing only thresholds and a scoring scheme"
+        },
+        {
+            "name": "Multi-Template",
+            "path": "evaluation/multitemplate.json",
+            "description": "Configuration combining two different configurations"
         }
     ],
     "SchemeSpecification": [

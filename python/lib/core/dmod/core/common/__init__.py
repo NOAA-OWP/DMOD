@@ -4,6 +4,7 @@ Provides common functions and helper classes
 from .failure import Failure
 from .helper_functions import get_current_function_name
 from .helper_functions import is_sequence_type
+from .helper_functions import is_iterable_type
 from .helper_functions import merge_dictionaries
 from .helper_functions import on_each
 from .helper_functions import get_subclasses

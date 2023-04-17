@@ -12,7 +12,7 @@
     font-family: var(--banner-font);
     text-align: right;
     padding-right: 20px;
-    font-weight: lighter;
+    font-weight: var(--header-font-weight);
     color: var(--logo-color);
     margin: 0;
 }
@@ -46,14 +46,51 @@ legend {
 .ui-tabs .ui-tabs-nav li.ui-tabs-active {
     border: 1px solid var(--logo-color);
     background: var(--logo-color);
+    cursor: pointer;
+}
+
+.popup {
+    display: none;
+    background: white;
+    height: fit-content;
+    width: fit-content;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: -5px 5px 10px;
+    border: 1px solid lightgray;
+}
+
+.popup-actions > button {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.popup-contents {
+    padding: 15px;
+}
+
+.popup-header {
+    background-color: var(--banner-color);
+    font-family: var(--banner-font);
+    color: var(--logo-color);
+    font-weight: var(--header-font-weight);
+    font-size: 1.5em;
+    padding: 15px;
+    cursor: pointer;
 }
 
 :root {
     --banner-height: 60px;
+    --header-font-weight: lighter;
     --logo-color: #034694;
     --banner-color: #afd2e0;
     --banner-font: serif;
+    --sub-header-font: Arial,Helvetica,sans-serif;
     --light-border: 1px solid #C5C5C5;
     --fieldset-border: 2px groove rgb(192, 192, 192);
     --border: 1px solid black;
+    --indicator-icon-height: 20px;
+    --indicator-icon-width: 20px;
 }

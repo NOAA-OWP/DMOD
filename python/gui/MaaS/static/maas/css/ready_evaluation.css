@@ -153,34 +153,6 @@ button:hover {
     border-radius: 5px;
 }
 
-.popup {
-    display: none;
-    background: white;
-    height: fit-content;
-    width: fit-content;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    box-shadow: -5px 5px 10px;
-    border: 1px solid lightgray;
-}
-
-.popup-actions > button {
-    margin-top: 10px;
-    margin-bottom: 10px;
-}
-
-.popup-contents {
-    padding: 15px;
-}
-
-.popup-header {
-    background-color: #33ade0;
-    color: white;
-    padding: 15px;
-}
-
 #digest-event-selectors {
     padding: 10px;
     vertical-align: middle;
@@ -188,11 +160,6 @@ button:hover {
 
 #digest-event-selectors input, #digest-event-selectors label {
     vertical-align: middle;
-}
-
-#search-button {
-    margin-left: 5px;
-    padding: 0px 6px;
 }
 
 #search-table {
@@ -208,8 +175,10 @@ button:hover {
     padding: 5px;
 }
 
-#search-header-row {
-    background-color: #33ade0;
+#search-header-row, #search-header-row th {
+    background-color: var(--logo-color);
+    font-family: var(--sub-header-font);
+    font-weight: var(--header-font-weight);
     color: white;
 }
 
@@ -247,4 +216,100 @@ button:hover {
 #map {
     width: 100%;
     height: 100%;
+}
+
+#template-search-popup {
+    width: 60vw;
+}
+
+#template-search-contents {
+    display: grid;
+    grid-template-areas:
+        "errors"
+        "content"
+        "actions";
+}
+
+#template-search-errors {
+    grid-area: errors;
+}
+
+#template-search-fields {
+    grid-area: content;
+    display: flex;
+    align-items: stretch;
+}
+
+#template-search-tree {
+    flex-grow: 1;
+    min-height: 40vh;
+    padding: 10px;
+    overflow-y: auto;
+}
+
+#template-preview-label {
+    font-weight: bold;
+    font-size: large;
+}
+
+#template-description {
+    font-weight: lighter;
+    padding: 10px;
+}
+
+#template-preview {
+    flex-grow: 5;
+}
+
+#template-preview > div.CodeMirror {
+    height: 100%;
+}
+
+#template-search-actions {
+    grid-area: actions;
+}
+
+#close-template-search-popup-button {
+    float: right;
+}
+
+#overall-validation-result {
+    display: flex;
+    align-items: center;
+}
+
+img.status-icon {
+    display: none;
+    width: 2em;
+    height: 2em;
+    margin: 10px;
+}
+
+img.status-icon.status-ok-icon:has(~ .status-ok) {
+    display: inherit;
+}
+
+img.status-icon.status-error-icon:has(~ .status-error) {
+    display: inherit;
+}
+
+img.status-icon.status-unknown-icon:has(~ .status-unknown) {
+    display: inherit;
+}
+
+#individual-validation-messages {
+    display: flex;
+    flex-direction: column;
+    max-height: 40vh;
+    overflow-y: auto;
+    border: 1px solid #c9c9c9;
+}
+
+#individual-validation-messages > div {
+    padding: 10px;
+}
+
+#individual-validation-messages > div:nth-child(even) {
+    border-top: 1px solid #c9c9c9;
+    background-color: #f0f0f0;
 }

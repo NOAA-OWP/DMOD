@@ -1,0 +1,20 @@
+{% extends 'master.html' %}
+
+{% load static %}
+
+{% block style %}
+    <link rel="stylesheet" href="{% static 'css/widgets/tree.css' %}">
+{% endblock style %}
+
+{% block scripts %}
+    <script type="module" src="{% static 'js/widgets/tree.js' %}"></script>
+<script type="module" src="{% static 'prototypes/js/prototype_list.js' %}"></script>
+<script>
+    const LIST_NAME = "{{ list_name|default:"Prototype-Table" }}";
+</script>
+{% endblock scripts %}
+
+{% block content %}
+<div id="content" class="pane">
+</div>
+{% endblock content %}

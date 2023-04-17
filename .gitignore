@@ -2,6 +2,7 @@
 *.pyc
 __pycache__/
 /.idea/
+.idea/
 /docker_host_volumes/
 /venv/
 /venv_*/

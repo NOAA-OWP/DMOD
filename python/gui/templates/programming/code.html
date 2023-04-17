@@ -16,7 +16,7 @@
     {% if code_views %}
         function addViews() {
             {% autoescape off %}
-            DMOD.code.views.push.apply(DMOD.code.views, {{ code_views }});
+            DMOD.code.addViews({{ code_views }});
             {% endautoescape %}
         }
         startupScripts.push(addViews);

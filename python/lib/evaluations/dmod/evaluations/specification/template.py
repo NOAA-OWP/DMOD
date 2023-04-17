@@ -89,6 +89,25 @@ class TemplateManager(abc.ABC):
         """
         pass
 
+    def get_all_templates(self) -> typing.Mapping[str, typing.Sequence[TemplateDetails]]:
+        """
+        Get all configured templates in hierarchical order
+
+        Returns:
+            A hierarchical map of all templates across all specification types
+        """
+        templates = dict()
+
+        for specification_type in self.get_specification_types():
+            specification_type_name = specification_type[0]
+            for template in self.get_templates(specification_type_name):
+                if specification_type not in templates:
+                    templates[specification_type_name] = list()
+
+                templates[specification_type_name].append(template)
+
+        return templates
+
     def get_template(
         self,
         specification_type: typing.Union[str, GetSpecificationTypeProtocol],

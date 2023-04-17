@@ -1,16 +1,37 @@
-// Functions to call when the page loads
+/**
+ * Functions to call when the page loads
+ * @type {(() => any)[]}
+ */
 const startupScripts = [];
 
-// Handlers to call when the page is being resized
+/**
+ * Handlers to call when the page is being resized
+ * @type {((Event) => any)[]}
+ */
 const resizeHandlers = [];
 
-// Custom initialization functions for different widgets like tabs or buttons
+/**
+ * Custom initialization functions for different widgets like tabs or buttons
+ * @type {(() => any)[]}
+ */
 const widgetInitializers = [];
+
+/**
+ * Handlers for when the page has changed in some way
+ * @type {(() => any)[]}
+ */
+const pageChangedHandlers = [resizeScreen];
 
 // A common namespace for DMOD specific items used to prevent key collisions between browser and application values
 window.DMOD = {};
 
-// Modules that should be imported and added to window.DMOD
+// A common namespace for DMOD widgets
+window.DMOD.widgets = {};
+
+/**
+ * Modules that should be imported and added to window.DMOD
+ * @type {string[]}
+ */
 const MODULES_TO_IMPORT = [
     "/static/js/utilities.js"
 ];
@@ -72,7 +93,7 @@ function resizeScreen(event) {
 /**
  * Convert HTML strings into DOM objects
  * @param {String} html HTML representing a single element
- * @return {HTMLElement|null}
+ * @return {ChildNode}
  */
 function htmlToElement(html) {
     const template = document.createElement('template');
@@ -164,22 +185,33 @@ function roundToDigits(number, digits) {
     return roundedInteger / digitAdjustment;
 }
 
-async function runFunctions(functions, arguments) {
+/**
+ * Runs the given set of functions with the given arguments. If the result of the function is a promise,
+ * it and all following promises will be awaited.
+ *
+ * @param {function()[]} functions
+ * @returns {Promise<void>}
+ */
+async function runFunctions(functions) {
     for (let func of functions) {
-        let result = null;
+        try {
+            let result = func();
 
-        if (arguments) {
-            result = func(...arguments);
-        } else {
-            result = func();
-        }
-
-        while (result != null && Object.keys(result).includes('then') && typeof result.then == "function") {
-            result = await result;
+            while (result instanceof Promise) {
+                result = await result;
+            }
+        } catch(error) {
+            console.error(error);
         }
     }
 }
 
+/**
+ * Waits for the given number of milliseconds
+ *
+ * @param {Number} ms The number of milliseconds to wait
+ * @returns {Promise<void>}
+ */
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -191,6 +223,13 @@ async function runStartupScripts() {
     return await runFunctions(startupScripts);
 }
 
+/**
+ * Run basic initialization functions used to make sure custom widgets are properly created
+ *
+ * An example of an initialization would be to convert all html buttons to jQuery UI buttons
+ *
+ * @returns {Promise<void>}
+ */
 async function initializeWidgets() {
     const allButtons = $("button");
 
@@ -200,7 +239,11 @@ async function initializeWidgets() {
     await runFunctions(widgetInitializers);
 }
 
-
+/**
+ * Takes the passed series of imported name-value pairs and adds them to the window.DMOD namespace
+ *
+ * @param {[string, (Number|function|string|object)][]} module
+ */
 function withModule(module) {
     if (!Object.keys(window).includes("DMOD")) {
         window.DMOD = {};
@@ -211,6 +254,25 @@ function withModule(module) {
     );
 }
 
+async function pageChanged() {
+    for (let handler of pageChangedHandlers) {
+        try {
+            let result = handler();
+
+            while (result instanceof Promise) {
+                result = await result;
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    }
+}
+
+/**
+ * Adds all listed modules to the window.DMOD namespace
+ *
+ * @returns {Promise<void>}
+ */
 async function assignModules() {
     MODULES_TO_IMPORT.forEach(
         moduleName => {
@@ -228,5 +290,6 @@ $(function() {
         .then(function() {
             resizeScreen();
             window.addEventListener("resize", resizeScreen);
-        });
+        })
+        .then(pageChanged);
 });

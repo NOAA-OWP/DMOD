@@ -1,0 +1,124 @@
+{
+    "name": "top-half",
+    "observations": [
+        {
+            "name": "Observations",
+            "value_field": "observation",
+            "value_selectors": [
+                {
+                    "name": "observation",
+                    "where": "value",
+                    "path": ["values[*]", "value[*]", "value"],
+                    "datatype": "float",
+                    "origin": ["$", "value", "timeSeries[*]"],
+                    "associated_fields": [
+                        {
+                            "name":"value_date",
+                            "path": ["values[*]", "value[*]", "dateTime"],
+                            "datatype": "datetime"
+                        },
+                        {
+                            "name":"observation_location",
+                            "path": ["sourceInfo", "siteCode", "[0]", "value"],
+                            "datatype": "string"
+                        },
+                        {
+                            "name":"unit",
+                            "path": ["variable", "unit", "unitCode"],
+                            "datatype": "string"
+                        }
+                    ]
+                }
+            ],
+            "backend": {
+                "backend_type": "file",
+                "data_format": "json",
+                "address": "resources/observations.json"
+            },
+            "locations": {
+                "identify": true,
+                "from_field": "value"
+            },
+            "unit": {
+                "field": "unit"
+            },
+            "x_axis": "value_date"
+        }
+    ],
+    "predictions": [
+        {
+            "name": "Predictions",
+            "value_field": "prediction",
+            "value_selectors": [
+                {
+                    "name": "predicted",
+                    "where": "column",
+                    "associated_fields": [
+                        {
+                            "name": "date",
+                            "datatype": "datetime"
+                        }
+                    ]
+                }
+            ],
+            "backend": {
+                "backend_type": "file",
+                "data_format": "csv",
+                "address": "resources/cat.*cfs.csv",
+                "parse_dates": ["date"]
+            },
+            "locations": {
+                "identify": true,
+                "from_field": "filename",
+                "pattern": "cat-\\d\\d"
+            },
+            "field_mapping": [
+                {
+                    "field": "prediction",
+                    "map_type": "column",
+                    "value": "predicted"
+                },
+                {
+                    "field": "prediction_location",
+                    "map_type": "column",
+                    "value": "location"
+                },
+                {
+                    "field": "value_date",
+                    "map_type": "column",
+                    "value": "date"
+                }
+            ],
+            "unit": {
+                "value": "ft^3/s"
+            },
+            "x_axis": "value_date"
+        }
+    ],
+    "crosswalks": [
+        {
+            "name": "Crosswalk",
+            "backend": {
+                "backend_type": "file",
+                "address": "resources/crosswalk.json",
+                "data_format": "json"
+            },
+            "observation_field_name": "observation_location",
+            "prediction_field_name": "prediction_location",
+            "field": {
+                "name": "prediction_location",
+                "where": "key",
+                "path": ["* where site_no"],
+                "origin": "$",
+                "datatype": "string",
+                "associated_fields": [
+                    {
+                        "name": "observation_location",
+                        "path": "site_no",
+                        "datatype": "string"
+                    }
+                ]
+            }
+        }
+    ]
+}

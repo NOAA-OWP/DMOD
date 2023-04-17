@@ -27,4 +27,7 @@ urlpatterns = [
         name="GetGeometryByName"
     ),
     re_path(f"metrics/?$", views.Metrics.as_view(), name="Metrics"),
+    re_path(views.GetLibraryOptions.route(), views.GetLibraryOptions.as_view(), name="LibraryOptions"),
+    re_path(views.GetLibrary.route(), views.GetLibrary.as_view(), name="GetLibrary"),
+    re_path(r"library/select/?$", views.LibrarySelector.as_view(), name="SelectLibrary")
 ]
