@@ -1,21 +1,65 @@
-import {getWebSocketURL, toJSON, downloadData} from "/static/js/utilities.js";
+import {
+    getWebSocketURL,
+    toJSON,
+    downloadData,
+    attachCode,
+    getServerData,
+    hasAttr,
+    waitForConnection,
+    subtractUnitStrings
+} from "/static/js/utilities.js";
 
-window.DMOD.evaluation = {
-    socket: null,
-    visualizationMap: null,
-    eventHandlers: {
-        save: [],
-        error: [],
-        info: []
-    },
-    digest: {},
-    metricDefinitions: {}
-}
+import {TreeView} from "/static/js/widgets/tree.js";
+
+import {TemplateObjectConstructor} from "/static/maas/js/template.js";
+
+
+/**
+ * @typedef {{event: string, response_type: string, data: Object, message_time: string}} ActionParameters
+ *
+ * @typedef {(response: ActionParameters, socket: WebSocket) => any} ActionHandler
+ */
+
+
+window.DMOD.evaluation = {};
+
+/**
+ *
+ * @type {Object|null}
+ */
+window.DMOD.evaluation.visualizationMap = null;
+
+/**
+ *
+ * @type {LaunchClient}
+ */
+window.DMOD.evaluation.client = null;
+
+/**
+ * A record of messages returned from the service
+ * @type {Object<string, Object[]>}
+ */
+window.DMOD.evaluation.digest = {};
+
+/**
+ *
+ * @type {Object<string, Object>}
+ */
+window.DMOD.evaluation.metricDefinitions = {};
+
+
+/**
+ *
+ * @type {TreeView|null}
+ */
+window.DMOD.evaluation.templateTree = null;
+
+const tabChangedHandlers = {};
 
 function recordMessage(dateAndTime, message) {
     if ($("#record-messages").val() === "on") {
         const event = message['event'];
-        if (!window.DMOD.evaluation.digest.hasOwnProperty(event)) {
+        if (!hasAttr(window.DMOD.evaluation.digest, event)) {
             window.DMOD.evaluation.digest[event] = [];
         }
         message['time'] = dateAndTime;
@@ -72,22 +116,22 @@ function getDigest(event) {
     closePopups();
 }
 
-function submit_evaluation(event) {
+/**
+ *
+ * @param {Event} event
+ * @returns {Promise<void>}
+ */
+async function submit_evaluation(event) {
     if (event) {
         event.preventDefault();
     }
 
     let editorData = window.DMOD.code.getCodeView("editor");
-
-    let parameters = {
-        "action": "launch",
-        "action_parameters": {
-            "instructions": editorData.view.getValue(),
-            "evaluation_name": document.getElementById("evaluation_id").value
-        }
-    };
-
-    window.DMOD.evaluation.socket.send(toJSON(parameters));
+    
+    const instructions = editorData.view.getValue();
+    const evaluationName = document.getElementById("evaluation_id").value;
+    
+    await window.DMOD.evaluation.client.launch(evaluationName, instructions);
 
     if (!editorData.view.getOption("readonly")) {
         editorData.view.setOption("readonly", true);
@@ -98,13 +142,34 @@ function submit_evaluation(event) {
     $("#tabs").tabs("option", "active", 1);
 }
 
-function switchTabs(event, tabID) {
+/**
+ *
+ * @param {Event} event
+ * @param {string} tabID
+ */
+async function switchTabs(event, tabID) {
+    await closePopups(event);
+
     $(".tab").hide();
     $("#" + tabID).show();
 
-    DMOD.code.resizeCodeViews(tabID);
+    if (tabID in tabChangedHandlers) {
+        for (let handler of tabChangedHandlers) {
+            let result = handler(event);
+
+            while (result instanceof Promise) {
+                result = await result;
+            }
+        }
+    }
+
+    await pageChanged();
 }
 
+/**
+ *
+ * @param {HTMLElement} panel
+ */
 function resizeTabContent(panel) {
     const headerSelector = `#${panel.id} .tab-header`;
     const contentSelector = `#${panel.id} .tab-content`;
@@ -119,6 +184,10 @@ function resizeTabContent(panel) {
     content.style.height = `${newContentHeight}px`;
 }
 
+/**
+ *
+ * @param {number} panelIndex
+ */
 function resizePanel(panelIndex) {
     const tabInstance = $("#tabs").tabs("instance");
     const panel = tabInstance.panels[panelIndex];
@@ -151,10 +220,18 @@ function resizeTabs() {
     resizePanel(activeTabNumber);
 }
 
+/**
+ *
+ * @param {Event} event
+ */
 function syncNameChange(event) {
     $("#evaluation_name").val(event.target.value);
 }
 
+/**
+ *
+ * @param {string?} message
+ */
 function updateError(message) {
     const errorBox = $("#general-error-box");
 
@@ -165,27 +242,16 @@ function updateError(message) {
     else {
         errorBox.hide();
     }
+
+    resizeScreen();
 }
 
-function registerEvent(eventName, handler, callCount) {
-    if (callCount == null || typeof(callCount) != 'number') {
-        callCount = 1;
-    }
-
-    const registration = {
-        "count": callCount,
-        "handle": handler
-    }
-
-    if (eventName in DMOD.evaluation.eventHandlers) {
-        DMOD.evaluation.eventHandlers[eventName].push(registration);
-    }
-    else {
-        DMOD.evaluation.eventHandlers[eventName] = [registration];
-    }
-}
-
-function updateLocation(event, message) {
+/**
+ * Update a location on the map based on a received location score
+ * @param {ActionParameters} message
+ * @param {WebSocket?} socket
+ */
+function updateLocationScore(message, socket) {
     const data = message.data;
     const predictedLocation = data.predicted_location;
 
@@ -205,6 +271,11 @@ function updateLocation(event, message) {
     }
 }
 
+/**
+ *
+ * @param {number} metricCount
+ * @returns {number}
+ */
 function getLocationMetricColumnCount(metricCount) {
     if (metricCount === 1 || metricCount == null || metricCount <= 0) {
         return 1;
@@ -223,6 +294,11 @@ function getLocationMetricColumnCount(metricCount) {
     }
 }
 
+/**
+ *
+ * @param {Layer} featureLayer
+ * @param {Object} data
+ */
 function updateLocationTooltip(featureLayer, data) {
     if (featureLayer == null) {
         return;
@@ -234,6 +310,11 @@ function updateLocationTooltip(featureLayer, data) {
     featureLayer.bindTooltip(text);
 }
 
+/**
+ *
+ * @param {Layer} featureLayer
+ * @param {{observed_location: string, predicted_location: string, scores: {grade: number, scores: Object<string, {scaled_value: number, weight: number, thresholds: Object<string, any>[]}>}}} data
+ */
 function updateLocationPopup(featureLayer, data) {
     if (featureLayer == null) {
         return;
@@ -350,6 +431,8 @@ function updateLocationPopup(featureLayer, data) {
     const finalGradeMarkup = `<h2 class="feature-result-grade">Grade: ${data.scores.grade.toFixed(2)}%</h2>`;
     wrapperDiv.appendChild(htmlToElement(finalGradeMarkup));
 
+    // @todo: evaluate the maxHeight and maxWidth so that it works better at different resolutions
+
     const popupOptions = {
         "maxWidth": "900px",
         "maxHeight": "500px"
@@ -361,13 +444,11 @@ function updateLocationPopup(featureLayer, data) {
     );
 }
 
-function addMapHandlers() {
-    registerEvent(
-        "location_scores",
-        updateLocation
-    );
-}
-
+/**
+ * Get the letter grade for a number from [0, 100]
+ * @param {number} grade
+ * @returns {string}
+ */
 function getGradeLetter(grade) {
     if (grade == null) {
         return "Unknown";
@@ -413,6 +494,11 @@ function getGradeLetter(grade) {
     return "F";
 }
 
+/**
+ * Get the color that corresponds with a grade
+ * @param {string} gradeLetter
+ * @returns {string}
+ */
 function getGradeColor(gradeLetter) {
     let color;
 
@@ -444,7 +530,7 @@ function getGradeColor(gradeLetter) {
         default:
             if (gradeLetter !== 'F') {
                 console.warn(`Defaulting to the color for F; ${gradeLetter} is not a valid letter grade.`);
-                var stackError = new Error();
+                let stackError = new Error();
                 console.warn(stackError.stack);
             }
             color = "#d12828";
@@ -457,97 +543,374 @@ function getGradeColor(gradeLetter) {
     return color;
 }
 
-function receivedSocketMessage(response) {
-    const raw_data = JSON.parse(response.data);
-    let event = "";
-
-    if ("event" in raw_data) {
-        event = raw_data.event;
+/**
+ *
+ * @param {ActionParameters} responseData
+ */
+function handleErrorMessage(responseData) {
+    if (!actionErrored(responseData)) {
+        return;
     }
 
-    let errored = raw_data.data
-        && raw_data.data.message
-        && (raw_data.event === "error" || raw_data.response_type === "error" || raw_data.type === "error");
+    updateError(responseData.data?.message || "An error occurred");
+}
 
-    if (errored) {
-        updateError(raw_data.data.message);
-    }
-
-    if (errored && raw_data.event === "launch") {
+/**
+ *
+ * @param {ActionParameters} actionData
+ */
+function handleLaunchError(actionData) {
+    if (actionErrored(actionData)) {
         $("#evaluation-submit").prop("disabled", false);
     }
+}
 
-    const data = toJSON(raw_data);
+/**
+ * Update the message view with incoming data
+ * @param {ActionParameters} actionData
+ */
+function updateMessages(actionData) {
     let messageView = DMOD.code.getCodeView("messages");
-    let digestView = DMOD.code.getCodeView("digest");
 
     if (messageView && messageView.view) {
-        messageView = messageView.view;
+        const newText = toJSON(actionData);
         const currentDate = new Date().toLocaleString();
-        recordMessage(currentDate, raw_data);
-        let newMessage = messageView.getValue();
-        newMessage += `\n//${Array(200).join("=")}\n\n// [${currentDate}]:\n\n${data}\n\n`
+        recordMessage(currentDate, actionData);
+        let newMessage = messageView.view.getValue();
+        newMessage += `\n//${Array(200).join("=")}\n\n// [${currentDate}]:\n\n${newText}\n\n`
 
-        messageView.setValue(newMessage);
-        messageView.scrollIntoView(messageView.lastLine());
+        messageView.view.setValue(newMessage);
+        messageView.view.scrollIntoView(messageView.view.lastLine());
         $("#last-updated").text(currentDate);
 
         const messageCountField = $("#message-count");
         const updateCount = Number(messageCountField.text()) + 1;
         messageCountField.text(updateCount);
     }
+}
+
+/**
+ * Update the message view with incoming data
+ * @param {ActionParameters} actionData
+ */
+function updateDigest(actionData) {
+    let digestView = DMOD.code.getCodeView("digest");
 
     if (digestView && digestView.view) {
         let digestText = toJSON(DMOD.evaluation.digest);
         digestView.view.setValue(digestText);
     }
+}
 
-    if (event in DMOD.evaluation.eventHandlers) {
-        const handlers = DMOD.evaluation.eventHandlers[event];
-        for (const handler of handlers) {
-            if (typeof(handler) == 'function') {
-                handler(event, raw_data);
-            }
-            else {
-                handler.count = handler.count - 1;
-                handler.handle(event, raw_data);
+/**
+ * Show validation information
+ * @param {ActionParameters} actionParameters
+ * @param {WebSocket} socket
+ */
+async function showValidationMessages(actionParameters, socket) {
+    /**
+     * @type {Object}
+     * @property {boolean} passed
+     * @property {string[]} validation_messages
+     */
+    const validationData = actionParameters.data;
+    const messageContainer = $("#individual-validation-messages");
+    const overallValidationMessage = $("#overall-validation-message");
+
+    messageContainer.empty();
+
+    await showPopup(null, "validation-popup");
+
+    if (validationData.passed) {
+        overallValidationMessage.removeClass("status-error status-unknown").addClass("status-ok");
+        overallValidationMessage.text("The configuration passes all validations");
+        messageContainer.hide();
+    }
+    else {
+        overallValidationMessage.removeClass("status-ok status-unknown").addClass("status-error");
+        overallValidationMessage.text("The configuration is not ready for evaluation:");
+
+        for (let messageIndex = 0; messageIndex < validationData.validation_messages.length; messageIndex++) {
+            const message = validationData.validation_messages[messageIndex];
+            for (let line of message.split("\n")) {
+                if (line == null || line === '') {
+                    continue
+                }
+
+                const messageArea = document.createElement("div");
+                messageArea.id = `validation-message-${messageIndex}`;
+                messageArea.className = "validation-message";
+                messageArea.textContent = line;
+
+                messageContainer.append(messageArea);
             }
         }
+
+        messageContainer.show();
     }
 }
 
-function connectToSocket(event) {
+/**
+ * Indicates whether the action results show an error
+ *
+ * @param {ActionParameters} actionData
+ * @returns {boolean} Whether the action data indicated an error
+ */
+function actionErrored(actionData) {
+    return hasAttr(actionData.data, "message")
+        && actionData.data.message != null
+        && actionData.data.message.length > 0
+        && (
+            actionData.event === 'error'
+            || actionData.response_type === 'error'
+            || actionData.type === 'error'
+        )
+}
+
+async function showTemplatePopup(event) {
+    window.DMOD.evaluation.client.getAllTemplates(
+        null,
+        async (response, socket) => {
+            await showPopup(event, "template-search-popup");
+
+            if (actionErrored(response)) {
+                updateError(response.data.message);
+                return
+            }
+
+            if (!("data" in response && "templates" in response.data)) {
+                updateError("No template data was received when requested");
+                return
+            }
+
+            if (window.DMOD.evaluation.templateTree == null) {
+                initializeTemplateTree();
+            }
+
+            const data = response.data;
+
+            window.DMOD.evaluation.templateTree.populate(
+                data.templates,
+                {ignoreParent: true},
+                new TemplateObjectConstructor()
+            );
+
+            window.DMOD.evaluation.templateTree.render();
+        }
+    )
+}
+
+async function showTemplateApplicationPopup(event) {
+    await showPopup(event, "template-application-popup");
+}
+
+async function copyTemplateToClipboard(event) {
+    await closePopups(event);
+    const codeView = DMOD.code.getCodeView("template-preview");
+    const configuration = codeView.view.getValue();
+    await navigator.clipboard.writeText(configuration);
+}
+
+async function copyTemplateNameToClipboard(event) {
+    await closePopups(event);
+    await navigator.clipboard.writeText($("#template-preview-label").text());
+}
+
+async function insertTemplate(event) {
+    await closePopups(event);
+    const preview = DMOD.code.getCodeView("template-preview");
+    const configuration = preview.view.getValue();
+
+    const editor = DMOD.code.getCodeView("editor");
+    const editorDocument = editor.view.getDoc();
+    const start = editorDocument.getCursor();
+    const end = editorDocument.getCursor(false);
+
+    editorDocument.replaceRange(configuration, start, end);
+
+    // Attempt to reformat the document to make sure the tabs are right. It's ok if you can't
+    try {
+        let currentCode = editorDocument.getValue();
+        let deserializedData = JSON.parse(currentCode);
+        currentCode = JSON.stringify(deserializedData, null, 4);
+        editorDocument.setValue(currentCode);
+        editorDocument.setCursor(end);
+    } catch (e) {
+        // It's ok to ignore this error - a failure here just means that the code might look goofy
+    }
+}
+
+async function loadTemplate(event) {
+    const selectedID = window.DMOD.evaluation.templateTree.selectedValue;
+
+    window.DMOD.evaluation.client.getTemplateById(
+        selectedID,
+        null,
+        async (response, socket) => {
+            if (actionErrored(response)) {
+                updateError(response.data.message);
+                return;
+            }
+            else if (!("data" in response)) {
+                updateError("No data was received in a service response - a template could not be loaded.");
+                return
+            }
+
+            const data = response.data;
+
+            $("#template-description").text(data.description || "");
+            $("#template-preview-label").text(data.name || "");
+
+            if ("template" in data) {
+                const preview = window.DMOD.code.getCodeView("template-preview");
+
+                let template = data.template;
+
+                if (typeof template === 'object') {
+                    template = JSON.stringify(template, null, 4);
+                }
+
+                preview.view.setValue(template);
+            }
+            else {
+                console.warn("No template found in request to get a specific template");
+            }
+
+            await pageChanged();
+        }
+    )
+}
+
+async function launchClient(event) {
     if (event) {
         event.preventDefault();
     }
 
-    try {
-        DMOD.evaluation.socket = new WebSocket(getWebSocketURL(LAUNCH_URL));
-    } catch (error) {
-        alert(error.message);
-        updateError(error.message);
-        return;
-    }
-
-    DMOD.evaluation.socket.onopen = function (response) {
+    const onOpen = function () {
         const currentDate = new Date().toLocaleString();
         $("#connection-time").text(currentDate);
         $("#connected-edit-buttons").show();
         $("#disconnected-edit-buttons").hide();
     };
-    DMOD.evaluation.socket.onmessage = receivedSocketMessage;
 
-    DMOD.evaluation.socket.onerror = function(response) {
-        updateError(response.data);
-    };
+    const onError = function(response) {
+        updateError(response?.data?.message || response);
+    }
 
-    DMOD.evaluation.socket.onclose = function(event) {
+    const onClose = function(event) {
+        closePopups(event);
+        updateError("Disconnected from evaluation service");
         $("#connected-edit-buttons").hide();
         $("#disconnected-edit-buttons").show();
-    };
+    }
+
+    await getClient();
+
+    if (!clientIsAvailable()) {
+        const message = "Cannot access the code necessary to connect to the evaluation service";
+        updateError(message);
+        throw new Error(message);
+    }
+
+    let options = new window.DMOD.clients.LaunchClientOptions()
+        .addOpenHandler(onOpen)
+        .addSocketErrorHandler(onError)
+        .addCloseHandler(onClose)
+        .addMessageHandler(updateMessages)
+        .addMessageHandler(updateDigest)
+        .addMessageHandler(handleErrorMessage)
+        .addClientErrorHandler(updateError)
+        .setShouldReconnect(true);
+
+    DMOD.evaluation.client = new window.DMOD.clients.LaunchClient(getWebSocketURL(LAUNCH_URL), options)
+        .onGetSavedDefinition(loadPreexistingDefinition)
+        .onSearch(renderDefinitions)
+        .onLaunch(handleLaunchError)
+        .onValidateConfiguration(showValidationMessages)
+        .onSave((_) => closePopups())
+        .on("location_scores", updateLocationScore);
 }
 
-function closePopups(event) {
+/**
+ * Check to see if the client is available within the code base
+ * @returns {boolean}
+ */
+function clientIsAvailable() {
+    return hasAttr(window.DMOD, 'clients') && hasAttr(window.DMOD.clients, "LaunchClient");
+}
+
+/**
+ * Reach out to the server to load a client for the evaluation service
+ * @param {number?} delay The number of milliseconds to wait when checking to see if the library has loaded
+ * @returns {Promise<boolean>}
+ */
+async function getClient(delay) {
+        if (clientIsAvailable()) {
+            return true;
+        }
+
+        let socket = new WebSocket(getWebSocketURL(LAUNCH_URL));
+        socket.onmessage = (response) => {
+            const actionParameters = JSON.parse(response.data);
+
+            if (actionErrored(actionParameters)) {
+                const message = actionParameters.data?.message || "An error occurred";
+                updateError(message);
+                return;
+            }
+
+            if (actionParameters.event !== 'generate_library' && actionParameters.event !== 'connect') {
+                console.error(
+                    "Received a non-library related message through the socket seeking client code - " +
+                    "all that should be arriving should be a generated library"
+                );
+                return;
+            }
+
+            if (actionParameters.event === 'generate_library') {
+                attachCode(actionParameters.data.library);
+            }
+        }
+
+        const connected = await waitForConnection(socket);
+
+        if (!connected) {
+            throw new Error("Could not establish a websocket connection through which to load a new client");
+        }
+
+        const payload = {
+            "action_parameters": "generate_library"
+        }
+
+        socket.send(toJSON(payload));
+
+        const maximumNumberOfTimesToWait = 10;
+        let numberOfTimesWaited = 0;
+        const minimumWaitTime = 500;
+
+        if (delay == null || typeof delay !== "number") {
+            delay = minimumWaitTime;
+        }
+        else if (delay < minimumWaitTime) {
+            console.warn(
+                `The amount of time given to wait for an attached client (${delay}ms) was too low; ` +
+                `the minimum time (${minimumWaitTime}ms) will be used instead`
+            );
+            delay = minimumWaitTime;
+        }
+
+        while (!clientIsAvailable() && numberOfTimesWaited < maximumNumberOfTimesToWait) {
+            await sleep(delay);
+        }
+
+        return clientIsAvailable();
+}
+
+/**
+ * Called when a button used to close popups is clicked
+ * @param {Event?} event
+ */
+async function closePopups(event) {
     if (event) {
         event.preventDefault();
     }
@@ -555,47 +918,45 @@ function closePopups(event) {
     $(".popup").hide();
 }
 
-function saveDefinition(event) {
+/**
+ * Handler for when a user hits the save button for their evaluation instructions
+ * @param {Event} event
+ * @returns {Promise<void>}
+ */
+async function saveDefinition(event) {
     if (event) {
         event.preventDefault();
     }
-    const editView = DMOD.code.getCodeView("editor");
 
-    if (editView == null) {
-        throw "An editor could not be found from which to get instructions from."
-    }
+    const author = $("#author").val();
+    const name = $("#evaluation_name").val();
+    const description = $("#description").val();
+    const instructions = DMOD.code.getCode("editor");
 
-    const parameters = {
-        "action": "save",
-        "action_parameters": {
-            "author": $("#author").val(),
-            "name": $("#evaluation_name").val(),
-            "description": $("#description").val(),
-            "instructions": editView.view.getValue()
-        }
-    }
+    await showWaitingPopup(`Waiting to complete saving '${name}`);
 
-    const payload = toJSON(parameters);
-    DMOD.evaluation.socket.send(payload);
-    // Instead of closing the popup, tell it to close this popup and open a waiting popup. That popup should leave
-    // when the next save event comes through.
-    waitForEvent("save", `Waiting to complete saving '${parameters.action_parameters.name}'`)
-}
-
-function waitForEvent(eventName, why) {
-    $("#waiting-for").text(why);
-    showPopup(null, "waiting-popup");
-    registerEvent(
-        eventName,
-        (data) => {
-            closePopups();
-            switchTabs("message-div");
-        }
+    DMOD.evaluation.client.save(
+        name,
+        description,
+        author,
+        instructions
     );
 }
 
-function filterDefinitions(event) {
-    let has_filter = false;
+/**
+ * Show a popup that explains that an operation in ongoing
+ * @param {string} reason Why the application is waiting
+ */
+async function showWaitingPopup(reason) {
+    $("#waiting-for").text(reason);
+    await showPopup(null, "waiting-popup");
+}
+
+/**
+ * Reaches out to the evaluation service to look for any evaluation specifications that meet the given criteria
+ * @param {Event} event
+ */
+async function filterDefinitions(event) {
     const search_arguments = {};
     // #1
     //implement the search where it will ask the server for definitions and register an action to render them
@@ -603,45 +964,41 @@ function filterDefinitions(event) {
 
     if (author) {
         search_arguments.author = author.trim();
-        has_filter = true;
     }
 
     const name = $("#search-by-name").val();
 
     if (name) {
         search_arguments.name = name.trim();
-        has_filter = true;
     }
 
     const description = $("#search-by-description").val();
 
     if (description) {
         search_arguments.description = description;
-        has_filter = true;
     }
 
-    const payload = {
-        "action": "search"
-    };
-
-    if (has_filter) {
-        payload.action_parameters = search_arguments;
-    }
-
-    DMOD.evaluation.socket.send(toJSON(payload));
+    DMOD.evaluation.client.search(search_arguments);
 }
 
-function renderDefinitions(event, data) {
+/**
+ * Places found evaluation definitions into the table for user selection
+ * @param {Event} event
+ * @param {WebSocket} socket
+ */
+async function renderDefinitions(event, socket) {
     // #2
     //implement the rendering of definitions within the table named 'search-table'
 
     const searchErrorsElement = $("#search-errors");
+
+    const data = typeof event.data == 'string' ? JSON.parse(event.data) : event.data;
+
     if (data.response_type === "error") {
         $("#search-error-message").text(data.message);
         searchErrorsElement.show();
         return;
     }
-
 
     searchErrorsElement.hide();
 
@@ -651,7 +1008,20 @@ function renderDefinitions(event, data) {
       searchTableBody.removeChild(searchTableBody.firstChild);
     }
 
-    for (const definition of data.data) {
+    let dataToIterate;
+
+    if (Array.isArray(data)) {
+        dataToIterate = data;
+    }
+    else if ("data" in data && Array.isArray(data.data)) {
+        dataToIterate = data.data;
+    }
+    else {
+        console.warn("Could not find evaluation data to iterate through");
+        dataToIterate = [];
+    }
+
+    for (const definition of dataToIterate) {
         let row = document.createElement("tr");
         row.id = `definition-${definition.identifier}`;
         row.classList.add("search-row");
@@ -700,8 +1070,14 @@ function renderDefinitions(event, data) {
     // #4
     //NOTE: This should clear any selections
     $("#selected-definition").val(null);
+
+    await pageChanged();
 }
 
+/**
+ * Handler for when a user selects a preexisting evaluation definition
+ * @param {Event} event
+ */
 function selectDefinition(event) {
     // #3
     //implement handler that will select the pk of the row that was clicked
@@ -729,52 +1105,69 @@ function selectDefinition(event) {
     selectSearchButton.button("enable");
 }
 
-function selectPreexistingDefinition(event) {
-    // #5
-    //implement handler that will query the socket for the definition and register a handler to insert it into the editor
-    var identifier = $("#selected-definition").val();
+/**
+ * Handler for when it is time to load a preexisting definition into the editor
+ * @param {Event} event
+ * @returns {Promise<void>}
+ */
+async function selectPreexistingDefinition(event) {
+    let identifier = $("#selected-definition").val();
 
     if (identifier) {
-        const request = {
-            "action": "get_saved_definition",
-            "action_parameters": {
-                "identifier": identifier
-            }
-        }
-        DMOD.evaluation.socket.send(toJSON(request));
+        DMOD.evaluation.client.getSavedDefinition(identifier);
     }
     else {
         $("#search-errors").show();
         $("#search-error-message").text("Cannot select a definition; there isn't one selected.")
     }
+
+    await pageChanged();
 }
 
-function showPopup(event, popupID) {
+/**
+ * Show a specific popup
+ * @param {Event} event
+ * @param {string} popupID
+ */
+async function showPopup(event, popupID) {
     if (event) {
         event.preventDefault();
     }
+
+    await closePopups(event);
 
     $(".popup").hide();
 
     $("#page-modal").show();
     $("#" + popupID).show();
+
+    await pageChanged();
 }
 
-function showSearchPopup(event) {
+/**
+ * Show the popup used to search for evaluation specifications
+ * @param {Event} event
+ */
+async function showSearchPopup(event) {
     if (event) {
         event.preventDefault();
     }
 
-    filterDefinitions(event);
-    showPopup(event, "search-popup");
+    const filterCall = filterDefinitions(event);
+    await showPopup(event, "search-popup");
+    await filterCall;
 }
 
-function showDigestPopup(event) {
+/**
+ * Show the popup that allows users to select what digest values to download
+ * @param {Event} event
+ */
+async function showDigestPopup(event) {
     if (event) {
         event.preventDefault();
     }
 
-    if (DMOD.evaluation.digest.length === 0) {
+    if (Object.keys(DMOD.evaluation.digest).length === 0) {
         updateError("There are no items in the digest to download.");
     }
     else {
@@ -791,7 +1184,7 @@ function showDigestPopup(event) {
             checkbox.id = uniqueEvent + "-event";
             checkbox.name = uniqueEvent;
             checkbox.type = "checkbox";
-            checkbox.setAttribute("checked", true);
+            checkbox.setAttribute("checked", "on");
 
             const label = document.createElement("label");
             label.textContent = uniqueEvent;
@@ -804,7 +1197,7 @@ function showDigestPopup(event) {
             fieldArea.appendChild(newLine);
         }
 
-        showPopup(event, "digest-modal");
+        await showPopup(event, "digest-modal");
     }
 }
 
@@ -812,19 +1205,28 @@ function showDigestPopup(event) {
 /**
  * Load a retrieved evaluation configuration into the editor
  *
- * @param {Object} event The event that triggered the load
- * @param {Object} responseData The configuration retrieved from the server
+ * @param {ActionParameters} event The event that triggered the load
+ * @param {WebSocket} socket The configuration retrieved from the server
  */
-function loadPreexistingDefinition(event, responseData) {
-    if (responseData.response_type === "error") {
-        // @todo Record error to the popup
+async function loadPreexistingDefinition(event, socket) {
+    if (!("data" in event)) {
+        console.warn("Could not load a preexisting definition - no payload was provided");
         return;
     }
+
+    if (actionErrored(event)) {
+        await closePopups();
+        const message = event.data?.message || "An error occurred when loading a preexisting project definition";
+        updateError(message);
+        return;
+    }
+
+    const responseData = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
 
     const editorView = DMOD.code.getCodeView("editor");
 
     // The definition will be nested under the 'data' property of the response, so go ahead and pull that out
-    let definition = responseData.data.definition;
+    let definition = responseData.definition;
 
     // The definition will most likely be an Object, but we can only load strings into the editor.
     // Convert the to a string and format it to make it easy to read in the editor
@@ -833,55 +1235,17 @@ function loadPreexistingDefinition(event, responseData) {
     }
 
     editorView.view.setValue(definition);
-    $("#evaluation_id").val(responseData.data.name.trim());
-    closePopups(null);
+    $("#evaluation_id").val(responseData.name.trim());
 
     // Make sure that the editor view is showing
-    switchTabs(null, "edit-div");
-}
-
-
-/**
- * Get data from the server
- *
- * @param {String} serverUrl The url to request data from
- * @return {Object} The data retrieved from the server. `null` will be returned if the request failed
- **/
-function getServerData(serverUrl) {
-    // Create an array to store possibly retrieved data
-    // This is to be used as a catcher's mitt from the handler of the response
-    const data = [];
-
-    // @todo This might be a good candidate for the fetch API
-    $.ajax(
-        {
-            url: serverUrl,
-            type: 'GET',
-            async: false,
-            error: function(xhr,status,error) {
-                console.error(error);
-            },
-            success: function(result,status,xhr) {
-                // Push data from the server into the data array
-                data.push(result);
-            }
-        }
-    );
-
-    // Return null if there was an error
-    if (data.length === 0) {
-        return null;
-    }
-
-    // There will be at most one item in the array, so return the first element
-    return data[0];
+    await switchTabs(null, "edit-div");
 }
 
 /**
  * Gets a listing of options available for geometry and populates the selector with them
  **/
-function populateGeometrySelector() {
-    const geometryOptions = getServerData(GEOMETRY_URL);
+async function populateGeometrySelector() {
+    const geometryOptions = await getServerData(GEOMETRY_URL);
 
     if (geometryOptions == null) {
         console.error("Options for geometry could not be loaded. Elements cannot be properly populated.");
@@ -901,7 +1265,7 @@ function populateGeometrySelector() {
 /**
  * Adds the selected geometry to the map. Any geometry that was already rendered will be replaced.
 **/
-function addGeometry(event) {
+async function addGeometry(event) {
     if (event) {
         event.preventDefault();
         event.stopPropagation();
@@ -915,7 +1279,7 @@ function addGeometry(event) {
 
     const url = GEOMETRY_URL + selector.value;
 
-    const geometry = getServerData(url);
+    const geometry = await getServerData(url);
 
     DMOD.evaluation.visualizationMap.clear();
     DMOD.evaluation.visualizationMap.plotGeoJSON(geometry);
@@ -927,7 +1291,7 @@ function addGeometry(event) {
     }
 
     for (let locationScore of locationScores) {
-        updateLocation(null, locationScore);
+        updateLocationScore(locationScore);
     }
 }
 
@@ -955,17 +1319,54 @@ function initializeFields() {
     }
 
     // Register handlers to save values to session on edit
-    editorView.view.on("change", (event) => {
+    editorView.view.on("change", (_) => {
         const ev = DMOD.code.getCodeView("editor");
         sessionStorage.setItem("code", ev.view.getValue());
     });
 
     authorFields.on(
         "change",
-        (event) => {
+        (_) => {
             sessionStorage.setItem("author", $("#author").val());
         }
     );
+}
+
+function initializeTemplateTree() {
+    window.DMOD.evaluation.templateTree = new TreeView("template-tree", $("#template-search-tree"));
+    window.DMOD.evaluation.templateTree.on(
+        "select",
+        async (event) => {
+            if (window.DMOD.evaluation.templateTree.selectedValue != null) {
+                await loadTemplate(event);
+            }
+            else {
+                const preview = window.DMOD.code.getCodeView("template-preview");
+                preview.view.setValue("");
+
+                $("#template-description").text("");
+                $("#template-preview-label").text("");
+            }
+
+            await pageChanged();
+        }
+    );
+    window.DMOD.evaluation.templateTree.on(
+        "select",
+        async (event) => {
+            if (window.DMOD.evaluation.templateTree.selectedValue != null) {
+                $(".template-selected-button").show();
+            }
+            else {
+                $(".template-selected-button").hide();
+            }
+            await pageChanged();
+        }
+    );
+    window.DMOD.evaluation.templateTree.on(
+        "select",
+        pageChanged
+    )
 }
 
 async function loadMetricDefinitions() {
@@ -989,7 +1390,7 @@ async function loadMetricDefinitions() {
             }
         }
     */
-    for (var [metricName, details] of Object.entries(receivedMetricDefinitions)) {
+    for (let [metricName, details] of Object.entries(receivedMetricDefinitions)) {
         DMOD.evaluation.metricDefinitions[metricName] = details;
     }
 }
@@ -1007,6 +1408,10 @@ function scaleColor(value) {
 
     const low = parseInt(lowestColor, 16);
     const high = parseInt(highestColor, 16);
+
+    // @todo: This doesn't actually scale - something got lost in translation scaling from low-high red,
+    //      low-high green, and low-high blue and the algorithm for it is hard to find. There is a good chance
+    //      that the implicit minimum is black
 
     const [lowRed, lowGreen, lowBlue] = colorToArray(low);
     const [highRed, highGreen, highBlue] = colorToArray(high);
@@ -1028,9 +1433,9 @@ function scaleColor(value) {
 }
 
 /*
- * Breaks down a 16 bit number into red, green, and blue values
+ * Breaks down a 16-bit number into red, green, and blue values
  *
- * @param {Number} colorNumber A 16 bit number to break down into red, green, and blue values
+ * @param {Number} colorNumber A 16-bit number to break down into red, green, and blue values
  * @return {Array} An array of 3 values broken out of the colorNumber, the first being red, the second being green,
  *                 and the third being blue
  */
@@ -1044,7 +1449,7 @@ function colorToArray(colorNumber) {
 
 function assignEventHandlers() {
     $("#acknowledge-error-icon").on("click", () => {
-        updateError(null);
+        updateError();
     });
 
     $("#evaluation_id").on("change", syncNameChange);
@@ -1053,17 +1458,13 @@ function assignEventHandlers() {
 
     $("#evaluation-save").on("click", (event) => {showPopup(event, 'save-dialog')});
 
-    $("#reconnect-button").on("click", connectToSocket);
+    $("#reconnect-button").on("click", launchClient);
 
     $("#get-digest").on("click", showDigestPopup);
 
     $("#map-geometry-button").on("click", addGeometry);
 
     $("#save-definition").on("click", saveDefinition);
-
-    $("#close-save-popup-button").on("click", closePopups);
-
-    $("#close-waiting-button").on("click", closePopups);
 
     $("#search-by-author").on("change", filterDefinitions);
 
@@ -1073,12 +1474,83 @@ function assignEventHandlers() {
 
     $("#select-search-button").on("click", selectPreexistingDefinition);
 
-    $("#close-search-button").on("click", closePopups);
-
     $("#download-digest-button").on("click", getDigest);
 
-    $("#close-digest-popup-button").on("click", closePopups);
+    $("#evaluation-submit").click(submit_evaluation);
+
+    $("#template-button").on("click", showTemplatePopup);
+
+    $("#select-template-button").on("click", showTemplateApplicationPopup);
+
+    $("#copy-template-button").on("click", copyTemplateToClipboard);
+
+    $("#copy-template-name-button").on("click", copyTemplateNameToClipboard);
+
+    $("#insert-template-button").on("click", insertTemplate);
+
+    $(".close-button").on("click", closePopups);
+
+    $("#validate-button").on(
+        "click",
+        async (event) => {
+            const configuration = DMOD.code.getCode("editor");
+            await showWaitingPopup("Validating Configuration...");
+            DMOD.evaluation.client.validateConfiguration(
+                configuration
+            );
+        }
+    );
 }
+
+function attachTabChangedHandlers() {
+    tabChangedHandlers['digest-div'] = [];
+
+    tabChangedHandlers['digest-div'].push(
+        event => {
+            const digestEditor = DMOD.code.getEditor("digest");
+
+            CodeMirror.commands.foldAll(digestEditor);
+            digestEditor.foldCode({line:0, ch: 0}, null, "unfold");
+        }
+    )
+}
+
+widgetInitializers.push(
+    () => {
+        const tabElements = $("#tabs");
+        tabElements.tabs({
+            active: 0,
+            activate: resizeTabs,
+        });
+        tabElements.tabs("refresh");
+    }
+);
+
+
+
+widgetInitializers.push(
+    () => $(".template-selected-button").hide()
+)
+
+widgetInitializers.push(initializeTemplateTree);
+
+pageChangedHandlers.push(
+    () => {
+        let newHeight = $("#search-button").css("height");
+        const evaluationIDInput = $("#evaluation_id");
+
+        newHeight = subtractUnitStrings(newHeight, evaluationIDInput.css("margin-top"));
+        newHeight = subtractUnitStrings(newHeight, evaluationIDInput.css("border-top-width"));
+        newHeight = subtractUnitStrings(newHeight, evaluationIDInput.css("padding-top"));
+        newHeight = subtractUnitStrings(newHeight, evaluationIDInput.css("padding-bottom"));
+        newHeight = subtractUnitStrings(newHeight, evaluationIDInput.css("border-bottom-width"));
+        newHeight = subtractUnitStrings(newHeight, evaluationIDInput.css("margin-bottom"));
+
+        evaluationIDInput.css("height", newHeight);
+    }
+);
+
+pageChangedHandlers.push(DMOD.code.resizeCodeViews);
 
 // Initialize the map when the page starts up
 startupScripts.push(
@@ -1087,49 +1559,27 @@ startupScripts.push(
     }
 );
 
+resizeHandlers.push(resizeTabs);
+
 startupScripts.push(
-    function() {
+    async function() {
         assignEventHandlers();
         $(".error-box").hide();
-        showPopup(null, "connecting-modal");
-        const tabElements = $("#tabs");
-        tabElements.tabs({
-            active: 0,
-            activate: resizeTabs,
-        });
-        tabElements.tabs("refresh");
+        await showPopup(null, "connecting-modal");
         initializeFields();
-        //switchTabs(null, "edit-div");
-
-        $("#evaluation-submit").click(submit_evaluation);
 
         resizeTabs();
-        window.addEventListener("resize", resizeTabs);
 
         // Connect to service
-        connectToSocket();
+        await launchClient();
 
-        // Register message handlers
-        registerEvent(
-            "search",
-            renderDefinitions,
-            -1
-        );
-        registerEvent(
-            "get_saved_definition",
-            loadPreexistingDefinition,
-            -1
-        );
-
-        closePopups(null);
+        await closePopups(null);
     }
 );
 
 // Add geometry options to the geometry selector when the page starts up
 startupScripts.push(populateGeometrySelector);
 
-// Add handlers to the map view when the page starts up
-startupScripts.push(addMapHandlers);
-
 // Record available metric definitions
 startupScripts.push(loadMetricDefinitions);
+startupScripts.push(attachTabChangedHandlers);

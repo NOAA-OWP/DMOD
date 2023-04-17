@@ -3,6 +3,8 @@ Provides classes and functions used to manipulated Evaluation specifications
 """
 import typing
 
+from django.db.models import Manager
+
 from dmod.evaluations import specification
 from dmod.evaluations.specification import TemplateDetails
 from dmod.evaluations.specification.template import TemplateManager

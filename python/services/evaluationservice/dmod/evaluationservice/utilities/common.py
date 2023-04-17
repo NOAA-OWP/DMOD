@@ -1,14 +1,6 @@
-import typing
-import os
-import traceback
-import json
-
 from datetime import datetime
 
 import dateutil
-import numpy
-
-from service.application_values import COMMON_DATETIME_FORMAT
 
 
 def key_separator() -> str:
@@ -71,32 +63,3 @@ def now(local: bool = True) -> datetime:
     timezone = dateutil.tz.tzlocal() if local else dateutil.tz.tzutc()
 
     return datetime.now(tz=timezone)
-
-
-def make_message_serializable(message: typing.Union[dict, str, bytes, datetime, typing.Iterable]):
-    if isinstance(message, dict):
-        for key, value in message.items():
-            message[key] = make_message_serializable(value)
-    elif isinstance(message, bytes):
-        return message.decode()
-    elif isinstance(message, float):
-        if numpy.isneginf(message):
-            return "-Infinity"
-        if numpy.isposinf(message):
-            return "Infinity"
-        if numpy.isnan(message):
-            return "NaN"
-    elif isinstance(message, datetime):
-        return message.strftime(COMMON_DATETIME_FORMAT)
-    elif isinstance(message, Exception):
-        return os.linesep.join(traceback.format_exception_only(type(message), message))
-    elif not isinstance(message, str) and isinstance(message, typing.Iterable):
-        return [make_message_serializable(submessage) for submessage in message]
-    elif isinstance(message, str) and len(message) > 2 and (message[0] in ("[", "{") and message[-1] in ("}", "]")):
-        try:
-            possible_json = json.loads(message)
-            return make_message_serializable(possible_json)
-        except:
-            pass
-
-    return message

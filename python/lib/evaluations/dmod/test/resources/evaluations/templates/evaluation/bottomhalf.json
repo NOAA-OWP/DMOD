@@ -1,0 +1,88 @@
+{
+    "name": "bottom-half",
+    "thresholds": [
+        {
+            "name": "NWIS Stat Percentiles",
+            "backend": {
+                "name": "NWIS Stat Thresholds",
+                "backend_type": "file",
+                "data_format": "rdb",
+                "address": "resources/nwis_stat_thresholds.rdb"
+            },
+            "locations": {
+                "identify": true,
+                "from_field": "column",
+                "pattern": "site_no"
+            },
+            "application_rules": {
+                "name": "Date to Day",
+                "threshold_field": {
+                    "name": "threshold_day",
+                    "path": [
+                        "month_nu",
+                        "day_nu"
+                    ],
+                    "datatype": "Day"
+                },
+                "observation_field": {
+                    "name": "threshold_day",
+                    "path": [
+                        "value_date"
+                    ],
+                    "datatype": "Day"
+                }
+            },
+            "definitions": [
+                {
+                    "name": "75th Percentile",
+                    "field": "p75_va",
+                    "weight": 10,
+                    "unit": {
+                        "value": "ft^3/s"
+                    }
+                },
+                {
+                    "name": "80th Percentile",
+                    "field": "p80_va",
+                    "weight": 5,
+                    "unit": {
+                        "value": "ft^3/s"
+                    }
+                },
+                {
+                    "name": "Median",
+                    "field": "p50_va",
+                    "weight": 1,
+                    "unit": {
+                        "value": "ft^3/s"
+                    }
+                }
+            ]
+        }
+    ],
+    "scheme": {
+        "name": "Prefer Pearson, then Nash and Kling, then POD and FAR",
+        "metrics": [
+            {
+                "name": "False Alarm Ratio",
+                "weight": 10
+            },
+            {
+                "name": "Probability of Detection",
+                "weight": 10
+            },
+            {
+                "name": "Kling-Gupta Efficiency",
+                "weight": 15
+            },
+            {
+                "name": "Normalized Nash-Sutcliffe Efficiency",
+                "weight": 15
+            },
+            {
+                "name": "Pearson Correlation Coefficient",
+                "weight": 18
+            }
+        ]
+    }
+}

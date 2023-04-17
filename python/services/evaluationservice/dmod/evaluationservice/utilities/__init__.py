@@ -8,6 +8,7 @@ from .communication import get_evaluation_key
 from .common import key_separator
 from .async_orm import communicate_with_database
 from .async_orm import select_from_database
+from .message import make_message_serializable
 
 from dmod.metrics import Communicator
 from dmod.metrics import CommunicatorGroup

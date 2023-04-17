@@ -189,12 +189,12 @@ class ForwardingSocket(SocketConsumer):
 
                 if not cancel_results.cancelled:
                     LOGGER.warn(
-                        f"Could not cancel the listener task for the Proxy Client named '{self.__identifier}' "
+                        f"Could not cancel the listener task for the Proxy Client named '{self.identifier}' "
                         f"connecting from '{self.scope_data.client}' to '{self.target_connection_url}'"
                     )
             except Exception as cancel_exception:
                 LOGGER.error(
-                    f"Could not cancel the listener task for the Proxy Client named '{self.__identifier}' "
+                    f"Could not cancel the listener task for the Proxy Client named '{self.identifier}' "
                     f"connecting from '{self.scope_data.client}' to '{self.target_connection_url}'",
                     cancel_exception
                 )
@@ -207,9 +207,9 @@ class ForwardingSocket(SocketConsumer):
                 # over how it's handled
                 close_task: asyncio.Task = asyncio.create_task(
                     self.__connection.close(
-                        reason=f"Proxy client {self.__identifier} disconnected from "
+                        reason=f"Proxy client {self.identifier} disconnected from "
                     ),
-                    name=f"Waiting_to_close_connection_to_{self.target_connection_url}_on_proxy_{self.__identifier}"
+                    name=f"Waiting_to_close_connection_to_{self.target_connection_url}_on_proxy_{self.identifier}"
                 )
 
                 # Wait a brief period of time for the connection to close. Hopefully it closes but it won't be
@@ -220,7 +220,7 @@ class ForwardingSocket(SocketConsumer):
 
                 if not connection_closed:
                     LOGGER.warn(
-                        f"The Proxy Client {self.__identifier} could not disconnect from {self.target_connection_url} "
+                        f"The Proxy Client {self.identifier} could not disconnect from {self.target_connection_url} "
                         f"within {common.tasks.DEFAULT_TASK_WAIT_SECONDS} seconds."
                     )
             except Exception as close_exception:

@@ -34,6 +34,24 @@ class TestSpecificationDeserialization(unittest.TestCase):
     def template_manager(self) -> specification.TemplateManager:
         return self.__template_manager
 
+    def test_multitemplate(self):
+        multitemplate = self.template_manager.get_template(
+            specification_type=specification.EvaluationSpecification,
+            name="Multi-Template"
+        )
+
+        single_instance = specification.EvaluationSpecification.create(
+            data=multitemplate,
+            template_manager=self.template_manager
+        )
+
+        pure_template_instance = specification.EvaluationSpecification.create(
+            data={"template_name": "no-template"},
+            template_manager=self.template_manager
+        )
+
+        self.assertEqual(single_instance, pure_template_instance)
+
     def test_evaluation_deserialization(self):
         normal_specification = self.template_manager.get_template(
             specification_type=specification.EvaluationSpecification,

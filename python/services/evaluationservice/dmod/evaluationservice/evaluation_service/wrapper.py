@@ -3,9 +3,11 @@ Defines a wrapper class for Django models that may function within an async cont
 """
 import typing
 import threading
+import inspect
 
 from django.db import models as django_models
 from django.db.models import Q
+from django.db.models import QuerySet
 
 _MODEL_TYPE = typing.TypeVar("_MODEL_TYPE", bound=django_models.Model)
 
@@ -53,6 +55,16 @@ def wrapper_caller(
     kwargs: typing.Mapping
 ):
     function_results = function(*args, **kwargs)
+
+    # A queryset might have nested lazy objects, so call 'get' on each to attempt to fully load them
+    if isinstance(function_results, QuerySet):
+        processed_results = list()
+
+        for instance in function_results.select_related().all():
+            processed_results.append(instance)
+
+        function_results = processed_results
+
     _wrapper_return_values.value = function_results
 
 

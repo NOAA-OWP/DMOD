@@ -278,7 +278,33 @@ def is_sequence_type(value: typing.Any) -> bool:
     return is_collection
 
 
-def merge_dictionaries(first: typing.Mapping = None, second: typing.Mapping = None) -> typing.Mapping:
+def is_iterable_type(value: typing.Any) -> bool:
+    """
+    Checks to see if a value is one that can be interpreted as a series of iterable values.
+
+    Why not just use `isinstance(value, typing.Iterable)` or `is_sequence_type` from above? Strings, bytes, and
+    maps all count as iterables and `is_sequence_type` leaves out sets.
+
+    Use this when order doesn't matter. Use `is_sequence_type` when order DOES matter
+
+    Args:
+        value: The value to check
+
+    Returns:
+        Whether the passed value is an iterable collection of isolated values
+    """
+    is_collection = value is not None
+    is_collection = is_collection and not isinstance(value, (str, bytes, typing.Mapping))
+    is_collection = is_collection and isinstance(value, typing.Iterable)
+
+    return is_collection
+
+
+def merge_dictionaries(
+    first: typing.Mapping = None,
+    second: typing.Mapping = None,
+    expand: bool = None
+) -> typing.Mapping:
     """
     Combines two dictionaries in a way that values aren't overridden
 
@@ -301,15 +327,21 @@ def merge_dictionaries(first: typing.Mapping = None, second: typing.Mapping = No
         {"one": [1, {"a": "a", "b": "b"}], "two": [2, 3], "three": {3, 5, 6}}
         >>> first_map = {"one": {"a": 1, "c": "c"}, "two": 2}
         >>> merge_dictionaries(first_map, second_map)
-        {"one": {"a": ["a", 1], "b": "b", "c": "c"}, "two": [2, 3], "three": {3, 5, 6}}
+        {"one": {"a": ["a", 1], "b": "b", "c": "c"}, "two": [2, 3], "three": 3}}
+        >>> merge_dictionaries(first=first_map, second=second_map, expand=False)
+        {"one": {"a": "a", "b": "b", "c": "c"}, "two": 3, "three": 3}
 
     Args:
         first: The first dictionary
         second: The second dictionary
+        expand: Expand conflicting values into a collection
 
     Returns:
         The two dictionaries combined
     """
+    if expand is None:
+        expand = True
+
     merged_dictionary = dict()
 
     # Return nothing if nothing was given to merge
@@ -341,15 +373,14 @@ def merge_dictionaries(first: typing.Mapping = None, second: typing.Mapping = No
             # Nothing has to be merged if both values are deemed null
             if value_for_first is None and value_for_second is None:
                 combined_value = None
-            elif value_for_first is not None and value_for_second is None:
-                # No merging is needed if the first has a value where the second is null
-                combined_value = value_for_first
-            elif value_for_second is not None and value_for_first is None:
-                # No merging is needed if the second has a value where the first is null
-                combined_value = value_for_second
+            elif (value_for_first is None) ^ (value_for_second is None):
+                combined_value = value_for_first if value_for_second is None else value_for_second
             elif isinstance(value_for_first, set) and isinstance(value_for_second, set):
                 # We want to combine the values via a union if they are both sets
                 combined_value = value_for_first.union(value_for_second)
+            elif isinstance(value_for_first, typing.Mapping) and isinstance(value_for_second, typing.Mapping):
+                # If both are maps, we want the resulting merge
+                combined_value = merge_dictionaries(value_for_first, value_for_second)
             elif isinstance(value_for_first, set) and second_is_hashable:
                 # If the first value is a set and the second is hashable, we want to add the second value to the set
                 # A copy is used just to make sure that the original is not modified
@@ -374,9 +405,8 @@ def merge_dictionaries(first: typing.Mapping = None, second: typing.Mapping = No
                 # a new sequence whose modification does not modify the original
                 combined_value = [value for value in value_for_second]
                 combined_value.append(value_for_first)
-            elif isinstance(value_for_first, typing.Mapping) and isinstance(value_for_second, typing.Mapping):
-                # If both are maps, we want the resulting merge
-                combined_value = merge_dictionaries(value_for_first, value_for_second)
+            elif not expand:
+                combined_value = value_for_second
             else:
                 # Combine both values in a list if they can't both occupy the same key
                 combined_value = [value_for_first, value_for_second]
@@ -552,40 +582,6 @@ def find(
         return None
     
     return next(filter(predicate, iterable), default)
-
-
-def find(
-    iterable: typing.Iterable[_CLASS_TYPE],
-    predicate: typing.Callable[[_CLASS_TYPE], bool]
-) -> typing.Optional[_CLASS_TYPE]:
-    """
-    Find the first value in an iterable that complies with the give predicate
-
-    The pythonic approach to this is:
-
-        >>> next(filter(lambda val: val == 999, range(1000000)), None)
-
-    But this doesn't short circuit and is a bit complicated at first glance. As a result, it may take a long time to
-    complete, especially when done many times. This function, however, short circuits resulting in a potentially
-    MUCH shorter runtime.
-
-    This results in lower cognitive overload and better performance
-
-    Args:
-        iterable: The collection to search
-        predicate: A check to see if the encountered value matches the desired value
-
-    Returns:
-        The first value matching the value, None if a matching value isn't found.
-    """
-    if not iterable:
-        return None
-
-    for value in iterable:
-        if predicate(value):
-            return value
-
-    return None
 
 
 def is_true(value) -> bool:

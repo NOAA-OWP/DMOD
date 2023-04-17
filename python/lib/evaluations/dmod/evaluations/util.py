@@ -558,6 +558,15 @@ def data_to_dictionary(data: typing.Union[typing.IO, str, bytes, typing.Dict[str
     return data
 
 
+def is_iterable_collection(data) -> bool:
+    """
+    Indicates whether 'data' is a collection that may be iterated through.
+    This weeds out bytes, strings, and mappings, all of which count as iterables
+    but aren't the desired type of collection
+    """
+    return data is not None and isinstance(data, typing.Iterable) and not isinstance(data, (typing.Mapping, str, bytes))
+
+
 class Day:
     """
     A simple wrapper around an integer value between 1 and 366 to represent a consistent number of a day of a year

@@ -13,6 +13,7 @@ import dmod.metrics.communication as communication
 from dmod.core.common import to_json
 
 from . import common
+from .message import make_message_serializable
 
 import service
 
@@ -383,7 +384,7 @@ class RedisCommunicator(communication.Communicator):
             data: The data to write to the channel; will be converted to a string
         """
         # First convert all submitted values into a form that can safely be converted to a string
-        data = common.make_message_serializable(data)
+        data = make_message_serializable(data)
 
         message = {
             "event": reason,

@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block scripts %}
+<script src="{% static 'evaluation_service/js/library_selector.js' %}"></script>
+<script>
+    window.DMOD.library.OPTIONS_URL = "{{ options_url }}";
+    window.DMOD.library.GET_URL = "{{ get_url }}";
+</script>
+{% endblock scripts %}
+{% block style %}
+{% endblock style %}
+{% block bannercontent %}
+    <h1>Libraries</h1>
+{% endblock bannercontent %}
+{% block content %}
+    <div id="content" class="pane">
+        <label for="client-selector">Client:</label>
+        <select id="client-selector" name="client-selector"></select>
+        <br>
+        <label for="language-selector">Language:</label>
+        <select id="language-selector" name="language-selector"></select>
+        <br>
+        <button id="get-library-button">Get Library</button>
+    </div>
+{% endblock content %}

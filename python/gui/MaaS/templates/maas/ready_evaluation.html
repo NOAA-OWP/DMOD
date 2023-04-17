@@ -6,6 +6,7 @@
 <script src="{% static 'common/js/active_map.js' %}"></script>
 <link rel="stylesheet" href="{% static "Leaflet/leaflet.css" %}"/>
 <script src="{% static "Leaflet/leaflet.js" %}"></script>
+<script type="module" src="{% static "js/clients/LaunchClient.js" %}"></script>
 <script>
     const LAUNCH_URL = "{{ launch_url }}";
     const METRICS_URL = "{{ metrics_url }}";
@@ -20,8 +21,10 @@
 {% endblock style %}
 {% block extra %}
     {% include "programming/javascript.html" %}
+    {% include "widgets/tree.html" %}
 {% endblock extra %}
 {% block page_script %}
+    <script type="module" src="{% static 'maas/js/template.js' %}"></script>
     <script type="module" src="{% static 'maas/js/ready_evaluation.js' %}"></script>
 {% endblock page_script %}
 {% block bannercontent %}
@@ -39,7 +42,7 @@
         {% endif %}
         <div id="general-error-box" class="error-box">
             <p id="error-message"></p>
-            <img id="acknowledge-error-icon" src="{% static 'evaluation_service/img/error.png' %}"
+            <img id="acknowledge-error-icon" src="{% static 'img/error.png' %}"
                  alt="I am aware of this error">
         </div>
         <div id="tabs">
@@ -69,6 +72,7 @@
                            minlength="10" pattern="{{ evaluation_id_pattern }}" style="width: 400px; margin-left: 10px;"
                            value="{{ generated_evaluation_id }}" required>
                     <button id="search-button">Search</button>
+                    <button id="template-button">Templates</button>
                 </div>
                 <div id="editor-content" class="tab-content codeview-container">
                     <textarea id="instructions" name="instructions" required>{{ evaluation_template }}</textarea>
@@ -77,6 +81,7 @@
                     <div id="connected-edit-buttons" style="display: none;">
                         <button id="evaluation-submit">Start Evaluation</button>
                         <button id="evaluation-save">Save</button>
+                        <button id="validate-button">Validate</button>
                     </div>
                     <div id="disconnected-edit-buttons">
                         <button id="reconnect-button">Connect</button>
@@ -163,7 +168,7 @@
     <div id="page-modal">
         <div id="save-dialog" class="popup">
             <div id="save-header" class="popup-header">
-                <b>Save Evaluation Definition</b>
+                <span>Save Evaluation Definition</span>
             </div>
             <div class="popup-contents">
                 <div id="save-errors" class="error-box">
@@ -189,102 +194,159 @@
                     </div>
                     <div id="save-actions" class="popup-actions">
                         <button id="save-definition">Save</button>
-                        <button id="close-save-popup-button">Close</button>
+                        <button id="close-save-popup-button" class="close-button">Close</button>
                     </div>
                 </div>
             </div>
-            <div id="connecting-modal" class="popup">
-                <div id="connecting-header" class="popup-header">
-                    <b>Connecting</b>
-                </div>
-                <div id="connecting-errors" class="error-box">
-                    <p id="connecting-error-message"></p>
-                </div>
-                <div id="connecting-fields" class="popup-fields">
-                    <p>Connecting to server. Please wait.</p>
-                </div>
+        <div id="connecting-modal" class="popup">
+            <div id="connecting-header" class="popup-header">
+                <span>Connecting</span>
             </div>
-            <div id="waiting-popup" class="popup">
-                <div id="waiting-header" class="popup-header">
-                    <b>Waiting...</b>
-                </div>
-                <div class="popup-contents">
-                    <p id="waiting-for"></p>
-                </div>
+            <div id="connecting-errors" class="error-box">
+                <p id="connecting-error-message"></p>
+            </div>
+            <div id="connecting-fields" class="popup-fields">
+                <p>Connecting to server. Please wait.</p>
+            </div>
+        </div>
+        <div id="waiting-popup" class="popup">
+            <div id="waiting-header" class="popup-header">
+                <span>Waiting...</span>
+            </div>
+            <div class="popup-contents">
+                <p id="waiting-for"></p>
                 <div id="waiting-actions" class="popup-actions">
-                    <button id="close-waiting-button">Close</button>
+                    <button id="close-waiting-button" class="close-button">Close</button>
                 </div>
             </div>
-            <div id="search-popup" class="popup">
-                <div id="search-header" class="popup-header">
-                    <b>Search</b>
+        </div>
+        <div id="search-popup" class="popup">
+            <div id="search-header" class="popup-header">
+                <span>Search</span>
+            </div>
+            <div class="popup-contents">
+                <div class="error-box" id="search-errors">
+                    <p id="search-error-message"></p>
                 </div>
-                <div class="popup-contents">
-                    <div class="error-box" id="search-errors">
-                        <p id="search-error-message"></p>
-                    </div>
-                    <div id="search-fields" class="popup-fields">
-                        <input type="hidden" value="" id="selected-definition">
-                        <table id="search-table" width="100%">
-                            <thead>
-                                <tr id="search-header-row">
-                                    <th>Author</th>
-                                    <th>Name</th>
-                                    <th>Description</th>
-                                    <th>Last Modified</th>
-                                </tr>
-                                <tr id="search-filter-row">
-                                    <td>
-                                        <div class="filter-wrapper">
-                                            <input type="text" id="search-by-author" placeholder="Author Name">
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div class="filter-wrapper">
-                                            <input type="text" id="search-by-name" placeholder="Definition Name">
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div class="filter-wrapper">
-                                            <input type="text" id="search-by-description"
-                                                   placeholder="Description Phrase">
-                                        </div>
-                                    </td>
-                                    <td></td>
-                                </tr>
-                            </thead>
-                            <tbody id="search-table-body"></tbody>
-                        </table>
-                    </div>
+                <div id="search-fields" class="popup-fields">
+                    <input type="hidden" value="" id="selected-definition">
+                    <table id="search-table" width="100%">
+                        <thead>
+                            <tr id="search-header-row">
+                                <th>Author</th>
+                                <th>Name</th>
+                                <th>Description</th>
+                                <th>Last Modified</th>
+                            </tr>
+                            <tr id="search-filter-row">
+                                <td>
+                                    <div class="filter-wrapper">
+                                        <input type="text" id="search-by-author" placeholder="Author Name">
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="filter-wrapper">
+                                        <input type="text" id="search-by-name" placeholder="Definition Name">
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="filter-wrapper">
+                                        <input type="text" id="search-by-description"
+                                               placeholder="Description Phrase">
+                                    </div>
+                                </td>
+                                <td></td>
+                            </tr>
+                        </thead>
+                        <tbody id="search-table-body"></tbody>
+                    </table>
                 </div>
                 <div id="search-actions" class="popup-actions">
                     <button id="select-search-button" disabled>
                         Select
                     </button>
-                    <button id="close-search-button">Close</button>
+                    <button id="close-search-button" class="close-button">Close</button>
                 </div>
             </div>
-            <div id="digest-modal" class="popup">
-                <div id="digest-modal-header" class="popup-header">
-                    <b>Get Digest</b>
+        </div>
+        <div id="template-search-popup" class="popup">
+            <div id="template-search-header" class="popup-header">
+                <span>Choose Template</span>
+            </div>
+            <div class="popup-contents" id="template-search-contents">
+                <div id="template-search-errors" class="error-box">
+                    <p id="template-search-error-messages"></p>
                 </div>
-                <div class="popup-contents">
-                    <div id="digest-errors" class="error-box">
-                        <p id="digest-error-message"></p>
-                    </div>
-                    <div id="digest-fields" class="popup-fields">
-                        <span id="digest-explanation" class="popup-field-explanation">
-                            Select what events to save
-                        </span>
-                        <div id="digest-event-selectors">
+                <div id="template-search-fields" class="popup-fields">
+                    <input type="hidden" value="" id="selected-template-id">
+                    <div id="template-search-tree"></div>
+                    <div id="template-preview" class="codeview-container">
+                        <div>
+                            <label for="template-preview-text" id="template-preview-label"></label>
                         </div>
+                        <div id="template-description">
+                        </div>
+                        <textarea id="template-preview-text"></textarea>
                     </div>
-                    <div id="digest-actions" class="popup-actions">
-                        <button id="download-digest-button">Download</button>
-                        <button id="close-digest-popup-button">Close</button>
+                </div>
+                <div id="template-search-actions" class="popup-actions">
+                    <button class="template-selected-button" id="copy-template-button">
+                        Copy Template to Clipboard
+                    </button>
+                    <button class="template-selected-button" id="copy-template-name-button">
+                        Copy Template Name
+                    </button>
+                    <button class="template-selected-button" id="insert-template-button">
+                        Insert at Cursor
+                    </button>
+                    <button id="close-template-search-popup-button" class="close-button">Close</button>
+                </div>
+            </div>
+        </div>
+        <div id="digest-modal" class="popup">
+            <div id="digest-modal-header" class="popup-header">
+                <span>Get Digest</span>
+            </div>
+            <div class="popup-contents">
+                <div id="digest-errors" class="error-box">
+                    <p id="digest-error-message"></p>
+                </div>
+                <div id="digest-fields" class="popup-fields">
+                    <span id="digest-explanation" class="popup-field-explanation">
+                        Select what events to save
+                    </span>
+                    <div id="digest-event-selectors">
                     </div>
+                </div>
+                <div id="digest-actions" class="popup-actions">
+                    <button id="download-digest-button">Download</button>
+                    <button id="close-digest-popup-button" class="close-button">Close</button>
+                </div>
+            </div>
+        </div>
+        <div id="validation-popup" class="popup">
+            <div id="validation-popup-header" class="popup-header">
+                <span>Validation Results</span>
+            </div>
+            <div class="popup-contents">
+                <div id="validation-errors" class="error-box">
+                    <p id="validation-error-message"></p>
+                </div>
+                <div id="validation-results" class="popup-fields">
+                    <div id="overall-validation-result">
+                        <img id="validation-error" class="status-icon status-error-icon" src="{% static 'img/error.png' %}">
+                        <img id="validation-ok" class="status-icon status-ok-icon" src="{% static 'img/ok.png' %}">
+                        <img id="validation-unknown" class="status-icon status-unknown-icon" src="{% static 'img/unknown.png' %}">
+                        <p id="overall-validation-message" class="status-unknown"></p>
+                    </div>
+                    <div id="individual-validation-messages">
+                    </div>
+                </div>
+                <div id="validation-actions" class="popup-actions">
+                    <button id="close-validation-popup-button" class="close-button">Close</button>
                 </div>
             </div>
         </div>
     </div>
+</div>
 {% endblock content %}
