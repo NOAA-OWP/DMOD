@@ -18,6 +18,6 @@ setup(
     url='',
     license='',
     install_requires=['dmod-core>=0.5.0', 'dmod-communication>=0.11.0', 'dmod-scheduler>=0.10.0',
-                      'dmod-modeldata>=0.9.0', 'redis'],
+                      'dmod-modeldata>=0.9.0', 'redis', "pydantic", "fastapi", "uvicorn[standard]"],
     packages=find_namespace_packages(exclude=['dmod.test', 'deprecated', 'conf', 'schemas', 'ssl', 'src'])
 )
