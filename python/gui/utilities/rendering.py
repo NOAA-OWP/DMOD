@@ -1,5 +1,6 @@
 """
-Put a module wide description here
+Defines classes used to send common data to template renderers for 
+common functionality from the master template
 """
 import typing
 import json

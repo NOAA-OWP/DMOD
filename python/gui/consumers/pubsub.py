@@ -1,5 +1,5 @@
 """
-Put a module wide description here
+Defines websocket consumers used to communicate information through redis pubsub instances
 """
 import typing
 import json

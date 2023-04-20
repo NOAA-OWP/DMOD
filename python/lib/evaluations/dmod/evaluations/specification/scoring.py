@@ -1,5 +1,5 @@
 """
-@TODO: Put a module wide description here
+Defines the classes used to define how to score an evaluation
 """
 import typing
 import json

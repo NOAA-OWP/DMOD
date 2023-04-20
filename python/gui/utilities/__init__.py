@@ -1,5 +1,5 @@
 """
-Put a module wide description here
+Provides common objects and functions to be used across the GUI
 """
 import typing
 

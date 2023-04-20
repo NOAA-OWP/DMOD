@@ -1,5 +1,5 @@
 """
-Put a module wide description here
+Provides classes used to send data to the renderer about how code should be viewed or rendered
 """
 import typing
 import math

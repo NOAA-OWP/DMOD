@@ -1,5 +1,5 @@
 """
-@TODO: Put a module wide description here
+Defines classes used to map data to named fields and how to extract data from documents
 """
 import json
 import typing

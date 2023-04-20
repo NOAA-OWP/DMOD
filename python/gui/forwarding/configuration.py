@@ -1,5 +1,5 @@
 """
-Put a module wide description here
+Defines parameters used to dictate possible forwarding paths
 """
 import sys
 import os

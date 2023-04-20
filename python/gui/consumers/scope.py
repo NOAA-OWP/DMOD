@@ -1,5 +1,5 @@
 """
-Put a module wide description here
+Defines a wrapper class used to interact with Django scope dictionaries via hard coded names
 """
 import typing
 

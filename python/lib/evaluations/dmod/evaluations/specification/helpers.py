@@ -1,5 +1,5 @@
 """
-@TODO: Put a module wide description here
+Defines common functions used to interpret instructions from specifications
 """
 import typing
 import inspect

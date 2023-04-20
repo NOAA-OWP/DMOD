@@ -1,5 +1,5 @@
 """
-@TODO: Put a module wide description here
+Defines classes used to intrepret locations and how to link them together
 """
 import json
 import typing

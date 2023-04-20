@@ -1,5 +1,5 @@
 """
-@TODO: Put a module wide description here
+Defines the core classes for specifications and how to create them
 """
 import typing
 import json

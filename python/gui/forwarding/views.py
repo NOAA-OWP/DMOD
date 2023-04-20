@@ -1,5 +1,5 @@
 """
-Put a module wide description here
+Defines a view used to send basic REST requests and response to and from another service
 """
 import os
 import typing
