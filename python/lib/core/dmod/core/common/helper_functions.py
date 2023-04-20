@@ -528,7 +528,8 @@ def on_each(
 
 def find(
     iterable: typing.Iterable[_CLASS_TYPE],
-    predicate: typing.Callable[[_CLASS_TYPE], bool]
+    predicate: typing.Callable[[_CLASS_TYPE], bool],
+    default: _CLASS_TYPE = None
 ) -> typing.Optional[_CLASS_TYPE]:
     """
     Find the first value in an iterable that complies with the give predicate
@@ -537,27 +538,20 @@ def find(
 
         >>> next(filter(lambda val: val == 999, range(1000000)), None)
 
-    But this doesn't short circuit and is a bit complicated at first glance. As a result, it may take a long time to
-    complete, especially when done many times. This function, however, short circuits resulting in a potentially
-    MUCH shorter runtime.
-
     This results in lower cognitive overload and better performance
 
     Args:
         iterable: The collection to search
         predicate: A check to see if the encountered value matches the desired value
+        default: The default value to return if the item is not found
 
     Returns:
-        The first value matching the value, None if a matching value isn't found.
+        The first value matching the value, a default value (None) otherwise
     """
     if not iterable:
         return None
-
-    for value in iterable:
-        if predicate(value):
-            return value
-
-    return None
+    
+    return next(filter(predicate, iterable), default)
 
 
 def is_true(value) -> bool:
@@ -806,7 +800,7 @@ def humanize_text(
             for character in phrase:
                 # If an alphabetical character is identified, add it to the finder string in a pattern that covers
                 # both the upper and lower case. "s" will be added to the finder string as "[Ss]"
-                if character.isalpha():
+                if character in string.ascii_letters:
                     finder_string += f"[{character.upper()}{character.lower()}]"
                 elif character in ".+?$^*(){}[]":
                     # Escape any characters that might form a regex expression
