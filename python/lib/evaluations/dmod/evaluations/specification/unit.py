@@ -1,5 +1,5 @@
 """
-@TODO: Put a module wide description here
+Defines the class used to instruct what unit loaded values are in
 """
 import json
 import typing

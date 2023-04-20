@@ -1,5 +1,5 @@
 """
-@TODO: Put a module wide description here
+Defines classes used to load, interpret, and apply thresholds
 """
 import typing
 import json

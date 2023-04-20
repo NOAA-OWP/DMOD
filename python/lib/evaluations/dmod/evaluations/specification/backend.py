@@ -1,5 +1,5 @@
 """
-@TODO Put a module wide description here
+Defines classes used to load and interpret data
 """
 import json
 import typing

@@ -1,5 +1,6 @@
 """
-@TODO: Put a module wide description here
+Defines specification classes for how to read, define, interpret, 
+and transform data for evaluations
 """
 import json
 import typing

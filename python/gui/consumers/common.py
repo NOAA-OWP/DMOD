@@ -1,5 +1,5 @@
 """
-Put a module wide description here
+Defines common functions used when communicating via websocket consumers
 """
 import typing
 import json

@@ -1,5 +1,5 @@
 """
-@TODO: Put a module wide description here
+Defines how to define the overall specification for an evaluation and how to receive the results
 """
 import json
 import typing

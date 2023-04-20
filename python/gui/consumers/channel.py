@@ -1,5 +1,5 @@
 """
-Put a module wide description here
+Defines websocket consumers used to consume data from a redis channel
 """
 import typing
 import json

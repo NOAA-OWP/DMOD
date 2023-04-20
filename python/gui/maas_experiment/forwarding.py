@@ -1,5 +1,5 @@
 """
-Put a module wide description here
+Provides direct access to configured web socket and REST forwarding settings
 """
 import os
 import typing

@@ -1,5 +1,6 @@
 """
-Put a module wide description here
+Provides basic black box caching functions for simple for use without 
+the need for Django patterns or knowledge of framework functions, such as redis commands
 """
 import typing
 

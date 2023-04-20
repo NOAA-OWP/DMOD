@@ -1,5 +1,5 @@
 """
-Put a module wide description here
+Defines a view to be used to send messages to every active browser
 """
 import os
 import typing
