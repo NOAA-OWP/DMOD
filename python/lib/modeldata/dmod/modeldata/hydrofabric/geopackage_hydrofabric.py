@@ -1,7 +1,7 @@
 import fiona
 import geopandas as gpd
 import hashlib
-from pandas.util import hash_array
+from pandas.util import hash_pandas_object
 import numpy as np
 from pathlib import Path
 from typing import Callable, Dict, FrozenSet, Iterable, List, Optional, Tuple, Union
@@ -546,7 +546,7 @@ class GeoPackageHydrofabric(Hydrofabric):
         int
             A unique id for this instance.
         """
-        layer_hashes = [np.apply_along_axis(hash_array, 0, self._dataframes[l].values).sum() for l in self._layer_names]
+        layer_hashes = [hash_pandas_object(self._dataframes[layer]).values.sum() for layer in self._layer_names]
         return hashlib.sha1(','.join([str(h) for h in layer_hashes]).encode('UTF-8')).hexdigest()
 
     @property
