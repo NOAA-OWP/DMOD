@@ -18,7 +18,7 @@ class TestGeoPackageHydrofabric(AbstractGeoPackageHydrofabricTester):
 
         # Example 1: extended hydrofabric testing attributes for hydrofabric for v1.2 VPU 1
         ex_idx = 1
-        self.hydrofabric_uids[ex_idx] = '8a24b5eeae2596ceaf21058c49a27c8ae6f444ab'
+        self.hydrofabric_uids[ex_idx] = 'b7367023aadad961315dd05e184359dad68613c3'
         self.cat_id_sets[ex_idx] = {'cat-5', 'cat-6', 'cat-7', 'cat-8', 'cat-9', 'cat-10', 'cat-11'}
         self.nexus_id_sets[ex_idx] = {'nex-7', 'nex-8', 'nex-9', 'nex-10', 'nex-11', 'nex-12', 'tnx-1000000001'}
         self.subset_id_sets[ex_idx] = {'cat-7', 'cat-8', 'cat-9', 'nex-7', 'nex-8', 'nex-9', 'nex-10'}
