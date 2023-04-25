@@ -2,7 +2,8 @@ import re
 from pydantic import BaseModel, Field, UUID4, validator
 from datetime import datetime
 from uuid import uuid4
-from typing import Annotated, ClassVar, Optional, List, Union
+from typing import ClassVar, Optional, List, Union
+from typing_extensions import Annotated
 from enum import Enum
 
 from .models import DataCategory, DataDomain
