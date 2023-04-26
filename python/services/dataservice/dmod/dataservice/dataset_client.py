@@ -36,7 +36,7 @@ class DatasetClient:
         return self._client.bucket_exists(name)
 
     def _update_dataset(self, name: str) -> Result[None, Exception]:
-        with self.get_dataset(name) as res:
+        with self._get_dataset(name) as res:
             if res.is_err():
                 return res
 
