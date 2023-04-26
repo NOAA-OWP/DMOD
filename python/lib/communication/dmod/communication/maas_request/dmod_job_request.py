@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from typing import List, Optional, Union
+from typing import ClassVar, List, Optional, Union
 
 from dmod.core.execution import AllocationParadigm
 from dmod.core.meta_data import DataFormat, DataRequirement
@@ -16,8 +16,7 @@ class DmodJobRequest(AbstractInitRequest, ABC):
 
     # TODO: #pydantic_rebase - reconcile the above property additions with subclasses implementations
 
-    # TODO: #pydantic_rebase - fix this for pydantic format
-    _DEFAULT_CPU_COUNT = 1
+    _DEFAULT_CPU_COUNT: ClassVar[int] = 1
     """ The default number of CPUs to assume are being requested for the job, when not explicitly provided. """
 
     @property
