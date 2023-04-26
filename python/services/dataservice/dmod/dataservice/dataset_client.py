@@ -1,10 +1,12 @@
 import io
 from minio import Minio
 from minio.deleteobjects import DeleteObject, DeleteError
-from typing import cast, Union, Iterable, List
+from typing import cast, Union, Iterable, Iterator, List
 from dataclasses import dataclass
 from datetime import datetime
 from exceptiongroup import ExceptionGroup
+from urllib3.response import HTTPResponse
+from contextlib import contextmanager
 
 from .models import DataCategory, DataDomain
 from .dataset import Dataset
@@ -56,6 +58,22 @@ class DatasetClient:
             self._client._base_url.host,
             name,
         )
+
+    @contextmanager
+    def _get_dataset(self, name: str) -> Iterator[Result[Dataset, Exception]]:
+        response_bound = False
+        try:
+            response: HTTPResponse = self._client.get_object(
+                name, self._gen_dataset_serial_obj_name(name)
+            )
+            response_bound = True
+            yield Ok(Dataset.parse_raw(response.read()))
+        except Exception as e:
+            yield Err(e)
+        finally:
+            if response_bound:
+                response.close()
+                response.release_conn()
 
     def create(
         self,
