@@ -641,6 +641,8 @@ class ServiceManager(WebSocketInterface):
         """
         request = job.model_request
         if isinstance(request, AbstractNgenRequest):
+            # TODO: make sure that, once we are generating BMI init config datasets, the path details get provided as
+            #  needed to this function when generating the realization config
             real_config_obj = self._build_ngen_realization_config_from_request(request=request, job=job)
 
             # Create a new dataset
@@ -952,9 +954,14 @@ class ServiceManager(WebSocketInterface):
 
         results = []
 
+        # TODO: #needs_issue Make sure logic is in place to make derived datasets temporary (unless somehow specified to
+        #  not be temporary) and have temporary datasets cleaned up by service periodically
+        # TODO: #needs_issue Also make sure that temporary datasets have their expire time updated if they are used
+        #  again for something
         for req in [r for r in job.data_requirements if r.fulfilled_by is None]:
             # **********************************************************************************************************
-            # *** NOTE: if/when deriving forcing datasets is supported, make sure this is done before config datasets
+            # *** TODO: if/when deriving forcing datasets is supported, make sure this is done before config datasets
+            # *** TODO: when generating BMI datasets is supported, make sure it's done before realization configs
             # **********************************************************************************************************
             # Derive realization config datasets from formulations in message body when necessary
             if req.category == DataCategory.CONFIG and req.domain.data_format == DataFormat.NGEN_REALIZATION_CONFIG:
