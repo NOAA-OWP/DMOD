@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 from ..message import AbstractInitRequest
 
+
 class ExternalRequest(AbstractInitRequest, ABC):
     """
     The base class underlying all types of externally-initiated (and, therefore, authenticated) MaaS system requests.
