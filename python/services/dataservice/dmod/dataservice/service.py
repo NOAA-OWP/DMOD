@@ -514,11 +514,6 @@ class ServiceManager(WebSocketInterface):
         Forcing
             Forcing config object to be used in building a ngen realization config to satisfy this request.
         """
-        # A user may work around dataset performance issues by mounting something directly from the host into
-        # containers, using an env var for the mount source (see code in scheduler.py).  We can support this by
-        # expecting a certain prefix (from_env:::) for either the file pattern or the file basename.
-        use_from_env_workaround = False
-
         forcing_cfg_params = dict()
 
         # Get the correct forcing dataset from associated requirement
