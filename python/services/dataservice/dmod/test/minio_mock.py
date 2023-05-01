@@ -161,40 +161,45 @@ class MinioMock:
         use_url_encoding_type=True,
         fetch_owner=False,
     ):
-        if prefix is not None:
-            raise NotImplemented
+        if prefix:
+            raise NotImplementedError()
 
         gen = (
-            self._temp_dir_path.glob("**/*")
+            (self._temp_dir_path / bucket_name).glob("**/*")
             if recursive
-            else self._temp_dir_path.glob("*")
+            else (self._temp_dir_path / bucket_name).glob("*")
         )
 
-        for file in gen:
-            if file.is_dir():
-                continue
-            object_name = file.name
-            file_stat = file.stat()
-            last_modified = self._timestamp_as_utc_dt(file_stat.st_mtime)
-            size = file_stat.st_size
-            with open(file, "rb") as fp:
-                etag = buffered_md5(fp)
+        def generator():
+            for file in gen:
+                if file.is_dir():
+                    continue
+                object_name = file.relative_to(
+                    self._temp_dir_path / bucket_name
+                ).as_posix()
+                file_stat = file.stat()
+                last_modified = self._timestamp_as_utc_dt(file_stat.st_mtime)
+                size = file_stat.st_size
+                with open(file, "rb") as fp:
+                    etag = buffered_md5(fp)
 
-            yield Object(
-                bucket_name,
-                object_name,
-                last_modified=last_modified,
-                etag=etag,
-                size=size,
-                metadata={},
-                version_id=None,
-                is_latest=None,
-                storage_class="STANDARD",
-                owner_id=None,
-                owner_name="minio",
-                content_type=None,
-                is_delete_marker=False,
-            )
+                yield Object(
+                    bucket_name,
+                    object_name,
+                    last_modified=last_modified,
+                    etag=etag,
+                    size=size,
+                    metadata={},
+                    version_id=None,
+                    is_latest=None,
+                    storage_class="STANDARD",
+                    owner_id=None,
+                    owner_name="minio",
+                    content_type=None,
+                    is_delete_marker=False,
+                )
+
+        return generator()
 
     def remove_bucket(self, bucket_name: str):
         if not self.bucket_exists(bucket_name):
