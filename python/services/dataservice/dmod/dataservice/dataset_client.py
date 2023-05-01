@@ -1,7 +1,7 @@
 import io
 from minio import Minio
 from minio.deleteobjects import DeleteObject, DeleteError
-from typing import cast, Union, Iterable, Iterator, List
+from typing import cast, Union, Optional, Iterable, Iterator, List
 from dataclasses import dataclass
 from datetime import datetime
 from exceptiongroup import ExceptionGroup
@@ -80,7 +80,7 @@ class DatasetClient:
         name: str,
         category: DataCategory,
         domain: DataDomain,
-        *objects: ObjectToAdd,
+        objects: Optional[Iterable[ObjectToAdd]] = None,
         read_only: bool = False,
     ) -> Result[Dataset, Union[Exception, ExceptionGroup[Exception]]]:
         # NOTE: if minio-py changes their internal api this could fail in the future.
