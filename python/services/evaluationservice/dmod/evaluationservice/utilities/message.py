@@ -1,5 +1,5 @@
 """
-@TODO: Put a module wide description here
+Provides common functionality used to serializing messages
 """
 import typing
 import json

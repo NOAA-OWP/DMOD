@@ -1,5 +1,5 @@
 """
-@TODO: Put a module wide description here
+Provides views used to retrieve generated libraries
 """
 import os
 
