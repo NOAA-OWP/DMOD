@@ -167,18 +167,16 @@ class DatasetClient:
         if result.is_err():
             return result
 
-        if size is None or size < 1:
-            size = -1
-        elif size > 5 * _MEGABYTE:
+        if size > 5 * _MEGABYTE:
             # TODO: determine appropriate partition size
-            partion_size = 5
+            partition_size = 5 * _MEGABYTE
             self._client.put_object(
                 bucket_name=name,
                 object_name=object_name,
                 data=reader,
                 length=size,
                 content_type=content_type,
-                part_size=partion_size,
+                part_size=partition_size,
                 metadata=headers,
             )
             return
