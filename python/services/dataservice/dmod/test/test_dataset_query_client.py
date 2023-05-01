@@ -3,7 +3,7 @@ import io
 import unittest
 import os
 from minio import Minio, S3Error
-from typing import Optional
+from typing import Dict, Optional
 
 from ..dataservice.dataset import Dataset
 from ..dataservice.models import (
@@ -143,23 +143,62 @@ class TestDatasetQueryClient(unittest.TestCase):
 
     def test_get_dataset_object(self):
         # extra setup
+        object_name = "test.json"
+        data = self._create_test_object(
+            name=self.dataset.name,
+            object_name=object_name,
+        )
+
+        # actual testing
+        with self.client.get_dataset_object(self.dataset.name, object_name) as result:
+            result_data = json.loads(result.unwrap().read().decode())
+        assert result_data == data
+
+    def _create_test_object(self, name: str, object_name: str) -> Dict[str, str]:
+        # extra setup
         data = {"topic": "testing", "payload": "success"}
         raw_data = json.dumps(data).encode()
         reader = io.BytesIO(raw_data)
-        object_name = "test.json"
 
         ds_client = DatasetClient(self.minio_client)
         result = ds_client.add_object(
             content_type="application/json",
-            name=self.dataset.name,
+            name=name,
             object_name=object_name,
             reader=reader,
             size=len(raw_data),
         )
         if result.is_err():
             raise result.value
+        return data
 
-        # actual testing
-        with self.client.get_dataset_object(self.dataset.name, object_name) as result:
-            result_data = json.loads(result.unwrap().read().decode())
-        assert result_data == data
+    def test_list_dataset_objects(self):
+        name = self.dataset.name
+        self._create_test_object(name, "test/test.json")
+        # should contain ["test/", "test-dataset_serialized.json"]
+        expect = [
+            o.object_name for o in self.client.list_dataset_objects(name).unwrap()
+        ]
+        assert len(expect) == 2
+        for item in ["test/", "test-dataset_serialized.json"]:
+            assert item in expect
+
+        # should contain ["test-dataset_serialized.json", "test/test.json", "test/"]
+        expect = [
+            o.object_name
+            for o in self.client.list_dataset_objects(name, recursive=True).unwrap()
+        ]
+        print(expect)
+        assert len(expect) == 2
+        for item in ["test-dataset_serialized.json", "test/test.json"]:
+            assert item in expect
+
+        # should only contain ["test/test.json"]
+        expect = [
+            o.object_name
+            for o in self.client.list_dataset_objects(
+                name, recursive=True, prefix="test/"
+            ).unwrap()
+        ]
+        assert len(expect) == 1
+        assert "test/test.json" in expect
