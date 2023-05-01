@@ -125,8 +125,8 @@ class DatasetClient:
             if result.is_err():
                 return result
 
-            if objects:
-                self.add_objects(name=name, *objects)
+            if objects is not None:
+                self.add_objects(name, *objects).unwrap()
 
             return Ok(dataset)
 
@@ -146,7 +146,23 @@ class DatasetClient:
         reader: Reader,
         size: int,
         content_type: str = "application/octet-stream",
+        extract: bool = False,
     ) -> None:
+        # source: https://docs.aws.amazon.com/snowball/latest/developer-guide/batching-small-files.html
+        # > The auto-extract feature supports the TAR, and tar.gz formats.
+        content_type = (
+            content_type.lower() if content_type else "application/octet-stream"
+        )
+
+        if (
+            extract
+            and content_type == "application/x-gzip"
+            or content_type == "application/x-tar"
+        ):
+            headers = {"X-Amz-Meta-Snowball-Auto-Extract": "true"}
+        else:
+            headers = {}
+
         result = self._bucket_exists(name)
         if result.is_err():
             return result
@@ -163,6 +179,7 @@ class DatasetClient:
                 length=size,
                 content_type=content_type,
                 part_size=partion_size,
+                metadata=headers,
             )
             return
 
@@ -172,6 +189,7 @@ class DatasetClient:
             data=reader,
             length=size,
             content_type=content_type,
+            metadata=headers,
         )
 
     def add_objects(
