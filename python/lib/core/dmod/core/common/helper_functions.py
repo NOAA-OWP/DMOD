@@ -7,15 +7,195 @@ import math
 import json
 import numbers
 import re
-import collections.abc as abstract_collections
 import random
 import string
 
 from collections import OrderedDict
 
-
 _CLASS_TYPE = typing.TypeVar('_CLASS_TYPE')
 """A type that points directly to a class. The _CLASS_TYPE of `6`, for example, is `<class 'int'>`"""
+
+
+def get_mro_names(value) -> list[str]:
+    if type(value) != type:
+        value = value.__class__
+
+    if hasattr(value, "__mro__"):
+        return [entry.__name__ for entry in inspect.getmro(value)]
+
+    return list()
+
+
+def is_integer(value) -> bool:
+    if type(value) != type:
+        value = value.__class__
+
+    mro = get_mro_names(value)
+
+    module_name = value.__module__ if hasattr(value, "__module__") else ''
+
+    if module_name.startswith("numpy"):
+        return "integer" in mro
+
+    return isinstance(value, int)
+
+
+def is_float(value) -> bool:
+    if type(value) != type:
+        value = value.__class__
+
+    mro = get_mro_names(value)
+
+    module_name = value.__module__ if hasattr(value, "__module__") else ''
+
+    if module_name.startswith("numpy"):
+        return "floating" in mro
+
+    return isinstance(value, float)
+
+
+_PRIMITIVE_TYPE_IDENTIFIERS = [
+    (is_integer, int),
+    (is_float, float),
+    (lambda x: isinstance(x, str), str),
+    (lambda x: isinstance(x, bytes), bytes),
+    (lambda x: isinstance(x, bool), bool),
+    (lambda x: x is None, type(None))
+]
+"""Mapping between a function that indicates that a value is of a given type and an identifier for that type"""
+
+
+def get_iterable_type(iterable: typing.Iterable) -> typing.Optional[typing.Type]:
+    """
+    Get the uniform type of each value in the iterable. Types are considered uniform if all values share a common
+    subclass
+
+    The check is shallow
+
+    The check may not be performed on Generators since there is no guarantee that iteration won't mutate the object
+
+    Args:
+        iterable: An iterable object whose values may be checked
+
+    Returns:
+        The type that all values in the iterable adhere to.
+        None if they aren't all the same type or if there are no values to check
+    """
+    if isinstance(iterable, typing.Generator):
+        raise ValueError(
+            f"Cannot check if all types of a {iterable.__class__.__name__} are of the same type. "
+            f"Generators are not supported."
+        )
+    elif not is_iterable_type(iterable):
+        raise ValueError(
+            f"'{get_current_function_name()}' cannot determine if a '{iterable.__class__.__name__}' "
+            f"is of a uniform type. The object must be iterable and not a map or generator."
+        )
+
+    iterable_type = None
+    iterable_is_integer = False
+    iterable_is_float = False
+    valid_values = list()
+
+    for value in iterable:
+        if iterable_type is None:
+            if is_float(value):
+                iterable_type = float
+            elif is_integer(value):
+                iterable_type = int
+            else:
+                iterable_type = get_primitive_value_type(value) or value.__class__
+
+            valid_values.append(value)
+        elif isinstance(value, iterable_type):
+            valid_values.append(value)
+        elif is_integer(value) and iterable_is_integer:
+            # Integer values have been reimplemented by several libraries, so check to see if the value is in the
+            # same bucket as the preexisting type if they haven't matched up. int(8) and numpy.int16(8) are
+            # functionally the same value, but aren't marked as the same type. Cast the value to make sure
+            # it's the base int, set the type as the base int, and you're good to go
+            valid_values.append(int(value))
+            iterable_type = int
+        elif is_float(value) and iterable_is_float:
+            # float values have been reimplemented by several libraries, so check to see if the value is in the
+            # same bucket as the preexisting type if they haven't matched up. float(8) and numpy.float16(8) are
+            # functionally the same value, but aren't marked as the same type. Cast the value to make sure
+            # it's the base float, set the type as the base float, and you're good to go
+            valid_values.append(float(value))
+            iterable_type = float
+        else:
+            branching_value_type = get_primitive_value_type(value) or value.__class__
+            if len([entry for entry in valid_values if isinstance(entry, branching_value_type)]) == len(valid_values):
+                # If the value isn't of the found type, but IS of a parent class of the found type, reset the found type
+                # and add this value to the list. You might see this in a collection that holds both numpy floats and
+                # python floats.
+                valid_values.append(value)
+                iterable_type = branching_value_type
+            else:
+                # There isn't a perfectly uniform type if a type has been defined, the current value isn't of that
+                # type, and existing values aren't descendents of the current value's type. Operation may end
+                return None
+
+    if iterable_type == object:
+        # 'object' is the lowest common denominator - consider there being no common ancestor if they are all
+        # just generic 'object's
+        return None
+
+    return iterable_type
+
+
+def sequence_is_uniform_primitives(sequence: typing.Sequence) -> bool:
+    """
+    Indicates if a given sequence is one of pure primitive values
+
+    Args:
+        sequence: A sequence of different values
+
+    Returns:
+        True if all the values within the sequence are of the same primitive type
+    """
+    types = set()
+
+    for value in sequence:
+        found_match = False
+        for type_function, identifier in _PRIMITIVE_TYPE_IDENTIFIERS:
+            if type_function(value):
+                types.add(identifier)
+                found_match = True
+                break
+        if not found_match:
+            return False
+
+    return len(types) == 1
+
+
+def get_primitive_sequence_type(sequence: typing.Sequence) -> typing.Optional[typing.Type]:
+    """
+    Gets the primitive uniform type of a sequence of values if there is one
+
+    Args:
+         sequence: The sequence of values to check
+
+    Returns:
+        A 'primitive' value that all values match
+    """
+    types = set()
+
+    for value in sequence:
+        matching_type = get_primitive_value_type(value)
+        if matching_type:
+            types.add(matching_type)
+        else:
+            return None
+
+    return types.pop() if len(types) == 1 else None
+
+
+def get_primitive_value_type(value) -> typing.Optional[str]:
+    for type_function, identifier in _PRIMITIVE_TYPE_IDENTIFIERS:
+        if type_function(value):
+            return identifier
+    return None
 
 
 def generate_identifier(length: int = None) -> str:
@@ -300,129 +480,67 @@ def is_iterable_type(value: typing.Any) -> bool:
     return is_collection
 
 
-def merge_dictionaries(
-    first: typing.Mapping = None,
-    second: typing.Mapping = None,
-    expand: bool = None
-) -> typing.Mapping:
+def get_common_type(value: typing.Any) -> typing.Optional[typing.Type]:
     """
-    Combines two dictionaries in a way that values aren't overridden
-
-    Examples:
-        >>> first_map = None
-        >>> second_map = None
-        >>> merge_dictionaries(first_map, second_map)
-        >>> None
-        >>> first_map = {"one": 1, "two": 2}
-        >>> merge_dictionaries(first_map, second_map)
-        {"one": 1, "two": 2}
-        >>> second_map = {"two": 3, "three": 3}
-        >>> merge_dictionaries(first_map, second_map)
-        {"one": 1, "two": [2, 3], "three": 3}
-        >>> first_map = {"one": 1, "two": 2, "three": {3, 5, 6}}
-        >>> merge_dictionaries(first_map, second_map)
-        {"one": 1, "two": [2, 3], "three": {3, 5, 6}}
-        >>> second_map = {"one": {"a": "a", "b": "b"}, "two": 3, "three": 3}
-        >>> merge_dictionaries(first_map, second_map)
-        {"one": [1, {"a": "a", "b": "b"}], "two": [2, 3], "three": {3, 5, 6}}
-        >>> first_map = {"one": {"a": 1, "c": "c"}, "two": 2}
-        >>> merge_dictionaries(first_map, second_map)
-        {"one": {"a": ["a", 1], "b": "b", "c": "c"}, "two": [2, 3], "three": 3}}
-        >>> merge_dictionaries(first=first_map, second=second_map, expand=False)
-        {"one": {"a": "a", "b": "b", "c": "c"}, "two": 3, "three": 3}
+    Get the common type across everything passed in. If the value passed in is iterable, it will look for a
+    common type amongst all values. If the value is a scalar, it will return the type of that value. If more than one
+    type is encountered within a collection, `None` is returned since there is no common type
 
     Args:
-        first: The first dictionary
-        second: The second dictionary
-        expand: Expand conflicting values into a collection
+        value: A value whose type to inspect
 
     Returns:
-        The two dictionaries combined
+        The type of value that applies to all entries or None if the types are not 100% common
     """
-    if expand is None:
-        expand = True
+    if is_iterable_type(value):
+        encountered_type = None
+        member_value = None
 
-    merged_dictionary = dict()
+        for member in value:
+            member_type = type(member)
+            if encountered_type is None:
+                encountered_type = member_type
+                member_value = member
+            elif not isinstance(member, encountered_type) and isinstance(member_value, member_type):
+                encountered_type = member_type
+                member_value = member
+            elif not isinstance(member, encountered_type):
+                return None
 
-    # Return nothing if nothing was given to merge
-    if first is None and second is None:
-        return merged_dictionary
-    elif first is None:
-        # Return the second dictionary if the first was none (meaning there's nothing to merge)
-        return second
-    elif second is None:
-        # Return the first dictionary if the second was none (meaning there's nothing to merge)
-        return first
+        # Can't decide if there is a common type if there is only one type present in a collection
+        return encountered_type
 
-    # Iterate through all keys and values of the first dictionary to merge on all of its values
-    for key_for_first, value_for_first in first.items():
-        # If this key isn't in the second dictionary, we're in luck - it doesn't have to be merged and can be directly
-        # inserted
-        if key_for_first not in second:
-            merged_dictionary[key_for_first] = value_for_first
-        else:
-            # Get the matching value from the second mapping
-            value_for_second = second[key_for_first]
+    return type(value)
 
-            # Determine if the first value is hashable - this is important if collections that require a hash are used
-            first_is_hashable = isinstance(value_for_first, typing.Hashable)
 
-            # Determine if the second value is hashable - this is important if collections that require a hash are used
-            second_is_hashable = isinstance(value_for_second, typing.Hashable)
+def iterable_types_are_uniform(value: typing.Any) -> bool:
+    """
+    Checks to see if every item in an iterable is of the same type
 
-            # Nothing has to be merged if both values are deemed null
-            if value_for_first is None and value_for_second is None:
-                combined_value = None
-            elif (value_for_first is None) ^ (value_for_second is None):
-                combined_value = value_for_first if value_for_second is None else value_for_second
-            elif isinstance(value_for_first, set) and isinstance(value_for_second, set):
-                # We want to combine the values via a union if they are both sets
-                combined_value = value_for_first.union(value_for_second)
-            elif isinstance(value_for_first, typing.Mapping) and isinstance(value_for_second, typing.Mapping):
-                # If both are maps, we want the resulting merge
-                combined_value = merge_dictionaries(value_for_first, value_for_second)
-            elif isinstance(value_for_first, set) and second_is_hashable:
-                # If the first value is a set and the second is hashable, we want to add the second value to the set
-                # A copy is used just to make sure that the original is not modified
-                combined_value = value_for_first.copy()
-                combined_value.add(value_for_second)
-            elif first_is_hashable and isinstance(value_for_second, set):
-                # If the second value is a set and the first is hashable, we want to add the first value to the set
-                # A copy is used just to make sure that the original is not modified
-                combined_value = value_for_second.copy()
-                combined_value.add(value_for_first)
-            elif is_sequence_type(value_for_first) and is_sequence_type(value_for_second):
-                # If both are sequences of different values (so not bytes or strings), we want to combine the two
-                # into a new collection. A new collection is used to ensure that the originals don't get modified
-                combined_value = [value for value in value_for_first] + [value for value in value_for_second]
-            elif is_sequence_type(value_for_first):
-                # If only the first value is a sequence, we want to add the second value to a copy so we end up with
-                # a new sequence whose modification does not modify the original
-                combined_value = [value for value in value_for_first]
-                combined_value.append(value_for_second)
-            elif is_sequence_type(value_for_second):
-                # If only the second value is a sequence, we want to add the first value to a copy so we end up with
-                # a new sequence whose modification does not modify the original
-                combined_value = [value for value in value_for_second]
-                combined_value.append(value_for_first)
-            elif not expand:
-                combined_value = value_for_second
-            else:
-                # Combine both values in a list if they can't both occupy the same key
-                combined_value = [value_for_first, value_for_second]
+    Args:
+        value: The value to check
 
-            # Set the new value in the dictionary that will be returned
-            merged_dictionary[key_for_first] = combined_value
+    Returns:
+        True if the value was a collection whose values were all of the same type
+    """
+    if not is_iterable_type(value):
+        return False
 
-    # Now just update the merged dictionary with the values from the second dictionary that weren't added.
-    # Everything from the first and everything that overlapped will already be there
-    merged_dictionary.update({
-        key_for_second: value_for_second
-        for key_for_second, value_for_second in second.keys()
-        if key_for_second not in merged_dictionary
-    })
+    encountered_type = None
+    member_value = None
 
-    return merged_dictionary
+    for member in value:
+        member_type = type(member)
+        if encountered_type is None:
+            encountered_type = member_type
+            member_value = member
+        elif not isinstance(member, encountered_type) and isinstance(member_value, member_type):
+            encountered_type = member_type
+            member_value = member
+        elif not isinstance(member, encountered_type):
+            return False
+
+    return True
 
 
 def truncate(number: typing.Union[numbers.Number, float], digits: int) -> typing.Union[numbers.Number, float]:
@@ -568,20 +686,56 @@ def find(
 
         >>> next(filter(lambda val: val == 999, range(1000000)), None)
 
-    This results in lower cognitive overload and better performance
+    This results in lower cognitive overload
 
     Args:
         iterable: The collection to search
         predicate: A check to see if the encountered value matches the desired value
-        default: The default value to return if the item is not found
+        default: The default value to return if the value isn't found
 
     Returns:
-        The first value matching the value, a default value (None) otherwise
+        The first value matching the value, the default if a matching value isn't found.
     """
     if not iterable:
         return None
-    
-    return next(filter(predicate, iterable), default)
+
+    return next(filter(predicate, iterable), __default=default)
+
+
+def true_for_all(
+    collection: typing.Iterable[_CLASS_TYPE],
+    condition: typing.Callable[[_CLASS_TYPE], bool] = None
+) -> bool:
+    """
+    Checks to see if all items in the given collection match the given condition. Equivalent to `all(collection)`
+    if no condition is passed
+
+    Args:
+        collection: The values to check
+        condition: A condition to check across all. The default is 'is not None'
+
+    Returns:
+        True if the condition is true across all values in the collection
+    """
+    if collection is None:
+        raise ValueError("Cannot tell if all values meet the condition - none were passed")
+    elif isinstance(collection, typing.Generator):
+        raise ValueError(
+            f"'{get_current_function_name()}' is not valid for '{collection.__name__}' objects since there is no"
+            f" guarantee that the collection won't be modified"
+        )
+    elif isinstance(collection, (str, bytes, typing.Mapping)):
+        raise ValueError(f"The passed '{collection.__class__}' object is not a valid collection type")
+
+    if condition is None:
+        def condition(value: _CLASS_TYPE) -> bool:
+            return bool(value)
+
+    for collection_value in collection:
+        if not condition(collection_value):
+            return False
+
+    return True
 
 
 def is_true(value) -> bool:

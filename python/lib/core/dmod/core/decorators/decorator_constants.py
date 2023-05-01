@@ -44,3 +44,8 @@ HANDLER_ACTION_ATTRIBUTE = "action"
 """
 The name of an attribute indicating that something is an action
 """
+
+DESCRIPTION_ATTRIBUTE = "description"
+"""
+The name of an attribute indicating a helpful description
+"""

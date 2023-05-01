@@ -77,3 +77,14 @@ def additional_parameter(function):
     if not hasattr(function, ADDITIONAL_PARAMETER_ATTRIBUTE):
         setattr(function, ADDITIONAL_PARAMETER_ATTRIBUTE, True)
     return function
+
+
+def describe(description: str):
+    """
+    Adds a description to an object
+    """
+    def add_description(obj):
+        setattr(obj, DESCRIPTION_ATTRIBUTE, description)
+        return obj
+
+    return add_description
