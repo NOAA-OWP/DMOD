@@ -297,6 +297,19 @@ class MinioMock:
         o = self._temp_dir_path / bucket_name / object_name
         o.unlink()
 
+        # directories are fictitious in the object store's perspective. when objects are removed
+        # from the object store, we need to also remove any empty predecessor directories.
+        dir = o.parent
+        while self._temp_dir_path / bucket_name != dir:
+            # check if directory has files
+            try:
+                next(dir.glob("**/*"))
+                # there must be files that exist
+                return
+            except StopIteration:
+                dir.rmdir()
+                dir = dir.parent
+
     def remove_objects(
         self,
         bucket_name: str,
