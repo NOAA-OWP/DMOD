@@ -161,27 +161,34 @@ class MinioMock:
         use_url_encoding_type=True,
         fetch_owner=False,
     ):
-        if prefix:
-            raise NotImplementedError()
+        if not prefix:
+            prefix = ""
 
         gen = (
-            (self._temp_dir_path / bucket_name).glob("**/*")
+            (self._temp_dir_path / bucket_name).glob(f"**/{prefix}*")
             if recursive
-            else (self._temp_dir_path / bucket_name).glob("*")
+            else (self._temp_dir_path / bucket_name).glob(f"{prefix}*")
         )
 
         def generator():
             for file in gen:
-                if file.is_dir():
-                    continue
                 object_name = file.relative_to(
                     self._temp_dir_path / bucket_name
                 ).as_posix()
+
+                if file.is_dir():
+                    # directories are not included in a recursive listing
+                    if recursive:
+                        continue
+                    object_name = f"{object_name}/"
+                    etag = None
+                else:
+                    with open(file, "rb") as fp:
+                        etag = buffered_md5(fp)
+
                 file_stat = file.stat()
                 last_modified = self._timestamp_as_utc_dt(file_stat.st_mtime)
                 size = file_stat.st_size
-                with open(file, "rb") as fp:
-                    etag = buffered_md5(fp)
 
                 yield Object(
                     bucket_name,
