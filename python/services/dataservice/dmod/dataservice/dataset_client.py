@@ -18,7 +18,7 @@ from .reader import Reader
 class ObjectToAdd:
     name: str
     reader: Reader
-    size: Union[int, None] = None
+    size: int
     content_type: str = "application/json"
 
 
@@ -140,7 +140,7 @@ class DatasetClient:
         name: str,
         object_name: str,
         reader: Reader,
-        size: Union[int, None] = None,
+        size: int,
         content_type: str = "application/octet-stream",
     ) -> None:
         result = self._bucket_exists(name)
