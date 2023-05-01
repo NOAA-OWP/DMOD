@@ -2,6 +2,7 @@ import io
 import re
 import datetime
 import mimetypes
+import shutil
 from minio import S3Error
 from minio.datatypes import Bucket, Object
 from minio.deleteobjects import DeleteObject, DeleteError
@@ -124,6 +125,14 @@ class MinioMock:
                 "NoSuchBucket", "Bucket does not exist", bucket_name=bucket_name
             )
 
+        object_name_path = Path(object_name)
+        if ".." in object_name_path.parts:
+            raise ValueError(f"object_name cannot contain '..': {object_name_path}")
+
+        full_path = self._temp_dir_path / bucket_name / object_name
+        # make any intermediate paths
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+
         with open(self._temp_dir_path / bucket_name / object_name, "wb") as fp:
             fp.write(data.read())
 
@@ -192,7 +201,7 @@ class MinioMock:
             raise self._build_s3_error(
                 "NoSuchBucket", "Bucket does not exist", bucket_name=bucket_name
             )
-        (self._temp_dir_path / bucket_name).rmdir()
+        shutil.rmtree(self._temp_dir_path / bucket_name)
 
     def get_object(
         self,
