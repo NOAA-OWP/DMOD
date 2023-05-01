@@ -22,7 +22,7 @@ from .helpers import is_a_value
 
 _CLASS_TYPE = typing.TypeVar("_CLASS_TYPE")
 
-CLASS_MODULE_COLLECTION_PATTERN = re.compile("(?<=\[).+\.(?=.+\])")
+CLASS_MODULE_COLLECTION_PATTERN = re.compile(r"(?<=\[).+\.(?=.+])")
 """
 Pattern to find all portions of a complete class description prior to the class name from within a collection description
 
@@ -30,7 +30,7 @@ CLASS_MODULE_COLLECTION_PATTERN.sub('', "Sequence[dmod.evaluations.specification
 Sequence[ThresholdDefinition]
 """
 
-CLASS_MODULE_PATTERN = re.compile(".+\.(?=.+)")
+CLASS_MODULE_PATTERN = re.compile(r".+\.(?=.+)")
 
 
 def get_constructor_parameters(cls: typing.Type[_CLASS_TYPE]) -> typing.Mapping[str, inspect.Parameter]:
@@ -239,7 +239,7 @@ def create_class_instance(
                 )
 
                 if found_template is not None:
-                    combined_template = common.merge_dictionaries(combined_template, found_template, expand=False)
+                    combined_template = common.merge_dictionaries(combined_template, found_template)
                 elif validate and messages is not None:
                     error_message = f"No template could be found with the name of '{template_name}'"
                     messages.append(error_message)
@@ -487,7 +487,7 @@ class Specification(abc.ABC):
             dictionary['name'] = self.name
 
         if self.properties:
-            dictionary['properties'] = self.properties.copy()
+            dictionary['properties'] = self.properties
 
         field_data = self.extract_fields()
 

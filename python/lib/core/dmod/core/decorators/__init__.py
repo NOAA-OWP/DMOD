@@ -8,6 +8,7 @@ from .decorator_constants import *
 
 from .decorator_functions import initializer
 from .decorator_functions import additional_parameter
+from .decorator_functions import describe
 
 from .message_handlers import socket_handler
 from .message_handlers import client_message_handler

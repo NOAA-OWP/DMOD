@@ -14,6 +14,7 @@ from dmod.core.common import find
 from dmod.core.common import truncate
 from dmod.core.common import contents_are_equivalent
 from dmod.core.common import Bag
+from dmod.core.common import order_dictionary
 
 from . import TemplateManager
 from .base import TemplatedSpecification
@@ -422,7 +423,7 @@ class EvaluationResults:
                             }
                         )
 
-        data['metrics'] = included_metrics
+        data['metrics'] = sorted(included_metrics, key=lambda entry: entry['name'])
 
         for (observation_location, prediction_location), results in self._original_results.items():
             result_data = {
@@ -433,6 +434,11 @@ class EvaluationResults:
             result_data.update(results.to_dict())
 
             data['results'].append(result_data)
+
+        data['results'] = sorted(
+            data['results'],
+            key=lambda entry: (entry['observation_location'], entry['prediction_location'])
+        )
 
         return data
 
@@ -505,3 +511,6 @@ class EvaluationResults:
                 ]
             )
         )
+
+    def __eq__(self, other: "EvaluationResults"):
+        return order_dictionary(self.to_dict()) == order_dictionary(other.to_dict())
