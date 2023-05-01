@@ -31,6 +31,10 @@ class DatasetClient:
     def __init__(self, client: Minio) -> None:
         self._client = client
 
+    @classmethod
+    def _gen_dataset_serial_obj_name(cls, name: str) -> str:
+        return cls._SERIALIZED_OBJ_NAME_TEMPLATE.format(name)
+
     @as_result
     def _bucket_exists(self, name: str) -> bool:
         return self._client.bucket_exists(name)
@@ -46,7 +50,7 @@ class DatasetClient:
 
         return self.add_object(
             name=name,
-            object_name=self._SERIALIZED_OBJ_NAME_TEMPLATE.format(name),
+            object_name=self._gen_dataset_serial_obj_name(name),
             content_type="application/json",
             size=len(serial),
             reader=io.BytesIO(serial),
@@ -112,7 +116,7 @@ class DatasetClient:
         try:
             result = self.add_object(
                 name=name,
-                object_name=self._SERIALIZED_OBJ_NAME_TEMPLATE.format(name),
+                object_name=self._gen_dataset_serial_obj_name(name),
                 content_type="application/json",
                 reader=io.BytesIO(serialized),
                 size=len(serialized),
