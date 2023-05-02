@@ -2,12 +2,7 @@ import io
 from urllib3.response import HTTPResponse
 from minio import Minio, S3Error
 from minio.datatypes import Object as MinioObject, Bucket
-from typing import (
-    cast,
-    Dict,
-    Iterable,
-    Iterator,
-)
+from typing import cast, Dict, Iterable, Iterator, Optional
 from pydantic import BaseModel, UUID4
 from dataclasses import dataclass
 from contextlib import contextmanager
@@ -175,6 +170,12 @@ class DatasetQueryClient:
                     yield result
 
         return Ok(iterator())
+
+    @as_result
+    def list_dataset_objects(
+        self, name: str, prefix: Optional[str] = None, recursive: bool = False
+    ) -> Iterator[MinioObject]:
+        yield from self._client.list_objects(name, prefix=prefix, recursive=recursive)
 
     @property
     def datasets(self) -> Result[Iterator[Result[DatasetID, Exception]], Exception]:
