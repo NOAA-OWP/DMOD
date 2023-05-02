@@ -60,3 +60,4 @@ shapely>=2.0.0
 pydantic
 git+https://github.com/NOAA-OWP/ngen-cal@master#egg=ngen-config&subdirectory=python/ngen_conf
 exceptiongroup
+fastapi
