@@ -78,6 +78,7 @@ class DatasetQueryClient:
         return ds.dataset
 
     def dataset_exists(self, name: str) -> Result[bool, Exception]:
+        """Check is a dataset exists."""
         with self.get_dataset(name) as result:
             if result.is_ok():
                 return Ok(True)
@@ -94,7 +95,6 @@ class DatasetQueryClient:
 
     @contextmanager
     def _get_raw_dataset(self, name: str) -> Iterator[Result[bytes, Exception]]:
-        """"""
         try:
             response: HTTPResponse = self._client.get_object(
                 name, self._gen_dataset_serial_obj_name(name)
@@ -108,6 +108,23 @@ class DatasetQueryClient:
 
     @contextmanager
     def get_dataset(self, name: str) -> Iterator[Result[Dataset, Exception]]:
+        """Retrieve and serialize Dataset. Resources are closed by context manager.
+
+        Example:
+        ```python
+        from dmod.dataservice.dataset_query_client import DatasetQueryClient
+        from minio import Minio
+
+        minio_client = Minio("127.0.0.1:9000", access_key="minioadmin", secret_key="minioadmin", secure=False)
+        client = DatasetQueryClient(minio_client)
+
+        with client.get_dataset("example-dataset") as result:
+            if result.is_err():
+                raise result.value
+
+        dataset = result.value
+        ```
+        """
         # try load from cache
         result = self._load_dataset_from_cache(name)
         if result.is_ok():
@@ -129,6 +146,7 @@ class DatasetQueryClient:
                 response.release_conn()
 
     def get_dataset_id(self, name: str) -> Result[UUID4, Exception]:
+        """Given a dataset name, return its associated unique identifier."""
         with self.get_dataset(name) as result:
             if result.is_err():
                 return result
@@ -138,6 +156,25 @@ class DatasetQueryClient:
     def get_dataset_object(
         self, name: str, object_name: str
     ) -> Iterator[Result[HTTPResponse, Exception]]:
+        """
+        Get a dataset object. Resources are closed by the context manager, this means all reading
+        should be done inside the context manager's context.
+
+        Example:
+        ```python
+        from dmod.dataservice.dataset_query_client import DatasetQueryClient
+        from minio import Minio
+
+        minio_client = Minio("127.0.0.1:9000", access_key="minioadmin", secret_key="minioadmin", secure=False)
+        client = DatasetQueryClient(minio_client)
+
+        with client.get_dataset_object("example-dataset", "test_data.txt") as result:
+            if result.is_err():
+                raise result.value
+
+             object_data = result.value.read()
+        ```
+        """
         response_bound = False
         try:
             response: HTTPResponse = self._client.get_object(
@@ -154,11 +191,32 @@ class DatasetQueryClient:
 
     @as_result
     def get_dataset_object_info(self, name: str, object_name: str) -> MinioObject:
+        """Get an object's metadata."""
         return self._client.stat_object(bucket_name=name, object_name=object_name)
 
     def get_all_datasets(
         self,
     ) -> Result[Iterator[Result[Dataset, Exception]], Exception]:
+        """
+        Result iterator that yields result Dataset objects.
+
+        Example:
+        ```python
+        from dmod.dataservice.dataset_query_client import DatasetQueryClient
+        from minio import Minio
+
+        minio_client = Minio("127.0.0.1:9000", access_key="minioadmin", secret_key="minioadmin", secure=False)
+        client = DatasetQueryClient(minio_client)
+
+        result = client.get_all_datasets()
+        if result.is_err():
+            raise result.value
+
+        for ds in result.value:
+            # will raise if `is_err()`
+            print(ds.unwrap())
+        ```
+        """
         try:
             buckets: Iterable[Bucket] = self._client.list_buckets()
         except Exception as e:
@@ -175,10 +233,14 @@ class DatasetQueryClient:
     def list_dataset_objects(
         self, name: str, prefix: Optional[str] = None, recursive: bool = False
     ) -> Iterator[MinioObject]:
+        """Result iterator that yields a dataset's object metadata."""
         yield from self._client.list_objects(name, prefix=prefix, recursive=recursive)
 
     @property
     def datasets(self) -> Result[Iterator[Result[DatasetID, Exception]], Exception]:
+        """
+        Result iterator that yields result DatasetID's (name and uuid fields) for all datasets.
+        """
         result = self.get_all_datasets()
         if result.is_err():
             result = cast(Err[Exception], result)
