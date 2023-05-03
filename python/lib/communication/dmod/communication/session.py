@@ -2,8 +2,7 @@ import datetime
 import hashlib
 import random
 from .message import AbstractInitRequest, MessageEventType, Response
-from dmod.core.serializable import Serializable
-from dmod.core.serializable_dict import SerializableDict
+from dmod.core.serializable import SerializedDict
 from dmod.core.enum import PydanticEnum
 from abc import ABC, abstractmethod
 from numbers import Number
@@ -38,7 +37,7 @@ class SessionInitFailureReason(PydanticEnum):
     UNKNOWN = -1
 
 
-class Session(SerializableDict):
+class Session(SerializedDict):
     """
     A bare-bones representation of a session between some compatible server and client, over which various requests may
     be made, and potentially other communication may take place.
@@ -262,7 +261,7 @@ class SessionInitMessage(AbstractInitRequest):
     """ :class:`MessageEventType`: the event type for this message implementation """
 
 
-class FailedSessionInitInfo(SerializableDict):
+class FailedSessionInitInfo(SerializedDict):
     """
     A :class:`~.serializeable.Serializable` type for representing details on why a :class:`SessionInitMessage` didn't
     successfully init a session.
