@@ -1,10 +1,10 @@
 from .message import AbstractInitRequest, MessageEventType, Response
-from dmod.core.serializable_dict import SerializableDict
 from numbers import Number
 from typing import ClassVar, Dict, Optional, Type, Union
 from pydantic import Field, root_validator
 
 from dmod.core.enum import PydanticEnum
+from dmod.core.serializable import SerializedDict
 
 
 class MetadataPurpose(PydanticEnum):
@@ -28,7 +28,7 @@ class MetadataPurpose(PydanticEnum):
         return None
 
 
-class MetadataSignal(SerializableDict):
+class MetadataSignal(SerializedDict):
     purpose: MetadataPurpose
     metadata_follows: bool = False
 
