@@ -1,4 +1,4 @@
-from dmod.core.serializable_dict import SerializableDict
+from dmod.core.serializable import SerializedDict
 
 from typing import Optional, Union, TYPE_CHECKING
 
@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 UNSUCCESSFUL_JOB = -1
 
 
-class SchedulerRequestResponseBody(SerializableDict):
+class SchedulerRequestResponseBody(SerializedDict):
     job_id: int = UNSUCCESSFUL_JOB
     output_data_id: Optional[str]
 
