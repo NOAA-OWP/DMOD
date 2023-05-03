@@ -7,11 +7,7 @@ class ExternalRequest(AbstractInitRequest, ABC):
     """
     The base class underlying all types of externally-initiated (and, therefore, authenticated) MaaS system requests.
     """
-    # NOTE: in some places this is serialized as `session-secret`
     session_secret: str
-
-    class Config:
-        fields = {"session_secret": {"alias": "session-secret"}}
 
     @classmethod
     @abstractmethod
