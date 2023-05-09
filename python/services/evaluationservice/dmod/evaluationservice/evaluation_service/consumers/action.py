@@ -122,8 +122,6 @@ def required_parameters(**kwargs) -> typing.Callable:
     Returns:
         The updated function
     """
-    keyword_arguments = kwargs or dict()
-
     def function_with_parameters(func):
         """
         Add keyword arguments to the given func under the attribute `required_parameters`
@@ -134,7 +132,7 @@ def required_parameters(**kwargs) -> typing.Callable:
         Returns:
             The updated function
         """
-        setattr(func, "required_parameters", keyword_arguments)
+        setattr(func, "required_parameters", kwargs)
         return func
 
     return function_with_parameters
