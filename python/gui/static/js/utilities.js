@@ -341,12 +341,6 @@ export function attachCode(code, languageMIMEType) {
         languageMIMEType = "application/javascript";
     }
 
-    let scriptID = Math.floor(Math.random() * 1000).toString();
-
-    while ($(`script#${scriptID}`).length > 0) {
-        scriptID = Math.floor(Math.random() * 1000).toString();
-    }
-
     const script = new Blob([code], {type: languageMIMEType});
     const fileUrl = URL.createObjectURL(script);
 
@@ -354,7 +348,7 @@ export function attachCode(code, languageMIMEType) {
     scriptElement.type = "module";
     scriptElement.async = false;
     scriptElement.src = fileUrl;
-    scriptElement.id = scriptID;
+    scriptElement.id = crypto.randomUUID();
     document.body.appendChild(scriptElement);
 
     console.info(`Dynamic code has been attached. It may be viewed at "script#${scriptID}"`);

@@ -14,6 +14,8 @@ import dmod.core.common as common
 from dmod.core.common import get_subclasses
 from dmod.core.common import humanize_text
 
+from ..utilities import merge_dictionaries
+
 from .template import TemplateManager
 
 from .. import util
@@ -110,7 +112,7 @@ def create_class_instance(
     decoder_type: typing.Type[json.JSONDecoder] = None,
     messages: typing.List[str] = None,
     validate: bool = None
-) -> typing.Optional["Specification"]:
+) -> typing.Optional[typing.Union["Specification",typing.Sequence["Specification"]]]:
     """
     Dynamically creates a class based on the type of class and the given parameters
 
@@ -239,7 +241,7 @@ def create_class_instance(
                 )
 
                 if found_template is not None:
-                    combined_template = common.merge_dictionaries(combined_template, found_template)
+                    combined_template = merge_dictionaries(combined_template, found_template)
                 elif validate and messages is not None:
                     error_message = f"No template could be found with the name of '{template_name}'"
                     messages.append(error_message)
