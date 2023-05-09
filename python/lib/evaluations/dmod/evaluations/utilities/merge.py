@@ -6,12 +6,12 @@ from __future__ import annotations
 import typing
 from enum import Enum
 
-from .helper_functions import is_sequence_type
-from .helper_functions import get_common_type
-from .helper_functions import is_iterable_type
+from dmod.core.common.helper_functions import is_sequence_type
+from dmod.core.common.helper_functions import get_common_type
+from dmod.core.common.helper_functions import is_iterable_type
 
-from .protocols import KeyedObjectProtocol
-from .protocols import CombinableObjectProtocol
+from dmod.core.common.protocols import KeyedObjectProtocol
+from dmod.core.common.protocols import CombinableObjectProtocol
 
 from .action import ActionConditionBuilder
 from .action import ActionConditions
