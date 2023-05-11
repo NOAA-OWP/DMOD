@@ -228,21 +228,16 @@ class TestSchedulerClient(unittest.TestCase):
     def test_async_make_request_3_b(self):
         """
         Test when function gets wrongly formatted JSON over websocket that response object ``data`` is empty dict.
-
-        Test ``async_make_request()`` when response from sending over websocket is a valid JSON string, but not one that
-        can be deserialized to a :class:`SchedulerRequestResponse`, ensuring response object's value for ``data`` is the
-        parsed response JSON object.
         """
         self.client.set_scheduler_response_unrecognized_json()
         request = self.test_scheduler_request_1
 
-        expected_raw_response = self.client.test_responses[self.client.test_response_selection]
-        expected_json_obj = json.loads(expected_raw_response)
+        expected_data_obj = dict()
 
         self.disable_logging()
         response = self.loop.run_until_complete(self.client.async_make_request(request))
         self.disable_logging(None)
-        self.assertEqual(response.data, expected_json_obj)
+        self.assertEqual(response.data, expected_data_obj)
 
     def test_async_make_request_3_c(self):
         """
