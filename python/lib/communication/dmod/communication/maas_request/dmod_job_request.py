@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
-from typing import ClassVar, List, Optional, Union
+from pydantic import Field, validator
+from typing import ClassVar, List
 
 from dmod.core.execution import AllocationParadigm
 from dmod.core.meta_data import DataFormat, DataRequirement
@@ -12,12 +13,29 @@ class DmodJobRequest(AbstractInitRequest, ABC):
     The base class underlying all types of messages requesting execution of some kind of workflow job.
     """
 
-    # TODO: #pydantic_rebase - Pydantic-ly add config_data_id, cpu_count, allocation_paradigm properties here
-
-    # TODO: #pydantic_rebase - reconcile the above property additions with subclasses implementations
-
     _DEFAULT_CPU_COUNT: ClassVar[int] = 1
     """ The default number of CPUs to assume are being requested for the job, when not explicitly provided. """
+
+    # job type discriminator field. enables constructing correct subclass based on `job_type` field
+    # value.
+    # override `job_type` in subclasses using `typing.Literal`
+    # e.g. `job_type: Literal["ngen"] = "ngen"`
+    job_type: str = Field("", description="The name for the type of job being requested.")
+
+    cpu_count: int = Field(_DEFAULT_CPU_COUNT, gt=0, description="The number of processors requested for this job.")
+    allocation_paradigm: AllocationParadigm = Field(
+        default_factory=AllocationParadigm.get_default_selection,
+        description="The allocation paradigm desired for use when allocating resources for this request."
+    )
+
+    @validator("job_type", pre=True)
+    def _lower_job_type_(cls, value: str):
+        # NOTE: this should enable case insensitive subclass construction based on `job_type`, that is
+        # if all `job_type` field's are lowercase.
+        return str(value).lower()
+
+    def __hash__(self) -> int:
+        return hash((self.job_type, self.cpu_count, self.allocation_paradigm))
 
     @property
     @abstractmethod
