@@ -3,7 +3,6 @@ from typing import Any, ClassVar, Dict, Literal, Optional, Type
 from pydantic import Field
 
 from dmod.core.serializable import Serializable, ResultIndicator
-from dmod.core.serializable import SerializedDict
 from dmod.core.enum import PydanticEnum
 
 
@@ -123,7 +122,7 @@ class Response(ResultIndicator, Message, ABC):
     response_to_type: ClassVar[Type[AbstractInitRequest]] = AbstractInitRequest
     """ The type of :class:`AbstractInitRequest` for which this type is the response"""
 
-    data: Optional[SerializedDict]
+    data: Optional[Serializable]
 
     @classmethod
     def get_message_event_type(cls) -> MessageEventType:
@@ -173,13 +172,13 @@ class InvalidMessageResponse(Response):
     success = False
     reason: Literal["Invalid Request message"] = "Invalid Request message"
     message: Literal["Request message was not formatted as any known valid type"] = "Request message was not formatted as any known valid type"
-    data: Optional[SerializedDict]
+    data: Optional[Serializable]
 
     def __init__(self, data: Optional[Serializable]=None, **kwargs):
         super().__init__(data=data)
 
 
-class HttpCode(SerializedDict):
+class HttpCode(Serializable):
     http_code: int = Field(ge=100, le=599)
 
 class ErrorResponse(Response):
