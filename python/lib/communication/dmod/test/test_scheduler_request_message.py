@@ -15,61 +15,113 @@ class TestSchedulerRequestMessage(unittest.TestCase):
         self.tested_serializeable_type = SchedulerRequestMessage
 
         # Example 0 - NWMRequest
-        raw_json_str_0 = '{"allocation_paradigm": "ROUND_ROBIN", "model_request": {"model": {"nwm": {"allocation_paradigm": "ROUND_ROBIN", "config_data_id": "1", "cpu_count": 1, "data_requirements": [{"domain": {"data_format": "NWM_CONFIG", "continuous": [], "discrete": [{"variable": "DATA_ID", "values": ["1"]}]}, "is_input": true, "category": "CONFIG"}]}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}, "user_id": "someone", "cpus": 4, "mem": 500000}'
+        raw_json_str_0 = '{"allocation_paradigm": "ROUND_ROBIN", "model_request": {"allocation_paradigm": "ROUND_ROBIN", "cpu_count": 1, "job_type": "nwm", "request_body": {"nwm": {"config_data_id": "1", "data_requirements": [{"category": "CONFIG", "domain": {"continuous": [], "data_format": "NWM_CONFIG", "discrete": [{"values": ["1"], "variable": "DATA_ID"}]}, "is_input": true}]}}, "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}, "user_id": "someone", "cpus": 4, "mem": 500000}'
         raw_json_obj_0 = json.loads(raw_json_str_0)
         sorted_json_str_0 = json.dumps(raw_json_obj_0, sort_keys=True)
         self.request_strings.append(sorted_json_str_0)
-        self.request_jsons.append({"allocation_paradigm": "ROUND_ROBIN", "model_request": {
-            "model": {"nwm": {"allocation_paradigm": "ROUND_ROBIN", "config_data_id": "1", "cpu_count": 1, "data_requirements": [{"domain": {
-                "data_format": "NWM_CONFIG", "continuous": [], "discrete": [{"variable": "DATA_ID", "values": ["1"]}]},
-                "is_input": True,
-                "category": "CONFIG"}]}},
-            "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}, "user_id": "someone",
-            "cpus": 4, "mem": 500000})
+        self.request_jsons.append({
+            "allocation_paradigm": "ROUND_ROBIN",
+            "model_request": {
+                "allocation_paradigm": "ROUND_ROBIN",
+                "cpu_count": 1,
+                "job_type": "nwm",
+                "request_body": {
+                "nwm": {
+                    "config_data_id": "1",
+                    "data_requirements": [
+                        {
+                            "category": "CONFIG",
+                            "domain": {
+                                "continuous": [],
+                                "data_format": "NWM_CONFIG",
+                                "discrete": [{"values": ["1"], "variable": "DATA_ID"}]
+                            },
+                            "is_input": True
+                        }
+                    ]
+                }
+            },
+                "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"
+            },
+            "user_id": "someone",
+            "cpus": 4,
+            "mem": 500000
+        })
 
 
         self.request_objs.append(
             SchedulerRequestMessage(model_request=NWMRequest.factory_init_from_deserialized_json(
-                {"model": {"nwm": {"allocation_paradigm": "ROUND_ROBIN", "config_data_id": "1", "cpu_count": 1, "data_requirements": [{"domain": {"data_format": "NWM_CONFIG",
-                                                                                            "continuous": [],
-                                                                                            "discrete": [
-                                                                                                {"variable": "DATA_ID",
-                                                                                                 "values": ["1"]}]},
-                                                                                 "is_input": True,
-                                                                                 "category": "CONFIG"}]}},
-                 "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}),
+                {
+                    "allocation_paradigm": "ROUND_ROBIN",
+                    "cpu_count": 1,
+                    "job_type": "nwm",
+                    "request_body": {
+                        "nwm": {
+                            "config_data_id": "1",
+                            "data_requirements": [
+                                {
+                                    "category": "CONFIG",
+                                    "domain": {
+                                        "continuous": [],
+                                        "data_format": "NWM_CONFIG",
+                                        "discrete": [{"values": ["1"], "variable": "DATA_ID"}]
+                                    },
+                                    "is_input": True
+                                }
+                            ]
+                        }
+                    },
+                    "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}),
                 user_id='someone',
                 cpus=4,
                 mem=500000,
                 allocation_paradigm='ROUND_ROBIN'))
 
         # Example 1 - NGenRequest
-        raw_json_str_1 = '{"allocation_paradigm": "SINGLE_NODE", "cpus": 288, "mem": 500000, "model_request": {"model": {"allocation_paradigm": "SINGLE_NODE", "bmi_config_data_id": "simple-bmi-cfe-1", "config_data_id": "huc01-simple-realization-config-1", "cpu_count": 288, "hydrofabric_data_id": "hydrofabric-huc01-copy-288", "hydrofabric_uid": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81", "name": "ngen", "time_range": {"begin": "2012-05-01 00:00:00", "datetime_pattern": "%Y-%m-%d %H:%M:%S", "end": "2012-05-31 23:00:00", "subclass": "TimeRange", "variable": "TIME"}}, "session_secret": "675b2f8826f69f97c01fe4d7add30420322cd21a790ddc68a5b3c149966de919"}, "user_id": "someone"}'
-        raw_json_obj_1 = json.loads(raw_json_str_1)
-        sorted_json_str_1 = json.dumps(raw_json_obj_1, sort_keys=True)
-        self.request_strings.append(sorted_json_str_1)
-        self.request_jsons.append({"allocation_paradigm": "SINGLE_NODE", "cpus": 288, "mem": 500000, "model_request": {
-            "model": {"allocation_paradigm": "SINGLE_NODE", "bmi_config_data_id": "simple-bmi-cfe-1", "config_data_id": "huc01-simple-realization-config-1",
-                      "cpu_count": 288, "hydrofabric_data_id": "hydrofabric-huc01-copy-288",
-                      "hydrofabric_uid": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81", "name": "ngen",
-                      "time_range": {"begin": "2012-05-01 00:00:00", "datetime_pattern": "%Y-%m-%d %H:%M:%S",
-                                     "end": "2012-05-31 23:00:00", "subclass": "TimeRange", "variable": "TIME"}},
-            "session_secret": "675b2f8826f69f97c01fe4d7add30420322cd21a790ddc68a5b3c149966de919"},
-                                   "user_id": "someone"})
-
+        cpu_count_ex_1 = 288
+        cat_ids_list = ['cat-1', 'cat-2', 'cat-3']
+        cat_ids_str = '["{}", "{}", "{}"]'.format(*cat_ids_list)
         time_range = TimeRange.factory_init_from_deserialized_json({"begin": "2012-05-01 00:00:00",
                                                                     "datetime_pattern": "%Y-%m-%d %H:%M:%S",
                                                                     "end": "2012-05-31 23:00:00",
                                                                     "subclass": "TimeRange",
                                                                     "variable": "TIME"})
-        model_request = NGENRequest(time_range=time_range,
-                                    cpu_count=288,
-                                    allocation_paradigm='SINGLE_NODE',
-                                    config_data_id='huc01-simple-realization-config-1',
-                                    session_secret='675b2f8826f69f97c01fe4d7add30420322cd21a790ddc68a5b3c149966de919',
-                                    hydrofabric_data_id='hydrofabric-huc01-copy-288',
-                                    hydrofabric_uid='72c2a0220aa7315b50e55b6c5b68f927ac1d9b81',
-                                    bmi_cfg_data_id='simple-bmi-cfe-1')
+        raw_json_str_1 = '{"allocation_paradigm": "SINGLE_NODE", "cpus": ' + str(cpu_count_ex_1) + ', "mem": 500000, "model_request": {"allocation_paradigm": "ROUND_ROBIN", "cpu_count": ' + str(cpu_count_ex_1) + ', "job_type": "ngen", "request_body": {"bmi_config_data_id": "simple-bmi-cfe-1", "hydrofabric_data_id": "hydrofabric-huc01-copy-288", "hydrofabric_uid": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81", "realization_config_data_id": "huc01-simple-realization-config-1", "time_range": ' + str(time_range) +'}, "session_secret": "675b2f8826f69f97c01fe4d7add30420322cd21a790ddc68a5b3c149966de919"}, "user_id": "someone"}'
+        raw_json_obj_1 = json.loads(raw_json_str_1)
+        sorted_json_str_1 = json.dumps(raw_json_obj_1, sort_keys=True)
+        self.request_strings.append(sorted_json_str_1)
+        self.request_jsons.append(
+            {
+                "allocation_paradigm": "SINGLE_NODE",
+                "cpus": cpu_count_ex_1,
+                "mem": 500000,
+                "model_request": {
+                    "allocation_paradigm": "ROUND_ROBIN",
+                    "cpu_count": cpu_count_ex_1,
+                    "job_type": "ngen",
+                    "request_body": {
+                        "bmi_config_data_id": "simple-bmi-cfe-1",
+                        "hydrofabric_data_id": "hydrofabric-huc01-copy-288",
+                        "hydrofabric_uid": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81",
+                        "realization_config_data_id": "huc01-simple-realization-config-1",
+                        "time_range": time_range.to_dict()
+                    },
+                    "session_secret": "675b2f8826f69f97c01fe4d7add30420322cd21a790ddc68a5b3c149966de919"
+                },
+                "user_id": "someone"
+            })
+        model_request = NGENRequest(
+            allocation_paradigm='ROUND_ROBIN',
+            cpu_count=288,
+            session_secret='675b2f8826f69f97c01fe4d7add30420322cd21a790ddc68a5b3c149966de919',
+            request_body={
+                'time_range': time_range,
+                'realization_config_data_id': 'huc01-simple-realization-config-1',
+                'hydrofabric_data_id': 'hydrofabric-huc01-copy-288',
+                'hydrofabric_uid': '72c2a0220aa7315b50e55b6c5b68f927ac1d9b81',
+                'bmi_config_data_id': 'simple-bmi-cfe-1'
+            }
+        )
         self.request_objs.append(SchedulerRequestMessage(model_request=model_request, user_id='someone',
                                                          allocation_paradigm='SINGLE_NODE', cpus=288, mem=500000))
 
@@ -90,29 +142,6 @@ class TestSchedulerRequestMessage(unittest.TestCase):
         example_index = 1
         obj = SchedulerRequestMessage.factory_init_from_deserialized_json(self.request_jsons[example_index])
         self.assertEqual(obj, self.request_objs[example_index])
-
-    def test_config_data_id_1_a(self):
-        """
-        Test that the ``config_data_id`` of the object matches the same value within the nested model request.
-        """
-        example_index = 1
-        ex_obj = self.request_objs[example_index]
-        self.assertEqual(ex_obj.model_request.config_data_id, ex_obj.config_data_id)
-
-    def test_config_data_id_1_b(self):
-        """
-        Test that an instance will not create if we try to init with a non-matching ``config_data_id``.
-        """
-        example_index = 1
-        ex_obj = self.request_objs[example_index]
-        bogus_config_data_id = ex_obj.model_request.config_data_id + "_bogus_text_non_matching"
-
-        self.assertRaises(ValueError, SchedulerRequestMessage,
-                          model_request=ex_obj.model_request,
-                          user_id=ex_obj.user_id,
-                          config_data_id=bogus_config_data_id,
-                          cpus=ex_obj.cpus, mem=ex_obj.memory,
-                          allocation_paradigm=ex_obj.allocation_paradigm)
 
     def test_to_dict_0_a(self):
         """
