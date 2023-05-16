@@ -16,12 +16,29 @@ class TestNWMRequest(unittest.TestCase):
         # TODO: improve coverage through more examples
 
         # Example 0
-        self.request_strings.append('{"model": {"nwm": {"allocation_paradigm": "ROUND_ROBIN", "config_data_id": "1", "cpu_count": 1, "data_requirements": [{"category": "CONFIG", "domain": {"continuous": [], "data_format": "NWM_CONFIG", "discrete": [{"values": ["1"], "variable": "DATA_ID"}]}, "is_input": true}]}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
-        self.request_jsons.append({'model': {"nwm": {"allocation_paradigm": "ROUND_ROBIN", "config_data_id": "1", "cpu_count": 1, "data_requirements": [{"category": "CONFIG",
-                                                                                                   "domain": {
-            "continuous": [], "data_format": "NWM_CONFIG", "discrete": [{"values": ["1"], "variable": "DATA_ID"}]},
-                                                                                                   "is_input": True}]}},
-                                   'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'})
+        self.request_strings.append('{"allocation_paradigm": "ROUND_ROBIN", "cpu_count": 1, "job_type": "nwm", "request_body": {"nwm": {"config_data_id": "1", "data_requirements": [{"category": "CONFIG", "domain": {"continuous": [], "data_format": "NWM_CONFIG", "discrete": [{"values": ["1"], "variable": "DATA_ID"}]}, "is_input": true}]}}, "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
+
+        self.request_jsons.append({
+            "allocation_paradigm": "ROUND_ROBIN",
+            "cpu_count": 1,
+            "job_type": "nwm",
+            "request_body": {
+                "nwm": {
+                    "config_data_id": "1",
+                    "data_requirements": [
+                        {
+                            "category": "CONFIG",
+                            "domain": {
+                                "continuous": [],
+                                "data_format": "NWM_CONFIG",
+                                "discrete": [{"values": ["1"], "variable": "DATA_ID"}]
+                            },
+                            "is_input": True
+                        }
+                    ]
+                }
+            },
+            "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"})
         self.request_objs.append(
             NWMRequest(session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
                        cpu_count=1,
@@ -29,17 +46,45 @@ class TestNWMRequest(unittest.TestCase):
                        config_data_id="1"))
 
         # Example 1 - like example 0, but with the object initialized with the default 'parameters' value
-        self.request_strings.append('{"model": {"nwm": {"allocation_paradigm": "SINGLE_NODE", "config_data_id": "2", "cpu_count": 1, "data_requirements": [{"category": "CONFIG", "domain": {"continuous": [], "data_format": "NWM_CONFIG", "discrete": [{"values": ["2"], "variable": "DATA_ID"}]}, "is_input": true}]}}, "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
-        self.request_jsons.append({'model': {"nwm": {"allocation_paradigm": "SINGLE_NODE", "config_data_id": "2", "cpu_count": 1, "data_requirements": [{"category": "CONFIG",
+        self.request_strings.append('{"allocation_paradigm": "SINGLE_NODE", "cpu_count": 1, "job_type": "nwm", "request_body": {"nwm": {"config_data_id": "2", "data_requirements": [{"category": "CONFIG", "domain": {"continuous": [], "data_format": "NWM_CONFIG", "discrete": [{"values": ["2"], "variable": "DATA_ID"}]}, "is_input": true}]}}, "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
+        self.request_jsons.append({"allocation_paradigm": "SINGLE_NODE", "cpu_count": 1, "job_type": "nwm", "request_body": {"nwm": {"config_data_id": "2", "data_requirements": [{"category": "CONFIG",
                                                                                                    "domain": {
             "continuous": [], "data_format": "NWM_CONFIG", "discrete": [{"values": ["2"], "variable": "DATA_ID"}]},
                                                                                                    "is_input": True}]}},
-                                   'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'})
+                                   'session_secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'})
         self.request_objs.append(
             NWMRequest(session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
                        cpu_count=1,
                        allocation_paradigm='SINGLE_NODE',
                        config_data_id='2'))
+
+    def test_get_model_name_0_a(self):
+        """
+        Test that the correct model name is returned.
+        """
+        example_index = 0
+        obj = self.request_objs[example_index]
+        expected = "nwm"
+        actual = obj.get_model_name()
+        self.assertEqual(expected, actual)
+
+    def test_get_model_name_0_b(self):
+        """
+        Test that the model name returned matches the class variable.
+        """
+        example_index = 0
+        obj = self.request_objs[example_index]
+        expected = obj.__class__.model_name
+        actual = obj.get_model_name()
+        self.assertEqual(expected, actual)
+
+    def test_get_model_name_0_c(self):
+        """
+        Test that the model name matches the job type value.
+        """
+        example_index = 0
+        obj = self.request_objs[example_index]
+        self.assertEqual(obj.__class__.get_model_name(), obj.job_type)
 
     def test_factory_init_from_deserialized_json_0_a(self):
         """
