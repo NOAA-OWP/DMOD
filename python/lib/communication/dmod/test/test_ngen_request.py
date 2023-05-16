@@ -8,6 +8,7 @@ from dmod.core.meta_data import DataFormat, TimeRange
 class TestNGENRequest(unittest.TestCase):
 
     def setUp(self) -> None:
+        self.request_cpu_counts = []
         self.request_strings = []
         self.request_jsons = []
         self.request_objs = []
@@ -26,107 +27,168 @@ class TestNGENRequest(unittest.TestCase):
         # Example 0
         time_range = create_time_range('2022-01-01 00:00:00', '2022-03-01 00:00:00')
         cpu_count_ex_0 = 4
+        self.request_cpu_counts.append(cpu_count_ex_0)
         self.time_ranges.append(time_range)
         self.request_strings.append(
-            '{"model": '
-                '{"allocation_paradigm": "SINGLE_NODE", "bmi_config_data_id": "02468", "config_data_id": "02468", "cpu_count": ' + str(cpu_count_ex_0) + ', '
-                '"hydrofabric_data_id": "9876543210", "hydrofabric_uid": "0123456789", "name": "ngen", "time_range": '
-                + time_range.to_json() + '}, '
+            '{"allocation_paradigm": "SINGLE_NODE", "cpu_count": ' + str(cpu_count_ex_0) + ', "job_type": "ngen", '
+            '"request_body": '
+                '{"bmi_config_data_id": "02468", "hydrofabric_data_id": "9876543210", "hydrofabric_uid": "0123456789", '
+                '"partition_config_data_id": "part1234", "realization_config_data_id": "02468", '
+                '"time_range": ' + time_range.to_json() + '}, '
             '"session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
         self.request_jsons.append({
-            'model': {
-                'name': 'ngen',
-                'allocation_paradigm': 'SINGLE_NODE',
-                'cpu_count': cpu_count_ex_0,
+            'allocation_paradigm': 'SINGLE_NODE',
+            'cpu_count': cpu_count_ex_0,
+            'job_type': 'ngen',
+            'request_body': {
                 'time_range': time_range.to_dict(),
                 'hydrofabric_data_id': '9876543210',
                 'hydrofabric_uid': '0123456789',
                 'bmi_config_data_id': '02468',
-                'config_data_id': '02468'
+                'realization_config_data_id': '02468',
+                'partition_config_data_id': 'part1234'
             },
             'session_secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
         })
         self.request_objs.append(
-            NGENRequest(session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
-                        cpu_count=cpu_count_ex_0,
-                        allocation_paradigm='SINGLE_NODE',
-                        time_range=time_range,
-                        hydrofabric_uid="0123456789",
-                        hydrofabric_data_id='9876543210',
-                        bmi_cfg_data_id='02468',
-                        config_data_id='02468'))
+            NGENRequest(request_body={
+                'time_range': time_range,
+                'hydrofabric_data_id': '9876543210',
+                'hydrofabric_uid': "0123456789",
+                'bmi_config_data_id': '02468',
+                'partition_cfg_data_id': 'part1234',
+                'realization_config_data_id': '02468'},
+                session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
+                cpu_count=cpu_count_ex_0,
+                allocation_paradigm='SINGLE_NODE'))
 
         # Example 1 - like example 0, but with the object initialized with specific catchment subset
         time_range = create_time_range('2022-01-01 00:00:00', '2022-04-01 00:00:00')
         cpu_count_ex_1 = 2
+        self.request_cpu_counts.append(cpu_count_ex_1)
         cat_ids_list = ['cat-1', 'cat-2', 'cat-3']
         cat_ids_str = '["{}", "{}", "{}"]'.format(*cat_ids_list)
         #cat_ids_list = ['cat-1', 'cat-2', 'cat-3']
         #cat_ids_list = []
         self.time_ranges.append(time_range)
         self.request_strings.append(
-            '{"model": '
-                '{"allocation_paradigm": "ROUND_ROBIN", "bmi_config_data_id": "02468", "catchments": ' + cat_ids_str + ', "config_data_id": "02468", '
-                '"cpu_count": ' + str(cpu_count_ex_1) + ', "hydrofabric_data_id": "9876543210", '
-                '"hydrofabric_uid": "0123456789", "name": "ngen", "time_range": ' + time_range.to_json() + '}, '
+            '{"allocation_paradigm": "ROUND_ROBIN", "cpu_count": ' + str(cpu_count_ex_1) + ', "job_type": "ngen", '
+            '"request_body": '
+                '{"bmi_config_data_id": "02468", "catchments": ' + cat_ids_str + ', "hydrofabric_data_id": "9876543210", '
+                '"hydrofabric_uid": "0123456789", "partition_config_data_id": "part1234", '
+                '"realization_config_data_id": "02468", "time_range": ' + time_range.to_json() + '}, '
             '"session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
         self.request_jsons.append({
-            'model': {
-                'name': 'ngen',
-                'allocation_paradigm': 'ROUND_ROBIN',
-                'cpu_count': cpu_count_ex_1,
+            'allocation_paradigm': 'ROUND_ROBIN',
+            'cpu_count': cpu_count_ex_1,
+            'job_type': 'ngen',
+            'request_body': {
                 'time_range': time_range.to_dict(),
                 'hydrofabric_data_id': '9876543210',
                 'hydrofabric_uid': '0123456789',
-                'config_data_id': '02468',
+                'realization_config_data_id': '02468',
                 'bmi_config_data_id': '02468',
-                'catchments': cat_ids_list
+                'catchments': cat_ids_list,
+                'partition_config_data_id': 'part1234'
             },
             'session_secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
         })
         self.request_objs.append(
-            NGENRequest(session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
-                        cpu_count=cpu_count_ex_1,
-                        allocation_paradigm='ROUND_ROBIN',
-                        time_range=time_range,
-                        hydrofabric_uid="0123456789",
-                        hydrofabric_data_id='9876543210',
-                        config_data_id='02468',
-                        bmi_cfg_data_id='02468',
-                        catchments=cat_ids_list))
+            NGENRequest(
+                session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
+                cpu_count=cpu_count_ex_1,
+                allocation_paradigm='ROUND_ROBIN',
+                request_body={
+                'time_range': time_range,
+                'hydrofabric_uid': "0123456789",
+                'hydrofabric_data_id': '9876543210',
+                'realization_config_data_id': '02468',
+                'bmi_config_data_id': '02468',
+                'catchments': cat_ids_list,
+                'partition_cfg_data_id': 'part1234'}))
 
         # Example 2 - like example 0, but with a CPU count of 1 (which should not require partitioning)
         time_range = create_time_range('2022-01-01 00:00:00', '2022-03-01 00:00:00')
         cpu_count_ex_2 = 1
+        self.request_cpu_counts.append(cpu_count_ex_2)
         self.time_ranges.append(time_range)
         self.request_strings.append(
-            '{"model": {"allocation_paradigm": "SINGLE_NODE", "bmi_config_data_id": "02468", "config_data_id": "02468", '
-            '"cpu_count": ' + str(cpu_count_ex_2) + ', "hydrofabric_data_id": "9876543210", '
-            '"hydrofabric_uid": "0123456789", "name": "ngen", "time_range": ' + time_range.to_json() + '}, '
-            '"session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}'
+            '{"allocation_paradigm": "SINGLE_NODE", "cpu_count": ' + str(cpu_count_ex_2) + ', "job_type": "ngen", '
+            '"request_body": {"bmi_config_data_id": "02468", '
+            '"hydrofabric_data_id": "9876543210", '
+            '"hydrofabric_uid": "0123456789", "realization_config_data_id": "02468", "time_range": ' + time_range.to_json() + '}, '
+            '"session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}'
         )
         self.request_jsons.append({
-            'model': {
-                'name': 'ngen',
-                'allocation_paradigm': 'SINGLE_NODE',
-                'cpu_count': cpu_count_ex_2,
+            'allocation_paradigm': 'SINGLE_NODE',
+            'cpu_count': cpu_count_ex_2,
+            'job_type': 'ngen',
+            'request_body': {
                 'time_range': time_range.to_dict(),
                 'hydrofabric_data_id': '9876543210',
                 'hydrofabric_uid': '0123456789',
                 'bmi_config_data_id': '02468',
-                'config_data_id': '02468'
+                'realization_config_data_id': '02468'
             },
-            'session-secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
+            'session_secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
         })
         self.request_objs.append(
-            NGENRequest(session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
-                        cpu_count=cpu_count_ex_2,
-                        allocation_paradigm='SINGLE_NODE',
-                        time_range=time_range,
-                        hydrofabric_uid="0123456789",
-                        hydrofabric_data_id='9876543210',
-                        bmi_cfg_data_id='02468',
-                        config_data_id='02468'))
+            NGENRequest(
+                session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
+                cpu_count=cpu_count_ex_2,
+                allocation_paradigm='SINGLE_NODE',
+                request_body={
+                'time_range': time_range,
+                'hydrofabric_uid': "0123456789",
+                'hydrofabric_data_id': '9876543210',
+                'bmi_config_data_id': '02468',
+                'realization_config_data_id': '02468'}))
+
+    def test_cpu_count_0_a(self):
+        example_index = 0
+        obj = self.request_objs[example_index]
+        expected = self.request_cpu_counts[example_index]
+        self.assertEqual(expected, obj.cpu_count)
+
+    def test_cpu_count_1_a(self):
+        example_index = 1
+        obj = self.request_objs[example_index]
+        expected = self.request_cpu_counts[example_index]
+        self.assertEqual(expected, obj.cpu_count)
+
+    def test_cpu_count_2_a(self):
+        example_index = 2
+        obj = self.request_objs[example_index]
+        expected = self.request_cpu_counts[example_index]
+        self.assertEqual(expected, obj.cpu_count)
+
+    def test_get_model_name_0_a(self):
+        """
+        Test that the correct model name is returned.
+        """
+        example_index = 0
+        obj = self.request_objs[example_index]
+        expected = "ngen"
+        actual = obj.get_model_name()
+        self.assertEqual(expected, actual)
+
+    def test_get_model_name_0_b(self):
+        """
+        Test that the model name returned matches the class variable.
+        """
+        example_index = 0
+        obj = self.request_objs[example_index]
+        expected = obj.__class__.model_name
+        actual = obj.get_model_name()
+        self.assertEqual(expected, actual)
+
+    def test_get_model_name_0_c(self):
+        """
+        Test that the model name matches the job type value.
+        """
+        example_index = 0
+        obj = self.request_objs[example_index]
+        self.assertEqual(obj.__class__.get_model_name(), obj.job_type)
 
     def test_factory_init_from_deserialized_json_0_a(self):
         """
