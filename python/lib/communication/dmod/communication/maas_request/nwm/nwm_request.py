@@ -1,6 +1,5 @@
-from typing import ClassVar, List, Optional, Union
+from typing import ClassVar, List, Literal
 
-from dmod.core.execution import AllocationParadigm
 from dmod.core.meta_data import (
     DataFormat,
     DataRequirement,
@@ -14,13 +13,15 @@ from .nwm_exec_request_body import NWMRequestBody
 class NWMRequest(ModelExecRequest):
 
     event_type: ClassVar[MessageEventType] = MessageEventType.MODEL_EXEC_REQUEST
-    """(:class:`MessageEventType`) The type of event for this message"""
-    # Once more the case senstivity of this model name is called into question
+    """(::class:`MessageEventType`) The type of event for this message. """
+    # Once more the case sensitivity of model_name/job_type is called into question
     # note: this is essentially keyed to image_and_domain.yml and the cases must match!
     model_name: ClassVar[str] = "nwm"
-    """(:class:`str`) The name of the model to be used"""
+    """ (::class:`str`) The name of the model to be used. """
+    job_type: Literal["nwm"] = model_name
+    """ (::class:`str`) The name of the job type from such a request, which for this type is the model name. """
 
-    model: NWMRequestBody
+    request_body: NWMRequestBody
 
     @classmethod
     def factory_init_correct_response_subtype(
@@ -43,34 +44,22 @@ class NWMRequest(ModelExecRequest):
         self,
         # required in prior version of code
         config_data_id: str = None,
-        # optional in prior version of code
-        cpu_count: Optional[int] = None,
-        allocation_paradigm: Optional[Union[str, AllocationParadigm]] = None,
         **data
     ):
         # assume no need for backwards compatibility
-        if "model" in data:
+        if "request_body" in data:
             super().__init__(**data)
-            return
-
-        data["model"] = dict()
-        nwm_inner_request_body = {"config_data_id": config_data_id}
-
-        if cpu_count is not None:
-            nwm_inner_request_body["cpu_count"] = cpu_count
-
-        if allocation_paradigm is not None:
-            nwm_inner_request_body["allocation_paradigm"] = allocation_paradigm
-
-        data["model"]["nwm"] = nwm_inner_request_body
-
-        super().__init__(**data)
+        else:
+            data["request_body"] = dict()
+            nwm_inner_request_body = {"config_data_id": config_data_id}
+            data["request_body"]["nwm"] = nwm_inner_request_body
+            super().__init__(**data)
 
     @classmethod
     def get_model_name(cls) -> str:
         # NOTE: overridden b.c. nwm request has nested model field. In the future we should be able
         # to remove this.
-        return cls.__fields__["model"].type_.__fields__["nwm"].type_.__fields__["name"].default
+        return cls.__fields__["request_body"].type_.__fields__["nwm"].type_.__fields__["name"].default
 
     @property
     def data_requirements(self) -> List[DataRequirement]:
@@ -82,7 +71,7 @@ class NWMRequest(ModelExecRequest):
         List[DataRequirement]
             List of all the explicit and implied data requirements for this request.
         """
-        return self.model.data_requirements
+        return self.request_body.data_requirements
 
     @property
     def output_formats(self) -> List[DataFormat]:
