@@ -1,27 +1,33 @@
 from dmod.core.execution import AllocationParadigm
-from .maas_request import ModelExecRequest, ModelExecRequestResponse
-from .maas_request.dmod_job_request import DmodJobRequest
+from .maas_request import ModelExecRequest
 from .message import AbstractInitRequest, MessageEventType, Response
 from .scheduler_request_response_body import SchedulerRequestResponseBody, UNSUCCESSFUL_JOB
 from pydantic import Field, PrivateAttr, validator
 from typing import ClassVar, Dict, Optional, Type, Union
 
 
-
-# TODO: #pydantic_rebase - Make sure everything is properly placed after changes to superclass
-class SchedulerRequestMessage(DmodJobRequest):
+class SchedulerRequestMessage(AbstractInitRequest):
+    """
+    Message type for communicating with the scheduler to actually schedule execution of a requested job.
+    """
 
     event_type: ClassVar[MessageEventType] = MessageEventType.SCHEDULER_REQUEST
     """ :class:`MessageEventType`: the event type for this message implementation """
 
+    # TODO: #needs_issue - this may belong somewhere else, like in DmodJobRequest
+    _default_memory: ClassVar[int] = 500_000
+
+    # TODO: #needs_issue - this may need to be changed to DmodJobRequest or made Generic
     model_request: ModelExecRequest = Field(description="The underlying request for a job to be scheduled.")
+    # TODO: #needs_issue - this may need to be moved to DmodJobRequest
     user_id: str = Field(description="The associated user id for this scheduling request.")
-    memory: int = Field(500_000, description="The amount of memory, in bytes, requested for the scheduling of this job.")
+    memory: int = Field(None, description="The amount of memory, in bytes, requested for the scheduling of this job.")
     cpus_: Optional[int] = Field(description="The number of processors requested for the scheduling of this job.")
     allocation_paradigm_: Optional[AllocationParadigm]
 
     _memory_unset: bool = PrivateAttr()
 
+    # TODO: #needs_issue - if the above member is changed to DmodJobRequest, this will need to be updated to reflect
     @validator("model_request", pre=True)
     def _factory_init_model_request(cls, value):
         if isinstance(value, ModelExecRequest):
@@ -59,32 +65,11 @@ class SchedulerRequestMessage(DmodJobRequest):
         """
         return AllocationParadigm.get_default_selection().name
 
-    # TODO: may need to generalize the underlying request to support, say, scheduling evaluation jobs
-    # TODO: #pydantic_rebase - account for several changes here
-    def __init__(
-        self,
-        model_request: ModelExecRequest,
-        user_id: str,
-        cpus: Optional[int] = None,
-        mem: Optional[int] = None,
-        allocation_paradigm: Optional[Union[str, AllocationParadigm]] = None,
-        **data
-    ):
-        # TODO: #pydantic_rebase - This part no longer makes sense, but make sure config_data_id is properly being handle by init
-        # if 'config_data_id' not in kwargs and len(args) == 0:
-        #     kwargs['config_data_id'] = model_request.config_data_id
-        # elif (args[0] if len(args) > 0 else kwargs['config_data_id']) != model_request.config_data_id:
-        #     raise ValueError('Bad init value for "config_data_id" that does not match model_request')
-        super().__init__(
-            model_request=model_request,
-            user_id=user_id,
-            cpus=cpus or data.pop("cpus_", None),
-            memory=mem or data.pop("memory", None) or self.__fields__["memory"].default,
-            allocation_paradigm=allocation_paradigm or data.pop("allocation_paradigm_", None),
-            **data
-        )
-        if mem is None:
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if self.memory is None:
             self._memory_unset = True
+            self.memory = self._default_memory
         else:
             self._memory_unset = False
 
@@ -121,11 +106,6 @@ class SchedulerRequestMessage(DmodJobRequest):
         return self.model_request.cpu_count if self.cpus_ is None else self.cpus_
 
     @property
-    def data_requirements(self) -> List[DataRequirement]:
-        return self.model_request.data_requirements
-
-
-    @property
     def memory_unset(self) -> bool:
         """
         Whether a default amount for job scheduling memory amount was used, because no explicit amount was provided.
@@ -148,10 +128,6 @@ class SchedulerRequestMessage(DmodJobRequest):
             The nested event type of the request this message is trying to have scheduled.
         """
         return self.model_request.get_message_event_type()
-
-    @property
-    def output_formats(self) -> List[DataFormat]:
-        return self.model_request.output_formats
 
     def dict(
         self,
