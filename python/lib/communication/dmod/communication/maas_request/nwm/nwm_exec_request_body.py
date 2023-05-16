@@ -1,4 +1,4 @@
-from pydantic import root_validator
+from pydantic import Field, root_validator
 
 from dmod.core.meta_data import (
     DataCategory,
@@ -9,13 +9,14 @@ from dmod.core.meta_data import (
 )
 from dmod.core.execution import AllocationParadigm
 from dmod.core.serializable import Serializable
-from ..model_exec_request_body import ModelExecRequestBody
 
 from typing import List, Literal
 
 
-class NWMInnerRequestBody(ModelExecRequestBody):
+class NWMInnerRequestBody(Serializable):
     name: Literal["nwm"] = "nwm"
+
+    config_data_id: str = Field(description="Unique id of the config dataset for this request.")
 
     # NOTE: default value, `None`, is not validated by pydantic
     data_requirements: List[DataRequirement] = None
