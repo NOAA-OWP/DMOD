@@ -150,7 +150,9 @@ class TestWebSocketInterface(WebSocketInterfaceTestBase):
         self.example_request_data.append({"username": "someone", "user_secret": "something"})
 
         self.example_request_data.append({
-            "model": {
+            "allocation_paradigm": "ROUND_ROBIN",
+            "cpu_count": 2,
+            "request_body": {
                 "nwm": {
                     "config_data_id": "1",
                     "data_requirements": [{
@@ -160,7 +162,7 @@ class TestWebSocketInterface(WebSocketInterfaceTestBase):
                                                       "discrete": [{"variable": "data_id", "values": ["1"]}]}}]
                 }
             },
-            "session-secret": "3fc9b689459d738f8c88a3a48aa9e33542016b7a4052e001aaa536fca74813cb",
+            "session_secret": "3fc9b689459d738f8c88a3a48aa9e33542016b7a4052e001aaa536fca74813cb",
         })
 
         self.example_request_data.append(
@@ -343,7 +345,7 @@ class TestWebSocketInterface(WebSocketInterfaceTestBase):
         data = self.example_request_data[ex_indx]
         expected_event = MessageEventType.INVALID
 
-        data.pop('model')
+        data.pop('request_body')
         event_type, errors = self.request_handler._parse_request_type(data=data, check_for_auth=False)
 
         self.assertEqual(event_type, expected_event)
