@@ -4,7 +4,7 @@ from typing import ClassVar, Dict, Optional, Type, Union
 from pydantic import Field, root_validator
 
 from dmod.core.enum import PydanticEnum
-from dmod.core.serializable import SerializedDict
+from dmod.core.serializable import Serializable
 
 
 class MetadataPurpose(PydanticEnum):
@@ -28,7 +28,7 @@ class MetadataPurpose(PydanticEnum):
         return None
 
 
-class MetadataSignal(SerializedDict):
+class MetadataSignal(Serializable):
     purpose: MetadataPurpose
     metadata_follows: bool = False
 
