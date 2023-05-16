@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from numbers import Number
-from typing import Dict, List, Optional, Set, Union
+from typing import List, Optional
+from pydantic import PrivateAttr
 
 from dmod.core.meta_data import (
     DataCategory,
@@ -13,6 +13,7 @@ from dmod.core.meta_data import (
 
 from ..dmod_job_request import DmodJobRequest
 from ..model_exec_request import ExternalRequest
+from .ngen_exec_request_body import NGENRequestBody
 
 
 class AbstractNgenRequest(DmodJobRequest, ABC):
@@ -44,148 +45,24 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
     level.
     """
 
-    @classmethod
-    def deserialize_for_init(cls, json_obj: dict) -> dict:
-        """
-        Deserialize a JSON representation to the keyword args needed for use with this type's ::method:`__init__`.
+    request_body: NGENRequestBody
 
-        Parameters
-        ----------
-        json_obj: dict
-            A serialized JSON representation of an instance.
+    _hydrofabric_data_requirement = PrivateAttr(None)
+    _forcing_data_requirement = PrivateAttr(None)
+    _realization_cfg_data_requirement = PrivateAttr(None)
+    _bmi_cfg_data_requirement = PrivateAttr(None)
+    _partition_cfg_data_requirement = PrivateAttr(None)
 
-        Returns
-        -------
-        dict
-            A dictionary containing the keyword args (both required and any contained optional) necessary for
-            initializing an instance, with the values deserialized from the received JSON.
-        """
-        deserialized_kwargs = dict()
-        deserialized_kwargs["time_range"] = TimeRange.factory_init_from_deserialized_json(json_obj["time_range"])
-        deserialized_kwargs["hydrofabric_uid"] = json_obj["hydrofabric_uid"]
-        deserialized_kwargs["hydrofabric_data_id"] = json_obj["hydrofabric_data_id"]
-        deserialized_kwargs["config_data_id"] = json_obj["config_data_id"]
-        deserialized_kwargs["bmi_cfg_data_id"] = json_obj["bmi_config_data_id"]
-
-        if "cpu_count" in json_obj:
-            deserialized_kwargs["cpu_count"] = json_obj["cpu_count"]
-        if "allocation_paradigm" in json_obj:
-            deserialized_kwargs["allocation_paradigm"] = json_obj["allocation_paradigm"]
-        if "catchments" in json_obj:
-            deserialized_kwargs["catchments"] = json_obj["catchments"]
-        if "partition_config_data_id" in json_obj:
-            deserialized_kwargs["partition_config_data_id"] = json_obj["partition_config_data_id"]
-
-        return deserialized_kwargs
-
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict) -> Optional["AbstractNgenRequest"]:
-        """
-        Deserialize request formated as JSON to an instance.
-
-        See the documentation of this type's ::method:`to_dict` for an example of the format of valid JSON.
-
-        Parameters
-        ----------
-        json_obj : dict
-            The serialized JSON representation of a request object.
-
-        Returns
-        -------
-        The deserialized ::class:`NGENRequest`, or ``None`` if the JSON was not valid for deserialization.
-
-        See Also
-        -------
-        ::method:`to_dict`
-        """
-        try:
-            keyword_args = cls.deserialize_for_init(json_obj)
-            return cls(**keyword_args)
-        except Exception as e:
-            return None
+    class Config:
+        fields = {
+            "partition_cfg_data_id": {"alias": "partition_config_data_id"},
+        }
 
     def __eq__(self, other):
-        return (
-                self.time_range == other.time_range
-                and self.hydrofabric_data_id == other.hydrofabric_data_id
-                and self.hydrofabric_uid == other.hydrofabric_uid
-                and self.config_data_id == other.config_data_id
-                and self.bmi_config_data_id == other.bmi_config_data_id
-                and self.cpu_count == other.cpu_count
-                and self.partition_cfg_data_id == other.partition_cfg_data_id
-                and self.catchments == other.catchments
-        )
+        return super().__eq__(other) and self.request_body == other.request_body
 
     def __hash__(self):
-        hash_str = "{}-{}-{}-{}-{}-{}-{}-{}".format(
-            self.time_range.to_json(),
-            self.hydrofabric_data_id,
-            self.hydrofabric_uid,
-            self.config_data_id,
-            self.bmi_config_data_id,
-            self.cpu_count,
-            self.partition_cfg_data_id,
-            ",".join(self.catchments),
-        )
-        return hash(hash_str)
-
-    def __init__(self,
-                 time_range: TimeRange,
-                 hydrofabric_uid: str,
-                 hydrofabric_data_id: str,
-                 bmi_cfg_data_id: str,
-                 catchments: Optional[Union[Set[str], List[str]]] = None,
-                 partition_cfg_data_id: Optional[str] = None,
-                 *args,
-                 **kwargs):
-        """
-        Initialize an instance.
-
-        Parameters
-        ----------
-        time_range : TimeRange
-            A definition of the time range for the requested model execution.
-        hydrofabric_uid : str
-            The unique ID of the applicable hydrofabric for modeling, which provides the outermost geospatial domain.
-        hydrofabric_data_id : str
-            A data identifier for the hydrofabric, for distinguishing between different hydrofabrics that cover the same
-            set of catchments and nexuses (i.e., the same sets of catchment and nexus ids).
-        catchments : Optional[Union[Set[str], List[str]]]
-            An optional collection of the catchment ids to narrow the geospatial domain, where the default of ``None``
-            or an empty collection implies all catchments in the hydrofabric.
-        bmi_cfg_data_id : Optional[str]
-            The optioanl BMI init config ``data_id`` index, for identifying the particular BMI init config datasets
-            applicable to this request.
-
-        Keyword Args
-        -----------
-        config_data_id : str
-            The config data id index, for identifying the particular configuration datasets applicable to this request.
-        session_secret : str
-            The session secret for the right session when communicating with the MaaS request handler
-        """
-        super(AbstractNgenRequest, self).__init__(*args, **kwargs)
-        self._time_range = time_range
-        self._hydrofabric_uid = hydrofabric_uid
-        self._hydrofabric_data_id = hydrofabric_data_id
-        self._bmi_config_data_id = bmi_cfg_data_id
-        self._part_config_data_id = partition_cfg_data_id
-        # Convert an initial list to a set to remove duplicates
-        try:
-            catchments = set(catchments)
-        # TypeError should mean that we received `None`, so just use that to set _catchments
-        except TypeError:
-            self._catchments = catchments
-        # Assuming we have a set now, move this set back to list and sort
-        else:
-            self._catchments = list(catchments)
-            self._catchments.sort()
-
-        self._hydrofabric_data_requirement = None
-        self._forcing_data_requirement = None
-        self._realization_cfg_data_requirement = None
-        self._bmi_cfg_data_requirement = None
-        self._partition_cfg_data_requirement = None
+        return hash((super().__hash__(), self.request_body))
 
     def _gen_catchments_domain_restriction(self, var_name: str = "catchment_id") -> DiscreteRestriction:
         """
@@ -213,26 +90,6 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
         )
 
     @property
-    def data_requirements(self) -> List[DataRequirement]:
-        """
-        List of all the explicit and implied data requirements for this request, as needed for creating a job object.
-
-        Returns
-        -------
-        List[DataRequirement]
-            List of all the explicit and implied data requirements for this request.
-        """
-        requirements = [
-            self.bmi_cfg_data_requirement,
-            self.forcing_data_requirement,
-            self.hydrofabric_data_requirement,
-            self.realization_cfg_data_requirement,
-        ]
-        if self.use_parallel_ngen:
-            requirements.append(self.partition_cfg_data_requirement)
-        return requirements
-
-    @property
     def bmi_config_data_id(self) -> str:
         """
         The index value of ``data_id`` to uniquely identify sets of BMI module config data that are otherwise similar.
@@ -242,7 +99,7 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
         str
             Index value of ``data_id`` to uniquely identify sets of BMI module config data that are otherwise similar.
         """
-        return self._bmi_config_data_id
+        return self.request_body.bmi_config_data_id
 
     @property
     def bmi_cfg_data_requirement(self) -> DataRequirement:
@@ -265,7 +122,7 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
                 discrete_restrictions=bmi_config_restrict,
             )
             self._bmi_cfg_data_requirement = DataRequirement(
-                bmi_config_domain, True, DataCategory.CONFIG
+                domain=bmi_config_domain, is_input=True, category=DataCategory.CONFIG
             )
         return self._bmi_cfg_data_requirement
 
@@ -281,8 +138,35 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
         Optional[List[str]]
             An optional list of catchment ids for those catchments in the request ngen execution.
         """
-        return self._catchments
+        return self.request_body.catchments
 
+    @property
+    def data_requirements(self) -> List[DataRequirement]:
+        """
+        List of all the explicit and implied data requirements for this request, as needed for creating a job object.
+
+        Returns
+        -------
+        List[DataRequirement]
+            List of all the explicit and implied data requirements for this request.
+        """
+        requirements = [
+            self.bmi_cfg_data_requirement,
+            self.forcing_data_requirement,
+            self.hydrofabric_data_requirement,
+            self.realization_cfg_data_requirement,
+        ]
+        if self.use_parallel_ngen:
+            requirements.append(self.partition_cfg_data_requirement)
+        return requirements
+
+    def dict(self, **kwargs) -> dict:
+        # if exclude is set, ignore this _get_exclude_fields()
+        if kwargs.get("exclude", False) is False:
+            kwargs["exclude"] = {f for f in ("catchments", "partition_cfg_data_id") if not self.__getattribute__(f)}
+        return super().dict(**kwargs)
+
+    # TODO: #needs_issue - Account for option when forcing dataset is explicitly provided
     @property
     def forcing_data_requirement(self) -> DataRequirement:
         """
@@ -297,7 +181,7 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
             # TODO: going to need to address the CSV usage later
             forcing_domain = DataDomain(
                 data_format=DataFormat.AORC_CSV,
-                continuous_restrictions=[self._time_range],
+                continuous_restrictions=[self.time_range],
                 discrete_restrictions=[self._gen_catchments_domain_restriction()],
             )
             self._forcing_data_requirement = DataRequirement(
@@ -318,10 +202,10 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
         if self._hydrofabric_data_requirement is None:
             hydro_restrictions = [
                 DiscreteRestriction(
-                    variable="hydrofabric_id", values=[self._hydrofabric_uid]
+                    variable="hydrofabric_id", values=[self.hydrofabric_uid]
                 ),
                 DiscreteRestriction(
-                    variable="data_id", values=[self._hydrofabric_data_id]
+                    variable="data_id", values=[self.hydrofabric_data_id]
                 ),
             ]
             hydro_domain = DataDomain(
@@ -348,7 +232,7 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
         str
             The data format ``data_id`` for the hydrofabric dataset to use in requested modeling.
         """
-        return self._hydrofabric_data_id
+        return self.request_body.hydrofabric_data_id
 
     @property
     def hydrofabric_uid(self) -> str:
@@ -360,8 +244,10 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
         str
             The unique id of the hydrofabric for this modeling request.
         """
-        return self._hydrofabric_uid
+        return self.request_body.hydrofabric_uid
 
+    # TODO: #needs_issue - this probably needs to be in the NgenRequest implementation, with the ngen-cal request having
+    #  its own specific output format(s)
     @property
     def output_formats(self) -> List[DataFormat]:
         """
@@ -389,7 +275,7 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
         Optional[str]
             The data format ``data_id`` for the partition config dataset to use in requested modeling, or ``None``.
         """
-        return self._part_config_data_id
+        return self.request_body.partition_cfg_data_id
 
     @property
     def partition_cfg_data_requirement(self) -> DataRequirement:
@@ -446,7 +332,7 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
         str
             The index value of ``data_id`` to uniquely identify the required realization config dataset.
         """
-        return self.config_data_id
+        return self.request_body.realization_config_data_id
 
     @property
     def realization_cfg_data_requirement(self) -> DataRequirement:
@@ -485,47 +371,7 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
         TimeRange
             The time range for the requested model execution.
         """
-        return self._time_range
-
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        """
-        Converts the request to a dictionary that may be passed to web requests.
-
-        Will look like:
-
-        {
-            'allocation_paradigm': <allocation_paradigm_str>,
-            'cpu_count': <cpu_count>,
-            'time_range': { <serialized_time_range_object> },
-            'hydrofabric_data_id': 'hy-data-id-val',
-            'hydrofabric_uid': 'hy-uid-val',
-            'config_data_id': 'config-data-id-val',
-            'bmi_config_data_id': 'bmi-config-data-id',
-            'partition_config_data_id': 'partition_config_data_id',
-            ['catchments': { <serialized_catchment_discrete_restriction_object> },]
-        }
-
-        As a reminder, the ``catchments`` item may be absent, which implies the object does not have a specified list of
-        catchment ids.
-
-        Returns
-        -------
-        Dict[str, Union[str, Number, dict, list]]
-            A dictionary containing all the data in such a way that it may be used by a web request
-        """
-        serial = dict()
-        serial["allocation_paradigm"] = self.allocation_paradigm.name
-        serial["cpu_count"] = self.cpu_count
-        serial["time_range"] = self.time_range.to_dict()
-        serial["hydrofabric_data_id"] = self.hydrofabric_data_id
-        serial["hydrofabric_uid"] = self.hydrofabric_uid
-        serial["config_data_id"] = self.config_data_id
-        serial["bmi_config_data_id"] = self._bmi_config_data_id
-        if self.catchments is not None:
-            serial["catchments"] = self.catchments
-        if self.partition_cfg_data_id is not None:
-            serial["partition_config_data_id"] = self.partition_cfg_data_id
-        return serial
+        return self.request_body.time_range
 
     @property
     def use_parallel_ngen(self) -> bool:
@@ -580,28 +426,6 @@ class ExternalAbstractNgenRequest(ExternalRequest, AbstractNgenRequest, ABC):
     ::class:`AbstractNgenRequest` are extended to properly account for this property (e.g., ::method:`__eq__`).
     """
 
-    @classmethod
-    def deserialize_for_init(cls, json_obj: dict) -> dict:
-        """
-        Deserialize a JSON representation to the keyword args needed for use with this type's ::method:`__init__`.
-
-        Builds on the superclass's implementation by append the ::attribute:`session_secret` property value.
-
-        Parameters
-        ----------
-        json_obj: dict
-            A serialized JSON representation of an instance.
-
-        Returns
-        -------
-        dict
-            A dictionary containing the keyword args (both required and any contained optional) necessary for
-            initializing an instance, with the values deserialized from the received JSON.
-        """
-        deserialized_kwargs = super().deserialize_for_init(json_obj)
-        deserialized_kwargs["session_secret"] = json_obj["session_secret"]
-        return deserialized_kwargs
-
     def __eq__(self, other):
         return super().__eq__(other) and self.session_secret == other.session_secret
 
@@ -610,7 +434,7 @@ class ExternalAbstractNgenRequest(ExternalRequest, AbstractNgenRequest, ABC):
             self.time_range.to_json(),
             self.hydrofabric_data_id,
             self.hydrofabric_uid,
-            self.config_data_id,
+            self.realization_config_data_id,
             self.bmi_config_data_id,
             self.session_secret,
             self.cpu_count,
@@ -618,8 +442,3 @@ class ExternalAbstractNgenRequest(ExternalRequest, AbstractNgenRequest, ABC):
             ",".join(self.catchments),
         )
         return hash(hash_str)
-
-    def to_dict(self) -> Dict[str, Union[str, Number, dict, list]]:
-        serial = super().to_dict()
-        serial["session_secret"] = self.session_secret
-        return serial
