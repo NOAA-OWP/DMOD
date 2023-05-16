@@ -1,12 +1,8 @@
 from abc import ABC
-
-from typing import ClassVar, Dict, Optional, Union
-
-from dmod.core.execution import AllocationParadigm
+from typing import ClassVar, Dict
 from ..message import MessageEventType
 from .dmod_job_request import DmodJobRequest
 from .external_request import ExternalRequest
-from .model_exec_request_body import ModelExecRequestBody
 
 
 def get_available_models() -> Dict[str, "ModelExecRequest"]:
@@ -38,17 +34,17 @@ def get_available_models() -> Dict[str, "ModelExecRequest"]:
 class ModelExecRequest(ExternalRequest, DmodJobRequest, ABC):
     """
     An abstract extension of ::class:`DmodJobRequest` for requesting model execution jobs.
+
+    Note that subtypes must ensure they define both the ::attribute:`model_name` class attribute and the
+    ::attribute:`job_type` instance attribute to the same value.  The latter will be a discriminator, so should be
+    defined as a fixed ::class:`Literal`. The ::method:`factory_init_correct_subtype_from_deserialized_json` class
+    function requires this to work correctly.
     """
 
     event_type: ClassVar[MessageEventType] = MessageEventType.MODEL_EXEC_REQUEST
-
-    model_name: ClassVar[str] = None
-    """(:class:`str`) The name of the model to be used"""
-
-    _DEFAULT_CPU_COUNT: ClassVar[int] = 1
-    """ The default number of CPUs to assume are being requested for the job, when not explicitly provided. """
-
-    model: ModelExecRequestBody
+    """ (::class:`MessageEventType`) The type of event for this message. """
+    model_name: ClassVar[str]
+    """ (::class:`str`) The name of the model to be used. """
 
     @classmethod
     def factory_init_correct_subtype_from_deserialized_json(
@@ -72,111 +68,15 @@ class ModelExecRequest(ExternalRequest, DmodJobRequest, ABC):
             A deserialized ::class:`ModelExecRequest` of the appropriate subtype.
         """
         try:
-            model = json_obj["model"]
-
-            # TODO: remove logic once `nwm` ModelExecRequest changes where it store the model name.
-            model_name = model["name"] if "name" in model else "nwm"
+            job_type = json_obj["job_type"]
             models = get_available_models()
-
-            return models[model_name].factory_init_from_deserialized_json(json_obj)
+            return models[job_type].factory_init_from_deserialized_json(json_obj)
         except:
             return None
 
-    # TODO: #pydantic_rebase - see if it makes more sense just to change the serialized structure
     @classmethod
     def get_model_name(cls) -> str:
         """
         :return: The name of this model
         """
-        return cls.__fields__["model"].type_.__fields__["name"].default
-
-    # TODO: #pydantic_rebase - reconcile with changes to class hierarchy and property placement, taking out entirely if feasible
-    def __init__(
-        self,
-        # required in prior version of code
-        config_data_id: str = None,
-        # optional in prior version of code
-        cpu_count: Optional[int] = None,
-        allocation_paradigm: Optional[Union[str, AllocationParadigm]] = None,
-        **data
-    ):
-        """
-        Initialize model-exec-specific attributes and state of this request object common to all model exec requests.
-
-        Parameters
-        ----------
-        session_secret : str
-            The session secret for the right session when communicating with the request handler.
-        """
-        # assume no need for backwards compatibility
-        if "model" in data:
-            super().__init__(**data)
-            return
-
-        data["model"] = {"config_data_id": config_data_id}
-
-        if cpu_count is not None:
-            data["model"]["cpu_count"] = cpu_count
-
-        if allocation_paradigm is not None:
-            data["model"]["allocation_paradigm"] = cpu_count
-
-        super().__init__(**data)
-
-    def __eq__(self, other):
-        if not self._check_class_compatible_for_equality(other):
-            return False
-        elif self.session_secret != other.session_secret:
-            return False
-        elif len(self.data_requirements) != len(other.data_requirements):
-            return False
-        elif self.allocation_paradigm != other.allocation_paradigm:
-            return False
-        # elif 0 < len([req for req in self.data_requirements if req not in set(other.data_requirements)]):
-        #    return False
-        # else:
-        #    return True
-        else:
-            for req in self.data_requirements:
-                if req not in other.data_requirements:
-                    return False
-            return True
-
-    # TODO: #pydantic_rebase - make sure this works with eventual changes to class hierarchy
-    @property
-    def allocation_paradigm(self) -> AllocationParadigm:
-        """
-        The allocation paradigm desired for use when allocating resources for this request.
-
-        Returns
-        -------
-        AllocationParadigm
-            The allocation paradigm desired for use with this request.
-        """
-        return self.model.allocation_paradigm
-
-    # TODO: #pydantic_rebase - make sure this works with eventual changes to class hierarchy
-    @property
-    def config_data_id(self) -> str:
-        """
-        Value of ``data_id`` index to uniquely identify the dataset with the primary configuration for this request.
-
-        Returns
-        -------
-        str
-            Value of ``data_id`` identifying the dataset with the primary configuration applicable to this request.
-        """
-        return self.model.config_data_id
-
-    # TODO: #pydantic_rebase - make sure this works with eventual changes to class hierarchy
-    @property
-    def cpu_count(self) -> int:
-        """
-        The number of processors requested for this job.
-
-        Returns
-        -------
-        int
-            The number of processors requested for this job.
-        """
-        return self.model.cpu_count
+        return cls.model_name
