@@ -1,7 +1,7 @@
 from uuid import uuid4
 from pydantic import Field, Extra
 from typing import ClassVar, Dict, Optional, Type, Union
-from dmod.core.serializable import SerializedDict
+from dmod.core.serializable import Serializable
 from .message import AbstractInitRequest, MessageEventType, Response
 from .maas_request import ExternalRequest
 
@@ -116,7 +116,7 @@ class PartitionRequest(AbstractInitRequest):
         return serial
 
 
-class PartitionResponseBody(SerializedDict):
+class PartitionResponseBody(Serializable):
     data_id: Optional[str]
     dataset_name: Optional[str]
 
