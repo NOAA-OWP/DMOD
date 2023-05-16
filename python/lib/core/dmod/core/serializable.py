@@ -337,18 +337,6 @@ class Serializable(BaseModel, ABC):
         )
 
 
-class SerializedDict(Serializable):
-    """
-    A basic encapsulation of a dictionary as a ::class:`Serializable`.
-    """
-    base_dict: dict
-
-    @classmethod
-    def factory_init_from_deserialized_json(cls: Self, json_obj: dict) -> Self:
-        # NOTE: could raise. return type has fewer constraints
-        return cls(**json_obj)
-
-
 class ResultIndicator(Serializable, ABC):
     """
     A type extending from ::class:`Serializable` for encapsulating a status indication for a result of something.
