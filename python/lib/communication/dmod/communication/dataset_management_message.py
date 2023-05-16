@@ -1,5 +1,5 @@
 from .message import AbstractInitRequest, MessageEventType, Response
-from dmod.core.serializable import Serializable, SerializedDict
+from dmod.core.serializable import Serializable
 from .maas_request import ExternalRequest, ExternalRequestResponse
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement
 from dmod.core.enum import PydanticEnum
@@ -266,7 +266,7 @@ class DatasetManagementMessage(AbstractInitRequest):
         )
 
 
-class DatasetManagementResponseBody(SerializedDict):
+class DatasetManagementResponseBody(Serializable):
     action: Optional[ManagementAction]
     data_id: Optional[str]
     dataset_name: Optional[str]
