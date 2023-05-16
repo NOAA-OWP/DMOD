@@ -1,6 +1,5 @@
 from dmod.core.serializable import Serializable
 from pydantic import Extra
-from dmod.core.serializable import SerializedDict
 from .message import AbstractInitRequest, MessageEventType, Response
 from pydantic import Field
 from typing import ClassVar, Type, Union
@@ -37,7 +36,7 @@ class DataTransmitMessage(DataTransmitUUID, AbstractInitRequest):
     is_last: bool = Field(False, description="Whether this is the last data transmission message in this series.")
 
 
-class DataTransmitResponseBody(SerializedDict, DataTransmitUUID):
+class DataTransmitResponseBody(Serializable, DataTransmitUUID):
     ...
 
 
