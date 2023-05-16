@@ -4,7 +4,7 @@ from typing import ClassVar, Dict, Optional, Type, Union
 from pydantic import Field, validator
 import uuid
 
-from dmod.core.serializable import SerializedDict
+from dmod.core.serializable import Serializable
 
 
 class UpdateMessage(AbstractInitRequest):
@@ -78,7 +78,7 @@ class UpdateMessage(AbstractInitRequest):
         return '{}.{}'.format(self.object_type.__module__, self.object_type.__name__)
 
 
-class UpdateMessageData(SerializedDict):
+class UpdateMessageData(Serializable):
     digest: Optional[str]
     object_found: Optional[bool]
 
