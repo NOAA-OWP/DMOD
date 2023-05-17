@@ -1,6 +1,4 @@
 from abc import ABC, abstractmethod
-from datetime import datetime
-from dmod.core.execution import AllocationParadigm
 from dmod.communication import DataServiceClient, ExternalRequestClient, ManagementAction, ModelExecRequestClient, \
     NGENRequest, NGENRequestResponse, \
     NgenCalibrationRequest, NgenCalibrationResponse
@@ -8,7 +6,7 @@ from dmod.communication.client import R
 from dmod.communication.dataset_management_message import DatasetManagementMessage, DatasetManagementResponse, \
     MaaSDatasetManagementMessage, MaaSDatasetManagementResponse, QueryType, DatasetQuery
 from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
-from dmod.core.meta_data import DataCategory, DataDomain, TimeRange
+from dmod.core.meta_data import DataCategory, DataDomain
 from pathlib import Path
 from typing import List, Optional, Tuple, Type, Union
 
@@ -86,10 +84,10 @@ class DatasetClient(ABC):
             msg = "Can't parse list of datasets from non-{} (received a {} object)"
             raise RuntimeError(msg.format(DatasetManagementResponse.__name__, response.__class__.__name__))
         # Consider these as valid cases, and treat them as just not listing any datasets
-        elif not response.success or response.data is None or 'datasets' not in response.data:
+        elif not response.success or response.data is None or response.data.datasets is None:
             return []
         else:
-            return response.data['datasets']
+            return response.data.datasets
 
     @abstractmethod
     async def create_dataset(self, name: str, category: DataCategory, domain: DataDomain, **kwargs) -> bool:
