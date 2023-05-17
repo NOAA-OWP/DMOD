@@ -270,6 +270,7 @@ class DatasetManagementResponseBody(Serializable):
     action: Optional[ManagementAction]
     data_id: Optional[str]
     dataset_name: Optional[str]
+    datasets: Optional[List[str]]
     item_name: Optional[str]
     # TODO: in the future, tighten the type restrictions of this field
     query_results: Optional[Dict[str, Any]]
@@ -288,6 +289,7 @@ class DatasetManagementResponse(Response):
         is_awaiting: bool = False,
         data_id: Optional[str] = None,
         dataset_name: Optional[str] = None,
+        datasets: Optional[List[str]] = None,
         data: Optional[Union[dict, DatasetManagementResponseBody]] = None,
         **kwargs
     ):
@@ -295,7 +297,7 @@ class DatasetManagementResponse(Response):
 
         # Make sure 'action' param and action string within 'data' param aren't both present and conflicting
         if action is not None:
-            if action != data.action:
+            if action != data.action and data.action is not None:
                 msg = '{} initialized with {} action param, but {} action in initial data.'
                 raise ValueError(msg.format(self.__class__.__name__, action.name, data.action.name if data.action else data.action))
             data.action = action
@@ -305,6 +307,8 @@ class DatasetManagementResponse(Response):
             data.data_id = data_id
         if dataset_name is not None:
             data.dataset_name = dataset_name
+        if datasets is not None:
+            data.datasets = datasets
         super().__init__(data=data, **kwargs)
 
     @property
