@@ -278,7 +278,10 @@ class ContinuousRestriction(Serializable):
     def __eq__(self, o: object) -> bool:
         if not isinstance(o, ContinuousRestriction):
             return False
-        return self.variable == o.variable and self.begin == o.begin and self.end == o.end
+        return self.variable == o.variable and self.begin == o.begin and self.end == o.end and self.datetime_pattern == o.datetime_pattern
+
+    def __hash__(self) -> int:
+        return hash((self.variable, self.begin, self.end, self.datetime_pattern))
 
     @classmethod
     def convert_truncated_serial_form(cls, truncated_json_obj: dict, datetime_format: Optional[str] = None) -> dict:
