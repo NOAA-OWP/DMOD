@@ -11,55 +11,61 @@ if TYPE_CHECKING:
 class TestJob(unittest.TestCase):
 
     def setUp(self) -> None:
-        self._example_jobs: List[RequestedJob] = []
+        self._example_jobs: List[Job] = []
         self._model_requests: List["ModelExecRequest"]= []
-        self._model_requests_json: Dict[str, Any] = []
+        self._model_requests_json: List[Any] = []
 
         # Example 0 - simple JobImpl instance based on NWMRequest for model_request value
         self._model_requests_json.append({
-            "model": {
+            "allocation_paradigm": "ROUND_ROBIN",
+            "cpu_count": 1,
+            "job_type": "nwm",
+            "request_body": {
                 "nwm": {
                     "config_data_id": "1",
                     "data_requirements": [
                         {
+                            "category": "CONFIG",
                             "domain": {
-                                "data_format": "NWM_CONFIG",
                                 "continuous": [],
-                                "discrete": [{"variable": "data_id", "values": ["1"]}]
+                                "data_format": "NWM_CONFIG",
+                                "discrete": [{"values": ["1"], "variable": "DATA_ID"}]
                             },
-                            "is_input": True,
-                            "category": "CONFIG"
+                            "is_input": True
                         }
                     ]
                 }
             },
-            "session-secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"
-        })
+            "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"})
         self._model_requests.append(NWMRequest.factory_init_from_deserialized_json(self._model_requests_json[0]))
-        self._example_jobs.append(JobImpl(cpu_count=4, memory_size=1000, model_request=self._model_requests[0],
+        self._example_jobs.append(JobImpl(cpu_count=1, memory_size=1000, model_request=self._model_requests[0],
                                           allocation_paradigm='single-node'))
         # Example 1 - Requested job based on NWMRequest
         self._model_requests_json.append({
-            "model": {
+            "allocation_paradigm": "ROUND_ROBIN",
+            "cpu_count": 1,
+            "job_type": "nwm",
+            "request_body": {
                 "nwm": {
                     "config_data_id": "2",
                     "data_requirements": [
                         {
+                            "category": "CONFIG",
                             "domain": {
-                                "data_format": "NWM_CONFIG",
                                 "continuous": [],
-                                "discrete": [{"variable": "data_id", "values": ["2"]}]
+                                "data_format": "NWM_CONFIG",
+                                "discrete": [{"values": ["2"], "variable": "DATA_ID"}]
                             },
-                            "is_input": True,
-                            "category": "CONFIG"
+                            "is_input": True
                         }
                     ]
                 }
             },
-            "session-secret": "123f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"
+            "session_secret": "123f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"
         })
+        mod_req = NWMRequest.factory_init_from_deserialized_json(self._model_requests_json[1])
         scheduler_request = SchedulerRequestMessage(
-            model_request=NWMRequest.factory_init_from_deserialized_json(self._model_requests_json[1]),
+            model_request=mod_req,
             user_id='someone',
             cpus=4,
             mem=500000,
@@ -76,19 +82,21 @@ class TestJob(unittest.TestCase):
         time_range = create_time_range('2022-01-01 00:00:00', '2022-03-01 00:00:00')
 
         self._model_requests_json.append({
-            'model': {
-                'name': 'ngen',
-                'cpu_count': cpu_count_ex_2,
-                'time_range': time_range.to_dict(),
+            "allocation_paradigm": "SINGLE_NODE",
+            "cpu_count": cpu_count_ex_2,
+            "job_type": "ngen",
+            'request_body': {
+                'bmi_config_data_id': '02468',
                 'hydrofabric_data_id': '9876543210',
                 'hydrofabric_uid': '0123456789',
-                'bmi_config_data_id': '02468',
-                'config_data_id': '02468'
+                'realization_config_data_id': '02468',
+                'time_range': time_range.to_dict()
             },
             'session_secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
         })
+        mod_req_2 = NGENRequest.factory_init_from_deserialized_json(self._model_requests_json[2])
         scheduler_request = SchedulerRequestMessage(
-            model_request=NGENRequest.factory_init_from_deserialized_json(self._model_requests_json[2]),
+            model_request=mod_req_2,
             user_id='someone',
             cpus=cpu_count_ex_2,
             mem=500000,
