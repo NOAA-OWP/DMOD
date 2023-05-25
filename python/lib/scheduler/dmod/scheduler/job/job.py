@@ -648,6 +648,7 @@ class Job(Serializable, ABC):
 
         setter_fn(value)
 
+
 class JobImpl(Job):
     """
     Basic implementation of ::class:`Job`
