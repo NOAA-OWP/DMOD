@@ -1,7 +1,10 @@
 import unittest
 from pathlib import Path
+from ..scheduler.job import RequestedJob
+from ..scheduler.resources import ResourceAllocation
 from ..scheduler.scheduler import Launcher
-from .scheduler_test_utils import mock_job
+from dmod.core.meta_data import TimeRange
+from dmod.communication import NGENRequest, SchedulerRequestMessage
 
 
 class NoCheckDockerLauncher(Launcher):
@@ -29,6 +32,72 @@ class TestLauncher(unittest.TestCase):
         yaml_file = Path(__file__).parent/"image_and_domain.yaml"
         self.user_name = 'test'
 
+        self._example_jobs = []
+        time_range = TimeRange.parse_from_string('2022-01-01 00:00:00 to 2022-03-01 00:00:00')
+        cpu_count = 4
+        mem_size = 5000
+        example_request = NGENRequest.factory_init_from_deserialized_json({
+            "allocation_paradigm": "SINGLE_NODE",
+            "cpu_count": cpu_count,
+            "job_type": "ngen",
+            'request_body': {
+                'bmi_config_data_id': '02468',
+                'hydrofabric_data_id': '9876543210',
+                'hydrofabric_uid': '0123456789',
+                'realization_config_data_id': '02468',
+                'time_range': time_range.to_dict()
+            },
+            'session_secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
+        })
+        user_id = 'user'
+
+        # Example 0 - no allocations
+        sch_req = SchedulerRequestMessage(model_request=example_request,
+                                          user_id=user_id,
+                                          cpus=cpu_count,
+                                          mem=mem_size,
+                                          allocation_paradigm='SINGLE_NODE')
+        self._example_jobs.append(RequestedJob(sch_req))
+
+        # Example 1 - with a single node allocated with 4 cpus
+        sch_req = SchedulerRequestMessage(model_request=example_request,
+                                          user_id=user_id,
+                                          cpus=cpu_count,
+                                          mem=mem_size,
+                                          allocation_paradigm='SINGLE_NODE')
+        ex_job = RequestedJob(sch_req)
+        alloc = ResourceAllocation('1', 'hostname1', cpu_count, mem_size)
+        ex_job.allocations = [alloc]
+        self._example_jobs.append(ex_job)
+
+        # Example 2 - with two node allocated with 4 cpus
+        example_request_multi = NGENRequest.factory_init_from_deserialized_json({
+            "allocation_paradigm": "SINGLE_NODE",
+            "cpu_count": cpu_count,
+            "job_type": "ngen",
+            'request_body': {
+                'bmi_config_data_id': '02468',
+                'hydrofabric_data_id': '9876543210',
+                'hydrofabric_uid': '0123456789',
+                'realization_config_data_id': '02468',
+                'time_range': time_range.to_dict()
+            },
+            'session_secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
+        })
+        user_id = 'user'
+        sch_req = SchedulerRequestMessage(model_request=example_request_multi,
+                                          user_id=user_id,
+                                          cpus=cpu_count,
+                                          mem=mem_size,
+                                          allocation_paradigm='ROUND_ROBIN')
+        ex_job = RequestedJob(sch_req)
+        allocs = []
+        allocs.append(ResourceAllocation('1', 'hostname1', 2, int(mem_size/2)))
+        allocs.append(ResourceAllocation('2', 'hostname2', 2, int(mem_size/2)))
+        ex_job.allocations = allocs
+        self._example_jobs.append(ex_job)
+
+
         #Create a launcher TODO only test static methods here, no instance so no docker neeeded
         self.launcher = NoCheckDockerLauncher(images_and_domains_yaml=yaml_file)
 
@@ -36,11 +105,12 @@ class TestLauncher(unittest.TestCase):
         #This class should only test static methods and work without docker FIXME
         self.launcher.docker_client.close()
 
-    def test_build_host_list(self):
+    def test_build_host_list_0(self):
         """
         Test build_host_list for a job with no allocation
         """
-        job = mock_job(allocations=0)
+        ex_num = 0
+        job = self._example_jobs[ex_num]
         hosts = self.launcher.build_host_list(job)
         self.assertEqual(hosts, '')
 
@@ -48,17 +118,19 @@ class TestLauncher(unittest.TestCase):
         """
         Test build_host_list for a job with a single node allocated
         """
-        job = mock_job(allocations=1)
+        ex_num = 1
+        job = self._example_jobs[ex_num]
         hosts = self.launcher.build_host_list(job)
-        self.assertEqual(hosts, 'nwm-worker0_{}:4'.format(job.job_id))
+        self.assertEqual(hosts, 'ngen-worker0_{}:4'.format(job.job_id))
 
     def test_build_host_list_2(self):
         """
         Test build_host_list for a job with multiple nodes allocated
         """
-        job = mock_job(allocations=2)
+        ex_num = 2
+        job = self._example_jobs[ex_num]
         hosts = self.launcher.build_host_list(job)
-        self.assertEqual(hosts, 'nwm-worker0_{}:4,nwm-worker1_{}:4'.format(job.job_id, job.job_id))
+        self.assertEqual(hosts, 'ngen-worker0_{}:2,ngen-worker1_{}:2'.format(job.job_id, job.job_id))
 
     def test_load_image_and_mounts(self):
         """
