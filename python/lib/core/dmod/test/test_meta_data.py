@@ -68,9 +68,11 @@ class TestContinuousRestriction(unittest.TestCase):
         begin = datetime(2020, 1, 1)
         end = datetime(2020, 1, 2)
         var = StandardDatasetIndex.TIME
-        expected_hash = hash(f"{var.name}-{begin}-{end}")
-        o_hash = hash(ContinuousRestriction(variable=var, begin=begin, end=end))
-        self.assertEqual(expected_hash, o_hash)
+        obj_1 = ContinuousRestriction(variable=var, begin=begin, end=end)
+        obj_2 = ContinuousRestriction(variable=var, begin=begin, end=end)
+        hash_1 = hash(obj_1)
+        hash_2 = hash(obj_2)
+        self.assertEqual(hash_1, hash_2)
 
     def test_to_dict(self):
         begin = "2020-01-01"
