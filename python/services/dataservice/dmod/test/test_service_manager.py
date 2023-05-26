@@ -147,14 +147,16 @@ class TestServiceManager(unittest.TestCase):
                     "cpus": cpu_count_ex_0,
                     "mem": 500000,
                     "model_request": {
-                        "model": {
-                            "allocation_paradigm": "SINGLE_NODE",
+                        "allocation_paradigm": "SINGLE_NODE",
+                        "cpu_count": cpu_count_ex_0,
+                        "job_type": "ngen",
+                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1",
+                        "request_body": {
                             "bmi_config_data_id": "simple-bmi-cfe-1",
+                            "realization_config_data_id": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81",
                             "config_data_id": "huc01-simple-config-1",
-                            "cpu_count": cpu_count_ex_0,
                             "hydrofabric_data_id": "huc01-hydrofabric-2021-10-28-part-8",
                             "hydrofabric_uid": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81",
-                            "name": "ngen",
                             "time_range": {
                                 "begin": "2012-05-01 00:00:00",
                                 "datetime_pattern": "%Y-%m-%d %H:%M:%S",
@@ -163,7 +165,6 @@ class TestServiceManager(unittest.TestCase):
                                 "variable": "TIME"
                             }
                         },
-                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
                     },
                     "user_id": "someone"
                 },
@@ -207,14 +208,16 @@ class TestServiceManager(unittest.TestCase):
                     "cpus": cpu_count_ex_1,
                     "mem": 500000,
                     "model_request": {
-                        "model": {
-                            "allocation_paradigm": "SINGLE_NODE",
+                        "allocation_paradigm": "SINGLE_NODE",
+                        "cpu_count": cpu_count_ex_1,
+                        "job_type": "ngen",
+                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1",
+                        "request_body": {
                             "bmi_config_data_id": "simple-bmi-cfe-1",
-                            "cpu_count": cpu_count_ex_1,
+                            "realization_config_data_id": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81",
                             "config_data_id": "huc01-simple-config-1",
                             "hydrofabric_data_id": "huc01-hydrofabric-2021-10-28-part-8",
                             "hydrofabric_uid": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81",
-                            "name": "ngen",
                             "time_range": {
                                 "begin": "2012-05-01 00:00:00",
                                 "datetime_pattern": "%Y-%m-%d %H:%M:%S",
@@ -223,7 +226,6 @@ class TestServiceManager(unittest.TestCase):
                                 "variable": "TIME"
                             }
                         },
-                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
                     },
                     "user_id": "someone"
                 },
@@ -273,14 +275,16 @@ class TestServiceManager(unittest.TestCase):
                     "cpus": cpu_count_ex_2,
                     "mem": 500000,
                     "model_request": {
-                        "model": {
-                            "allocation_paradigm": "SINGLE_NODE",
+                        "allocation_paradigm": "SINGLE_NODE",
+                        "cpu_count": cpu_count_ex_2,
+                        "job_type": "ngen",
+                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1",
+                        "request_body": {
                             "bmi_config_data_id": "simple-bmi-cfe-1",
+                            "realization_config_data_id": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81",
                             "config_data_id": "huc01-simple-config-1",
-                            "cpu_count": cpu_count_ex_2,
                             "hydrofabric_data_id": "huc01-hydrofabric-2021-10-28-part-8",
                             "hydrofabric_uid": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81",
-                            "name": "ngen",
                             "time_range": {
                                 "begin": "2012-05-01 00:00:00",
                                 "datetime_pattern": "%Y-%m-%d %H:%M:%S",
@@ -289,7 +293,6 @@ class TestServiceManager(unittest.TestCase):
                                 "variable": "TIME"
                             }
                         },
-                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
                     },
                     "user_id": "someone"
                 },
@@ -337,14 +340,16 @@ class TestServiceManager(unittest.TestCase):
                     "cpus": cpu_count_ex_3,
                     "mem": 500000,
                     "model_request": {
-                        "model": {
-                            "allocation_paradigm": "SINGLE_NODE",
+                        "allocation_paradigm": "SINGLE_NODE",
+                        "cpu_count": cpu_count_ex_3,
+                        "job_type": "ngen",
+                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1",
+                        "request_body": {
                             "bmi_config_data_id": "simple-bmi-cfe-1",
+                            "realization_config_data_id": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81",
                             "config_data_id": "huc01-simple-config-1",
-                            "cpu_count": cpu_count_ex_3,
                             "hydrofabric_data_id": "huc01-hydrofabric-2021-10-28-part-8",
                             "hydrofabric_uid": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81",
-                            "name": "ngen",
                             "time_range": {
                                 "begin": "2012-05-01 00:00:00",
                                 "datetime_pattern": "%Y-%m-%d %H:%M:%S",
@@ -353,7 +358,6 @@ class TestServiceManager(unittest.TestCase):
                                 "variable": "TIME"
                             }
                         },
-                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
                     },
                     "user_id": "someone"
                 },
@@ -407,14 +411,16 @@ class TestServiceManager(unittest.TestCase):
                     "cpus": cpu_count_ex_4,
                     "mem": 500000,
                     "model_request": {
-                        "model": {
-                            "allocation_paradigm": "SINGLE_NODE",
+                        "allocation_paradigm": "SINGLE_NODE",
+                        "cpu_count": cpu_count_ex_4,
+                        "job_type": "ngen",
+                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1",
+                        "request_body": {
                             "bmi_config_data_id": "simple-bmi-cfe-1",
+                            "realization_config_data_id": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81",
                             "config_data_id": "huc01-simple-config-1",
-                            "cpu_count": cpu_count_ex_4,
                             "hydrofabric_data_id": "huc01-hydrofabric-2021-10-28-part-8",
                             "hydrofabric_uid": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81",
-                            "name": "ngen",
                             "time_range": {
                                 "begin": "2012-05-01 00:00:00",
                                 "datetime_pattern": "%Y-%m-%d %H:%M:%S",
@@ -423,7 +429,6 @@ class TestServiceManager(unittest.TestCase):
                                 "variable": "TIME"
                             }
                         },
-                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
                     },
                     "user_id": "someone"
                 },
@@ -565,14 +570,16 @@ class TestServiceManager(unittest.TestCase):
                     "cpus": cpu_count_ex_5,
                     "mem": 500000,
                     "model_request": {
-                        "model": {
-                            "allocation_paradigm": "SINGLE_NODE",
+                        "allocation_paradigm": "SINGLE_NODE",
+                        "cpu_count": cpu_count_ex_5,
+                        "job_type": "ngen",
+                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1",
+                        "request_body": {
                             "bmi_config_data_id": "simple-bmi-cfe-1",
+                            "realization_config_data_id": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81",
                             "config_data_id": "huc01-simple-config-1",
-                            "cpu_count": cpu_count_ex_5,
                             "hydrofabric_data_id": "huc01-hydrofabric-2021-10-28-part-8",
                             "hydrofabric_uid": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81",
-                            "name": "ngen",
                             "time_range": {
                                 "begin": "2012-05-01 00:00:00",
                                 "datetime_pattern": "%Y-%m-%d %H:%M:%S",
@@ -581,7 +588,6 @@ class TestServiceManager(unittest.TestCase):
                                 "variable": "TIME"
                             }
                         },
-                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
                     },
                     "user_id": "someone"
                 },
@@ -717,14 +723,16 @@ class TestServiceManager(unittest.TestCase):
                     "cpus": 4,
                     "mem": 500000,
                     "model_request": {
-                        "model": {
-                            "allocation_paradigm": "SINGLE_NODE",
+                        "allocation_paradigm": "SINGLE_NODE",
+                        "cpu_count": cpu_count_ex_5,
+                        "job_type": "ngen",
+                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1",
+                        "request_body": {
                             "bmi_config_data_id": "simple-bmi-cfe-1",
+                            "realization_config_data_id": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81",
                             "config_data_id": "huc01-simple-config-1",
-                            "cpu_count": cpu_count_ex_5,
                             "hydrofabric_data_id": "huc01-hydrofabric-2021-10-28-part-8",
                             "hydrofabric_uid": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81",
-                            "name": "ngen",
                             "time_range": {
                                 "begin": "2012-05-01 00:00:00",
                                 "datetime_pattern": "%Y-%m-%d %H:%M:%S",
@@ -732,13 +740,13 @@ class TestServiceManager(unittest.TestCase):
                                 "subclass": "TimeRange",
                                 "variable": "TIME"
                             }
-                        },
-                        "session_secret": "381191cc9b5917b4fb7135e12915dd36513d0483c3c3890bc331a7346cda1cb1"
+                        }
                     },
                     "user_id": "someone"
                 },
                 "status": "MODEL_EXEC:AWAITING_DATA_CHECK"
             }
+
         self.example_jobs.append(RequestedJob.factory_init_from_deserialized_json(ex_json_6))
 
     @property
