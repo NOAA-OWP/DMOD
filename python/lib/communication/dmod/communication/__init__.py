@@ -4,7 +4,7 @@ from .client import DataServiceClient, InternalServiceClient, ModelExecRequestCl
 from .maas_request import get_available_models, get_available_outputs, get_distribution_types, get_parameters, \
     get_request, AbstractNgenRequest, Distribution, DmodJobRequest, ExternalRequest, ExternalRequestResponse,\
     ModelExecRequest, ModelExecRequestResponse, NWMRequest, NWMRequestResponse, Scalar, NGENRequest, \
-    NGENRequestResponse, NgenCalibrationRequest, NgenCalibrationResponse
+    NGENRequestResponse, NgenCalibrationRequest, NgenCalibrationResponse, NGENRequestBody
 from .message import AbstractInitRequest, MessageEventType, Message, Response, InvalidMessage, InvalidMessageResponse, \
     InitRequestResponseReason
 from .metadata_message import MetadataPurpose, MetadataMessage, MetadataResponse
