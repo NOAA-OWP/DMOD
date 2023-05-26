@@ -1,7 +1,10 @@
 import unittest
 import uuid
 from typing import List, Optional, Tuple, Dict
+from datetime import datetime
 from dmod.core.execution import AllocationParadigm
+from dmod.core.meta_data import TimeRange, StandardDatasetIndex
+from dmod.communication import NGENRequest, NGENRequestBody
 from ..monitorservice.service import Monitor, MonitorService, Job, JobStatus, MetadataMessage, MetadataPurpose,\
     MonitoredChange, MetadataResponse
 from dmod.scheduler.job import JobExecPhase, JobImpl, JobExecStep
@@ -86,8 +89,32 @@ class TestMonitorService(unittest.TestCase):
 
         self._jobs = []
         for i in range(3):
-            self._jobs.append(JobImpl(cpu_count=4, memory_size=1000, model_request=None,
-                                      allocation_paradigm=AllocationParadigm.SINGLE_NODE))
+            self._jobs.append(
+                JobImpl(
+                    cpu_count=4,
+                    memory_size=1000,
+                    model_request=NGENRequest(
+                        cpu_count=1,
+                        allocation_paradigm=AllocationParadigm.SINGLE_NODE,
+                        session_secret="52204a2f-8924-48b4-abab-d289ac5aedf7",
+                        request_body=NGENRequestBody(
+                            bmi_config_data_id="52204a2f-8924-48b4-abab-d289ac5aedf7",
+                            catchments=None,
+                            forcings_data_id="52204a2f-8924-48b4-abab-d289ac5aedf7",
+                            hydrofabric_data_id="52204a2f-8924-48b4-abab-d289ac5aedf7",
+                            hydrofabric_uid="52204a2f-8924-48b4-abab-d289ac5aedf7",
+                            partition_cfg_data_id="52204a2f-8924-48b4-abab-d289ac5aedf7",
+                            realization_config_data_id="52204a2f-8924-48b4-abab-d289ac5aedf7",
+                            time_range=TimeRange(
+                                variable=StandardDatasetIndex.TIME,
+                                begin=datetime(2022, 1, 1),
+                                end=datetime(2022, 1, 2),
+                            ),
+                        ),
+                    ),
+                    allocation_paradigm=AllocationParadigm.SINGLE_NODE,
+                )
+            )
 
         self._second_meta_ex_job_id = '52204a2f-8924-48b4-abab-d289ac5aedf7'
 
