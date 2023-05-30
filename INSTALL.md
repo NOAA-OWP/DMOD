@@ -6,12 +6,12 @@ Detailed instructions on how to install, configure, and get the project running.
 
 - Install project [dependencies](doc/DEPENDENCIES.md)
   - Optionally, setup and use a [dedicated Python virtual environment](#using-a-virtual-environment) (highly recommended)
-- Create a [customized local config](#local-configuration)
+- Create a [customized local environment config](#local-environment-configuration)
 - Set up the [required SSL certificates](#local-ssl-certs)
 - Build and install necessary [internal Python packages](#python-packages-and-dependencies) into Python environment, typically using the [provided helper script](#using-update_packagesh-for-dependencies-and-internal-packages)
 - [Build Docker images](#docker-images)
 
-## Local Configuration
+## Local Environment Configuration
 
 Each local deployment and/or development environment requires its own configuration be set up in order to function properly.  This is currently done via a local environment file.  
 
