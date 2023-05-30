@@ -32,31 +32,11 @@ def get_mro_names(value) -> list[str]:
 
 
 def is_integer(value) -> bool:
-    if numpy and isinstance(value, numpy.integer):
-        return True
-
-    loaded_integer_types = [int] + get_subclasses(int)
-
-    if numpy:
-        loaded_integer_types.extend(
-            [numpy.integer] + get_subclasses(numpy.integer)
-        )
-
-    return value in loaded_integer_types if type(value) == type else isinstance(value, int)
+    return isinstance(value, (int, numpy.integer)) if numpy else isinstance(value, int)
 
 
 def is_float(value) -> bool:
-    if numpy and isinstance(value, numpy.floating):
-        return True
-
-    loaded_float_types = [float] + get_subclasses(float)
-
-    if numpy:
-        loaded_float_types.extend(
-            [numpy.floating] + get_subclasses(numpy.floating)
-        )
-
-    return value in loaded_float_types if type(value) == type else isinstance(value, float)
+    return isinstance(value, (float, numpy.floating)) if numpy else isinstance(value, float)
 
 
 _PRIMITIVE_TYPE_IDENTIFIERS = [
