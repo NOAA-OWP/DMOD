@@ -31,6 +31,7 @@ class MetadataPurpose(PydanticEnum):
 class MetadataSignal(Serializable):
     purpose: MetadataPurpose
     metadata_follows: bool = False
+    connection_id: Optional[str]
 
     class Config:
         fields = {
