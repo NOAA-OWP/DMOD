@@ -347,7 +347,7 @@ class MonitorService(ABC):
 
         # Send a response, along with success indicator and message
         response = MetadataResponse.factory_create(connect_success, response_txt, MetadataPurpose.CONNECT, False)
-        response.data['connection_id'] = connection_id
+        response.data.connection_id = connection_id
         return connection_id, metadata_obj, response
 
     @property
