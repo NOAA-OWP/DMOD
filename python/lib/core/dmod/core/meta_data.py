@@ -2,6 +2,7 @@ from datetime import datetime
 
 from .enum import PydanticEnum
 from .serializable import Serializable
+from .common.helper_functions import get_subclasses
 from numbers import Number
 from typing import Any, Dict, List, Literal, Optional, Set, Type, Union
 from collections.abc import Iterable
@@ -238,6 +239,10 @@ class ContinuousRestriction(Serializable):
         if isinstance(subclass_str, str):
             if subclass_str == cls.__name__:
                 values["subclass"] = cls
+
+            for subclass in get_subclasses(cls):
+                if subclass_str == subclass.__name__:
+                    values["subclass"] = subclass
 
         datetime_ptr = values.get("datetime_pattern")
 
