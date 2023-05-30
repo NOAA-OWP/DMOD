@@ -200,15 +200,24 @@ docker_dev_build_stack_images()
 # See: https://github.com/moby/moby/issues/29133
 # arg 1 - the base config file
 # arg 2 - the stack name
-# arg 3 - some unique identifier (e.g., a user name) to add to the file name to avoid collisions
 docker_dev_deploy_stack_from_compose_using_env()
 {
+    # Uses helper plugin referenced in https://github.com/NOAA-OWP/DMOD/issues/133
+
+    # Start by ensuring the required plugin is installed
+    docker deployx > /dev/null 2>&1
+    _R="${?}"
+    if [ ${_R} -ne 0 ]; then
+        >&2 echo "Error: attempting to start Docker stack without required 'deployx' plugin installed"
+        exit 1
+    fi
+    # Then, as before, make sure we have a valid compose config file, and if so, start the stack
     if docker-compose -f "${1:?}" config > /dev/null 2>&1; then
-        docker-compose -f "${1}" config > "/tmp/${3:?}_${2:?}_docker_compose_var_sub.yml" 2>/dev/null
-        docker stack deploy --compose-file "/tmp/${3}_${2}_docker_compose_var_sub.yml" "${2}"
+        docker deployx --compose-file "${1}" "${2}"
         return $?
+    # If we don't have a good config, then, again, exit in error
     else
-        echo "Error: invalid docker-compose file '${1}'; cannot start stack; exiting"
+        >&2 echo "Error: invalid docker-compose file '${1}'; cannot start stack; exiting"
         exit 1
     fi
 }
