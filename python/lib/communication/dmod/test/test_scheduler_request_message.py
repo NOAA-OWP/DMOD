@@ -15,7 +15,7 @@ class TestSchedulerRequestMessage(unittest.TestCase):
         self.tested_serializeable_type = SchedulerRequestMessage
 
         # Example 0 - NWMRequest
-        raw_json_str_0 = '{"allocation_paradigm": "ROUND_ROBIN", "model_request": {"allocation_paradigm": "ROUND_ROBIN", "cpu_count": 1, "job_type": "nwm", "request_body": {"nwm": {"config_data_id": "1", "data_requirements": [{"category": "CONFIG", "domain": {"continuous": [], "data_format": "NWM_CONFIG", "discrete": [{"values": ["1"], "variable": "DATA_ID"}]}, "is_input": true}]}}, "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}, "user_id": "someone", "cpus": 4, "mem": 500000}'
+        raw_json_str_0 = '{"allocation_paradigm": "ROUND_ROBIN", "model_request": {"allocation_paradigm": "ROUND_ROBIN", "cpu_count": 1, "job_type": "nwm", "request_body": {"nwm": {"config_data_id": "1", "data_requirements": [{"category": "CONFIG", "domain": {"continuous": {}, "data_format": "NWM_CONFIG", "discrete": {"DATA_ID": {"values": ["1"], "variable": "DATA_ID"}}}, "is_input": true}]}}, "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}, "user_id": "someone", "cpus": 4, "mem": 500000}'
         raw_json_obj_0 = json.loads(raw_json_str_0)
         sorted_json_str_0 = json.dumps(raw_json_obj_0, sort_keys=True)
         self.request_strings.append(sorted_json_str_0)
@@ -32,9 +32,9 @@ class TestSchedulerRequestMessage(unittest.TestCase):
                         {
                             "category": "CONFIG",
                             "domain": {
-                                "continuous": [],
+                                "continuous": {},
                                 "data_format": "NWM_CONFIG",
-                                "discrete": [{"values": ["1"], "variable": "DATA_ID"}]
+                                "discrete": {"DATA_ID": {"values": ["1"], "variable": "DATA_ID"}}
                             },
                             "is_input": True
                         }

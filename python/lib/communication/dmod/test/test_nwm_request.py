@@ -1,5 +1,6 @@
 import json
 import unittest
+from dmod.core.meta_data import StandardDatasetIndex
 from ..communication.maas_request import NWMRequest, NWMRequestResponse
 from ..test.test_nwm_request_response import TestNWMRequestResponse
 
@@ -16,7 +17,7 @@ class TestNWMRequest(unittest.TestCase):
         # TODO: improve coverage through more examples
 
         # Example 0
-        self.request_strings.append('{"allocation_paradigm": "ROUND_ROBIN", "cpu_count": 1, "job_type": "nwm", "request_body": {"nwm": {"config_data_id": "1", "data_requirements": [{"category": "CONFIG", "domain": {"continuous": [], "data_format": "NWM_CONFIG", "discrete": [{"values": ["1"], "variable": "DATA_ID"}]}, "is_input": true}]}}, "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
+        self.request_strings.append('{"allocation_paradigm": "ROUND_ROBIN", "cpu_count": 1, "job_type": "nwm", "request_body": {"nwm": {"config_data_id": "1", "data_requirements": [{"category": "CONFIG", "domain": {"continuous": {}, "data_format": "NWM_CONFIG", "discrete": {"DATA_ID": {"values": ["1"], "variable": "DATA_ID"}}}, "is_input": true}]}}, "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
 
         self.request_jsons.append({
             "allocation_paradigm": "ROUND_ROBIN",
@@ -29,9 +30,9 @@ class TestNWMRequest(unittest.TestCase):
                         {
                             "category": "CONFIG",
                             "domain": {
-                                "continuous": [],
+                                "continuous": {},
                                 "data_format": "NWM_CONFIG",
-                                "discrete": [{"values": ["1"], "variable": "DATA_ID"}]
+                                "discrete": {StandardDatasetIndex.DATA_ID: {"values": ["1"], "variable": "DATA_ID"}}
                             },
                             "is_input": True
                         }
@@ -46,10 +47,10 @@ class TestNWMRequest(unittest.TestCase):
                        config_data_id="1"))
 
         # Example 1 - like example 0, but with the object initialized with the default 'parameters' value
-        self.request_strings.append('{"allocation_paradigm": "SINGLE_NODE", "cpu_count": 1, "job_type": "nwm", "request_body": {"nwm": {"config_data_id": "2", "data_requirements": [{"category": "CONFIG", "domain": {"continuous": [], "data_format": "NWM_CONFIG", "discrete": [{"values": ["2"], "variable": "DATA_ID"}]}, "is_input": true}]}}, "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
+        self.request_strings.append('{"allocation_paradigm": "SINGLE_NODE", "cpu_count": 1, "job_type": "nwm", "request_body": {"nwm": {"config_data_id": "2", "data_requirements": [{"category": "CONFIG", "domain": {"continuous": {}, "data_format": "NWM_CONFIG", "discrete": {"DATA_ID": {"values": ["2"], "variable": "DATA_ID"}}}, "is_input": true}]}}, "session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
         self.request_jsons.append({"allocation_paradigm": "SINGLE_NODE", "cpu_count": 1, "job_type": "nwm", "request_body": {"nwm": {"config_data_id": "2", "data_requirements": [{"category": "CONFIG",
                                                                                                    "domain": {
-            "continuous": [], "data_format": "NWM_CONFIG", "discrete": [{"values": ["2"], "variable": "DATA_ID"}]},
+            "continuous": {}, "data_format": "NWM_CONFIG", "discrete": {StandardDatasetIndex.DATA_ID: {"values": ["2"], "variable": "DATA_ID"}}},
                                                                                                    "is_input": True}]}},
                                    'session_secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'})
         self.request_objs.append(

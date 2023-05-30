@@ -1,7 +1,7 @@
 import unittest
 from ..communication.dataset_management_message import DatasetManagementMessage, MaaSDatasetManagementMessage, \
     ManagementAction
-from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DiscreteRestriction
+from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DiscreteRestriction, StandardDatasetIndex
 from copy import deepcopy
 
 
@@ -19,8 +19,8 @@ class TestDatasetManagementMessage(unittest.TestCase):
         base_examples[ManagementAction.CREATE] = {'action': 'CREATE', 'category': 'FORCING',
                                                   'dataset_name': 'my_dataset',
                                                   'data_domain': {
-                                                      "data_format": "AORC_CSV", "continuous": [], "discrete": [
-                                                          {"variable": "CATCHMENT_ID", "values": []}]
+                                                      "data_format": "AORC_CSV", "continuous": {}, "discrete": {
+                                                        StandardDatasetIndex.CATCHMENT_ID : {"variable": "CATCHMENT_ID", "values": []}}
                                                   },
                                                   'read_only': False, 'pending_data': False}
         all_catchments_restriction = DiscreteRestriction(variable='CATCHMENT_ID', values=[])
