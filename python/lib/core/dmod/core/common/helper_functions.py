@@ -27,31 +27,33 @@ def get_mro_names(value) -> list[str]:
 
 
 def is_integer(value) -> bool:
-    if type(value) != type:
-        value = value.__class__
+    value_type = value.__class__
 
-    mro = get_mro_names(value)
+    mro = get_mro_names(value_type)
 
-    module_name = value.__module__ if hasattr(value, "__module__") else ''
+    module_name = value_type.__module__ if hasattr(value_type, "__module__") else ''
 
     if module_name.startswith("numpy"):
         return "integer" in mro
 
-    return isinstance(value, int)
+    loaded_integer_types = [int] + int.__subclasses__()
+
+    return value in loaded_integer_types if type(value) == type else isinstance(value, int)
 
 
 def is_float(value) -> bool:
-    if type(value) != type:
-        value = value.__class__
+    value_type = value.__class__
 
-    mro = get_mro_names(value)
+    mro = get_mro_names(value_type)
 
-    module_name = value.__module__ if hasattr(value, "__module__") else ''
+    module_name = value_type.__module__ if hasattr(value_type, "__module__") else ''
 
     if module_name.startswith("numpy"):
         return "floating" in mro
 
-    return isinstance(value, float)
+    loaded_float_types = [float] + float.__subclasses__()
+
+    return value in loaded_float_types if type(value) == type else isinstance(value, float)
 
 
 _PRIMITIVE_TYPE_IDENTIFIERS = [
@@ -492,25 +494,7 @@ def get_common_type(value: typing.Any) -> typing.Optional[typing.Type]:
     Returns:
         The type of value that applies to all entries or None if the types are not 100% common
     """
-    if is_iterable_type(value):
-        encountered_type = None
-        member_value = None
-
-        for member in value:
-            member_type = type(member)
-            if encountered_type is None:
-                encountered_type = member_type
-                member_value = member
-            elif not isinstance(member, encountered_type) and isinstance(member_value, member_type):
-                encountered_type = member_type
-                member_value = member
-            elif not isinstance(member, encountered_type):
-                return None
-
-        # Can't decide if there is a common type if there is only one type present in a collection
-        return encountered_type
-
-    return type(value)
+    return get_iterable_type(value) if is_iterable_type(value) else type(value)
 
 
 def iterable_types_are_uniform(value: typing.Any) -> bool:
