@@ -24,11 +24,11 @@ More detailed information can be found on the [Dependencies](doc/DEPENDENCIES.md
 
 The basic process is:
 - Install project [dependencies](doc/DEPENDENCIES.md)
-  - Optionally, setup and use a [dedicated Python virtual environment](#using-a-virtual-environment) (highly recommended)
-- Create a [customized local config](#local-configuration)
-- Set up the [required SSL certificates](#local-ssl-certs)
-- Build and install necessary [internal Python packages](#python-packages-and-dependencies) into Python environment, typically using the [provided helper script](#using-update_packagesh-for-dependencies-and-internal-packages)
-- [Build Docker images](#docker-images)
+  - Optionally, setup and use a [dedicated Python virtual environment](INSTALL.md#using-a-virtual-environment) (highly recommended)
+- Create a [customized local environment config](INSTALL.md#local-environment-configuration)
+- Set up the [required SSL certificates](INSTALL.md#local-ssl-certs)
+- Build and install necessary [internal Python packages](INSTALL.md#python-packages-and-dependencies) into Python environment, typically using the [provided helper script](#using-update_packagesh-for-dependencies-and-internal-packages)
+- [Build Docker images](INSTALL.md#docker-images)
 
 See the [INSTALL](INSTALL.md) document for more information.
 
