@@ -10,24 +10,30 @@ from collections import OrderedDict
 from pydantic import root_validator, validator, PyObject, Field, StrictStr, StrictFloat, StrictInt
 
 
-class StandardDatasetIndex(PydanticEnum):
+class StandardDatasetIndex(str, PydanticEnum):
 
-    UNKNOWN = (-1, Any)
-    TIME = (0, datetime)
-    CATCHMENT_ID = (1, str)
+    #         (index value, expected type, name)
+    UNKNOWN = (-1, Any, "UNKNOWN")
+    TIME = (0, datetime, "TIME")
+    CATCHMENT_ID = (1, str, "CATCHMENT_ID")
     """ A specialized index for catchment id, since that will be so commonly needed. """
-    DATA_ID = (2, str)
+    DATA_ID = (2, str, "DATA_ID")
     """ An index for the data_id of the dataset itself. """
-    HYDROFABRIC_ID = (3, str)
+    HYDROFABRIC_ID = (3, str, "HYDROFABRIC_ID")
     """ A specialized index for the unique id of a hydrofabric itself. """
-    LENGTH = (4, int)
+    LENGTH = (4, int, "LENGTH")
     """ Index to represent the number of records within a dataset (important in particular for partition configs). """
-    GLOBAL_CHECKSUM = (5, str)
+    GLOBAL_CHECKSUM = (5, str, "GLOBAL_CHECKSUM")
     """ Index for some type of dataset-scope checksum. """
-    ELEMENT_ID = (6, str)
+    ELEMENT_ID = (6, str, "ELEMENT_ID")
     """ A general-purpose index for the applicable data element unique identifier. """
-    REALIZATION_CONFIG_DATA_ID = (7, str)
+    REALIZATION_CONFIG_DATA_ID = (7, str, "REALIZATION_CONFIG_DATA_ID")
     """ A specialized index for the unique data id of an associated realization config dataset. """
+
+    def __new__(cls, index: int, ty: type, name: str):
+        o = str.__new__(cls, name)
+        o._value_ = (index, ty, name)
+        return o
 
     @classmethod
     def get_for_name(cls, name_str: str) -> 'StandardDatasetIndex':
