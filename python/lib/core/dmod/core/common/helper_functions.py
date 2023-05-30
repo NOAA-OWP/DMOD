@@ -12,6 +12,11 @@ import string
 
 from collections import OrderedDict
 
+try:
+    import numpy
+except ImportError:
+    numpy = None
+
 _CLASS_TYPE = typing.TypeVar('_CLASS_TYPE')
 """A type that points directly to a class. The _CLASS_TYPE of `6`, for example, is `<class 'int'>`"""
 
@@ -27,31 +32,29 @@ def get_mro_names(value) -> list[str]:
 
 
 def is_integer(value) -> bool:
-    value_type = value.__class__
+    if numpy and isinstance(value, numpy.integer):
+        return True
 
-    mro = get_mro_names(value_type)
+    loaded_integer_types = [int] + get_subclasses(int)
 
-    module_name = value_type.__module__ if hasattr(value_type, "__module__") else ''
-
-    if module_name.startswith("numpy"):
-        return "integer" in mro
-
-    loaded_integer_types = [int] + int.__subclasses__()
+    if numpy:
+        loaded_integer_types.extend(
+            [numpy.integer] + get_subclasses(numpy.integer)
+        )
 
     return value in loaded_integer_types if type(value) == type else isinstance(value, int)
 
 
 def is_float(value) -> bool:
-    value_type = value.__class__
+    if numpy and isinstance(value, numpy.floating):
+        return True
 
-    mro = get_mro_names(value_type)
+    loaded_float_types = [float] + get_subclasses(float)
 
-    module_name = value_type.__module__ if hasattr(value_type, "__module__") else ''
-
-    if module_name.startswith("numpy"):
-        return "floating" in mro
-
-    loaded_float_types = [float] + float.__subclasses__()
+    if numpy:
+        loaded_float_types.extend(
+            [numpy.floating] + get_subclasses(numpy.floating)
+        )
 
     return value in loaded_float_types if type(value) == type else isinstance(value, float)
 
