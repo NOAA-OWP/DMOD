@@ -521,8 +521,8 @@ class DataDomain(Serializable):
 
     @root_validator()
     def validate_sufficient_restrictions(cls, values):
-        continuous_restrictions = values.get("continuous_restrictions", [])
-        discrete_restrictions = values.get("discrete_restrictions", [])
+        continuous_restrictions = values.get("continuous_restrictions", {})
+        discrete_restrictions = values.get("discrete_restrictions", {})
         if len(continuous_restrictions) + len(discrete_restrictions) == 0:
             msg = "Cannot create {} without at least one finite continuous or discrete restriction"
             raise RuntimeError(msg.format(cls.__name__))
