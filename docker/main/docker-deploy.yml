@@ -234,7 +234,7 @@ volumes:
 
 secrets:
   myredis_pass:
-    file: ../secrets/myredis_password.txt
+    file: ${DOCKER_REDIS_SECRET_FILE:?Variable DOCKER_REDIS_SECRET_FILE unset in env; no path to myredis password Docker secrete file}
   # Have to create these here from the same backing files, since the stack prefix causes issue with sharing secrets
   # across stacks
   object_store_exec_user_passwd:
