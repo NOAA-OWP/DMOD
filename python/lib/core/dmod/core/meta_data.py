@@ -449,15 +449,15 @@ class DataDomain(Serializable):
     data_format: DataFormat = Field(
     description="The format for the data in this domain, which contains details like the indices and other data fields."
     )
-    continuous_restrictions: Optional[List[ContinuousRestriction]] = Field(
+    continuous_restrictions: Optional[Dict[StandardDatasetIndex, ContinuousRestriction]] = Field(
         description="Map of the continuous restrictions defining this domain, keyed by variable name.",
         alias="continuous",
-        default_factory=list
+        default_factory=dict
     )
-    discrete_restrictions: Optional[List[DiscreteRestriction]] = Field(
+    discrete_restrictions: Optional[Dict[StandardDatasetIndex, DiscreteRestriction]] = Field(
         description="Map of the discrete restrictions defining this domain, keyed by variable name.",
         alias="discrete",
-        default_factory=list
+        default_factory=dict
     )
     # NOTE: remove this field after #239 is merged. will close #245.
     custom_data_fields: Optional[Dict[str, Union[str, int, float, Any]]] = Field(
@@ -466,16 +466,36 @@ class DataDomain(Serializable):
         alias="data_fields"
     )
 
-    @validator("continuous_restrictions", pre=True, each_item=True)
-    def _factory_init_continuous_restrictions(cls, value):
-        if isinstance(value, ContinuousRestriction):
-            return value
-        return ContinuousRestriction.factory_init_from_deserialized_json(value)
+    # @validator("continuous_restrictions", pre=True, each_item=True)
+    # def _factory_init_continuous_restrictions(cls, value):
+    #     if isinstance(value, ContinuousRestriction):
+    #         return value
+    #     return ContinuousRestriction.factory_init_from_deserialized_json(value)
 
-    @validator("continuous_restrictions", "discrete_restrictions", always=True)
-    def _validate_restriction_default(cls, value):
+    @validator("continuous_restrictions", pre=True, always=True)
+    def _validate_continuous_restriction_default(cls, value):
         if value is None:
-            return []
+            return dict()
+        elif isinstance(value, list):
+            values = {}
+            for restriction in value:
+                if not isinstance(restriction, ContinuousRestriction):
+                    restriction = ContinuousRestriction.factory_init_from_deserialized_json(restriction)
+                values[restriction.variable] = restriction
+            return values
+        return value
+
+    @validator("discrete_restrictions", pre=True, always=True)
+    def _validate_discrete_restriction_default(cls, value):
+        if value is None:
+            return dict()
+        elif isinstance(value, list):
+            values = {}
+            for restriction in value:
+                if not isinstance(restriction, DiscreteRestriction):
+                    restriction = DiscreteRestriction.parse_obj(restriction)
+                values[restriction.variable] = restriction
+            return values
         return value
 
     @validator("custom_data_fields")
