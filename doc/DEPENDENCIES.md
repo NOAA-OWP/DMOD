@@ -7,12 +7,13 @@ The DMOD project has two related sets of dependencies:
 
 ## Usage Dependencies
 
-| Dependency         | Constraints                                 |                                             Notes                                              |
-|--------------------|:--------------------------------------------|:----------------------------------------------------------------------------------------------:|
-| Docker Engine      | \>=20.10.16                                 | Docker Swarm support required (i.e., alternatives without this, like Podman, are insufficient) |
-| Docker Compose     | \>=1.29.2; also <2.0.x                      |                 [See issue #133](https://github.com/NOAA-OWP/DMOD/issues/133)                  |
-| Bash               | \>=3.2.57                                   |                                                                                                |
-| OpenSSL / LibreSSL | \>=3.0.0 / \>=2.8.3                         |                                                                                                |
+| Dependency              | Constraints         |                                                                  Notes                                                                   |
+|-------------------------|:--------------------|:----------------------------------------------------------------------------------------------------------------------------------------:|
+| Docker Engine           | \>=20.10.16         |                      Docker Swarm support required (i.e., alternatives without this, like Podman, are insufficient)                      |
+| Docker Compose          | \>=2.0.x            |               [See issue #133](https://github.com/NOAA-OWP/DMOD/issues/133); _deployx_ plugin now required as noted below                |
+| _deployx_ Docker plugin | \>=0.0.1            | Available [here](https://github.com/aaraney/deployx).  Results in some transitive dependencies not explicitly enumerated here (e.g., Go) |
+| Bash                    | \>=3.2.57           |                                                                                                                                          |
+| OpenSSL / LibreSSL      | \>=3.0.0 / \>=2.8.3 |                                                                                                                                          |
 
 ## Development Dependencies
 | Dependency                                | Constraints                                 |                       Notes                        |
