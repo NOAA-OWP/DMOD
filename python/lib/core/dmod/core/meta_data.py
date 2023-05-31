@@ -29,6 +29,8 @@ class StandardDatasetIndex(str, PydanticEnum):
     """ A general-purpose index for the applicable data element unique identifier. """
     REALIZATION_CONFIG_DATA_ID = (7, str, "REALIZATION_CONFIG_DATA_ID")
     """ A specialized index for the unique data id of an associated realization config dataset. """
+    FILE_NAME = (8, str)
+    """ Index for the name of a data file within a dataset. """
 
     def __new__(cls, index: int, ty: type, name: str):
         o = str.__new__(cls, name)
@@ -141,6 +143,31 @@ class DataFormat(PydanticEnum):
     # TODO: consider whether a datetime format string is necessary for each type value
     # TODO: consider whether something to indicate the time step size is necessary
     # TODO: need format specifically for Nextgen model output (i.e., for evaluations)
+    NGEN_JOB_COMPOSITE_CONFIG = (
+        12,
+        {
+            StandardDatasetIndex.HYDROFABRIC_ID: None,
+            StandardDatasetIndex.CATCHMENT_ID: None,
+            StandardDatasetIndex.TIME: None,
+            StandardDatasetIndex.DATA_ID: None,
+            StandardDatasetIndex.FILE_NAME: None,
+        },
+        None,
+        False
+    )
+    """ 
+    Composite format for the different configs needed to run an ngen.
+    
+    A dataset in this format will include a realization config and BMI configs.  It may also include a t-route config
+    and/or an ngen-cal config, depending on whether routing and/or calibration is being performed.
+    
+    Note such datasets won't include the hydrofabric. That provides the context under which everything else has meaning,
+    including things like forcing data, so it should be kept separate.  Forcings are also excluded, largely because they
+    may get large and difficult to copy, and thus should be handled on their own.  Further, partition configurations
+    are also handled separately.  These affect execution at a different layer; i.e., a change in the partition config
+    should not impact the output, only the execution.  As such, it may be advantageous to retry the same job using many
+    different partitioning schemes, making it useful to keep it as a thing unto itself.
+    """
 
     @classmethod
     def can_format_fulfill(cls, needed: 'DataFormat', alternate: 'DataFormat') -> bool:
