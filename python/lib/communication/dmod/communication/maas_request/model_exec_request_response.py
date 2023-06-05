@@ -85,8 +85,8 @@ class ModelExecRequestResponse(ExternalRequestResponse, ABC):
         if isinstance(self.data, ModelExecRequestResponseBody):
             return self.data.job_id
 
-        elif isinstance(self.data, dict) and "job_id" in self.data:
-            return self.data["job_id"]
+        elif isinstance(self.data, dict) and self.get_job_id_key() in self.data:
+            return self.data[self.get_job_id_key()]
 
         return UNSUCCESSFUL_JOB
 
@@ -103,8 +103,8 @@ class ModelExecRequestResponse(ExternalRequestResponse, ABC):
         if isinstance(self.data, ModelExecRequestResponseBody):
             return self.data.output_data_id
 
-        elif isinstance(self.data, dict) and "output_data_id" in self.data:
-            return self.data["output_data_id"]
+        elif isinstance(self.data, dict) and self.get_output_data_id_key() in self.data:
+            return self.data[self.get_output_data_id_key()]
 
         return None
 
