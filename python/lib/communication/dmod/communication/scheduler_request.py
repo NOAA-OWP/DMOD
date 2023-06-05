@@ -14,12 +14,9 @@ class SchedulerRequestMessage(AbstractInitRequest):
     event_type: ClassVar[MessageEventType] = MessageEventType.SCHEDULER_REQUEST
     """ :class:`MessageEventType`: the event type for this message implementation """
 
-    # TODO: #needs_issue - this may belong somewhere else, like in DmodJobRequest
     _default_memory: ClassVar[int] = 500_000
 
-    # TODO: #needs_issue - this may need to be changed to DmodJobRequest or made Generic
     model_request: ModelExecRequest = Field(description="The underlying request for a job to be scheduled.")
-    # TODO: #needs_issue - this may need to be moved to DmodJobRequest
     user_id: str = Field(description="The associated user id for this scheduling request.")
     memory: int = Field(None, description="The amount of memory, in bytes, requested for the scheduling of this job.")
     cpus_: Optional[int] = Field(description="The number of processors requested for the scheduling of this job.")
@@ -27,7 +24,6 @@ class SchedulerRequestMessage(AbstractInitRequest):
 
     _memory_unset: bool = PrivateAttr()
 
-    # TODO: #needs_issue - if the above member is changed to DmodJobRequest, this will need to be updated to reflect
     @validator("model_request", pre=True)
     def _factory_init_model_request(cls, value):
         if isinstance(value, ModelExecRequest):
