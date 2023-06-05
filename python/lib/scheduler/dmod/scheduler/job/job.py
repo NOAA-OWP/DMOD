@@ -794,6 +794,8 @@ class JobImpl(Job):
 
     def __init__(self, cpu_count: int, memory_size: int, model_request: ExternalRequest,
                  allocation_paradigm: Union[str, AllocationParadigm], alloc_priority: int = 0, **data):
+        # deserialization code path.
+        # notice absence of `alloc_priority` parameter in super call.
         if data:
             super().__init__(
                 allocation_paradigm=allocation_paradigm,
@@ -804,6 +806,7 @@ class JobImpl(Job):
             )
             return
 
+        # backwards compatibility path
         super().__init__(
             allocation_paradigm=allocation_paradigm,
             allocation_priority=alloc_priority,
