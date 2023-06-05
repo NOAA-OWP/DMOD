@@ -228,9 +228,9 @@ class JobStatus(Serializable):
     _NAME_DELIMITER: ClassVar[str] = ':'
 
     # NOTE: `None` is valid input, default value for field will be used.
-    phase: Optional[JobExecPhase] = Field(JobExecPhase.UNKNOWN)
+    phase: JobExecPhase = Field(JobExecPhase.UNKNOWN)
     # NOTE: field value will be derived from `phase` field if field is unset or None.
-    step: Optional[JobExecStep]
+    step: JobExecStep
 
     @validator("phase", pre=True)
     def _set_default_phase_if_none(cls, value: Optional[JobExecPhase], field: ModelField) -> JobExecPhase:
@@ -239,7 +239,7 @@ class JobStatus(Serializable):
 
         return value
 
-    @validator("step", always=True)
+    @validator("step", always=True, pre=True)
     def _set_default_or_derived_step_if_none(cls, value: Optional[JobExecStep], values: Dict[str, JobExecPhase]) -> JobExecStep:
         # implicit assertion that `phase` key has already been processed by it's validator
         phase: JobExecPhase = values["phase"]
@@ -332,11 +332,11 @@ class JobStatus(Serializable):
 
     @property
     def job_exec_phase(self) -> JobExecPhase:
-        return self.phase # type: ignore
+        return self.phase
 
     @property
     def job_exec_step(self) -> JobExecStep:
-        return self.step # type: ignore
+        return self.step
 
     @property
     def name(self) -> str:
