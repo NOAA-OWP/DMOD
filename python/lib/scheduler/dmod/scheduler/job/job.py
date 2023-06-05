@@ -786,9 +786,8 @@ class JobImpl(Job):
         key_key = 'key'
 
         # First, try to obtain a serialized value, if one was not already set
-        if kwargs is not None and key_key in kwargs:
-            if kwargs[key_key] in kwargs:
-                return kwargs[kwargs[key_key]]
+        if key_key in kwargs:
+            return kwargs.get(kwargs[key_key])
 
         return None
 
