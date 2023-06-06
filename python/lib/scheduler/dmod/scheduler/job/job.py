@@ -1052,6 +1052,21 @@ class RequestedJob(JobImpl):
             "model_request": {"exclude": True}
             }
 
+    @classmethod
+    def factory_init_from_request(cls, job_request: SchedulerRequestMessage) -> 'RequestedJob':
+        """
+        Factory init function to create an object from the parameters implied by the job request.
+
+        Parameters
+        ----------
+        job_request
+
+        Returns
+        -------
+        RequestedJob
+        """
+        return cls(job_request=job_request)
+
     def __init__(self, job_request: SchedulerRequestMessage = None, **data):
         if data:
             # NOTE: in previous version of code, `model_request` was always a derived field.
