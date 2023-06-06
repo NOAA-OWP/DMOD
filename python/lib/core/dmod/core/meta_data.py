@@ -609,11 +609,11 @@ class DataDomain(Serializable):
                           discrete_restrictions=None if len(discrete) == 0 else discrete)
 
     def __hash__(self) -> int:
-        cu = [] if self.custom_data_fields is None else [tup for tup in sorted(self.custom_data_fields.items())]
+        custom_fields = [] if self.custom_data_fields is None else sorted(self.custom_data_fields.items())
         return hash((self.data_format.name,
                      *[v for _, v in sorted(self.continuous_restrictions.items(), key=lambda dt: dt[0].name)],
                      *[v for _, v in sorted(self.discrete_restrictions.items(), key=lambda dt: dt[0].name)],
-                     *cu
+                     *custom_fields
                      ))
 
     def _extends_continuous_restriction(self, continuous_restriction: ContinuousRestriction) -> bool:
