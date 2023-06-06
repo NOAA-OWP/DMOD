@@ -216,7 +216,7 @@ class _RsaKeyPair(Serializable):
             self.public_key_file.unlink()
 
 
-class RsaKeyPair(_RsaKeyPair, Serializable):
+class RsaKeyPair(_RsaKeyPair):
     """
     Representation of an RSA key pair and certain meta properties, in particular a name for the key and a pair of
     :class:`Path` objects for its private and public key files. Keys may be either dynamically generated or deserialized
