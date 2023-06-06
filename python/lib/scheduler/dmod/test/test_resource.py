@@ -7,13 +7,13 @@ from ..scheduler.resources import Resource, ResourceAvailability
 class TestResource(unittest.TestCase):
     def setUp(self) -> None:
         self._resource = Resource(
-            resource_id="1",
+            pool_id="1",
             hostname="somehost",
             availability="active",
             state="ready",
             cpu_count=4,
             memory=(2 ** 30) * 8,
-            total_cpu_count=8,
+            total_cpus=8,
             total_memory=(2 ** 30) * 16,
         )
 
