@@ -483,12 +483,6 @@ class DataDomain(Serializable):
         alias="data_fields"
     )
 
-    # @validator("continuous_restrictions", pre=True, each_item=True)
-    # def _factory_init_continuous_restrictions(cls, value):
-    #     if isinstance(value, ContinuousRestriction):
-    #         return value
-    #     return ContinuousRestriction.factory_init_from_deserialized_json(value)
-
     @validator("continuous_restrictions", pre=True, always=True)
     def _validate_continuous_restriction_default(cls, value):
         if value is None:
