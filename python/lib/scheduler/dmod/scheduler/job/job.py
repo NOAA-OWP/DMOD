@@ -1036,7 +1036,7 @@ class JobImpl(Job):
             serial["status"] = self.status.name
         return serial
 
-# TODO: #pydantic_refactor - make sure changes related to hierarchy and Pydantic all work properly
+
 class RequestedJob(JobImpl):
     """
     An implementation of ::class:`Job` for jobs that were created due to the receipt of a client-side scheduling request
@@ -1051,8 +1051,6 @@ class RequestedJob(JobImpl):
             # exclude `model_request` during serialization
             "model_request": {"exclude": True}
             }
-
-    # TODO: #pydantic_refactor - make sure we really no longer need the old factory_init_from_request class method
 
     def __init__(self, job_request: SchedulerRequestMessage = None, **data):
         if data:
