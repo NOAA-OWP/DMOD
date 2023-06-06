@@ -117,28 +117,6 @@ class Session(Serializable):
         """
         return super().__eq__(other)
 
-    def get_as_dict(self) -> dict:
-        """
-        Get a serialized representation of this instance as a :obj:`dict` instance.
-
-        Returns
-        -------
-        dict
-            a serialized representation of this instance
-        """
-        return self.dict()
-
-    def get_as_json(self) -> str:
-        """
-        Get a serialized JSON representation of this instance.
-
-        Returns
-        -------
-        object
-            a serialized JSON representation of this instance
-        """
-        return self.to_json()
-
     def get_created_serialized(self):
         return self.created.strftime(Session._DATETIME_FORMAT)
 
