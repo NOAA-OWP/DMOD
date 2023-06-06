@@ -51,12 +51,6 @@ class Session(Serializable):
     created: datetime.datetime = Field(default_factory=datetime.datetime.now, description="The date and time this session was created.")
     last_accessed: datetime.datetime = Field(default_factory=datetime.datetime.now)
 
-    _full_equality_attributes: ClassVar[List[str]]= ['session_id', 'session_secret', 'created', 'last_accessed']
-    """ list of str: the names of attributes/properties to include when testing instances for complete equality """
-
-    _serialized_attributes: ClassVar[List[str]]= ['session_id', 'session_secret', 'created', 'last_accessed']
-    """ list of str: the names of attributes/properties to include when serializing an instance """
-
     _session_timeout_delta: ClassVar[datetime.timedelta] = datetime.timedelta(minutes=30.0)
 
     @validator("session_secret", pre=True)
@@ -92,36 +86,6 @@ class Session(Serializable):
     @classmethod
     def get_datetime_str_format(cls):
         return cls._DATETIME_FORMAT
-
-    @classmethod
-    def get_full_equality_attributes(cls) -> tuple:
-        """
-        Get a tuple-ized (and therefore immutable) collection of attribute names for those attributes used for
-        determining more complete or "full" equality between instances than is provided by the standard "equals"
-        operation, as is used in :meth:`full_equals`.
-
-        Returns
-        -------
-        tuple of str:
-            a tuple-ized (and therefore immutable) collection of attribute names for those attributes used for
-            determining full/complete equality between instances.
-        """
-        return tuple(cls.__fields__)
-
-    @classmethod
-    def get_serialized_attributes(cls) -> tuple:
-        """
-        Get a tuple-ized (and therefore immutable) collection of attribute names for those attributes included in
-        serialized representations of the instance.
-
-        A common case for usage is for getting expected/required names for serializing a class to JSON.
-
-        Returns
-        -------
-        tuple of str:
-            a tuple-ized (and therefore immutable) collection of attribute names for attributes used in serialization
-        """
-        return tuple(cls.__fields__)
 
     @classmethod
     def get_session_timeout_delta(cls) -> datetime.timedelta:
