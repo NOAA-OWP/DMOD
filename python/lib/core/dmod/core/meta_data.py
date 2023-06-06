@@ -836,6 +836,5 @@ class DataRequirement(Serializable):
         return hash((self.domain, self.is_input, self.category))
 
     def dict(self, **kwargs) -> dict:
-        exclude_unset = True if kwargs.get("exclude_unset") is None else False
-        kwargs["exclude_unset"] = exclude_unset
+        kwargs["exclude_unset"] = kwargs.get("exclude_unset", True)
         return super().dict(**kwargs)
