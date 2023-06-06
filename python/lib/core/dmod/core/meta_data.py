@@ -388,8 +388,14 @@ class DiscreteRestriction(Serializable):
     # validate variable is not UNKNOWN variant
     _validate_variable = validator("variable", allow_reuse=True)(_validate_variable_is_known)
 
-    def __init__(self, variable: Union[str, StandardDatasetIndex], values: Union[List[str], List[Number]], allow_reorder: bool = True,
-                 remove_duplicates: bool = True, **kwargs):
+    def __init__(
+        self,
+        variable: Union[str, StandardDatasetIndex],
+        values: Union[List[StrictStr], List[StrictFloat], List[StrictInt]],
+        allow_reorder: bool = True,
+        remove_duplicates: bool = True,
+        **kwargs
+    ):
         super().__init__(variable=variable, values=values, **kwargs)
         if remove_duplicates:
             self.values = list(OrderedDict.fromkeys(self.values))
