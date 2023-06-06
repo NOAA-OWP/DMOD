@@ -708,13 +708,13 @@ class DataDomain(Serializable):
 
         called by `to_dict` and `to_json`.
         """
-        DATA_FIELDS_KEY = "custom_data_fields"
-        DATA_FIELDS_ALIAS_KEY = "data_fields"
+        data_fields_key = "custom_data_fields"
+        data_fields_alias_key = "data_fields"
 
         exclude = exclude or set()
 
-        exclude_data_fields = DATA_FIELDS_KEY in exclude
-        exclude.add(DATA_FIELDS_KEY)
+        exclude_data_fields = data_fields_key in exclude
+        exclude.add(data_fields_key)
 
         serial = super().dict(
             include=include,
@@ -739,10 +739,10 @@ class DataDomain(Serializable):
         )
 
         if by_alias:
-            serial[DATA_FIELDS_ALIAS_KEY] = custom_data_fields
+            serial[data_fields_alias_key] = custom_data_fields
             return serial
 
-        serial[DATA_FIELDS_KEY] = custom_data_fields
+        serial[data_fields_key] = custom_data_fields
         return serial
 
 
