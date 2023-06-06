@@ -1068,13 +1068,13 @@ class RequestedJob(JobImpl):
         return cls(job_request=job_request)
 
     def __init__(self, job_request: SchedulerRequestMessage = None, **data):
-        if data:
-            # NOTE: in previous version of code, `model_request` was always a derived field.
-            # this allows `model_request` be separately specified
-            if "model_request" in data:
-                super().__init__(**data)
-                return
+        # NOTE: in previous version of code, `model_request` was always a derived field.
+        # this allows `model_request` be separately specified
+        if "model_request" in data:
+            super().__init__(**data)
+            return
 
+        if data:
             originating_request = data.get("originating_request")
             if originating_request is None:
                 # this should fail, let pydantic handle that.
@@ -1084,8 +1084,9 @@ class RequestedJob(JobImpl):
             if isinstance(originating_request, SchedulerRequestMessage):
                 # inject
                 data["model_request"] = originating_request.model_request
+            else:
+                data["model_request"] = originating_request.get("model_request")
 
-            data["model_request"] = originating_request.get("model_request")
             super().__init__(**data)
             return
 
