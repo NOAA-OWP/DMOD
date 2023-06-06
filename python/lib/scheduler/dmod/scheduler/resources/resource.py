@@ -311,44 +311,6 @@ class Resource(SingleHostProcessingAssetPool):
                    and self.cpu_count == other.cpu_count and self.memory == other.memory \
                    and self.total_cpus == other.total_cpus and self.total_memory == other.total_memory
 
-    def __init__(
-        self,
-        resource_id: str = None,
-        hostname: str = None,
-        availability: Union[str, ResourceAvailability] = None,
-        state: Union[str, ResourceState] = None,
-        cpu_count: int = None,
-        memory: int = None,
-        total_cpu_count: Optional[int] = None,
-        total_memory: Optional[int] = None,
-        **data
-        ):
-        if data:
-            # NOTE: this can be removed alias field names _are_ case sensitive
-            potentially_aliased_fields = {
-                "availability": availability,
-                "hostname": hostname,
-                "state": state,
-                "total_memory": total_memory
-                }
-
-            for field_name, value in potentially_aliased_fields.items():
-                if value is not None:
-                    data[field_name] = value
-            super().__init__(**data)
-            return
-
-        super().__init__(
-            pool_id=resource_id,
-            hostname=hostname,
-            cpu_count=cpu_count,
-            memory=memory,
-            availability=availability,
-            state=state,
-            total_cpus=total_cpu_count,
-            total_memory=total_memory
-            )
-
     def allocate(self, cpu_count: int, memory: int) -> Tuple[int, int, bool]:
         """
         Request an allocation of sub-resources in the given amounts.
