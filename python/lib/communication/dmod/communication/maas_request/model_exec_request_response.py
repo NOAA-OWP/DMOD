@@ -8,16 +8,19 @@ from .external_request_response import ExternalRequestResponse
 from .model_exec_request import ModelExecRequest
 from .model_exec_request_response_body import ModelExecRequestResponseBody
 
+RESPONSE_DATA = Optional[Union[ModelExecRequestResponseBody, Dict[str, Any]]]
+RESPONSE_DATA_SOURCE = Optional[Union[SchedulerRequestResponse, ModelExecRequestResponseBody, Dict[str, Any]]]
+
 
 class ModelExecRequestResponse(ExternalRequestResponse, ABC):
 
     response_to_type: ClassVar[Type[AbstractInitRequest]] = ModelExecRequest
     """ The type of :class:`AbstractInitRequest` for which this type is the response"""
 
-    data: Optional[Union[ModelExecRequestResponseBody, Dict[str, Any]]] = None
+    data: RESPONSE_DATA = None
 
     @validator("data", pre=True)
-    def _convert_data_field(cls, value: Optional[Union[SchedulerRequestResponse, ModelExecRequestResponseBody, Dict[str, Any]]]) -> Optional[Union[ModelExecRequestResponseBody, Dict[str, Any]]]:
+    def _convert_data_field(cls, value: RESPONSE_DATA_SOURCE) -> RESPONSE_DATA:
         if value is None:
             return value
 
