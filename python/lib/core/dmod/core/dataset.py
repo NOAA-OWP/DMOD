@@ -120,8 +120,17 @@ class Dataset(Serializable):
         field_serializers = {"uuid": lambda f: str(f)}
 
     def __hash__(self):
-        return hash(','.join([self.__class__.__name__, self.name, self.category.name, str(hash(self.data_domain)),
-                              self.access_location, str(self.is_read_only), str(hash(self.created_on))]))
+        members = [
+            self.__class__.__name__,
+            self.name,
+            self.category.name,
+            str(hash(self.data_domain)),
+            self.access_location,
+            str(self.is_read_only),
+            str(hash(self.created_on)),
+        ]
+        description = ",".join(members)
+        return hash(description)
 
     def _set_expires(self, new_expires: datetime):
         """
