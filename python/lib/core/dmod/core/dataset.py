@@ -263,7 +263,7 @@ class Dataset(Serializable):
 
     def dict(self, **kwargs) -> dict:
         # if exclude is set, ignore this _get_exclude_fields()
-        exclude = self._get_exclude_fields() if kwargs.get("exclude", False) is False else kwargs["exclude"]
+        exclude = kwargs.get("exclude", self._get_exclude_fields())
         kwargs["exclude"] = exclude
 
         return super().dict(**kwargs)
