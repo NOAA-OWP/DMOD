@@ -257,7 +257,9 @@ class Dataset(Serializable):
         return tr if isinstance(tr, TimeRange) else TimeRange(begin=tr.begin, end=tr.end, variable=tr.variable)
 
     def _get_exclude_fields(self) -> Set[str]:
-        """Set of fields to exclude during deserialization if they are some None variant (e.g. '', 0, None)"""
+        """
+        Set of fields to exclude during deserialization if they are some None variant (e.g. '', 0, None)
+        """
         candidates = ("manager_uuid", "expires", "derived_from", "derivations", "description", "created_on", "last_updated")
         return {f for f in candidates if not self.__getattribute__(f)}
 
