@@ -48,6 +48,7 @@ ARG BOOST_VERSION=1.72.0
 ARG MPICH_VERSION="3.2"
 ARG MIN_PYTHON="3.8.0"
 ARG MIN_NUMPY="1.18.0"
+ARG BLOSC2_VERSION
 
 ARG NETCDF_C_VERSION=4.8.1
 ARG NETCDF_CXX_VERSION=4.3.1
@@ -272,6 +273,7 @@ COPY --from=download_boost /boost ${WORKDIR}/boost
 ARG MPICH_VERSION
 ARG MIN_PYTHON
 ARG MIN_NUMPY
+ARG BLOSC2_VERSION
 ARG ROCKY_NGEN_DEPS_REQUIRED
 
 ARG MPICH_CONFIGURE_OPTIONS
@@ -346,7 +348,7 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     # && ctest \
     && make install \
     # Install required python dependency packages with Pip \
-    && pip3 install numpy pandas pyyaml bmipy Cython blosc2 netCDF4 wheel packaging \
+    && pip3 install numpy pandas pyyaml bmipy Cython blosc2==${BLOSC2_VERSION:-2.0.0} netCDF4 wheel packaging \
     && HDF5_DIR=/usr pip3 install --install-option="\'--hdf5 \${HDF5_DIR}\'" --install-option="\'--jobs=$(nproc) \'"  --no-build-isolation tables \
     # Make aliases for convenience \
     && alias pip='pip3' \
