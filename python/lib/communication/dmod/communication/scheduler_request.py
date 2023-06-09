@@ -204,7 +204,7 @@ class SchedulerRequestResponse(Response):
         """
         if self.data is None:
             return None
-        return self.data.get("output_data_id")
+        return self.data.output_data_id
 
     @classmethod
     def factory_init_from_deserialized_json(cls, json_obj: dict) -> "SchedulerRequestResponse":
