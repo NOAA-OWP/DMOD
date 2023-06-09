@@ -349,7 +349,7 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && make install \
     # Install required python dependency packages with Pip \
     && pip3 install numpy pandas pyyaml bmipy Cython blosc2==${BLOSC2_VERSION:-2.0.0} netCDF4 wheel packaging \
-    && HDF5_DIR=/usr pip3 install --install-option="\'--hdf5 \${HDF5_DIR}\'" --install-option="\'--jobs=$(nproc) \'"  --no-build-isolation tables \
+    && env HDF5_DIR=/usr pip3 install --no-build-isolation tables \
     # Make aliases for convenience \
     && alias pip='pip3' \
     && echo "alias pip='pip3'" >> /etc/profile \
