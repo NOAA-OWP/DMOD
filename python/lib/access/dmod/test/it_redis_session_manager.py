@@ -384,10 +384,10 @@ class IntegrationTestRedisBackendSessionManager(unittest.TestCase):
         attr_modified = set()
 
         attr_modified.add(self._session_manager._session_redis_hash_subkey_last_accessed)
-        original_last_accessed = created_session._last_accessed
+        original_last_accessed = created_session.last_accessed
         time.sleep(5)
         updated_last_accessed = datetime.datetime.now()
-        created_session._last_accessed = updated_last_accessed
+        created_session.last_accessed = updated_last_accessed
 
         self._session_manager._write_session_via_pipeline(session=created_session, write_attr_subkeys=attr_modified)
 
@@ -410,15 +410,15 @@ class IntegrationTestRedisBackendSessionManager(unittest.TestCase):
         attr_modified = set()
 
         attr_modified.add(self._session_manager._session_redis_hash_subkey_last_accessed)
-        original_last_accessed = created_session._last_accessed
+        original_last_accessed = created_session.last_accessed
         time.sleep(5)
         updated_last_accessed = datetime.datetime.now()
-        created_session._last_accessed = updated_last_accessed
+        created_session.last_accessed = updated_last_accessed
 
         attr_modified.add(self._session_manager._session_redis_hash_subkey_ip_address)
         original_ip_address = ip_addr
         updated_ip_address = self._session_ip_2
-        created_session._ip_address = updated_ip_address
+        created_session.ip_address = updated_ip_address
 
         self._session_manager._write_session_via_pipeline(session=created_session, write_attr_subkeys=attr_modified)
 
@@ -539,7 +539,7 @@ class IntegrationTestRedisBackendSessionManager(unittest.TestCase):
         created_session_1 = self._manual_init_session(user=user_1, ip_addr=ip_addr_1, created=created_1,
                                                       last_access_delta=last_access_delta_1)
         initial_sid_in_sequence = created_session_1.session_id
-        created_session_1._session_id = initial_sid_in_sequence + 1
+        created_session_1.session_id = initial_sid_in_sequence + 1
 
         if created_session_1.is_expired():
             raise RuntimeError("Manually created session for writing test should not already be expired")
@@ -639,7 +639,7 @@ class IntegrationTestRedisBackendSessionManager(unittest.TestCase):
                                                     last_access_delta=last_access_delta)
 
         self._session_manager._write_session_via_pipeline(session=created_session)
-        created_session._last_accessed = datetime.datetime.now()
+        created_session.last_accessed = datetime.datetime.now()
         if created_session.is_expired():
             raise RuntimeError("Expecting test to have non-expired local session object, but was expired")
 
@@ -654,7 +654,7 @@ class IntegrationTestRedisBackendSessionManager(unittest.TestCase):
         ip_addr = self._session_ip_1
 
         created_session = self._session_manager.create_session(ip_address=ip_addr, username=user)
-        created_session._session_secret = created_session.session_secret + "a"
+        created_session.session_secret = created_session.session_secret + "a"
         self.assertFalse(self._session_manager.refresh_session(created_session))
 
     def test_refresh_session_3_a(self):
@@ -677,11 +677,11 @@ class IntegrationTestRedisBackendSessionManager(unittest.TestCase):
         ip_addr = self._session_ip_1
 
         created_session = self._session_manager.create_session(ip_address=ip_addr, username=user)
-        initial_last_accessed = created_session._last_accessed
+        initial_last_accessed = created_session.last_accessed
         time.sleep(1)
         self._session_manager.refresh_session(created_session)
 
-        self.assertTrue(initial_last_accessed < created_session._last_accessed)
+        self.assertTrue(initial_last_accessed < created_session.last_accessed)
 
     def test_refresh_session_3_c(self):
         """
@@ -695,7 +695,7 @@ class IntegrationTestRedisBackendSessionManager(unittest.TestCase):
         time.sleep(1)
         approx_now = datetime.datetime.now()
         self._session_manager.refresh_session(created_session)
-        rough_diff = created_session._last_accessed - approx_now
+        rough_diff = created_session.last_accessed - approx_now
         self.assertTrue(rough_diff < datetime.timedelta(seconds=0.3))
 
     def test_refresh_session_3_d(self):
