@@ -140,6 +140,35 @@ class TestPartialRealizationConfig(unittest.TestCase):
                                                      routing_config=self.ex_routing_configs[indx],
                                                      is_env_workaround=True))
 
+        # Example 5: like example 2, but with is_env_workaround explicitly set
+        # to ``None``. is_env_workaround should coerce to ``True``.
+        indx = 2
+        self.ex_hf_uids[indx] = '0005'
+        self.ex_global_form_data[indx] = list(self._base_real_configs[1].global_config.formulations)
+        self.ex_cat_forms_data[indx] = self._base_real_configs[1].catchments
+        self.ex_routing_configs[indx] = self._base_real_configs[1].routing
+        self.ex_forcing_patterns[indx] = ".*{{id}}.*..csv"
+        pattern_param = "from_env:::" + self.ex_forcing_patterns[indx]
+        self.ex_objs.append(PartialRealizationConfig(hydrofabric_uid=self.ex_hf_uids[indx],
+                                                     global_formulations=self.ex_global_form_data[indx],
+                                                     catchment_formulations=self.ex_cat_forms_data[indx],
+                                                     routing_config=self.ex_routing_configs[indx],
+                                                     forcing_file_pattern=pattern_param,
+                                                     is_env_workaround=None))
+
+        # Example 6: like example 1, but with is_env_workaround explitly set to
+        # ``None``. is_env_workaround should coerce to ``False``.
+        indx = 1
+        self.ex_hf_uids[indx] = '0001'
+        self.ex_global_form_data[indx] = list(self._base_real_configs[1].global_config.formulations)
+        self.ex_cat_forms_data[indx] = self._base_real_configs[1].catchments
+        self.ex_routing_configs[indx] = self._base_real_configs[1].routing
+        self.ex_objs.append(PartialRealizationConfig(hydrofabric_uid=self.ex_hf_uids[indx],
+                                                     global_formulations=self.ex_global_form_data[indx],
+                                                     catchment_formulations=self.ex_cat_forms_data[indx],
+                                                     routing_config=self.ex_routing_configs[indx],
+                                                     is_env_workaround=None))
+
     def test_catchment_formulations_0_a(self):
         """
         Test for expected catchment formulations in a case with only global formulations set.
@@ -235,3 +264,19 @@ class TestPartialRealizationConfig(unittest.TestCase):
         ex_idx = 4
         obj = self.ex_objs[ex_idx]
         self.assertTrue(obj.is_env_workaround)
+
+    def test_is_env_workaround_5_a(self):
+        """
+        Test for expected value in a case with this explicitly initialized to ``None``.
+        """
+        ex_idx = 5
+        obj = self.ex_objs[ex_idx]
+        self.assertTrue(obj.is_env_workaround)
+
+    def test_is_env_workaround_6_a(self):
+        """
+        Test for expected value in a case with this explicitly initialized to ``None``.
+        """
+        ex_idx = 6
+        obj = self.ex_objs[ex_idx]
+        self.assertFalse(obj.is_env_workaround)
