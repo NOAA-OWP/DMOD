@@ -935,7 +935,8 @@ class ServiceManager(WebSocketInterface):
 
         Parameters
         ----------
-        job
+        job : Job
+            The job having ::class:`DataRequirement` objects for which fulfilling datasets should be derived.
 
         Returns
         -------
