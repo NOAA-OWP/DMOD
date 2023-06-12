@@ -18,7 +18,7 @@ class Distribution(Serializable):
     """The type of the distribution"""
 
     class Config(Serializable.Config):
-        feilds = {
+        fields = {
             "distribution_type": {"alias": "type"},
             "minimum": {"alias": "min"},
             "maximum": {"alias": "max"},
