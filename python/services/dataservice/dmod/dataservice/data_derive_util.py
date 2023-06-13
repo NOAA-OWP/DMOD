@@ -113,6 +113,24 @@ class DataDeriveUtil:
 
         return NgenRealization(**params)
 
+    async def _derive_composite_job_config(self, requirement: DataRequirement, job: Job):
+        """
+        Derive and link a ``DataFormat.NGEN_JOB_COMPOSITE_CONFIG`` dataset to fulfill the given job's given requirement.
+
+        Derive a new composite config format dataset in order to fulfill the given requirement.  Then, update the
+        requirement to note that it is fulfilled by the new dataset.
+
+        Parameters
+        ----------
+        requirement : DataRequirement
+            The requirement needing a dataset to be created in order to be fulfilled.
+        job : Job
+            The job "owning" the relevant requirement.
+        """
+        # TODO: ********* implement *********
+        msg = "{}._derive_composite_job_config still must be implemented".format(self.__class__.__name__)
+        raise NotImplementedError(msg)
+
     def _derive_realization_config_from_formulations(self, requirement: DataRequirement, job: Job):
         """
         Derive a new realization config dataset for this requirement from the formulations within the job.
@@ -437,6 +455,10 @@ class DataDeriveUtil:
             # Derive realization config datasets from formulations in message body when necessary
             if req.category == DataCategory.CONFIG and req.domain.data_format == DataFormat.NGEN_REALIZATION_CONFIG:
                 self._derive_realization_config_from_formulations(requirement=req, job=job)
+                results.append(req)
+            # Derive composite dataset with all config details need for executing job
+            elif req.category == DataCategory.CONFIG and req.domain.data_format == DataFormat.NGEN_JOB_COMPOSITE_CONFIG:
+                await self._derive_composite_job_config(requirement=req, job=job)
                 results.append(req)
             # The above are the only supported derivations, so blow up here if there was something else
             else:
