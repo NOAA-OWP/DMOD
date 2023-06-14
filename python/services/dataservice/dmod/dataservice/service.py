@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
 from uuid import UUID, uuid4
 from websockets import WebSocketServerProtocol
+from .dataset_inquery_util import DatasetInqueryUtil
 from .data_derive_util import DataDeriveUtil
 
 import logging
@@ -220,6 +221,8 @@ class ServiceManager(WebSocketInterface):
         self._docker_s3fs_helper = None
         self._filesystem_data_mgr = None
         self._data_derive_util: DataDeriveUtil = DataDeriveUtil(data_mgrs_by_ds_type=self._all_data_managers)
+        self._dataset_inquery_util: DatasetInqueryUtil = DatasetInqueryUtil(data_mgrs_by_ds_type=self._all_data_managers,
+                                                                            derive_util=self._data_derive_util)
 
     def _add_manager(self, manager: DatasetManager):
         """
@@ -259,79 +262,6 @@ class ServiceManager(WebSocketInterface):
 
         for dataset_type in manager.supported_dataset_types:
             self._all_data_managers[dataset_type] = manager
-
-    async def _async_can_provide_data(self, dataset_name: str, data_item: str) -> ResultIndicator:
-        """
-        Check if the requested data can be provided by the service.
-
-        Check if the requested data can be provided by the service.  If so, return a ::class:`BasicResultIndicator`
-        that indicates success is ``True``.  If not, return a ::class:`DatasetManagementResponse` instance that includes
-        ``reason`` and ``message`` properties that provide inforamtion on why the requested data cannot be provided.
-
-        Parameters
-        ----------
-        message : DatasetManagementMessage
-            A ``REQUEST_DATA`` action management message.
-
-        Returns
-        -------
-        ResultIndicator
-            A ::class:`BasicResultIndicator` if possible, or a ::class:`DatasetManagementResponse` if not.
-        """
-        action = ManagementAction.REQUEST_DATA
-        if dataset_name not in self.get_known_datasets():
-            msg = "Data service does not recognized a dataset with name '{}'".format(dataset_name)
-            return DatasetManagementResponse(success=False, action=action, reason="Unknown Dataset", message=msg)
-        elif data_item not in self.get_known_datasets()[dataset_name].manager.list_files(dataset_name):
-            msg = "No file/item named '{}' exist within the '{}' dataset".format(data_item, dataset_name)
-            return DatasetManagementResponse(success=False, action=action, reason='Unknown Data Item', message=msg)
-        else:
-            return BasicResultIndicator(success=True, reason='Valid Dataset and Item')
-
-    async def _async_dataset_search(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
-        """
-        Search for a dataset that fulfills the requirements of this ::class:`ManagementAction` ``SEARCH`` message.
-
-        Parameters
-        ----------
-        message : DatasetManagementMessage
-            A data management message with the ``SEARCH`` :class:`ManagementAction` set.
-
-        Returns
-        -------
-        DatasetManagementResponse
-            A response indicating the success of the search and, if successful, the name of the dataset.
-        """
-        requirement = DataRequirement(domain=message.data_domain, is_input=True, category=message.data_category)
-        dataset = await self._async_find_dataset_for_requirement(requirement)
-        if isinstance(dataset, Dataset):
-            return DatasetManagementResponse(action=message.management_action, dataset_name=dataset.name, success=True,
-                                             reason='Qualifying Dataset Found', data_id=str(dataset.uuid))
-        else:
-            return DatasetManagementResponse(action=message.management_action, success=False,
-                                             reason='No Qualifying Dataset Found')
-
-    async def _async_find_dataset_for_requirement(self, requirement: DataRequirement) -> Optional[Dataset]:
-        """
-        Asynchronously search for an existing dataset that will fulfill the given requirement.
-
-        This function essentially just provides an async wrapper around the synchronous analog.
-
-        Parameters
-        ----------
-        requirement : DataRequirement
-            The data requirement that needs to be fulfilled.
-
-        Returns
-        -------
-        Optional[Dataset]
-            The (first) dataset fulfilling the given requirement, if one is found; otherwise ``None``.
-
-        See Also
-        -------
-        ::method:`find_dataset_for_requirement`
-        """
-        return self.find_dataset_for_requirement(requirement)
 
     async def _async_process_add_data(self, dataset_name: str, dest_item_name: str, message: DataTransmitMessage,
                                       manager: DatasetManager, is_temp: bool = False) -> Union[DataTransmitResponse,
@@ -375,19 +305,38 @@ class ServiceManager(WebSocketInterface):
                                              dataset_name=dataset_name, reason="Failure Adding Data To Dataset")
 
     async def _async_process_data_request(self, message: DatasetManagementMessage, websocket) -> DatasetManagementResponse:
+        """
+        Process and respond to a ::class:`ManagementAction` ``REQUEST_DATA`` dataset management message.
+
+        Process a ::class:`DatasetManagementMessage` having the ``REQUEST_DATA`` action, sending back the data over the
+        supplied websocket connection if possible via ::class:`DataTransmitMessage` objects. If data cannot be provided,
+        or once it has been, finish by returning (but not actually sending) a ::class:`DatasetManagementResponse` that
+        reflects the result.
+
+        Parameters
+        ----------
+        message : DatasetManagementMessage
+            The message requesting some data from the service.
+        websocket
+            The websocket connection over which to transmit data when this is possible.
+
+        Returns
+        -------
+        DatasetManagementResponse
+            A response message indicating the success or failure of the request for data.
+        """
         # Check if the data request can actually be fulfilled
-        dataset_name = message.dataset_name
-        item_name = message.data_location
-        check_possible_result = await self._async_can_provide_data(dataset_name=dataset_name, data_item=item_name)
-        if not check_possible_result.success:
-            # This should mean this is specifically a response instance than we can directly return
-            return check_possible_result
+        can_provide: BasicResultIndicator = await self._dataset_inquery_util.async_can_provide_data(
+            dataset_name=message.dataset_name, data_item_name=message.data_location)
+        if not can_provide.success:
+            return DatasetManagementResponse(action=message.management_action, success=can_provide.success,
+                                             reason=can_provide.reason, message=can_provide.message)
 
         chunk_size = 1024
-        manager = self.get_known_datasets()[dataset_name].manager
+        manager = self.get_known_datasets()[message.dataset_name].manager
         chunking_keys = manager.data_chunking_params
         if chunking_keys is None:
-            raw_data = manager.get_data(dataset_name=dataset_name, item_name=item_name)
+            raw_data = manager.get_data(dataset_name=message.dataset_name, item_name=message.data_location)
             transmit = DataTransmitMessage(data=raw_data, series_uuid=uuid4(), is_last=True)
             await websocket.send(str(transmit))
             response = DataTransmitResponse.factory_init_from_deserialized_json(json.loads(await websocket.recv()))
@@ -396,7 +345,7 @@ class ServiceManager(WebSocketInterface):
             actual_length = chunk_size
             while actual_length == chunk_size:
                 chunk_params = {chunking_keys[0]: offset, chunking_keys[1]: chunk_size}
-                raw_data = manager.get_data(dataset_name, item_name, **chunk_params)
+                raw_data = manager.get_data(message.dataset_name, message.data_location, **chunk_params)
                 offset += chunk_size
                 actual_length = len(raw_data)
                 transmit = DataTransmitMessage(data=raw_data, series_uuid=uuid4(), is_last=True)
@@ -448,6 +397,29 @@ class ServiceManager(WebSocketInterface):
         ::method:`_process_dataset_delete`
         """
         return self._process_dataset_delete(message)
+
+    async def _async_process_dataset_search(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
+        """
+        Process a ``SEARCH`` management message for a dataset to search for a appropriate dataset.
+
+        Parameters
+        ----------
+        message : DatasetManagementMessage
+            A data management message with the ``SEARCH`` :class:`ManagementAction` set.
+
+        Returns
+        -------
+        DatasetManagementResponse
+            A response indicating the success of the search and, if successful, the name of the dataset.
+        """
+        requirement = DataRequirement(domain=message.data_domain, is_input=True, category=message.data_category)
+        dataset = await self._dataset_inquery_util.async_find_dataset_for_requirement(requirement)
+        if isinstance(dataset, Dataset):
+            return DatasetManagementResponse(action=message.management_action, dataset_name=dataset.name, success=True,
+                                             reason='Qualifying Dataset Found', data_id=str(dataset.uuid))
+        else:
+            return DatasetManagementResponse(action=message.management_action, success=False,
+                                             reason='No Qualifying Dataset Found')
 
     async def _async_process_query(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
         """
@@ -671,98 +643,6 @@ class ServiceManager(WebSocketInterface):
             reason = 'Unsupported {} Query Type - {}'.format(DatasetQuery.__class__.__name__, query_type.name)
             return DatasetManagementResponse(action=message.management_action, success=False, reason=reason)
 
-    async def can_be_fulfilled(self, requirement: DataRequirement, job: Optional[Job] = None) -> Tuple[bool, Optional[Dataset]]:
-        """
-        Determine details of whether a data requirement can be fulfilled, either directly or by deriving a new dataset.
-
-        The function will process and return a tuple of two items.  The first is whether the data requirement can be
-        fulfilled, given the currently existing datasets.  The second is either the fulfilling ::class:`Dataset`, if a
-        dataset already exists that completely fulfills the requirement, or ``None``.
-
-        Even if a single fulfilling dataset for the requirement does not already exist, it may still be possible for the
-        service to derive a new dataset that does fulfill the requirement.  In such cases, ``True, None`` is returned.
-
-        Parameters
-        ----------
-        requirement : DataRequirement
-            The data requirement in question that needs to be fulfilled.
-        job : Optional[Job]
-            The job having the given requirement.
-
-        Returns
-        -------
-        Tuple[bool, Optional[Dataset]]
-            A tuple of whether the requirement can be fulfilled and, if one already exists, the fulfilling dataset.
-        """
-        fulfilling_dataset = await self._async_find_dataset_for_requirement(requirement)
-        if isinstance(fulfilling_dataset, Dataset):
-            return True, fulfilling_dataset
-        else:
-            return await self._data_derive_util.async_can_dataset_be_derived(requirement=requirement, job=job), None
-
-    def find_dataset_for_requirement(self, requirement: DataRequirement) -> Optional[Dataset]:
-        """
-        Search for an existing dataset that will fulfill the given requirement.
-
-        Parameters
-        ----------
-        requirement : DataRequirement
-            The data requirement that needs to be fulfilled.
-
-        Returns
-        -------
-        Optional[Dataset]
-            The (first) dataset fulfilling the given requirement, if one is found; otherwise ``None``.
-        """
-        # Keep track of a few things for logging purposes
-        datasets_count_match_category = 0
-        datasets_count_match_format = 0
-        # Keep those of the right category but wrong format, in case one is needed and satisfactory
-        potentially_compatible_alternates: List[Dataset] = []
-
-        for name, dataset in self.get_known_datasets().items():
-            # Skip anything with the wrong category
-            if dataset.category != requirement.category:
-                continue
-
-            # Keep track of how many of the right category there were for error purposes
-            datasets_count_match_category += 1
-
-            # Skip (for now at least) anything with a different format (though set aside if potentially compatible)
-            if dataset.data_format != requirement.domain.data_format:
-                # Check if this format could fulfill
-                if DataFormat.can_format_fulfill(needed=requirement.domain.data_format, alternate=dataset.data_format):
-                    # We will return to examine these if no dataset qualifies that has the exact format in requirement
-                    potentially_compatible_alternates.append(dataset)
-                continue
-
-            # When a dataset matches, keep track for error counts, and then test to see if it qualifies
-            datasets_count_match_format += 1
-            # TODO: need additional test of some kind for cases when the requirement specifies "any" (e.g., "any"
-            #  catchment (from hydrofabric) in realization config, for finding a forcing dataset)
-            if dataset.data_domain.contains(requirement.domain):
-                return dataset
-
-        # At this point, no datasets qualify against the exact domain (including format) of the requirement
-        # However, before failing, check if any have different, but compatible format, and otherwise qualify
-        for dataset in potentially_compatible_alternates:
-            if dataset.data_domain.contains(requirement.domain):
-                return dataset
-
-        # Before failing, treat the count of alternates as being of the same format, for error messaging purposes
-        datasets_count_match_format += len(potentially_compatible_alternates)
-
-        if datasets_count_match_category == 0:
-            msg = "Could not fill requirement for '{}': no datasets for this category"
-            logging.error(msg.format(requirement.category.name))
-        elif datasets_count_match_format == 0:
-            msg = "Could not fill requirement with '{}' format domain: no datasets found this (or compatible) format"
-            logging.error(msg.format(requirement.domain.data_format.name))
-        else:
-            msg = "Could not find dataset meeting all restrictions of requirement: {}"
-            logging.error(msg.format(requirement.to_json()))
-        return None
-
     def get_known_datasets(self) -> Dict[str, Dataset]:
         """
         Get real-time mapping of all datasets known to this instance via its managers, in a map keyed by dataset name.
@@ -892,7 +772,7 @@ class ServiceManager(WebSocketInterface):
                     response = DatasetManagementResponse(action=ManagementAction.LIST_ALL, success=True,
                                                          reason='List Assembled', data={'datasets': dataset_names})
                 elif inbound_message.management_action == ManagementAction.SEARCH:
-                    response = await self._async_dataset_search(message=inbound_message)
+                    response = await self._async_process_dataset_search(message=inbound_message)
                 # TODO: (later) properly handle additional incoming messages
                 else:
                     msg = "Unsupported data management message action {}".format(inbound_message.management_action)
@@ -1007,8 +887,8 @@ class ServiceManager(WebSocketInterface):
         # TODO: (later) should we check whether any 'fulfilled_by' datasets exist, or handle this differently?
         try:
             for requirement in [req for req in job.data_requirements if req.fulfilled_by is None]:
-                can_fulfill, dataset = await self.can_be_fulfilled(requirement=requirement, job=job)
-
+                can_fulfill, dataset = await self._dataset_inquery_util.can_be_fulfilled(requirement=requirement,
+                                                                                         job=job)
                 if not can_fulfill:
                     logging.error("Cannot fulfill '{}' category data requirement".format(requirement.category.name))
                     return False
