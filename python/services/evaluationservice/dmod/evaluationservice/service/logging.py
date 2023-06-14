@@ -449,10 +449,6 @@ DEFAULT_LOGGING_CONFIGURATION = {
             'datefmt': os.environ.get("LOG_DATEFMT", application_values.COMMON_DATETIME_FORMAT)
         },
     },
-    'root': {
-        'handlers': [f'{DEFAULT_LOGGER_NAME}_Handler', 'stdout'],
-        'level': get_log_level()
-    },
     'handlers': {
         f'{DEFAULT_LOGGER_NAME}_Handler': create_handler_configuration(
             level=get_log_level(),
