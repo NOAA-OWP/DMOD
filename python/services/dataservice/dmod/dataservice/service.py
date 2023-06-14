@@ -816,10 +816,10 @@ class ServiceManager(WebSocketInterface):
                     logging.info("All required data for {} is available.".format(job.job_id))
                     # Before moving to next successful step, also create output datasets and requirement entries
                     self._create_output_datasets(job)
-                    job.status_step = JobExecStep.AWAITING_PARTITIONING if job.cpu_count > 1 else JobExecStep.AWAITING_ALLOCATION
+                    job.set_status_step(JobExecStep.AWAITING_PARTITIONING if job.cpu_count > 1 else JobExecStep.AWAITING_ALLOCATION)
                 else:
                     logging.error("Some or all required data for {} is unprovideable.".format(job.job_id))
-                    job.status_step = JobExecStep.DATA_UNPROVIDEABLE
+                    job.set_status_step(JobExecStep.DATA_UNPROVIDEABLE)
                 # Regardless, save the updated job state
                 try:
                     self._job_util.save_job(job)
@@ -850,11 +850,11 @@ class ServiceManager(WebSocketInterface):
                     logging.debug('Initializing any required S3FS dataset volumes for {}'.format(job.job_id))
                     self._docker_s3fs_helper.init_volumes(job=job)
                 except Exception as e:
-                    job.status_step = JobExecStep.DATA_FAILURE
+                    job.set_status_step(JobExecStep.DATA_FAILURE)
                     self._job_util.save_job(job)
                     continue
 
-                job.status_step = JobExecStep.AWAITING_SCHEDULING
+                job.set_status_step(JobExecStep.AWAITING_SCHEDULING)
                 self._job_util.save_job(job)
 
             self._job_util.unlock_active_jobs(lock_id)
