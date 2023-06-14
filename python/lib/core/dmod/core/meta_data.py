@@ -29,7 +29,7 @@ class StandardDatasetIndex(str, PydanticEnum):
     """ A general-purpose index for the applicable data element unique identifier. """
     REALIZATION_CONFIG_DATA_ID = (7, str, "REALIZATION_CONFIG_DATA_ID")
     """ A specialized index for the unique data id of an associated realization config dataset. """
-    FILE_NAME = (8, str)
+    FILE_NAME = (8, str, "FILE_NAME")
     """ Index for the name of a data file within a dataset. """
 
     def __new__(cls, index: int, ty: type, name: str):
