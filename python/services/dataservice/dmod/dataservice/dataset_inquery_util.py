@@ -189,3 +189,21 @@ class DatasetInqueryUtil:
             msg = "Could not find dataset meeting all restrictions of requirement: {}"
             logging.error(msg.format(requirement.to_json()))
         return None
+
+    def get_dataset_names(self, sort_result: bool = False) -> List[str]:
+        """
+        Get the names of all current datasets, optionally in sorted order.
+
+        Parameters
+        ----------
+        sort_result : bool
+            Whether to return a sorted list of dataset names (by default ``False``).
+
+        Returns
+        -------
+        List[str]
+            A list of the names of all currently existing datasets.
+        """
+        results = self._get_known_datasets().keys()
+        return sorted(results) if sort_result else results
+
