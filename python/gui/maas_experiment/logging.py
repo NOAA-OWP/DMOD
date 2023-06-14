@@ -449,6 +449,10 @@ DEFAULT_LOGGING_CONFIGURATION = {
             'datefmt': os.environ.get("LOG_DATEFMT", application_values.COMMON_DATETIME_FORMAT)
         },
     },
+    "root": {
+        "handlers": ["errors", "stdout"],
+        "level": get_log_level()
+    },
     'handlers': {
         f'{DEFAULT_LOGGER_NAME}_Handler': create_handler_configuration(
             level=get_log_level(),
@@ -462,6 +466,14 @@ DEFAULT_LOGGING_CONFIGURATION = {
             'level': 'DEBUG',
             'class': 'logging.StreamHandler',
             'formatter': 'standard_formatter'
+        },
+        "errors": {
+            "level": "ERROR",
+            "filename": "errors.log",
+            "formatter": "standard_formatter",
+            "class": "logging.handlers.RotatingFileHandler",
+            "maxBytes": get_maximum_log_size(),
+            "backupCount": get_maximum_log_backups()
         }
     },
     'loggers': {
