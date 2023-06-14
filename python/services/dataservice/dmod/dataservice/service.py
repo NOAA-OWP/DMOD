@@ -767,8 +767,7 @@ class ServiceManager(WebSocketInterface):
                 elif inbound_message.management_action == ManagementAction.DELETE:
                     response = await self._async_process_dataset_delete(message=inbound_message)
                 elif inbound_message.management_action == ManagementAction.LIST_ALL:
-                    dataset_names = list(self.get_known_datasets().keys())
-                    dataset_names.sort()
+                    dataset_names = self._dataset_inquery_util.get_dataset_names(sort_result=True)
                     response = DatasetManagementResponse(action=ManagementAction.LIST_ALL, success=True,
                                                          reason='List Assembled', data={'datasets': dataset_names})
                 elif inbound_message.management_action == ManagementAction.SEARCH:
