@@ -9,7 +9,7 @@ from dmod.core.dataset import Dataset, DatasetManager, DatasetType
 from dmod.scheduler.job import Job, JobExecStep
 from ngen.config.configurations import Forcing, Time
 from ngen.config.realization import NgenRealization, Realization
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 
 class DataDeriveUtil:
@@ -126,49 +126,172 @@ class DataDeriveUtil:
         if isinstance(request, AbstractNgenRequest):
             # TODO: make sure that, once we are generating BMI init config datasets, the path details get provided as
             #  needed to this function when generating the realization config
+            # Get the necessary items to define our data_adder function (in this case, just a realization config)
             real_config_obj = self._build_ngen_realization_config_from_request(request=request, job=job)
 
-            # Create a new dataset
-            req_domain = requirement.domain
-            ds_name = req_domain.discrete_restrictions[StandardDatasetIndex.DATA_ID].values[0]
+            def data_add_func(dataset_name: str, manager: DatasetManager) -> bool:
+                result = manager.add_data(dataset_name=dataset_name, dest='realization_config.json',
+                                          data=json.dumps(real_config_obj.json()).encode())
+                return False if not result else True
 
-            ds_cont_restricts = [r for idx, r in req_domain.continuous_restrictions.items()]
-
-            # Leave out dataset's name/data_id restriction, as it's unnecessary here, and just use None if nothing else
-            ds_d_restricts = [r for idx, r in req_domain.discrete_restrictions if idx != StandardDatasetIndex.DATA_ID]
-            if len(ds_d_restricts) == 0:
-                ds_d_restricts = None
-
-            ds_domain = DataDomain(data_format=req_domain.data_format, continuous_restrictions=ds_cont_restricts,
-                                   discrete_restrictions=ds_d_restricts)
             # TODO: (later) more intelligently determine type
-            mgr = self._all_data_managers[DatasetType.OBJECT_STORE]
-            dataset: Dataset = mgr.create(name=ds_name, is_read_only=False, category=DataCategory.CONFIG,
-                                          domain=ds_domain)
-
-            # TODO: (later) in the future, whether the job is running via Docker needs to be checked
-            # TODO: (later) also, whatever is done here needs to align with what is done within perform_checks_for_job,
-            #  when setting the fulfilled_access_at for the DataRequirement
-            is_job_run_in_docker = True
-            if is_job_run_in_docker:
-                ds_access_at = dataset.docker_mount
-            else:
-                msg = "Could not determine proper access location for new dataset of type {} by non-Docker job {}."
-                raise DmodRuntimeError(msg.format(dataset.__class__.__name__, job.job_id))
-
-            # Upload the data from the config object to the new dataset
-            result = mgr.add_data(dataset_name=ds_name, dest='realization_config.json',
-                                  data=json.dumps(real_config_obj.json()).encode())
-            if not result:
-                msg_tmp = "Could not write data to new {} dataset {} being derived for job {}"
-                raise DmodRuntimeError(msg_tmp.format(ds_domain.data_format.name, ds_name, job.job_id))
-
-            # Update the requirement fulfilled_by and fulfilled_at to associate with the new dataset
+            ds_type = DatasetType.OBJECT_STORE
+            ds_name = requirement.domain.discrete_restrictions[StandardDatasetIndex.DATA_ID].values[0]
+            dataset: Dataset = self._exec_dataset_derive_for_requirement(dataset_type=ds_type,
+                                                                         data_category=DataCategory.CONFIG,
+                                                                         dataset_name=ds_name,
+                                                                         requirement=requirement,
+                                                                         data_adder=data_add_func)
+            # Update the requirement fulfilled_access_at and fulfilled_by to associate with the new dataset
+            #################################################################################
+            # It is important that `fulfilled_access_at` is set first (or at least that the #
+            # _determine_access_location function is called first) to ensure `fulfilled_by  #
+            # isn't set if something with `fulfilled_access_at` goes wrong.                 #
+            #################################################################################
+            requirement.fulfilled_access_at = self._determine_access_location(dataset, job)
+            #################################################################################
             requirement.fulfilled_by = dataset.name
-            requirement.fulfilled_access_at = ds_access_at
         else:
             msg = 'Bad job request type for {} when deriving realization config from formulations'.format(job.job_id)
             raise DmodRuntimeError(msg)
+
+    def _determine_access_location(self, dataset: Dataset, job: Job) -> str:
+        """
+        Get the correct access location string for a given dataset, in the context of the provided job.
+
+        Get the correct access location string for a given dataset and job.  This is a string value suitable for use to
+        set the ::attribute:`DataRequirement.fulfilled_access_at` for a ::class:`DataRequirement` for this ::class:`Job`
+        that is satisfied by ``dataset``.
+
+        Note that the access location value is returned, but no requirement for the provided job is modified by this
+        function.
+
+
+        Parameters
+        ----------
+        dataset : Dataset
+            A dataset that fulfills one of the requirements of the provide job.
+        job : Job
+            A job that needs the appropriate value for the ::attribute:`DataRequirement.fulfilled_access_at` property of
+            one of said job's :class:`DataRequirement`s, where this requirement is fulfilled by ``dataset``.
+
+        Returns
+        -------
+        str
+            The appropriate ``fulfilled_access_at`` value.
+        """
+        # TODO: (later) in the future, whether the job is running via Docker needs to be checked
+        # TODO: (later) also, whatever is done here needs to align with what is done within perform_checks_for_job,
+        #  when setting the fulfilled_access_at for the DataRequirement
+        is_job_run_in_docker = True
+
+        if is_job_run_in_docker:
+            return dataset.docker_mount
+        else:
+            msg = "Could not determine proper access location for new dataset of type {} by non-Docker job {}."
+            raise DmodRuntimeError(msg.format(dataset.__class__.__name__, job.job_id))
+
+    def _exec_dataset_derive(self,
+                             dataset_type: DatasetType,
+                             data_category: DataCategory,
+                             dataset_name: str,
+                             domain: DataDomain,
+                             data_adder: Callable[[str, DatasetManager], bool]) -> Dataset:
+        """
+        General (reusable) function to execute the derivation function to build a new dataset from existing data.
+
+        Function works by first receiving parameters for all things necessary to create a new dataset, and using them to
+        do so.  Function also receives as a param a callable.  This callable should handle all the steps for deriving
+        data from other sources and adding this data to the newly created dataset.
+
+        Note that if any exceptions occur after the empty dataset is created and before all data is successfully added
+        (or if that is not successful), then the new dataset will be deleted.
+
+        Parameters
+        ----------
+        dataset_type : DatasetType
+            The backend storage type to use for the new dataset, which implies the dataset manager to use.
+        data_category : DataCategory
+            The category of data to be stored within the new dataset.
+        dataset_name : str
+            The name to use for the new dataset.
+        domain : DataDomain
+            The data domain definition for the new dataset.
+        data_adder : Callable[[str, DatasetManager], bool]
+            A callable that performs the act of adding data to the new dataset, accepting the dataset name string and
+            dataset manager object as arguments, and returning whether data was added successfully.
+
+        Returns
+        -------
+        Dataset
+            The newly created dataset with derived data successfully written to it.
+        """
+        # Then create the dataset
+        mgr = self._all_data_managers[dataset_type]
+        dataset: Dataset = mgr.create(name=dataset_name, is_read_only=False, category=data_category, domain=domain)
+        # Once dataset is created, everything else goes in a try block so we can remove the dataset if something fails
+        try:
+            # Exec our data-add callable func; if it returns False, raise exception so the empty dataset will be removed
+            if not data_adder(dataset_name, mgr):
+                msg_tmp = "Could not write data to new {} dataset {}"
+                raise DmodRuntimeError(msg_tmp.format(domain.data_format.name, dataset_name))
+        # If an exception is thrown after dataset was created, then data was not added; i.e., dataset should be deleted
+        except Exception as e:
+            mgr.delete(dataset)
+            raise e
+
+        # If we past the try/except, the data was added successfully, so return the dataset
+        return dataset
+
+    def _exec_dataset_derive_for_requirement(self,
+                                             dataset_type: DatasetType,
+                                             data_category: DataCategory,
+                                             dataset_name: str,
+                                             requirement: DataRequirement,
+                                             data_adder: Callable[[str, DatasetManager], bool]) -> Dataset:
+        """
+        Execute derivation function to build a new dataset from existing data that will satisfy a supplied requirement.
+
+        Function works by first extracting a domain from the requirement (omitting any ``data_id`` restrictions).  From
+        there, it returns the result of a nested call to ::method:`_exec_dataset_derive`, passing as args the
+        aforementioned domain and its applicable parameters.
+
+        Parameters
+        ----------
+        dataset_type : DatasetType
+            The backend storage type to use for the new dataset, which implies the dataset manager to use.
+        data_category : DataCategory
+            The category of data to be stored within the new dataset.
+        dataset_name : str
+            The name to use for the new dataset.
+        requirement : DataRequirement
+            The requirement to be fulfilled by the derived dataset, used to create the necessary ::class:`DataDomain`.
+        data_adder : Callable[[str], bool]
+            A callable that performs the act of adding data to the new dataset, accepting the dataset name string and
+            dataset manager object as arguments, and returning whether data was added successfully.
+
+        Returns
+        -------
+        Dataset
+            The newly created dataset with derived data successfully written to it.
+
+        See Also
+        -------
+        _exec_dataset_derive
+
+        """
+        # Build a modified domain, based on the requirement, but with any name/data_id restriction removed
+        req_domain = requirement.domain
+        continuous_restricts = [r for idx, r in req_domain.continuous_restrictions.items()]
+        # Leave out dataset's name/data_id restriction, as it's unnecessary here, and just use None if nothing else
+        discrete_restricts = [r for idx, r in req_domain.discrete_restrictions if idx != StandardDatasetIndex.DATA_ID]
+        if len(discrete_restricts) == 0:
+            discrete_restricts = None
+        domain = DataDomain(data_format=req_domain.data_format, continuous_restrictions=continuous_restricts,
+                            discrete_restrictions=discrete_restricts)
+        # Then defer to this function
+        return self._exec_dataset_derive(dataset_type=dataset_type, data_category=data_category,
+                                         dataset_name=dataset_name, domain=domain, data_adder=data_adder)
 
     def _get_known_datasets(self) -> Dict[str, Dataset]:
         """
