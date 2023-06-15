@@ -272,8 +272,8 @@ class DataDeriveUtil:
         """
         Derive any datasets as required for the given job awaiting its data.
 
-        Job is expected to be in the ``AWAITING_DATA`` status step.  If it is not, no datasets are derived, a warning is
-        logged, and an empty list is returned.
+        Job is expected to be in the ``AWAITING_DATA`` status step.  If it is not, no datasets are derived, exception
+        is thrown.
 
         If in the right status, but initially any unfulfilled requirements of the job cannot have a dataset successfully
         derived, a ::class:`DmodRuntimeError` is raised.
@@ -291,13 +291,14 @@ class DataDeriveUtil:
         Raises
         -------
         DmodRuntimeError
-            Raised if a job with the correct status has an initially unfulfilled requirement for which a satisfactory
-            dataset can not be derived by this function.
+            Raised if the job has the wrong status, or if the job with the correct status has an initially unfulfilled
+            requirement for which a satisfactory dataset can not be derived by this function.
         """
         # Only do something if the job has the right status
         if job.status_step != JobExecStep.AWAITING_DATA:
-            logging.warning("Cannot attempt to derive datasets with job status step of {}".format(job.status_step.name))
-            return []
+            msg = "Cannot attempt to derive datasets with job status step of {}".format(job.status_step.name)
+            logging.error(msg)
+            raise DmodRuntimeError(msg)
 
         results = []
 
@@ -318,3 +319,4 @@ class DataDeriveUtil:
             else:
                 msg_template = "Unsupported requirement dataset derivation for job {} (requirement: {})"
                 raise DmodRuntimeError(msg_template.format(job.job_id, str(req)))
+        return results
