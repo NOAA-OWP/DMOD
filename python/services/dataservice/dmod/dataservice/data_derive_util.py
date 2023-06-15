@@ -306,7 +306,7 @@ class DataDeriveUtil:
         #  not be temporary) and have temporary datasets cleaned up by service periodically
         # TODO: #needs_issue Also make sure that temporary datasets have their expire time updated if they are used
         #  again for something
-        for req in [r for r in job.data_requirements if r.fulfilled_by is None]:
+        for req in (r for r in job.data_requirements if r.fulfilled_by is None):
             # **********************************************************************************************************
             # *** TODO: if/when deriving forcing datasets is supported, make sure this is done before config datasets
             # *** TODO: when generating BMI datasets is supported, make sure it's done before realization configs
