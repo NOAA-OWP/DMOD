@@ -1,4 +1,6 @@
 import json
+import logging
+
 from dmod.communication import AbstractNgenRequest, NGENRequest
 from dmod.communication.maas_request.ngen.partial_realization_config import PartialRealizationConfig
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement, StandardDatasetIndex
@@ -294,6 +296,7 @@ class DataDeriveUtil:
         """
         # Only do something if the job has the right status
         if job.status_step != JobExecStep.AWAITING_DATA:
+            logging.warning("Cannot attempt to derive datasets with job status step of {}".format(job.status_step.name))
             return []
 
         results = []
