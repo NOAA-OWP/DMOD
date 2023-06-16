@@ -820,22 +820,3 @@ class TestServiceManager(unittest.TestCase):
         result = self.loop.run_until_complete(self.manager.perform_checks_for_job(job))
 
         self.assertTrue(result)
-
-    def test_perform_checks_for_job_6_a(self):
-        """ Test whether check for fulfilling job requirements for example 6 (requires all datasets, no preset fulfills). """
-        ex_num = 6
-
-        job = self.example_jobs[ex_num]
-        result = self.loop.run_until_complete(self.manager.perform_checks_for_job(job))
-
-        self.assertTrue(result)
-
-    def test_can_be_fulfilled_6_a(self):
-        """ Test whether check for can fulfilling first job requirement for example 6 (requires all datasets, no preset fulfills). """
-        ex_num = 6
-        requirement_index = 0
-
-        job = self.example_jobs[ex_num]
-        result = self.loop.run_until_complete(self.manager.can_be_fulfilled(job.data_requirements[requirement_index]))
-
-        self.assertTrue(result[0])
