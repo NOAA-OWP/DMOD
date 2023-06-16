@@ -32,8 +32,9 @@ class MockKnownDatasetsServiceManager(ServiceManager):
         super(MockKnownDatasetsServiceManager, self).__init__(job_util=None, *args, **kwargs)
         self._known_datasets = dict()
         for d_file in dataset_files:
-            dataset = MockDataset.factory_init_from_deserialized_json(json.load(d_file.open()))
-            self._known_datasets[dataset.name] = dataset
+            with d_file.open("r") as open_file:
+                dataset = MockDataset.factory_init_from_deserialized_json(json.load(open_file))
+                self._known_datasets[dataset.name] = dataset
 
     def get_known_datasets(self) -> Dict[str, Dataset]:
         """
