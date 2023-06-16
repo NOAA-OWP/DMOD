@@ -4,10 +4,10 @@ import json
 import os
 from ..dataservice.service import ServiceManager
 from dmod.communication.client import get_or_create_eventloop
-from dmod.core.dataset import Dataset
+from dmod.core.dataset import DataCategory, DataDomain, Dataset, DatasetManager, DatasetType
 from dmod.scheduler.job import RequestedJob
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from socket import gethostname
 
 
@@ -22,6 +22,40 @@ class MockDataset(Dataset):
         return self.name
 
 
+class MockDatasetManager(DatasetManager):
+
+    def add_data(self, dataset_name: str, dest: str, data: Optional[bytes] = None, source: Optional[str] = None,
+                 is_temp: bool = False, **kwargs) -> bool:
+        pass
+
+    def combine_partials_into_composite(self, dataset_name: str, item_name: str, combined_list: List[str]) -> bool:
+        pass
+
+    def create(self, name: str, category: DataCategory, domain: DataDomain, is_read_only: bool,
+               initial_data: Optional[str] = None) -> Dataset:
+        pass
+
+    def delete(self, dataset: Dataset, **kwargs) -> bool:
+        pass
+
+    @property
+    def data_chunking_params(self) -> Optional[Tuple[str, str]]:
+        pass
+
+    def get_data(self, dataset_name: str, item_name: str, **kwargs) -> Union[bytes, Any]:
+        pass
+
+    def list_files(self, dataset_name: str, **kwargs) -> List[str]:
+        pass
+
+    def reload(self, reload_from: str, serialized_item: Optional[str] = None) -> Dataset:
+        pass
+
+    @property
+    def supported_dataset_types(self) -> Set[DatasetType]:
+        return {DatasetType.FILESYSTEM}
+
+
 class MockKnownDatasetsServiceManager(ServiceManager):
     """
     A mock extension of ::class:`ServiceManager`, with a mocked-up overrided of ::method:`get_known_datasets`.
@@ -30,22 +64,14 @@ class MockKnownDatasetsServiceManager(ServiceManager):
     def __init__(self, dataset_files: List[Path], *args, **kwargs):
         # Should be able to get away with no job_util for what we are using this for
         super(MockKnownDatasetsServiceManager, self).__init__(job_util=None, *args, **kwargs)
-        self._known_datasets = dict()
+
+        datasets = dict()
         for d_file in dataset_files:
             with d_file.open("r") as open_file:
                 dataset = MockDataset.factory_init_from_deserialized_json(json.load(open_file))
-                self._known_datasets[dataset.name] = dataset
+                datasets[dataset.name] = dataset
 
-    def get_known_datasets(self) -> Dict[str, Dataset]:
-        """
-        Get mock dictionary of datasets for testing.
-
-        Returns
-        -------
-        Dict[str, Dataset]
-            Mock dictionary of datasets for testing.
-        """
-        return self._known_datasets
+        self._add_manager(MockDatasetManager(datasets=datasets))
 
 
 class TestServiceManager(unittest.TestCase):
