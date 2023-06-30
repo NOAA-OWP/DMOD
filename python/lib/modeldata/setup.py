@@ -32,7 +32,7 @@ setup(
         "shapely>=2.0.0",
         "hypy@git+https://github.com/NOAA-OWP/hypy@master#egg=hypy&subdirectory=python",
         "gitpython",
-        "pydantic",
+        "pydantic>=1.10.8,~=1.10",
     ],
     packages=find_namespace_packages(exclude=["dmod.test", "schemas", "ssl", "src"]),
 )

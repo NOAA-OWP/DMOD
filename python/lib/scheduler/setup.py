@@ -21,7 +21,7 @@ setup(
     url='',
     license='',
     install_requires=['docker', 'Faker', 'dmod-communication>=0.8.0', 'dmod-modeldata>=0.7.1', 'dmod-redis>=0.1.0',
-                      'dmod-core>=0.2.0', 'cryptography', 'uri', 'pyyaml', 'pydantic'],
+                      'dmod-core>=0.2.0', 'cryptography', 'uri', 'pyyaml', 'pydantic>=1.10.8,~=1.10'],
     packages=find_namespace_packages(exclude=['dmod.test', 'src'])
 )
 

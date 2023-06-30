@@ -20,6 +20,6 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=["pydantic"],
+    install_requires=["pydantic>=1.10.8,~=1.10"],
     packages=find_namespace_packages(exclude=['dmod.test', 'schemas', 'ssl', 'src'])
 )
