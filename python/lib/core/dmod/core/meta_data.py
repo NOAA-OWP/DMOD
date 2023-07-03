@@ -389,8 +389,7 @@ class ContinuousRestriction(Serializable):
 
         field_serializers = {
             "begin": _serialize_datetime,
-            "end": _serialize_datetime,
-            "subclass": lambda value: value.__name__
+            "end": _serialize_datetime
             }
 
     def __eq__(self, o: object) -> bool:
