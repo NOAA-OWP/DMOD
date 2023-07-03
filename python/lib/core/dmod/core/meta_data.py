@@ -853,7 +853,7 @@ class TimeRange(ContinuousRestriction):
     """
     Encapsulated representation of a time range.
     """
-    variable: StandardDatasetIndex = Field(StandardDatasetIndex.TIME, const=True)
+    variable: StandardDatasetIndex = Field(StandardDatasetIndex.TIME.name, const=True)
 
     @classmethod
     def parse_from_string(cls, as_string: str, dt_format: Optional[str] = None, dt_str_length: int = 19) -> 'TimeRange':
