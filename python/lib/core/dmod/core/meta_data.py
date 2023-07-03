@@ -5,9 +5,18 @@ from .serializable import Serializable
 from .common.helper_functions import get_subclasses
 from numbers import Number
 from typing import Any, Dict, List, Literal, Optional, Set, Type, Union
+from typing_extensions import Self
 from collections.abc import Iterable
 from collections import OrderedDict
-from pydantic import root_validator, validator, PyObject, Field, StrictStr, StrictFloat, StrictInt
+from pydantic import (
+    root_validator,
+    validator,
+    Field,
+    StrictStr,
+    StrictFloat,
+    StrictInt,
+)
+import warnings
 
 
 class StandardDatasetIndex(str, PydanticEnum):
@@ -301,28 +310,49 @@ class DataFormat(PydanticEnum):
 class ContinuousRestriction(Serializable):
     """
     A filtering component, typically applied as a restriction on a domain, by a continuous range of values of a variable.
+
+    If a subclass name is passed to the optional ``subclass`` parameter during initialization the subclass will be
+    initialized and returned. For example, `ContinuousRestriction(..., subclass="TimeRange")` would return a
+    ``TimeRange`` instance. Invalid ``subclass`` parameter values will return an``ContinuousRestriction`` instance and
+    display a RuntimeWarning.
     """
+
     variable: StandardDatasetIndex
     begin: datetime
     end: datetime
     datetime_pattern: Optional[str]
-    subclass: PyObject
+    subclass: str = None
+    """
+    Optional field that when provided factory initializes a subclass instance. This field will _always_ be inialized as
+    the instance type's class name.
+    """
+
+    def __new__(cls, *_, **kwargs) -> Self:
+        """
+        Factory return a subclass type if a valid ``subclass`` name is in ``kwargs``. Otherwise, return new of self.
+        """
+        if "subclass" not in kwargs:
+            return super().__new__(cls)
+
+        subclass_str = kwargs["subclass"]
+        if not isinstance(subclass_str, str):
+            msg = f"{cls.__name__!r}: 'subclass' parameter must be str type. Initializing {cls.__name__!r}"
+            warnings.warn(msg, RuntimeWarning)
+            return super().__new__(cls)
+
+        if subclass_str == cls.__name__:
+            return super().__new__(cls)
+
+        for subclass in get_subclasses(cls):
+            if subclass_str == subclass.__name__:
+                return super().__new__(subclass)
+
+        msg = f"{subclass_str!r} is not supclass of {cls.__name__!r}. Initializing {cls.__name__!r}."
+        warnings.warn(msg, RuntimeWarning)
+        return super().__new__(cls)
 
     @root_validator(pre=True)
     def coerce_times_if_datetime_pattern(cls, values):
-        subclass_str = values.get("subclass")
-
-        if subclass_str is None:
-            values["subclass"] = cls
-
-        if isinstance(subclass_str, str):
-            if subclass_str == cls.__name__:
-                values["subclass"] = cls
-
-            for subclass in get_subclasses(cls):
-                if subclass_str == subclass.__name__:
-                    values["subclass"] = subclass
-
         datetime_ptr = values.get("datetime_pattern")
 
         if datetime_ptr is not None:
@@ -343,6 +373,10 @@ class ContinuousRestriction(Serializable):
             raise RuntimeError("Cannot have {} with begin value larger than end.".format(cls.__name__))
 
         return values
+
+    @validator("subclass", pre=True, always=True)
+    def _validate_subclass(cls, _) -> str:
+        return cls.__name__
 
     # validate variable is not UNKNOWN variant
     _validate_variable = validator("variable", allow_reuse=True)(_validate_variable_is_known)
@@ -399,28 +433,6 @@ class ContinuousRestriction(Serializable):
                 json_copy['subclass'] = cls.__name__
 
         return json_copy
-
-    @classmethod
-    def factory_init_from_deserialized_json(cls, json_obj: dict):
-        if "subclass" in json_obj:
-            try:
-                subclass_str = json_obj["subclass"]
-
-                if subclass_str == cls.__name__:
-                    json_obj["subclass"] = cls
-                    return cls(**json_obj)
-
-                for subclass in cls.__subclasses__():
-                    if subclass.__name__ == subclass_str:
-                        json_obj["subclass"] = subclass
-                        return subclass(**json_obj)
-            except:
-                pass
-
-        try:
-            return cls(**json_obj)
-        except:
-            return None
 
     def __hash__(self) -> int:
         return hash((self.variable.name, self.begin, self.end))
