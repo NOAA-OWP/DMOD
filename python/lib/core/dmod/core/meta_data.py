@@ -347,7 +347,7 @@ class ContinuousRestriction(Serializable):
             if subclass_str == subclass.__name__:
                 return super().__new__(subclass)
 
-        msg = f"{subclass_str!r} is not supclass of {cls.__name__!r}. Initializing {cls.__name__!r}."
+        msg = f"{subclass_str!r} is not subclass of {cls.__name__!r}. Initializing {cls.__name__!r}."
         warnings.warn(msg, RuntimeWarning)
         return super().__new__(cls)
 
