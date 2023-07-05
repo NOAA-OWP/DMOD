@@ -121,3 +121,5 @@ schedulerservice/test/test_scheduler.py_old
 
 # Write *.shell scripts for local helper scripts that you don't want in the repo
 *.shell
+
+node_modules/
