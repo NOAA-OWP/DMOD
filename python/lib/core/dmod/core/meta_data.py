@@ -169,7 +169,7 @@ class DataFormat(PydanticEnum):
     different partitioning schemes, making it useful to keep it as a thing unto itself.
     """
 
-    T_ROUTE_CONFIG = (13, {StandardDatasetIndex.HYDROFABRIC_ID: None}, None, False)
+    T_ROUTE_CONFIG = (13, {StandardDatasetIndex.DATA_ID: None, StandardDatasetIndex.HYDROFABRIC_ID: None}, None, False)
     """ Format for t-route application configuration. """
 
     @classmethod
