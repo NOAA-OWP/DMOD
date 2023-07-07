@@ -1,5 +1,4 @@
 from enum import Enum
-from pydantic.fields import ModelField
 from pprint import pformat
 
 from typing import Any, Dict, Union
@@ -34,11 +33,11 @@ class PydanticEnum(Enum):
     """
 
     @classmethod
-    def __modify_schema__(cls, field_schema: Dict[str, Any], field: ModelField) -> None:
+    def __modify_schema__(cls, field_schema: Dict[str, Any]) -> None:
         """Method used by pydantic to populate json schema fields and their associated types."""
         # display enum field names as field options
         if "enum" in field_schema:
-            field_schema["enum"] = [f.name.upper() for f in field.type_]
+            field_schema["enum"] = [f.name.upper() for f in cls]
             field_schema["type"] = "string"
 
     @classmethod
