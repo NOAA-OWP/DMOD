@@ -54,6 +54,48 @@ class DatasetType(PydanticEnum):
         return self._is_file_based
 
 
+class InitialDataAdder(ABC):
+    """
+    Abstract type for adding initial data from some other source(s) to a dataset in the process of being created.
+
+    Abstract type for adding initial data to a new dataset, typically from some other source(s) of data, and frequently
+    when some logic has to be applied to the data before it can be added.  This logic may include things like
+    transforming formats, extracting subsets, and/or combining separate data together.
+
+    Note that it is important (and this is where "initial data" really applies) that subtypes are implemented so that
+    an instance **does not** expect its applicable ::class:`Dataset` to exist at the time the instance is created.  Only
+    when ::method:`add_initial_data` is invoked must the dataset exist.
+    """
+
+    def __init__(self, dataset_name: str, dataset_manager: 'DatasetManager', *args, **kwargs):
+        """
+        Initialize.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The name of the new dataset to which this instance will add initial data.
+        dataset_manager : DatasetManager
+            The manager of the new dataset to which this instance will add initial data.
+        args
+        kwargs
+        """
+        self._dataset_name: str = dataset_name
+        self._dataset_manager: DatasetManager = dataset_manager
+
+    @abstractmethod
+    def add_initial_data(self):
+        """
+        Assemble and add the initial data.
+
+        Raises
+        -------
+        DmodRuntimeError
+            Raised when initial data could not be assembled and/or added successfully to the dataset.
+        """
+        pass
+
+
 class Dataset(Serializable):
     """
     Rrepresentation of the descriptive metadata for a grouped collection of data.
@@ -463,13 +505,17 @@ class DatasetManager(ABC):
 
     @abstractmethod
     def create(self, name: str, category: DataCategory, domain: DataDomain, is_read_only: bool,
-               initial_data: Optional[str] = None) -> Dataset:
+               initial_data: Optional[InitialDataAdder] = None, expires_on: Optional[datetime] = None) -> Dataset:
         """
-        Create a new dataset instance.
+        Create a new dataset instance, optionally inserting data.
 
         Implementations should ensure that a returned dataset is ready for use.  That is, existing data at the time of
         creation is accessible according to the dataset's metadata, and (when appropriate) the dataset is ready for
         receiving output written to it.
+
+        Note that ``initial_data`` allows for optionally adding data to the dataset as it is created. Implementations
+        should ensure that, if ``initial_data`` is not ``None``, the expected dataset survives this method only if the
+        addition was successful (i.e., it is either never created or removed if not).
 
         Parameters
         ----------
@@ -481,9 +527,10 @@ class DatasetManager(ABC):
             The data domain for the new dataset, which includes the format, fields, and restrictions on values.
         is_read_only : bool
             Whether the new dataset is read-only.
-        initial_data : Optional[str]
-            Optional string representation of a location in which there is initial data that should be added to the
-            dataset.
+        initial_data : Union[Path, str, Dict[str, bytes], Callable[[str, 'DatasetManager'], bool], None]
+            Optional means for initially adding data as the dataset is created.
+        expires_on : Optional[datetime]
+            Optional point when the dataset (initially) expires, if it should be temporary.
 
         Returns
         -------
