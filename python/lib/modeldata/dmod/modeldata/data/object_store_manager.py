@@ -331,20 +331,24 @@ class ObjectStoreDatasetManager(DatasetManager):
         dataset = Dataset(name=name, category=category, data_domain=domain, dataset_type=DatasetType.OBJECT_STORE,
                           manager=self, access_location=access_loc, is_read_only=is_read_only, created_on=created_on,
                           last_updated=created_on, expires_on=expires_on)
+
+        # Once dataset is added to ``datasets``, it's "managed," so calls to add_data, delete, etc., should work
         self.datasets[name] = dataset
+
         # Put in a try block to make sure the dataset only remains if adding data worked as needed (if applicable)
         try:
             if initial_data is not None:
                 initial_data.add_initial_data()
 
+            # TODO: (later) consider whether dataset should not be deleted if everything else worked until this
             # Then updated the persisted state file and return
             self.persist_serialized(name)
+
             return dataset
-        # If we ran into any trouble writing initial data to the dataset, then bail, cleaning up the dataset from the
-        # manager and the object store itself
+        # If we ran into any trouble adding initial data, then bail, cleaning up the dataset and backing storage
         except Exception as e:
-            self.datasets.pop(name)
-            self._client.remove_bucket(name)
+            # Since the dataset is "managed," we can call delete()
+            self.delete(dataset=dataset)
             raise e
 
     @property
