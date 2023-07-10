@@ -786,3 +786,9 @@ class DatasetManager(ABC):
             UUID for this instance.
         """
         return self._uuid
+
+
+# `Dataset`'s `manager` field is an Optional['DatasetManager'], however
+# `DatasetManager` is defined after `Dataset`. Thus, `Dataset`'s field
+# references need to be forwarded.
+Dataset.update_forward_refs()
