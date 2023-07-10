@@ -424,7 +424,7 @@ def _transform_fields(
             # serial key was provided.
             continue
 
-        if not inspect.isfunction(transform):
+        if not isinstance(transform, Callable):
             error_message = (
                 f"non-callable field_transformer provided for field {field!r}."
                 "\n\n"
@@ -439,21 +439,29 @@ def _transform_fields(
             )
             raise ValueError(error_message)
 
-        sig = inspect.signature(transform)
+        try:
+            sig = inspect.signature(transform)
 
-        if len(sig.parameters) == 1:
+            if len(sig.parameters) == 1:
+                serial[field] = transform(serial[field])
+
+            elif len(sig.parameters) == 2:
+                serial[field] = transform(self, serial[field])
+
+            else:
+                error_message = (
+                        f"unsupported parameter length for field_transformer callable, {field!r}."
+                        "\n\n"
+                        "field_transformer's take either 1 or 2 parameters, (value: T) or (self, value: T),\n"
+                        "where T is the type of the field."
+                        )
+                raise RuntimeError(error_message)
+
+        # ValueError can be thrown by built-in functions (i.e. `str`) that are,
+        # for example, implemented in C.
+        except ValueError:
+            # assume that build-in's that throw on `inspect.signature` only
+            # take a single parameter.
             serial[field] = transform(serial[field])
-
-        elif len(sig.parameters) == 2:
-            serial[field] = transform(self, serial[field])
-
-        else:
-            error_message = (
-                f"unsupported parameter length for field_transformer callable, {field!r}."
-                "\n\n"
-                "field_transformer's take either 1 or 2 parameters, (value: T) or (self, value: T),\n"
-                "where T is the type of the field."
-            )
-            raise RuntimeError(error_message)
 
     return serial
