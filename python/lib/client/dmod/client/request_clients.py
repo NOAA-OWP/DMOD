@@ -13,7 +13,7 @@ from typing import List, Optional, Tuple, Type, Union
 import json
 import websockets
 
-from ._reader import AsyncReader
+from ._reader import AsyncReader, AsyncReadWrapper
 
 #import logging
 #logger = logging.getLogger("gui_log")
@@ -572,6 +572,51 @@ class DatasetExternalClient(DatasetClient,
             else:
                 success = success and await self._upload_dir(dataset_name=dataset_name, dir_path=p)
         return success
+
+    async def upload_data_to_dataset(self, dataset_name: str, item_name: str, data: AsyncReader) -> bool:
+        """
+        Upload data to existing dataset.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The name of the dataset.
+        item_name : str
+            The name of the dataset item.
+        data : AsyncReader
+            Object with `async def read(self, size: int | None) -> bytes` method. Object will be
+            cooperatively polled until it returns EOF.
+
+        Returns
+        -------
+        bool
+            Whether uploading was successful
+        """
+        await self._async_acquire_session_info()
+        chunk_size = 1024
+        message = MaaSDatasetManagementMessage(action=ManagementAction.ADD_DATA, dataset_name=dataset_name,
+                                               session_secret=self.session_secret, data_location=item_name)
+        async with websockets.connect(self.endpoint_uri, ssl=self.client_ssl_context) as websocket:
+            raw_chunk = await data.read(chunk_size)
+            while True:
+                await websocket.send(str(message))
+                response_json = json.loads(await websocket.recv())
+                response = MaaSDatasetManagementResponse.factory_init_from_deserialized_json(response_json)
+                if response is not None:
+                    self.last_response = response
+                    return response.success
+                response = DataTransmitResponse.factory_init_from_deserialized_json(response_json)
+                if response is None:
+                    return False
+                if not response.success:
+                    self.last_response = response
+                    return response.success
+                # If here, we must have gotten a transmit response indicating we can send more data, so prime the next
+                #   sending message for the start of the loop
+                next_chunk = await data.read(chunk_size)
+                message = DataTransmitMessage(data=raw_chunk, series_uuid=response.series_uuid,
+                                                is_last=not bool(next_chunk))
+                raw_chunk = next_chunk
 
     @property
     def errors(self):
