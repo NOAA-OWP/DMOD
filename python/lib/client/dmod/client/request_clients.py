@@ -280,6 +280,10 @@ class DatasetInternalClient(DatasetClient, DataServiceClient):
         # TODO: *********************************************
         raise NotImplementedError('Function upload_to_dataset not implemented')
 
+    async def upload_data_to_dataset(self, dataset_name: str, item_name: str, data: AsyncReader) -> bool:
+        # TODO
+        raise NotImplementedError('Function upload_data_to_dataset not implemented')
+
 
 class DatasetExternalClient(DatasetClient,
                             ExternalRequestClient[MaaSDatasetManagementMessage, MaaSDatasetManagementResponse]):
