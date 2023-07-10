@@ -1,4 +1,5 @@
 import unittest
+from uuid import uuid4
 from ..core.dataset import Dataset, DatasetType
 from ..core.meta_data import DataCategory, DataDomain, DataFormat, DiscreteRestriction, TimeRange
 from datetime import datetime, timedelta
@@ -114,4 +115,35 @@ class TestDataset(unittest.TestCase):
 
         self.assertEqual(expected_data_dict, data_dict)
 
+    def test_fixes_377(self):
+        """Verify fields with field_serializers are serialized to correct type."""
 
+        some_id = uuid4()
+        now = datetime.now()
+        m = Dataset(
+            name="fix-377",
+            data_category=DataCategory.CONFIG,
+            data_domain=DataDomain(
+                data_format=DataFormat.BMI_CONFIG,
+                discrete=[
+                    DiscreteRestriction(
+                        variable=StandardDatasetIndex.DATA_ID, values=["42"]
+                    )
+                ],
+            ),
+            access_location="test_fixes_377",
+            uuid=some_id,
+            is_read_only=True,
+            created_on=now,
+            expires=now,
+            last_updated=now,
+            dataset_type=DatasetType.OBJECT_STORE,
+            manager_uuid=some_id,
+        )
+        serialized = m.dict()
+
+        self.assertTrue(isinstance(serialized["uuid"], str))
+        self.assertTrue(isinstance(serialized["manager_uuid"], str))
+        self.assertTrue(isinstance(serialized["created_on"], str))
+        self.assertTrue(isinstance(serialized["expires"], str))
+        self.assertTrue(isinstance(serialized["last_updated"], str))
