@@ -124,7 +124,7 @@ class Dataset(Serializable):
             return value
 
         field_serializers = {
-            "uuid": str,
+            "uuid": lambda f: None if f is None else str(f),
             "manager_uuid": lambda f: None if f is None else str(f),
             "expires": _serialize_datetime,
             "created_on": _serialize_datetime,
