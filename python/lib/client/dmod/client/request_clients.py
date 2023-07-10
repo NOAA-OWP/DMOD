@@ -13,6 +13,8 @@ from typing import List, Optional, Tuple, Type, Union
 import json
 import websockets
 
+from ._reader import AsyncReader
+
 #import logging
 #logger = logging.getLogger("gui_log")
 
@@ -153,6 +155,28 @@ class DatasetClient(ABC):
             The name of the dataset.
         paths : List[Path]
             List of one or more paths of files to upload or directories containing files to upload.
+
+        Returns
+        -------
+        bool
+            Whether uploading was successful
+        """
+        pass
+
+    @abstractmethod
+    async def upload_data_to_dataset(self, dataset_name: str, item_name: str, data: AsyncReader) -> bool:
+        """
+        Upload data to existing dataset.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The name of the dataset.
+        item_name : str
+            The name of the dataset item.
+        data : AsyncReader
+            Object with `async def read(self, size: int | None) -> bytes` method. Object will be
+            cooperatively polled until it return EOF.
 
         Returns
         -------
