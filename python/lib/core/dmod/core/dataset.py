@@ -117,7 +117,19 @@ class Dataset(Serializable):
         # TODO: in future deprecate setting properties unless through a setter method
         validate_assignment = True
         arbitrary_types_allowed = True
-        field_serializers = {"uuid": lambda f: str(f)}
+
+        def _serialize_datetime(self: "Dataset", value: Optional[datetime]) -> Optional[str]:
+            if isinstance(value, datetime):
+                return value.strftime(self._SERIAL_DATETIME_STR_FORMAT)
+            return value
+
+        field_serializers = {
+            "uuid": str,
+            "manager_uuid": lambda f: None if f is None else str(f),
+            "expires": _serialize_datetime,
+            "created_on": _serialize_datetime,
+            "last_updated": _serialize_datetime,
+        }
 
     def __hash__(self):
         members = [
