@@ -277,3 +277,13 @@ class TestFieldSerializerConfigOption(unittest.TestCase):
 
         with self.assertRaises(RuntimeError):
             o.dict()
+
+    def test_fixes_380(self):
+        class Model(Serializable):
+            field: int
+
+            class Config(Serializable.Config):
+                field_serializers = {"field": str}
+
+        m = Model(field=42)
+        self.assertDictEqual(m.dict(), {"field": "42"})
