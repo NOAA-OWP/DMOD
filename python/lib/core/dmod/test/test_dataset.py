@@ -1,13 +1,12 @@
 import unittest
 from uuid import uuid4
 from ..core.dataset import Dataset, DatasetType
-from ..core.meta_data import DataCategory, DataDomain, DataFormat, DiscreteRestriction, TimeRange
+from ..core.meta_data import DataCategory, DataDomain, DataFormat, DiscreteRestriction, TimeRange, StandardDatasetIndex
 from datetime import datetime, timedelta
 from typing import Optional, Union
 
 
 class TestDataset(unittest.TestCase):
-
     @classmethod
     def generate_testing_time_range(cls, begin: Union[str, datetime], length: Optional[timedelta] = None,
                                     pattern: Optional[str] = None) -> TimeRange:
@@ -68,7 +67,7 @@ class TestDataset(unittest.TestCase):
                                       "uuid": str(self.example_datasets[i].uuid),
                                       "access_location": 'location_{}'.format(i),
                                       "is_read_only": False,
-                                      "created_on": self._created_on, # NOTE: breaking change
+                                      "created_on": datetime.strftime(self._created_on, Dataset._SERIAL_DATETIME_STR_FORMAT),
                                       })
 
     def test_factory_init_from_deserialized_json_0_a(self):
