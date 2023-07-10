@@ -4,7 +4,7 @@ import json
 import minio.retention
 
 from dmod.core.meta_data import DataCategory, DataDomain
-from dmod.core.dataset import Dataset, DatasetManager, DatasetType
+from dmod.core.dataset import Dataset, DatasetManager, DatasetType, InitialDataAdder
 from datetime import datetime, timedelta
 from minio import Minio
 from minio.api import ObjectWriteResult
@@ -282,10 +282,14 @@ class ObjectStoreDatasetManager(DatasetManager):
         except Exception as e:
             return False
 
+    # TODO: adjust signature to give "is_read_only" a default of False
     def create(self, name: str, category: DataCategory, domain: DataDomain, is_read_only: bool,
-               initial_data: Optional[str] = None) -> Dataset:
+               initial_data: Optional[InitialDataAdder] = None, expires_on: Optional[datetime] = None) -> Dataset:
         """
         Create a new ::class:`Dataset` instance and, if needed, backing object store bucket of the same name.
+
+        Note that, if ``initial_data`` is not ``None``, the expected dataset will survive this method only if the
+        addition of the initial data was successful (i.e., the dataset is either never created or removed if not).
 
         Parameters
         ----------
@@ -297,8 +301,10 @@ class ObjectStoreDatasetManager(DatasetManager):
             The data domain for the new dataset, which includes the format, fields, and restrictions on values.
         is_read_only : bool
             Whether the new dataset is read-only.
-        initial_data : Optional[str]
-            Optional string form of a path to a directory containing initial data that should be added to the dataset.
+        initial_data : Optional[InitialDataAdder]
+            Optional means for initially adding data as the dataset is created.
+        expires_on : Optional[datetime]
+            Optional point when the dataset (initially) expires, if it should be temporary.
 
         Returns
         -------
@@ -309,13 +315,7 @@ class ObjectStoreDatasetManager(DatasetManager):
             raise RuntimeError("Cannot create new dataset with name {}: name already in use".format(name))
         if self._client.bucket_exists(name):
             raise RuntimeError("Unexpected existing bucket when creating dataset {}".format(name))
-
-        files_dir = None
-        if initial_data is not None:
-            files_dir = Path(initial_data)
-            if not files_dir.is_dir():
-                raise RuntimeError("Invalid param for initial dataset data: {} not a directory".format(files_dir))
-        elif is_read_only:
+        if is_read_only and initial_data is None:
             msg = "Attempting to create read-only dataset {} without supplying it with any initial data"
             raise RuntimeError(msg.format(name))
 
@@ -330,12 +330,22 @@ class ObjectStoreDatasetManager(DatasetManager):
         access_loc = "{}://{}/{}".format('https' if self._secure_connection else 'http', self._obj_store_host_str, name)
         dataset = Dataset(name=name, category=category, data_domain=domain, dataset_type=DatasetType.OBJECT_STORE,
                           manager=self, access_location=access_loc, is_read_only=is_read_only, created_on=created_on,
-                          last_updated=created_on)
+                          last_updated=created_on, expires_on=expires_on)
         self.datasets[name] = dataset
-        if files_dir is not None:
-            self._push_files(bucket_name=name, dir_path=files_dir, recursive=True)
-        self.persist_serialized(name)
-        return dataset
+        # Put in a try block to make sure the dataset only remains if adding data worked as needed (if applicable)
+        try:
+            if initial_data is not None:
+                initial_data.add_initial_data()
+
+            # Then updated the persisted state file and return
+            self.persist_serialized(name)
+            return dataset
+        # If we ran into any trouble writing initial data to the dataset, then bail, cleaning up the dataset from the
+        # manager and the object store itself
+        except Exception as e:
+            self.datasets.pop(name)
+            self._client.remove_bucket(name)
+            raise e
 
     @property
     def data_chunking_params(self) -> Optional[Tuple[str, str]]:
