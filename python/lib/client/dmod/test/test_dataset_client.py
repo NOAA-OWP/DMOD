@@ -1,5 +1,6 @@
 import unittest
 from ..client.request_clients import DataCategory, DatasetClient, DatasetManagementResponse, MaaSDatasetManagementResponse
+from ..client._reader import AsyncReader
 from pathlib import Path
 from typing import List, Optional
 
@@ -33,6 +34,10 @@ class SimpleMockDatasetClient(DatasetClient):
         return []
 
     async def upload_to_dataset(self, dataset_name: str, paths: List[Path]) -> bool:
+        """ Mock implementation, always returning ``False``. """
+        return False
+
+    async def upload_data_to_dataset(self, dataset_name: str, item_name: str, data: AsyncReader) -> bool:
         """ Mock implementation, always returning ``False``. """
         return False
 
