@@ -514,8 +514,13 @@ class ObjectStoreDatasetManager(DatasetManager):
             The name of the dataset.
         """
         bin_json_str = self.datasets[name].to_json().encode()
-        result = self._client.put_object(bucket_name=name, object_name=self._gen_dataset_serial_obj_name(name),
-                                         data=io.BytesIO(bin_json_str), length=len(bin_json_str))
+        result = self._client.put_object(
+            bucket_name=name,
+            object_name=self._gen_dataset_serial_obj_name(name),
+            data=io.BytesIO(bin_json_str),
+            length=len(bin_json_str),
+            content_type="application/json"
+        )
 
     def reload(self, reload_from: str, serialized_item: Optional[str] = None) -> Dataset:
         """
