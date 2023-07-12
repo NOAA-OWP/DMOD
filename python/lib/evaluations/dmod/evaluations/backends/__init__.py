@@ -36,11 +36,11 @@ def get_backend(backend_specification: specification.BackendSpecification, cache
         for subclass in common.get_subclasses(Backend)
     }
 
-    data_backend = backend_map.get(backend_specification.type.lower())
+    data_backend = backend_map.get(backend_specification.backend_type.lower())
 
     if data_backend is None:
         raise TypeError(
-                f"'{backend_specification.type}' is not a supported type of data backend."
+                f"'{backend_specification.backend_type}' is not a supported type of data backend."
         )
 
     return data_backend(backend_specification, cache_limit)

@@ -30,7 +30,7 @@ class TestJSONRetrieving(unittest.TestCase):
                 ),
                 backend=specification.BackendSpecification(
                         backend_type="file",
-                        data_format="json",
+                        format="json",
                         address=TEST_FILE_PATH
                 ),
                 locations=specification.LocationSpecification(
@@ -72,7 +72,7 @@ class TestJSONRetrieving(unittest.TestCase):
                 ),
                 backend=specification.BackendSpecification(
                         backend_type="file",
-                        data_format="json",
+                        format="json",
                         address=TEST_RESPONSE_PATH
                 ),
                 locations=specification.LocationSpecification(

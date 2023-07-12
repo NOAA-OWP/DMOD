@@ -22,7 +22,7 @@ class TestFrameRetrieving(unittest.TestCase):
         return specification.ThresholdSpecification(
                 backend=specification.BackendSpecification(
                         backend_type="file",
-                        data_format="csv",
+                        format="csv",
                         address=TEST_CSV_PATH
                 ),
                 locations=specification.LocationSpecification(
@@ -34,7 +34,7 @@ class TestFrameRetrieving(unittest.TestCase):
                     specification.ThresholdDefinition(
                             name="name",
                             field="value",
-                            weight="weight",
+                            weight=8,
                             unit=specification.UnitDefinition(
                                     path="unit"
                             )
@@ -47,7 +47,7 @@ class TestFrameRetrieving(unittest.TestCase):
         return specification.ThresholdSpecification(
                 backend=specification.BackendSpecification(
                         backend_type="file",
-                        data_format="rdb",
+                        format="rdb",
                         address=TEST_RDB_PATH
                 ),
                 locations=specification.LocationSpecification(

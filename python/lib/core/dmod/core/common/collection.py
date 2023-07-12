@@ -20,7 +20,7 @@ class Bag(Collection[_T]):
         This leaves out list and set types.
     """
     def __init__(self, data: typing.Collection[_T] = None):
-        self.__data = [value for value in data] or list()
+        self.__data = [value for value in data] if data is not None else list()
 
     def to_list(self) -> typing.List[_T]:
         """

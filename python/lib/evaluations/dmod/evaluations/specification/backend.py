@@ -5,6 +5,8 @@ import json
 import typing
 import abc
 
+import pydantic
+
 from . import TemplateManager
 from .base import TemplatedSpecification
 
@@ -21,7 +23,7 @@ class BackendSpecification(TemplatedSpecification):
         if not parents_match or not has_fields:
             return False
 
-        return self.type == other.type and self.address == other.address and self.format == other.format
+        return self.backend_type == other.backend_type and self.address == other.address and self.format == other.format
 
     def apply_configuration(
         self,
@@ -30,70 +32,29 @@ class BackendSpecification(TemplatedSpecification):
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         if 'backend_type' in configuration:
-            self.__backend_type = configuration['backend_type']
+            self.backend_type = configuration['backend_type']
 
         if 'address' in configuration:
-            self.__address = configuration['address']
+            self.address = configuration['address']
 
         if 'data_format' in configuration:
-            self.__format = configuration['data_format']
+            self.format = configuration['data_format']
+        elif "format" in configuration:
+            self.format = configuration['format']
 
-    def validate(self) -> typing.Sequence[str]:
+    def validate_self(self) -> typing.Sequence[str]:
         return list()
 
-    def extract_fields(self) -> typing.Dict[str, typing.Any]:
-        fields = super().extract_fields()
-        fields.update({
-            "backend_type": self.__backend_type,
-            "address": self.__address,
-            "data_format": self.__format
-        })
-        return fields
-
-    __slots__ = ["__backend_type", "__address", "__format"]
-
-    def __init__(
-        self,
-        backend_type: str,
-        data_format: str,
-        address: str = None,
-        **kwargs
-    ):
-        super().__init__(**kwargs)
-
-        self.__backend_type = backend_type
-        self.__format = data_format
-        self.__address = address
-
-    @property
-    def type(self) -> str:
-        """
-        The type of backend that should be used
-        """
-        return self.__backend_type
-
-    @property
-    def format(self) -> str:
-        """
-        The type of data to be interpreted
-
-        A single backend type may have more than one format. A `file` may be json, csv, netcdf, etc
-        """
-        return self.__format
-
-    @property
-    def address(self) -> typing.Optional[str]:
-        """
-        Where the data for the backend to interpret lies
-        """
-        return self.__address
+    backend_type: str = pydantic.Field(description="What sort of backend to use to load the data")
+    address: typing.Optional[str] = pydantic.Field(description="Where the data for the backend to the interpreter lies")
+    format: str = pydantic.Field(description="What format the data is in")
 
     def __str__(self) -> str:
-        description = self.__backend_type
-        if self.__address:
-            description += f": {self.__address}"
+        description = self.backend_type
+        if self.address:
+            description += f": {self.address}"
         else:
-            description += f"=> {self.__format}"
+            description += f"=> {self.format}"
 
         return description
 
@@ -102,21 +63,7 @@ class LoaderSpecification(TemplatedSpecification, abc.ABC):
     """
     Represents a class that uses a backend to load data
     """
-    __slots__ = ['_backend']
-
-    def __init__(self, backend: BackendSpecification = None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._backend = backend
-
-    @property
-    def backend(self) -> BackendSpecification:
-        return self._backend
-
-    @abc.abstractmethod
-    def extract_fields(self) -> typing.Dict[str, typing.Any]:
-        fields = super().extract_fields()
-        fields['backend'] = self.backend.to_dict()
-        return fields
+    backend: BackendSpecification = pydantic.Field(description="Instructions on how to load data")
 
     @abc.abstractmethod
     def apply_configuration(

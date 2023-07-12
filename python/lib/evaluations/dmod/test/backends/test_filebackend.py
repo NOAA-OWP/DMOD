@@ -53,7 +53,7 @@ class TestFileBackend(unittest.TestCase):
     def create_direct_definition(cls) -> specification.BackendSpecification:
         return specification.BackendSpecification(
                 backend_type="file",
-                data_format="json",
+                format="json",
                 address=TEST_DOCUMENT_PATH
         )
 
@@ -61,7 +61,7 @@ class TestFileBackend(unittest.TestCase):
     def create_regex_definition(cls) -> specification.BackendSpecification:
         return specification.BackendSpecification(
                 backend_type="file",
-                data_format="json",
+                format="json",
                 address=TEST_DOCUMENT_REGEX
         )
 

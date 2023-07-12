@@ -23,13 +23,13 @@ from .retriever import CrosswalkRetriever
 def get_crosswalk(definition: specification.CrosswalkSpecification) -> CrosswalkRetriever:
     possible_crosswalks = [
         cls for cls in common.get_subclasses(CrosswalkRetriever)
-        if cls.get_type().lower() == definition.backend.type.lower()
+        if cls.get_type().lower() == definition.backend.backend_type.lower()
            and cls.get_format().lower() == definition.backend.format.lower()
     ]
 
     if not possible_crosswalks:
         raise TypeError(
-                f"'{definition.backend.format}' from '{definition.backend.type}' is not a "
+                f"'{definition.backend.format}' from '{definition.backend.backend_type}' is not a "
                 f"supported type of crosswalk source."
         )
 

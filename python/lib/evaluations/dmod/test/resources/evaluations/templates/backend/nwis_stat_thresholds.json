@@ -1,6 +1,6 @@
 {
     "name": "NWIS Stat Thresholds",
     "backend_type": "file",
-    "data_format": "rdb",
+    "format": "rdb",
     "address": "resources/nwis_stat_thresholds.rdb"
 }

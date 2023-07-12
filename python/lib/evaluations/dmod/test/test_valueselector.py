@@ -4,7 +4,7 @@ import typing
 
 from ..evaluations import specification
 from .common import ConstructionTest
-from .test_indexfield import TestIndexFieldConstruction
+from .test_associatedfield import TestAssociatedFieldConstruction
 from .common import create_model_permutation_pairs
 
 
@@ -182,7 +182,7 @@ class TestValueSelectorConstruction(ConstructionTest, unittest.TestCase):
             test.assertEqual(len(definition.associated_fields), len(parameters.get("associated_fields", list())))
 
             if 'associated_fields' in parameters:
-                TestIndexFieldConstruction.make_assertions_for_multiple_definitions(
+                TestAssociatedFieldConstruction.make_assertions_for_multiple_definitions(
                         test,
                         definition.associated_fields,
                         parameters['associated_fields']

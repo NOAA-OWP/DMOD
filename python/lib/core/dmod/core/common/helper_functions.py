@@ -17,6 +17,8 @@ try:
 except ImportError:
     numpy = None
 
+from .types import TypeDefinition
+
 _CLASS_TYPE = typing.TypeVar('_CLASS_TYPE')
 """A type that points directly to a class. The _CLASS_TYPE of `6`, for example, is `<class 'int'>`"""
 
@@ -1076,3 +1078,20 @@ def humanize_text(
     humanized_text = humanized_text.strip()
 
     return humanized_text
+
+
+def instanceof(obj: object, *object_type: type) -> bool:
+    try:
+        return isinstance(obj, object_type)
+    except:
+        pass
+
+    # TODO: Add handling for functions
+
+    type_definitions = [TypeDefinition.from_type(otype) for otype in object_type]
+
+    for definition in type_definitions:
+        if definition.complies(value=obj):
+            return True
+
+    return False

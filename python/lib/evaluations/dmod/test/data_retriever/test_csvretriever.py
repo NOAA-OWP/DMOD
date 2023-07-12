@@ -32,7 +32,7 @@ class TestCSVRetrieving(unittest.TestCase):
                 ),
                 backend=specification.BackendSpecification(
                         backend_type="file",
-                        data_format="csv",
+                        format="csv",
                         address=TEST_FILE_PATH,
                         parse_dates=["Time"]
                 ),
@@ -82,7 +82,7 @@ class TestCSVRetrieving(unittest.TestCase):
                 ),
                 backend=specification.BackendSpecification(
                         backend_type="file",
-                        data_format="csv",
+                        format="csv",
                         address=TEST_OBSERVATION_PATH
                 ),
                 locations=specification.LocationSpecification(

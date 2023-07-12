@@ -9,10 +9,12 @@ import abc
 import os
 import re
 import traceback
+import pydantic
 
 import dmod.core.common as common
 from dmod.core.common import get_subclasses
 from dmod.core.common import humanize_text
+from pydantic import root_validator
 
 from ..utilities import merge_dictionaries
 
@@ -35,6 +37,7 @@ Sequence[ThresholdDefinition]
 CLASS_MODULE_PATTERN = re.compile(r".+\.(?=.+)")
 
 
+# TODO: Evaluate the need for this after the integration with pydantic
 def get_constructor_parameters(cls: typing.Type[_CLASS_TYPE]) -> typing.Mapping[str, inspect.Parameter]:
     """
     Get a mapping for every constructor in a classes MRO chain
@@ -105,6 +108,7 @@ def get_constructor_parameters(cls: typing.Type[_CLASS_TYPE]) -> typing.Mapping[
     return constructor_parameters
 
 
+# TODO: Evaluate need for these functions after the integration with pydantic
 def create_class_instance(
     cls: typing.Type["Specification"],
     data,
@@ -217,15 +221,15 @@ def create_class_instance(
     if hasattr(data, "__getitem__") and not isinstance(data, typing.Sequence):
         # If it is determined that the object to construct supports templates and a template is defined, we want to
         # default all values to that of the template and override those values by what was given by the caller
-        has_template_name = "template_name" in data or "template" in data
-        has_multiple_templates = 'templates' in data and common.is_iterable_type(data['templates'])
+        has_template_name = bool(data.get("template_name")) or bool(data.get("template"))
+        has_multiple_templates = bool(data.get('templates')) and common.is_iterable_type(data['templates'])
         template_is_indicated = has_template_name or has_multiple_templates
 
         templates_are_supported = cls in get_subclasses(TemplatedSpecification)
         treat_as_template_configuration = templates_are_supported and template_is_indicated
 
         # We want to shift that values from the input into this overlay variable to be applied later if need be
-        overlay = {key: value for key, value in data.items()} if treat_as_template_configuration else None
+        overlay = {key: value for key, value in data.items() if key != 'template_name'} if treat_as_template_configuration else None
 
         # Start setting variable values to those of a template if the caller specified that it's needed
         if treat_as_template_configuration and has_multiple_templates:
@@ -295,9 +299,7 @@ def create_class_instance(
             except (KeyError, AttributeError):
                 # If the value could not be pulled off the input object but it wasn't required,
                 # there is a default value that may be put in instead
-                if parameter not in required_parameters:
-                    arguments[parameter.name] = parameter.default
-                else:
+                if parameter in required_parameters:
                     # A required parameter couldn't be found, so clean it up to make it more human readable and
                     # add it to the list of missing parameters
                     parameter_description = str(parameter)
@@ -374,11 +376,19 @@ def create_class_instance(
         raise ValueError(message)
 
 
-class Specification(abc.ABC):
+class Specification(abc.ABC, pydantic.BaseModel):
     """
     Instructions for how different aspects of an evaluation should work
     """
-    __slots__ = ['__properties', "_name"]
+
+    properties: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(
+        default_factory=dict,
+        description="Extra fields related to this configuration"
+    )
+
+    name: typing.Optional[str] = pydantic.Field(
+        description="A helpful name used to identify this section of the configuration"
+    )
 
     @classmethod
     def get_specification_type(cls) -> str:
@@ -436,13 +446,13 @@ class Specification(abc.ABC):
             if isinstance(instance, typing.Sequence):
                 for member in instance:
                     try:
-                        messages.extend(member.validate())
+                        messages.extend(member.validate_self())
                     except Exception as exception:
                         logging.error(traceback.format_exc())
                         messages.append(str(exception))
             else:
                 try:
-                    validation_messages = instance.validate()
+                    validation_messages = instance.validate_self()
                     if validation_messages:
                         messages.extend(validation_messages)
                 except Exception as exception:
@@ -456,28 +466,51 @@ class Specification(abc.ABC):
         return instance
 
     @abc.abstractmethod
-    def validate(self) -> typing.Sequence[str]:
+    def validate_self(self) -> typing.Sequence[str]:
         """
         Returns:
             Any messages indicating a problem with the specification
         """
         pass
 
-    @abc.abstractmethod
-    def extract_fields(self) -> typing.Dict[str, typing.Any]:
+    def extract_fields(
+        self,
+        *,
+        include: typing.Optional[typing.Union[typing.Set, typing.Mapping]] = None,
+        exclude: typing.Optional[typing.Union[typing.Set, typing.Mapping]] = None,
+        by_alias: bool = None,
+        exclude_unset: bool = None,
+        exclude_defaults: bool = None,
+        exclude_none: bool = None
+    ) -> typing.Dict[str, typing.Any]:
         """
         Returns:
             Specification specific fields that will fit within a final serialized representation
         """
-        fields = {
-            "properties": self.properties.copy() if self.properties else dict()
-        }
+        if exclude_defaults is None:
+            exclude_defaults = True
 
-        if self.name:
-            fields['name'] = self.name
+        if by_alias is None:
+            by_alias = False
+
+        if exclude_unset is None:
+            exclude_unset = False
+
+        if exclude_none is None:
+            exclude_none = False
+
+        fields = self.dict(
+            include=include,
+            exclude=exclude,
+            by_alias=by_alias,
+            exclude_unset=exclude_unset,
+            exclude_defaults=exclude_defaults,
+            exclude_none=exclude_none
+        )
 
         return fields
 
+    # TODO: Replace with the standard pydantic `dict` method once fully integrated with pydantic
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         """
         Returns:
@@ -497,6 +530,7 @@ class Specification(abc.ABC):
 
         return dictionary
 
+    # TODO: Replace with the standard pydantic `json` method once fully integrated with pydantic
     def to_json(self, buffer: typing.IO = None) -> typing.Optional[typing.Union[str, typing.IO]]:
         """
         Either converts the instance into a json string or writes that json string into the given buffer
@@ -521,30 +555,16 @@ class Specification(abc.ABC):
         properties: typing.Union[typing.Dict[str, typing.Any], str, bytes] = None,
         **kwargs
     ):
-        self._name = name
+        super().__init__(name=name, **kwargs)
+        self.name = name
+        if properties:
+            self.properties = properties
 
-        if properties is None:
-            properties = dict()
-        elif isinstance(properties, str):
-            properties = json.loads(properties)
-        elif isinstance(properties, bytes):
-            properties = json.loads(properties.decode())
-
-        properties.update(kwargs)
-
-        self.__properties = properties
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def properties(self) -> typing.Dict[str, typing.Any]:
-        """
-        Returns:
-            A dictionary of arbitrary properties passed into the specification that don't match direct members
-        """
-        return self.__properties.copy()
+        self.properties.update({
+            key: value
+            for key, value in kwargs.items()
+            if key not in self.__fields__
+        })
 
     def get(self, key: str, default: typing.Any = None) -> typing.Any:
         """
@@ -557,7 +577,7 @@ class Specification(abc.ABC):
         Returns:
             The property value matching the key if present, `None` otherwise
         """
-        return self.__properties.get(key, default)
+        return self.properties.get(key, default)
 
     def identities_match(self, configuration: typing.Union[dict, "Specification"]) -> bool:
         configuration_is_class = isinstance(configuration, self.__class__)
@@ -572,36 +592,38 @@ class Specification(abc.ABC):
             return self.name is not None and self.name == configuration.get("name")
 
     def __getitem__(self, key: str) -> typing.Any:
-        return self.__properties[key]
+        return self.properties[key]
 
     def __contains__(self, key: str) -> bool:
-        return key in self.__properties
+        return key in self.properties
 
     @abc.abstractmethod
     def __eq__(self, other) -> bool:
         if other is None or not hasattr(other, "properties"):
             return False
 
-        return self.properties == other.properties
+        this_has_properties = self.properties is None or len(self.properties) > 0
+        other_has_properties = other.properties is None or len(other.properties) > 0
+
+        neither_have_properties = not (this_has_properties or other_has_properties)
+
+        return neither_have_properties or self.properties == other.properties
 
     def __repr__(self) -> str:
-        return str(
-            {
-                key.replace("__", ""): getattr(self, key, getattr(self, key.replace("__", "")))
-                for key in self.__slots__
-            }
-        )
+        return self.json(indent=4, exclude_unset=True)
 
 
 class TemplatedSpecification(Specification, abc.ABC):
-    __slots__ = ["__template_name"]
+    template_name: typing.Optional[str] = pydantic.Field(default=None, description="The name of the template to use")
 
-    def __init__(self, template_name: str = None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.__template_name = template_name
+    @root_validator
+    def _assign_name_from_template(cls, values: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:
+        name = values.get("template_name") or values.get("template")
 
-        if not self.name and self.template_name:
-            self._name = self.template_name
+        if name and not values.get("name"):
+            values['name'] = name
+
+        return values
 
     @classmethod
     def from_template(
@@ -624,10 +646,6 @@ class TemplatedSpecification(Specification, abc.ABC):
 
         return cls(**template)
 
-    @property
-    def template_name(self) -> typing.Optional[str]:
-        return self.__template_name
-
     def overlay_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
@@ -635,7 +653,7 @@ class TemplatedSpecification(Specification, abc.ABC):
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         if 'properties' in configuration and isinstance(configuration['properties'], typing.Mapping):
-            self.__properties.update(
+            self.properties.update(
                 configuration['properties']
             )
 
@@ -695,8 +713,21 @@ def convert_value(
     if parameter_type is None:
         return value
 
+    inner_types: typing.Tuple[type, ...] = typing.get_args(parameter_type)
+    is_optional = typing.get_origin(parameter_type) == typing.Union and len(inner_types) == 2 and isinstance(None, inner_types[-1])
+
+    # If the parameter type is optional, get the wrapped type
+    if is_optional:
+        parameter_type = typing.get_args(parameter_type)[0]
+
+    is_specification = parameter_type in common.get_subclasses(Specification)
+
     # Check to see if the item is supposed to be a specification. If so, call that specification's create function
-    if parameter_type in common.get_subclasses(Specification):
+    if is_specification and isinstance(parameter, inspect.Parameter) and value == parameter.default:
+        return None
+    elif is_specification and isinstance(value, parameter_type):
+        return value
+    elif is_specification:
         return parameter_type.create(
             data=value,
             template_manager=template_manager,
@@ -710,30 +741,68 @@ def convert_value(
         return float(value)
     elif isinstance(value, bytes) and util.value_is_number(value) and util.type_is_number(parameter_type):
         return float(value.decode())
+    elif typing.get_origin(parameter_type) == typing.Union:
+        for inner_type in inner_types:
+            try:
+                converted_value = convert_value(
+                    value=value,
+                    parameter=inner_type,
+                    template_manager=template_manager,
+                    decoder_type=decoder_type,
+                    messages=messages,
+                    validate=validate
+                )
+                return converted_value
+            except:
+                pass
+        raise ValueError(f"Input value of type '{type(value)}' cannot be used to create an object of type '{str(parameter_type)}'. Acceptable types are: '{str(inner_types)}'")
     elif not isinstance(value, (bytes, str, typing.Mapping)) and isinstance(value, typing.Iterable):
         # If we can detect that the given values is some sort of collection we can iterate through,
         # step through and convert each
         converted_values = list()
 
         # If the given type is something like "typing.Sequence[int]", this will give us (int,)
-        expected_type = typing.get_args(parameter_type)
+        type_arguments = typing.get_args(parameter_type)
+        if type_arguments:
+            expected_types = type_arguments
+        else:
+            expected_types = (parameter_type,)
 
         for member in value:
+            converted_member = None
+
             # Try to convert every member
             try:
-                converted_member = convert_value(
-                    value=member,
-                    parameter=expected_type[0],
-                    template_manager=template_manager,
-                    decoder_type=decoder_type,
-                    messages=messages,
-                    validate=validate
-                )
+                # Roll through possible types and choose the first one that fits
+                for expected_type in expected_types:
+                    # Use the standard `create` function if the object to be constructed is a Specification
+                    expected_type_is_specification = expected_type in common.get_subclasses(Specification)
 
-                # A failure might indicate result in a null value. Only pass non-nulls or risk encountering errors
-                # when validating later
-                if converted_member is not None:
-                    converted_values.append(converted_member)
+                    if isinstance(member, expected_type):
+                        converted_member = member
+                    elif expected_type_is_specification:
+                        converted_member = expected_type.create(
+                            data=member,
+                            template_manager=template_manager,
+                            decoder_type=decoder_type,
+                            validate=validate,
+                            messages=messages
+                        )
+                    else:
+                        converted_member = convert_value(
+                            value=member,
+                            parameter=expected_type,
+                            template_manager=template_manager,
+                            decoder_type=decoder_type,
+                            messages=messages,
+                            validate=validate
+                        )
+
+                    # A failure might indicate result in a null value. Only pass non-nulls or risk encountering errors
+                    # when validating later
+                    if converted_member is not None:
+                        converted_values.append(converted_member)
+                        break
             except Exception as exception:
                 # If it's noticed that we are trying to record errors for validation,
                 # record the error to both the messages and through the logs.
@@ -743,6 +812,12 @@ def convert_value(
                     logging.error(traceback.format_exc())
                 else:
                     raise
+            else:
+                if not is_optional and converted_member is None:
+                    raise ValueError(
+                        f"Input value of type '{type(member)}' cannot be used to create an object of type "
+                        f"'{str(parameter_type)}'. Acceptable types are: '{str(expected_types)}'"
+                    )
 
         return converted_values
 

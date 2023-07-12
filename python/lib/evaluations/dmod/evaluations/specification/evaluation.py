@@ -8,6 +8,8 @@ import collections
 import numpy
 import pandas
 
+from pydantic import Field
+
 import dmod.metrics as metrics
 
 from dmod.core.common import find
@@ -29,6 +31,24 @@ from .threshold import ThresholdSpecification
 
 
 class EvaluationSpecification(TemplatedSpecification):
+    observations: typing.List[DataSourceSpecification] = Field(
+        description="Information on what data to use as 'true' data for the evaluation"
+    )
+    predictions: typing.List[DataSourceSpecification] = Field(
+        description="Information on what data to evaluate"
+    )
+    crosswalks: typing.List[CrosswalkSpecification] = Field(
+        description="Specifications for how to tie locations from the observations to the predictions"
+    )
+
+    thresholds: typing.List[ThresholdSpecification] = Field(
+        description="Specifications for how different ranges of values should be treated and selected"
+    )
+
+    scheme: SchemeSpecification = Field(
+        description="Instructions for how to evaluate the specified data"
+    )
+
     def __eq__(self, other: "EvaluationSpecification") -> bool:
         if not super().__eq__(other):
             return False
@@ -52,33 +72,6 @@ class EvaluationSpecification(TemplatedSpecification):
 
         return hasattr(other, "scheme") and self.scheme == other.scheme
 
-    def extract_fields(self) -> typing.Dict[str, typing.Any]:
-        fields = super().extract_fields()
-        if self.observations:
-            fields['observations'] = [
-                datasource.to_dict()
-                for datasource in self.observations
-            ]
-        if self.predictions:
-            fields['predictions'] = [
-                datasource.to_dict()
-                for datasource in self.predictions
-            ]
-
-        if self.crosswalks:
-            fields['crosswalks'] = [
-                crosswalk.to_dict()
-                for crosswalk in self.crosswalks
-            ]
-
-        if self.scheme:
-            fields['scheme'] = self.scheme.to_dict()
-
-        if self.thresholds:
-            fields['thresholds'] = [threshold.to_dict() for threshold in self.thresholds]
-
-        return fields
-
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
@@ -88,7 +81,7 @@ class EvaluationSpecification(TemplatedSpecification):
         if 'observations' in configuration:
             for observation_configuration in configuration.get("observations"):
                 matching_observations = find(
-                    self.__observations,
+                    self.observations,
                     lambda observations: observations.name == observation_configuration.get("name")
                 )
 
@@ -99,7 +92,7 @@ class EvaluationSpecification(TemplatedSpecification):
                         decoder_type=decoder_type
                     )
                 else:
-                    self.__observations.append(
+                    self.observations.append(
                         DataSourceSpecification.create(
                             data=observation_configuration,
                             template_manager=template_manager,
@@ -110,7 +103,7 @@ class EvaluationSpecification(TemplatedSpecification):
         if 'predictions' in configuration:
             for prediction_configuration in configuration.get("predictions"):
                 matching_predictions = find(
-                    self.__predictions,
+                    self.predictions,
                     lambda predictions: predictions.name == prediction_configuration.get("name")
                 )
 
@@ -121,7 +114,7 @@ class EvaluationSpecification(TemplatedSpecification):
                         decoder_type=decoder_type
                     )
                 else:
-                    self.__predictions.append(
+                    self.predictions.append(
                         DataSourceSpecification.create(
                             data=prediction_configuration,
                             template_manager=template_manager,
@@ -148,7 +141,7 @@ class EvaluationSpecification(TemplatedSpecification):
                         decoder_type=decoder_type
                     )
                 else:
-                    self.__crosswalks.append(
+                    self.crosswalks.append(
                         CrosswalkSpecification.create(
                             data=configuration,
                             template_manager=template_manager,
@@ -164,7 +157,7 @@ class EvaluationSpecification(TemplatedSpecification):
 
             for threshold_specification in thresholds:
                 matching_specification = find(
-                    self.__thresholds,
+                    self.thresholds,
                     lambda threshold: threshold.identities_match(threshold_specification)
                 )
 
@@ -175,7 +168,7 @@ class EvaluationSpecification(TemplatedSpecification):
                         decoder_type=decoder_type
                     )
                 else:
-                    self.__thresholds.append(
+                    self.thresholds.append(
                         ThresholdSpecification.create(
                             data=threshold_specification,
                             template_manager=template_manager,
@@ -193,114 +186,54 @@ class EvaluationSpecification(TemplatedSpecification):
                     decoder_type=decoder_type
                 )
             else:
-                self.__scheme = SchemeSpecification.create(
+                self.scheme = SchemeSpecification.create(
                     data=configuration,
                     template_manager=template_manager,
                     decoder_type=decoder_type
                 )
 
 
-    def validate(self) -> typing.Sequence[str]:
+    def validate_self(self) -> typing.Sequence[str]:
         messages = list()
 
-        for observation_source in self.__observations:
-            messages.extend(observation_source.validate())
+        for observation_source in self.observations:
+            messages.extend(observation_source.validate_self())
 
-        for prediction_source in self.__predictions:
-            messages.extend(prediction_source.validate())
+        for prediction_source in self.predictions:
+            messages.extend(prediction_source.validate_self())
 
-        for crosswalk_source in self.__crosswalks:
-            messages.extend(crosswalk_source.validate())
+        for crosswalk_source in self.crosswalks:
+            messages.extend(crosswalk_source.validate_self())
 
-        for threshold_source in self.__thresholds:
-            messages.extend(threshold_source.validate())
+        for threshold_source in self.thresholds:
+            messages.extend(threshold_source.validate_self())
 
-        messages.extend(self.__scheme.validate())
+        messages.extend(self.scheme.validate_self())
 
         return messages
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         dictionary = {
-            "observations": [specification.to_dict() for specification in self.__observations],
-            "predictions": [specification.to_dict() for specification in self.__predictions],
-            "crosswalks": [crosswalk.to_dict() for crosswalk in self.__crosswalks],
-            "thresholds": [thresholds.to_dict() for thresholds in self.__thresholds],
-            "scheme": self.__scheme.to_dict()
+            "observations": [specification.to_dict() for specification in self.observations],
+            "predictions": [specification.to_dict() for specification in self.predictions],
+            "crosswalks": [crosswalk.to_dict() for crosswalk in self.crosswalks],
+            "thresholds": [thresholds.to_dict() for thresholds in self.thresholds],
+            "scheme": self.scheme.to_dict()
         }
 
-        if self.__properties:
-            dictionary['properties'] = self.__properties
+        if self.properties:
+            dictionary['properties'] = self.properties
 
         return dictionary
-
-    __slots__ = ["__observations", "__predictions", "__crosswalks", "__thresholds", "__scheme"]
-
-    def __init__(
-        self,
-        observations: typing.Sequence[DataSourceSpecification],
-        predictions: typing.Sequence[DataSourceSpecification],
-        crosswalks: typing.Sequence[CrosswalkSpecification],
-        thresholds: typing.Sequence[ThresholdSpecification],
-        scheme: SchemeSpecification,
-        **kwargs
-    ):
-        super().__init__(**kwargs)
-
-        self.__observations: typing.MutableSequence[DataSourceSpecification] = [
-            datasource
-            for datasource in observations
-        ]
-        self.__predictions: typing.MutableSequence[DataSourceSpecification] = [
-            datasource
-            for datasource in predictions
-        ]
-        self.__crosswalks: typing.MutableSequence[CrosswalkSpecification] = [crosswalk for crosswalk in crosswalks]
-        self.__thresholds: typing.MutableSequence[ThresholdSpecification] = [threshold for threshold in thresholds]
-        self.__scheme = scheme
-
-    @property
-    def observations(self) -> typing.Sequence[DataSourceSpecification]:
-        """
-        All specifications for where observation data should come from
-        """
-        return self.__observations
-
-    @property
-    def predictions(self) -> typing.Sequence[DataSourceSpecification]:
-        """
-        All specifications for where prediction data should come from
-        """
-        return self.__predictions
-
-    @property
-    def crosswalks(self) -> typing.Sequence[CrosswalkSpecification]:
-        """
-        All specifcations for where to get data detailing how to tie observation locations to prediction locations
-        """
-        return self.__crosswalks
-
-    @property
-    def scheme(self) -> SchemeSpecification:
-        """
-        The specification for what metrics to apply and how they relate to one another
-        """
-        return self.__scheme
-
-    @property
-    def thresholds(self) -> typing.Sequence[ThresholdSpecification]:
-        """
-        All specifications for what thresholds should be applied to observations and predictions
-        """
-        return self.__thresholds
 
     @property
     def weight_per_location(self) -> float:
         """
         The maximum value each location can have
         """
-        total_threshold_weight = sum([threshold.total_weight for threshold in self.__thresholds])
+        total_threshold_weight = sum([threshold.total_weight for threshold in self.thresholds])
 
-        return total_threshold_weight + self.__scheme.total_weight
+        return total_threshold_weight + self.scheme.total_weight
 
 
 class EvaluationResults:

@@ -8,7 +8,6 @@ import logging.handlers
 import os
 
 
-
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -736,3 +735,17 @@ def get_matching_paths(address: str) -> typing.Sequence[typing.Union[str, pathli
         if address_pattern.match(path)
     ]
     return matching_paths
+
+
+def instanceof(value_or_type, *types_of_interest: typing.Type) -> bool:
+    if typing.get_origin(value_or_type) is not None or isinstance(value_or_type, type):
+        if type(value_or_type) in types_of_interest:
+            return True
+
+        for inner_type in typing.get_args(value_or_type):
+            if instanceof(inner_type, *types_of_interest):
+                return True
+    else:
+        return isinstance(value_or_type, types_of_interest)
+
+    return False

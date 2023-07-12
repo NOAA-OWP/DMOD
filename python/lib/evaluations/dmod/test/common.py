@@ -144,7 +144,7 @@ class ConstructionTest(abc.ABC):
         self.make_assertions_for_multiple_definitions(self, definitions)
 
     def test_multiple_string_construction(self):
-        text_params = json.dumps(self.param_list)
+        text_params = json.dumps(self.param_list, indent=4)
 
         definitions: typing.List[specification.Specification] = self.get_model_to_construct().create(text_params)
 

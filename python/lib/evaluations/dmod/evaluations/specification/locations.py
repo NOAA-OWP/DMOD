@@ -1,12 +1,17 @@
 """
 Defines classes used to intrepret locations and how to link them together
 """
+from __future__ import annotations
+
 import json
 import typing
 
+import pydantic
 from dmod.core.common import is_true
 from dmod.core.common import contents_are_equivalent
 from dmod.core.common import Bag
+from pydantic import root_validator
+from pydantic import validator
 
 from .template import TemplateManager
 from .base import TemplatedSpecification
@@ -22,7 +27,30 @@ class LocationSpecification(TemplatedSpecification):
     A specification for where location data should be found
     """
 
-    def __eq__(self, other: "LocationSpecification") -> bool:
+    identify: typing.Optional[bool] = pydantic.Field(
+        default=False,
+        description="""Whether locations should even be attempted to be identified
+
+Location identification isn't really necessary for single location evaluations, for example"""
+    )
+    from_field: typing.Optional[str] = pydantic.Field(
+        default=None,
+        description="""A field from which to retrieve location names from a source
+This would be where you'd indicate that the location name came from the filename, for example"""
+    )
+    pattern: typing.Optional[typing.Union[str, typing.Sequence[str]]] = pydantic.Field(
+        default=None,
+        description="""An optional regex for how to retrieve the name
+
+If the data are in files like `cat-67.json`, a regex like `^[A-Za-z]+-\d+` would indicate that the name
+should be interpreted as `cat-67` and not `cat-67.json`"""
+    )
+    ids: typing.Optional[typing.List[str]] = pydantic.Field(
+        default=None,
+        description="A list of specific ids to use for locations"
+    )
+
+    def __eq__(self, other: LocationSpecification) -> bool:
         if not super().__eq__(other):
             return False
         elif not hasattr(other, "ids") or not contents_are_equivalent(Bag(self.ids), Bag(other.ids)):
@@ -40,8 +68,8 @@ class LocationSpecification(TemplatedSpecification):
         template_manager: TemplateManager,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
-        self.__from_field = configuration.get("from_field", self.__from_field)
-        self.__pattern = configuration.get("pattern", self.__pattern)
+        self.from_field = configuration.get("from_field", self.from_field)
+        self.pattern = configuration.get("pattern", self.pattern)
 
         if 'ids' in configuration:
             ids = configuration.get("ids")
@@ -50,11 +78,11 @@ class LocationSpecification(TemplatedSpecification):
             elif ids is None:
                 ids = list()
 
-            self.__ids = ids
+            self.ids = ids
 
-        self.__should_identify(configuration.get("identify", self.__identify))
+        self.__should_identify(configuration.get("identify", self.identify))
 
-    def validate(self) -> typing.Sequence[str]:
+    def validate_self(self) -> typing.Sequence[str]:
         messages = list()
 
         if self.identify and not (self.from_field or self.pattern or self.ids):
@@ -73,111 +101,78 @@ class LocationSpecification(TemplatedSpecification):
 
         return messages
 
-    __slots__ = ["__identify", "__from_field", "__pattern", "__ids"]
-
-    def __init__(
-        self,
-        identify: bool = None,
-        from_field: str = None,
-        pattern: typing.Union[str, typing.Sequence[str]] = None,
-        ids: typing.List[str] = None,
-        **kwargs
-    ):
-        super().__init__(**kwargs)
+    @root_validator
+    def _interpret_field_values(cls, values: typing.Dict[str, typing.Any]):
+        pattern = values.get("pattern")
+        from_field = values.get("from_field")
+        ids = values.get("ids", list())
 
         if isinstance(ids, str):
-            ids = list(ids)
-        elif ids is None:
-            ids = list()
+            ids = [ids]
 
-        if from_field or ids:
+        if from_field or ids or is_true(values.get("identify")):
             identify = True
-
-        if identify is None:
+        else:
             identify = False
 
-        if from_field != 'filename' and isinstance(pattern, str):
+        if from_field != "filename" and isinstance(pattern, str):
             pattern_starts_at_root = pattern.startswith("/")
             pattern = pattern.split("/")
 
             if pattern_starts_at_root:
                 pattern.insert(0, "$")
 
-        self.__identify = None
-        self.__from_field = from_field
-        self.__pattern = pattern
-        self.__ids = ids
+            pattern = [
+                part
+                for part in pattern
+                if part not in ("", None)
+            ]
 
-        self.__should_identify(identify)
+        values['identify'] = identify
+        values['pattern'] = pattern
+        values['ids'] = ids
+        values['from_field'] = from_field
+        return values
 
     def __should_identify(self, identify: bool = None):
-        if self.__from_field or self.__ids:
+        if self.from_field or self.ids:
             identify = True
 
         if identify is None:
             identify = False
 
-        self.__identify = is_true(identify)
-
-    @property
-    def ids(self) -> typing.List[str]:
-        """
-        A list of specific ids to use for locations
-        """
-        return self.__ids
-
-    @property
-    def from_field(self) -> str:
-        """
-        A field from which to retrieve location names from a source
-
-        This would be where you'd indicate that the location name came from the filename, for example
-        """
-        return self.__from_field
-
-    @property
-    def pattern(self) -> typing.Sequence[str]:
-        """
-        An optional regex for how to retrieve the name
-
-        If the data are in files like `cat-67.json`, a regex like `^[A-Za-z]+-\d+` would indicate that the name
-        should be interpreted as `cat-67` and not `cat-67.json`
-        """
-        return self.__pattern
-
-    @property
-    def identify(self) -> bool:
-        """
-        Whether locations should even be attempted to be identified
-
-        Location identification isn't really necessary for single location evaluations, for example
-        """
-        return self.__identify
+        self.identify = is_true(identify)
 
     def __str__(self) -> str:
-        if self.__from_field and self.__pattern:
-            return f"Identify locations matching '{self.__pattern}' from the '{self.__from_field}'"
-        elif self.__from_field:
-            return f"Identify locations from the '{self.__from_field}'"
-        elif self.__ids:
-            return f"Use the ids with the names: {', '.join(self.__ids)}"
+        if self.from_field and self.pattern:
+            return f"Identify locations matching '{self.pattern}' from the '{self.from_field}'"
+        elif self.from_field:
+            return f"Identify locations from the '{self.from_field}'"
+        elif self.ids:
+            return f"Use the ids with the names: {', '.join(self.ids)}"
         return "Don't identify locations"
-
-    def extract_fields(self) -> typing.Dict[str, typing.Any]:
-        fields = super().extract_fields()
-        fields.update({
-            "identify": self.__identify,
-            "from_field": self.__from_field,
-            "pattern": self.__pattern,
-            "ids": self.__ids
-        })
-        return fields
 
 
 class CrosswalkSpecification(LoaderSpecification):
     """
     Specifies how locations in the observations should be linked to locations in the predictions
     """
+    backend: BackendSpecification = pydantic.Field(description="How to load crosswalk data")
+    field: ValueSelector = pydantic.Field(description="How to interpret values within the data")
+    observation_field_name: str = pydantic.Field(
+        description="The field within the data that describes the names of observed locations"
+    )
+    prediction_field_name: typing.Optional[str] = pydantic.Field(
+        default=None,
+        description="The field within the data that describes the identifiers of predicted locations"
+    )
+    origin: typing.Optional[typing.Union[str, typing.Sequence[str]]] = pydantic.Field(
+        default=None,
+        description="Where to start looking for the needed data within the loaded data"
+    )
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     def __eq__(self, other: "CrosswalkSpecification"):
         if not super().__eq__(other):
@@ -191,17 +186,6 @@ class CrosswalkSpecification(LoaderSpecification):
 
         return hasattr(other, "origin") and contents_are_equivalent(self.origin, other.origin)
 
-    def extract_fields(self) -> typing.Dict[str, typing.Any]:
-        fields = super().extract_fields()
-        fields.update({
-            "backend": self._backend.to_dict(),
-            "origin": self.origin,
-            "field": self.__field.to_dict(),
-            "prediction_field_name": self.__prediction_field_name,
-            "observation_field_name": self.__observation_field_name
-        })
-        return fields
-
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
@@ -209,28 +193,28 @@ class CrosswalkSpecification(LoaderSpecification):
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         if 'backend' in configuration:
-            if self._backend:
-                self._backend.overlay_configuration(
+            if self.backend:
+                self.backend.overlay_configuration(
                     configuration=configuration['backend'],
                     template_manager=template_manager,
                     decoder_type=decoder_type
                 )
             else:
-                self._backend = BackendSpecification.create(
+                self.backend = BackendSpecification.create(
                     data=configuration['backend'],
                     template_manager=template_manager,
                     decoder_type=decoder_type
                 )
 
         if 'field' in configuration:
-            if self.__field:
-                self.__field.overlay_configuration(
+            if self.field:
+                self.field.overlay_configuration(
                     configuration=configuration['field'],
                     template_manager=template_manager,
                     decoder_type=decoder_type
                 )
             else:
-                self.__field = ValueSelector.create(
+                self.field = ValueSelector.create(
                     data=configuration['field'],
                     template_manager=template_manager,
                     decoder_type=decoder_type
@@ -239,13 +223,13 @@ class CrosswalkSpecification(LoaderSpecification):
         if 'origin' in configuration:
             origin = configuration['origin'] or "$"
 
-            self.__origin = origin.split(".") if isinstance(origin, str) else origin
+            self.origin = origin.split(".") if isinstance(origin, str) else origin
 
-        self.__observation_field_name = configuration.get("observation_field_name", self.__observation_field_name)
-        self.__prediction_field_name = configuration.get("prediction_field_name", self.__prediction_field_name)
+        self.observation_field_name = configuration.get("observation_field_name", self.observation_field_name)
+        self.prediction_field_name = configuration.get("prediction_field_name", self.prediction_field_name)
 
-    def validate(self) -> typing.Sequence[str]:
-        backend_validation = self._backend.validate()
+    def validate_self(self) -> typing.Sequence[str]:
+        backend_validation = self.backend.validate_self()
         validation_messages = list()
 
         if backend_validation:
@@ -256,46 +240,22 @@ class CrosswalkSpecification(LoaderSpecification):
 
         return validation_messages
 
-    __slots__ = ['__origin', "__field", '__prediction_field_name', '__observation_field_name']
+    @root_validator
+    def _assign_defaults(cls, values: typing.Dict[str, typing.Any]) -> typing.Dict[str, typing.Any]:
+        origin = values.get("origin")
 
-    def __init__(
-        self,
-        backend: BackendSpecification,
-        field: ValueSelector,
-        observation_field_name: str,
-        prediction_field_name: str = None,
-        origin: typing.Union[str, typing.Sequence[str]] = None,
-        **kwargs
-    ):
-        super().__init__(**kwargs)
-        if origin is None:
-            origin = "$"
+        if isinstance(origin, bytes):
+            origin = origin.decode()
 
-        self._backend = backend
-        self.__origin = origin.split(".") if isinstance(origin, str) else origin
-        self.__field = field
-        self.__observation_field_name = observation_field_name
-        self.__prediction_field_name = prediction_field_name if prediction_field_name else observation_field_name
+        if origin in (None, ""):
+            values['origin'] = ["$"]
+        elif not isinstance(origin, typing.Sequence) or isinstance(origin, str):
+            values['origin'] = origin.split(".") if isinstance(origin, str) else str(origin)
 
-    @property
-    def backend(self) -> BackendSpecification:
-        return self._backend
+        if "prediction_field_name" not in values:
+            values['prediction_field_name'] = values.get("observation_field_name")
 
-    @property
-    def field(self) -> ValueSelector:
-        return self.__field
-
-    @property
-    def prediction_field_name(self) -> str:
-        return self.__prediction_field_name
-
-    @property
-    def observation_field_name(self) -> str:
-        return self.__observation_field_name
-
-    @property
-    def origin(self) -> typing.Sequence[str]:
-        return self.__origin
+        return values
 
     def __str__(self) -> str:
-        return f"Crosswalk from: {str(self._backend)} with observed values from {str(self.__field)}"
+        return f"Crosswalk from: {str(self.backend)} with observed values from {str(self.field)}"

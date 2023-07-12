@@ -15,7 +15,7 @@
     ],
     "backend": {
         "backend_type": "file",
-        "data_format": "csv",
+        "format": "csv",
         "address": "resources/cat.*cfs.csv",
         "parse_dates": ["date"]
     },

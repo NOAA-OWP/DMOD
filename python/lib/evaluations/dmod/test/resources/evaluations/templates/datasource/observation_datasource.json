@@ -29,7 +29,7 @@
     ],
     "backend": {
         "backend_type": "file",
-        "data_format": "json",
+        "format": "json",
         "address": "resources/observations.json"
     },
     "locations": {

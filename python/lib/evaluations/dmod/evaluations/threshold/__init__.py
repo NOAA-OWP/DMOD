@@ -34,7 +34,7 @@ def get_threshold_retriever(threshold_definition: specification.ThresholdSpecifi
 
     if not possible_retrievers:
         message = f"There are no threshold retrievers for '{threshold_format}' through " \
-                  f"'{threshold_definition.backend.type}'(s)"
+                  f"'{threshold_definition.backend.backend_type}'(s)"
         raise ValueError(message)
 
     return possible_retrievers[0](threshold_definition)

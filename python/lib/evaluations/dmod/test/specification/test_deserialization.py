@@ -184,6 +184,7 @@ class TestSpecificationDeserialization(unittest.TestCase):
             template_manager=self.template_manager
         )
 
+#This isn't filling out the definitions for the associated fields'
         templated_instance = specification.ValueSelector.create(
             data=all_template_spec,
             template_manager=self.template_manager

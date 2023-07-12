@@ -71,7 +71,7 @@ class Backend(abc.ABC):
 
     @property
     def type(self) -> str:
-        return self.__definition.type
+        return self.__definition.backend_type
 
     @property
     def format(self) -> str:
