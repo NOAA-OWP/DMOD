@@ -516,6 +516,26 @@ class TypeDefinition:
         inner_types = typing.get_args(value_type)
         return cls(value_type, *inner_types, origin=origin)
 
+    @classmethod
+    def from_value(cls, value) -> TypeDefinition:
+        """
+        Construct a TypeDefinition based off of a value
+
+        Example:
+            >>> sample = {"one": [1, 2, 3, 4], "two": "2"}
+            >>> expected_type = typing.MutableMapping[str, typing.Union[str, typing.MutableSequence[int]]]
+            >>> type_definition = TypeDefinition.from_type(expected_type)
+            >>> TypeDefinition.from_value(sample) == type_definition
+            True
+
+        Args:
+            value: The value to base the new TypeDefinition off of
+
+        Returns:
+            A new TypeDefinition based off of the given value
+        """
+        raise NotImplementedError("A type definition may not be created from a value yet")
+
     def __init__(
         self,
         primary_type: typing.Type,
