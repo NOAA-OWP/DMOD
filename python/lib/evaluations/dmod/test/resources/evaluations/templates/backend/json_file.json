@@ -1,5 +1,5 @@
 {
     "name": "JSON File",
     "backend_type": "file",
-    "data_format": "json"
+    "format": "json"
 }

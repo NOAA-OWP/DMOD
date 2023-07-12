@@ -63,7 +63,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
             "backend": specification.BackendSpecification(
                     backend_type="file",
                     address="path/to/file",
-                    data_format="json",
+                    format="json",
                     properties={
                       "prop3": True
                     },
@@ -134,7 +134,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                     "backend": specification.BackendSpecification(
                             backend_type="service",
                             address="https://example.com",
-                            data_format="xml",
+                            format="xml",
                             properties={
                                 "prop2": 9,
                                 "prop3": False
@@ -201,7 +201,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                     "backend": specification.BackendSpecification(
                             backend_type="pubsub",
                             address="ws://dangerous.site.ru",
-                            data_format="websocket",
+                            format="websocket",
                             prop1=10,
                             prop2=11,
                             prop3=True
@@ -242,7 +242,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
             "backend": specification.BackendSpecification(
                     backend_type="file",
                     address="path/to/file",
-                    data_format="json",
+                    format="json",
                     properties={
                         "prop3": True
                     },
@@ -314,7 +314,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                     "backend": {
                         "backend_type": "service",
                         "address": "https://example.com",
-                        "data_format": "xml",
+                        "format": "xml",
                         "properties": {
                             "prop1": 8,
                             "prop2": 9,
@@ -377,7 +377,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                     "backend": {
                         "backend_type": "pubsub",
                         "address": "ws://dangerous.site.ru",
-                        "data_format": "websocket",
+                        "format": "websocket",
                         "properties": {
                             "prop1": 10,
                             "prop2": 11,
@@ -418,7 +418,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
             "backend": {
                 "backend_type": "file",
                 "address": "path/to/file",
-                "data_format": "json",
+                "format": "json",
                 "properties": {
                     "prop1": 6,
                     "prop2": 7,
@@ -490,7 +490,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                     "backend": {
                         "backend_type": "service",
                         "address": "https://example.com",
-                        "data_format": "xml",
+                        "format": "xml",
                         "properties": {
                             "prop1": 8,
                             "prop2": 9,
@@ -555,7 +555,7 @@ class TestThresholdSpecificationConstruction(OuterConstructionTest, unittest.Tes
                     "backend": {
                         "backend_type": "pubsub",
                         "address": "ws://dangerous.site.ru",
-                        "data_format": "websocket",
+                        "format": "websocket",
                         "properties": {
                             "prop1": 10,
                             "prop2": 11,

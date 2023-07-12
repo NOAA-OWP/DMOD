@@ -33,7 +33,7 @@ class TestBackendSpecificationConstruction(ConstructionTest, unittest.TestCase):
         self.__params = {
             "backend_type": "file",
             "address": "path/to/file",
-            "data_format": "json",
+            "format": "json",
             "properties": {
                 "prop1": 6,
                 "prop2": 7,
@@ -44,7 +44,7 @@ class TestBackendSpecificationConstruction(ConstructionTest, unittest.TestCase):
             {
                 "backend_type": "file",
                 "address": "path/to/file",
-                "data_format": "json",
+                "format": "json",
                 "properties": {
                     "prop1": 6,
                     "prop2": 7,
@@ -54,7 +54,7 @@ class TestBackendSpecificationConstruction(ConstructionTest, unittest.TestCase):
             {
                 "backend_type": "service",
                 "address": "https://example.com",
-                "data_format": "xml",
+                "format": "xml",
                 "properties": {
                     "prop1": 8,
                     "prop2": 9,
@@ -64,7 +64,7 @@ class TestBackendSpecificationConstruction(ConstructionTest, unittest.TestCase):
             {
                 "backend_type": "pubsub",
                 "address": "ws://dangerous.site.ru",
-                "data_format": "websocket",
+                "format": "websocket",
                 "properties": {
                     "prop1": 10,
                     "prop2": 11,
@@ -94,7 +94,7 @@ class TestBackendSpecificationConstruction(ConstructionTest, unittest.TestCase):
             definition: specification.BackendSpecification
     ):
         if isinstance(parameters, specification.BackendSpecification):
-            test.assertEqual(definition.type, parameters.type)
+            test.assertEqual(definition.backend_type, parameters.backend_type)
             test.assertEqual(definition.address, parameters.address)
             test.assertEqual(definition.format, parameters.format)
 
@@ -107,9 +107,9 @@ class TestBackendSpecificationConstruction(ConstructionTest, unittest.TestCase):
             test.assertIsNone(definition.get("NonExistentProperty"))
             test.assertTrue(definition.get("NonExistentProperty", True))
         else:
-            test.assertEqual(definition.type, parameters['backend_type'])
+            test.assertEqual(definition.backend_type, parameters['backend_type'])
             test.assertEqual(definition.address, parameters['address'])
-            test.assertEqual(definition.format, parameters['data_format'])
+            test.assertEqual(definition.format, parameters['format'])
 
             for key in parameters['properties']:
                 test.assertIn(key, definition)

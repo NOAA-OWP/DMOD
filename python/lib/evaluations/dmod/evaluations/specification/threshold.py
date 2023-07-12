@@ -1,12 +1,17 @@
 """
 Defines classes used to load, interpret, and apply thresholds
 """
+from __future__ import annotations
+
 import typing
 import json
+
+from pydantic import Field
 
 from dmod.core.common import find
 from dmod.core.common import contents_are_equivalent
 from dmod.core.common import Bag
+from pydantic import validator
 
 from .base import TemplatedSpecification
 from .template import TemplateManager
@@ -24,6 +29,18 @@ class ThresholdDefinition(TemplatedSpecification):
     """
     A definition of a single threshold, the field that it comes from, and its significance
     """
+    field: typing.Optional[typing.Union[str, typing.Sequence[str]]] = Field(
+        default=None,
+        description="Where to look for threshold values"
+    )
+    weight: typing.Optional[typing.Union[int, float]] = Field(
+        default=None,
+        description="A relative score for the significance of this threshold"
+    )
+    unit: typing.Optional[typing.Union[str, dict, UnitDefinition]] = Field(
+        default=None,
+        description="A definition for what the threshold is measured in"
+    )
 
     def __eq__(self, other) -> bool:
         if not super().__eq__(other):
@@ -35,15 +52,6 @@ class ThresholdDefinition(TemplatedSpecification):
 
         return hasattr(other, "weight") and self.weight == other.weight
 
-    def extract_fields(self) -> typing.Dict[str, typing.Any]:
-        fields = super().extract_fields()
-        fields.update({
-            "field": self.__field,
-            "unit": self.__unit.to_dict(),
-            "weight": self.__weight
-        })
-        return fields
-
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
@@ -51,8 +59,8 @@ class ThresholdDefinition(TemplatedSpecification):
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         if 'unit' in configuration:
-            if self.__unit:
-                self.__unit.overlay_configuration(
+            if self.unit:
+                self.unit.overlay_configuration(
                     configuration=configuration['unit'],
                     template_manager=template_manager,
                     decoder_type=decoder_type
@@ -64,18 +72,18 @@ class ThresholdDefinition(TemplatedSpecification):
             self.__set_field(configuration['field'])
 
         if 'weight' in configuration:
-            self.__weight = float(configuration['weight'])
+            self.weight = float(configuration['weight'])
 
-    def validate(self) -> typing.Sequence[str]:
+    def validate_self(self) -> typing.Sequence[str]:
         validation_messages = list()
 
-        if not isinstance(self.__unit, UnitDefinition):
+        if not isinstance(self.unit, UnitDefinition):
             validation_messages.append(f"{self.get_specification_type()} is missing a unit definition")
 
-        if not isinstance(self.__weight, (str, int, float)):
+        if not isinstance(self.weight, (str, int, float)):
             validation_messages.append(f"{self.get_specification_type()} is missing a weight value")
 
-        if not isinstance(self.__field, typing.Iterable):
+        if not isinstance(self.field, typing.Iterable):
             validation_messages.append(f"{self.get_specification_type()} is missing a field indication")
 
         if not isinstance(self.name, str):
@@ -83,33 +91,28 @@ class ThresholdDefinition(TemplatedSpecification):
 
         return validation_messages
 
-    __slots__ = ["__field", "__weight", "__unit"]
-
-    def __init__(
-        self,
-        field: typing.Union[str, bytes, typing.Sequence[str]] = None,
-        weight: typing.Union[str, float] = None,
-        unit: typing.Union[UnitDefinition, str, dict] = None,
-        **kwargs
-    ):
-        super().__init__(**kwargs)
-
-        self.__field: typing.Optional[typing.Sequence[str]] = None
-
-        self.__set_field(field)
-
-        self.__weight = weight
-
-        self.__unit: typing.Optional[UnitDefinition] = None
-        self.__set_unit_definition(unit)
-
     def __set_unit_definition(self, unit: typing.Union[UnitDefinition, str, dict]):
         if isinstance(unit, str):
             unit = UnitDefinition(value=unit)
         elif isinstance(unit, dict):
             unit = UnitDefinition.create(unit)
 
-        self.__unit = unit
+        self.unit = unit
+
+    @validator("unit")
+    def _interpret_unit(
+        cls,
+        value: typing.Union[UnitDefinition, str, bytes, dict] = None
+    ) -> typing.Optional[UnitDefinition]:
+        if isinstance(value, bytes):
+            value = value.decode()
+
+        if isinstance(value, str):
+            value = UnitDefinition(value=value)
+        elif isinstance(value, dict):
+            value = UnitDefinition.create(value)
+
+        return value
 
     def __set_field(self, field: typing.Union[str, bytes, typing.Sequence[str]] = None):
         if field is None:
@@ -119,32 +122,28 @@ class ThresholdDefinition(TemplatedSpecification):
             field = field.decode()
 
         if isinstance(field, str):
-            self.__field = field.split("/")
+            self.field = field.split("/")
         else:
-            self.__field = field
+            self.field = field
 
-    @property
-    def field(self) -> typing.Sequence[str]:
-        """
-        Returns:
-            The name of the field in the datasource where these values are supposed to come from
-        """
-        return self.__field
+    @validator("field")
+    def _interpret_field(
+        cls,
+        value: typing.Union[str, bytes, typing.Sequence[str]] = None
+    ) -> typing.Optional[typing.Sequence[str]]:
+        if value is None:
+            return value
 
-    @property
-    def weight(self) -> float:
-        """
-        Returns:
-            The significance of the threshold
-        """
-        return self.__weight
+        if isinstance(value, bytes):
+            value = value.decode()
 
-    @property
-    def unit(self) -> UnitDefinition:
-        return self.__unit
+        if isinstance(value, str):
+            value = value.split("/")
+
+        return value
 
     def __str__(self) -> str:
-        return f"{self.name}, weighing {self.__weight}, from the '{self.__field}' field."
+        return f"{self.name}, weighing {self.weight}, from the '{self.field}' field."
 
     def __repr__(self) -> str:
         return str(self.to_dict())
@@ -160,7 +159,44 @@ class ThresholdApplicationRules(TemplatedSpecification):
     If a threshold is described as being on a month or day and an observation is taken at a date and time,
     the threshold month and day will need to be transformed into a new 'Day' object field while the date field on the
     observations will need to be converted to a `Day` object
+
+    Example:
+        >>> application_rules = {
+                "name": "Date to Day",
+                "threshold_field": {
+                    "name": "threshold_day",
+                    "path": [
+                        "month_nu",
+                        "day_nu"
+                    ],
+                    "datatype": "Day"
+                },
+                "observation_field": {
+                    "name": "threshold_day",
+                    "path": [
+                        "value_date"
+                    ],
+                    "datatype": "Day"
+                }
+            }
+
+    This indicates that thresholds and observations should line up by matching the day of the threshold generated
+    by combining the month and day and the day of the observation by getting the day of each value date. Thresholds
+    with single values per location or such wouldn't need this definition since no other transformations are needed
+    to link the threshold values to their observations or predictions.
     """
+    threshold_field: typing.Optional[AssociatedField] = Field(
+        default=None,
+        description="How to interpret one or more threshold fields to line up with observations or predictions"
+    )
+    observation_field: typing.Optional[AssociatedField] = Field(
+        default=None,
+        description="How to interpret one or more observation fields to line up with thresholds"
+    )
+    prediction_field: typing.Optional[AssociatedField] = Field(
+        default=None,
+        description="How to interpret one or more prediction fields to line up with thresholds"
+    )
 
     def __eq__(self, other: "ThresholdApplicationRules") -> bool:
         if not super().__eq__(other):
@@ -188,7 +224,7 @@ class ThresholdApplicationRules(TemplatedSpecification):
                     decoder_type=decoder_type
                 )
             else:
-                self.__threshold_field = AssociatedField.create(
+                self.threshold_field = AssociatedField.create(
                     data=threshold_field,
                     template_manager=template_manager,
                     decoder_type=decoder_type
@@ -204,7 +240,7 @@ class ThresholdApplicationRules(TemplatedSpecification):
                     decoder_type=decoder_type
                 )
             else:
-                self.__observation_field = AssociatedField(
+                self.observation_field = AssociatedField(
                     data=observation_field,
                     template_manager=template_manager,
                     decoder_type=decoder_type
@@ -220,27 +256,13 @@ class ThresholdApplicationRules(TemplatedSpecification):
                     decoder_type=decoder_type
                 )
             else:
-                self.__prediction_field = AssociatedField(
+                self.prediction_field = AssociatedField(
                     data=prediction_field,
                     template_manager=template_manager,
                     decoder_type=decoder_type
                 )
 
-    def extract_fields(self) -> typing.Dict[str, typing.Any]:
-        fields = super().extract_fields()
-        fields['threshold_field'] = self.threshold_field.to_dict()
-
-        if self.observation_field:
-            fields['observation_field'] = self.observation_field.to_dict()
-
-        if self.prediction_field:
-            fields['prediction_field'] = self.prediction_field.to_dict()
-
-        return fields
-
-    __slots__ = ['__threshold_field', '__observation_field', '__prediction_field']
-
-    def validate(self) -> typing.Sequence[str]:
+    def validate_self(self) -> typing.Sequence[str]:
         messages = list()
 
         if not self.threshold_field:
@@ -256,49 +278,41 @@ class ThresholdApplicationRules(TemplatedSpecification):
 
         return messages
 
-    def __init__(
-        self,
-        threshold_field: AssociatedField = None,
-        observation_field: AssociatedField = None,
-        prediction_field: AssociatedField = None,
-        **kwargs
-    ):
-        super().__init__(**kwargs)
-        self.__threshold_field = threshold_field
-        self.__observation_field = observation_field
-        self.__prediction_field = prediction_field
-
-    @property
-    def threshold_field(self) -> AssociatedField:
-        return self.__threshold_field
-
-    @property
-    def observation_field(self) -> typing.Optional[AssociatedField]:
-        return self.__observation_field
-
-    @property
-    def prediction_field(self) -> typing.Optional[AssociatedField]:
-        return self.__prediction_field
-
     def __repr__(self):
         return str(self.to_dict())
 
     def __str__(self):
-        representation = f"The threshold built around {self.__threshold_field}"
+        representation = f"The threshold built around {self.threshold_field}"
 
-        if self.__observation_field and self.__prediction_field:
-            representation += f" is applied to the observations aligned by {self.__observation_field} " \
-                              f"and the predictions aligned by {self.__prediction_field}"
-        elif self.__observation_field:
-            representation += f" is applied to the observations aligned by {self.__observation_field}"
+        if self.observation_field and self.prediction_field:
+            representation += f" is applied to the observations aligned by {self.observation_field} " \
+                              f"and the predictions aligned by {self.prediction_field}"
+        elif self.observation_field:
+            representation += f" is applied to the observations aligned by {self.observation_field}"
         else:
-            representation += f" is applied to the predictions aligned by {self.__prediction_field}"
+            representation += f" is applied to the predictions aligned by {self.prediction_field}"
 
         return representation
 
 
 class ThresholdSpecification(LoaderSpecification):
-    def __eq__(self, other: "ThresholdSpecification"):
+    definitions: typing.List[ThresholdDefinition] = Field(
+        description="The thresholds to apply to data"
+    )
+    locations: typing.Optional[LocationSpecification] = Field(
+        default=None,
+        description="How locations are identified within the threshold data"
+    )
+    application_rules: typing.Optional[ThresholdApplicationRules] = Field(
+        default=None,
+        description="Extra transformations needed to match thresholds to their observations and predictions"
+    )
+    origin: typing.Optional[typing.Union[str, typing.Sequence[str]]] = Field(
+        default=None,
+        description="Where to start looking for threshold data within the threshold input"
+    )
+
+    def __eq__(self, other: ThresholdSpecification):
         if not super().__eq__(other):
             return False
         elif not hasattr(other, "locations") or self.locations != other.locations:
@@ -312,19 +326,6 @@ class ThresholdSpecification(LoaderSpecification):
 
         return hasattr(other, "application_rules") and self.application_rules == other.application_rules
 
-    def extract_fields(self) -> typing.Dict[str, typing.Any]:
-        fields = super().extract_fields()
-        fields.update({
-            "locations": self.__locations.to_dict(),
-            "origin": self.__origin,
-            "definitions": [definition.to_dict() for definition in self.__definitions],
-        })
-
-        if self.application_rules:
-            fields['application_rules'] = self.__application_rules.to_dict()
-
-        return fields
-
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
@@ -337,7 +338,7 @@ class ThresholdSpecification(LoaderSpecification):
             decoder_type=decoder_type
         )
 
-        self.__set_origin(configuration.get("origin", self.__origin))
+        self.__set_origin(configuration.get("origin", self.origin))
 
         if "locations" in configuration:
             location_configuration = configuration['locations']
@@ -349,7 +350,7 @@ class ThresholdSpecification(LoaderSpecification):
                     decoder_type=decoder_type
                 )
             else:
-                self.__locations = LocationSpecification.create(
+                self.locations = LocationSpecification.create(
                     data=location_configuration,
                     template_manager=template_manager,
                     decoder_type=decoder_type
@@ -369,7 +370,7 @@ class ThresholdSpecification(LoaderSpecification):
                         decoder_type=decoder_type
                     )
                 else:
-                    self.__definitions.append(
+                    self.definitions.append(
                         ThresholdDefinition.create(
                             data=threshold_definition,
                             template_manager=template_manager,
@@ -377,7 +378,7 @@ class ThresholdSpecification(LoaderSpecification):
                         )
                     )
             else:
-                self.__definitions.append(
+                self.definitions.append(
                     ThresholdDefinition.create(
                         data=threshold_definition,
                         template_manager=template_manager,
@@ -395,57 +396,49 @@ class ThresholdSpecification(LoaderSpecification):
                     decoder_type=decoder_type
                 )
             else:
-                self.__application_rules = ThresholdApplicationRules.create(
+                self.application_rules = ThresholdApplicationRules.create(
                     data=application_rules,
                     template_manager=template_manager,
                     decoder_type=decoder_type
                 )
 
-    def validate(self) -> typing.Sequence[str]:
+    def validate_self(self) -> typing.Sequence[str]:
         messages = list()
 
         if self.backend is None:
             messages.append(f"No backend was configured for a {self.get_specification_description()}")
         else:
-            messages.extend(self.backend.validate())
+            messages.extend(self.backend.validate_self())
 
         if self.locations:
-            messages.extend(self.locations.validate())
+            messages.extend(self.locations.validate_self())
 
-        if len(self.__definitions) == 0:
+        if len(self.definitions) == 0:
             messages.append("There are no threshold definitions defined within a threshold specification")
 
-        for definition in self.__definitions:
-            messages.extend(definition.validate())
+        for definition in self.definitions:
+            messages.extend(definition.validate_self())
 
         return messages
 
-    __slots__ = ["__locations", "__definitions", "__origin", "__application_rules"]
+    @validator("origin")
+    def _interpret_origin(cls, value: typing.Union[str, bytes, typing.Sequence[str]] = None) -> typing.Sequence[str]:
+        if isinstance(value, bytes):
+            value = value.decode()
 
-    def __init__(
-        self,
-        definitions: typing.Sequence[ThresholdDefinition],
-        locations: LocationSpecification = None,
-        application_rules: ThresholdApplicationRules = None,
-        origin: typing.Union[str, typing.Sequence[str]] = None,
-        **kwargs
-    ):
-        super().__init__(**kwargs)
+        if not value:
+            value = ["$"]
+        elif isinstance(value, str):
+            origin_starts_at_root = value.startswith("/")
+            value = value.split("/")
 
-        self.__definitions: typing.MutableSequence[ThresholdDefinition] = list()
+            if origin_starts_at_root and value[0] != "$":
+                value.insert(0, "$")
 
-        if definitions:
-            self.__definitions.extend([definition for definition in definitions])
-
-        self.__locations = locations
-        self.__application_rules = application_rules
-        self.__origin = None
-
-        if origin:
-            self.__set_origin(origin)
+        return value
 
     def __set_origin(self, origin: str = None):
-        if self.__origin == origin:
+        if self.origin == origin:
             return
 
         origin_starts_at_root = False
@@ -463,39 +456,19 @@ class ThresholdSpecification(LoaderSpecification):
         if origin_starts_at_root and origin[0] != '$':
             origin.insert(0, "$")
 
-        self.__origin = origin
-
-    @property
-    def backend(self) -> BackendSpecification:
-        return self._backend
-
-    @property
-    def definitions(self) -> typing.Sequence[ThresholdDefinition]:
-        return self.__definitions
-
-    @property
-    def locations(self) -> typing.Optional[LocationSpecification]:
-        return self.__locations
-
-    @property
-    def origin(self) -> typing.Optional[typing.Sequence[str]]:
-        return self.__origin
-
-    @property
-    def application_rules(self) -> ThresholdApplicationRules:
-        return self.__application_rules
+        self.origin = origin
 
     @property
     def total_weight(self) -> float:
         """
         The weight of all defined thresholds
         """
-        return sum([definition.weight for definition in self.__definitions])
+        return sum([definition.weight for definition in self.definitions])
 
     def __contains__(self, definition_name) -> bool:
         matching_definitions = [
             definition
-            for definition in self.__definitions
+            for definition in self.definitions
             if definition.name.lower() == definition_name.lower()
         ]
 
@@ -504,7 +477,7 @@ class ThresholdSpecification(LoaderSpecification):
 
         matching_definitions = [
             definition
-            for definition in self.__definitions
+            for definition in self.definitions
             if definition.field[-1].lower() == definition_name.lower()
         ]
 
@@ -516,7 +489,7 @@ class ThresholdSpecification(LoaderSpecification):
     def __getitem__(self, definition_name: str) -> typing.Optional[ThresholdDefinition]:
         matching_definitions = [
             definition
-            for definition in self.__definitions
+            for definition in self.definitions
             if definition.name.lower() == definition_name.lower()
         ]
 
@@ -525,7 +498,7 @@ class ThresholdSpecification(LoaderSpecification):
 
         matching_definitions = [
             definition
-            for definition in self.__definitions
+            for definition in self.definitions
             if definition.field[-1].lower() == definition_name.lower()
         ]
 

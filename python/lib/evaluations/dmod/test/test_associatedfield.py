@@ -7,7 +7,7 @@ from .common import ConstructionTest
 from .common import create_model_permutation_pairs
 
 
-class TestIndexFieldConstruction(ConstructionTest, unittest.TestCase):
+class TestAssociatedFieldConstruction(ConstructionTest, unittest.TestCase):
     def test_extract_fields(self):
         definition = self.get_model_to_construct().create(self.params)
 
@@ -109,7 +109,7 @@ class TestIndexFieldConstruction(ConstructionTest, unittest.TestCase):
             extra_properties = {
                 key: value
                 for key, value in parameters.items()
-                if "__" + key not in definition.__slots__
+                if key not in definition.__fields__
             }
 
             for key, value in extra_properties.items():

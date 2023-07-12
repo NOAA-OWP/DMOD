@@ -18,7 +18,7 @@ class TestJSONReading(unittest.TestCase):
                 backend=specification.BackendSpecification(
                         backend_type="file",
                         address=TEST_DOCUMENT_PATH,
-                        data_format="json"
+                        format="json"
                 ),
                 observation_field_name="observation_location",
                 prediction_field_name="prediction_location",

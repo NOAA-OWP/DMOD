@@ -17,7 +17,7 @@ class TestJSONRetrieving(unittest.TestCase):
         return specification.ThresholdSpecification(
                 backend=specification.BackendSpecification(
                         backend_type="file",
-                        data_format="json",
+                        format="json",
                         address=TEST_DOCUMENT_PATH
                 ),
                 locations=specification.LocationSpecification(

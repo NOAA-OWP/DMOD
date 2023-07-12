@@ -1,6 +1,8 @@
 """
 Defines classes used to map data to named fields and how to extract data from documents
 """
+from __future__ import annotations
+
 import json
 import typing
 import os
@@ -9,13 +11,18 @@ from datetime import date
 from datetime import time
 from datetime import datetime
 
+import pydantic
 import pytz
 
 from dateutil.parser import parse as parse_date
 
+from pydantic import Field
+
 from dmod.core.common import find
 from dmod.core.common import contents_are_equivalent
 from dmod.core.common import Bag
+from pydantic import root_validator
+from pydantic import validator
 
 from . import TemplateManager
 from .base import TemplatedSpecification
@@ -26,6 +33,14 @@ class FieldMappingSpecification(TemplatedSpecification):
     """
     Details on how a field should be aliased
     """
+    field: str = Field(description="The field to be aliased")
+
+    # TODO: Define the options for map types elsewhere and use that to define a literal
+    map_type: str = Field(
+        description="Where the field to be aliased lies (is it a key? Is it a dictionary value? Is it a column?)"
+    )
+    # TODO: Define the options for this elsewhere and use that to define a literal
+    value: str = Field(description="What the field should end up being called")
 
     def __eq__(self, other: "FieldMappingSpecification") -> bool:
         if not super().__eq__(other):
@@ -37,65 +52,21 @@ class FieldMappingSpecification(TemplatedSpecification):
 
         return hasattr(other, "value") and self.value == other.value
 
-    def extract_fields(self) -> typing.Dict[str, typing.Any]:
-        fields = super().extract_fields()
-        fields.update({
-            "field": self.__field,
-            "map_type": self.__map_type,
-            "value": self.__value
-        })
-        return fields
-
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
         template_manager: TemplateManager,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
-        self.__field = configuration.get("field", self.__field)
-        self.__map_type = configuration.get("map_type", self.__map_type)
-        self.__value = configuration.get("value", self.__value)
+        self.field = configuration.get("field", self.field)
+        self.map_type = configuration.get("map_type", self.map_type)
+        self.value = configuration.get("value", self.value)
 
-    def validate(self) -> typing.Sequence[str]:
+    def validate_self(self) -> typing.Sequence[str]:
         return list()
 
-    __slots__ = ["__field", "__map_type", "__value"]
-
-    def __init__(
-        self,
-        field: str,
-        map_type: str,
-        value: str,
-        **kwargs
-    ):
-        super().__init__(**kwargs)
-        self.__field = field
-        self.__map_type = map_type
-        self.__value = value
-
-    @property
-    def field(self) -> str:
-        """
-        The field to be aliased
-        """
-        return self.__field
-
-    @property
-    def map_type(self) -> str:
-        """
-        Where the field to be aliased lies (is it a key? Is it a dictionary value? Is it a column?)
-        """
-        return self.__map_type
-
-    @property
-    def value(self) -> str:
-        """
-        What the field should end up being called
-        """
-        return self.__value
-
     def __str__(self) -> str:
-        return f"{self.__map_type}: {self.__field} comes from {self.__value}"
+        return f"{self.map_type}: {self.field} comes from {self.value}"
 
 
 class AssociatedField(TemplatedSpecification):
@@ -103,6 +74,12 @@ class AssociatedField(TemplatedSpecification):
     A specification for additional data that should accompany selected data
     (retrieved measurements? Also get their dates)
     """
+
+    datatype: typing.Optional[str] = Field(
+        default=None,
+        description="A datatype to coerce this value to"
+    )
+    path: typing.Optional[typing.Union[str, typing.List[str]]] = Field(default=None, description="The path to the data in the source")
 
     def __eq__(self, other: "AssociatedField") -> bool:
         if not super().__eq__(other):
@@ -114,71 +91,43 @@ class AssociatedField(TemplatedSpecification):
 
         return hasattr(other, "datatype") and self.datatype == other.datatype
 
-    def extract_fields(self) -> typing.Dict[str, typing.Any]:
-        fields = super().extract_fields()
-        fields.update({
-            "datatype": self.__datatype,
-            "path": self.__path
-        })
-        return fields
-
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
         template_manager: TemplateManager,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
-        self.__datatype = configuration.get("datatype", self.__datatype)
-        self.__path = configuration.get("path", self.__path)
+        self.datatype = configuration.get("datatype", self.datatype)
+        self.path = configuration.get("path", self.path)
 
-    def validate(self) -> typing.Sequence[str]:
+    def validate_self(self) -> typing.Sequence[str]:
         messages = list()
         if self.name is None or self.name == '':
             messages.append(f"An index is missing a proper name")
 
         return messages
 
-    __slots__ = ["__name", "__datatype", "__path"]
-
-    def __init__(
-        self,
-        path: typing.Union[str, typing.Sequence[str]] = None,
-        datatype: typing.Union[str, typing.Sequence[str]] = None,
-        **kwargs
-    ):
-        super().__init__(**kwargs)
-
+    @root_validator
+    def _format_path(cls, values):
         path_starts_at_root = False
+        path = values.get("path")
 
-        if path is None:
-            self.__path = [self.name]
+        if path is None and values.get("name") is not None:
+            values['path'] = [values['name']]
         elif isinstance(path, str):
             path_starts_at_root = path.startswith("/")
-            self.__path = path.split("/")
-        else:
-            self.__path = path
+            values['path'] = path.split("/")
 
         if path_starts_at_root:
-            self.__path.insert(0, "$")
+            values['path'].insert(0, "$")
 
-        self.__datatype = datatype.lower() if datatype else None
+        if 'path' not in values and 'name' not in path:
+            raise ValueError("Associated fields must define a name and/or path")
 
-    @property
-    def path(self) -> typing.Sequence[str]:
-        """
-        The path to the data in the source
-        """
-        return self.__path
+        if values.get("datatype"):
+            values['datatype'] = values['datatype'].lower()
 
-    @property
-    def datatype(self) -> str:
-        """
-        The type that the value should be parsed as
-
-        A date may come in as a string - `"2022-01-22T15:33:14-0600"`, for example, but we need to actually use that
-        as a date and time. If this isn't converted, it won't match up to `"2022-01-22T16:33:14-0500"`
-        """
-        return self.__datatype
+        return values
 
     def to_datatype(self, value):
         """
@@ -190,10 +139,10 @@ class AssociatedField(TemplatedSpecification):
         Returns:
             The converted value, if specified
         """
-        if not self.__datatype or value is None:
+        if not self.datatype or value is None:
             return value
 
-        datatype = self.__datatype.lower()
+        datatype = self.datatype.lower()
 
         if datatype in ("datetime", "date", "time"):
             raw_datetime = parse_date(value)
@@ -222,7 +171,7 @@ class AssociatedField(TemplatedSpecification):
         return value
 
     def get_concrete_datatype(self) -> typing.Type:
-        datatype = self.__datatype.lower()
+        datatype = self.datatype.lower()
         if datatype == 'datetime':
             return datetime
         if datatype == 'date':
@@ -239,15 +188,36 @@ class AssociatedField(TemplatedSpecification):
         return str
 
     def __str__(self):
-        return f"{self.name}: {self.__datatype}"
+        if self.name:
+            return f"{self.name}{': ' + self.datatype if self.datatype else ''}"
+        else:
+            # We must have a path here
+            return f"{'/'.join([part for part in self.path])}{': ' + self.datatype if self.datatype else ''}"
 
 
 class ValueSelector(TemplatedSpecification):
     """
     Instructions for how to retrieve values from a data source
     """
+    where: str = Field(description="Where the value may be found (Dict key? Dict value? Column?)")
+    origin: typing.Optional[typing.Union[str, bytes, typing.List[str]]] = Field(
+        default=None,
+        description="The path from which to look. The value should be `""` or `'/'` if searching from the root."
+    )
+    path: typing.Optional[typing.Union[str, bytes, typing.List[str]]] = Field(
+        default=None,
+        description="The path from which to look from the origin"
+    )
+    associated_fields: typing.Optional[typing.List[AssociatedField]] = Field(
+        default_factory=list,
+        description="Additional values to retrieve with selected values"
+    )
+    datatype: typing.Optional[str] = Field(
+        default=None,
+        description="How to interpret selected values"
+    )
 
-    def __eq__(self, other: "ValueSelector") -> bool:
+    def __eq__(self, other: ValueSelector) -> bool:
         if not super().__eq__(other):
             return False
         elif not hasattr(other, "name") or self.name != other.name:
@@ -263,30 +233,14 @@ class ValueSelector(TemplatedSpecification):
 
         return contents_are_equivalent(Bag(self.associated_fields), Bag(other.associated_fields))
 
-    def extract_fields(self) -> typing.Dict[str, typing.Any]:
-        fields = super().extract_fields()
-        fields.update({
-            "where": self.__where,
-            "path": self.__path,
-            "origin": self.__origin,
-            "datatype": self.__datatype
-        })
-
-        if self.__associated_fields:
-            fields['associated_fields'] = [
-                field.to_dict()
-                for field in self.__associated_fields
-            ]
-        return fields
-
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
         template_manager: TemplateManager,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
-        self.__where = configuration.get("where", self.__where)
-        self.__datatype = configuration.get("datatype", self.__datatype)
+        self.where = configuration.get("where", self.where)
+        self.datatype = configuration.get("datatype", self.datatype)
 
         if 'path' in configuration:
             self.__set_path(configuration['path'])
@@ -296,7 +250,7 @@ class ValueSelector(TemplatedSpecification):
 
         for associated_field in configuration.get("associated_fields", list()):
             matching_field = find(
-                self.__associated_fields,
+                self.associated_fields,
                 lambda field: field.identities_match(associated_field)
             )
 
@@ -307,7 +261,7 @@ class ValueSelector(TemplatedSpecification):
                     decoder_type=decoder_type
                 )
             else:
-                self.__associated_fields.append(
+                self.associated_fields.append(
                     AssociatedField.create(
                         data=associated_field,
                         template_manager=template_manager,
@@ -315,44 +269,26 @@ class ValueSelector(TemplatedSpecification):
                     )
                 )
 
-    def validate(self) -> typing.Sequence[str]:
+    def validate_self(self) -> typing.Sequence[str]:
         return list()
 
-    __slots__ = ["__where", "__path", "__associated_fields", "__datatype", "__origin"]
+    @validator("datatype")
+    def _interpret_datatype(cls, value: typing.Union[bytes, str] = None) -> typing.Optional[str]:
+        if isinstance(value, bytes):
+            value = value.decode()
 
-    def __init__(
-        self,
-        where: str,
-        origin: typing.Union[str, bytes, typing.Sequence[str]] = None,
-        path: typing.Union[str, bytes, typing.Sequence[str]] = None,
-        associated_fields: typing.Sequence[AssociatedField] = None,
-        datatype: str = None,
-        **kwargs
-    ):
-        super().__init__(**kwargs)
+        if isinstance(value, str):
+            value = value.lower()
 
-        self.__where = where
-
-        self.__origin = None
-        self.__set_origin(origin)
-
-        self.__path = None
-
-        self.__set_path(path)
-
-        if associated_fields is None:
-            associated_fields: typing.List[AssociatedField] = list()
-
-        self.__associated_fields = associated_fields
-        self.__datatype = datatype.lower() if datatype is not None else None
+        return value
 
     def __set_path(self, path):
-        path_starts_at_root = False
-        if isinstance(path, str):
-            path_starts_at_root = path.startswith("/")
-            path = path.split("/")
-        elif isinstance(path, bytes):
+        if isinstance(path, bytes):
             path = path.decode()
+
+        path_starts_at_root = False
+
+        if isinstance(path, str):
             path_starts_at_root = path.startswith("/")
             path = path.split("/")
 
@@ -363,10 +299,36 @@ class ValueSelector(TemplatedSpecification):
             path = [
                 part
                 for part in path
-                if bool(part)
+                if part not in (None, "")
             ]
 
-        self.__path = path
+        self.path = path
+
+    @validator("path")
+    def _interpret_path(
+        cls,
+        value: typing.Union[str, bytes, typing.Sequence[str]] = None
+    ) -> typing.Optional[typing.Sequence[str]]:
+        if isinstance(value, bytes):
+            value = value.decode()
+
+        path_starts_at_root = False
+
+        if isinstance(value, str):
+            path_starts_at_root = value.startswith("/")
+            value = value.split("/")
+
+        if path_starts_at_root:
+            value.insert(0, '$')
+
+        if value:
+            value = [
+                part
+                for part in value
+                if part not in (None, "")
+            ]
+
+        return value
 
     def __set_origin(self, origin):
         origin_starts_at_root = False
@@ -391,7 +353,35 @@ class ValueSelector(TemplatedSpecification):
                 if bool(part)
             ]
 
-        self.__origin = origin
+        self.origin = origin
+
+    @validator("origin", always=True)
+    def _interpret_origin(
+        cls,
+        value: typing.Union[str, bytes, typing.Sequence[str]] = None
+    ) -> typing.Optional[typing.Sequence[str]]:
+        origin_starts_at_root = False
+
+        if isinstance(value, bytes):
+            value = value.decode()
+
+        if isinstance(value, str):
+            origin_starts_at_root = value.startswith("/")
+            value = value.split("/")
+        elif not value:
+            value = ["$"]
+
+        if origin_starts_at_root and value[0] != '$':
+            value.insert(0, "$")
+
+        if value:
+            value = [
+                part
+                for part in value
+                if part not in (None, "")
+            ]
+
+        return value
 
     def get_column_types(self) -> typing.Dict[str, typing.Union[typing.Dict[str, typing.Any], typing.List[str]]]:
         """
@@ -404,10 +394,10 @@ class ValueSelector(TemplatedSpecification):
         """
         column_options = dict()
 
-        if self.__datatype in ["datetime", "date"]:
+        if self.datatype in ["datetime", "date"]:
             column_options['parse_dates'] = [self.name]
         else:
-            dtype = util.type_name_to_dtype(self.__datatype)
+            dtype = util.type_name_to_dtype(self.datatype)
 
             if dtype is not None:
                 column_options['dtype'] = {self.name: dtype}
@@ -440,10 +430,10 @@ class ValueSelector(TemplatedSpecification):
         Returns:
             The converted value, if specified
         """
-        if not self.__datatype:
+        if not self.datatype:
             return value
 
-        datatype = self.__datatype.lower()
+        datatype = self.datatype.lower()
 
         if datatype in ("datetime", "date", "time"):
             raw_datetime = parse_date(value)
@@ -469,47 +459,13 @@ class ValueSelector(TemplatedSpecification):
 
         return value
 
-    @property
-    def datatype(self) -> typing.Optional[str]:
-        return self.__datatype
-
-    @property
-    def where(self) -> str:
-        """
-        Where the value may be found (Dict key? Dict value? Column?)
-        """
-        return self.__where
-
-    @property
-    def origin(self) -> typing.Optional[typing.Sequence[str]]:
-        """
-        The path from which to look
-
-        The value should be `""` or `"/"` if searching from the root.
-        """
-        return self.__origin
-
-    @property
-    def path(self) -> typing.Optional[typing.Sequence[str]]:
-        """
-        The path from which to look from the origin
-        """
-        return self.__path
-
-    @property
-    def associated_fields(self) -> typing.Sequence[AssociatedField]:
-        """
-        Additional values to retrieve with selected values
-        """
-        return self.__associated_fields
-
     def __str__(self) -> str:
-        description = f"{self.name} => {self.__where}"
+        description = f"{self.name} => {self.where}"
 
-        if self.__path:
-            description += f": {os.linesep.join(self.__path)}"
+        if self.path:
+            description += f": {os.linesep.join(self.path)}"
 
-        if self.__associated_fields:
-            description += f", indexed by [{','.join([str(field) for field in self.__associated_fields])}]"
+        if self.associated_fields:
+            description += f", indexed by [{','.join([str(field) for field in self.associated_fields])}]"
 
         return description

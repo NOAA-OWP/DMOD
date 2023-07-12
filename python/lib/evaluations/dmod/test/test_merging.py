@@ -19,7 +19,7 @@ BOTTOM_HALF = {
             "backend": {
                 "name": "NWIS Stat Thresholds",
                 "backend_type": "file",
-                "data_format": "rdb",
+                "format": "rdb",
                 "address": "resources/nwis_stat_thresholds.rdb"
             },
             "locations": {
@@ -132,7 +132,7 @@ TOP_HALF = {
             ],
             "backend": {
                 "backend_type": "file",
-                "data_format": "json",
+                "format": "json",
                 "address": "resources/observations.json"
             },
             "locations": {
@@ -163,7 +163,7 @@ TOP_HALF = {
             ],
             "backend": {
                 "backend_type": "file",
-                "data_format": "csv",
+                "format": "csv",
                 "address": "resources/cat.*cfs.csv",
                 "parse_dates": ["date"]
             },
@@ -201,7 +201,7 @@ TOP_HALF = {
             "backend": {
                 "backend_type": "file",
                 "address": "resources/crosswalk.json",
-                "data_format": "json"
+                "format": "json"
             },
             "observation_field_name": "observation_location",
             "prediction_field_name": "prediction_location",
@@ -255,7 +255,7 @@ EXPECTED_ENTIRETY = {
             ],
             "backend": {
                 "backend_type": "file",
-                "data_format": "json",
+                "format": "json",
                 "address": "resources/observations.json"
             },
             "locations": {
@@ -286,7 +286,7 @@ EXPECTED_ENTIRETY = {
             ],
             "backend": {
                 "backend_type": "file",
-                "data_format": "csv",
+                "format": "csv",
                 "address": "resources/cat.*cfs.csv",
                 "parse_dates": ["date"]
             },
@@ -324,7 +324,7 @@ EXPECTED_ENTIRETY = {
             "backend": {
                 "backend_type": "file",
                 "address": "resources/crosswalk.json",
-                "data_format": "json"
+                "format": "json"
             },
             "observation_field_name": "observation_location",
             "prediction_field_name": "prediction_location",
@@ -350,7 +350,7 @@ EXPECTED_ENTIRETY = {
             "backend": {
                 "name": "NWIS Stat Thresholds",
                 "backend_type": "file",
-                "data_format": "rdb",
+                "format": "rdb",
                 "address": "resources/nwis_stat_thresholds.rdb"
             },
             "locations": {

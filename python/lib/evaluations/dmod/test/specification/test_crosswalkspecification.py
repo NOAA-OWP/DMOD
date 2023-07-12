@@ -46,6 +46,10 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
         if origin is not None:
             if isinstance(origin, bytes):
                 origin = origin.decode()
+
+            if origin == "":
+                origin = "$"
+
             if isinstance(origin, str):
                 origin = origin.split("/")
 
@@ -79,7 +83,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
             "backend": specification.BackendSpecification(
                     backend_type="file",
                     address="path/to/file",
-                    data_format="json",
+                    format="json",
                     properties={
                       "prop3": True
                     },
@@ -117,7 +121,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
                     "backend": specification.BackendSpecification(
                             backend_type="service",
                             address="https://example.com",
-                            data_format="xml",
+                            format="xml",
                             properties={
                                 "prop2": 9,
                                 "prop3": False
@@ -144,7 +148,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
                     "backend": specification.BackendSpecification(
                             backend_type="pubsub",
                             address="ws://dangerous.site.ru",
-                            data_format="websocket",
+                            format="websocket",
                             prop1=10,
                             prop2=11,
                             prop3=True
@@ -169,7 +173,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
             "backend": specification.BackendSpecification(
                     backend_type="file",
                     address="path/to/file",
-                    data_format="json",
+                    format="json",
                     properties={
                         "prop3": True
                     },
@@ -198,7 +202,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
                     "backend": {
                         "backend_type": "service",
                         "address": "https://example.com",
-                        "data_format": "xml",
+                        "format": "xml",
                         "properties": {
                             "prop1": 8,
                             "prop2": 9,
@@ -225,7 +229,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
                     "backend": {
                         "backend_type": "pubsub",
                         "address": "ws://dangerous.site.ru",
-                        "data_format": "websocket",
+                        "format": "websocket",
                         "properties": {
                             "prop1": 10,
                             "prop2": 11,
@@ -251,7 +255,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
             "backend": dict(
                     backend_type="file",
                     address="path/to/file",
-                    data_format="json",
+                    format="json",
                     properties={
                         "prop3": True
                     },
@@ -285,7 +289,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
                     "backend": {
                         "backend_type": "service",
                         "address": "https://example.com",
-                        "data_format": "xml",
+                        "format": "xml",
                         "properties": {
                             "prop1": 8,
                             "prop2": 9,
@@ -312,7 +316,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
                     "backend": {
                         "backend_type": "pubsub",
                         "address": "ws://dangerous.site.ru",
-                        "data_format": "websocket",
+                        "format": "websocket",
                         "properties": {
                             "prop1": 10,
                             "prop2": 11,

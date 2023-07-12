@@ -17,7 +17,7 @@ class TestFileCrosswalk(unittest.TestCase):
                 backend=specification.BackendSpecification(
                         backend_type="file",
                         address=TEST_DOCUMENT_PATH,
-                        data_format="json"
+                        format="json"
                 ),
                 origin="",
                 observation_field_name="observation_location",

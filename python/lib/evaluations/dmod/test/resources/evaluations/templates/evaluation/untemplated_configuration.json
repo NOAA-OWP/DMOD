@@ -32,7 +32,7 @@
             ],
             "backend": {
                 "backend_type": "file",
-                "data_format": "json",
+                "format": "json",
                 "address": "resources/observations.json"
             },
             "locations": {
@@ -63,7 +63,7 @@
             ],
             "backend": {
                 "backend_type": "file",
-                "data_format": "csv",
+                "format": "csv",
                 "address": "resources/cat.*cfs.csv",
                 "parse_dates": ["date"]
             },
@@ -101,7 +101,7 @@
             "backend": {
                 "backend_type": "file",
                 "address": "resources/crosswalk.json",
-                "data_format": "json"
+                "format": "json"
             },
             "observation_field_name": "observation_location",
             "prediction_field_name": "prediction_location",
@@ -127,7 +127,7 @@
             "backend": {
                 "name": "NWIS Stat Thresholds",
                 "backend_type": "file",
-                "data_format": "rdb",
+                "format": "rdb",
                 "address": "resources/nwis_stat_thresholds.rdb"
             },
             "locations": {

@@ -12,7 +12,7 @@ class TestModelConstruction(unittest.TestCase):
         params = {
             "backend_type": "file",
             "address": "path/to/file",
-            "data_format": "json",
+            "format": "json",
             "properties": {
                 "prop1": 6,
                 "prop2": 7,
@@ -21,7 +21,7 @@ class TestModelConstruction(unittest.TestCase):
         }
 
         definition: specification.BackendSpecification = specification.BackendSpecification.create(params)
-        self.assertEqual(definition.type, "file")
+        self.assertEqual(definition.backend_type, "file")
         self.assertEqual(definition.address, "path/to/file")
         self.assertEqual(definition.format, "json")
         self.assertIn("prop1", definition)
@@ -42,7 +42,7 @@ class TestModelConstruction(unittest.TestCase):
         text_params = json.dumps(params)
 
         definition: specification.BackendSpecification = specification.BackendSpecification.create(text_params)
-        self.assertEqual(definition.type, "file")
+        self.assertEqual(definition.backend_type, "file")
         self.assertEqual(definition.address, "path/to/file")
         self.assertEqual(definition.format, "json")
         self.assertIn("prop1", definition)
@@ -63,7 +63,7 @@ class TestModelConstruction(unittest.TestCase):
         bytes_params = text_params.encode()
 
         definition: specification.BackendSpecification = specification.BackendSpecification.create(bytes_params)
-        self.assertEqual(definition.type, "file")
+        self.assertEqual(definition.backend_type, "file")
         self.assertEqual(definition.address, "path/to/file")
         self.assertEqual(definition.format, "json")
         self.assertIn("prop1", definition)
@@ -86,7 +86,7 @@ class TestModelConstruction(unittest.TestCase):
         buffer.seek(0)
 
         definition: specification.BackendSpecification = specification.BackendSpecification.create(buffer)
-        self.assertEqual(definition.type, "file")
+        self.assertEqual(definition.backend_type, "file")
         self.assertEqual(definition.address, "path/to/file")
         self.assertEqual(definition.format, "json")
         self.assertIn("prop1", definition)
@@ -109,7 +109,7 @@ class TestModelConstruction(unittest.TestCase):
         buffer.seek(0)
 
         definition: specification.BackendSpecification = specification.BackendSpecification.create(buffer)
-        self.assertEqual(definition.type, "file")
+        self.assertEqual(definition.backend_type, "file")
         self.assertEqual(definition.address, "path/to/file")
         self.assertEqual(definition.format, "json")
         self.assertIn("prop1", definition)
@@ -247,19 +247,7 @@ class TestModelConstruction(unittest.TestCase):
         self.assertTrue(definition.get("prop4", True))
 
     def test_unitdefinition(self):
-        definition: specification.UnitDefinition = specification.UnitDefinition.create("mile")
-
-        self.assertEqual("mile", definition.value)
-        self.assertIsNone(definition.path)
-        self.assertIsNone(definition.field)
-
-        definition = specification.UnitDefinition.create(definition.to_dict())
-
-        self.assertEqual("mile", definition.value)
-        self.assertIsNone(definition.path)
-        self.assertIsNone(definition.field)
-
-        definition: specification.UnitDefinition = specification.UnitDefinition.create({"value": "mile"})
+        definition: specification.UnitDefinition = specification.UnitDefinition.create(data={"value": "mile"})
 
         self.assertEqual("mile", definition.value)
         self.assertIsNone(definition.path)

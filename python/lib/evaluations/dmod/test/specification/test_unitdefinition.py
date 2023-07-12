@@ -55,8 +55,7 @@ class TestUnitDefinitionConstruction(ConstructionTest, unittest.TestCase):
             },
             {
                 "value": "asdad"
-            },
-            "value"
+            }
         ]
 
     @classmethod

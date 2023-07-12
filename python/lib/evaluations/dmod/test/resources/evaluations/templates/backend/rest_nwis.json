@@ -1,7 +1,7 @@
 {
     "name": "NWIS REST",
     "backend_type": "rest",
-    "data_format": "json",
+    "format": "json",
     "address": "https://nwis.waterservices.usgs.gov/nwis/iv",
     "params": {
         "format": "json",
