@@ -22,6 +22,6 @@ setup(
     license='',
     include_package_data=True,
     install_requires=['dmod-core>=0.4.2', 'websockets>=8.1', 'jsonschema', 'redis', 'pydantic>=1.10.8,~=1.10',
-                      'ngen-config@git+https://github.com/NOAA-OWP/ngen-cal@master#egg=ngen-config&subdirectory=python/ngen_conf'],
+                      'ngen-config@git+https://github.com/noaa-owp/ngen-cal@master#egg=ngen-config&subdirectory=python/ngen_conf'],
     packages=find_namespace_packages(include=['dmod.*'], exclude=['dmod.test'])
 )
