@@ -19,6 +19,7 @@ setup(
     license='',
     install_requires=['dmod-core>=0.8.0', 'dmod-communication>=0.13.0', 'dmod-scheduler>=0.10.0',
                       'dmod-modeldata>=0.9.0', 'redis', "pydantic>=1.10.8,~=1.10", "fastapi", "uvicorn[standard]",
-                      "ngen-config>=0.1.1"],
+                      'ngen-config@git+https://github.com/noaa-owp/ngen-cal@master#egg=ngen-config&subdirectory=python/ngen_conf',
+                      'ngen-cal@git+https://github.com/noaa-owp/ngen-cal@master#egg=ngen-config&subdirectory=python/ngen_cal'],
     packages=find_namespace_packages(exclude=['dmod.test', 'deprecated', 'conf', 'schemas', 'ssl', 'src'])
 )
