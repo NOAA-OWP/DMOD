@@ -30,7 +30,7 @@ setup(
         "minio",
         "aiohttp<=3.7.4",
         "shapely>=2.0.0",
-        "hypy@git+https://github.com/NOAA-OWP/hypy@master#egg=hypy&subdirectory=python",
+        "hypy@git+https://github.com/noaa-owp/hypy@master#egg=hypy&subdirectory=python",
         "gitpython",
         "pydantic>=1.10.8,~=1.10",
     ],
