@@ -264,9 +264,11 @@ class DatasetExternalClient(DatasetClient,
     """
 
     # In particular needs - endpoint_uri: str, ssl_directory: Path
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, cache_session: bool = True, **kwargs):
         super().__init__(*args, **kwargs)
-        self._cached_session_file = Path.home().joinpath('.dmod_client_session')
+        self._cached_session_file: Optional[Path] = (
+            Path.home().joinpath(".dmod_client_session") if cache_session else None
+        )
 
     def _acquire_session_info(self, use_current_values: bool = True, force_new: bool = False):
         """
@@ -296,9 +298,16 @@ class DatasetExternalClient(DatasetClient,
             return tmp
 
     async def _async_acquire_session_info(self, use_current_values: bool = True, force_new: bool = False):
-        if use_current_values and not force_new and self._cached_session_file.exists():
+        if (
+            use_current_values
+            and not force_new
+            and self._cached_session_file is not None
+            and self._cached_session_file.exists()
+        ):
             try:
-                session_id, secret, created = self.parse_session_auth_text(self._cached_session_file.read_text())
+                session_id, secret, created = self.parse_session_auth_text(
+                    self._cached_session_file.read_text()
+                )
                 self._session_id = session_id
                 self._session_secret = secret
                 self._session_create = created
@@ -306,13 +315,21 @@ class DatasetExternalClient(DatasetClient,
                 # TODO: consider logging; for now, just don't bail and move on to logic for new session
                 pass
 
-        if not force_new and use_current_values and self._session_id and self._session_secret and self._session_created:
-            #logger.info('Using previously acquired session details (new session not forced)')
+        if (
+            not force_new
+            and use_current_values
+            and self._session_id
+            and self._session_secret
+            and self._session_created
+        ):
+            # logger.info('Using previously acquired session details (new session not forced)')
             return True
         else:
             # TODO: look at if there needs to be an addition to connection count, active connections, or something here
-            tmp = await self._async_acquire_new_session(cached_session_file=self._cached_session_file)
-            #logger.info("Session Info Return: {}".format(tmp))
+            tmp = await self._async_acquire_new_session(
+                cached_session_file=self._cached_session_file
+            )
+            # logger.info("Session Info Return: {}".format(tmp))
             return tmp
 
     def _process_data_download_iteration(self, raw_received_data: str) -> Tuple[bool, Union[DataTransmitMessage, MaaSDatasetManagementResponse]]:
