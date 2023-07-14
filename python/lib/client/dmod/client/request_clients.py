@@ -6,9 +6,11 @@ from dmod.communication.client import R
 from dmod.communication.dataset_management_message import DatasetManagementMessage, DatasetManagementResponse, \
     MaaSDatasetManagementMessage, MaaSDatasetManagementResponse, QueryType, DatasetQuery
 from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
+from dmod.communication.session import Session
 from dmod.core.meta_data import DataCategory, DataDomain
 from pathlib import Path
 from typing import List, Optional, Tuple, Type, Union
+from typing_extensions import Self
 
 import json
 import websockets
@@ -269,6 +271,22 @@ class DatasetExternalClient(DatasetClient,
         self._cached_session_file: Optional[Path] = (
             Path.home().joinpath(".dmod_client_session") if cache_session else None
         )
+
+    @classmethod
+    def from_session(cls, *, endpoint_uri: str, ssl_directory: Path, session: Session, cache_session: bool = True, **kwargs) -> Self:
+        """
+        Create a `DatasetExternalClient` from an existing `Session` instance.
+
+        Note, the passed `Session` object will not be written to disk even if the `cache_session`
+        flag is present.  However, if the `Session` instance expires and a new session is acquired,
+        it will be cached if `cache_session` is set.
+        """
+        client = cls(endpoint_uri=endpoint_uri, ssl_directory=ssl_directory, cache_session=cache_session, **kwargs)
+        client._session_id = session.session_id
+        client._session_secret = session.session_secret
+        client._session_created = session.created
+        client._is_new_session = False
+        return client
 
     def _acquire_session_info(self, use_current_values: bool = True, force_new: bool = False):
         """
