@@ -186,7 +186,7 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
         Optional[PartialRealizationConfig]
             The user-supplied pieces of the ngen realization config to use for this request.
         """
-        return self.request_body.formulation_configs
+        return self.request_body.partial_realization_config
 
     @property
     def forcings_data_id(self) -> Optional[str]:
@@ -331,14 +331,14 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
         return self.request_body.partition_cfg_data_id
 
     @property
-    def partition_cfg_data_requirement(self) -> DataRequirement:
+    def partition_cfg_data_requirement(self) -> Optional[DataRequirement]:
         """
-        A requirement object defining of the partitioning configuration data needed to execute this request.
+        A requirement object defining the partitioning configuration data needed to execute this request.
 
         Returns
         -------
-        DataRequirement
-            A requirement object defining of the partitioning configuration data needed to execute this request.
+        Optional[DataRequirement]
+            Optional requirement object defining the partitioning configuration data needed to execute this request.
         """
         if self._partition_cfg_data_requirement is None and self.use_parallel_ngen:
             d_restricts = []
