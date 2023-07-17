@@ -188,7 +188,19 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
         """
         return self.request_body.formulation_configs
 
-    # TODO: #needs_issue - Account for option when forcing dataset is explicitly provided
+    @property
+    def forcings_data_id(self) -> Optional[str]:
+        """
+        Unique ``data_id`` of requested forcings dataset, if one was specified by the user.
+
+        Returns
+        -------
+        Optional[str]
+            ``data_id`` of the requested forcings dataset, or ``None`` if any forcings dataset may be used that
+            otherwise satisfies the requirements of the request.
+        """
+        return self.request_body.forcings_data_id
+
     @property
     def forcing_data_requirement(self) -> DataRequirement:
         """
@@ -200,11 +212,15 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
             A requirement object defining of the forcing data needed to execute this request.
         """
         if self._forcing_data_requirement is None:
+            discrete_restricts = [self._gen_catchments_domain_restriction()]
+            if self.forcings_data_id is not None:
+                discrete_restricts.append(DiscreteRestriction(variable="DATA_ID", values=[self.forcings_data_id]))
+
             # TODO: going to need to address the CSV usage later
             forcing_domain = DataDomain(
                 data_format=DataFormat.AORC_CSV,
                 continuous_restrictions=[self.time_range],
-                discrete_restrictions=[self._gen_catchments_domain_restriction()],
+                discrete_restrictions=discrete_restricts,
             )
             self._forcing_data_requirement = DataRequirement(
                 domain=forcing_domain, is_input=True, category=DataCategory.FORCING
