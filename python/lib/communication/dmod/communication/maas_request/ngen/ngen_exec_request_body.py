@@ -9,18 +9,36 @@ from typing import List, Optional
 
 
 class NGENRequestBody(Serializable):
+    """
+    Request body encapsulating data within outer request.
 
-    time_range: TimeRange
-    hydrofabric_uid: str
-    hydrofabric_data_id: str
-    realization_config_data_id: str = Field(description="Unique id of the realization config dataset for this request.")
-    forcings_data_id: Optional[str] = Field(None, description="Unique id of forcings dataset, if provided.")
-    bmi_config_data_id: str
+    Encapsulated data to define a requested ngen job.  It includes details on the time range, hydrofabric, and
+    configurations need for executing ngen.  It may also include a reference to what forcing data to use.
+
+    An instance contains a reference to the ::class:`DataFormat.NGEN_JOB_COMPOSITE_CONFIG` dataset containing
+    configurations for the requested job.  In cases when this dataset doesn't yet exist, an instance also contains the
+    necessary details for generating such a dataset.  In particular, this includes:
+
+        - a realization config dataset id **OR** a ::class:`PartialRealizationConfig`
+        - (optionally) a BMI init config dataset id
+        - (optionally) a t-route configuration dataset id
+
+    When dataset ids are given, these are treated as sources for the new ::class:`DataFormat.NGEN_JOB_COMPOSITE_CONFIG`,
+    with the contents of the former copied into the latter as appropriate.
+    """
+
+    time_range: TimeRange = Field(description="The time range over which to run ngen simulation(s).")
+    hydrofabric_uid: str = Field(description="The (DMOD-generated) unique id of the hydrofabric to use.")
+    hydrofabric_data_id: str = Field(description="The dataset id of the hydrofabric dataset to use.")
+    composite_config_data_id: str = Field(None, description="Id of required ngen composite config dataset.")
+    realization_config_data_id: Optional[str] = Field(None, description="Id of composite source of realization config.")
+    forcings_data_id: Optional[str] = Field(None, description="Id of requested forcings dataset.")
+    bmi_config_data_id: Optional[str] = Field(None, description="Id of composite source of BMI init configs.")
     # NOTE: consider pydantic.conlist to constrain this type rather than using validators
-    catchments: Optional[List[str]]
+    catchments: Optional[List[str]] = Field(None, description="Subset of ids of catchments to include in job.")
     partial_realization_config: Optional[PartialRealizationConfig] = Field(
         default=None, description="Partial realization config, when supplied by user.")
-    partition_cfg_data_id: Optional[str]
+    partition_cfg_data_id: Optional[str] = Field(None, description="Partition config dataset, when multi-process job.")
     t_route_config_data_id: Optional[str] = Field(None, description="Id of composite source of t-route config.")
 
     @validator("catchments")
