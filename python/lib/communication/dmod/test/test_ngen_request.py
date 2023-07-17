@@ -32,9 +32,9 @@ class TestNGENRequest(unittest.TestCase):
         self.request_strings.append(
             '{"allocation_paradigm": "SINGLE_NODE", "cpu_count": ' + str(cpu_count_ex_0) + ', "job_type": "ngen", '
             '"request_body": '
-                '{"bmi_config_data_id": "02468", "hydrofabric_data_id": "9876543210", "hydrofabric_uid": "0123456789", '
-                '"partition_config_data_id": "part1234", "realization_config_data_id": "02468", '
-                '"time_range": ' + time_range.to_json() + '}, '
+                '{"bmi_config_data_id": "02468", "composite_config_data_id": "composite02468", "hydrofabric_data_id": '
+                '"9876543210", "hydrofabric_uid": "0123456789", "partition_config_data_id": "part1234", '
+                '"realization_config_data_id": "02468", "time_range": ' + time_range.to_json() + '}, '
             '"session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
         self.request_jsons.append({
             'allocation_paradigm': 'SINGLE_NODE',
@@ -45,6 +45,7 @@ class TestNGENRequest(unittest.TestCase):
                 'hydrofabric_data_id': '9876543210',
                 'hydrofabric_uid': '0123456789',
                 'bmi_config_data_id': '02468',
+                'composite_config_data_id': 'composite02468',
                 'realization_config_data_id': '02468',
                 'partition_config_data_id': 'part1234'
             },
@@ -56,6 +57,7 @@ class TestNGENRequest(unittest.TestCase):
                 'hydrofabric_data_id': '9876543210',
                 'hydrofabric_uid': "0123456789",
                 'bmi_config_data_id': '02468',
+                'composite_config_data_id': 'composite02468',
                 'partition_cfg_data_id': 'part1234',
                 'realization_config_data_id': '02468'},
                 session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
@@ -74,7 +76,8 @@ class TestNGENRequest(unittest.TestCase):
         self.request_strings.append(
             '{"allocation_paradigm": "ROUND_ROBIN", "cpu_count": ' + str(cpu_count_ex_1) + ', "job_type": "ngen", '
             '"request_body": '
-                '{"bmi_config_data_id": "02468", "catchments": ' + cat_ids_str + ', "hydrofabric_data_id": "9876543210", '
+                '{"bmi_config_data_id": "02468", "catchments": ' + cat_ids_str + ', '
+                '"composite_config_data_id": "composite02468", "hydrofabric_data_id": "9876543210", '
                 '"hydrofabric_uid": "0123456789", "partition_config_data_id": "part1234", '
                 '"realization_config_data_id": "02468", "time_range": ' + time_range.to_json() + '}, '
             '"session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
@@ -86,6 +89,7 @@ class TestNGENRequest(unittest.TestCase):
                 'time_range': time_range.to_dict(),
                 'hydrofabric_data_id': '9876543210',
                 'hydrofabric_uid': '0123456789',
+                'composite_config_data_id': 'composite02468',
                 'realization_config_data_id': '02468',
                 'bmi_config_data_id': '02468',
                 'catchments': cat_ids_list,
@@ -104,6 +108,7 @@ class TestNGENRequest(unittest.TestCase):
                 'hydrofabric_data_id': '9876543210',
                 'realization_config_data_id': '02468',
                 'bmi_config_data_id': '02468',
+                'composite_config_data_id': 'composite02468',
                 'catchments': cat_ids_list,
                 'partition_cfg_data_id': 'part1234'}))
 
@@ -114,7 +119,7 @@ class TestNGENRequest(unittest.TestCase):
         self.time_ranges.append(time_range)
         self.request_strings.append(
             '{"allocation_paradigm": "SINGLE_NODE", "cpu_count": ' + str(cpu_count_ex_2) + ', "job_type": "ngen", '
-            '"request_body": {"bmi_config_data_id": "02468", '
+            '"request_body": {"bmi_config_data_id": "02468", "composite_config_data_id": "composite02468",'
             '"hydrofabric_data_id": "9876543210", '
             '"hydrofabric_uid": "0123456789", "realization_config_data_id": "02468", "time_range": ' + time_range.to_json() + '}, '
             '"session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}'
@@ -127,6 +132,7 @@ class TestNGENRequest(unittest.TestCase):
                 'time_range': time_range.to_dict(),
                 'hydrofabric_data_id': '9876543210',
                 'hydrofabric_uid': '0123456789',
+                'composite_config_data_id': 'composite02468',
                 'bmi_config_data_id': '02468',
                 'realization_config_data_id': '02468'
             },
@@ -141,6 +147,7 @@ class TestNGENRequest(unittest.TestCase):
                 'time_range': time_range,
                 'hydrofabric_uid': "0123456789",
                 'hydrofabric_data_id': '9876543210',
+                'composite_config_data_id': 'composite02468',
                 'bmi_config_data_id': '02468',
                 'realization_config_data_id': '02468'}))
 
