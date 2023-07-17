@@ -40,6 +40,8 @@ class StandardDatasetIndex(str, PydanticEnum):
     """ A specialized index for the unique data id of an associated realization config dataset. """
     FILE_NAME = (8, str, "FILE_NAME")
     """ Index for the name of a data file within a dataset. """
+    COMPOSITE_SOURCE_ID = (9, str, "COMPOSITE_SOURCE_ID")
+    """ Index for DATA_ID values of source dataset(s) when dataset is composite format and derives from others. """
 
     def __new__(cls, index: int, ty: type, name: str):
         o = str.__new__(cls, name)
@@ -160,6 +162,7 @@ class DataFormat(PydanticEnum):
             StandardDatasetIndex.TIME: None,
             StandardDatasetIndex.DATA_ID: None,
             StandardDatasetIndex.FILE_NAME: None,
+            StandardDatasetIndex.COMPOSITE_SOURCE_ID: None
         },
         None,
         False
