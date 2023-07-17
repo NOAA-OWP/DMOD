@@ -42,6 +42,7 @@ class TestLauncher(unittest.TestCase):
             "job_type": "ngen",
             'request_body': {
                 'bmi_config_data_id': '02468',
+                'composite_config_data_id': 'composite02468',
                 'hydrofabric_data_id': '9876543210',
                 'hydrofabric_uid': '0123456789',
                 'realization_config_data_id': '02468',
@@ -77,6 +78,7 @@ class TestLauncher(unittest.TestCase):
             "job_type": "ngen",
             'request_body': {
                 'bmi_config_data_id': '02468',
+                'composite_config_data_id': 'composite02468',
                 'hydrofabric_data_id': '9876543210',
                 'hydrofabric_uid': '0123456789',
                 'realization_config_data_id': '02468',
