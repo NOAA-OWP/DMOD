@@ -26,32 +26,21 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
 
         - execution time range
         - hydrofabric UID, dataset id, and ::class:`DataRequirement`
-        - primary config dataset id (i.e., the realization config) and ::class:`DataRequirement`
-        - BMI init configs dataset id and ::class:`DataRequirement`
-        - forcing ::class:`DataRequirement`
+        - config files dataset id (uses ::class:`DataFormat.NGEN_JOB_COMPOSITE_CONFIG`) and ::class:`DataRequirement`
         - list of each output dataset's ::class:`DataFormat`
+        - forcing ::class:`DataRequirement` and (optionally) a forcing dataset id
         - (Optional) partitioning config dataset id and ::class:`DataRequirement`
         - (Optional) list of catchments
 
-    This type provides the implementation for ::method:`factory_init_from_deserialized_json` for all subtypes.  This
-    works by having each level of the class hierarchy be responsible for deserialization applicable to it, as described
-    below.
-
-    Instead of implementing full deserialization, this type and subtypes include a function to deserialize from JSON the
-    type-specific keyword parameters passed to the individual type's ::method:`__init__`.  This is the
-    ::method:`deserialize_for_init` class method.  Subclass implementations should ensure they call superclass's version
-    and build on the returned dict of deserialized keyword params from ancestor levels.
-
-    This abstract type also implements a version of ::method:`to_dict` for serializing all the state included at this
-    level.
+    It is possible for the ``NGEN_JOB_COMPOSITE_CONFIG`` dataset to not already exist, in which case an instance of this
+    type also implies a request to derive such a dataset.
     """
 
     request_body: NGENRequestBody
 
     _hydrofabric_data_requirement = PrivateAttr(None)
     _forcing_data_requirement = PrivateAttr(None)
-    _realization_cfg_data_requirement = PrivateAttr(None)
-    _bmi_cfg_data_requirement = PrivateAttr(None)
+    _composite_config_data_requirement = PrivateAttr(None)
     _partition_cfg_data_requirement = PrivateAttr(None)
 
     class Config:
@@ -103,31 +92,6 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
         return self.request_body.bmi_config_data_id
 
     @property
-    def bmi_cfg_data_requirement(self) -> DataRequirement:
-        """
-        A requirement object defining of the BMI configuration data needed to execute this request.
-
-        Returns
-        -------
-        DataRequirement
-            A requirement object defining of the BMI configuration data needed to execute this request.
-        """
-        if self._bmi_cfg_data_requirement is None:
-            bmi_config_restrict = [
-                DiscreteRestriction(
-                    variable="data_id", values=[self.bmi_config_data_id]
-                )
-            ]
-            bmi_config_domain = DataDomain(
-                data_format=DataFormat.BMI_CONFIG,
-                discrete_restrictions=bmi_config_restrict,
-            )
-            self._bmi_cfg_data_requirement = DataRequirement(
-                domain=bmi_config_domain, is_input=True, category=DataCategory.CONFIG
-            )
-        return self._bmi_cfg_data_requirement
-
-    @property
     def catchments(self) -> Optional[List[str]]:
         """
         An optional list of catchment ids for those catchments in the request ngen execution.
@@ -142,6 +106,49 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
         return self.request_body.catchments
 
     @property
+    def composite_config_data_id(self) -> str:
+        """
+        Index value of ``data_id`` to uniquely identify the applicable composite config dataset for the requested job.
+
+        Returns
+        -------
+        str
+            Index value of ``data_id`` of the applicable composite config dataset for the requested job.
+        """
+        return self.request_body.composite_config_data_id
+
+    @property
+    def composite_config_data_requirement(self) -> DataRequirement:
+        """
+        A requirement object defining of the composite configuration data needed to execute this request.
+
+        Returns
+        -------
+        DataRequirement
+            A requirement object defining of the composite configuration data needed to execute this request.
+        """
+        if self._composite_config_data_requirement is None:
+            cont_restricts = [self.time_range]
+
+            disc_restricts = [
+                DiscreteRestriction(variable="HYDROFABRIC_ID", values=[self.request_body.hydrofabric_uid]),
+                self._gen_catchments_domain_restriction(),
+                DiscreteRestriction(variable="DATA_ID", values=[self.composite_config_data_id])
+            ]
+
+            # Add a restriction including source dataset ids as well, if there are any
+            src_ds_ids = self.request_body.composite_config_source_ids
+            if len(src_ds_ids) > 0:
+                disc_restricts.append(DiscreteRestriction(variable="COMPOSITE_SOURCE_ID", values=src_ds_ids))
+
+            composite_config_domain = DataDomain(data_format=DataFormat.NGEN_JOB_COMPOSITE_CONFIG,
+                                                 continuous_restrictions=cont_restricts,
+                                                 discrete_restrictions=disc_restricts)
+            self._composite_config_data_requirement = DataRequirement(domain=composite_config_domain, is_input=True,
+                                                                      category=DataCategory.CONFIG)
+        return self._composite_config_data_requirement
+
+    @property
     def data_requirements(self) -> List[DataRequirement]:
         """
         List of all the explicit and implied data requirements for this request, as needed for creating a job object.
@@ -152,10 +159,9 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
             List of all the explicit and implied data requirements for this request.
         """
         requirements = [
-            self.bmi_cfg_data_requirement,
             self.forcing_data_requirement,
             self.hydrofabric_data_requirement,
-            self.realization_cfg_data_requirement,
+            self.composite_config_data_requirement,
         ]
         if self.use_parallel_ngen:
             requirements.append(self.partition_cfg_data_requirement)
@@ -366,31 +372,20 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
         return self.request_body.realization_config_data_id
 
     @property
-    def realization_cfg_data_requirement(self) -> DataRequirement:
+    def t_route_config_data_id(self) -> Optional[str]:
         """
-        A requirement object defining of the realization configuration data needed to execute this request.
+        The index value of ``data_id`` to uniquely identify sets of t-route config data that are otherwise similar.
+
+        For example, two t-route configs may apply to the same time and catchments, but be very different.  The
+        nature of the differences is not necessarily even possible to define generally, and certainly not through
+        (pre-existing) indices.  As such, the `data_id` index is added for such differentiating purposes.
 
         Returns
         -------
-        DataRequirement
-            A requirement object defining of the realization configuration data needed to execute this request.
+        str
+            The index value of ``data_id`` to uniquely identify the required t-route config dataset.
         """
-        if self._realization_cfg_data_requirement is None:
-            real_cfg_dis_restrict = [
-                self._gen_catchments_domain_restriction(),
-                DiscreteRestriction(
-                    variable="data_id", values=[self.realization_config_data_id]
-                ),
-            ]
-            real_cfg_domain = DataDomain(
-                data_format=DataFormat.NGEN_REALIZATION_CONFIG,
-                continuous_restrictions=[self.time_range],
-                discrete_restrictions=real_cfg_dis_restrict,
-            )
-            self._realization_cfg_data_requirement = DataRequirement(
-                domain=real_cfg_domain, is_input=True, category=DataCategory.CONFIG
-            )
-        return self._realization_cfg_data_requirement
+        return self.request_body.t_route_config_data_id
 
     @property
     def time_range(self) -> TimeRange:
@@ -460,16 +455,4 @@ class ExternalAbstractNgenRequest(ExternalRequest, AbstractNgenRequest, ABC):
     def __eq__(self, other):
         return super().__eq__(other) and self.session_secret == other.session_secret
 
-    def __hash__(self):
-        hash_str = "{}-{}-{}-{}-{}-{}-{}-{}-{}".format(
-            self.time_range.to_json(),
-            self.hydrofabric_data_id,
-            self.hydrofabric_uid,
-            self.realization_config_data_id,
-            self.bmi_config_data_id,
-            self.session_secret,
-            self.cpu_count,
-            self.partition_cfg_data_id,
-            ",".join(self.catchments),
-        )
-        return hash(hash_str)
+
