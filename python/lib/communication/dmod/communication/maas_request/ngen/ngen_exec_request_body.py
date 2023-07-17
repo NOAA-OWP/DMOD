@@ -63,3 +63,32 @@ class NGENRequestBody(Serializable):
         if kwargs.get("exclude", False) is False:
             kwargs["exclude"] = {f for f in only_if_set if not self.__getattribute__(f)}
         return super().dict(**kwargs)
+
+    @property
+    def composite_config_source_ids(self) -> List[str]:
+        """
+        A list of the data ids for any datasets that are sources of data for a generated composite config dataset.
+
+        An instance may know dataset ids of existing datasets from which a new composite config dataset should be
+        derived.  For the base type, this potentially includes datasets for a realization config, BMI init configs, and
+        t-route configs.  Any such datasets are referenced in certain attributes for the instance;
+        e.g., ::attribute:`bmi_config_data_id`.  This property encapsulates collecting those applicable attribute values
+        while filtering out any that are not set.
+
+        Note that an empty list does not (by itself) imply the composite config dataset is expected to exist, as it is
+        possible for the dataset to be created from a ::class:`PartialRealizationConfig` and auto-generated BMI init
+        configs.
+
+        Returns
+        -------
+        List[str]
+            List of the data ids for any datasets that are sources of data for a generated composite config dataset.
+        """
+        result = []
+        if self.realization_config_data_id is not None:
+            result.append(self.realization_config_data_id)
+        if self.bmi_config_data_id is not None:
+            result.append(self.bmi_config_data_id)
+        if self.t_route_config_data_id is not None:
+            result.append(self.t_route_config_data_id)
+        return result
