@@ -632,9 +632,9 @@ class Day:
         # is incremented by 1 to ensure that it matches in and out of leap years.
         if isinstance(day, pandas.Timestamp):
             if not day.is_leap_year and day >= datetime(day.year, month=3, day=1, tzinfo=day.tzinfo):
-                day = day.day_of_year + 1
+                day = day.dayofyear + 1
             else:
-                day = day.day_of_year
+                day = day.dayofyear
 
         self.__day = numpy.core.uint16(day)
 
