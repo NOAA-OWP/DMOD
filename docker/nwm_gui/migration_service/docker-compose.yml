@@ -1,7 +1,7 @@
 version: "3.7"
 services:
   migration:
-    image: maas-portal-migration
+    image: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/maas-portal-migration
     build:
         context: ../../..
         dockerfile: ./docker/nwm_gui/migration_service/Dockerfile
