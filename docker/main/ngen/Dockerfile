@@ -413,14 +413,6 @@ RUN cd ${WORKDIR} \
 
 ################################################################################################################
 ################################################################################################################
-FROM rocky-ngen-deps as rocky_ngen_build_testing
-
-COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/ngen
-ENV BOOST_ROOT=${WORKDIR}/boost
-WORKDIR ${WORKDIR}/ngen
-
-################################################################################################################
-################################################################################################################
 ##### Create intermediate Docker build stage for building t-route in Rocky Linux environment
 FROM rocky-ngen-deps as rocky_build_troute
 
@@ -575,7 +567,16 @@ RUN cd ${WORKDIR}/ngen \
                 $BUILD_DIR/test/test_bmi_multi; \
             fi \
     done \
-    && find cmake_build* -type f -name "*" ! \( -name "*.so" -o -name "ngen" -o -name "partitionGenerator" \) -exec rm {} + 
+    && find cmake_build* -type f -name "*" ! \( -name "*.so" -o -name "ngen" -o -name "partitionGenerator" \) -exec rm {} +
+
+################################################################################################################
+################################################################################################################
+##### A build stage for testing using the ngen-build-test image
+FROM rocky_build_ngen as rocky_ngen_build_testing
+
+#COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/ngen
+#ENV BOOST_ROOT=${WORKDIR}/boost
+WORKDIR ${WORKDIR}/ngen
 
 ################################################################################################################
 ################################################################################################################
