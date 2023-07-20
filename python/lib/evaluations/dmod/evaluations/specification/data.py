@@ -51,7 +51,7 @@ class DataSourceSpecification(LoaderSpecification):
     @pydantic.root_validator
     def ensure_name_is_present(cls, values):
         if "name" not in values:
-            values['name'] = values.get("value_field", )
+            values['name'] = values.get("value_field")
         return values
 
     def __eq__(self, other: "DataSourceSpecification"):
@@ -159,7 +159,7 @@ class DataSourceSpecification(LoaderSpecification):
         for mapping in configuration.get("field_mapping", list()):
             matching_mapping = find(
                 self.field_mapping,
-                lambda field_mapping: field_mapping.field == mapping.get("field", )
+                lambda field_mapping: field_mapping.field == mapping.get("field")
             )
 
             if matching_mapping:

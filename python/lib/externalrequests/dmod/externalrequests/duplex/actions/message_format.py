@@ -63,7 +63,7 @@ class ActionGet(HandlerProtocol):
         # Get the data that came through the server
         try:
             action_declaration = json.loads(message)
-            action_declaration = action_declaration.get("event", ) or action_declaration.get("action", )
+            action_declaration = action_declaration.get("event") or action_declaration.get("action")
         except:
             action_declaration = message.decode() if isinstance(message, bytes) else message
 
@@ -110,7 +110,7 @@ class ActionGet(HandlerProtocol):
         """
         try:
             payload = json.loads(message)
-            payload = payload.get("event", ) or payload.get("action", )
+            payload = payload.get("event") or payload.get("action")
         except:
             payload = message.decode() if isinstance(message, bytes) else message
 
@@ -275,7 +275,7 @@ class GetActions:
         # Get the data that came through the server
         try:
             action_declaration = json.loads(message)
-            action_declaration = action_declaration.get("event", ) or action_declaration.get("action", )
+            action_declaration = action_declaration.get("event") or action_declaration.get("action")
         except:
             action_declaration = message.decode() if isinstance(message, bytes) else message
 
@@ -322,7 +322,7 @@ class GetActions:
         """
         try:
             payload = json.loads(message)
-            payload = payload.get("event", ) or payload.get("action", )
+            payload = payload.get("event") or payload.get("action")
         except:
             payload = message
 

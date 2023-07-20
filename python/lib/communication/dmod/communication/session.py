@@ -283,7 +283,7 @@ class SessionInitResponse(Response):
 
     @root_validator(pre=True)
     def _coerce_data_field(cls, values):
-        data = values.get("data", )
+        data = values.get("data")
 
         if data is None:
             details = "Instantiated SessionInitResponse object without session data; defaulting to failure"

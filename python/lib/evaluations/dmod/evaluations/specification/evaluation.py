@@ -82,7 +82,7 @@ class EvaluationSpecification(TemplatedSpecification):
             for observation_configuration in configuration.get("observations"):
                 matching_observations = find(
                     self.observations,
-                    lambda observations: observations.name == observation_configuration.get("name", )
+                    lambda observations: observations.name == observation_configuration.get("name")
                 )
 
                 if matching_observations:
@@ -104,7 +104,7 @@ class EvaluationSpecification(TemplatedSpecification):
             for prediction_configuration in configuration.get("predictions"):
                 matching_predictions = find(
                     self.predictions,
-                    lambda predictions: predictions.name == prediction_configuration.get("name", )
+                    lambda predictions: predictions.name == prediction_configuration.get("name")
                 )
 
                 if matching_predictions:
