@@ -13,7 +13,7 @@ wheel
 Deprecated
 cryptography
 flask
-pandas
+pandas~=2.0
 fiona
 geopandas
 gitpython
@@ -31,7 +31,7 @@ channels-redis
 Pint
 django_rq
 requests
-Django
+Django~=4.0
 scipy
 xarray
 python-dateutil
