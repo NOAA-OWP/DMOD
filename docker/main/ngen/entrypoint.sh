@@ -209,6 +209,9 @@ exec_serial_ngen_run()
 
 # Sanity check that the output, hydrofabric, and config datasets are available (i.e., their directories are in place)
 check_for_dataset_dir "${CONFIG_DATASET_DIR}"
+# We don't need to check for a partitioning dataset unless parallel processing is expected
+# Of course, the data dir variable will have been set earlier IFF parallel processing is expected, so we can use that
+# as the test condition
 if [ -n "${PARTITION_DATASET_DIR:-}" ]; then
     check_for_dataset_dir "${PARTITION_DATASET_DIR}"
 fi
