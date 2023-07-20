@@ -1,25 +1,55 @@
 #!/bin/bash
-# $1 will have the number of nodes associated with this run
-# $2 will have the host string in MPI form, i.e. hostname:N, hostname:M
-# $3 will have the unique job id
-# $4 is optional, and if set is the index of the distributed job/s this entrypoint is responsible for
-# if the idx is 0, this is the main MPI worker responsible for launching the job, otherwise, it is a worker
-# that simply needs to start the SSH daemon and wait
 
-if [ "x$4" != "x" ] && [ $4 == "0" ]
+while [ ${#} -gt 0 ]; do
+    case "${1}" in
+# TODO: most likely, we are eventually going to need these available too for jobs to actually function
+#        --config-dataset)
+#            CONFIG_DATASET_NAME="${2:?}"
+#            shift
+#            ;;
+#        --output-dataset)
+#            OUTPUT_DATASET_NAME="${2:?}"
+#            shift
+#            ;;
+        --host-string)
+            # MPI host string; i.e., comma delimited hostnames and per-host cpu counts (e.g. hostname:N,hostname:M)
+            MPI_HOST_STRING="${2:?}"
+            shift
+            ;;
+        --job-id)
+            # A unique id for the job being executed
+            JOB_ID="${2:?}"
+            shift
+            ;;
+        --node-count)
+            # The number of distinct hosts/nodes in the job (different from cpu count)
+            MPI_NODE_COUNT="${2:?}"
+            shift
+            ;;
+        --worker-index)
+            # Optional index of the distributed job/s this entrypoint is responsible for
+            # if the idx is 0, this is the main MPI worker responsible for launching the job, otherwise, it is a worker
+            # that simply needs to start the SSH daemon and wait
+            WORKER_INDEX="${2:?}"
+            shift
+            ;;
+    esac
+    shift
+done
+
+if [ "x$WORKER_INDEX" != "x" ] && [ $WORKER_INDEX == "0" ]
 then
 echo "Starting SSH daemon on main worker"
 sudo /usr/sbin/sshd -D &
 
-num_hosts=$1
-num_hosts=$((num_hosts + 0))
-req_id=$3
+MPI_NODE_COUNT=$((MPI_NODE_COUNT + 0))
 #Setup the runtime paths
 cd ${WORKDIR}
 domain_location=${WORKDIR}/domains
 output_dir=${WORKDIR}/output
 #Make a temp working dir
-tmp_domain=$output_dir/tmp_${req_id}
+# TODO: this needs to be the output dataset
+tmp_domain=$output_dir/tmp_${JOB_ID}
 mkdir -p $tmp_domain
 #Link the static domain and runtime tables to the working dir
 ln -s $domain_location/* $tmp_domain/
@@ -27,7 +57,7 @@ ln -s ${WORKDIR}/*.TBL $tmp_domain/
 cd $tmp_domain
 
 # write hoststring to file
-echo $2 >> hostfile
+echo $MPI_HOST_STRING >> hostfile
 
 total_cpus=0
 #Determine total CPUS and make sure hosts are running ssh
