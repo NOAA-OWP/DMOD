@@ -86,7 +86,8 @@
         margin: 5px;
     }
 </style>
-    <script src="{% static "js/admin/template_editor.js" %}"></script>
+    <script type="module" src="{%  static "js/admin/json_editor.js" %}"></script>
+    <script type="module" src="{% static "js/admin/template_editor.js" %}"></script>
 {% block object-tools %}
 {% if change %}{% if not is_popup %}
   <ul class="object-tools">

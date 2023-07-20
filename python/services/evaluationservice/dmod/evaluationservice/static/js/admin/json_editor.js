@@ -1,5 +1,8 @@
 const $ = window.django.jQuery;
 
+/**
+ * A dedicated CodeMirror editor built for Django Admin Views
+ */
 export class JSONConfigurationEditor {
     /**
      * The element that stores the actual data that will be submitted to the server
@@ -146,10 +149,16 @@ function formatErrorMessages(message) {
 }
 
 if (!Object.keys(window).includes('DMOD')) {
+    /**
+     * A namespace for DMOD items
+     */
     window.DMOD = {};
 }
 
 if (!Object.keys(window.DMOD).includes('admin')) {
+    /**
+     * A namespace for DMOD admin items
+     */
     window.DMOD.admin = {};
 }
 
