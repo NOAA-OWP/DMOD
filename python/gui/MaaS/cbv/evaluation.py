@@ -34,9 +34,13 @@ class EvaluationListing(View):
         return render(request, template_name=self.template, context=context)
 
 
-def _generate_evaluation_id() -> str:
-    current_date = datetime.now()
-    date_representation = current_date.strftime("%m-%d_%H.%M")
+def _generate_evaluation_id(generation_date: datetime = None) -> str:
+    current_date = generation_date or datetime.now()
+
+    if current_date.tzinfo is None:
+        current_date = current_date.astimezone()
+
+    date_representation = current_date.strftime("%m-%d_%H.%M%z")
     evaluation_id = f"manual_evaluation_at_{date_representation}"
     return evaluation_id
 
