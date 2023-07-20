@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import abc
-import numbers
 import typing
 
-from datetime import datetime
+from dmod.core.common.collection import AccessCache
 
+from dmod.core.events import EventRouter
 from .. import specification
 
 
@@ -14,11 +14,30 @@ class Backend(abc.ABC):
     def get_backend_type(cls) -> str:
         ...
 
-    def __init__(self, definition: specification.BackendSpecification, cache_limit: int = None):
+    @classmethod
+    def build_event_router(cls) -> EventRouter:
+        router = EventRouter(fail_on_missing_event=False)
+        return router
+
+    @classmethod
+    def create_cache(cls, size: int = None) -> AccessCache:
+        router = cls.build_event_router()
+        cache = AccessCache(max_size=size, event_router=router)
+        return cache
+
+    def __init__(
+        self,
+        definition: specification.BackendSpecification,
+        cache: AccessCache[bytes] = None,
+        cache_size: int = None
+    ):
         self.__definition = definition
-        self._raw_data: typing.Dict[str, typing.Tuple[datetime, bytes]] = dict()
-        self.__cache_limit = cache_limit if cache_limit else -1
+        self.__cache: AccessCache[bytes] = cache or self.create_cache(cache_size)
         self._sources: typing.Sequence[str] = list()
+
+    @property
+    def cache(self) -> AccessCache[bytes]:
+        return self.__cache
 
     @property
     def sources(self) -> typing.Sequence:
@@ -28,24 +47,10 @@ class Backend(abc.ABC):
         return [source for source in self._sources]
 
     def _add_to_cache(self, identifier: str, data: bytes):
-        if identifier in self._raw_data:
-            return
-
-        if 0 < self.__cache_limit < len(self._sources):
-            ordered_sources = [
-                {
-                    "identifier": identifier,
-                    "added_date": date_and_data[0]
-                }
-                for identifier, date_and_data in self._raw_data.items()
-            ]
-            ordered_sources = sorted(ordered_sources, key=lambda source: source['added_date'])
-            del self._raw_data[ordered_sources[0]['identifier']]
-
-        self._raw_data[identifier] = (datetime.utcnow(), data)
+        self.cache[identifier] = data
 
     def _update_access_time(self, identifier: str):
-        self._raw_data[identifier] = datetime.utcnow(), self._raw_data[identifier][1]
+        self.cache.touch(identifier)
 
     @abc.abstractmethod
     def read(self, identifier: str, store_data: bool = None) -> bytes:
@@ -80,10 +85,6 @@ class Backend(abc.ABC):
     @property
     def address(self) -> str:
         return self.__definition.address
-
-    @property
-    def cache_limit(self) -> numbers.Number:
-        return self.__cache_limit
 
     @property
     def definition(self) -> specification.BackendSpecification:

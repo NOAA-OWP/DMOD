@@ -359,7 +359,7 @@ class ContinuousRestriction(Serializable):
 
     @root_validator(pre=True)
     def coerce_times_if_datetime_pattern(cls, values):
-        datetime_ptr = values.get("datetime_pattern")
+        datetime_ptr = values.get("datetime_pattern", )
 
         if datetime_ptr is not None:
             # If there is a datetime pattern, then expect begin and end to parse properly to datetime objects

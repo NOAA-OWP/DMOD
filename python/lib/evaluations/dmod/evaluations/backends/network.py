@@ -105,9 +105,8 @@ class RESTBackend(backend.Backend):
         Returns:
             Raw byte data from the request
         """
-        if identifier in self._raw_data:
-            self._update_access_time(identifier)
-            return self._raw_data[identifier][1]
+        if identifier in self.cache:
+            return self.cache[identifier]
 
         request_arguments = dict(
             url=self.request_url,

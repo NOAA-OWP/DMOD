@@ -27,9 +27,9 @@ EVALUATION_TEMPLATE_PATH = os.path.join(application_values.STATIC_RESOURCES_PATH
 
 class LaunchEvaluation(APIView):
     def post(self, request, *args, **kwargs):
-        evaluation_id = request.POST.get("evaluation_id")
+        evaluation_id = request.POST.get("evaluation_id", )
         evaluation_id = evaluation_id.replace(" ", "_").replace(":", ".")
-        instructions = request.POST.get("instructions")
+        instructions = request.POST.get("instructions", )
 
         if 'HTTP_REFERER' in request.META:
             response_url = reverse("evaluation_service:Listen", kwargs={"channel_name": evaluation_id})

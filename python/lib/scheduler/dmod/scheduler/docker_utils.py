@@ -92,5 +92,5 @@ class DockerSecretsUtil(ABC):
             self.docker_client.secrets.create(name=name, data=data)
         except KeyError as e:
             pass
-        secret = self.docker_client.secrets.get(name)
+        secret = self.docker_client.secrets.get(name, )
         return SecretReference(secret_id=secret.id, secret_name=secret.name)

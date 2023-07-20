@@ -596,7 +596,7 @@ class LaunchConsumer(AsyncWebsocketConsumer, ActionDescriber):
             return
 
         try:
-            if not payload.get('action'):
+            if not payload.get('action', ):
                 message = f"{str(self)}: No action was received; expected action cannot be performed"
                 SOCKET_LOGGER.error(message)
                 await self.send_error(event='receive', message=message, request_id=kwargs.get(REQUEST_ID_KEY))
@@ -610,7 +610,7 @@ class LaunchConsumer(AsyncWebsocketConsumer, ActionDescriber):
 
             action = payload['action']
             handler = getattr(self, action)
-            action_parameters = payload.get('action_parameters')
+            action_parameters = payload.get('action_parameters', )
 
             if hasattr(handler, "required_parameters"):
                 parameters = getattr(handler, "required_parameters")  # type: dict[str, str]

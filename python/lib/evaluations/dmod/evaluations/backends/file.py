@@ -52,9 +52,8 @@ class FileBackend(backend.Backend):
         if identifier not in self._sources:
             raise ValueError(f"'{identifier}' is not available within this backend")
 
-        if identifier in self._raw_data:
-            self._update_access_time(identifier)
-            return self._raw_data[identifier][1]
+        if identifier in self.cache:
+            return self.cache[identifier]
 
         with open(identifier, 'rb') as data_file:
             byte_data = data_file.read()
@@ -79,9 +78,8 @@ class FileBackend(backend.Backend):
         if identifier not in self._sources:
             raise ValueError(f"'{identifier}' is not available within this backend")
 
-        if identifier in self._raw_data:
-            raw_data = self._raw_data[identifier][1]
-            self._update_access_time(identifier)
+        if identifier in self.cache:
+            raw_data = self.cache[identifier]
         else:
             with open(identifier, 'rb') as data_file:
                 raw_data = data_file.read()

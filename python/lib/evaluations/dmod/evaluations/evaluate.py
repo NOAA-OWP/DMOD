@@ -235,8 +235,9 @@ class Evaluator:
         if self._verbosity == Verbosity.ALL and self._communicators.send_all():
             self._communicators.write(reason="crosswalk", data=crosswalk_data.to_dict(), verbosity=Verbosity.ALL)
 
+        # TODO: Use the crosswalk_data to distribute following work so that everything isn't being loaded at once
+
         data_to_evaluate = self.get_data_to_evaluate(crosswalk_data)
-        data_to_evaluate = self.normalize_values(data_to_evaluate)
 
         self._communicators.info(
             "Data to evaluate has been collected",
@@ -455,6 +456,8 @@ class Evaluator:
             publish=True
         )
 
+        data = self.normalize_values(data)
+
         return data
 
     def normalize_values(self, data_to_evaluate: pandas.DataFrame) -> pandas.DataFrame:
@@ -529,8 +532,11 @@ class Evaluator:
 
         scores: typing.Dict[typing.Tuple[str, str], metrics.MetricResults] = dict()
 
+        # TODO: Distribute each group to different processes
         for identifiers, group in data_to_evaluate.groupby(by=groupby_columns):  # type: tuple, pandas.DataFrame
             observed_location, predicted_location = identifiers     # type: str, str
+
+            # TODO: Save out group data for later reference
 
             location_thresholds = thresholds.get(observed_location)
 
@@ -567,6 +573,9 @@ class Evaluator:
                     truth_tables=truth_tables
                 )
                 scores[identifiers] = location_scores
+
+                # TODO: Save location scores
+
                 if self._verbosity == Verbosity.ALL:
                     data = {
                         "observed_location": observed_location,

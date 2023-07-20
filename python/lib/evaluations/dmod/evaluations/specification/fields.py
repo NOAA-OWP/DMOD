@@ -109,9 +109,9 @@ class AssociatedField(TemplatedSpecification):
     @root_validator
     def _format_path(cls, values):
         path_starts_at_root = False
-        path = values.get("path")
+        path = values.get("path", )
 
-        if path is None and values.get("name") is not None:
+        if path is None and values.get("name", ) is not None:
             values['path'] = [values['name']]
         elif isinstance(path, str):
             path_starts_at_root = path.startswith("/")
@@ -123,7 +123,7 @@ class AssociatedField(TemplatedSpecification):
         if 'path' not in values and 'name' not in path:
             raise ValueError("Associated fields must define a name and/or path")
 
-        if values.get("datatype"):
+        if values.get("datatype", ):
             values['datatype'] = values['datatype'].lower()
 
         return values

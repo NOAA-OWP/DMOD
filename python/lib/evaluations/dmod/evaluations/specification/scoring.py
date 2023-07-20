@@ -116,7 +116,7 @@ class SchemeSpecification(TemplatedSpecification):
         metric_definitions = configuration.get("metrics", list())
 
         for definition in metric_definitions:
-            name = definition.get("name")
+            name = definition.get("name", )
 
             if not name:
                 continue
