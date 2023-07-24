@@ -168,9 +168,17 @@ exec_serial_ngen_run()
 # Sanity check that the output, hydrofabric, and config datasets are available (i.e., their directories are in place)
 check_for_dataset_dir "${REALIZATION_CONFIG_DATASET_DIR}"
 check_for_dataset_dir "${BMI_CONFIG_DATASET_DIR}"
-# Don't require a partitioning dataset when only using a single node
+# Require a partitioning dataset only when doing parallel, multiprocess ngen job with MPI
+# Most obvious indicator of parallel processing (and simplest to check) is if there are multiple host nodes
 if [ ${MPI_NODE_COUNT:?} -gt 1 ]; then
     check_for_dataset_dir "${PARTITION_DATASET_DIR:?No partition dataset directory defined}"
+# If using only a single node, then we must check how many CPUs the host has
+elif [ $(echo "${MPI_HOST_STRING}" | sed 's/,//' | awk -F: '{print $2}') -gt 1 ] 2>/dev/null ; then
+    check_for_dataset_dir "${PARTITION_DATASET_DIR:?No partition dataset directory defined}"
+# Also sanity the check host string format and CPU count extraction, ensuring we didn't produce a false negative above
+elif [ $(echo "${MPI_HOST_STRING}" | sed 's/,//' | awk -F: '{print $2}') -ne 1 ] 2>/dev/null ; then
+    echo "Error: failed to extract integer CPU count for first host of MPI host string '${MPI_HOST_STRING}'" 2>&1
+    exit 1
 fi
 check_for_dataset_dir "${HYDROFABRIC_DATASET_DIR}"
 check_for_dataset_dir "${OUTPUT_DATASET_DIR}"
