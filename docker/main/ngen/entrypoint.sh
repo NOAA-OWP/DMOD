@@ -100,19 +100,29 @@ exec_main_worker_ngen_run()
         rm "${MPI_HOSTS_FILE}"
     fi
 
+    _TOTAL_CPUS = 0
     echo "$(print_date) Preparing hosts file and checking ${MPI_NODE_COUNT} worker hosts are online for SSH"
     for i in $(echo "${MPI_HOST_STRING}" | sed 's/,/ /g'); do
-        #echo "${i}" | awk -F: '{print $1 " slots=" $2}' >> "${MPI_HOSTS_FILE}"
-        echo "${i}" | awk -F: '{print $1 ":" $2}' >> "${MPI_HOSTS_FILE}"
         _HOST_NAME=$(echo "${i}" | awk -F: '{print $1}')
+        _HOST_CPUS=$(echo "${i}" | awk -F: '{print $2}')
+
+        # TODO: consider parameterizing this in the future, just in case we adopt openmpi
+        # OpenMPI uses the "slots=" format, though we aren't currently using that implementation
+        #echo "${i}" | awk -F: '{print $1 " slots=" $2}' >> "${MPI_HOSTS_FILE}"
+
+        # MPICH uses the hosts file format "hostname:numCores" (which is what we get from the split host string arg)
+        echo "${i}" >> "${MPI_HOSTS_FILE}"
+
+        ((_TOTAL_CPUS = _TOTAL_CPUS+$_HOST_CPUS))
+
         # Make sure all hosts are reachable, this also covers localhost
         until ssh -q ${_HOST_NAME} exit >/dev/null 2>&1; do :; done
-        echo "DEBUG: Confirmed MPI host ${_HOST_NAME} is online for SSH"
+        echo "DEBUG: Confirmed MPI host ${_HOST_NAME} is online for SSH and has ${_HOST_CPUS} cpus available"
     done
 
     # Execute the model on the linked data
-    echo "$(print_date) Executing mpirun command for ngen on ${MPI_NODE_COUNT} workers"
-    ${MPI_RUN:?} -f "${MPI_HOSTS_FILE}" -n ${MPI_NODE_COUNT} \
+    echo "$(print_date) Executing mpirun command for ngen on ${MPI_NODE_COUNT} workers with ${_TOTAL_CPUS} total cpus"
+    ${MPI_RUN:?} -f "${MPI_HOSTS_FILE}" -n ${_TOTAL_CPUS} \
         ${NGEN_EXECUTABLE:?} ${HYDROFABRIC_DATASET_DIR}/catchment_data.geojson "" \
                 ${HYDROFABRIC_DATASET_DIR}/nexus_data.geojson "" \
                 ${REALIZATION_CONFIG_DATASET_DIR}/realization_config.json \
