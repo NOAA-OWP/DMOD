@@ -241,8 +241,28 @@ class ValueSelector(TemplatedSpecification):
         template_manager: TemplateManager,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
-        self.where = configuration.get("where", self.where)
-        self.datatype = configuration.get("datatype", self.datatype)
+        if "where" in configuration:
+            where = configuration['where']
+
+            if isinstance(where, bytes):
+                where = where.decode()
+
+            where_annotation = self.__class__.__fields__['where'].annotation
+            if where not in typing.get_args(where_annotation):
+                raise ValueError(f"'{str(where)}' is not a valid value for 'where' in a Value Selector")
+
+            self.where = where
+
+        if "datatype" in configuration and configuration['datatype'] != self.datatype:
+            datatype = configuration['datatype']
+
+            if isinstance(datatype, bytes):
+                datatype = datatype.decode()
+
+            if not isinstance(datatype, str):
+                raise ValueError(f"Values for the data type in a ValueSelector must be a string. Instead received '{str(datatype)}'")
+
+            self.datatype = datatype
 
         if 'path' in configuration:
             self.__set_path(configuration['path'])
