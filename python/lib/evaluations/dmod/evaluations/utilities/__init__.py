@@ -1,5 +1,4 @@
 """
-@TODO: Put a module wide description here
+Common utility functions
 """
-import typing
 from .merge import merge_dictionaries
