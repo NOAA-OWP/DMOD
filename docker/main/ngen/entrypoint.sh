@@ -175,7 +175,7 @@ if [ ${MPI_NODE_COUNT:?} -gt 1 ]; then
 # If using only a single node, then we must check how many CPUs the host has
 elif [ $(echo "${MPI_HOST_STRING}" | sed 's/,//' | awk -F: '{print $2}') -gt 1 ] 2>/dev/null ; then
     check_for_dataset_dir "${PARTITION_DATASET_DIR:?No partition dataset directory defined}"
-# Also sanity the check host string format and CPU count extraction, ensuring we didn't produce a false negative above
+# Also sanity check the host string format and CPU count extraction, ensuring we didn't produce a false negative above
 elif [ $(echo "${MPI_HOST_STRING}" | sed 's/,//' | awk -F: '{print $2}') -ne 1 ] 2>/dev/null ; then
     echo "Error: failed to extract integer CPU count for first host of MPI host string '${MPI_HOST_STRING}'" 2>&1
     exit 1
