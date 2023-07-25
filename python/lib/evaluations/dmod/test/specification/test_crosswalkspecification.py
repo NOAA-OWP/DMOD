@@ -184,7 +184,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
             "prediction_field_name": "prediction_location",
             "field": specification.ValueSelector(
                     name="z",
-                    where='one/two/three'
+                    where='column'
             ),
             "observation_field_name": "observation_field",
             "properties": {
@@ -219,7 +219,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
                     },
                     "field": {
                         "name": "ham",
-                        "where": "sandwich"
+                        "where": "filename"
                     }
                 }
         )
@@ -238,7 +238,7 @@ class TestCrosswalkSpecificationConstruction(OuterConstructionTest, unittest.Tes
                     },
                     "field": specification.ValueSelector(
                             name="cobb",
-                            where="salad"
+                            where="key"
                     ),
                     "entity_path": "",
                     "prediction_field_name": "prediction_location",
