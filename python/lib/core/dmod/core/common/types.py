@@ -1,5 +1,5 @@
 """
-@TODO: Put a module wide description here
+Tools to help define and interpret value types
 """
 from __future__ import annotations
 
