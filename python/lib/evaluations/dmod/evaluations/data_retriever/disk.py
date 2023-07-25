@@ -163,6 +163,9 @@ class FrameDataRetriever(retrieval.Retriever):
             else:
                 provided_parameters[option] = value
 
+        # TODO: 'date_parser' is deprecated in pandas 2.0. In the future, find a way to bring in date columns
+        #  as objects then call 'to_datetime' on the column after loading.
+        #  You can probably just check for any 'parse_dates' parameters in 'provided_parameters
         if 'date_parser' not in provided_parameters:
             provided_parameters['date_parser'] = util.parse_non_naive_dates
 

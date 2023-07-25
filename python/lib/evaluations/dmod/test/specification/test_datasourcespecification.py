@@ -130,7 +130,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                 ),
                 specification.ValueSelector(
                         name="site_no",
-                        where="value:*/site_no",
+                        where="value",
                         path="/path/to/value",
                         associated_fields=[
                             specification.AssociatedField(
@@ -216,13 +216,13 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                     "value_selectors": [
                         specification.ValueSelector(
                                 name="example",
-                                where="kezfdgy",
+                                where="key",
                                 origin="path/tofdz/array",
                                 prop1=55
                         ),
                         specification.ValueSelector(
                                 name="otherExample",
-                                where="filzdfgename",
+                                where="filename",
                                 path="zfdunno",
                                 datatype="datetime"
                         )
@@ -269,7 +269,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                     ],
                     "value_selectors": [
                         specification.ValueSelector(
-                                where="filcxdfbgename",
+                                where="filename",
                                 path="dundxfno",
                                 name="sdhfsdhfh"
                         )
@@ -336,7 +336,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                 ),
                 {
                     "name": "dsfsf",
-                    "where": "value:*/site_no",
+                    "where": "value",
                     "path": "/path/to/value",
                     "associated_fields": [
                         {
@@ -408,13 +408,13 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                     ),
                     "value_selectors": [
                         specification.ValueSelector(
-                                where="kezfdgy",
+                                where="key",
                                 origin="path/tofdz/array",
                                 prop1=55,
                                 name="nameOfValue"
                         ),
                         dict(
-                                where="filzdfgename",
+                                where="value",
                                 path="zfdunno",
                                 datatype="datetime",
                                 name="nameOfValue"
@@ -478,7 +478,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                     "value_selectors": [
                         dict(
                                 name="sdfhsdhfoi",
-                                where="filcxdfbgename",
+                                where="filename",
                                 path="dundxfno"
                         )
                     ],
@@ -525,7 +525,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                 ),
                 dict(
                         name="asdads",
-                        where="value:*/site_no",
+                        where="value",
                         path="/path/to/value",
                         associated_fields=[
                             dict(
@@ -628,13 +628,13 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                     "value_selectors": [
                         dict(
                                 name="asdasd",
-                                where="kezfdgy",
+                                where="key",
                                 origin="path/tofdz/array",
                                 prop1=55
                         ),
                         dict(
                                 name="sdfsdf",
-                                where="filzdfgename",
+                                where="filename",
                                 path="zfdunno",
                                 datatype="datetime"
                         )
@@ -685,7 +685,7 @@ class TestDataSourceSpecificationConstruction(OuterConstructionTest, unittest.Te
                     "value_selectors": [
                         dict(
                                 name="sdfdsf",
-                                where="filcxdfbgename",
+                                where="filename",
                                 path="dundxfno"
                         )
                     ],
