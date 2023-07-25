@@ -556,7 +556,6 @@ class Specification(abc.ABC, pydantic.BaseModel):
         **kwargs
     ):
         super().__init__(name=name, **kwargs)
-        self.name = name
         if properties:
             self.properties = properties
 
