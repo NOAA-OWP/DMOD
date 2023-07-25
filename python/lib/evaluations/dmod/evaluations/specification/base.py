@@ -601,10 +601,7 @@ class Specification(abc.ABC, pydantic.BaseModel):
         if other is None or not hasattr(other, "properties"):
             return False
 
-        this_has_properties = self.properties is None or len(self.properties) > 0
-        other_has_properties = other.properties is None or len(other.properties) > 0
-
-        neither_have_properties = not (this_has_properties or other_has_properties)
+        neither_have_properties: bool = not (self.properties or other.properties)
 
         return neither_have_properties or self.properties == other.properties
 
