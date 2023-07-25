@@ -72,6 +72,17 @@ class LoaderSpecification(TemplatedSpecification, abc.ABC):
         template_manager: TemplateManager,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
+        """
+        Apply information provided via a dictionary to this instance.
+
+        Fully implement this in a subclass and call `super` for pre-existing handling of `backend` configuration
+        application
+
+        Args:
+            configuration: Configuration details to apply to this instance
+            template_manager: Access to templates that may be defined within the added configuration values
+            decoder_type: An optional override for the basic JSONDecoder used to deserialize json data
+        """
         if 'backend' in configuration:
             backend_configuration = configuration['backend']
 
@@ -90,4 +101,9 @@ class LoaderSpecification(TemplatedSpecification, abc.ABC):
 
     @abc.abstractmethod
     def __eq__(self, other):
+        """
+        Determine if this instance is equal to another.
+
+        Implement full logic in a subclass and call super to automatically get backend equality checking
+        """
         return super().__eq__(other) and self.backend == other.backend
