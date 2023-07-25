@@ -68,8 +68,34 @@ should be interpreted as `cat-67` and not `cat-67.json`"""
         template_manager: TemplateManager,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
-        self.from_field = configuration.get("from_field", self.from_field)
-        self.pattern = configuration.get("pattern", self.pattern)
+        if "from_field" in configuration:
+            from_field = configuration['from_field']
+
+            if isinstance(from_field, bytes):
+                from_field = from_field.decode()
+
+            if isinstance(from_field, str):
+                from_field = from_field.lower()
+                self.from_field = from_field
+            else:
+                raise ValueError(
+                    f"'from_field' on LocationSpecifications may only be strings. "
+                    f"Received a '{type(from_field)}' instead."
+                )
+
+        if "pattern" in configuration:
+            pattern = configuration['pattern']
+
+            if isinstance(pattern, bytes):
+                pattern = pattern.decode()
+
+            if isinstance(pattern, str):
+                self.pattern = pattern
+            else:
+                raise ValueError(
+                    f"'pattern' on LocationSpecifications may only be strings. "
+                    f"Received a '{type(pattern)}' instead."
+                )
 
         if 'ids' in configuration:
             ids = configuration.get("ids")
@@ -131,7 +157,7 @@ should be interpreted as `cat-67` and not `cat-67.json`"""
         values['identify'] = identify
         values['pattern'] = pattern
         values['ids'] = ids
-        values['from_field'] = from_field
+        values['from_field'] = from_field.lower() if isinstance(from_field, str) else from_field
         return values
 
     def __should_identify(self, identify: bool = None):
