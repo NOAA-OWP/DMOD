@@ -199,7 +199,9 @@ class ValueSelector(TemplatedSpecification):
     """
     Instructions for how to retrieve values from a data source
     """
-    where: str = Field(description="Where the value may be found (Dict key? Dict value? Column?)")
+    where: typing.Literal["key", "value", "filename", "constant", "column"] = Field(
+        description="Where the value may be found (Dict key? Dict value? Column?)"
+    )
     origin: typing.Optional[typing.Union[str, bytes, typing.List[str]]] = Field(
         default=None,
         description="The path from which to look. The value should be `""` or `'/'` if searching from the root."
