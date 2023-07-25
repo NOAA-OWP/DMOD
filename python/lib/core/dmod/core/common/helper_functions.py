@@ -1091,7 +1091,7 @@ def instanceof(obj: object, *object_type: type) -> bool:
     type_definitions = [TypeDefinition.from_type(otype) for otype in object_type]
 
     for definition in type_definitions:
-        if definition.complies(value=obj):
+        if definition.matches(value=obj):
             return True
 
     return False
