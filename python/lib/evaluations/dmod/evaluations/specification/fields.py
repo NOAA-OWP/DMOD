@@ -247,6 +247,9 @@ class ValueSelector(TemplatedSpecification):
             if isinstance(where, bytes):
                 where = where.decode()
 
+            if isinstance(where, str):
+                where = where.lower()
+
             where_annotation = self.__class__.__fields__['where'].annotation
             if where not in typing.get_args(where_annotation):
                 raise ValueError(f"'{str(where)}' is not a valid value for 'where' in a Value Selector")
