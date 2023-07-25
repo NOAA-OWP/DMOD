@@ -52,9 +52,15 @@ class MetricSpecification(TemplatedSpecification):
 
 
 class SchemeSpecification(TemplatedSpecification):
+    class Config:
+        fields = {
+            "metric_functions": {
+                "alias": "metrics"
+            }
+        }
+
     metric_functions: typing.List[MetricSpecification] = Field(
-        description="The metrics to perform within the evaluation",
-        alias="metrics"
+        description="The metrics to perform within the evaluation"
     )
 
     def __eq__(self, other: SchemeSpecification) -> bool:
