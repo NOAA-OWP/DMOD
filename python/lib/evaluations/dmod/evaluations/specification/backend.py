@@ -82,7 +82,7 @@ class LoaderSpecification(TemplatedSpecification, abc.ABC):
                     decoder_type=decoder_type
                 )
             else:
-                self._backend = BackendSpecification.create(
+                self.backend = BackendSpecification.create(
                     data=backend_configuration,
                     template_manager=template_manager,
                     decoder_type=decoder_type
