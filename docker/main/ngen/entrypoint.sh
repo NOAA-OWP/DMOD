@@ -231,6 +231,7 @@ cleanup_sshuser_exit()
 
 if [ "${WORKER_INDEX}" = "0" ]; then
     if [ "$(whoami)" = "${MPI_USER}" ]; then
+        # Blah comment
         trap close_remote_workers EXIT
         # Have "main" worker copy config files to output dataset for record keeping
         # TODO: perform copy of configs to output dataset outside of image (in service) for better performance
