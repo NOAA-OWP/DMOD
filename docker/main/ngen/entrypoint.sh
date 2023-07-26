@@ -209,7 +209,13 @@ cd ${OUTPUT_DATASET_DIR}
 
 if [ "${WORKER_INDEX}" = "0" ]; then
     if [ "$(whoami)" = "${MPI_USER}" ]; then
+        # Have "main" worker copy config files to output dataset for record keeping
+        # TODO: perform copy of configs to output dataset outside of image (in service) for better performance
+        cp -a ${CONFIG_DATASET_DIR}/. ${OUTPUT_DATASET_DIR}
         if [ -n "${PARTITION_DATASET_DIR:-}" ]; then
+            # Include partition config dataset too if appropriate
+            # TODO: perform copy of configs to output dataset outside of image (in service) for better performance
+            cp -a ${PARTITION_DATASET_DIR}/. ${OUTPUT_DATASET_DIR}
             exec_main_worker_ngen_run
         else
             exec_serial_ngen_run
