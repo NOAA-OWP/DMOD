@@ -73,6 +73,10 @@ if ! [ "${WORKER_INDEX:?No MPI worker index/rank given}" -ge 0 ] 2>/dev/null; th
     echo "Error: invalid value '${WORKER_INDEX}' given for MPI worker index/rank" > 2>&1
     exit 1
 fi
+if ! [ "${MPI_NODE_COUNT:?No MPI node count provided}" -gt 0 ] 2>/dev/null; then
+    echo "Error: invalid value '${MPI_NODE_COUNT}' given for MPI node count" > 2>&1
+    exit 1
+fi
 
 # These serve as both sanity checks and initialization of some derived values
 OUTPUT_DATASET_DIR="${ALL_DATASET_DIR:?}/output/${OUTPUT_DATASET_NAME:?No output dataset provided}"
