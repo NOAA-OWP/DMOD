@@ -49,9 +49,15 @@ OUTPUT_DATASET_DIR="${ALL_DATASET_DIR}/output/${OUTPUT_DATASET_NAME}"
 HYDROFABRIC_DATASET_DIR="${ALL_DATASET_DIR}/hydrofabric/${HYDROFABRIC_DATASET_NAME}"
 REALIZATION_CONFIG_DATASET_DIR="${ALL_DATASET_DIR}/config/${REALIZATION_CONFIG_DATASET_NAME}"
 BMI_CONFIG_DATASET_DIR="${ALL_DATASET_DIR}/config/${BMI_CONFIG_DATASET_NAME}"
-# Don't require a partitioning dataset when only using a single node
-if [ ${MPI_NODE_COUNT:?} -gt 1 ]; then
+# Check if parallel processing is in effect and partition dataset is needed by testing node count or 1st node CPU count
+if [ ${MPI_NODE_COUNT:?} -gt 1 ] || [ $(echo "${MPI_HOST_STRING}" | sed 's/,//' | awk -F: '{print $2}') -gt 1 ] 2>/dev/null; then
     PARTITION_DATASET_DIR="${ALL_DATASET_DIR}/config/${PARTITION_DATASET_NAME:?No partition config dataset name for directory}"
+# Note that, if the above test is "false" (in particular, the CPU count check) we should ensure the host string is valid
+# Catch false negative due to invalid CPU count/format by taking complement of whether 1st CPU count is greater than -1
+# Any bogus value will result in the pre-complemented test being "false"
+elif ! [ $(echo "${MPI_HOST_STRING}" | sed 's/,//' | awk -F: '{print $2}') -gt -1 ] 2>/dev/null ; then
+    echo "Error: invalid CPU count parsing for first host of MPI host string '${MPI_HOST_STRING}'" 2>&1
+    exit 1
 fi
 
 RUN_SENTINEL="/home/${MPI_USER}/.run_sentinel"
@@ -168,17 +174,8 @@ exec_serial_ngen_run()
 # Sanity check that the output, hydrofabric, and config datasets are available (i.e., their directories are in place)
 check_for_dataset_dir "${REALIZATION_CONFIG_DATASET_DIR}"
 check_for_dataset_dir "${BMI_CONFIG_DATASET_DIR}"
-# Require a partitioning dataset only when doing parallel, multiprocess ngen job with MPI
-# Most obvious indicator of parallel processing (and simplest to check) is if there are multiple host nodes
-if [ ${MPI_NODE_COUNT:?} -gt 1 ]; then
-    check_for_dataset_dir "${PARTITION_DATASET_DIR:?No partition dataset directory defined}"
-# If using only a single node, then we must check how many CPUs the host has
-elif [ $(echo "${MPI_HOST_STRING}" | sed 's/,//' | awk -F: '{print $2}') -gt 1 ] 2>/dev/null ; then
-    check_for_dataset_dir "${PARTITION_DATASET_DIR:?No partition dataset directory defined}"
-# Also sanity check the host string format and CPU count extraction, ensuring we didn't produce a false negative above
-elif [ $(echo "${MPI_HOST_STRING}" | sed 's/,//' | awk -F: '{print $2}') -ne 1 ] 2>/dev/null ; then
-    echo "Error: failed to extract integer CPU count for first host of MPI host string '${MPI_HOST_STRING}'" 2>&1
-    exit 1
+if [ -n "${PARTITION_DATASET_DIR:-}" ]; then
+    check_for_dataset_dir "${PARTITION_DATASET_DIR}"
 fi
 check_for_dataset_dir "${HYDROFABRIC_DATASET_DIR}"
 check_for_dataset_dir "${OUTPUT_DATASET_DIR}"
