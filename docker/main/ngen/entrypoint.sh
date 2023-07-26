@@ -66,9 +66,12 @@ done
 # Run some sanity checks
 if [ -z "${MPI_HOST_STRING:?No MPI hosts string given}" ]; then
     echo "Error: MPI host string is empty" > 2>&1
+    exit 1
 fi
-if [ "${WORKER_INDEX:?No MPI worker index/rank given}" -lt 0 ] 2>/dev/null; then
+# Using complement of valid range to catch non-integer values
+if ! [ "${WORKER_INDEX:?No MPI worker index/rank given}" -ge 0 ] 2>/dev/null; then
     echo "Error: invalid value '${WORKER_INDEX}' given for MPI worker index/rank" > 2>&1
+    exit 1
 fi
 
 # These serve as both sanity checks and initialization of some derived values
