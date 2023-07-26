@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Args are managed by the _generate_docker_cmd_args function in scheduler.py of dmod.scheduler
 
 # TODO: Docker secret variable values need to be parameterized
@@ -131,6 +131,18 @@ load_object_store_keys_from_docker_secrets()
     test -n "${ACCESS_KEY:-}" && test -n "${SECRET_KEY:-}"
 }
 
+close_remote_workers()
+{
+    # Signal to remote worker nodes that they can stop their SSH process by removing this file
+    if [ ${MPI_NODE_COUNT:-1} -gt 1 ]; then
+        for i in $(echo "${MPI_HOST_STRING}" | sed 's/,/ /g'); do
+            _HOST_NAME=$(echo "${i}" | awk -F: '{print $1}')
+            ssh -q ${_HOST_NAME} rm ${RUN_SENTINEL} >/dev/null 2>&1
+        done
+        echo "$(print_date) DEBUG: closed other worker SSH processes"
+    fi
+}
+
 exec_main_worker_ngen_run()
 {
     # Write (split) hoststring to a proper file
@@ -172,14 +184,6 @@ exec_main_worker_ngen_run()
 
     echo "$(print_date) ngen mpirun command finished with return value: ${NGEN_RETURN}"
 
-    # Close the other workers by removing this file
-    for i in $(echo "${MPI_HOST_STRING}" | sed 's/,/ /g'); do
-        _HOST_NAME=$(echo "${i}" | awk -F: '{print $1}')
-        ssh -q ${_HOST_NAME} rm ${RUN_SENTINEL} >/dev/null 2>&1
-    done
-
-    echo "$(print_date) DEBUG: closed other worker SSH processes"
-
     # Exit with the model's exit code
     return ${NGEN_RETURN}
 }
@@ -214,8 +218,17 @@ check_for_dataset_dir "${OUTPUT_DATASET_DIR}"
 # Move to the output dataset mounted directory
 cd ${OUTPUT_DATASET_DIR}
 
+
+cleanup_sshuser_exit()
+{
+    if [ -n "${_SSH_D_PID:-}" ] && kill -s 0 "${_SSH_D_PID}" 2>/dev/null ; then
+        kill "${_SSH_D_PID}"
+    fi
+}
+
 if [ "${WORKER_INDEX}" = "0" ]; then
     if [ "$(whoami)" = "${MPI_USER}" ]; then
+        trap close_remote_workers EXIT
         # Have "main" worker copy config files to output dataset for record keeping
         # TODO: perform copy of configs to output dataset outside of image (in service) for better performance
         cp -a ${CONFIG_DATASET_DIR}/. ${OUTPUT_DATASET_DIR}
@@ -232,6 +245,8 @@ if [ "${WORKER_INDEX}" = "0" ]; then
         /usr/sbin/sshd -D &
         _SSH_D_PID="$!"
 
+        trap cleanup_sshuser_exit EXIT
+
         # Start the SSH daemon as a power user, but then actually run the model as our MPI_USER
         echo "$(print_date) Running exec script as '${MPI_USER:?}'"
         # Do this by just re-running this script with the same args, but as the other user
@@ -239,20 +254,17 @@ if [ "${WORKER_INDEX}" = "0" ]; then
         _EXEC_STRING="${0} ${@}"
         su ${MPI_USER:?} --session-command "${_EXEC_STRING}"
         #time su ${MPI_USER:?} --session-command "${_EXEC_STRING}"
-
-        # Once running the model finishes, kill the SSH daemon process
-        kill ${_SSH_D_PID}
     fi
 else
     echo "$(print_date) Starting SSH daemon, waiting for main job"
     /usr/sbin/sshd -D &
     _SSH_D_PID="$!"
 
+    trap cleanup_sshuser_exit EXIT
+
     touch ${RUN_SENTINEL}
     chown ${MPI_USER} ${RUN_SENTINEL}
-    while [ -e ${RUN_SENTINEL} ]; do
+    while [ -e ${RUN_SENTINEL} ] && kill -s 0 "${_SSH_D_PID}" 2>/dev/null ; do
         sleep 5
     done
-
-    kill ${_SSH_D_PID}
 fi
