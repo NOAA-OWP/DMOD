@@ -185,7 +185,7 @@ cd ${OUTPUT_DATASET_DIR}
 
 if [ "${WORKER_INDEX}" = "0" ]; then
     if [ "$(whoami)" = "${MPI_USER}" ]; then
-        if [ ${MPI_NODE_COUNT:-1} -gt 1 ]; then
+        if [ -n "${PARTITION_DATASET_DIR:-}" ]; then
             exec_main_worker_ngen_run
         else
             exec_serial_ngen_run
