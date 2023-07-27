@@ -83,12 +83,9 @@ load_object_store_keys_from_docker_secrets() {
 start_calibration() {
     # Start ngen calibration
     echo "$(print_date) Starting serial ngen calibration"
-    # CALIBRATION_CONFIG_FILE=${CALIBRATION_CONFIG_DATASET_DIR}/$(basename $(find ${CALIBRATION_CONFIG_DATASET_DIR} -name "*.yaml" -maxdepth 1 | head -1))
 
-    # TODO: move this to CALIBRATION_CONFIG_DATASET_DIR
-    # NOTE: assumes that calibration dataset will be in realization config dataset AND that it is
-    # the only yaml file at the top level of that dataset.
-    CALIBRATION_CONFIG_FILE=${REALIZATION_CONFIG_DATASET_DIR}/$(basename $(find ${REALIZATION_CONFIG_DATASET_DIR} -name "*.yaml" -maxdepth 1 | head -1))
+    # Find and use copy of config in output dataset
+    CALIBRATION_CONFIG_FILE=$(find ${OUTPUT_DATASET_DIR} -name "*.yaml" -maxdepth 1 | head -1)
 
     if [ -z "${CALIBRATION_CONFIG_FILE}" ]; then
         echo "Error: NGEN calibration yaml file not found" 2>&1
@@ -110,8 +107,17 @@ check_for_dataset_dir "${REALIZATION_CONFIG_DATASET_DIR}"
 check_for_dataset_dir "${BMI_CONFIG_DATASET_DIR}"
 check_for_dataset_dir "${PARTITION_DATASET_DIR}"
 check_for_dataset_dir "${HYDROFABRIC_DATASET_DIR}"
-check_for_dataset_dir "${OUTPUT_DATASET_DIR}"
-# check_for_dataset_dir "${CALIBRATION_CONFIG_DATASET_DIR}"
+
+# Copy config files to output dataset for record keeping, but only from the "main" worker node
+if [ ${WORKER_INDEX} -eq 0 ]; then
+    # TODO: perform copy of configs to output dataset outside of image (in service) for better performance
+    cp -a ${CONFIG_DATASET_DIR}/. ${OUTPUT_DATASET_DIR}
+    if [ -n "${PARTITION_DATASET_DIR:-}" ]; then
+        # Also, when partition config present, copy that for record keeping
+        # TODO: perform copy of configs to output dataset outside of image (in service) for better performance
+        cp -a ${PARTITION_DATASET_DIR}/. ${OUTPUT_DATASET_DIR}
+    fi
+fi
 
 # Move to the output dataset mounted directory
 cd ${OUTPUT_DATASET_DIR}
