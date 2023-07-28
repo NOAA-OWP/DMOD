@@ -29,8 +29,7 @@ class SpecificationTemplate(models.Model):
         choices=get_specification_options(),
         help_text="The type of specification that this template pertains to"
     )
-    template_configuration = models.CharField(
-        max_length=30000,
+    template_configuration = models.JSONField(
         help_text="The configuration that should be applied to a given specification type"
     )
     template_description = models.CharField(

@@ -1,11 +1,8 @@
 import os.path
 import unittest
 import json
-import pathlib
-import typing
 
 from ...evaluations import specification
-from ..common import ConstructionTest
 from ..common import RESOURCE_DIRECTORY
 
 
@@ -53,6 +50,9 @@ class TestSpecificationDeserialization(unittest.TestCase):
         self.assertEqual(single_instance, pure_template_instance)
 
     def test_evaluation_deserialization(self):
+        from pprint import pprint
+
+        pprint(dir(specification.EvaluationSpecification))
         normal_specification = self.template_manager.get_template(
             specification_type=specification.EvaluationSpecification,
             name="no-template"
