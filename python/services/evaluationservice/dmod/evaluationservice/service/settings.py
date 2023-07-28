@@ -34,6 +34,7 @@ ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
     'channels',
+    'django.forms',
     'evaluation_service.apps.EvaluationServiceConfig',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -73,6 +74,7 @@ TEMPLATES = [
 ]
 
 ASGI_APPLICATION = 'service.asgi.application'
+FORM_RENDERER = 'django.forms.renderers.TemplatesSetting'
 
 
 # Password validation

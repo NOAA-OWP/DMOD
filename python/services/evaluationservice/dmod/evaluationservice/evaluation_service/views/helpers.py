@@ -5,6 +5,8 @@ import pathlib
 import json
 
 from wsgiref.util import FileWrapper
+
+from django.http import QueryDict
 from django.views.generic import View
 
 from django.http import HttpResponse
@@ -15,6 +17,8 @@ from django.http import HttpResponseBadRequest
 from rest_framework.views import APIView
 
 import dmod.evaluations.util as evaluation_utilities
+import dmod.evaluations.specification as specification
+from dmod.evaluations.specification.base import get_subclasses
 import dmod.metrics.metric as metrics
 import dmod.metrics.scoring as scoring
 
@@ -183,6 +187,46 @@ class GetOutput(View):
         response = HttpResponse(content=file, content_type=written_data.get_content_type())
         response['Content-Disposition'] = f'attachment; filename={filename}'
         return response
+
+
+class Schema(APIView):
+    """
+    View that returns the full JSON schema for evaluation elements
+    """
+    @classmethod
+    def _get_schema(cls, query: QueryDict) -> typing.Union[typing.Dict[str, typing.Any], str]:
+        model = specification.EvaluationSpecification
+        if "model" in query:
+            model_name: str = query['model']
+            matching_models = [
+                model
+                for model in get_subclasses(specification.Specification)
+                if model.get_specification_type().lower() == model_name.lower()
+            ]
+
+            if matching_models:
+                model = matching_models[0]
+            else:
+                return f"There are no models by the name of '{model_name}'"
+
+        schema = model.schema()
+        return schema
+
+    def get(self, request: HttpRequest) -> typing.Union[JsonResponse, HttpResponse]:
+        schema = self._get_schema(request.GET)
+
+        if isinstance(schema, str):
+            return HttpResponseBadRequest(schema)
+
+        return JsonResponse(schema)
+
+    def post(self, request: HttpRequest) -> typing.Union[JsonResponse, HttpResponse]:
+        schema = self._get_schema(request.POST)
+
+        if isinstance(schema, str):
+            return HttpResponseBadRequest(schema)
+
+        return JsonResponse(schema)
 
 
 class Metrics(APIView):

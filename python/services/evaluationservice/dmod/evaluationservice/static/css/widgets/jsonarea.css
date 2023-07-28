@@ -1,0 +1,23 @@
+
+.jsoneditor-error-box {
+    background-color: rgb(255, 172, 172);
+    padding: 10px;
+    border: 1px solid black;
+}
+
+.jsoneditor-error-list li {
+    margin-left: 40px;
+}
+
+.jsoneditor-error-list li::marker {
+    font-weight: bold;
+}
+
+.jsoneditor {
+    border: thin solid var(--breadcrumbs-bg);
+}
+
+.jsoneditor div.jsoneditor-menu {
+    background-color: var(--breadcrumbs-bg);
+    border-bottom: var(--breadcrumbs-bg);
+}

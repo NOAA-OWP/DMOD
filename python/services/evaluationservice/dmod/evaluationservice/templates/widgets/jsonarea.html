@@ -1,0 +1,198 @@
+{# Attach all extra scripts to the page - this will support both modules and non-modules #}
+{# The data for this comes from passing values through the `handlers` parameters on the widget constructor #}
+{% for script in widget.extra_scripts %}
+    {% if script.is_module %}
+        <script type="module" src="{{ script.script_path }}"></script>
+    {% else %}
+        <script src="{{ script.script_path }}"></script>
+    {% endif %}
+{% endfor %}
+
+{# `data|json_script:data_key` will inject the given data as a script block with an id of `#{{ data_key }}` #}
+{# This is used to make sure that structures passed through the widget as extra data are correctly  #}
+{# passed as easy to reference objects #}
+{# The data for this comes from passing values through the `extra_data` parameter on the widget constructor #}
+{% for data_key, data in widget.extra_data.items %}
+    {{ data|json_script:data_key }}
+{% endfor %}
+
+{# Make sure that the label doesn't float - floating will cause the label to sit within the error box #}
+<style>
+    label[for="{{ widget.attrs.id }}"] {
+        float: none;
+    }
+</style>
+
+<div {% if not widget.attrs.style %}style="height:{{widget.height|default:'500px'}};width:{{widget.width|default:'90%'}};display:inline-block;"{% endif %}
+        {% include "django/forms/widgets/attrs.html" %}>
+</div>
+
+<textarea id="{{widget.attrs.id}}_textarea" name="{{ widget.name }}" required="" style="display: none">{{ widget.value }}</textarea>
+
+<div id="{{ widget.attrs.id }}_errors" class="jsoneditor-error-box" style="display: none">
+    <b>Fix the following errors before saving:</b>
+    <ul id="{{ widget.attrs.id }}_error_list" class="jsoneditor-error-list"></ul>
+</div>
+
+{# The logic within this script block should only contain functions and references to objects that are widget specific #}
+{# If the logic within can be used without a reference to {{ widget.* }} it should probably go with the accompanying #}
+{# javascript file #}
+<script>
+    /**
+     * Show or hide the error box based on information coming through the ValidationError event
+     * @param {object[]} errors
+     */
+    function interpret_{{ widget.attrs.id }}_ValidationError(errors) {
+        let errorMessages = [];
+
+        for (let error of errors) {
+            if (error.type === "error") {
+                errorMessages.push(error.message);
+            }
+        }
+
+        const errorBox = django.jQuery("#{{ widget.attrs.id }}_errors");
+        const errorList = django.jQuery("#{{ widget.attrs.id }}_error_list");
+
+        if (errorMessages.length > 0) {
+            if (!errorBox.hasClass("jsoneditor-error-box")) {
+                errorBox.addClass("jsoneditor-error-box");
+            }
+
+            if (!errorList.hasClass("jsoneditor-error-list")) {
+                errorList.addClass("jsoneditor-error-list");
+            }
+
+            for (let message of errorMessages) {
+                errorList.append(`<li style="list-style: decimal;">${message}</li>`);
+            }
+            disableSave();
+            errorBox.show();
+            resize_{{ widget.attrs.id }}_ErrorBox();
+        } else {
+            enableSave();
+            errorList.empty();
+            errorBox.hide();
+        }
+    }
+
+    /**
+     * Resize the error box for {{ widget.attrs.id }} to fit the editor
+     *
+     * This is a best effort process - it may be incorrect if different units are used across widths,
+     * borders, and padding
+     */
+    function resize_{{ widget.attrs.id }}_ErrorBox() {
+        /**
+         * The main element containing the editor
+         */
+        const editor = django.jQuery("#{{ widget.attrs.id }} div.jsoneditor");
+
+        /**
+         * The box containing error information that should be flush with the editor
+         */
+        const errorBox = django.jQuery("#{{ widget.attrs.id }}_errors");
+
+        const desiredWidth = getDesiredErrorBoxWidth(editor, errorBox);
+
+        errorBox.css("width", desiredWidth);
+    }
+
+    /**
+     * Assign the event handler that will ensure that the error box for {{ widget.attrs.id }} is resized when
+     * the editor is resized
+     */
+    function set_{{ widget.attrs.id }}_resize() {
+        const editor = django.jQuery("#{{ widget.attrs.id }} div.jsoneditor");
+        editor.on("resize", resize_{{ widget.attrs.id }}_ErrorBox)
+    }
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        function() {
+            const editorID = "{{ widget.attrs.id }}";
+
+            const container = document.getElementById(editorID);
+            const textarea = document.getElementById("{{widget.attrs.id}}_textarea");
+
+            let namespaceParts = [];
+
+            {% for part in widget.namespace %}
+                namespaceParts.push("{{ part }}");
+            {% endfor %}
+
+            let namespace = ensureNamespaceExists(namespaceParts);
+
+            namespace["{{ widget.name }}"] = {
+                data: {}
+            };
+
+            namespace = namespace["{{ widget.name }}"]
+
+            let options;
+
+            try {
+                options = {{ widget.options|safe }};
+            } catch (e) {
+                console.error(e);
+                options = {};
+            }
+
+            options.onChange = function () {
+                let json = editor.get();
+                textarea.value = JSON.stringify(json);
+            }
+
+            options.onValidationError = interpret_{{ widget.attrs.id }}_ValidationError;
+
+            const editor = new JSONEditor(container, options);
+
+            namespace['editor'] = editor;
+
+            let json = {{ widget.value|safe }};
+
+            if (typeof(json) === 'string') {
+                try {
+                    json = JSON.parse(json);
+                } catch (e) {
+                    console.error("Loading invalid json...");
+                    options.mode = "code";
+                }
+            }
+
+            if (options.hasOwnProperty("schema") && (json === null || json.length === 0)) {
+                json = buildObjectFromSchema(options.schema);
+            }
+
+            editor.set(json);
+
+            set_{{ widget.attrs.id }}_resize();
+
+            let rawKey;
+            let valueKey;
+            let extraData;
+
+            {% for data_key in widget.extra_data.keys %}
+                rawKey = "{{ data_key }}";
+                valueKey = rawKey.replace("{{ widget.name }}-", "");
+                extraData = document.getElementById(rawKey);
+
+                if (extraData !== null) {
+                    try {
+                        extraData = JSON.parse(extraData.textContent);
+                    } catch (e) {
+                        console.error(`Could not load extra data for '{{ widget.name }}' with a key of '${valueKey}'`);
+                        console.error(e)
+                    }
+                }
+                namespace['data'][valueKey] = extraData;
+            {% endfor %}
+
+            {% if widget.handlers %}
+                {% for handler in widget.handlers %}
+                    assignEventHandler("{{ handler.element_selector }}", "{{ widget.event }}", "{{ handler.function }}");
+                {% endfor %}
+            {% endif %}
+        }
+    );
+</script>
