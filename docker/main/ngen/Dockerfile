@@ -580,8 +580,8 @@ WORKDIR ${WORKDIR}/ngen
 
 ################################################################################################################
 ################################################################################################################
-##### Final stage for image
-FROM rocky_build_ngen
+##### Model exec ngen worker image build stage
+FROM rocky_build_ngen AS ngen_worker
 
 ARG DATASET_DIRECTORIES
 

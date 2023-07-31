@@ -65,6 +65,7 @@ services:
     image: ${DOCKER_INTERNAL_REGISTRY:?}/ngen:${NGEN_VERSION:-latest}
     build:
       context: ./ngen
+      target: ngen_worker
       args:
         REPO_URL: ${NGEN_REPO_URL?No NGen repo url configured}
         BRANCH: ${NGEN_BRANCH?No NGen branch configured}
