@@ -22,7 +22,7 @@ setup(
     license="",
     install_requires=[
         "numpy>=1.20.1",
-        "pandas",
+        "pandas~=2.0",
         "fiona",
         "geopandas",
         "dmod-communication>=0.4.2",

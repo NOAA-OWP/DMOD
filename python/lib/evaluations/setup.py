@@ -22,7 +22,7 @@ setup(
     license='',
     install_requires=[
         'dmod-metrics',
-        'pandas',
+        'pandas~=2.0',
         'xarray',
         'h5py',
         'jsonpath-ng',
