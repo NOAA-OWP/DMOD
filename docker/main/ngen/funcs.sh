@@ -45,6 +45,18 @@ load_object_store_keys_from_docker_secrets()
     ACCESS_KEY_FILE="${DOCKER_SECRETS_DIR:?Docker secrets directory undefined}/${ACCESS_KEY_SECRET:-object_store_exec_user_name}"
     SECRET_KEY_FILE="${DOCKER_SECRETS_DIR:?}/${SECRET_KEY_SECRET:-object_store_exec_user_passwd}"
 
+    if [ -e "${ACCESS_KEY_FILE}" ]; then
+        ACCESS_KEY="$(cat "${ACCESS_KEY_FILE}")"
+    else
+        echo "WARN: Cannot load object store access key when Docker secret file does not exist"
+    fi
+
+    if [ -e "${SECRET_KEY_FILE}" ]; then
+        SECRET_KEY="$(cat "${SECRET_KEY_FILE}")"
+    else
+        echo "WARN: Cannot load object store secret key when Docker secret file does not exist"
+    fi
+
     test -n "${ACCESS_KEY:-}" && test -n "${SECRET_KEY:-}"
 }
 
