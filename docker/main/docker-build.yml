@@ -84,7 +84,8 @@ services:
   ngen-partitioner:
     image: ${DOCKER_INTERNAL_REGISTRY:?}/${DOCKER_PARTITIONER_IMAGE:-ngen-partitioner}
     build:
-      context: ./ngen-partitioner
+      context: ./ngen
+      target: partitioner_image
       args:
         REPO_URL: ${NGEN_REPO_URL?No NGen repo url configured}
         BRANCH: ${NGEN_BRANCH?No NGen branch configured}
