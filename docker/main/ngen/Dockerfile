@@ -268,7 +268,7 @@ ARG WORKDIR
 ENV WORKDIR=${WORKDIR}
 ENV BOOST_ROOT=${WORKDIR}/boost
 
-COPY --from=download_boost /boost ${WORKDIR}/boost
+COPY --chown=${USER} --from=download_boost /boost ${WORKDIR}/boost
 
 ARG MPICH_VERSION
 ARG MIN_PYTHON
@@ -359,6 +359,8 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && cd ${BOOST_ROOT} \
     && tar -xjf boost_${BOOST_VERSION//./_}.tar.bz2 \
     && rm boost_${BOOST_VERSION//./_}.tar.bz2 \
+    # Set the regular user as the owner
+    && chown -R ${USER}:${USER} ${BOOST_ROOT} \
     && rm -rf /tmp/ngen-deps
 
 ENV PATH=${PATH}:/usr/lib64/mpich/bin
