@@ -582,6 +582,54 @@ WORKDIR ${WORKDIR}/ngen
 
 ################################################################################################################
 ################################################################################################################
+##### A build stage for the partitioner utility image
+FROM rocky-ngen-deps as partitioner_image
+
+ARG BUILD_PARALLEL_JOBS
+ARG NGEN_ACTIVATE_C
+ARG NGEN_ACTIVATE_FORTRAN
+ARG NGEN_ACTIVATE_PYTHON
+ARG NGEN_NETCDF_ACTIVE
+ARG NGEN_UDUNITS_ACTIVE
+ARG NGEN_UDUNITS_QUIET
+ARG PARTITIONER_EXECUTABLE
+
+COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/ngen
+ENV BOOST_ROOT=${WORKDIR}/boost
+
+RUN cd ${WORKDIR}/ngen \
+    && if [ -z "${PARTITIONER_EXECUTABLE:-}" ]; then echo "Error: target/executable name not set" 2>&1 ; exit 1; fi \
+    && cmake -B cmake_build -S . \
+               -DMPI_ACTIVE:BOOL=OFF \
+               -DNETCDF_ACTIVE:BOOL=${NGEN_NETCDF_ACTIVE} \
+               #-DBMI_C_LIB_ACTIVE:BOOL=${NGEN_ACTIVATE_C} \
+               #-DBMI_FORTRAN_ACTIVE:BOOL=${NGEN_ACTIVATE_FORTRAN} \
+               #-DNGEN_ACTIVATE_PYTHON:BOOL=${NGEN_ACTIVATE_PYTHON} \
+               #-DNGEN_ACTIVATE_ROUTING:BOOL=${NGEN_ROUTING_ACTIVE} \
+               -DUDUNITS_ACTIVE:BOOL=${NGEN_UDUNITS_ACTIVE} \
+               -DUDUNITS_QUIET:BOOL=${NGEN_UDUNITS_QUIET} \
+               -DCMAKE_INSTALL_PREFIX=${WORKDIR} \
+               -DNETCDF_INCLUDE_DIR=/usr/include \
+               -DNETCDF_LIBRARY=/usr/lib/libnetcdf.so \
+               -DNETCDF_CXX_INCLUDE_DIR=/usr/local/include \
+               -DNETCDF_CXX_LIBRARY=/usr/local/lib64/libnetcdf-cxx4.so \
+    && cmake --build cmake_build --target ${PARTITIONER_EXECUTABLE} -- -j ${BUILD_PARALLEL_JOBS} \
+    #FIXME remove the data copy, only there for temporary testing \
+    && mkdir ${WORKDIR}/bin  \
+    && cp cmake_build/${PARTITIONER_EXECUTABLE} ${WORKDIR}/bin \
+    && cd ${WORKDIR}  \
+    && rm -rf ngen \
+    && ls -lah ${BOOST_ROOT} \
+    && rm -rf ${BOOST_ROOT} 2>/dev/null
+
+COPY --chown=${USER} partitioner_entrypoint.sh ${WORKDIR}
+RUN chmod +x ${WORKDIR}/partitioner_entrypoint.sh
+ENV PATH=${WORKDIR}:${WORKDIR}/bin:$PATH
+ENV NGEN_PART_EXECUTABLE="${PARTITIONER_EXECUTABLE}"
+ENTRYPOINT ["./partitioner_entrypoint.sh"]
+
+################################################################################################################
+################################################################################################################
 ##### Model exec ngen worker image build stage
 FROM rocky_build_ngen AS ngen_worker
 
