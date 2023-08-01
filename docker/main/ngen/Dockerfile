@@ -601,13 +601,13 @@ RUN rm -rf ${BOOST_ROOT} && echo "export PATH=${PATH}" >> /etc/profile \
     && mkdir -p /dmod/bin && chown ${USER} /dmod/bin 
 USER ${USER}
 
-COPY --chown=${USER} entrypoint.sh ${WORKDIR}
+COPY --chown=${USER} ngen_entrypoint.sh ${WORKDIR}
 COPY --chown=${USER} funcs.sh ${WORKDIR}
 
 ENV HYDRA_PROXY_RETRY_COUNT=5
 
 # Change permissions for entrypoint and make sure dataset volume mount parent directories exists
-RUN chmod +x ${WORKDIR}/entrypoint.sh \
+RUN chmod +x ${WORKDIR}/ngen_entrypoint.sh \
     && for d in ${DATASET_DIRECTORIES}; do mkdir -p /dmod/datasets/${d}; done \
     && for d in noah-owp-modular topmodel cfe sloth 'evapotranspiration/evapotranspiration'; do \
         if [ -d ${WORKDIR}/ngen/extern/${d}/cmake_build ]; then \
@@ -623,5 +623,5 @@ RUN chmod +x ${WORKDIR}/entrypoint.sh \
 
 WORKDIR ${WORKDIR}
 ENV PATH=${WORKDIR}:$PATH
-ENTRYPOINT ["entrypoint.sh"]
+ENTRYPOINT ["ngen_entrypoint.sh"]
 CMD [""]
