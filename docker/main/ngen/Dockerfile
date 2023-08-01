@@ -602,6 +602,7 @@ RUN rm -rf ${BOOST_ROOT} && echo "export PATH=${PATH}" >> /etc/profile \
 USER ${USER}
 
 COPY --chown=${USER} entrypoint.sh ${WORKDIR}
+COPY --chown=${USER} funcs.sh ${WORKDIR}
 
 ENV HYDRA_PROXY_RETRY_COUNT=5
 
