@@ -652,13 +652,13 @@ RUN rm -rf ${BOOST_ROOT} && echo "export PATH=${PATH}" >> /etc/profile \
     && mkdir -p /dmod/bin && chown ${USER} /dmod/bin 
 USER ${USER}
 
-COPY --chown=${USER} ngen_entrypoint.sh ${WORKDIR}
+COPY --chown=${USER} ngen_entrypoint.sh ${WORKDIR}/entrypoint.sh
 COPY --chown=${USER} funcs.sh ${WORKDIR}
 
 ENV HYDRA_PROXY_RETRY_COUNT=5
 
 # Change permissions for entrypoint and make sure dataset volume mount parent directories exists
-RUN chmod +x ${WORKDIR}/ngen_entrypoint.sh \
+RUN chmod +x ${WORKDIR}/entrypoint.sh \
     && for d in ${DATASET_DIRECTORIES}; do mkdir -p /dmod/datasets/${d}; done \
     && for d in noah-owp-modular topmodel cfe sloth 'evapotranspiration/evapotranspiration'; do \
         if [ -d ${WORKDIR}/ngen/extern/${d}/cmake_build ]; then \
@@ -669,10 +669,11 @@ RUN chmod +x ${WORKDIR}/ngen_entrypoint.sh \
     && ( cp -a ${WORKDIR}/ngen/cmake_build_serial/ngen /dmod/bin/ngen-serial || true ) \
     && ( cp -a ${WORKDIR}/ngen/cmake_build/partitionGenerator /dmod/bin/partitionGenerator || true ) \
     && pushd /dmod/bin \
-    && ( ( stat ngen-parallel && ln -s ngen-parallel ngen ) || ( stat ngen-serial && ln -s ngen-serial ngen ) ) \
+    # NOTE use of `ln -sf`. \
+    && ( ( stat ngen-parallel && ln -sf ngen-parallel ngen ) || ( stat ngen-serial && ln -sf ngen-serial ngen ) ) \
     && popd 
 
 WORKDIR ${WORKDIR}
 ENV PATH=${WORKDIR}:$PATH
-ENTRYPOINT ["ngen_entrypoint.sh"]
+ENTRYPOINT ["entrypoint.sh"]
 CMD [""]
