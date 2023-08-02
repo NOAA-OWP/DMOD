@@ -99,16 +99,16 @@ services:
   ngen-calibration:
     image: ${DOCKER_INTERNAL_REGISTRY:?}/ngen-calibration:${NGEN_CAL_IMAGE_TAG:-latest}
     build:
-      context: ./ngen-calibration
+      context: ./ngen
+      target: ngen_cal_worker
       args:
-        BASE_NGEN_IMAGE_TAG: ${NGEN_CAL_BASE_IMAGE_TAG:-latest}
-        #REPO_URL: ${NGEN_REPO_URL?No NGen repo url configured}
+        REPO_URL: ${NGEN_REPO_URL?No NGen repo url configured}
         NGEN_CAL_BRANCH: ${NGEN_CAL_BRANCH:-master}
         NGEN_CAL_COMMIT: ${NGEN_CAL_COMMIT}
-        #TROUTE_REPO_URL: ${TROUTE_REPO_URL?No t-route repo url configured}
-        #TROUTE_BRANCH: ${TROUTE_BRANCH?No t-route branch configured}
-        #TROUTE_COMMIT: ${TROUTE_COMMIT}
-        #BUILD_PARALLEL_JOBS: ${NGEN_BUILD_PARALLEL_JOBS:-2}
+        TROUTE_REPO_URL: ${TROUTE_REPO_URL?No t-route repo url configured}
+        TROUTE_BRANCH: ${TROUTE_BRANCH?No t-route branch configured}
+        TROUTE_COMMIT: ${TROUTE_COMMIT}
+        BUILD_PARALLEL_JOBS: ${NGEN_BUILD_PARALLEL_JOBS:-2}
         DOCKER_INTERNAL_REGISTRY: ${DOCKER_INTERNAL_REGISTRY:?}
     depends_on:
       - ngen
