@@ -28,6 +28,9 @@ ARG TROUTE_REPO_URL=https://github.com/NOAA-OWP/t-route.git
 ARG TROUTE_BRANCH=ngen
 ARG TROUTE_COMMIT
 
+ARG NGEN_CAL_BRANCH=master
+ARG NGEN_CAL_COMMIT
+
 #### Default arguments for required dependencies needed during various build stages
 # The Rocky-Linux-based "base" stage, rocky-base
 ARG ROCKY_BASE_REQUIRED="sudo openssh openssh-server bash git"
@@ -677,3 +680,18 @@ WORKDIR ${WORKDIR}
 ENV PATH=${WORKDIR}:$PATH
 ENTRYPOINT ["entrypoint.sh"]
 CMD [""]
+
+################################################################################################################
+################################################################################################################
+##### Calibration ngen-cal worker image build stage
+FROM ngen_worker AS ngen_cal_worker
+
+ARG NGEN_CAL_BRANCH
+ARG NGEN_CAL_COMMIT
+
+# Overwrite the ngen entrypoint script from the parent stage, which is already set up with ENTRYPOINT
+COPY --chown=${USER:?} ngen_cal_entrypoint.sh ${WORKDIR:?}/entrypoint.sh
+
+# Try NGEN_CAL_COMMIT, if not set or empty, use NGEN_CAL_BRANCH
+RUN pip install "git+https://github.com/noaa-owp/ngen-cal@${NGEN_CAL_COMMIT:-${NGEN_CAL_BRANCH}}#egg=ngen_cal&subdirectory=python/ngen_cal" \
+    && chmod +x ${WORKDIR}/entrypoint.sh
