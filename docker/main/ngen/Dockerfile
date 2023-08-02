@@ -594,6 +594,7 @@ ARG NGEN_UDUNITS_ACTIVE
 ARG NGEN_UDUNITS_QUIET
 ARG PARTITIONER_EXECUTABLE
 
+COPY --chown=${USER} partitioner_entrypoint.sh ${WORKDIR}/entrypoint.sh
 COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/ngen
 ENV BOOST_ROOT=${WORKDIR}/boost
 
@@ -620,13 +621,13 @@ RUN cd ${WORKDIR}/ngen \
     && cd ${WORKDIR}  \
     && rm -rf ngen \
     && ls -lah ${BOOST_ROOT} \
-    && rm -rf ${BOOST_ROOT} 2>/dev/null
+    && rm -rf ${BOOST_ROOT} 2>/dev/null \
+    && chmod +x ${WORKDIR}/entrypoint.sh
 
-COPY --chown=${USER} partitioner_entrypoint.sh ${WORKDIR}
-RUN chmod +x ${WORKDIR}/partitioner_entrypoint.sh
+WORKDIR ${WORKDIR}
 ENV PATH=${WORKDIR}:${WORKDIR}/bin:$PATH
 ENV NGEN_PART_EXECUTABLE="${PARTITIONER_EXECUTABLE}"
-ENTRYPOINT ["./partitioner_entrypoint.sh"]
+ENTRYPOINT ["entrypoint.sh"]
 
 ################################################################################################################
 ################################################################################################################
