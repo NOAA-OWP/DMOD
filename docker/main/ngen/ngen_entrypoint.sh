@@ -47,31 +47,35 @@ init_script_mpi_vars
 init_ngen_executable_paths
 
 # Move to the output dataset mounted directory
-cd ${OUTPUT_DATASET_DIR}
+cd ${OUTPUT_DATASET_DIR:?Output dataset directory not defined}
 
-if [ "${WORKER_INDEX}" = "0" ]; then
-    if [ "$(whoami)" = "${MPI_USER}" ]; then
-        # Blah comment
+# We can allow worker index to not be supplied when executing serially
+if [ "${WORKER_INDEX:-0}" = "0" ]; then
+    if [ "$(whoami)" = "${MPI_USER:?MPI user not defined}" ]; then
+        # This will only have an effect when running with multiple MPI nodes, so its safe to have even in serial exec
         trap close_remote_workers EXIT
-        # Have "main" worker copy config files to output dataset for record keeping
+        # Have "main" (potentially only) worker copy config files to output dataset for record keeping
         # TODO: perform copy of configs to output dataset outside of image (in service) for better performance
-        cp -a ${CONFIG_DATASET_DIR}/. ${OUTPUT_DATASET_DIR}
+        cp -a ${CONFIG_DATASET_DIR:?Config dataset directory not defined}/. ${OUTPUT_DATASET_DIR:?}
         if [ -n "${PARTITION_DATASET_DIR:-}" ]; then
             # Include partition config dataset too if appropriate
             # TODO: perform copy of configs to output dataset outside of image (in service) for better performance
-            cp -a ${PARTITION_DATASET_DIR}/. ${OUTPUT_DATASET_DIR}
+            cp -a ${PARTITION_DATASET_DIR}/. ${OUTPUT_DATASET_DIR:?}
             exec_main_worker_ngen_run
         else
             exec_serial_ngen_run
         fi
     else
-        echo "$(print_date) Starting SSH daemon on main worker"
-        /usr/sbin/sshd -D &
-        _SSH_D_PID="$!"
+        # Start SSHD on the main worker if have an MPI job
+        if [ -n "${PARTITION_DATASET_DIR:-}" ]; then
+            echo "$(print_date) Starting SSH daemon on main worker"
+            /usr/sbin/sshd -D &
+            _SSH_D_PID="$!"
 
-        trap cleanup_sshuser_exit EXIT
+            trap cleanup_sshuser_exit EXIT
+        fi
 
-        # Start the SSH daemon as a power user, but then actually run the model as our MPI_USER
+        # Make sure we run the model as our MPI_USER
         echo "$(print_date) Running exec script as '${MPI_USER:?}'"
         # Do this by just re-running this script with the same args, but as the other user
         # The script will modify its behavior as needed depending on current user (see associated "if" for this "else")
