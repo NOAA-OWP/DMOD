@@ -35,6 +35,10 @@ while [ ${#} -gt 0 ]; do
             WORKER_INDEX="${2:?}"
             shift
             ;;
+        --calibration-config-file)
+            CALIBRATION_CONFIG_BASENAME="${2:?}"
+            shift
+            ;;
     esac
     shift
 done
@@ -51,10 +55,18 @@ cd ${OUTPUT_DATASET_DIR:?Output dataset directory not defined}
 
 start_calibration() {
     # Start ngen calibration
-    echo "$(print_date) Starting serial ngen calibration"
+    if [ -n "${PARTITION_DATASET_DIR:-}" ]; then
+        echo "$(print_date) Starting ngen calibration with parallel ngen execution"
+    else
+        echo "$(print_date) Starting ngen calibration with serial ngen execution"
+    fi
 
     # Find and use copy of config in output dataset
-    CALIBRATION_CONFIG_FILE=$(find ${OUTPUT_DATASET_DIR:?} -type f -iname "*.yaml" -o -iname "*.yml" -maxdepth 1 | head -1)
+    if [ -n "${CALIBRATION_CONFIG_BASENAME:-}" ]; then
+        CALIBRATION_CONFIG_FILE=$(find ${OUTPUT_DATASET_DIR:?} -type f -name "${CALIBRATION_CONFIG_BASENAME}" -maxdepth 1 | head -1)
+    else
+        CALIBRATION_CONFIG_FILE=$(find ${OUTPUT_DATASET_DIR:?} -type f -iname "*.yaml" -o -iname "*.yml" -maxdepth 1 | head -1)
+    fi
 
     if [ -z "${CALIBRATION_CONFIG_FILE}" ]; then
         echo "Error: NGEN calibration yaml file not found" 2>&1
@@ -71,16 +83,40 @@ start_calibration() {
     return ${NGEN_RETURN}
 }
 
-# Copy config files to output dataset for record keeping, but only from the "main" worker node
-# We can allow worker index to not be supplied when executing serially, so apply default substitution
-if [ ${WORKER_INDEX:-0} -eq 0 ]; then
-    # TODO: perform copy of configs to output dataset outside of image (in service) for better performance
-    cp -a ${CONFIG_DATASET_DIR:?Config dataset directory not defined}/. ${OUTPUT_DATASET_DIR:?}
-    if [ -n "${PARTITION_DATASET_DIR:-}" ]; then
-        # Also, when partition config present, copy that for record keeping
+# We can allow worker index to not be supplied when executing serially
+if [ "${WORKER_INDEX:-0}" = "0" ]; then
+    if [ "$(whoami)" = "${MPI_USER:?MPI user not defined}" ]; then
+        # This will only have an effect when running with multiple MPI nodes, so its safe to have even in serial exec
+        trap close_remote_workers EXIT
+        # Have "main" (potentially only) worker copy config files to output dataset for record keeping
         # TODO: perform copy of configs to output dataset outside of image (in service) for better performance
-        cp -a ${PARTITION_DATASET_DIR}/. ${OUTPUT_DATASET_DIR:?}
-    fi
-fi
+        cp -a ${CONFIG_DATASET_DIR:?Config dataset directory not defined}/. ${OUTPUT_DATASET_DIR:?}
+        if [ -n "${PARTITION_DATASET_DIR:-}" ]; then
+            # Include partition config dataset too if appropriate
+            # TODO: perform copy of configs to output dataset outside of image (in service) for better performance
+            cp -a ${PARTITION_DATASET_DIR}/. ${OUTPUT_DATASET_DIR:?}
+        fi
 
-start_calibration
+        # Run the same function to execute ngen_cal (it's config will handle whether MPI is used internally)
+        start_calibration
+    else
+        # Start SSHD on the main worker if have an MPI job
+        if [ -n "${PARTITION_DATASET_DIR:-}" ]; then
+            echo "$(print_date) Starting SSH daemon on main worker"
+            /usr/sbin/sshd -D &
+            _SSH_D_PID="$!"
+
+            trap cleanup_sshuser_exit EXIT
+        fi
+
+        # Make sure we run ngen/ngen-cal as our MPI_USER
+        echo "$(print_date) Running exec script as '${MPI_USER:?}'"
+        # Do this by just re-running this script with the same args, but as the other user
+        # The script will modify its behavior as needed depending on current user (see associated "if" for this "else")
+        _EXEC_STRING="${0} ${@}"
+        su ${MPI_USER:?} --session-command "${_EXEC_STRING}"
+        #time su ${MPI_USER:?} --session-command "${_EXEC_STRING}"
+    fi
+else
+    run_secondary_mpi_ssh_worker_node
+fi
