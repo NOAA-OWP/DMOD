@@ -60,9 +60,10 @@ load_object_store_keys_from_docker_secrets()
     test -n "${ACCESS_KEY:-}" && test -n "${SECRET_KEY:-}"
 }
 
+# If running MPI job with multiple workers, signal to remote workers to stop their SSHD process by removing this file
+# If not running with MPI or not running with multiple nodes, do nothing
 close_remote_workers()
 {
-    # Signal to remote worker nodes that they can stop their SSH process by removing this file
     if [ ${MPI_NODE_COUNT:-1} -gt 1 ]; then
         for i in $(echo "${MPI_HOST_STRING}" | sed 's/,/ /g'); do
             _HOST_NAME=$(echo "${i}" | awk -F: '{print $1}')
@@ -174,8 +175,8 @@ ngen_sanity_checks_and_derived_init()
     # Make sure that the output, hydrofabric, and config datasets are available (i.e., their directories are in place)
     check_for_dataset_dir "${CONFIG_DATASET_DIR}"
     # Don't require a partitioning dataset when only using a single node
-    if [ ${MPI_NODE_COUNT:?} -gt 1 ]; then
-        check_for_dataset_dir "${PARTITION_DATASET_DIR:?No partition dataset directory defined}"
+    if [ -n "${PARTITION_DATASET_DIR:-}" ]; then
+        check_for_dataset_dir "${PARTITION_DATASET_DIR}"
     fi
     check_for_dataset_dir "${HYDROFABRIC_DATASET_DIR}"
     check_for_dataset_dir "${OUTPUT_DATASET_DIR}"
