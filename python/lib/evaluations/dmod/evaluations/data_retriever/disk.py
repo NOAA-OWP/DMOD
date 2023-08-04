@@ -93,7 +93,7 @@ class JSONDataRetriever(retrieval.Retriever):
                 )
                 frame = frame.join(constant_frame)
 
-            if self.definition.locations.from_field == "filename":
+            if self.definition.locations is not None and self.definition.locations.from_field == "filename":
                 name = None
 
                 if self.definition.locations.pattern:
@@ -205,7 +205,11 @@ class FrameDataRetriever(retrieval.Retriever):
 
             table: pandas.DataFrame = document[column_names]
 
-            if self.definition.locations.identify and self.definition.locations.from_field == 'filename':
+            has_locations = self.definition.locations is not None
+            should_identify_locations = has_locations and self.definition.locations.identify
+            location_is_in_filename = should_identify_locations and self.definition.locations.from_field == 'filename'
+
+            if location_is_in_filename:
                 file_name_without_extension = os.path.splitext(os.path.basename(source))[0]
                 pattern = self.definition.locations.pattern
 
