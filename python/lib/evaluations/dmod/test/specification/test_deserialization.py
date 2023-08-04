@@ -50,9 +50,6 @@ class TestSpecificationDeserialization(unittest.TestCase):
         self.assertEqual(single_instance, pure_template_instance)
 
     def test_evaluation_deserialization(self):
-        from pprint import pprint
-
-        pprint(dir(specification.EvaluationSpecification))
         normal_specification = self.template_manager.get_template(
             specification_type=specification.EvaluationSpecification,
             name="no-template"
