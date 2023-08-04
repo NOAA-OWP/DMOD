@@ -123,3 +123,4 @@ schedulerservice/test/test_scheduler.py_old
 *.shell
 
 node_modules/
+.next/
