@@ -129,7 +129,7 @@ start_calibration() {
     echo "$(print_date) Starting serial ngen calibration"
 
     # Find and use copy of config in output dataset
-    CALIBRATION_CONFIG_FILE=$(find ${OUTPUT_DATASET_DIR} -name "*.yaml" -maxdepth 1 | head -1)
+    CALIBRATION_CONFIG_FILE=$(find ${OUTPUT_DATASET_DIR} -type f -iname "*.yaml" -o -iname "*.yml" -maxdepth 1 | head -1)
 
     if [ -z "${CALIBRATION_CONFIG_FILE}" ]; then
         echo "Error: NGEN calibration yaml file not found" 2>&1
