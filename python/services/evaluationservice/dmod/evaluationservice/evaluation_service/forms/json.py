@@ -23,6 +23,29 @@ BINARY_TYPES = re.compile(
 )
 """
 A regular expression that finds all type definitions that are strings formatted as bytes
+
+Catches on:
+
+- `{"type": "string", "format": "binary"}, `
+- `, {"type": "string", "format": "binary"}
+
+Both cases must be handled for replacement/removal logic. A simple find and replace for 
+'{"type": "string", "format": "binary"}' could/would result in errant commas, causing the json to fail deserialization
+
+The first will catch when it is at the beginning of a list. If it's at the beginning of the list, the following 
+comma and whitespace need to be removed to make the next object the first in the list.
+
+The second will catch when it is not the first of the list. In this case, it will need to remove the previous comma 
+and any following whitespace. If there are further elements in the list, they will collapse and the comma that 
+would have proceeded this string definition will follow the previous element.
+
+Examples:
+    >>> at_beginning = '{"types": [{"type": "string", "format": "binary}, {"type": "number"}, {"type": "string"}]}'
+    >>> not_at_beginning = '{"types": [{"type": "string"}, {"type": "string", "format": "binary}, {"type": "number"}]}'
+    >>> BINARY_TYPES.sub("", at_beginning)
+    '{"types": [{"type": "number"}, {"type": "string"}]}'
+    >>> BINARY_TYPES.sub("", not_at_beginning)
+    '{"types": [{"type": "string"}, {"type": "number"}]}'
 """
 
 def get_editor_friendly_model_schema(model: typing.Type[BaseModel]) -> typing.Optional[dict]:
