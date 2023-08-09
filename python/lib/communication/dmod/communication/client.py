@@ -1140,9 +1140,9 @@ class SchedulerClient(RequestClient[SchedulerRequestMessage, SchedulerRequestRes
                                          response_text='None' if serialized_response is None else serialized_response)
 
 
-class ExternalRequestClient(RequestClient[EXTERN_REQ_M, EXTERN_REQ_R], ExternalClient, ABC):
+class ExternalRequestClient(RequestClient[EXTERN_REQ_M, EXTERN_REQ_R]):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, auth_client: AuthClient, *args, **kwargs):
         """
         Initialize instance.
 
@@ -1153,24 +1153,42 @@ class ExternalRequestClient(RequestClient[EXTERN_REQ_M, EXTERN_REQ_R], ExternalC
 
         Other Parameters
         ----------
-        endpoint_uri : str
-            The client connection endpoint for opening new websocket connections, required for superclass init.
-        ssl_directory : Path
-            The directory of the SSL certificate files for the client SSL context.
-        session_file : Optional[Path]
-            Optional path to file for a serialized session, both for loading from and saving to.
+        transport_client: TransportLayerClient
+        request_type: Type[EXTERN_REQ_M]
+        response_type: Type[EXTERN_REQ_R]
         """
         super().__init__(*args, **kwargs)
+
+        self._auth_client: AuthClient = auth_client
 
         self._errors = None
         self._warnings = None
         self._info = None
 
-    async def request_auth_from_service(self) -> str:
-        # Right now, it doesn't matter as long as it is valid
-        # TODO: Fix this to not be ... fixed ...
-        json_as_dict = {'username': 'someone', 'user_secret': 'something'}
-        return await self._transport_client.async_send(data=json.dumps(json_as_dict), await_response=True)
+    async def async_make_request(self, message: EXTERN_REQ_M, expected_response_type: Type[EXTERN_REQ_R]) -> EXTERN_REQ_R:
+        """
+        Async send a request message object and return the received response.
+
+        Send (within Python's async functionality) the appropriate type of request :class:`Message` for this client
+        implementation type and return the response as a corresponding, appropriate :class:`Response` instance.
+
+        Parameters
+        ----------
+        message : EXTERN_REQ_R
+            the request message object
+
+        Returns
+        -------
+        EXTERN_REQ_R
+            the request response object
+        """
+        if await self._auth_client.apply_auth(message):
+            return await super().async_make_request(message, expected_response_type)
+        else:
+            reason = f'{self.__class__.__name__} Request Auth Failure'
+            msg = f'{self.__class__.__name__} async_make_request could not apply auth to {message.__class__.__name__}'
+            logger.error(msg)
+            return expected_response_type(success=False, reason=reason, message=msg)
 
     @property
     def errors(self):
@@ -1179,10 +1197,6 @@ class ExternalRequestClient(RequestClient[EXTERN_REQ_M, EXTERN_REQ_R], ExternalC
     @property
     def info(self):
         return self._info
-
-    @property
-    def is_new_session(self):
-        return self._is_new_session
 
     @property
     def warnings(self):
