@@ -358,6 +358,338 @@ class ExternalClient(ABC):
         return self._session_secret
 
 
+class AuthClient:
+    """
+    Simple client object responsible for handling acquiring and applying authenticated session details to requests.
+    """
+    def __init__(self, transport_client: TransportLayerClient, *args, **kwargs):
+        self._transport_client: TransportLayerClient = transport_client
+        # TODO: get full session implementation if possible
+        self._session_id, self._session_secret, self._session_created = None, None, None
+        self._force_reauth = False
+
+    def _acquire_session(self) -> bool:
+        """
+        Synchronous function to acquire an authenticated session.
+
+        Wrapper convenience function for use outside of the async event loop.
+
+        Returns
+        -------
+        bool
+            Whether acquiring an authenticated session was successful.
+
+        See Also
+        -------
+        _async_acquire_session
+        """
+        try:
+            return get_or_create_eventloop().run_until_complete(self._async_acquire_session())
+        except Exception as e:
+            msg = f"{self.__class__.__name__} failed to acquire auth credential due to {e.__class__.__name__}: {str(e)}"
+            logger.error(msg)
+            return False
+
+    async def _async_acquire_session(self) -> bool:
+        """
+        Acquire an authenticated session.
+
+        Returns
+        -------
+        bool
+            Whether acquiring an authenticated session was successful.
+        """
+        # Clear anything previously set when forced reauth
+        if self.force_reauth:
+            self._session_id, self._session_secret, self._session_created = None, None, None
+            self.force_reauth = False
+        # Otherwise, if we have the session details already, just return True
+        elif all([self._session_id, self._session_secret, self._session_created]):
+            return True
+
+        try:
+            auth_resp = await self._transport_client.async_send(data=json.dumps(self._prepare_auth_request_payload()),
+                                                                await_response=True)
+            return self._parse_auth_data(auth_resp)
+        # In the future, consider whether we should treat ConnectionResetError separately
+        except Exception as e:
+            msg = f"{self.__class__.__name__} failed to acquire auth credential due to {e.__class__.__name__}: {str(e)}"
+            logger.error(msg)
+            return False
+
+    def _parse_auth_data(self, auth_data_str: str):
+        """
+        Parse serialized authentication data and update instance state accordingly.
+
+        Parse the given serialized authentication data and update the state of the instance accordingly to represent the
+        successful authentication (assuming the data parses appropriately).  This method must support, at minimum,
+        parsing the text data returned from the service as the response to the authentication payload,
+
+        Note that a return value of ``True`` indicates the instance holds valid authentication details that can be
+        applied to requests.
+
+        Parameters
+        ----------
+        auth_data_str : str
+            The data to be parsed, such as that returned in the service response to an authentication payload.
+
+        Returns
+        ----------
+        bool
+            Whether parsing was successful.
+        """
+        try:
+            auth_response = json.loads(auth_data_str)
+            # TODO: consider making sure this parses to a SessionInitResponse
+            session_id = auth_response['data']['session_id']
+            session_secret = auth_response['data']['session_secret']
+            session_created = auth_response['data']['created']
+            if all((session_id, session_secret, session_created)):
+                self._session_id, self._session_secret, self._session_created = session_id, session_secret, session_created
+                return True
+            else:
+                return False
+        except Exception as e:
+            return False
+
+    def _prepare_auth_request_payload(self) -> dict:
+        """
+        Generate JSON payload to be transmitted by ::method:`async_acquire_session` to service when requesting auth.
+
+        Returns
+        -------
+        dict
+            The JSON payload to be transmitted by ::method:`async_acquire_session` to the service when requesting auth.
+        """
+        # Right now, it doesn't matter as long as it is valid
+        # TODO: Fix this to not be ... fixed ...
+        return {'username': 'someone', 'user_secret': 'something'}
+
+    async def apply_auth(self, external_request: ExternalRequest) -> bool:
+        """
+        Apply appropriate authentication details to this request object, acquiring them first if needed.
+
+        Parameters
+        ----------
+        external_request : ExternalRequest
+            A request that needs the appropriate session secret applied.
+
+        Returns
+        ----------
+        bool
+            Whether the secret was obtained and applied successfully.
+        """
+        if await self._async_acquire_session():
+            external_request.session_secret = self._session_secret
+            return True
+        else:
+            return False
+
+    @property
+    def force_reauth(self) -> bool:
+        """
+        Whether the client should be forced to reacquire a new authenticated session from the service.
+
+        Returns
+        -------
+        bool
+            Whether the client should be forced to re-authenticate and get a new session from the auth service.
+        """
+        return self._force_reauth
+
+    @force_reauth.setter
+    def force_reauth(self, should_force_new: bool):
+        self._force_reauth = should_force_new
+
+    @property
+    def session_created(self) -> str:
+        return self._session_created
+
+    @property
+    def session_id(self) -> str:
+        return self._session_id
+
+
+class CachedAuthClient(AuthClient):
+    """
+    Extension of ::class:`AuthClient` that supports caching the session to a file.
+    """
+
+    def __init__(self, session_file: Optional[Path] = None, *args, **kwargs):
+        """
+        Initialize this instance, including creating empty session-related attributes.
+
+        If a ``session_file`` is not given, a default path in the home directory with a timestamp-based name will be
+        used.  If ``session_file`` is a directory, similiarly a timestamp-based default basename will be used for a file
+        in this directory.
+
+        Parameters
+        ----------
+        session_file : Optional[Path]
+            Optional specified path to file for a serialized session, both for loading from and saving to.
+        args
+        kwargs
+
+        Keyword Args
+        ----------
+        endpoint_uri : str
+            The endpoint for the client to connect to when opening a connection, for ::class:`RequestClient`
+            superclass init.
+        """
+        super().__init__(*args, **kwargs)
+
+        self._is_new_session = None
+        self._force_reload = False
+
+        default_basename = '.{}_session'.format(datetime.datetime.now().strftime('%Y%m%d%H%M%S%s'))
+
+        if session_file is None:
+            self._cached_session_file = Path.home().joinpath(default_basename)
+        elif session_file.is_dir():
+            self._cached_session_file = session_file.joinpath(default_basename)
+        else:
+            self._cached_session_file = session_file
+
+        assert isinstance(self._cached_session_file, Path)
+        assert self._cached_session_file.is_file() or not self._cached_session_file.exists()
+
+    async def _async_acquire_session(self) -> bool:
+        """
+        Acquire an authenticated session.
+
+        Returns
+        -------
+        bool
+            Whether acquiring an authenticated session was successful.
+        """
+        if not self._check_if_new_session_needed():
+            return True
+
+        try:
+            auth_resp = await self._transport_client.async_send(data=json.dumps(self._prepare_auth_request_payload()),
+                                                                await_response=True)
+            # Execute the call to the parsing function before attempting to write, but don't set the attributes yet
+            session_attribute_vals_tuple = self._parse_auth_data(auth_resp)
+
+            # Need a nested try block here to control what happens with a failure to cache the session
+            try:
+                self._cached_session_file.write_text(auth_resp)
+            except Exception as inner_e:
+                # TODO: consider having parameters/attributes to control exactly how this is handled ...
+                #  ... for now just catch and pass so a bad save file doesn't tank us
+                msg = f"{self.__class__.__name__} successfully authenticated but failed to cache details to file " \
+                      f"'{str(self._cached_session_file)}' due to {inner_e.__class__.__name__}: {str(inner_e)}"
+                logger.warning(msg)
+                pass
+
+            # Wait until after the cache file write section to modify any instance state
+            self._session_id, self._session_secret, self._session_created = session_attribute_vals_tuple
+            self.force_reauth = False
+            self._is_new_session = True
+            return True
+        # In the future, consider whether we should treat ConnectionResetError separately
+        except Exception as e:
+            msg = f"{self.__class__.__name__} failed to acquire auth credential due to {e.__class__.__name__}: {str(e)}"
+            logger.error(msg)
+            return False
+
+    def _check_if_new_session_needed(self) -> bool:
+        """
+        Check if a new session is required, potentially loading a cached session from an implementation-specific source.
+
+        Check whether a new session must be acquired.  As a side effect, potentially load a cached session from a source
+        specific to this type as an alternative to acquiring a new session.
+
+        For the default implementation of this function, the source for a cached session is a serialized session file.
+
+        For a new session to be needed, there must be no other **acceptable** source of authenticated session data.
+
+        If ::attribute:`force_reauth` is set to ``True``, any currently stored session attributes are cleared and the
+        function returns ``True``.  Nothing is loaded from a cached session file.
+
+        If ::attribute:`force_reload` is set to ``True``, any currently stored session attributes are cleared. However,
+        the function does not return at this point, and instead proceeds with remaining logic.
+
+        The session attributes of this instance subsequently checked for acceptable session data.  If at this point they
+        are all properly set (i.e., non-``None`` and non-empty) and ::attribute:`force_reload` is ``False``, then the
+        function returns ``False``.
+
+        If any session attributes are not properly set or ::attribute:`force_reload` is ``True``, the function attempts
+        to load a session from the cached session file.  If valid session attributes can be loaded, the function then
+        returns ``False``.  If they could not be loaded, the function will return ``True``, indicating a new session
+        needs to be acquired.
+
+        The function will return ``False`` IFF all session attributes are non-``None`` and non-empty at the end of the
+        function's execution.
+
+        Returns
+        -------
+        bool
+            Whether a new session must be acquired.
+        """
+        # If we need to re-auth, clear any old session data and immediately return True (i.e., new session is needed)
+        if self.force_reauth:
+            self._session_id, self._session_secret, self._session_created = None, None, None
+            return True
+
+        # If we need to reload, also clear any old session data, but this time proceed with the rest of the function
+        if self.force_reload:
+            self._session_id, self._session_secret, self._session_created = None, None, None
+            # Once we force clearing these to ensure a reload is attempted, reset the attribute
+            self.force_reload = False
+        # If not set to force a reload, we may already have valid session attributes; short here if so
+        elif all([self._session_id, self._session_secret, self._session_created]):
+            return False
+
+        # If there is a cached session file, we will try to load from it
+        if self._cached_session_file.exists():
+            try:
+                session_id, secret, created = self._parse_auth_data(self._cached_session_file.read_text())
+                # Only set if all three read properties are valid
+                if all([session_id, secret, created]):
+                    self._session_id = session_id
+                    self._session_secret = secret
+                    self._session_created = created
+                    self._is_new_session = False
+            except Exception as e:
+                pass
+            # Return opposite of whether session properties are now set correctly (that would mean don't need a session)
+            return not all([self._session_id, self._session_secret, self._session_created])
+        else:
+            return True
+
+    @property
+    def force_reload(self) -> bool:
+        """
+        Whether client should be forced to reload cached auth data on the next call to ::method:`async_acquire_session`.
+
+        Note that this property will be (re)set to ``False`` after the next call to ::method:`async_acquire_session`.
+
+        Returns
+        -------
+        bool
+            Whether to force reloading cached auth data on the next called to ::method:`async_acquire_session`.
+        """
+        return self._force_reload
+
+    @force_reload.setter
+    def force_reload(self, should_force_reload: bool):
+        self._force_reload = should_force_reload
+
+    @property
+    def is_new_session(self) -> Optional[bool]:
+        """
+        Whether the current session was obtained newly from the service, as opposed to read from cache.
+
+        Returns
+        -------
+        Optional[bool]
+            Whether the current session was obtained newly from the service, as opposed to read from cache; ``None`` if
+            no session is yet acquired/loaded.
+        """
+        return self._is_new_session
+
+
 class RequestClient(Generic[M, R]):
     """
     Simple, generic DMOD service client, dealing with some type of DMOD request message and response objects.
@@ -412,7 +744,7 @@ class RequestClient(Generic[M, R]):
         """
         return self._request_type
 
-    def _process_request_response(self, response_str: str) -> R:
+    def _process_request_response(self, response_str: str, response_type: Type[R]) -> R:
         """
         Process the serial form of a response returned by ::method:`async_send` into a response object.
 
@@ -430,8 +762,6 @@ class RequestClient(Generic[M, R]):
         -------
         async_send
         """
-        response_type = self.response_type
-        my_class_name = self.__class__.__name__
         response_json = {}
         try:
             # Consume the response confirmation by deserializing first to JSON, then from this to a response object
@@ -439,18 +769,18 @@ class RequestClient(Generic[M, R]):
             try:
                 response_object = response_type.factory_init_from_deserialized_json(response_json)
                 if response_object is None:
-                    msg = '********** {} could not deserialize {} from raw websocket response: `{}`'.format(
-                        my_class_name, response_type.__name__, str(response_str))
-                    reason = '{} Could Not Deserialize To {}'.format(my_class_name, response_type.__name__)
+                    msg = f'********** {self.__class__.__name__} could not deserialize {response_type.__name__} from ' \
+                          f'raw websocket response: `{str(response_str)}`'
+                    reason = f'{self.__class__.__name__} Could Not Deserialize To {response_type.__name__}'
                     response_object = self.build_response(success=False, reason=reason, message=msg, data=response_json)
             except Exception as e2:
-                msg = '********** While deserializing {}, {} encountered {}: {}'.format(
-                    response_type.__name__, my_class_name, e2.__class__.__name__, str(e2))
-                reason = '{} {} Deserializing {}'.format(my_class_name, e2.__class__.__name__, response_type.__name__)
+                msg = f'********** While deserializing {response_type.__name__}, {self.__class__.__name__} ' \
+                      f'encountered {e2.__class__.__name__}: {str(e2)}'
+                reason = f'{self.__class__.__name__} {e2.__class__.__name__} Deserializing {response_type.__name__}'
                 response_object = self.build_response(success=False, reason=reason, message=msg, data=response_json)
         except Exception as e:
             reason = 'Invalid JSON Response'
-            msg = 'Encountered {} loading response to JSON: {}'.format(e.__class__.__name__, str(e))
+            msg = f'Encountered {e.__class__.__name__} loading response to JSON: {str(e)}'
             response_object = self.build_response(success=False, reason=reason, message=msg, data=response_json)
 
         if not response_object.success:
@@ -459,7 +789,7 @@ class RequestClient(Generic[M, R]):
                                                                        response_object.to_json()))
         return response_object
 
-    async def async_make_request(self, message: M) -> R:
+    async def async_make_request(self, message: M, expected_response_type: Type[R]) -> R:
         """
         Async send a request message object and return the received response.
 
@@ -476,13 +806,6 @@ class RequestClient(Generic[M, R]):
         R
             the request response object
         """
-        if not isinstance(message, self.request_type):
-            reason = f'{self.__class__.__name__} Received Unexpected Type {message.__class__.__name__}'
-            msg = f'{self.__class__.__name__} received unexpected {message.__class__.__name__} ' \
-                  f'instance as request, rather than a {self.request_type.__name__} instance; not submitting'
-            logger.error(msg)
-            return self.build_response(success=False, reason=reason, message=msg)
-
         response_json = {}
         try:
             # Send the request and get the service response
@@ -494,10 +817,10 @@ class RequestClient(Generic[M, R]):
             msg = f'{self.__class__.__name__} raised {e.__class__.__name__} sending {message.__class__.__name__}: ' \
                   f'{str(e)}'
             logger.error(msg)
-            return self.build_response(success=False, reason=reason, message=msg, data=response_json)
+            return expected_response_type(success=False, reason=reason, message=msg, data=response_json)
 
         assert isinstance(serialized_response, str)
-        return self._process_request_response(serialized_response)
+        return self._process_request_response(serialized_response, expected_response_type)
 
     def build_response(self, success: bool, reason: str, message: str = '', data: Optional[dict] = None,
                        **kwargs) -> R:
