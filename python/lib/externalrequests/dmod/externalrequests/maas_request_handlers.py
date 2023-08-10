@@ -6,8 +6,8 @@ from abc import ABC, abstractmethod
 
 from dmod.access import Authorizer
 from dmod.communication import AbstractRequestHandler, DataServiceClient, FullAuthSession, ExternalRequest, \
-    InitRequestResponseReason, InternalServiceClient, PartitionRequest, PartitionResponse, PartitionerServiceClient, \
-    Session, SessionManager
+    InitRequestResponseReason, RequestClient, PartitionRequest, PartitionResponse, PartitionerServiceClient, \
+    TransportLayerClient, Session, SessionManager, WebSocketClient
 from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage, MaaSDatasetManagementResponse, \
     ManagementAction
 from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
@@ -38,6 +38,7 @@ class MaaSRequestHandler(AbstractRequestHandler, ABC):
         self._service_port = service_port
         self._service_ssl_dir = service_ssl_dir
         self._service_url = None
+        self._transport_client = None
 
     async def _is_authorized(self, request: ExternalRequest, session: FullAuthSession) -> bool:
         """
@@ -130,14 +131,21 @@ class MaaSRequestHandler(AbstractRequestHandler, ABC):
         return session, is_authorized, reason, msg
 
     @property
+    def transport_client(self) -> TransportLayerClient:
+        if self._transport_client is None:
+            # TODO: parameterize whether to, e.g., use websocket uri/protocol, as opposed to something else
+            self._transport_client = WebSocketClient(endpoint_uri=self.service_url, ssl_directory=self.service_ssl_dir)
+        return self._transport_client
+
+    @property
     @abstractmethod
-    def service_client(self) -> InternalServiceClient:
+    def service_client(self) -> RequestClient:
         """
-        Get the client for interacting with the service, which also is a context manager for connections.
+        Get the client for interacting with the service.
 
         Returns
         -------
-        InternalServiceClient
+        RequestClient
             The client for interacting with the service.
         """
         pass
@@ -148,6 +156,7 @@ class MaaSRequestHandler(AbstractRequestHandler, ABC):
 
     @property
     def service_url(self) -> str:
+        # TODO: parameterize whether to, e.g., use websocket uri/protocol, as opposed to something else
         if self._service_url is None:
             self._service_url = 'wss://{}:{}'.format(str(self._service_host), str(self._service_port))
         return self._service_url
@@ -202,7 +211,7 @@ class PartitionRequestHandler(MaaSRequestHandler):
     @property
     def service_client(self) -> PartitionerServiceClient:
         if self._service_client is None:
-            self._service_client = PartitionerServiceClient(self.service_url, self.service_ssl_dir)
+            self._service_client = PartitionerServiceClient(transport_client=self.transport_client)
         return self._service_client
 
     async def handle_request(self, request: PartitionRequest, **kwargs) -> PartitionResponse:
@@ -332,5 +341,5 @@ class DatasetRequestHandler(MaaSRequestHandler):
     @property
     def service_client(self) -> DataServiceClient:
         if self._service_client is None:
-            self._service_client = DataServiceClient(endpoint_uri=self.service_url, ssl_directory=self.service_ssl_dir)
+            self._service_client = DataServiceClient(transport_client=self.transport_client)
         return self._service_client
