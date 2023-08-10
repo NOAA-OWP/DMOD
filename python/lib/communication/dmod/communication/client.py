@@ -5,6 +5,7 @@ import ssl
 import typing
 from abc import ABC, abstractmethod
 from asyncio import AbstractEventLoop
+from deprecated import deprecated
 from pathlib import Path
 from typing import Generic, Optional, Type, TypeVar, Union
 
@@ -12,10 +13,9 @@ import websockets
 
 from .maas_request import ExternalRequest, ExternalRequestResponse
 from .message import AbstractInitRequest, Response
-from .partition_request import PartitionRequest, PartitionResponse
-from .dataset_management_message import DatasetManagementMessage, DatasetManagementResponse
-from .scheduler_request import SchedulerRequestMessage, SchedulerRequestResponse
-from .evaluation_request import EvaluationConnectionRequest
+from .partition_request import PartitionResponse
+from .dataset_management_message import DatasetManagementResponse
+from .scheduler_request import SchedulerRequestResponse
 from .evaluation_request import EvaluationConnectionRequestResponse
 from .update_message import UpdateMessage, UpdateMessageResponse
 
@@ -837,6 +837,7 @@ class WebSocketClient(SSLSecuredTransportLayerClient, ConnectionContextClient[we
             return await websocket.connection.recv()
 
 
+@deprecated("Use RequestClient or ExternalRequestClient instead")
 class SchedulerClient(RequestClient):
 
     def __init__(self, *args, **kwargs):
@@ -948,6 +949,7 @@ class ExternalRequestClient(RequestClient):
         return self._warnings
 
 
+@deprecated("Use RequestClient or ExternalRequestClient instead")
 class DataServiceClient(RequestClient):
     """
     Client for data service communication between internal DMOD services.
@@ -957,6 +959,7 @@ class DataServiceClient(RequestClient):
         super().__init__(default_response_type=DatasetManagementResponse, *args, **kwargs)
 
 
+@deprecated("Use RequestClient or ExternalRequestClient instead")
 class PartitionerServiceClient(RequestClient):
     """
     A client for interacting with the partitioner service.
@@ -969,6 +972,7 @@ class PartitionerServiceClient(RequestClient):
         super().__init__(default_response_type=PartitionResponse, *args, **kwargs)
 
 
+@deprecated("Use RequestClient or ExternalRequestClient instead")
 class EvaluationServiceClient(RequestClient):
     """
     A client for interacting with the evaluation service
