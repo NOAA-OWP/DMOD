@@ -24,12 +24,6 @@ import logging
 # TODO: refactor this to allow for implementation-specific overriding more easily
 logger = logging.getLogger("gui_log")
 
-M = TypeVar("M", bound=AbstractInitRequest)
-R = TypeVar("R", bound=Response)
-
-EXTERN_REQ_M = TypeVar("EXTERN_REQ_M", bound=ExternalRequest)
-EXTERN_REQ_R = TypeVar("EXTERN_REQ_R", bound=ExternalRequestResponse)
-
 CONN = TypeVar("CONN")
 
 def get_or_create_eventloop() -> AbstractEventLoop:
