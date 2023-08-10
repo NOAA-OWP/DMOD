@@ -2,24 +2,21 @@ import asyncio
 import datetime
 import json
 import ssl
-import traceback
 import typing
 from abc import ABC, abstractmethod
 from asyncio import AbstractEventLoop
 from pathlib import Path
 from typing import Generic, Optional, Type, TypeVar, Union
-from dmod.core.serializable import Serializable
 
 import websockets
 
 from .maas_request import ExternalRequest, ExternalRequestResponse
-from .message import AbstractInitRequest, Message, Response, InitRequestResponseReason
+from .message import AbstractInitRequest, Response
 from .partition_request import PartitionRequest, PartitionResponse
 from .dataset_management_message import DatasetManagementMessage, DatasetManagementResponse
 from .scheduler_request import SchedulerRequestMessage, SchedulerRequestResponse
 from .evaluation_request import EvaluationConnectionRequest
 from .evaluation_request import EvaluationConnectionRequestResponse
-from .validator import NWMRequestJsonValidator
 from .update_message import UpdateMessage, UpdateMessageResponse
 
 import logging
@@ -480,22 +477,22 @@ class CachedAuthClient(AuthClient):
         return self._is_new_session
 
 
-class RequestClient(Generic[M, R]):
+class RequestClient:
     """
-    Simple, generic DMOD service client, dealing with some type of DMOD request message and response objects.
+    Simple DMOD service client, dealing with DMOD request message and response objects.
 
-    Generic client type for interaction with a DMOD service. Its primary function accepts some DMOD request message
-    object, makes submits a request to the service by relaying the aforementioned object, and receives/returns the
-    response as an object of the corresponding type.  The underlying communication is handled by way of a
-    ::class:`TransportLayerClient` supplied during initialization.
+    Basic client type for interaction with a DMOD service. Its primary function, ::method:`async_make_request`, accepts
+    some DMOD ::class:`AbstractInitRequest` object, uses a ::class:`TransportLayerClient` to submit the request object
+    to a service, and receives/returns the service's response.
 
-    This type is relatively simple in that a particular instance deals with a strict request/response pair.  Its
-    functions are thus implemented to sanity check the types received - both as argument and in communication from the
-    service - and raise exceptions if they are of unexpected types.
+    To parse responses, instances must know the appropriate class type for a response.  This can be provided as an
+    optional parameter to ::method:`async_make_request`.  A default response class type can also be supplied to an
+    instance during init, which is used by ::method:`async_make_request` if a class type is not provided.  One of the
+    two must be set for ::method:`async_make_request` to function.
     """
 
-    def __init__(self, transport_client: TransportLayerClient, request_type: Type[M], response_type: Type[R], *args,
-                 **kwargs):
+    def __init__(self, transport_client: TransportLayerClient, default_response_type: Optional[Type[Response]] = None,
+                 *args, **kwargs):
         """
         Initialize.
 
@@ -503,38 +500,15 @@ class RequestClient(Generic[M, R]):
         ----------
         transport_client : TransportLayerClient
             The client for handling the underlying raw OSI transport layer communications with the service.
+        default_response_type: Optional[Type[Response]]
+            Optional class type for responses, to use when no response class param is given when making a request.
         args
         kwargs
         """
         self._transport_client = transport_client
-        self._request_type: Type[M] = request_type
-        self._response_type: Type[R] = response_type
+        self._default_response_type: Optional[Type[Response]] = default_response_type
 
-    @property
-    def response_type(self) -> Type[R]:
-        """
-        The response subtype class appropriate for this client implementation.
-
-        Returns
-        -------
-        Type[R]
-            The response subtype class appropriate for this client implementation.
-        """
-        return self._response_type
-
-    @property
-    def request_type(self) -> Type[M]:
-        """
-        Return the request message subtype class appropriate for this client implementation.
-
-        Returns
-        -------
-        Type[M]
-            The request message subtype class appropriate for this client implementation.
-        """
-        return self._request_type
-
-    def _process_request_response(self, response_str: str, response_type: Type[R]) -> R:
+    def _process_request_response(self, response_str: str, response_type: Optional[Type[Response]] = None) -> Response:
         """
         Process the serial form of a response returned by ::method:`async_send` into a response object.
 
@@ -542,16 +516,22 @@ class RequestClient(Generic[M, R]):
         ----------
         response_str : str
             The string returned by a request made via ::method:`async_send`.
+        response_type: Optional[Type[Response]]
+            An optional class type for the response that, if ``None`` (the default) is replaced with the default
+            provided at initialization.
 
         Returns
         -------
-        R
+        Response
             The inflated response object.
 
         See Also
         -------
         async_send
         """
+        if response_type is None:
+            response_type = self._default_response_type
+
         response_json = {}
         try:
             # Consume the response confirmation by deserializing first to JSON, then from this to a response object
@@ -559,27 +539,26 @@ class RequestClient(Generic[M, R]):
             try:
                 response_object = response_type.factory_init_from_deserialized_json(response_json)
                 if response_object is None:
-                    msg = f'********** {self.__class__.__name__} could not deserialize {response_type.__name__} from ' \
-                          f'raw websocket response: `{str(response_str)}`'
+                    msg = f'********** {self.__class__.__name__} could not deserialize {response_type.__name__} ' \
+                          f'from raw websocket response: `{str(response_str)}`'
                     reason = f'{self.__class__.__name__} Could Not Deserialize To {response_type.__name__}'
-                    response_object = self.build_response(success=False, reason=reason, message=msg, data=response_json)
+                    response_object = response_type(success=False, reason=reason, message=msg, data=response_json)
             except Exception as e2:
                 msg = f'********** While deserializing {response_type.__name__}, {self.__class__.__name__} ' \
                       f'encountered {e2.__class__.__name__}: {str(e2)}'
-                reason = f'{self.__class__.__name__} {e2.__class__.__name__} Deserializing {response_type.__name__}'
-                response_object = self.build_response(success=False, reason=reason, message=msg, data=response_json)
+                reason = f'{self.__class__.__name__} {e2.__class__.__name__} Deserialize {response_type.__name__}'
+                response_object = response_type(success=False, reason=reason, message=msg, data=response_json)
         except Exception as e:
             reason = 'Invalid JSON Response'
             msg = f'Encountered {e.__class__.__name__} loading response to JSON: {str(e)}'
-            response_object = self.build_response(success=False, reason=reason, message=msg, data=response_json)
+            response_object = response_type(success=False, reason=reason, message=msg, data=response_json)
 
         if not response_object.success:
             logging.error(response_object.message)
-        logging.debug('************* {} returning {} object {}'.format(self.__class__.__name__, response_type.__name__,
-                                                                       response_object.to_json()))
+        logging.debug(f'{self.__class__.__name__} returning {str(response_type)} {response_str}')
         return response_object
 
-    async def async_make_request(self, message: M, expected_response_type: Type[R]) -> R:
+    async def async_make_request(self, message: AbstractInitRequest, response_type: Optional[Type[Response]] = None) -> Response:
         """
         Async send a request message object and return the received response.
 
@@ -588,14 +567,24 @@ class RequestClient(Generic[M, R]):
 
         Parameters
         ----------
-        message : M
-            the request message object
+        message : AbstractInitRequest
+            The request message object.
+        response_type: Optional[Type[Response]]
+            An optional class type for the response that, if ``None`` (the default) is replaced with the default
+            provided at initialization.
 
         Returns
         -------
-        R
+        Response
             the request response object
         """
+        if response_type is None:
+            if self._default_response_type is None:
+                msg = f"{self.__class__.__name__} can't make request with neither response type parameter or default"
+                raise RuntimeError(msg)
+            else:
+                response_type = self._default_response_type
+
         response_json = {}
         try:
             # Send the request and get the service response
@@ -604,50 +593,12 @@ class RequestClient(Generic[M, R]):
                 raise ValueError(f'Serialized response from {self.__class__.__name__} async message was `None`')
         except Exception as e:
             reason = f'{self.__class__.__name__} Send {message.__class__.__name__} Failure ({e.__class__.__name__})'
-            msg = f'{self.__class__.__name__} raised {e.__class__.__name__} sending {message.__class__.__name__}: ' \
-                  f'{str(e)}'
+            msg = f'Sending {message.__class__.__name__} raised {e.__class__.__name__}: {str(e)}'
             logger.error(msg)
-            return expected_response_type(success=False, reason=reason, message=msg, data=response_json)
+            return response_type(success=False, reason=reason, message=msg, data=response_json)
 
         assert isinstance(serialized_response, str)
-        return self._process_request_response(serialized_response, expected_response_type)
-
-    def build_response(self, success: bool, reason: str, message: str = '', data: Optional[dict] = None,
-                       **kwargs) -> R:
-        """
-        Build a response of the appropriate subtype from the given response details.
-
-        Build a response of the appropriate subtype for this particular implementation, using the given parameters for
-        this function as the initialization params for the response.  Per the design of ::class:`Response`, the primary
-        attributes are ::attribute:`Response.success`, ::attribute:`Response.reason`, ::attribute:`Response.message`,
-        and ::attribute:`Response.data`.  However, implementations may permit or require additional param values, which
-        can be supplied via keyword args.
-
-        As with the init of ::class:`Request`, defaults of ``''`` (empty string) and  ``None`` are in place for for
-        ``message`` and ``data`` respectively.
-
-        A default implementation is provided that initializes an instance of the type return by
-        ::method:`get_response_subtype`.  Keyword args are not used in this default implementation.
-
-        Parameters
-        ----------
-        success : bool
-            The value for ::attribute:`Response.success` to use when initializing the response object.
-        reason : str
-            The value for ::attribute:`Response.reason` to use when initializing the response object.
-        message : str
-            The value for ::attribute:`Response.message` to use when initializing the response object (default: ``''``).
-        data : dict
-            The value for ::attribute:`Response.data` to use when initializing the response object (default: ``None``).
-        kwargs : dict
-            A dict for any additional implementation specific init params for the response object.
-
-        Returns
-        -------
-        R
-            A response object of the appropriate subtype.
-        """
-        return self.response_type(success=success, reason=reason, message=message, data=data)
+        return self._process_request_response(serialized_response)
 
 
 class ConnectionContextClient(Generic[CONN], TransportLayerClient, ABC):
@@ -886,11 +837,10 @@ class WebSocketClient(SSLSecuredTransportLayerClient, ConnectionContextClient[we
             return await websocket.connection.recv()
 
 
-class SchedulerClient(RequestClient[SchedulerRequestMessage, SchedulerRequestResponse]):
+class SchedulerClient(RequestClient):
 
-    @classmethod
-    def get_response_subtype(cls) -> Type[SchedulerRequestResponse]:
-        return SchedulerRequestResponse
+    def __init__(self, *args, **kwargs):
+        super().__init__(default_response_type=SchedulerRequestResponse, *args, **kwargs)
 
     async def async_send_update(self, message: UpdateMessage) -> UpdateMessageResponse:
         """
@@ -930,7 +880,7 @@ class SchedulerClient(RequestClient[SchedulerRequestMessage, SchedulerRequestRes
                                          response_text='None' if serialized_response is None else serialized_response)
 
 
-class ExternalRequestClient(RequestClient[EXTERN_REQ_M, EXTERN_REQ_R]):
+class ExternalRequestClient(RequestClient):
 
     def __init__(self, auth_client: AuthClient, *args, **kwargs):
         """
@@ -944,8 +894,6 @@ class ExternalRequestClient(RequestClient[EXTERN_REQ_M, EXTERN_REQ_R]):
         Other Parameters
         ----------
         transport_client: TransportLayerClient
-        request_type: Type[EXTERN_REQ_M]
-        response_type: Type[EXTERN_REQ_R]
         """
         super().__init__(*args, **kwargs)
 
@@ -955,7 +903,8 @@ class ExternalRequestClient(RequestClient[EXTERN_REQ_M, EXTERN_REQ_R]):
         self._warnings = None
         self._info = None
 
-    async def async_make_request(self, message: EXTERN_REQ_M, expected_response_type: Type[EXTERN_REQ_R]) -> EXTERN_REQ_R:
+    async def async_make_request(self, message: ExternalRequest,
+                                 response_type: Optional[Type[ExternalRequestResponse]] = None) -> ExternalRequestResponse:
         """
         Async send a request message object and return the received response.
 
@@ -964,21 +913,27 @@ class ExternalRequestClient(RequestClient[EXTERN_REQ_M, EXTERN_REQ_R]):
 
         Parameters
         ----------
-        message : EXTERN_REQ_R
-            the request message object
+        message : ExternalRequest
+            The request message object.
+        response_type: Optional[Type[ExternalRequestResponse]]
+            An optional class type for the response that, if ``None`` (the default) is replaced with the default
+            provided at initialization.
 
         Returns
         -------
         EXTERN_REQ_R
             the request response object
         """
+        if response_type is None:
+            response_type = self._default_response_type
+
         if await self._auth_client.apply_auth(message):
-            return await super().async_make_request(message, expected_response_type)
+            return await super().async_make_request(message, response_type=response_type)
         else:
             reason = f'{self.__class__.__name__} Request Auth Failure'
             msg = f'{self.__class__.__name__} async_make_request could not apply auth to {message.__class__.__name__}'
             logger.error(msg)
-            return expected_response_type(success=False, reason=reason, message=msg)
+            return response_type(success=False, reason=reason, message=msg)
 
     @property
     def errors(self):
@@ -993,16 +948,16 @@ class ExternalRequestClient(RequestClient[EXTERN_REQ_M, EXTERN_REQ_R]):
         return self._warnings
 
 
-class DataServiceClient(RequestClient[DatasetManagementMessage, DatasetManagementResponse]):
+class DataServiceClient(RequestClient):
     """
     Client for data service communication between internal DMOD services.
     """
-    @classmethod
-    def get_response_subtype(cls) -> Type[DatasetManagementResponse]:
-        return DatasetManagementResponse
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(default_response_type=DatasetManagementResponse, *args, **kwargs)
 
 
-class PartitionerServiceClient(RequestClient[PartitionRequest, PartitionResponse]):
+class PartitionerServiceClient(RequestClient):
     """
     A client for interacting with the partitioner service.
 
@@ -1010,31 +965,13 @@ class PartitionerServiceClient(RequestClient[PartitionRequest, PartitionResponse
     does not need to be a (public) ::class:`ExternalRequestClient` based type.
     """
 
-    @classmethod
-    def get_response_subtype(cls) -> Type[PartitionResponse]:
-        """
-        Return the response subtype class appropriate for this client implementation.
-
-        Returns
-        -------
-        Type[PartitionResponse]
-            The response subtype class appropriate for this client implementation.
-        """
-        return PartitionResponse
+    def __init__(self, *args, **kwargs):
+        super().__init__(default_response_type=PartitionResponse, *args, **kwargs)
 
 
-class EvaluationServiceClient(RequestClient[EvaluationConnectionRequest, EvaluationConnectionRequestResponse]):
+class EvaluationServiceClient(RequestClient):
     """
     A client for interacting with the evaluation service
     """
-
-    @classmethod
-    def get_response_subtype(cls) -> Type[EvaluationConnectionRequestResponse]:
-        """
-        Return the response subtype class appropriate for this client implementation
-
-        Returns:
-        Type[EvaluationConnectionRequestResponse]
-            The response subtype class appropriate for this client implementation
-        """
-        return EvaluationConnectionRequestResponse
+    def __init__(self, *args, **kwargs):
+        super().__init__(default_response_type=EvaluationConnectionRequestResponse, *args, **kwargs)
