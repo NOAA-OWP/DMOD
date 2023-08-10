@@ -1,20 +1,16 @@
 import asyncio
-import json
 import logging
+import ssl
 import unittest
-from pathlib import Path
 from typing import Optional, Union
-from ..communication import NWMRequest, SchedulerClient, SchedulerRequestMessage, SchedulerRequestResponse
+from ..communication import NWMRequest, SchedulerClient, SchedulerRequestMessage, SchedulerRequestResponse, \
+    TransportLayerClient
 
 
-class MockSendTestingSchedulerClient(SchedulerClient):
-    """
-    Customized extension of ``SchedulerClient`` for testing purposes, where the :meth:`async_send` method has been
-    overridden with a mock implementation to allow for testing without actually needing a real websocket connection.
-    """
+class MockTransportLayerClient(TransportLayerClient):
 
     def __init__(self):
-        super().__init__(endpoint_uri='', ssl_directory=Path('.'))
+        super().__init__(endpoint_uri='')
 
         self.test_responses = dict()
 
@@ -52,20 +48,52 @@ class MockSendTestingSchedulerClient(SchedulerClient):
         else:
             return str(response)
 
-    def set_scheduler_response_none(self):
+    async def async_recv(self) -> str:
+        pass
+
+    @property
+    def client_ssl_context(self) -> ssl.SSLContext:
+        pass
+
+    def set_client_response_none(self):
         self.test_response_selection = 0
 
-    def set_scheduler_response_non_json_string(self):
+    def set_client_response_non_json_string(self):
         self.test_response_selection = 1
 
-    def set_scheduler_response_unrecognized_json(self):
+    def set_client_response_unrecognized_json(self):
         self.test_response_selection = 2
 
-    def set_scheduler_response_valid_obj_for_failure(self):
+    def set_client_response_valid_obj_for_failure(self):
         self.test_response_selection = 3
 
-    def set_scheduler_response_valid_obj_for_success(self):
+    def set_client_response_valid_obj_for_success(self):
         self.test_response_selection = 4
+    
+    
+class MockSendTestingSchedulerClient(SchedulerClient):
+    """
+    Customized extension of ``SchedulerClient`` for testing purposes, where the :meth:`async_send` method has been
+    overridden with a mock implementation to allow for testing without actually needing a real websocket connection.
+    """
+
+    def __init__(self):
+        super().__init__(transport_client=MockTransportLayerClient())
+
+    def set_scheduler_response_none(self):
+        self._transport_client.test_response_selection = 0
+
+    def set_scheduler_response_non_json_string(self):
+        self._transport_client.test_response_selection = 1
+
+    def set_scheduler_response_unrecognized_json(self):
+        self._transport_client.test_response_selection = 2
+
+    def set_scheduler_response_valid_obj_for_failure(self):
+        self._transport_client.test_response_selection = 3
+
+    def set_scheduler_response_valid_obj_for_success(self):
+        self._transport_client.test_response_selection = 4
 
 
 class TestSchedulerClient(unittest.TestCase):
@@ -102,26 +130,6 @@ class TestSchedulerClient(unittest.TestCase):
     def tearDown(self) -> None:
         self.loop.stop()
         self.loop.close()
-
-    def test_get_response_subtype_1_a(self):
-        """
-        Test that ``get_response_subtype`` returns the right type.
-        """
-        self.assertEqual(SchedulerRequestResponse, self.client.get_response_subtype())
-
-    def test_build_response_1_a(self):
-        """
-        Basic test to ensure this function operates correctly.
-        """
-        response = self.client.build_response(success=True, reason='Test Good', message='Test worked correctly')
-        self.assertTrue(isinstance(response, SchedulerRequestResponse))
-
-    def test_build_response_1_b(self):
-        """
-        Basic test to ensure this response has the expected ``success`` value.
-        """
-        response = self.client.build_response(success=True, reason='Test Good', message='Test worked correctly')
-        self.assertTrue(response.success)
 
     def test_async_make_request_1_a(self):
         """
