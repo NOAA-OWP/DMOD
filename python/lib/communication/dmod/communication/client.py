@@ -283,11 +283,11 @@ class AuthClient:
         self._force_reauth = should_force_new
 
     @property
-    def session_created(self) -> str:
+    def session_created(self) -> Optional[str]:
         return self._session_created
 
     @property
-    def session_id(self) -> str:
+    def session_id(self) -> Optional[str]:
         return self._session_id
 
 
