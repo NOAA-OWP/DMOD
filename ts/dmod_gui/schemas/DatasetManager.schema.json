@@ -309,7 +309,7 @@
         },
         "length": {
           "title": "Length",
-          "min": 0,
+          "minimum": 0,
           "type": "integer"
         },
         "data_id": {

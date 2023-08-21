@@ -19,8 +19,15 @@ from .base import TemplatedSpecification
 from .template import TemplateManager
 
 
+METRIC_NAME = typing.Union[(
+    typing.Literal[metric.get_identifier()]
+    for metric in metrics.get_all_metrics()
+)]
+
+
 class MetricSpecification(TemplatedSpecification):
     weight: typing.Union[float] = Field(description="A relative rating of the significance of this metric")
+    name: typing.Literal[metrics.metric.get_all_metrics()] = Field
 
     def __eq__(self, other: MetricSpecification) -> bool:
         if not super().__eq__(other):
