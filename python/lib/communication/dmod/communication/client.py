@@ -322,7 +322,7 @@ class CachedAuthClient(AuthClient):
         self._is_new_session = None
         self._force_reload = False
 
-        default_basename = '.{}_session'.format(datetime.datetime.now().strftime('%Y%m%d%H%M%S%s'))
+        default_basename = '.dmod_session'
 
         if session_file is None:
             self._cached_session_file = Path.home().joinpath(default_basename)
