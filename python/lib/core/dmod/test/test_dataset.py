@@ -70,6 +70,13 @@ class TestDataset(unittest.TestCase):
                                       "created_on": datetime.strftime(self._created_on, Dataset._SERIAL_DATETIME_STR_FORMAT),
                                       })
 
+    def test_schema_generation(self):
+        try:
+            schema = Dataset.schema()
+            schema_json = Dataset.schema_json()
+        except Exception as e:
+            self.fail(f"Dataset object schema cannot be generated - {str(e)}")
+
     def test_factory_init_from_deserialized_json_0_a(self):
         """ Test basic operation of function on example 0. """
         ex_indx = 0
