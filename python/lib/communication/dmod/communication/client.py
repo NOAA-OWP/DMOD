@@ -769,8 +769,8 @@ class WebSocketClient(SSLSecuredTransportLayerClient, ConnectionContextClient[we
     over the websocket.
     """
 
-    @classmethod
-    def build_endpoint_uri(cls, host: str, port: Union[int, str], path: Optional[str] = None, is_secure: bool = True):
+    @staticmethod
+    def build_endpoint_uri(host: str, port: Union[int, str], path: Optional[str] = None, is_secure: bool = True):
         proto = 'wss' if is_secure else 'ws'
         if path is None:
             path = ''
