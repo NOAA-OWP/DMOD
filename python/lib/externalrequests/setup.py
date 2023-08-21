@@ -20,6 +20,6 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=['websockets', 'dmod-core>=0.1.0', 'dmod-communication>=1.0.0', 'dmod-access>=0.1.1'],
+    install_requires=['websockets', 'dmod-core>=0.1.0', 'dmod-communication>=0.15.0', 'dmod-access>=0.1.1'],
     packages=find_namespace_packages(exclude=['dmod.test', 'schemas', 'ssl', 'src'])
 )
