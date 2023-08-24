@@ -54,15 +54,34 @@ class TransportLayerClient(ABC):
     data to accept data and send this data to a server at some endpoint.  The interface function for this behavior
     supports optionally waiting for and returning a raw data response.  Alternatively, the type provides a function for
     receiving a response from the server independently.
+
+    Instances are capable of securing communications using an ::class:`SSLContext`.  A customized context or default
+    context can be created, depending on the parameters passed during init.
     """
-    def __init__(self, endpoint_uri: str, *args, **kwargs):
+    def __init__(self, endpoint_uri: str, cafile: Optional[Path] = None, capath: Optional[Path] = None,
+                 use_default_context: bool = False, *args, **kwargs):
         """
         Initialize this instance.
+
+        Initialization may or may not include creation of an ::class:`SSLContext`, according to these rules:
+            - If ``cafile`` is ``None``, ``capath`` is ``None``, and ``use_default_context`` is ``False`` (which are the
+              default values for each), then no ::class:`SSLContext` is created.
+            - If ``use_default_context`` is ``True``, ::function:`ssl.create_default_context` is used to create a
+              context object, with ``cafile`` and ``capath`` passed as kwargs.
+            - If either ``cafile`` or ``capath`` is not ``None``, and ``use_default_context`` is ``False``, a customized
+              context object is created, with certificates loaded from locations at ``cafile`` and/or ``capath``.
 
         Parameters
         ----------
         endpoint_uri: str
             The endpoint for the client to connect to when opening a connection.
+        cafile: Optional[Path]
+            Optional path to CA certificates PEM file.
+        capath: Optional[Path]
+            Optional path to directory containing CA certificates PEM files, following an OpenSSL specific layout (see
+            ::function:`ssl.SSLContext.load_verify_locations`).
+        use_default_context: bool
+            Whether to use ::function:`ssl.create_default_context` to create a ::class:`SSLContext` (default ``False``).
         args
             Other unused positional parameters.
         kwargs
@@ -72,6 +91,14 @@ class TransportLayerClient(ABC):
 
         self.endpoint_uri = endpoint_uri
         """str: The endpoint for the client to connect to when opening a connection."""
+
+        if use_default_context:
+            self._client_ssl_context = ssl.create_default_context(cafile=cafile, capath=capath)
+        elif cafile is not None or capath is not None:
+            self._client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            self._client_ssl_context.load_verify_locations(cafile=cafile, capath=capath)
+        else:
+            self._client_ssl_context = None
 
     @abstractmethod
     async def async_send(self, data: Union[str, bytearray, bytes], await_response: bool = False) -> Optional[str]:
@@ -103,6 +130,18 @@ class TransportLayerClient(ABC):
             The data received from the server, as a string.
         """
         pass
+
+    @property
+    def client_ssl_context(self) -> Optional[ssl.SSLContext]:
+        """
+        The client SSL context for securing connections, if one was created.
+
+        Returns
+        -------
+        Optional[ssl.SSLContext]
+            The client SSL context for securing connections, if one was created; otherwise ``None``.
+        """
+        return self._client_ssl_context
 
 
 class SSLSecuredTransportLayerClient(TransportLayerClient, ABC):
