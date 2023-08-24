@@ -144,40 +144,6 @@ class TransportLayerClient(ABC):
         return self._client_ssl_context
 
 
-class SSLSecuredTransportLayerClient(TransportLayerClient, ABC):
-    """
-    Abstract ::class:`TransportLayerClient` capable securing its communications using an ::class:`SSLContext`.
-    """
-    def __init__(self, ssl_directory: Path, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self._ssl_directory = ssl_directory
-        """Path: The parent directory of the cert PEM file used for the client SSL context."""
-
-        # Setup this as a property to allow more private means to override the actual filename of the cert PEM file
-        self._client_ssl_context = None
-        """ssl.SSLContext: The private field for the client SSL context property."""
-
-        self._cert_pem_file_basename: str = 'certificate.pem'
-        """str: The basename of the certificate PEM file to use."""
-
-    @property
-    def client_ssl_context(self) -> ssl.SSLContext:
-        """
-        Get the client SSL context property, lazily instantiating if necessary.
-
-        Returns
-        -------
-        ssl.SSLContext
-            The client SSL context for secure connections.
-        """
-        if self._client_ssl_context is None:
-            self._client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-            endpoint_pem = self._ssl_directory.joinpath(self._cert_pem_file_basename)
-            self.client_ssl_context.load_verify_locations(endpoint_pem)
-        return self._client_ssl_context
-
-
 class AuthClient:
     """
     Simple client object responsible for handling acquiring and applying authenticated session details to requests.
