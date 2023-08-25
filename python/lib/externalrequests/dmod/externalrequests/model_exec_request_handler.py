@@ -183,7 +183,7 @@ class ModelExecRequestHandler(MaaSRequestHandler):
     @property
     def service_client(self) -> SchedulerClient:
         if self._scheduler_client is None:
-            self._scheduler_client = SchedulerClient(ssl_directory=self.service_ssl_dir, endpoint_uri=self.service_url)
+            self._scheduler_client = SchedulerClient(transport_client=self.transport_client)
         return self._scheduler_client
 
 
