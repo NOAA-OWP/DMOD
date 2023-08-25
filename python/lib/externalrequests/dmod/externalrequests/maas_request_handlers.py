@@ -134,7 +134,10 @@ class MaaSRequestHandler(AbstractRequestHandler, ABC):
     def transport_client(self) -> TransportLayerClient:
         if self._transport_client is None:
             # TODO: parameterize whether to, e.g., use websocket uri/protocol, as opposed to something else
-            self._transport_client = WebSocketClient(endpoint_uri=self.service_url, ssl_directory=self.service_ssl_dir)
+            # TODO: subsequent PR that removes this from these types (receive a service client on init) or at least has
+            #  it supplied on init.
+            self._transport_client = WebSocketClient(endpoint_host=self._service_host, endpoint_port=self._service_port,
+                                                     cafile=self.service_ssl_dir.joinpath("certificate.pem"))
         return self._transport_client
 
     @property
@@ -153,13 +156,6 @@ class MaaSRequestHandler(AbstractRequestHandler, ABC):
     @property
     def service_ssl_dir(self) -> Path:
         return self._service_ssl_dir
-
-    @property
-    def service_url(self) -> str:
-        # TODO: parameterize whether to, e.g., use websocket uri/protocol, as opposed to something else
-        if self._service_url is None:
-            self._service_url = 'wss://{}:{}'.format(str(self._service_host), str(self._service_port))
-        return self._service_url
 
 
 class PartitionRequestHandler(MaaSRequestHandler):
