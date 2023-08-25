@@ -10,7 +10,7 @@ from ..communication import NWMRequest, SchedulerClient, SchedulerRequestMessage
 class MockTransportLayerClient(TransportLayerClient):
 
     def __init__(self):
-        super().__init__(endpoint_uri='')
+        super().__init__(endpoint_host='', endpoint_port=8888)
 
         self.test_responses = dict()
 
@@ -54,6 +54,10 @@ class MockTransportLayerClient(TransportLayerClient):
     @property
     def client_ssl_context(self) -> ssl.SSLContext:
         pass
+
+    @property
+    def endpoint_uri(self) -> str:
+        return ''
 
     def set_client_response_none(self):
         self.test_response_selection = 0
