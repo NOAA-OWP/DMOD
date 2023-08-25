@@ -1,6 +1,6 @@
 from ._version import __version__
 from .client import AuthClient, CachedAuthClient, DataServiceClient, ExternalRequestClient, PartitionerServiceClient, \
-    RequestClient, SchedulerClient, SSLSecuredTransportLayerClient, TransportLayerClient, WebSocketClient
+    RequestClient, SchedulerClient, TransportLayerClient, WebSocketClient
 from .maas_request import get_available_models, get_available_outputs, get_distribution_types, get_parameters, \
     get_request, AbstractNgenRequest, Distribution, DmodJobRequest, ExternalRequest, ExternalRequestResponse,\
     ModelExecRequest, ModelExecRequestResponse, NWMRequest, NWMRequestResponse, Scalar, NGENRequest, \
