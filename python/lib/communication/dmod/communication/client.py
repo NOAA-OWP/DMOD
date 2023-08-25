@@ -58,8 +58,10 @@ class TransportLayerClient(ABC):
     Instances are capable of securing communications using an ::class:`SSLContext`.  A customized context or default
     context can be created, depending on the parameters passed during init.
     """
-    def __init__(self, endpoint_uri: str, cafile: Optional[Path] = None, capath: Optional[Path] = None,
-                 use_default_context: bool = False, *args, **kwargs):
+
+    def __init__(self, endpoint_host: str, endpoint_port: Union[int, str], endpoint_path: Optional[str] = None,
+                 cafile: Optional[Path] = None, capath: Optional[Path] = None, use_default_context: bool = False,
+                 *args, **kwargs):
         """
         Initialize this instance.
 
@@ -73,8 +75,13 @@ class TransportLayerClient(ABC):
 
         Parameters
         ----------
-        endpoint_uri: str
+        endpoint_host: str
+            The host component for building this client's endpoint URI for opening a connection.
             The endpoint for the client to connect to when opening a connection.
+        endpoint_port: Union[int, str]
+            The host port component for building this client's endpoint URI for opening a connection.
+        endpoint_path: Optional[str]
+            The optional path component for building this client's endpoint URI for opening a connection.
         cafile: Optional[Path]
             Optional path to CA certificates PEM file.
         capath: Optional[Path]
@@ -89,8 +96,16 @@ class TransportLayerClient(ABC):
         """
         super().__init__(*args, **kwargs)
 
-        self.endpoint_uri = endpoint_uri
-        """str: The endpoint for the client to connect to when opening a connection."""
+        self._endpoint_host: str = endpoint_host.strip()
+        self._endpoint_port: str = str(endpoint_port).strip()
+        if endpoint_path is None:
+            self._endpoint_path: str = ''
+        else:
+            self._endpoint_path: str = endpoint_path.strip()
+            if self._endpoint_path[0] != '/':
+                self._endpoint_path = '/' + self._endpoint_path
+
+        self._endpoint_uri = None
 
         if use_default_context:
             self._client_ssl_context = ssl.create_default_context(cafile=cafile, capath=capath)
@@ -128,6 +143,19 @@ class TransportLayerClient(ABC):
         -------
         str
             The data received from the server, as a string.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def endpoint_uri(self) -> str:
+        """
+        The endpoint for the client to connect to when opening a connection.
+
+        Returns
+        -------
+        str
+            The endpoint for the client to connect to when opening a connection.
         """
         pass
 
@@ -773,17 +801,6 @@ class WebSocketClient(ConnectionContextClient[websockets.WebSocketClientProtocol
     over the websocket.
     """
 
-    @staticmethod
-    def build_endpoint_uri(host: str, port: Union[int, str], path: Optional[str] = None, is_secure: bool = True):
-        proto = 'wss' if is_secure else 'ws'
-        if path is None:
-            path = ''
-        else:
-            path = path.strip()
-            if path[0] != '/':
-                path = '/' + path
-        return '{}://{}:{}{}'.format(proto, host.strip(), str(port).strip(), path)
-
     async def _connection_recv(self) -> Optional[str]:
         """
         Perform operations to receive data over already opened ::attribute:`connection`.
@@ -823,6 +840,21 @@ class WebSocketClient(ConnectionContextClient[websockets.WebSocketClientProtocol
             A newly established connection.
         """
         return await websockets.connect(self.endpoint_uri, ssl=self.client_ssl_context)
+
+    @property
+    def endpoint_uri(self) -> str:
+        """
+        The endpoint for the client to connect to when opening a connection.
+
+        Returns
+        -------
+        str
+            The endpoint for the client to connect to when opening a connection.
+        """
+        if self._endpoint_uri is None:
+            proto = 'ws' if self.client_ssl_context is None else 'wss'
+            self._endpoint_uri = f"{proto}://{self._endpoint_host}:{self._endpoint_port}{self._endpoint_path}"
+        return self._endpoint_uri
 
     async def listen(self) -> typing.Union[str, bytes]:
         """
