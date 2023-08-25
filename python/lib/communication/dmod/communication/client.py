@@ -754,13 +754,12 @@ class ConnectionContextClient(Generic[CONN], TransportLayerClient, ABC):
         return self._connection
 
 
-class WebSocketClient(SSLSecuredTransportLayerClient, ConnectionContextClient[websockets.WebSocketClientProtocol]):
+class WebSocketClient(ConnectionContextClient[websockets.WebSocketClientProtocol]):
     """
-    Subtype of ::class:`SSLSecuredTransportLayerClient` that specifically works over SSL-secured websocket connections.
+    Subtype of ::class:`ConnectionContextClient` that specifically works over SSL-secured websocket connections.
 
-    A websocket-based implementation of ::class:`SSLSecuredTransportLayerClient`.  Instances are also async context
-    managers for runtime contexts that handle websocket connections, with the manager function returning the instance
-    itself.
+    A websocket-based implementation of ::class:`ConnectionContextClient`.  Instances are also async context managers for
+    runtime contexts that handle websocket connections, with the manager function returning the instance itself.
 
     A new runtime context will check whether there is an open websocket connection already and open a connection if not.
     In all cases, it maintains an instance attribute that is a counter of the number of active usages of the connection
