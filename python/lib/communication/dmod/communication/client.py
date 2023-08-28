@@ -59,6 +59,24 @@ class TransportLayerClient(ABC):
     context can be created, depending on the parameters passed during init.
     """
 
+    @classmethod
+    @abstractmethod
+    def get_endpoint_protocol_str(cls, use_secure_connection: bool = True) -> str:
+        """
+        Get the protocol substring portion for valid connection URI strings for an instance of this class.
+
+        Parameters
+        ----------
+        use_secure_connection : bool
+            Whether to get the protocol substring applicable for secure connections (``True`` by default).
+
+        Returns
+        -------
+        str
+            The protocol substring portion for valid connection URI strings for an instance of this class.
+        """
+        pass
+
     def __init__(self, endpoint_host: str, endpoint_port: Union[int, str], endpoint_path: Optional[str] = None,
                  cafile: Optional[Path] = None, capath: Optional[Path] = None, use_default_context: bool = False,
                  *args, **kwargs):
@@ -97,13 +115,8 @@ class TransportLayerClient(ABC):
         super().__init__(*args, **kwargs)
 
         self._endpoint_host: str = endpoint_host.strip()
-        self._endpoint_port: str = str(endpoint_port).strip()
-        if endpoint_path is None:
-            self._endpoint_path: str = ''
-        else:
-            self._endpoint_path: str = endpoint_path.strip()
-            if self._endpoint_path[0] != '/':
-                self._endpoint_path = '/' + self._endpoint_path
+        self._endpoint_port = endpoint_port.strip() if isinstance(endpoint_port, str) else endpoint_port
+        self._endpoint_path: str = '' if endpoint_path is None else endpoint_path.strip()
 
         self._endpoint_uri = None
 
@@ -801,6 +814,23 @@ class WebSocketClient(ConnectionContextClient[websockets.WebSocketClientProtocol
     over the websocket.
     """
 
+    @classmethod
+    def get_endpoint_protocol_str(cls, use_secure_connection: bool = True) -> str:
+        """
+        Get the protocol substring portion for valid connection URI strings for an instance of this class.
+
+        Parameters
+        ----------
+        use_secure_connection : bool
+            Whether to get the protocol substring applicable for secure connections (``True`` by default).
+
+        Returns
+        -------
+        str
+            The protocol substring portion for valid connection URI strings for an instance of this class.
+        """
+        return 'wss' if use_secure_connection else 'ws'
+
     async def _connection_recv(self) -> Optional[str]:
         """
         Perform operations to receive data over already opened ::attribute:`connection`.
@@ -852,8 +882,14 @@ class WebSocketClient(ConnectionContextClient[websockets.WebSocketClientProtocol
             The endpoint for the client to connect to when opening a connection.
         """
         if self._endpoint_uri is None:
-            proto = 'ws' if self.client_ssl_context is None else 'wss'
-            self._endpoint_uri = f"{proto}://{self._endpoint_host}:{self._endpoint_port}{self._endpoint_path}"
+            proto = self.get_endpoint_protocol_str(use_secure_connection=self.client_ssl_context is not None)
+
+            if self._endpoint_path and self._endpoint_path[0] != '/':
+                path_str = '/' + self._endpoint_path
+            else:
+                path_str = self._endpoint_path
+
+            self._endpoint_uri = f"{proto}://{self._endpoint_host}:{self._endpoint_port!s}{path_str}"
         return self._endpoint_uri
 
     async def listen(self) -> typing.Union[str, bytes]:
