@@ -1,232 +1,163 @@
-from dmod.core.execution import AllocationParadigm
-from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DiscreteRestriction
-from .request_clients import DatasetClient, DatasetExternalClient, DatasetInternalClient, NgenRequestClient, NgenCalRequestClient
+import json
+
+from dmod.communication import AuthClient, TransportLayerClient, WebSocketClient
+from dmod.core.serializable import ResultIndicator
+from dmod.core.meta_data import DataDomain
+from .request_clients import DataServiceClient, JobClient
 from .client_config import YamlClientConfig
-from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
 
 class DmodClient:
 
     def __init__(self, client_config: YamlClientConfig, bypass_request_service: bool = False, *args, **kwargs):
         self._client_config = client_config
-        self._dataset_client = None
-        self._ngen_client = None
-        self._ngen_cal_client = None
+        self._data_service_client = None
+        self._job_client = None
         self._bypass_request_service = bypass_request_service
+
+        self._transport_client: TransportLayerClient = WebSocketClient(endpoint_uri=self.requests_endpoint_uri,
+                                                                       ssl_directory=self.requests_ssl_dir)
+        self._auth_client: AuthClient = AuthClient(transport_client=self._transport_client)
 
     @property
     def client_config(self):
         return self._client_config
 
-    async def create_dataset(self, dataset_name: str, category: DataCategory, domain: Optional[DataDomain] = None,
-                             **kwargs) -> bool:
+    async def data_service_action(self, action: str, **kwargs) -> ResultIndicator:
         """
-        Create a dataset from the given parameters.
-
-        Note that despite the type hinting, ``domain`` is only semi-optional, as a domain is required to create a
-        dataset. However, if a ``data_format`` keyword arg provides a ::class:`DataFormat` value, then a minimal
-        ::class:`DataDomain` object can be generated and used.
-
-        Additionally, ``continuous_restrictions`` and ``discrete_restrictions`` keyword args are used if present for
-        creating the domain when necessary.  If neither are provided, the generated domain will have a minimal discrete
-        restriction created for "all values" (i.e., an empty list) of the first index variable of the provided
-        ::class:`DataFormat`.
-
-        In the event neither a domain not a data format is provided, a ::class:`ValueError` is raised.
-
-        Additionally, keyword arguments are forwarded in the call to the ::attribute:`dataset_client` property's
-        ::method:`DatasetClient.create_dataset` function.  This includes the aforementioned kwargs for a creating a
-        default ::class:`DataDomain`, but only if they are otherwise ignored because a valid domain arg was provided.
+        Perform a supported data service action.
 
         Parameters
         ----------
-        dataset_name : str
-            The name of the dataset.
-        category : DataCategory
-            The dataset category.
-        domain : Optional[DataDomain]
-            The semi-optional (depending on keyword args) domain for the dataset.
+        action : str
+            The action selection of interest.
         kwargs
-            Other optional keyword args.
-
-        Keyword Args
-        ----------
-        data_format : DataFormat
-            An optional data format, used if no ``domain`` is provided
-        continuous_restrictions : List[ContinuousRestrictions]
-            An optional list of continuous domain restrictions, used if no ``domain`` is provided
-        discrete_restrictions : List[DiscreteRestrictions]
-            An optional list of discrete domain restrictions, used if no ``domain`` is provided
 
         Returns
         -------
-        bool
-            Whether creation was successful.
+        ResultIndicator
+            An indication of whether the requested action was performed successfully.
         """
-        # If a domain wasn't passed, generate one from the kwargs, or raise and exception if we can't
-        if domain is None:
-            data_format = kwargs.pop('data_format', None)
-            if data_format is None:
-                msg = "Client can't create dataset with `None` for {}, nor generate a default {} without a provided {}"
-                raise ValueError(msg.format(DataDomain.__name__, DataDomain.__name__, DataFormat.__name__))
-            print_msg = "INFO: no {} provided; dataset will be created with a basic default domain using format {}"
-            print(print_msg.format(DataDomain.__name__, data_format.name))
-            # If neither provided, bootstrap a basic restriction on the first index variable in the data format
-            if not ('discrete_restrictions' in kwargs or 'continuous_restrictions' in kwargs):
-                c_restricts = None
-                d_restricts = [DiscreteRestriction(variable=data_format.indices[0], values=[])]
-            # If at least one is provided, use whatever was passed, and fallback to None for the other if needed
+        try:
+            if action == 'create':
+                # Do a little extra here to get the domain
+                if 'domain' in kwargs:
+                    domain = kwargs.pop('domain')
+                elif 'domain_file' in kwargs:
+                    with kwargs['domain_file'].open() as domain_file:
+                        domain_json = json.load(domain_file)
+                    domain = DataDomain.factory_init_from_deserialized_json(domain_json)
+                else:
+                    domain = DataDomain(**kwargs)
+                return await self.data_service_client.create_dataset(domain=domain, **kwargs)
+            elif action == 'delete':
+                return await self.data_service_client.delete_dataset(**kwargs)
+            elif action == 'upload':
+                return await self.data_service_client.upload_to_dataset(**kwargs)
+            elif action == 'download':
+                return await self.data_service_client.retrieve_from_dataset(**kwargs)
+            elif action == 'list_datasets':
+                return await self.data_service_client.get_dataset_names(**kwargs)
+            elif action == 'list_items':
+                return await self.data_service_client.get_dataset_items(**kwargs)
             else:
-                c_restricts = list(kwargs.pop('continuous_restrictions')) if 'continuous_restrictions' in kwargs else []
-                d_restricts = list(kwargs.pop('discrete_restrictions')) if 'discrete_restrictions' in kwargs else []
-            domain = DataDomain(data_format=data_format, continuous_restrictions=c_restricts,
-                                discrete_restrictions=d_restricts)
-        # Finally, ask the client to create the dataset, passing the details
-        return await self.dataset_client.create_dataset(dataset_name, category, domain, **kwargs)
+                raise ValueError(f"Unsupported data service action to {self.__class__.__name__}: {action}")
+        except NotImplementedError:
+            raise NotImplementedError(f"Impl of supported data action {action} not yet in {self.__class__.__name__}")
 
     @property
-    def dataset_client(self) -> DatasetClient:
-        if self._dataset_client is None:
+    def data_service_client(self) -> DataServiceClient:
+        if self._data_service_client is None:
             if self._bypass_request_service:
                 if self.client_config.dataservice_endpoint_uri is None:
                     raise RuntimeError("Cannot bypass request service without data service config details")
-                self._dataset_client = DatasetInternalClient(self.client_config.dataservice_endpoint_uri,
-                                                             self.client_config.dataservice_ssl_dir)
+                self._data_service_client = DataServiceClient(self._transport_client)
             else:
-                self._dataset_client = DatasetExternalClient(self.requests_endpoint_uri, self.requests_ssl_dir)
-        return self._dataset_client
+                self._data_service_client = DataServiceClient(self._transport_client, self._auth_client)
+        return self._data_service_client
 
     @property
-    def ngen_request_client(self) -> NgenRequestClient:
-        if self._ngen_client is None:
-            self._ngen_client = NgenRequestClient(self.requests_endpoint_uri, self.requests_ssl_dir)
-        return self._ngen_client
+    def job_client(self) -> JobClient:
+        if self._job_client is None:
+            transport_client = WebSocketClient(endpoint_uri=self.requests_endpoint_uri, ssl_directory=self.requests_ssl_dir)
+            self._job_client = JobClient(transport_client=transport_client, auth_client=AuthClient(transport_client))
+        return self._job_client
 
-    @property
-    def ngen_cal_request_client(self) -> NgenCalRequestClient:
-        if self._ngen_cal_client is None:
-            self._ngen_cal_client = NgenCalRequestClient(self.requests_endpoint_uri, self.requests_ssl_dir)
-        return self._ngen_cal_client
-
-    async def delete_dataset(self, dataset_name: str, **kwargs):
-        return await self.dataset_client.delete_dataset(dataset_name, **kwargs)
-
-    async def download_dataset(self, dataset_name: str, dest_dir: Path) -> bool:
-        return await self.dataset_client.download_dataset(dataset_name=dataset_name, dest_dir=dest_dir)
-
-    async def download_from_dataset(self, dataset_name: str, item_name: str, dest: Path) -> bool:
-        return await self.dataset_client.download_from_dataset(dataset_name=dataset_name, item_name=item_name,
-                                                               dest=dest)
-
-    async def list_datasets(self, category: Optional[DataCategory] = None):
-        return await self.dataset_client.list_datasets(category)
-
-    async def request_job_info(self, job_id: str, *args, **kwargs) -> dict:
+    async def execute_job(self, workflow: str, **kwargs) -> ResultIndicator:
         """
-        Request the full state of the provided job, formatted as a JSON dictionary.
+        Submit a requested job defined by the provided ``kwargs``.
+
+        Currently supported job workflows are:
+            - ``ngen`` : submit a job request to execute a ngen model exec job
+            - ``ngen_cal`` : submit a job request to execute a ngen-cal model calibration job
+            - ``from_json`` : submit a provided job request, given in serialized JSON form
+            - ``from_file`` : submit a provided job request, serialized to JSON form and saved in the given file
+
+        For most supported workflows, ``kwargs`` should contain necessary params for initializing a request object of
+        the correct type.  However, for ``workflow`` values ``from_json`` or ``from_file``, ``kwargs`` should instead
+        contain params for deserializing the right type of request, either directly or from a provided file.
 
         Parameters
         ----------
-        job_id : str
-            The id of the job in question.
-        args
-            (Unused) variable positional args.
+        workflow: str
+            The type of workflow, as a string, which should correspond to parsed CLI options.
         kwargs
-            (Unused) variable keyword args.
+            Dynamic keyword args used to produce a request object to initiate a job, which vary by workflow.
 
         Returns
         -------
-        dict
-            The full state of the provided job, formatted as a JSON dictionary.
+        The result of the request to run the job.
         """
-        # TODO: implement
-        raise NotImplementedError('{} function "request_job_info" not implemented yet'.format(self.__class__.__name__))
+        if workflow == 'from_json':
+            return await self.job_client.submit_request_from_json(**kwargs)
+        if workflow == 'from_file':
+            return await self.job_client.submit_request_from_file(**kwargs)
+        if workflow == 'ngen':
+            return await self.job_client.submit_ngen_request(**kwargs)
+        elif workflow == "ngen_cal":
+            return await self.job_client.submit_ngen_cal_request(**kwargs)
+        else:
+            raise ValueError(f"Unsupported job execution workflow {workflow}")
+        
+    async def job_command(self, command: str, **kwargs) -> ResultIndicator:
+        """
+        Submit a request that performs a particular job command.
 
-    async def request_job_release(self, job_id: str, *args, **kwargs) -> bool:
-        """
-        Request the allocated resources for the provided job be released.
+        Supported commands are:
+            - ``list`` : get a list of ids of existing jobs (supports optional ``jobs_list_active_only`` in ``kwargs``)
+            - ``info`` : get information on a particular job (requires ``job_id`` in ``kwargs``)
+            - ``release`` : request allocated resources for a job be released (requires ``job_id`` in ``kwargs``)
+            - ``status`` : get the status of a particular job (requires ``job_id`` in ``kwargs``)
+            - ``stop`` : request the provided job be stopped (requires ``job_id`` in ``kwargs``)
 
         Parameters
         ----------
-        job_id : str
-            The id of the job in question.
-        args
-            (Unused) variable positional args.
+        command : str
+            A string indicating the particular job command to run.
         kwargs
-            (Unused) variable keyword args.
+            Other required/optional parameters as needed/desired for the particular job command to be run.
 
         Returns
         -------
-        bool
-            Whether there had been allocated resources for the job, all of which are now released.
+        ResultIndicator
+            An indicator of the results of attempting to run the command.
         """
-        # TODO: implement
-        raise NotImplementedError('{} function "request_job_release" not implemented yet'.format(self.__class__.__name__))
-
-    async def request_job_status(self, job_id: str, *args, **kwargs) -> str:
-        """
-        Request the status of the provided job, represented in string form.
-
-        Parameters
-        ----------
-        job_id : str
-            The id of the job in question.
-        args
-            (Unused) variable positional args.
-        kwargs
-            (Unused) variable keyword args.
-
-        Returns
-        -------
-        str
-            The status of the provided job, represented in string form.
-        """
-        # TODO: implement
-        raise NotImplementedError('{} function "request_job_status" not implemented yet'.format(self.__class__.__name__))
-
-    async def request_job_stop(self, job_id: str, *args, **kwargs) -> bool:
-        """
-        Request the provided job be stopped; i.e., transitioned to the ``STOPPED`` exec step.
-
-        Parameters
-        ----------
-        job_id : str
-            The id of the job in question.
-        args
-            (Unused) variable positional args.
-        kwargs
-            (Unused) variable keyword args.
-
-        Returns
-        -------
-        bool
-            Whether the job was stopped as requested.
-        """
-        # TODO: implement
-        raise NotImplementedError('{} function "request_job_stop" not implemented yet'.format(self.__class__.__name__))
-
-    async def request_jobs_list(self, jobs_list_active_only: bool, *args, **kwargs) -> List[str]:
-        """
-        Request a list of ids of existing jobs.
-
-        Parameters
-        ----------
-        jobs_list_active_only : bool
-            Whether to exclusively include jobs with "active" status values.
-        args
-            (Unused) variable positional args.
-        kwargs
-            (Unused) variable keyword args.
-
-        Returns
-        -------
-        List[str]
-            A list of ids of existing jobs.
-        """
-        # TODO: implement
-        raise NotImplementedError('{} function "request_jobs_list" not implemented yet'.format(self.__class__.__name__))
+        try:
+            if command == 'info':
+                return await self.job_client.request_job_info(**kwargs)
+            elif command == 'list':
+                return await self.job_client.request_jobs_list(**kwargs)
+            elif command == 'release':
+                return await self.job_client.request_job_release(**kwargs)
+            elif command == 'status':
+                return await self.job_client.request_job_status(**kwargs)
+            elif command == 'stop':
+                return await self.job_client.request_job_stop(**kwargs)
+            else:
+                raise ValueError(f"Unsupported job command to {self.__class__.__name__}: {command}")
+        except NotImplementedError:
+            raise NotImplementedError(f"Supported command {command} not yet implemented by {self.__class__.__name__}")
 
     @property
     def requests_endpoint_uri(self) -> str:
@@ -236,42 +167,8 @@ class DmodClient:
     def requests_ssl_dir(self) -> Path:
         return self.client_config.requests_ssl_dir
 
-    async def submit_ngen_request(self, start: datetime, end: datetime, hydrofabric_data_id: str, hydrofabric_uid: str,
-                                  cpu_count: int, realization_cfg_data_id: str, bmi_cfg_data_id: str,
-                                  partition_cfg_data_id: Optional[str] = None, cat_ids: Optional[List[str]] = None,
-                                  allocation_paradigm: Optional[AllocationParadigm] = None, *args, **kwargs):
-        return await self.ngen_request_client.request_exec(start, end, hydrofabric_data_id, hydrofabric_uid,
-                                                           cpu_count, realization_cfg_data_id, bmi_cfg_data_id,
-                                                           partition_cfg_data_id, cat_ids, allocation_paradigm)
-
-    async def submit_ngen_cal_request(self, start: datetime, end: datetime, hydrofabric_data_id: str, hydrofabric_uid: str,
-                                  cpu_count: int, realization_cfg_data_id: str, bmi_cfg_data_id: str, ngen_cal_cfg_data_id: str,
-                                  partition_cfg_data_id: Optional[str] = None, cat_ids: Optional[List[str]] = None,
-                                  allocation_paradigm: Optional[AllocationParadigm] = None, *args, **kwargs):
-        return await self.ngen_cal_request_client.request_exec(start, end, hydrofabric_data_id, hydrofabric_uid,
-                                                               cpu_count, realization_cfg_data_id, bmi_cfg_data_id, ngen_cal_cfg_data_id,
-                                                               partition_cfg_data_id, cat_ids, allocation_paradigm)
-
     def print_config(self):
         print(self.client_config.print_config())
-
-    async def upload_to_dataset(self, dataset_name: str, paths: List[Path]) -> bool:
-        """
-        Upload data a dataset.
-
-        Parameters
-        ----------
-        dataset_name : str
-            The name of the dataset.
-        paths : List[Path]
-            List of one or more paths of files to upload or directories containing files to upload.
-
-        Returns
-        -------
-        bool
-            Whether uploading was successful
-        """
-        return await self.dataset_client.upload_to_dataset(dataset_name, paths)
 
     def validate_config(self):
         # TODO:
