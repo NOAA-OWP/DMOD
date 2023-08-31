@@ -614,7 +614,7 @@ class DataServiceClient:
         return await self._process_request(request=request, originating_func_name='delete_dataset')
 
     # TODO: this needs a storage client instead of to figure out where/how to "put" the data
-    async def get_dataset_names(self, category: Optional[DataCategory] = None) -> DatasetManagementResponse:
+    async def get_dataset_names(self, category: Optional[DataCategory] = None, **kwargs) -> DatasetManagementResponse:
         """
         Get a list of the names of datasets, optionally filtering to a specific category.
 
@@ -636,7 +636,7 @@ class DataServiceClient:
         request = DatasetManagementMessage(action=action, category=category)
         return await self._process_request(request=request, originating_func_name='get_dataset_names')
 
-    async def get_dataset_items(self, dataset_name: str) -> DatasetManagementResponse:
+    async def get_dataset_items(self, dataset_name: str, **kwargs) -> DatasetManagementResponse:
         """
         Request the name/id of all items in the given dataset.
 
@@ -654,7 +654,7 @@ class DataServiceClient:
                                            query=DatasetQuery(query_type=QueryType.LIST_FILES))
         return await self._process_request(request=request, originating_func_name="get_dataset_items")
 
-    async def list_datasets(self, category: Optional[DataCategory] = None) -> List[str]:
+    async def list_datasets(self, category: Optional[DataCategory] = None, **kwargs) -> List[str]:
         """
         Convenience method to list datasets, optionally filtering to a specific category.
 
@@ -676,9 +676,9 @@ class DataServiceClient:
         extract_dataset_names
         get_dataset_items
         """
-        return self.extract_dataset_names(response=await self.get_dataset_names(category=category))
+        return self.extract_dataset_names(response=await self.get_dataset_names(category=category, **kwargs))
 
-    async def list_dataset_items(self, dataset_name: str) -> List[str]:
+    async def list_dataset_items(self, dataset_name: str, **kwargs) -> List[str]:
         """
         Convenience method to get the list of items within a dataset.
 
@@ -696,11 +696,11 @@ class DataServiceClient:
         -------
         get_dataset_items
         """
-        response = await self.get_dataset_items(dataset_name=dataset_name)
+        response = await self.get_dataset_items(dataset_name=dataset_name, **kwargs)
         return response.query_results.get('files', []) if response.success else []
 
     async def retrieve_from_dataset(self, dataset_name: str, dest_dir: Path,
-                                    item_names: Optional[Union[str, Sequence[str]]] = None) -> ResultIndicator:
+                                    item_names: Optional[Union[str, Sequence[str]]] = None, **kwargs) -> ResultIndicator:
         """
         Download data from either all or specific item(s) within a dataset to a local path.
 
@@ -754,7 +754,7 @@ class DataServiceClient:
                                         data=failed_items)
 
     async def upload_to_dataset(self, dataset_name: str, paths: Union[Path, List[Path]],
-                                data_root: Optional[Path] = None) -> ResultIndicator:
+                                data_root: Optional[Path] = None, **kwargs) -> ResultIndicator:
         """
         Upload data a dataset.
 
