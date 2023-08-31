@@ -51,6 +51,7 @@ def _create_ngen_based_exec_parser(subcommand_container: Any, parser_name: str,
                             default=default_alloc_paradigm,
                             help='Specify job resource allocation paradigm to use.')
     new_parser.add_argument('--catchment-ids', dest='catchments', nargs='+', help='Specify catchment subset.')
+    new_parser.add_argument('--forcings-data-id', dest='forcings_data_id', help='Specify catchment subset.')
 
     date_format = DataDomain.get_datetime_str_format()
     print_date_format = 'YYYY-mm-dd HH:MM:SS'
@@ -59,8 +60,7 @@ def _create_ngen_based_exec_parser(subcommand_container: Any, parser_name: str,
                             help='Model time range ({} to {})'.format(print_date_format, print_date_format))
     new_parser.add_argument('hydrofabric_data_id', help='Identifier of dataset of required hydrofabric')
     new_parser.add_argument('hydrofabric_uid', help='Unique identifier of required hydrofabric')
-    new_parser.add_argument('config_data_id', help='Identifier of dataset of required realization config')
-    new_parser.add_argument('bmi_cfg_data_id', help='Identifier of dataset of required BMI init configs')
+    new_parser.add_argument('config_data_id', help='Identifier of composite config dataset with required configs')
     new_parser.add_argument('cpu_count', type=int, help='Provide the desired number of processes for the execution')
 
     return new_parser
@@ -98,9 +98,24 @@ def _handle_exec_command_args(parent_subparsers_container):
     # A parser for the 'exec' command itself, underneath the parent 'command' subparsers container
     command_parser = parent_subparsers_container.add_parser('exec')
 
-    # Subparser under the exec command's parser for handling the different workflows that might be run
-    workflow_subparsers = command_parser.add_subparsers(dest='workflow')
+    # Subparser under the exec command's parser for handling the different job workflows that might be started
+    workflow_subparsers = command_parser.add_subparsers(dest='workflow_starter')
     workflow_subparsers.required = True
+
+    # Add some parsers to deserialize a request from a JSON string, or ...
+    parser_from_json = workflow_subparsers.add_parser("from_json")
+    #parser_from_json.add_argument('--partition-config-data-id', dest='partition_cfg_data_id', default=None,
+    #                                      help='Provide data_id for desired partition config dataset.')
+    parser_from_json.add_argument('job_type', choices=['ngen', 'ngen_cal'],
+                                  help="Set type of for request object so it is deserialized correctly")
+    parser_from_json.add_argument('request_json',
+                                  help='JSON string for exec request object to use to start a job')
+    # ... from JSON contained within a file
+    parser_from_file = workflow_subparsers.add_parser("from_file")
+    parser_from_file.add_argument('job_type', choices=['ngen', 'ngen_cal'],
+                                  help="Set type of for request object so it is deserialized correctly")
+    parser_from_file.add_argument('request_file', type=Path,
+                                  help='Path to file containing JSON exec request object to use to start a job')
 
     # Nested parser for the 'ngen' action
     parser_ngen = _create_ngen_based_exec_parser(subcommand_container=workflow_subparsers, parser_name='ngen',
@@ -165,18 +180,18 @@ def _handle_exec_command_args(parent_subparsers_container):
                                  help='The model calibration strategy used by ngen_cal.')
 
 
-def _handle_dataset_command_args(parent_subparsers_container):
+def _handle_data_service_action_args(parent_subparsers_container):
     """
-    Handle setup of arg parsing for 'dataset' command, which allows for various operations related to datasets.
+    Handle setup of arg parsing for 'data' command, which allows for various operations related to datasets.
 
     Parameters
     ----------
     parent_subparsers_container
-        The top-level parent container for subparsers of various commands, including the 'dataset' command, to which
+        The top-level parent container for subparsers of various commands, including the 'data' command, to which
         some numbers of nested subparser containers and parsers will be added.
     """
-    # A parser for the 'dataset' command itself, underneath the parent 'command' subparsers container
-    command_parser = parent_subparsers_container.add_parser('dataset')
+    # A parser for the 'data' command itself, underneath the parent 'command' subparsers container
+    command_parser = parent_subparsers_container.add_parser('data')
 
     # Subparser under the dataset command's parser for handling the different actions that might be done relating to a
     # dataset (e.g., creation or uploading of data)
@@ -189,14 +204,23 @@ def _handle_dataset_command_args(parent_subparsers_container):
     # Nested parser for the 'create' action, with required argument for dataset name, category, and format
     parser_create = action_subparsers.add_parser('create')
     parser_create.add_argument('name', help='Specify the name of the dataset to create.')
-    parser_create.add_argument('--paths', dest='upload_paths', nargs='+', help='Specify files/directories to upload.')
-    json_form = '{"variable": "<variable_name>", ("begin": "<value>", "end": "<value>" | "values": [<values>])}'
-    restrict_help_str = 'Specify continuous or discrete domain restriction as (simplified) serialized JSON - {}'
-    parser_create.add_argument('--restriction', dest='domain_restrictions', nargs='*',
-                               help=restrict_help_str.format(json_form))
-    parser_create.add_argument('--format', dest='dataset_format', choices=dataset_formats, help='Specify dataset domain format.')
-    parser_create.add_argument('--domain-json', dest='domain_file', help='Deserialize the dataset domain from a file.')
-    parser_create.add_argument('category', choices=dataset_categories, help='Specify dataset category.')
+    parser_create.add_argument('--paths', dest='upload_paths', type=Path, nargs='+',
+                               help='Specify files/directories to upload.')
+    parser_create.add_argument('--data-root', dest='data_root', type=Path,
+                               help='Relative data root directory, used to adjust the names for uploaded items.')
+    c_json_form = '{"variable": "<variable_name>", "begin": "<value>", "end": "<value>"}'
+    d_json_form = '{"variable": "<variable_name>", "values": [<value>, ...]}'
+    c_restrict_help_str = 'Specify continuous domain restriction as (simplified) serialized JSON - {}'
+    d_restrict_help_str = 'Specify discrete domain restriction as (simplified) serialized JSON - {}'
+    # TODO: need to test that this works as expected
+    parser_create.add_argument('--continuous-restriction', type=lambda s: ContinuousRestriction(**json.loads(s)),
+                               dest='continuous_restrictions', nargs='*', help=c_restrict_help_str.format(c_json_form))
+    parser_create.add_argument('--discrete-restriction', type=lambda s: DiscreteRestriction(**json.loads(s)),
+                               dest='discrete_restrictions', nargs='*', help=d_restrict_help_str.format(d_json_form))
+    parser_create.add_argument('--format', dest='dataset_format', choices=dataset_formats, type=DataFormat.get_for_name,
+                               help='Specify dataset domain format.')
+    parser_create.add_argument('--domain-json', dest='domain_file', type=Path, help='Deserialize the dataset domain from a file.')
+    parser_create.add_argument('category', type=DataCategory.get_for_name, choices=dataset_categories, help='Specify dataset category.')
 
     # Nested parser for the 'delete' action, with required argument for dataset name
     parser_delete = action_subparsers.add_parser('delete')
@@ -204,28 +228,27 @@ def _handle_dataset_command_args(parent_subparsers_container):
 
     # Nested parser for the 'upload' action, with required args for dataset name and files to upload
     parser_upload = action_subparsers.add_parser('upload')
-    parser_upload.add_argument('name', help='Specify the name of the desired dataset.')
-    parser_upload.add_argument('paths', nargs='+', help='Specify files or directories to upload.')
+    parser_upload.add_argument('--data-root', dest='data_root', type=Path,
+                               help='Relative data root directory, used to adjust the names for uploaded items.')
+    parser_upload.add_argument('dataset_name', help='Specify the name of the desired dataset.')
+    parser_upload.add_argument('paths', type=Path, nargs='+', help='Specify files or directories to upload.')
 
-    # Nested parser for the 'upload' action, with required args for dataset name and files to upload
+    # Nested parser for the 'download' action, with required args for dataset name and files to upload
     parser_download = action_subparsers.add_parser('download')
-    parser_download.add_argument('name', help='Specify the name of the desired dataset.')
-    parser_download.add_argument('--dest', dest='download_dest', default=None,
-                                 help='Specify local destination path to save to.')
-    parser_download.add_argument('path', help='Specify a file/item within dataset to download.')
+    parser_download.add_argument('--items', dest='item_names', nargs='+',
+                                 help='Specify files/items within dataset to download.')
+    parser_download.add_argument('dataset_name', help='Specify the name of the desired dataset.')
+    parser_download.add_argument('dest', dest='dest_dir', type=Path,
+                                 help='Specify local destination directory to save to.')
 
-    # Nested parser for the 'upload' action, with required args for dataset name and files to upload
-    parser_download_all = action_subparsers.add_parser('download_all')
-    parser_download_all.add_argument('name', help='Specify the name of the desired dataset.')
-    parser_download_all.add_argument('--directory', dest='download_dir', default=None,
-                                     help='Specify local destination directory to save to (defaults to ./<dataset_name>')
-
-    # Nested parser for the 'list' action
-    parser_list = action_subparsers.add_parser('list')
-    listing_categories_choices = list(dataset_categories)
-    listing_categories_choices.append('all')
-    parser_list.add_argument('category', choices=listing_categories_choices, nargs='?', default='all',
+    # Nested parser for the 'list_datasets' action
+    parser_list = action_subparsers.add_parser('list_datasets')
+    parser_list.add_argument('--category', dest='category', choices=dataset_categories, type=DataCategory.get_for_name,
                              help='Specify the category of dataset to list')
+
+    # Nested parser for the 'list_items' action
+    parser_list = action_subparsers.add_parser('list_items')
+    parser_list.add_argument('dataset_name', help='Specify the dataset for which to list items')
 
 
 def _handle_jobs_command_args(parent_subparsers_container):
@@ -242,28 +265,28 @@ def _handle_jobs_command_args(parent_subparsers_container):
     command_parser = parent_subparsers_container.add_parser('jobs')
 
     # Subparser under the jobs command's parser for handling the different query or control that might be run
-    subcommand_subparsers = command_parser.add_subparsers(dest='subcommand')
-    subcommand_subparsers.required = True
+    job_command_subparsers = command_parser.add_subparsers(dest='job_command')
+    job_command_subparsers.required = True
 
     # Nested parser for the 'list' action
-    parser_list_jobs = subcommand_subparsers.add_parser('list')
+    parser_list_jobs = job_command_subparsers.add_parser('list')
     parser_list_jobs.add_argument('--active', dest='jobs_list_active_only', action='store_true',
                                   help='List only jobs with "active" status')
 
     # Nested parser for the 'info' action
-    parser_job_info = subcommand_subparsers.add_parser('info')
+    parser_job_info = job_command_subparsers.add_parser('info')
     parser_job_info.add_argument('job_id', help='The id of the job for which to retrieve job state info')
 
     # Nested parser for the 'release' action
-    parser_job_release = subcommand_subparsers.add_parser('release')
+    parser_job_release = job_command_subparsers.add_parser('release')
     parser_job_release.add_argument('job_id', help='The id of the job for which to release resources')
 
     # Nested parser for the 'status' action
-    parser_job_status = subcommand_subparsers.add_parser('status')
+    parser_job_status = job_command_subparsers.add_parser('status')
     parser_job_status.add_argument('job_id', help='The id of the job for which to retrieve status')
 
     # Nested parser for the 'stop' action
-    parser_job_stop = subcommand_subparsers.add_parser('stop')
+    parser_job_stop = job_command_subparsers.add_parser('stop')
     parser_job_stop.add_argument('job_id', help='The id of the job to stop')
 
 
@@ -281,7 +304,7 @@ def _handle_args():
     subparsers.required = True
 
     # Nested command parsers handling actions of dataset command
-    _handle_dataset_command_args(parent_subparsers_container=subparsers)
+    _handle_data_service_action_args(parent_subparsers_container=subparsers)
     # Nested command parsers handling config actions
     _handle_config_command_args(parent_subparsers_container=subparsers)
     # Nested command parsers handling exec actions
@@ -324,178 +347,20 @@ def find_client_config(basenames: Optional[List[str]] = None, dirs: Optional[Lis
     return existing[0] if len(existing) > 0 else None
 
 
-def _process_uploads(upload_path_str: Optional[List[str]]) -> Tuple[List[Path], List[Path]]:
-    """
-    Process the given list of string representations of paths, returning a tuple of lists of processed and bad paths.
-
-    Process the given list of string representations of paths, converting the initial list to a second list of
-    ::class:`Path` objects. Then, derive a third list from the second, consisting of any "bad" paths that do not
-    exist.  Return a tuple containing the second and third lists.
-
-    If the param is ``None``, it will be treated as an empty list, resulting in a tuple of two empty lists returned.
-
-    Parameters
-    ----------
-    upload_path_str : Optional[List[str]]
-        A list of string forms of paths to process.
-
-    Returns
-    -------
-    Tuple[List[Path], List[Path]]
-        Tuple of two lists of ::class:`Path`, with the first list being all derived from the param, and the second being
-        a list of any non-existing ::class:`Path` objects within the first list.
-    """
-    # Convert the string form of the given paths to Path objects
-    upload_paths = [] if upload_path_str is None else [Path(p) for p in upload_path_str]
-    # Track bad paths, though, so that we can bail if there are any
-    bad_paths = [p for p in upload_paths if not p.exists()]
-    return upload_paths, bad_paths
-
-
-def _process_domain_restriction_args(domain_restriction_strs: List[str]) -> Tuple[List[ContinuousRestriction], List[DiscreteRestriction]]:
-    """
-    Process serialized JSON strings to restriction objects.
-
-    Strings are expected to be in either the standard serialized format from each type's ``to_dict`` function, or
-    for continuous restrictions, in a similar, truncated form that can be converted to the standard format by using
-    ::method:`ContinuousRestriction.convert_truncated_serial_form`.
-
-    Parameters
-    ----------
-    domain_restriction_strs : List[str]
-        List of JSON strings, where strings are serialized restriction objects, possibly in a simplified format for
-        ::class:`ContinuousRestriction`
-
-    Returns
-    -------
-    Tuple[List[ContinuousRestriction], List[DiscreteRestriction]]
-        A tuple of two lists of restriction objects, with the first being continuous and the second discrete.
-    """
-    discrete_restrictions = []
-    continuous_restrictions = []
-    for json_str in domain_restriction_strs:
-        json_obj = json.loads(json_str)
-        discrete_restrict = DiscreteRestriction.factory_init_from_deserialized_json(json_obj)
-        if discrete_restrict is not None:
-            discrete_restrictions.append(discrete_restrict)
-            continue
-        continuous_restrict = ContinuousRestriction.factory_init_from_deserialized_json(json_obj)
-        if continuous_restrict is not None:
-            continuous_restrictions.append(continuous_restrict)
-            continue
-        # Try this as well so continuous restrictions can use simpler format
-        continuous_restrict = ContinuousRestriction.factory_init_from_deserialized_json(
-            ContinuousRestriction.convert_truncated_serial_form(json_obj))
-        if continuous_restrict is not None:
-            continuous_restrictions.append(continuous_restrict)
-            continue
-    return continuous_restrictions, discrete_restrictions
-
-
-def execute_dataset_command(parsed_args, client: DmodClient):
+def execute_dataset_command(args, client: DmodClient):
     async_loop = get_or_create_eventloop()
-    if parsed_args.action == 'create':
-        category = DataCategory.get_for_name(parsed_args.category)
-        upload_paths, bad_paths = _process_uploads(parsed_args.upload_paths)
-        if len(bad_paths):
-            raise RuntimeError('Aborted before dataset {} created; invalid upload paths: {}'.format(parsed_args.name,
-                                                                                                    bad_paths))
-        # Proceed with create, and raising error on failure
-
-        key_args = dict()
-
-        # If we have a domain file, parse it, and use it as the only key args
-        if parsed_args.domain_file is not None:
-            domain_file = Path(parsed_args.domain_file)
-            domain = DataDomain.factory_init_from_deserialized_json(json.load(domain_file.open()))
-            if domain is None:
-                raise RuntimeError("Could not deserialize data domain from file {}".format(domain_file))
-            key_args['domain'] = domain
-        else:
-            # Otherwise, start by processing any serialized restrictions provided on the command line
-            c_restricts, d_restricts = _process_domain_restriction_args(parsed_args.domain_restrictions)
-            # With restrictions processed, proceed to generating keyword args for the client's create function
-            data_format = DataFormat.get_for_name(parsed_args.dataset_format)
-            if data_format is None:
-                msg = 'Failed to create dataset {} due to unparseable data format'
-                raise RuntimeError(msg.format(parsed_args.name, parsed_args.dataset_format))
-            else:
-                key_args['data_format'] = data_format
-            # Finally, assemble the key args we will use
-            if d_restricts:
-                key_args['discrete_restrictions'] = d_restricts
-            if c_restricts:
-                key_args['continuous_restrictions'] = c_restricts
-
-        if not async_loop.run_until_complete(client.create_dataset(parsed_args.name, category, **key_args)):
-            raise RuntimeError('Failed to create dataset {}'.format(parsed_args.name))
-        # Display message if create succeeded and there was nothing to upload
-        elif len(upload_paths) == 0:
-            print('Dataset {} of category {} created successfully'.format(parsed_args.name, category))
-        # Handle uploads if there are some after create succeeded, but if those failed ...
-        if not async_loop.run_until_complete(client.upload_to_dataset(parsed_args.name, upload_paths)):
-            raise RuntimeError('Dataset {} created, but upload of data failed from paths {}'.format(parsed_args.name,
-                                                                                                    upload_paths))
-        # Lastly (i.e., if uploading did work)
-        else:
-            print('Dataset {} of category {} created successfully, and uploaded {}'.format(parsed_args.name, category,
-                                                                                           upload_paths))
-    elif parsed_args.action == 'list':
-        category = None if parsed_args.category == 'all' else DataCategory.get_for_name(parsed_args.category)
-        dataset_names = async_loop.run_until_complete(client.list_datasets(category))
-        if len(dataset_names) == 0:
-            print('No existing datasets were found.')
-        else:
-            for d in dataset_names:
-                print(d)
-
-    elif parsed_args.action == 'delete':
-        if not async_loop.run_until_complete(client.delete_dataset(parsed_args.name)):
-            raise RuntimeError('Failed to delete dataset {}'.format(parsed_args.name))
-
-    elif parsed_args.action == 'upload':
-        upload_paths, bad_paths = _process_uploads(parsed_args.paths)
-        if len(bad_paths):
-            raise RuntimeError("Can't upload to {} - invalid upload paths: {}".format(parsed_args.name, bad_paths))
-        elif not async_loop.run_until_complete(client.upload_to_dataset(parsed_args.name, upload_paths)):
-            raise RuntimeError('Upload of data to {} failed from paths {}'.format(parsed_args.name, upload_paths))
-        else:
-            print('Upload succeeded.')
-
-    elif parsed_args.action == 'download':
-        if parsed_args.download_dest is None:
-            dest = Path('./{}'.format(Path(parsed_args.path).name))
-        else:
-            dest = Path(parsed_args.download_dest)
-        if not dest.parent.is_dir():
-            raise RuntimeError("Cannot download file to {}:  parent directory doesn't exist.".format(dest))
-        if dest.exists():
-            raise RuntimeError("Cannot download file to {}:  file already exists".format(dest))
-        if not async_loop.run_until_complete(client.download_from_dataset(dataset_name=parsed_args.name,
-                                                                          item_name=parsed_args.path, dest=dest)):
-            msg = 'Download of {} data to {} failed from locations {}'
-            raise RuntimeError(msg.format(parsed_args.name, dest, parsed_args.path))
-        else:
-            print('Downloaded {} to local file {}.'.format(parsed_args.path, dest))
-
-    elif parsed_args.action == 'download_all':
-        dest_dir = Path(parsed_args.download_dir) if parsed_args.download_dir is not None else Path(parsed_args.name)
-        if dest_dir.exists():
-            if dest_dir.is_dir():
-                dest_dir_orig = dest_dir.name
-                old_backup = dest_dir.rename(dest_dir.parent.joinpath('.{}_old'.format(dest_dir_orig)))
-                dest_dir = dest_dir.parent.joinpath(dest_dir_orig)
-                dest_dir.mkdir()
-                print("Backing up existing {} to {}".format(dest_dir, old_backup))
-            else:
-                RuntimeError("Can't download files to directory named '{}':  this is an existing file".format(dest_dir))
-        if not async_loop.run_until_complete(client.download_dataset(dataset_name=parsed_args.name, dest_dir=dest_dir)):
-            msg = 'Download of dataset {} to directory {} failed.'
-            raise RuntimeError(msg.format(parsed_args.name, dest_dir))
-        else:
-            print('Downloaded {} contents to local directory {}.'.format(parsed_args.name, dest_dir))
-    else:
-        raise RuntimeError("Bad dataset command action '{}'".format(parsed_args.action))
+    try:
+        result = async_loop.run_until_complete(client.data_service_action(**(vars(args))))
+        print(result)
+    except ValueError as e:
+        print(str(e))
+        exit(1)
+    except NotImplementedError as e:
+        print(str(e))
+        exit(1)
+    except Exception as e:
+        print("ERROR: Encountered {} - {}".format(e.__class__.__name__, str(e)))
+        exit(1)
 
 
 def execute_config_command(parsed_args, client: DmodClient):
@@ -507,24 +372,16 @@ def execute_config_command(parsed_args, client: DmodClient):
         raise RuntimeError("Bad client command action '{}'".format(parsed_args.action))
 
 
-def execute_jobs_command(args, client: DmodClient):
+def execute_job_command(args, client: DmodClient):
     async_loop = get_or_create_eventloop()
     try:
-        if args.subcommand == 'info':
-            result = async_loop.run_until_complete(client.request_job_info(**(vars(args))))
-        elif args.subcommand == 'list':
-            result = async_loop.run_until_complete(client.request_jobs_list(**(vars(args))))
-        elif args.subcommand == 'release':
-            result = async_loop.run_until_complete(client.request_job_release(**(vars(args))))
-        elif args.subcommand == 'status':
-            result = async_loop.run_until_complete(client.request_job_status(**(vars(args))))
-        elif args.subcommand == 'stop':
-            result = async_loop.run_until_complete(client.request_job_stop(**(vars(args))))
-        else:
-            raise DmodCliArgumentError()
+        result = async_loop.run_until_complete(client.job_command(**(vars(args))))
         print(result)
-    except DmodCliArgumentError as e:
-        print("ERROR: Unsupported jobs subcommand {}".format(args.subcommand))
+    except ValueError as e:
+        print(str(e))
+        exit(1)
+    except NotImplementedError as e:
+        print(str(e))
         exit(1)
     except Exception as e:
         print("ERROR: Encountered {} - {}".format(e.__class__.__name__, str(e)))
@@ -533,15 +390,14 @@ def execute_jobs_command(args, client: DmodClient):
 
 def execute_workflow_command(args, client: DmodClient):
     async_loop = get_or_create_eventloop()
-    # TODO: aaraney
-    if args.workflow == 'ngen':
-        result = async_loop.run_until_complete(client.submit_ngen_request(**(vars(args))))
+    try:
+        result = async_loop.run_until_complete(client.execute_job(**(vars(args))))
         print(result)
-    elif args.workflow == "ngen_cal":
-        result = async_loop.run_until_complete(client.submit_ngen_cal_request(**(vars(args))))
-        print(result)
-    else:
-        print("ERROR: Unsupported execution workflow {}".format(args.workflow))
+    except ValueError as e:
+        print(str(e))
+        exit(1)
+    except Exception as e:
+        print(f"Encounted {e.__class__.__name__}: {str(e)}")
         exit(1)
 
 
@@ -562,7 +418,7 @@ def main():
         elif args.command == 'exec':
             execute_workflow_command(args, client)
         elif args.command == 'jobs':
-            execute_jobs_command(args, client)
+            execute_job_command(args, client)
         else:
             raise ValueError("Unsupported command {}".format(args.command))
 
