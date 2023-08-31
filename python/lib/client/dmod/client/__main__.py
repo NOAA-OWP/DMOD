@@ -238,8 +238,7 @@ def _handle_data_service_action_args(parent_subparsers_container):
     parser_download.add_argument('--items', dest='item_names', nargs='+',
                                  help='Specify files/items within dataset to download.')
     parser_download.add_argument('dataset_name', help='Specify the name of the desired dataset.')
-    parser_download.add_argument('dest', dest='dest_dir', type=Path,
-                                 help='Specify local destination directory to save to.')
+    parser_download.add_argument('dest_dir', type=Path, help='Specify local destination directory to save to.')
 
     # Nested parser for the 'list_datasets' action
     parser_list = action_subparsers.add_parser('list_datasets')
