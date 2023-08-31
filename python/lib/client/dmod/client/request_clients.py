@@ -516,8 +516,10 @@ class DataServiceClient:
         else:
             return response_obj
 
-    # TODO: (later) add callable and/or generator param for data to be added
-    async def create_dataset(self, name: str, category: DataCategory, domain: DataDomain, **kwargs) -> DatasetManagementResponse:
+    # TODO: better integrate uploading initial data into the create request itself
+    async def create_dataset(self, name: str, category: DataCategory, domain: DataDomain,
+                             upload_paths: Optional[List[Path]] = None, data_root: Optional[Path] = None,
+                             **kwargs) -> DatasetManagementResponse:
         """
         Create a dataset from the given parameters.
 
@@ -529,13 +531,17 @@ class DataServiceClient:
             The category for the dataset.
         domain : DataDomain
             The defined domain for the dataset.
+        upload_paths : Union[Path, List[Path]]
+            List of paths of files to upload.
+        data_root : Optional[Path]
+            A relative data root directory, used to adjust the names for uploaded items.
         kwargs
 
         Returns
         -------
         DatasetManagementResponse
             A response to the request for the service to create a new dataset, which may actually be a
-            ::class:`MaaSDatasetManagementMessage` depending on whether this type uses auth.
+            ::class:`MaaSDatasetManagementMessage` depending on whether this instance uses auth.
 
         Raises
         -------
@@ -544,13 +550,25 @@ class DataServiceClient:
 
         See Also
         -------
+        upload_to_dataset
         uses_auth
         """
         request = DatasetManagementMessage(action=ManagementAction.CREATE, domain=domain, dataset_name=name,
                                            category=category)
-        return await self._process_request(request=request, originating_func_name='create_dataset')
+        create_response = await self._process_request(request=request, originating_func_name='create_dataset')
+        if not create_response.success or not upload_paths:
+            return create_response
 
-    async def does_dataset_exist(self, dataset_name: str) -> bool:
+        upload_response = await self.upload_to_dataset(dataset_name=name, paths=upload_paths, data_root=data_root)
+        if upload_response.success:
+            return create_response
+        else:
+            create_response.success = False
+            create_response.reason = "Initial Uploads Failed"
+            create_response.message = f"Dataset {name} was created, but upload failures occurred: `{upload_response!s}`"
+            return create_response
+
+    async def does_dataset_exist(self, dataset_name: str, **kwargs) -> bool:
         """
         Helper function to test whether a dataset of the given name/id exists.
 
