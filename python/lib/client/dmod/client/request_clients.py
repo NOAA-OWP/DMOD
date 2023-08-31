@@ -9,10 +9,8 @@ from dmod.core.meta_data import DataCategory, DataDomain
 from dmod.core.serializable import BasicResultIndicator, ResultIndicator
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple, Type, Union
-from typing_extensions import Self
 
 import json
-import websockets
 
 #import logging
 #logger = logging.getLogger("gui_log")
@@ -768,9 +766,9 @@ class DataServiceClient:
         dataset_name : str
             The name of the dataset.
         paths : Union[Path, List[Path]]
-            Path or list of paths of files to upload or directories containing files to upload.
+            Path or list of paths of files to upload.
         data_root : Optional[Path]
-            A relative data root directory, used to adjust the names for updated items.
+            A relative data root directory, used to adjust the names for uploaded items.
 
         Returns
         -------
