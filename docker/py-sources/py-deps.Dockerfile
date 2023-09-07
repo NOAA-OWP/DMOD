@@ -67,6 +67,7 @@ ARG SHAPELY_VERSION_CLAUSE
 ARG PANDAS_VERSION_CLAUSE
 ARG SKLEARN_VERSION_CLAUSE
 ARG OVERRIDE_PROJ_VERSION_CLAUSES
+ARG MATCH_EXPLICIT_PROJ_VERSION_CLAUSES
 
 # Copy what we built so far in those other (hopefully cached) stages
 COPY --from=build_pandas_dep /DIST/ /DIST/
@@ -105,6 +106,11 @@ RUN for pair in numpy:${NUMPY_VERSION_CLAUSE} \
         if [ -n "${ver:-}" ]; then \
             if [ -n "${OVERRIDE_PROJ_VERSION_CLAUSES:-}" ]; then \
                 cat /dmod/requirements.txt | sed "s/^${pack}.*/${pack}${ver}/" > /dmod/req_up.txt ; \
+            elif [ -n "${MATCH_EXPLICIT_PROJ_VERSION_CLAUSES:-}" ]; then \
+                proj_ver=$(cat /dmod/requirements.txt | grep -e "^${pack}" | sed "s/${pack}//") ; \
+                if [ "${ver}" != "${proj_ver}" ]; then \
+                    echo "Error: configured version ${ver} of package ${pack} does not match ${proj_ver} from project requirements" 2> ; \
+                fi ; \
             else \
                 cat /dmod/requirements.txt | sed "s/^${pack}$/${pack}${ver}/" > /dmod/req_up.txt ; \
             fi ; \
