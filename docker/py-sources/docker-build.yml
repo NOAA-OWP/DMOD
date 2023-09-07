@@ -14,6 +14,9 @@ services:
         SKLEARN_VERSION_CLAUSE: ${DOCKER_BUILD_SKLEARN_VERSION_CLAUSE:-}
         # This env var flags whether the above should override a version clause present already within requirements.txt
         OVERRIDE_PROJ_VERSION_CLAUSES: ${DOCKER_BUILD_OVERRIDE_PROJ_VERSION_CLAUSES:-}
+        # Likewise, this one, if set, won't override, but will kill the build if there is something explicit in
+        # requirements.txt that doesn't match an .env-supplied clause
+        MATCH_EXPLICIT_PROJ_VERSION_CLAUSES: ${DOCKER_BUILD_MATCH_EXPLICIT_PROJ_VERSION_CLAUSES:-}
   py-sources:
     image: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/dmod-py-sources
     build:
