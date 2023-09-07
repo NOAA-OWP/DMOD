@@ -107,6 +107,7 @@ RUN for pair in numpy:${NUMPY_VERSION_CLAUSE} \
                 cat /dmod/requirements.txt | sed "s/^${pack}.*/${pack}${ver}/" > /dmod/req_up.txt ; \
             else \
                 cat /dmod/requirements.txt | sed "s/^${pack}$/${pack}${ver}/" > /dmod/req_up.txt ; \
+            fi ; \
             mv /dmod/req_up.txt /dmod/requirements.txt ; \
         fi ; \
     done \
