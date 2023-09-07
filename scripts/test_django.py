@@ -247,7 +247,7 @@ class TestOutput:
         """Messages encountered when interpretting stderr"""
 
         self.runtime: float = runtime
-        """The number of seconds it took to run the test that produced this output"""0
+        """The number of seconds it took to run the test that produced this output"""
 
         self.test_count = 0
         """The total number of tests that were run (might not match the number of messages)"""
@@ -373,7 +373,7 @@ class TestOutput:
         if verbose is None:
             verbose = False
 
-        # We know we're not in quiet mode if it wasn't stated, so set it as False in order to be explicit 
+        # We know we're not in quiet mode if it wasn't stated, so set it as False in order to be explicit
         if quiet is None:
             quiet = False
 
@@ -572,17 +572,26 @@ def run_django_test(path: typing.Union[Path, str]) -> TestOutput:
     return output
 
 
-def run_all_django_tests(manage_paths: typing.Sequence[Path]) -> typing.Sequence[TestOutput]:
+def run_all_django_tests(django_paths: typing.Sequence[Path]) -> typing.Sequence[TestOutput]:
+    """
+    Run tests on every identified Django application
+
+    Args:
+        django_paths: The paths to each Django application to test
+
+    Returns:
+        A collection of test results from every identified Django application
+    """
     result_data: typing.List[TestOutput] = list()
 
     # If only one path is found, run that naturally
-    if len(manage_paths) == 1:
-        output = run_django_test(manage_paths[0])
+    if len(django_paths) == 1:
+        output = run_django_test(django_paths[0])
         result_data.append(output)
     # If multiple paths are found, run as many as possible in parallel
-    elif len(manage_paths) > 1:
+    elif len(django_paths) > 1:
         with multiprocessing.Pool(os.cpu_count()) as worker_pool:
-            outputs = worker_pool.map(run_django_test, manage_paths)
+            outputs = worker_pool.map(run_django_test, django_paths)
 
         for output in outputs:
             result_data.append(output)
@@ -601,7 +610,7 @@ def test_django_applications(root: typing.Union[str, Path] = None) -> typing.Seq
         A list of test results from all found found Django applications
     """
     manage_files = find_django_applications(root or DEFAULT_ROOT)
-    return run_all_django_tests(manage_paths=manage_files)
+    return run_all_django_tests(django_paths=manage_files)
 
 
 def print_summary(outputs: typing.Sequence[TestOutput]):
