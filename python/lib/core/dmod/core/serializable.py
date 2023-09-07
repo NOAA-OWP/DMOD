@@ -1,7 +1,7 @@
 from abc import ABC
 from numbers import Number
 from enum import Enum
-from typing import Any, Callable, ClassVar, Dict, Type, TypeVar, TYPE_CHECKING, Union, Optional
+from typing import Any, Callable, ClassVar, Dict, List, Type, TypeVar, TYPE_CHECKING, Union, Optional
 from typing_extensions import Self, TypeAlias
 from pydantic import BaseModel, Field
 from functools import lru_cache
@@ -24,6 +24,8 @@ R = Union[str, int, float, bool, None]
 FnSerializer: TypeAlias = Callable[[T], R]
 SelfFieldSerializer: TypeAlias = Callable[[M, T], R]
 FieldSerializer = Union[SelfFieldSerializer[M, Any], FnSerializer[Any]]
+
+SimpleData = Union[int, float, bool, str]
 
 
 class Serializable(BaseModel, ABC):
@@ -367,8 +369,10 @@ class ResultIndicator(Serializable, ABC):
 
 class BasicResultIndicator(ResultIndicator):
     """
-    Bare-bones, concrete implementation of ::class:`ResultIndicator`.
+    Bare-bones, concrete implementation of ::class:`ResultIndicator` that also supports carrying simple data.
     """
+
+    data: Optional[Union[SimpleData, Dict[str, SimpleData], List[SimpleData]]]
 
 # NOTE: function below are intentionally not methods on `Serializable` to avoid subclasses
 # overriding their behavior.
