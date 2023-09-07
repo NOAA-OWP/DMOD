@@ -17,6 +17,15 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=['redis', 'dmod-evaluations', 'channels', 'channels-redis'],
+    install_requires=[
+        'redis',
+        'dmod-evaluations',
+        'channels',
+        'channels-redis',
+        'django-rq',
+        'Django~=4.2',
+        'djangorestframework',
+        'geopandas'
+    ],
     packages=find_namespace_packages(exclude=['dmod.test', 'deprecated', 'conf', 'schemas', 'ssl', 'src'])
 )

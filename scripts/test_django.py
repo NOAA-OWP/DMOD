@@ -271,7 +271,7 @@ class TestOutput:
         test_count_matches = TEST_COUNT_PATTERN.search(self.stdout)
 
         if not test_count_matches:
-            raise ValueError("No line stating the number of tests run could be found.")
+            raise ValueError(f"No line stating the number of tests run could be found:{os.linesep}{os.linesep}{self.stderr}")
 
         self.test_count = int(test_count_matches.group())
 
