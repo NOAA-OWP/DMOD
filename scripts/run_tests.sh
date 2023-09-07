@@ -20,6 +20,8 @@ fi
 # Import bash-only shared functions used for python-dev-related scripts
 . ${SHARED_FUNCS_DIR}/py_dev_bash_func.sh
 
+DJANGO_TEST_SCRIPT_PATH="${SCRIPT_PARENT_DIR}/test_django.py"
+
 SUPPORTED_PACKAGES=()
 
 PACKAGE_TESTING_SCRIPT=${SCRIPT_PARENT_DIR}/test_package.sh
@@ -48,6 +50,10 @@ Options:
 
     --service-packages | -srv
         Include service packages in what is supported and tested,
+        which are ignored by default
+
+    --django | -d
+        Include Django services in what is supported and tested,
         which are ignored by default
 
     --venv <dir>
@@ -116,6 +122,10 @@ list_packages()
     for p in "${SUPPORTED_PACKAGES[@]}"; do
         echo "    ${p}"
     done
+    if [ -z "${TEST_DJANGO_SERVICES:-}" ]; then
+        echo "Supported Django Services:"
+        ${DJANGO_TEST_SCRIPT_PATH} --list
+    fi
 }
 
 print_test_result()
@@ -177,6 +187,10 @@ while [ ${#} -gt 0 ]; do
         --service-packages|-srv)
             [ -n "${DO_SERVICE_PACKAGES:-}" ] && usage && exit 1
             DO_SERVICE_PACKAGES='true'
+            ;;
+        --django|-d)
+            [ -n "${TEST_DJANGO_SERVICES:-}" ] && usage && exit 1;
+            TEST_DJANGO_SERVICES='true';
             ;;
         --venv)
             [ -n "${VENV_DIR:-}" ] && usage && exit 1
@@ -261,6 +275,31 @@ for (( i=0; i<${len}; i++)); do
     fi
 done
 
+
+if [ -n "${TEST_DJANGO_SERVICES:-}" ]; then
+    if [ -n "${DO_QUIET:-}" ]; then
+        echo "Running django tests in quiet mode"
+        ${DJANGO_TEST_SCRIPT_PATH} --quiet
+    elif [ -z "${SET_VERBOSE:-}" ]; then
+        ${DJANGO_TEST_SCRIPT_PATH}
+    else
+        echo "-----------------------------------"
+        echo ""
+        echo "Django Tests:"
+        echo ""
+        VERBOSE_DJANGO_OUTPUT=$("${DJANGO_TEST_SCRIPT_PATH}" --verbose)
+        echo "$VERBOSE_DJANGO_OUTPUT"
+
+        # Extract the lines containing the summary to print later
+        # Knowing that there will only be 2 values is a stopgap
+        DJANGO_SUMMARY=$(echo "$VERBOSE_DJANGO_OUTPUT" | tail -n 2)
+        echo ""
+        echo ""
+        echo ""
+    fi
+fi
+
+
 # If we got verbose output, print summary at the end, along with something extra to have stand out
 if [ -n "${SET_VERBOSE:-}" ]; then
     echo "**************************************************"
@@ -270,6 +309,10 @@ if [ -n "${SET_VERBOSE:-}" ]; then
         _P_RES=${PACKAGE_RESULT[${j}]}
         print_test_result ${SUPPORTED_PACKAGES[${j}]} ${_P_RES}
     done
+
+    if [ -n "${DJANGO_SUMMARY:-}" ]; then
+        echo "$DJANGO_SUMMARY"
+    fi
 fi
 
 echo ""
