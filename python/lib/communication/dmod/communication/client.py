@@ -172,18 +172,6 @@ class TransportLayerClient(ABC):
         """
         pass
 
-    @property
-    def client_ssl_context(self) -> Optional[ssl.SSLContext]:
-        """
-        The client SSL context for securing connections, if one was created.
-
-        Returns
-        -------
-        Optional[ssl.SSLContext]
-            The client SSL context for securing connections, if one was created; otherwise ``None``.
-        """
-        return self._client_ssl_context
-
 
 class AuthClient:
     """
@@ -868,7 +856,7 @@ class WebSocketClient(ConnectionContextClient[websockets.WebSocketClientProtocol
         CONN
             A newly established connection.
         """
-        return await websockets.connect(self.endpoint_uri, ssl=self.client_ssl_context)
+        return await websockets.connect(self.endpoint_uri, ssl=self._client_ssl_context)
 
     @property
     def endpoint_uri(self) -> str:
@@ -881,7 +869,7 @@ class WebSocketClient(ConnectionContextClient[websockets.WebSocketClientProtocol
             The endpoint for the client to connect to when opening a connection.
         """
         if self._endpoint_uri is None:
-            proto = self.get_endpoint_protocol_str(use_secure_connection=self.client_ssl_context is not None)
+            proto = self.get_endpoint_protocol_str(use_secure_connection=self._client_ssl_context is not None)
 
             if self._endpoint_path and self._endpoint_path[0] != '/':
                 path_str = '/' + self._endpoint_path
