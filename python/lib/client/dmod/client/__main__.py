@@ -3,14 +3,12 @@ import datetime
 import json
 from dmod.core.execution import AllocationParadigm
 from . import name as package_name
-from .dmod_client import YamlClientConfig, DmodClient
+from .dmod_client import ClientConfig, DmodClient
 from dmod.communication.client import get_or_create_eventloop
 from dmod.core.meta_data import ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction, \
     TimeRange
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
-
-DEFAULT_CLIENT_CONFIG_BASENAME = '.dmod_client_config.yml'
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 
 class DmodCliArgumentError(ValueError):
@@ -293,8 +291,9 @@ def _handle_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter, prog='dmod.client')
     parser.add_argument('--client-config',
                         help='Set path to client configuration file',
+                        type=Path,
                         dest='client_config',
-                        default=None)
+                        default=Path('.dmod_client_config.json'))
     parser.add_argument('--bypass-request-service', '-b', dest='bypass_reqsrv', action='store_true', default=False,
                         help='Attempt to connect directly to the applicable service')
     # Top-level subparsers container, splitting off a variety of handled commands for different behavior
@@ -408,7 +407,8 @@ def main():
         exit(1)
 
     try:
-        client = DmodClient(client_config=YamlClientConfig(client_config_path), bypass_request_service=args.bypass_reqsrv)
+
+        client = DmodClient(client_config=ClientConfig.parse_file(client_config_path), bypass_request_service=args.bypass_reqsrv)
 
         if args.command == 'config':
             execute_config_command(args, client)
