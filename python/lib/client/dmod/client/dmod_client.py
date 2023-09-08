@@ -1,11 +1,51 @@
 import json
 
 from dmod.communication import AuthClient, TransportLayerClient, WebSocketClient
+from dmod.core.common import get_subclasses
 from dmod.core.serializable import ResultIndicator
 from dmod.core.meta_data import DataDomain
 from .request_clients import DataServiceClient, JobClient
 from .client_config import YamlClientConfig
 from pathlib import Path
+from typing import Type
+
+
+def determine_transport_client_type(protocol: str,
+                                    *prioritized_subtypes: Type[TransportLayerClient]) -> Type[TransportLayerClient]:
+    """
+    Determine the specific subclass type of ::class:`TransportLayerClient` appropriate for a specified URI protocol.
+
+    To allow for control when there are potential multiple subtypes that would support the same protocol, specific
+    ::class:`TransportLayerClient` subclasses can be given as variable positional arguments. These will be prioritized
+    and examined first.  After that, the order of examined subtypes is subject to the runtime order of the search for
+    concrete ::class:`TransportLayerClient` subclasses.
+
+    Parameters
+    ----------
+    protocol : str
+        A URI protocol substring value.
+    *prioritized_subtypes : Type[TransportLayerClient]
+        Specific subclass type(s) to prioritize in the event of any duplication of protocol value(s) across subtypes.
+
+    Returns
+    -------
+    Type[TransportLayerClient]
+        The appropriate type of ::class:`TransportLayerClient`.
+    """
+    if not protocol.strip():
+        raise ValueError("Cannot determine transport client type for empty protocol value")
+    elif any((s for s in prioritized_subtypes if not issubclass(s, TransportLayerClient))):
+        raise TypeError("Bad values for prioritized types received when attempting to determine transport client type")
+
+    def _get_subclasses(class_val):
+        return set([s for s in class_val.__subclasses__() if not s.__abstractmethods__]).union(
+            [s for c in class_val.__subclasses__() for s in get_subclasses(c) if not s.__abstractmethods__])
+
+    #for subtype in (*prioritized_subtypes, *get_subclasses(TransportLayerClient)):
+    for subtype in (*prioritized_subtypes, *_get_subclasses(TransportLayerClient)):
+        if subtype.get_endpoint_protocol_str(True) == protocol or subtype.get_endpoint_protocol_str(False) == protocol:
+            return subtype
+    raise RuntimeError(f"No subclass of `{TransportLayerClient.__name__}` found supporting protocol '{protocol}'")
 
 
 class DmodClient:
