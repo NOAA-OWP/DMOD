@@ -129,6 +129,18 @@ class TransportLayerClient(ABC):
             self._client_ssl_context = None
 
     @abstractmethod
+    def _get_endpoint_uri(self) -> str:
+        """
+        Get the endpoint for the client to connect to when opening a connection.
+
+        Returns
+        -------
+        str
+            The endpoint for the client to connect to when opening a connection.
+        """
+        pass
+
+    @abstractmethod
     async def async_send(self, data: Union[str, bytearray, bytes], await_response: bool = False) -> Optional[str]:
         """
         Send data to server, either returning immediately after or optionally waiting for and returning the response.
@@ -156,19 +168,6 @@ class TransportLayerClient(ABC):
         -------
         str
             The data received from the server, as a string.
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def endpoint_uri(self) -> str:
-        """
-        The endpoint for the client to connect to when opening a connection.
-
-        Returns
-        -------
-        str
-            The endpoint for the client to connect to when opening a connection.
         """
         pass
 
@@ -856,10 +855,9 @@ class WebSocketClient(ConnectionContextClient[websockets.WebSocketClientProtocol
         CONN
             A newly established connection.
         """
-        return await websockets.connect(self.endpoint_uri, ssl=self._client_ssl_context)
+        return await websockets.connect(self._get_endpoint_uri(), ssl=self._client_ssl_context)
 
-    @property
-    def endpoint_uri(self) -> str:
+    def _get_endpoint_uri(self) -> str:
         """
         The endpoint for the client to connect to when opening a connection.
 
