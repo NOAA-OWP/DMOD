@@ -112,7 +112,7 @@ class TransportLayerClient(ABC):
         kwargs
             Other unused keyword parameters.
         """
-        super().__init__(*args, **kwargs)
+        super().__init__()
 
         self._endpoint_host: str = endpoint_host.strip()
         self._endpoint_port = endpoint_port.strip() if isinstance(endpoint_port, str) else endpoint_port
@@ -842,7 +842,6 @@ class WebSocketClient(ConnectionContextClient[websockets.WebSocketClientProtocol
         """
         return await self.connection.recv()
 
-    @abstractmethod
     async def _connection_send(self, data: Union[str, bytearray]):
         """
         Perform operations to send data over already opened ::attribute:`connection`.
