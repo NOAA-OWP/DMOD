@@ -94,7 +94,7 @@ class TransportLayerClient(ABC):
         Parameters
         ----------
         endpoint_host: str
-            The host component for building this client's endpoint URI for opening a connection.
+            The host component for building this client's endpoint URI for opening a connection. Does not include the protocol.
             The endpoint for the client to connect to when opening a connection.
         endpoint_port: Union[int, str]
             The host port component for building this client's endpoint URI for opening a connection.
