@@ -101,5 +101,5 @@ jobs:
           cp -a ssl/local/*.pem ssl/scheduler/.
 
       - name: Run Tests
-        run: ./scripts/run_tests.sh --venv dmod_venv -v -srv
+        run: ./scripts/run_tests.sh --venv dmod_venv -v -d -srv
         timeout-minutes: 1
