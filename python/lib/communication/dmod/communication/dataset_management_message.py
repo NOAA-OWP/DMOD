@@ -413,10 +413,7 @@ class MaaSDatasetManagementMessage(DatasetManagementMessage, ExternalRequest):
 
     @classmethod
     def factory_create(cls, mgmt_msg: DatasetManagementMessage, session_secret: str) -> 'MaaSDatasetManagementMessage':
-        return cls(session_secret=session_secret, action=mgmt_msg.management_action, dataset_name=mgmt_msg.dataset_name,
-                   is_read_only_dataset=mgmt_msg.is_read_only_dataset, category=mgmt_msg.data_category,
-                   domain=mgmt_msg.data_domain, data_location=mgmt_msg.data_location,
-                   is_pending_data=mgmt_msg.is_pending_data)
+        return cls(session_secret=session_secret, **mgmt_msg.to_dict())
 
     @classmethod
     def factory_init_correct_response_subtype(cls, json_obj: dict) -> 'MaaSDatasetManagementResponse':
