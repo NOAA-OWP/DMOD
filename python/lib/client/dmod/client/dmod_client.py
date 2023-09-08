@@ -5,7 +5,7 @@ from dmod.core.common import get_subclasses
 from dmod.core.serializable import ResultIndicator
 from dmod.core.meta_data import DataDomain
 from .request_clients import DataServiceClient, JobClient
-from .client_config import YamlClientConfig
+from .client_config import ClientConfig
 from pathlib import Path
 from typing import Type
 
@@ -50,18 +50,26 @@ def determine_transport_client_type(protocol: str,
 
 class DmodClient:
 
-    def __init__(self, client_config: YamlClientConfig, bypass_request_service: bool = False, *args, **kwargs):
+    def __init__(self, client_config: ClientConfig, bypass_request_service: bool = False, *args, **kwargs):
         self._client_config = client_config
         self._data_service_client = None
         self._job_client = None
         self._bypass_request_service = bypass_request_service
 
-        self._transport_client: TransportLayerClient = WebSocketClient(endpoint_uri=self.requests_endpoint_uri,
-                                                                       ssl_directory=self.requests_ssl_dir)
-        self._auth_client: AuthClient = AuthClient(transport_client=self._transport_client)
+        # TODO: this should (optionally) be a client multiplexer (once that is available) instead of a transport client
+        #  (with a getter to actually get a transport client in either case)
+        request_t_client_type = determine_transport_client_type(client_config.request_service.endpoint_protocol,
+                                                                WebSocketClient)
+        self._request_service_conn: TransportLayerClient = request_t_client_type(**client_config.request_service.dict())
+
+        self._auth_client: AuthClient = AuthClient(transport_client=self._get_transport_client())
+
+    def _get_transport_client(self, **kwargs) -> TransportLayerClient:
+        # TODO: later add support for multiplexing capabilities and spawning wrapper clients
+        return self._request_service_conn
 
     @property
-    def client_config(self):
+    def client_config(self) -> ClientConfig:
         return self._client_config
 
     async def data_service_action(self, action: str, **kwargs) -> ResultIndicator:
@@ -109,19 +117,18 @@ class DmodClient:
     @property
     def data_service_client(self) -> DataServiceClient:
         if self._data_service_client is None:
-            if self._bypass_request_service:
-                if self.client_config.dataservice_endpoint_uri is None:
-                    raise RuntimeError("Cannot bypass request service without data service config details")
-                self._data_service_client = DataServiceClient(self._transport_client)
+            if self.client_config.data_service is not None and self.client_config.data_service.active:
+                t_client_type = determine_transport_client_type(self.client_config.data_service.endpoint_protocol)
+                t_client = t_client_type(**self.client_config.data_service.dict())
+                self._data_service_client = DataServiceClient(t_client, self._auth_client)
             else:
-                self._data_service_client = DataServiceClient(self._transport_client, self._auth_client)
+                self._data_service_client = DataServiceClient(self._get_transport_client(), self._auth_client)
         return self._data_service_client
 
     @property
     def job_client(self) -> JobClient:
         if self._job_client is None:
-            transport_client = WebSocketClient(endpoint_uri=self.requests_endpoint_uri, ssl_directory=self.requests_ssl_dir)
-            self._job_client = JobClient(transport_client=transport_client, auth_client=AuthClient(transport_client))
+            self._job_client = JobClient(transport_client=self._get_transport_client(), auth_client=self._auth_client)
         return self._job_client
 
     async def execute_job(self, workflow: str, **kwargs) -> ResultIndicator:
@@ -199,16 +206,8 @@ class DmodClient:
         except NotImplementedError:
             raise NotImplementedError(f"Supported command {command} not yet implemented by {self.__class__.__name__}")
 
-    @property
-    def requests_endpoint_uri(self) -> str:
-        return self.client_config.requests_endpoint_uri
-
-    @property
-    def requests_ssl_dir(self) -> Path:
-        return self.client_config.requests_ssl_dir
-
     def print_config(self):
-        print(self.client_config.print_config())
+        print(self.client_config.json(by_alias=True, exclude_none=True, indent=2))
 
     def validate_config(self):
         # TODO:
