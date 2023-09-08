@@ -60,7 +60,7 @@ class MockTransportLayerClient(TransportLayerClient):
         pass
 
     @property
-    def endpoint_uri(self) -> str:
+    def _get_endpoint_uri(self) -> str:
         return ''
 
     def set_client_response_none(self):
