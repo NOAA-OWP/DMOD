@@ -77,9 +77,9 @@ class TransportLayerClient(ABC):
         """
         pass
 
-    def __init__(self, endpoint_host: str, endpoint_port: Union[int, str], endpoint_path: Optional[str] = None,
+    def __init__(self, *, endpoint_host: str, endpoint_port: Union[int, str], endpoint_path: Optional[str] = None,
                  cafile: Optional[Path] = None, capath: Optional[Path] = None, use_default_context: bool = False,
-                 *args, **kwargs):
+                 **kwargs):
         """
         Initialize this instance.
 
