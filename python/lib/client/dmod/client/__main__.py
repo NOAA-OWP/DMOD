@@ -189,7 +189,8 @@ def _handle_data_service_action_args(parent_subparsers_container):
         some numbers of nested subparser containers and parsers will be added.
     """
     # A parser for the 'data' command itself, underneath the parent 'command' subparsers container
-    command_parser = parent_subparsers_container.add_parser('data')
+    command_parser = parent_subparsers_container.add_parser('dataset',
+                                                            description="Perform various dataset-related actions.")
 
     # Subparser under the dataset command's parser for handling the different actions that might be done relating to a
     # dataset (e.g., creation or uploading of data)
@@ -200,7 +201,7 @@ def _handle_data_service_action_args(parent_subparsers_container):
     dataset_formats = [e.name for e in DataFormat]
 
     # Nested parser for the 'create' action, with required argument for dataset name, category, and format
-    parser_create = action_subparsers.add_parser('create')
+    parser_create = action_subparsers.add_parser('create', description="Create a new dataset.")
     parser_create.add_argument('name', help='Specify the name of the dataset to create.')
     parser_create.add_argument('--paths', dest='upload_paths', type=Path, nargs='+',
                                help='Specify files/directories to upload.')
@@ -221,30 +222,30 @@ def _handle_data_service_action_args(parent_subparsers_container):
     parser_create.add_argument('category', type=DataCategory.get_for_name, choices=dataset_categories, help='Specify dataset category.')
 
     # Nested parser for the 'delete' action, with required argument for dataset name
-    parser_delete = action_subparsers.add_parser('delete')
+    parser_delete = action_subparsers.add_parser('delete', description="Delete a specified (entire) dataset.")
     parser_delete.add_argument('name', help='Specify the name of the dataset to delete.')
 
     # Nested parser for the 'upload' action, with required args for dataset name and files to upload
-    parser_upload = action_subparsers.add_parser('upload')
+    parser_upload = action_subparsers.add_parser('upload', description="Upload local files to a dataset.")
     parser_upload.add_argument('--data-root', dest='data_root', type=Path,
                                help='Relative data root directory, used to adjust the names for uploaded items.')
     parser_upload.add_argument('dataset_name', help='Specify the name of the desired dataset.')
     parser_upload.add_argument('paths', type=Path, nargs='+', help='Specify files or directories to upload.')
 
     # Nested parser for the 'download' action, with required args for dataset name and files to upload
-    parser_download = action_subparsers.add_parser('download')
+    parser_download = action_subparsers.add_parser('download', description="Download some or all items from a dataset.")
     parser_download.add_argument('--items', dest='item_names', nargs='+',
                                  help='Specify files/items within dataset to download.')
     parser_download.add_argument('dataset_name', help='Specify the name of the desired dataset.')
     parser_download.add_argument('dest_dir', type=Path, help='Specify local destination directory to save to.')
 
     # Nested parser for the 'list_datasets' action
-    parser_list = action_subparsers.add_parser('list_datasets')
+    parser_list = action_subparsers.add_parser('list', description="List available datasets.")
     parser_list.add_argument('--category', dest='category', choices=dataset_categories, type=DataCategory.get_for_name,
                              help='Specify the category of dataset to list')
 
     # Nested parser for the 'list_items' action
-    parser_list = action_subparsers.add_parser('list_items')
+    parser_list = action_subparsers.add_parser('items', description="List items within a specified dataset.")
     parser_list.add_argument('dataset_name', help='Specify the dataset for which to list items')
 
 
@@ -398,6 +399,7 @@ def execute_workflow_command(args, client: DmodClient):
         print(f"Encounted {e.__class__.__name__}: {str(e)}")
         exit(1)
 
+# TODO: (later) add something to TransportLayerClient to check if it supports multiplexing
 
 def main():
     args = _handle_args()
