@@ -2,7 +2,7 @@ from dmod.core.serializable import Serializable
 from .message import AbstractInitRequest, MessageEventType, Response
 from pydantic import Field
 from typing import ClassVar, Type, Union
-from typing_extensions import TypeAlias
+from typing_extensions import Self, TypeAlias
 from uuid import UUID
 
 
@@ -46,6 +46,30 @@ class DataTransmitResponse(Response):
     Like is sibling, it contains a ::attribute:`series_uuid` property as an identifier for the associated transmission
     series of which it is a part.
     """
+
+    @classmethod
+    def create_for_received(cls, received_msg: DataTransmitMessage, success: bool = True,
+                            reason: str = 'Data Received', message: str = "") -> Self:
+        """
+        Create an appropriate response object that corresponds to the received incoming message.
+
+        Parameters
+        ----------
+        received_msg : DataTransmitMessage
+            The received transmit message for which a response needs to be generated.
+        success : bool
+            The ``success`` value for the created response (``True`` by default).
+        reason : str
+            The ``reason`` value for the created response ("Data Received" by default).
+        message : str
+            The ``message`` value for the created response ("" by default).
+
+        Returns
+        -------
+        Self
+            The generated response object.
+        """
+        return cls(series_uuid=received_msg.series_uuid, success=success, reason=reason, message=message)
 
     response_to_type: ClassVar[Type[AbstractInitRequest]] = DataTransmitMessage
 
