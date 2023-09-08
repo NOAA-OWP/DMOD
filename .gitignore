@@ -14,7 +14,7 @@ dist/
 build/
 *.egg-info/
 
-/.dmod_client_config.yml
+/.dmod_client_config.json
 
 /python/pydevd-pycharm.egg
 
