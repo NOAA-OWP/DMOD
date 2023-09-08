@@ -9,6 +9,10 @@ from ..communication import NWMRequest, SchedulerClient, SchedulerRequestMessage
 
 class MockTransportLayerClient(TransportLayerClient):
 
+    @classmethod
+    def get_endpoint_protocol_str(cls, use_secure_connection: bool = True) -> str:
+        return "mock"
+
     def __init__(self):
         super().__init__(endpoint_host='', endpoint_port=8888)
 
