@@ -518,8 +518,10 @@ class RequestClient:
     two must be set for ::method:`async_make_request` to function.
     """
 
-    def __init__(self, transport_client: TransportLayerClient, default_response_type: Optional[Type[Response]] = None,
-                 *args, **kwargs):
+    def __init__(self, *,
+                 transport_client: TransportLayerClient,
+                 default_response_type: Optional[Type[Response]] = None,
+                 **kwargs):
         """
         Initialize.
 
@@ -529,7 +531,6 @@ class RequestClient:
             The client for handling the underlying raw OSI transport layer communications with the service.
         default_response_type: Optional[Type[Response]]
             Optional class type for responses, to use when no response class param is given when making a request.
-        args
         kwargs
         """
         self._transport_client = transport_client
