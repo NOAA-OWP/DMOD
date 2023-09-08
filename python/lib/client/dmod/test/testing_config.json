@@ -1,0 +1,14 @@
+{
+  "request-service": {
+      "protocol": "wss",
+      "hostname": "127.0.0.1",
+      "port": 18012,
+      "ssl-dir": "/home/user/dmod/ssl/requestservice"
+  },
+  "data-service": {
+      "protocol": "https",
+      "hostname": "127.0.0.1",
+      "port": 18015,
+      "ssl-dir": "/home/user/dmod/ssl/dataservice"
+  }
+}
