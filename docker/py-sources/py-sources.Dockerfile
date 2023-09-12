@@ -1,7 +1,27 @@
 ARG docker_internal_registry
-FROM ${docker_internal_registry}/dmod-py-deps:latest as basis
+FROM rockylinux:8.5 as deps
+
+# Do this separately at the beginning to get some caching help
+RUN dnf update -y && \
+    dnf install -y python39 python39-pip git \
+    && ln -s /usr/bin/pip3 /usr/bin/pip \
+    && ln -s /usr/bin/python3 /usr/bin/python
+
+ARG REQUIRE="python39 python39-devel python39-pip python3-pyproj gcc gcc-c++ gdal-devel libffi-devel openssl-devel rust cargo git proj proj-devel openblas openblas-devel lapack-devel geos-devel"
+
 # Copy these needed for sourced functions used by build scripts in later stages
-RUN mkdir -p /dmod/scripts/shared
+RUN dnf update -y \
+    && dnf install -y 'dnf-command(config-manager)' \
+    && dnf config-manager --set-enabled powertools \
+    && dnf install -y epel-release \
+    && dnf install -y ${REQUIRE} \
+    && dnf clean all \
+    && mkdir -p /dmod/scripts/shared \
+    && pip install wheel
+RUN mkdir /DIST
+################################################################################################################
+################################################################################################################
+FROM deps as basis
 COPY ./scripts/dist_package.sh /dmod/scripts
 COPY ./scripts/shared /dmod/scripts/shared
 # Copy python sources
@@ -44,14 +64,12 @@ RUN for p in `ls python/services`; do \
 ################################################################################################################
 ################################################################################################################
 #### Create final Docker build stage for desired image
-FROM python:3.8-alpine3.15
+FROM deps
 WORKDIR /dmod
-RUN apk update && apk upgrade && apk add --no-cache git
+RUN dnf install -y git
 # Copy complete python source packages to location
 COPY --from=basis /dmod /dmod
 # And for every built dist/wheel package copy wheel file into analogous location for this stage
 COPY --from=lib_packages /DIST/* /DIST/
-COPY --from=lib_packages /CACHE/* /CACHE/
 COPY --from=service_packages /DIST/* /DIST/
-COPY --from=service_packages /CACHE/* /CACHE/
 ################################################################################################################
