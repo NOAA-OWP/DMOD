@@ -1,22 +1,6 @@
 version: "3.7"
 
 services:
-  py-deps:
-    image: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/dmod-py-deps
-    build:
-      context: ../../
-      dockerfile: ./docker/py-sources/py-deps.Dockerfile
-      args:
-        NUMPY_VERSION_CLAUSE: ${DOCKER_BUILD_NUMPY_VERSION_CLAUSE:->=1.18.0}
-        CRYPTOGRAPHY_VERSION_CLAUSE: ${DOCKER_BUILD_CRYPTOGRAPHY_VERSION_CLAUSE:-}
-        SHAPELY_VERSION_CLAUSE: ${DOCKER_BUILD_SHAPELY_VERSION_CLAUSE:->=2.0.0}
-        PANDAS_VERSION_CLAUSE: ${DOCKER_BUILD_PANDAS_VERSION_CLAUSE:-}
-        SKLEARN_VERSION_CLAUSE: ${DOCKER_BUILD_SKLEARN_VERSION_CLAUSE:-}
-        # This env var flags whether the above should override a version clause present already within requirements.txt
-        OVERRIDE_PROJ_VERSION_CLAUSES: ${DOCKER_BUILD_OVERRIDE_PROJ_VERSION_CLAUSES:-}
-        # Likewise, this one, if set, won't override, but will kill the build if there is something explicit in
-        # requirements.txt that doesn't match an .env-supplied clause
-        MATCH_EXPLICIT_PROJ_VERSION_CLAUSES: ${DOCKER_BUILD_MATCH_EXPLICIT_PROJ_VERSION_CLAUSES:-}
   py-sources:
     image: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/dmod-py-sources
     build:
