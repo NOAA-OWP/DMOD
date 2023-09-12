@@ -3,17 +3,25 @@ ARG docker_internal_registry
 FROM ${docker_internal_registry}/dmod-py-sources:latest as sources
 
 ################################################################################################################
-FROM python:3.8-alpine3.15
+FROM rockylinux:8.5 as service
+
+# Do this separately at the beginning to get some caching help
+RUN dnf update -y && \
+    dnf install -y python39 python39-pip git \
+    && ln -s /usr/bin/pip3 /usr/bin/pip \
+    && ln -s /usr/bin/python3 /usr/bin/python
+
 ARG service_package_name
 ARG service_package_constraint
 WORKDIR /code
 # Copy custom built packages from external sources image
 COPY --from=sources /DIST /DIST
-RUN apk update \
-    && apk add --no-cache openssl git g++ libffi-dev proj proj-dev proj-util gdal-dev openblas openblas-dev \
-    && pip install --no-cache-dir --upgrade pip \
+
+# Small possibility will find after testing that we'll need to 'dnf install -y` some of these dependencies:
+#  gcc-c++ libffi-devel proj proj-devel gdal-devel openblas openblas-devel
+RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir aiohttp==3.8.1 \
-    && pip install --no-cache-dir --no-index --find-links=/DIST "${service_package_name}${service_package_constraint}" \
+    && pip install --no-cache-dir --find-links=/DIST "${service_package_name}${service_package_constraint}" \
     # TODO: this is a workaround, and may have side effects (transitive dependency issue with aiohttp and redis) \
     && pip install --no-cache-dir aiohttp==3.8.1 \
     && rm -rf /DIST
