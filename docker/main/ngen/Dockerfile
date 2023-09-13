@@ -33,7 +33,7 @@ ARG NGEN_CAL_COMMIT
 
 #### Default arguments for required dependencies needed during various build stages
 # The Rocky-Linux-based "base" stage, rocky-base
-ARG ROCKY_BASE_REQUIRED="sudo openssh openssh-server bash git"
+ARG ROCKY_BASE_REQUIRED="sudo openssh openssh-server bash git which"
 # The Rocky-Linux-based "ngen-deps" stage, rocky-ngen-deps
 # TODO: later look at separating build and run images again, and install static lib netcdf packages in run images
 #ARG ROCKY_NGEN_DEPS_REQUIRED="mpich mpich-devel sudo gcc gcc-c++ make cmake tar git gcc-gfortran libgfortran \
@@ -261,11 +261,14 @@ FROM rocky-base as rocky-ngen-packaged-deps
 
 ARG ROCKY_NGEN_DEPS_REQUIRED
 
+# TODO: later, go back and change all pip3/python3 to just pip/python (but leave for now to limit scope)
 # Note that this includes numpy, which is needed for Python BMI support, regardless of BMI module 
 USER root
-RUN dnf update -y && dnf install -y ${ROCKY_NGEN_DEPS_REQUIRED} \
-    && pip3 install "pip>=23.0,<23.1" wheel packaging \
-    && if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then pip3 install numpy; fi 
+RUN dnf update -y && dnf install -y ${ROCKY_NGEN_DEPS_REQUIRED} && dnf clean -y all \
+    && ln -s $(which python3) $(which python3 | sed 's/python3/python/') \
+    && ln -s $(which pip3) $(which pip3 | sed 's/pip3/pip/') \
+    && pip install --no-cache-dir "pip>=23.0,<23.1" wheel packaging \
+    && if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then pip install --no-cache-dir numpy; fi
 USER ${USER}
 
 ################################################################################################################
