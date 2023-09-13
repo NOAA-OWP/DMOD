@@ -361,14 +361,6 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     # TODO: if we run into any problem, might need to reactivate this \
     # && ctest \
     && make install \
-    # Install required python dependency packages with Pip \
-    && pip3 install numpy pandas pyyaml bmipy Cython blosc2==${BLOSC2_VERSION:-2.0.0} netCDF4 wheel packaging \
-    && env HDF5_DIR=/usr pip3 install --install-option="\'--jobs=${BUILD_PARALLEL_JOBS} \'"  --no-build-isolation tables \
-    # Make aliases for convenience \
-    && alias pip='pip3' \
-    && echo "alias pip='pip3'" >> /etc/profile \
-    && alias python='python3'  \
-    && echo "alias python='python3'" >> /etc/profile \
     # Also set up boost here, since we copied the download but only just installed bzip2 to work with it \
     && cd ${BOOST_ROOT} \
     && tar -xf boost_tarball.blob \
@@ -376,6 +368,10 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     # Set the regular user as the owner \
     && chown -R ${USER}:${USER} ${BOOST_ROOT} \
     && rm -rf /tmp/ngen-deps
+
+# Install required Python packages for troute build/run that needed one or more of the source dependencies
+RUN pip install --no-cache-dir numpy pandas pyyaml bmipy Cython blosc2==${BLOSC2_VERSION:-2.0.0} netCDF4 wheel packaging \
+    && env HDF5_DIR=/usr pip install --no-cache-dir --no-build-isolation tables
 
 ENV PATH=${PATH}:/usr/lib64/mpich/bin
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib:/usr/local/lib64
@@ -438,10 +434,6 @@ ARG COMMIT
 ARG BUILD_PARALLEL_JOBS
 
 COPY --chown=${USER} --from=rocky_init_troute_repo ${WORKDIR}/t-route ${WORKDIR}/t-route
-
-USER root
-RUN cp -s /usr/bin/python3 /usr/bin/python
-USER ${USER}
 
 #    && python(){ /usr/bin/python3 \$@; } && export -f python \
 RUN cd ${WORKDIR}/t-route \
