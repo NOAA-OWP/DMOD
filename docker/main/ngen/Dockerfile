@@ -145,14 +145,16 @@ FROM rockylinux:8.5 AS download_boost
 # Redeclaring inside this stage to get default from before first FROM
 ARG BOOST_VERSION
 
-# Copy of entrypoint.sh here is just to avoid failure if there is no boost_*.tar.* present,,,
-COPY entrypoint.sh boost_*.tar.* ${WORKDIR}
+# Copy this file here is just to avoid failure if there is no boost_*.tar.* present.
+# Use essentially a dummy file that won't change (unless someone does that deliberately to trigger a full rebuild), as
+#   any change to this file will cause anything and and build layer/stage that uses boost to be fully rebuilt.
+COPY .boost_local_copying.md boost_*.tar.* ${WORKDIR}
 
-RUN mkdir ${WORKDIR}/boost \
-    && if compgen -G "./boost_*.tar.*" > /dev/null; then \
-        mv ${WORKDIR}/boost_*.tar.* ${WORKDIR}/boost/boost_tarball.blob ; \
+RUN mkdir /boost \
+    && if compgen -G "${WORKDIR}/boost_${BOOST_VERSION//./_}.tar.*" > /dev/null; then \
+        mv ${WORKDIR}/boost_${BOOST_VERSION//./_}.tar.* /boost/boost_tarball.blob ; \
     else \
-        curl -L -o ${WORKDIR}/boost/boost_tarball.blob https://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION//./_}.tar.bz2/download ; \
+        curl -L -o /boost/boost_tarball.blob https://sourceforge.net/projects/boost/files/boost/${BOOST_VERSION}/boost_${BOOST_VERSION//./_}.tar.bz2/download ; \
     fi
 
 ################################################################################################################
