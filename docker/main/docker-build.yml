@@ -103,6 +103,8 @@ services:
       target: ngen_cal_worker
       args:
         REPO_URL: ${NGEN_REPO_URL?No NGen repo url configured}
+        BRANCH: ${NGEN_BRANCH?No NGen branch configured}
+        COMMIT: ${NGEN_COMMIT}
         NGEN_CAL_BRANCH: ${NGEN_CAL_BRANCH:-master}
         NGEN_CAL_COMMIT: ${NGEN_CAL_COMMIT}
         TROUTE_REPO_URL: ${TROUTE_REPO_URL:-https://github.com/NOAA-OWP/t-route}
