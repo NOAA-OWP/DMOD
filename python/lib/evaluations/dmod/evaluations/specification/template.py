@@ -5,8 +5,10 @@ import abc
 import json
 import pathlib
 import typing
+from collections import defaultdict
 
 from dmod.core.common import humanize_text
+from dmod.core.common.types import TextValue
 
 
 @typing.runtime_checkable
@@ -59,6 +61,11 @@ class TemplateDetails(typing.Protocol):
         """
         return self.name, self.name
 
+    @property
+    @abc.abstractmethod
+    def text_value(self) -> TextValue[str]:
+        pass
+
     def __str__(self):
         return f"[{self.specification_type}] {self.name}{': ' + self.description if self.description else ''}"
 
@@ -89,6 +96,49 @@ class TemplateManager(abc.ABC):
         """
         pass
 
+    def search(
+        self,
+        specification_type: typing.Optional[str],
+        name: typing.Optional[str],
+        **kwargs
+    ) -> typing.Mapping[str, typing.Sequence[TemplateDetails]]:
+        """
+        Find TemplateDetails based on individual parameters
+
+        Args:
+            specification_type: The type of specification to look for
+            name: The part of the name to look for
+            **kwargs: Additional parameters to check for if the underlying implementation supports it
+
+        Returns:
+            A mapping from specification types to a listing of all templates that passed the filter
+        """
+        if specification_type and name:
+            name = name.lower()
+            found_templates = [
+                template
+                for template in self.get_templates(specification_type=specification_type)
+                if name in template.name.lower()
+            ]
+            found_templates = {specification_type: found_templates} if found_templates else dict()
+        elif specification_type:
+            return {
+                specification_type: self.get_templates(specification_type=specification_type)
+            }
+        elif name:
+            name = name.lower()
+            all_templates = self.get_all_templates()
+            found_templates = defaultdict(list)
+            for type_of_specification, specifications_for_type in all_templates.items():
+                for specification_for_type in specifications_for_type:
+                    if name in specification_for_type.name.lower():
+                        found_templates[type_of_specification].append(specification_for_type)
+        else:
+            found_templates = self.get_all_templates()
+
+        return found_templates
+
+
     def get_all_templates(self) -> typing.Mapping[str, typing.Sequence[TemplateDetails]]:
         """
         Get all configured templates in hierarchical order
@@ -98,10 +148,9 @@ class TemplateManager(abc.ABC):
         """
         templates = dict()
 
-        for specification_type in self.get_specification_types():
-            specification_type_name = specification_type[0]
+        for specification_type_name, specification_type in self.get_specification_types():
             for template in self.get_templates(specification_type_name):
-                if specification_type not in templates:
+                if specification_type_name not in templates:
                     templates[specification_type_name] = list()
 
                 templates[specification_type_name].append(template)
@@ -112,7 +161,9 @@ class TemplateManager(abc.ABC):
         self,
         specification_type: typing.Union[str, GetSpecificationTypeProtocol],
         name: str,
-        decoder_type: typing.Type[json.JSONDecoder] = None
+        *,
+        decoder_type: typing.Type[json.JSONDecoder] = None,
+        **kwargs
     ) -> typing.Optional[dict]:
         """
         Get the raw configuration for a template based on the type of specification and its name
@@ -128,14 +179,24 @@ class TemplateManager(abc.ABC):
         if isinstance(specification_type, GetSpecificationTypeProtocol):
             specification_type = specification_type.get_specification_type()
 
-        matches = [
-            template.get_configuration(decoder_type=decoder_type)
+        matching_templates = [
+            template
             for template in self.get_templates(specification_type)
             if template.name == name
         ]
+        matches_to_remove = list()
 
-        if matches:
-            return matches[0]
+        for match in matching_templates:
+            for key, value in kwargs.items():
+                if not getattr(match, key, object()) == value and match not in matches_to_remove:
+                    matches_to_remove.append(match)
+
+        for match in matches_to_remove:
+            if match in matching_templates:
+                matching_templates.remove(match)
+
+        if matching_templates:
+            return matching_templates[0].get_configuration(decoder_type=decoder_type)
 
         return None
 
@@ -156,6 +217,14 @@ class TemplateManager(abc.ABC):
 
 
 class FileTemplateDetails(TemplateDetails):
+    @property
+    def text_value(self) -> TextValue[str]:
+        return TextValue(
+            group=self.specification_type,
+            value=self.name,
+            text=humanize_text(self.name)
+        )
+
     def __init__(self, name: str, specification_type: str, description: str, path: pathlib.Path):
         self.__name = name
         self.__specification_type = specification_type

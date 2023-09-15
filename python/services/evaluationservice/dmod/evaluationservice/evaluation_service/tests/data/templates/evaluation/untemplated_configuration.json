@@ -1,0 +1,209 @@
+{
+    "name": "no-template",
+    "observations": [
+        {
+            "name": "Observations",
+            "value_field": "observation",
+            "value_selectors": [
+                {
+                    "name": "observation",
+                    "where": "value",
+                    "path": ["values[*]", "value[*]", "value"],
+                    "datatype": "float",
+                    "origin": ["$", "value", "timeSeries[*]"],
+                    "associated_fields": [
+                        {
+                            "name":"value_date",
+                            "path": ["values[*]", "value[*]", "dateTime"],
+                            "datatype": "datetime"
+                        },
+                        {
+                            "name":"observation_location",
+                            "path": ["sourceInfo", "siteCode", "[0]", "value"],
+                            "datatype": "string"
+                        },
+                        {
+                            "name":"unit",
+                            "path": ["variable", "unit", "unitCode"],
+                            "datatype": "string"
+                        }
+                    ]
+                }
+            ],
+            "backend": {
+                "backend_type": "file",
+                "format": "json",
+                "address": "resources/observations.json"
+            },
+            "locations": {
+                "identify": true,
+                "from_field": "value"
+            },
+            "unit": {
+                "field": "unit"
+            },
+            "x_axis": "value_date"
+        }
+    ],
+    "predictions": [
+        {
+            "name": "Predictions",
+            "value_field": "prediction",
+            "value_selectors": [
+                {
+                    "name": "predicted",
+                    "where": "column",
+                    "associated_fields": [
+                        {
+                            "name": "date",
+                            "datatype": "datetime"
+                        }
+                    ]
+                }
+            ],
+            "backend": {
+                "backend_type": "file",
+                "format": "csv",
+                "address": "resources/cat.*cfs.csv",
+                "parse_dates": ["date"]
+            },
+            "locations": {
+                "identify": true,
+                "from_field": "filename",
+                "pattern": "cat-\\d\\d"
+            },
+            "field_mapping": [
+                {
+                    "field": "prediction",
+                    "map_type": "column",
+                    "value": "predicted"
+                },
+                {
+                    "field": "prediction_location",
+                    "map_type": "column",
+                    "value": "location"
+                },
+                {
+                    "field": "value_date",
+                    "map_type": "column",
+                    "value": "date"
+                }
+            ],
+            "unit": {
+                "value": "ft^3/s"
+            },
+            "x_axis": "value_date"
+        }
+    ],
+    "crosswalks": [
+        {
+            "name": "Crosswalk",
+            "backend": {
+                "backend_type": "file",
+                "address": "resources/crosswalk.json",
+                "format": "json"
+            },
+            "observation_field_name": "observation_location",
+            "prediction_field_name": "prediction_location",
+            "field": {
+                "name": "prediction_location",
+                "where": "key",
+                "path": ["* where site_no"],
+                "origin": "$",
+                "datatype": "string",
+                "associated_fields": [
+                    {
+                        "name": "observation_location",
+                        "path": "site_no",
+                        "datatype": "string"
+                    }
+                ]
+            }
+        }
+    ],
+    "thresholds": [
+        {
+            "name": "NWIS Stat Percentiles",
+            "backend": {
+                "name": "NWIS Stat Thresholds",
+                "backend_type": "file",
+                "format": "rdb",
+                "address": "resources/nwis_stat_thresholds.rdb"
+            },
+            "locations": {
+                "identify": true,
+                "from_field": "column",
+                "pattern": "site_no"
+            },
+            "application_rules": {
+                "name": "Date to Day",
+                "threshold_field": {
+                    "name": "threshold_day",
+                    "path": [
+                        "month_nu",
+                        "day_nu"
+                    ],
+                    "datatype": "Day"
+                },
+                "observation_field": {
+                    "name": "threshold_day",
+                    "path": [
+                        "value_date"
+                    ],
+                    "datatype": "Day"
+                }
+            },
+            "definitions": [
+                {
+                    "name": "75th Percentile",
+                    "field": "p75_va",
+                    "weight": 10,
+                    "unit": {
+                        "value": "ft^3/s"
+                    }
+                },
+                {
+                    "name": "80th Percentile",
+                    "field": "p80_va",
+                    "weight": 5,
+                    "unit": {
+                        "value": "ft^3/s"
+                    }
+                },
+                {
+                    "name": "Median",
+                    "field": "p50_va",
+                    "weight": 1,
+                    "unit": {
+                        "value": "ft^3/s"
+                    }
+                }
+            ]
+        }
+    ],
+    "scheme": {
+        "name": "Prefer Pearson, then Nash and Kling, then POD and FAR",
+        "metrics": [
+            {
+                "name": "False Alarm Ratio",
+                "weight": 10
+            },
+            {
+                "name": "Probability of Detection",
+                "weight": 10
+            },
+            {
+                "name": "Kling-Gupta Efficiency",
+                "weight": 15
+            },
+            {
+                "name": "Normalized Nash-Sutcliffe Efficiency",
+                "weight": 15
+            },
+            {
+                "name": "Pearson Correlation Coefficient",
+                "weight": 18
+            }
+        ]
+    }
+}

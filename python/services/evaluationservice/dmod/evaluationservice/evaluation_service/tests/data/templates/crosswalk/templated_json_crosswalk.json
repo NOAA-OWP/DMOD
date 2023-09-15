@@ -1,0 +1,12 @@
+{
+    "name": "Templated Crosswalk",
+    "backend": {
+        "template_name": "JSON File",
+        "address": "resources/crosswalk.json"
+    },
+    "observation_field_name": "observation_location",
+    "prediction_field_name": "prediction_location",
+    "field": {
+        "template_name": "Prediction Key to Observed Site Crosswalk"
+    }
+}

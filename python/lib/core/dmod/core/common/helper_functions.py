@@ -668,7 +668,7 @@ def find(
     if not iterable:
         return None
 
-    return next(filter(predicate, iterable), __default=default)
+    return next(filter(predicate, iterable), default)
 
 
 def true_for_all(
@@ -1093,5 +1093,40 @@ def instanceof(obj: object, *object_type: type) -> bool:
     for definition in type_definitions:
         if definition.matches(value=obj):
             return True
+
+    return False
+
+
+def intersects(collection: typing.Sequence, *expected_values, condition: typing.Callable[[typing.Any], bool] = None) -> bool:
+    """
+    Check to see if a collection has one or more identified values
+
+    Examples:
+        >>> intersects([1, 2, 3, 4], "one", "two", 8, 2)
+        True
+        >>> intersects([1, 2, 3, 4], "one", "two", 8, 5)
+        False
+        >>> dict_to_check = {"one": 9, "two": None}
+        >>> intersects(dict_to_check, "two", "three")
+        True
+        >>> intersects(dict_to_check, "two", "three", condition=lambda value: dict_to_check[value] is not None)
+        False
+
+    Args:
+        collection: The collection to check against
+        *expected_values: Values to check for existence
+        condition: a conditional value to run upon the intersection to further check if the intersecting value counts
+
+    Returns:
+        True if at least one expected value is in the collection
+    """
+    if not expected_values:
+        return False
+    elif len(expected_values) == 1 and condition is None:
+        return expected_values[0] in collection
+
+    for entry in collection:
+        if entry in expected_values:
+            return True if condition is None else condition(entry)
 
     return False
