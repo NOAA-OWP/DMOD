@@ -1,11 +1,20 @@
 #!/usr/bin/env python3
 import unittest
+import os
 
 from ...metrics import metric as metrics
 from ...metrics.scoring import scale_value
 
-from ...metrics.common import EPSILON
+EPSILON = float(os.environ.get('METRIC_EPSILON')) if os.environ.get("METRIC_EPSILON") else 0.0001
+"""
+The distance there may be between two numbers and still considered equal
 
+    Example:
+        Function A might produce 84.232323232 and another function may produce 84.2323. Those numbers aren't exactly the 
+        same but are similar enough for our purposes.
+
+The smaller the number the greater the precision.
+"""
 
 class TestResultScaling(unittest.TestCase):
     def test_pearson_scaling(self):

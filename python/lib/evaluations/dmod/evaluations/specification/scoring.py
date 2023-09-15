@@ -13,16 +13,22 @@ from dmod.core.common import find
 from dmod.core.common import contents_are_equivalent
 from dmod.core.common import Bag
 from pydantic import Field
+from pydantic import validator
 
 from .base import TemplatedSpecification
 
 from .template import TemplateManager
 
+def get_metric_identifiers() -> typing.Tuple:
+    identifiers = list()
 
-METRIC_NAME = typing.Union[(
-    typing.Literal[metric.get_identifier()]
-    for metric in metrics.get_all_metrics()
-)]
+    for metric in metrics.get_all_metrics():
+        identifiers.append(typing.Literal[metric.get_identifier()])
+        identifiers.append(typing.Literal[metric.get_name()])
+
+    return tuple(identifiers)
+
+METRIC_NAME = typing.Union[get_metric_identifiers()]
 
 
 class MetricSpecification(TemplatedSpecification):
@@ -31,6 +37,11 @@ class MetricSpecification(TemplatedSpecification):
     """
     weight: typing.Union[float] = Field(description="A relative rating of the significance of this metric")
     name: typing.Literal[metrics.metric.get_all_metrics()] = Field
+    weight: typing.Union[float, None] = Field(
+        default=1,
+        description="A relative rating of the significance of this metric"
+    )
+    name: METRIC_NAME = Field(description="The name of the metric to use")
 
     def __eq__(self, other: MetricSpecification) -> bool:
         if not super().__eq__(other):
@@ -42,6 +53,18 @@ class MetricSpecification(TemplatedSpecification):
 
     def validate_self(self) -> typing.Sequence[str]:
         return list()
+
+    def __init__(self, **kwargs):
+        if 'name' in kwargs:
+            kwargs['name'] = kwargs['name'].replace(" ", "").replace("-", "").lower()
+        super().__init__(**kwargs)
+
+    @validator('name')
+    def _squish_name(cls, value: str) -> str:
+        if value:
+            value = value.replace(" ", "").lower()
+
+        return value
 
     def __str__(self) -> str:
         description = f"{self.name} = {self.weight}"

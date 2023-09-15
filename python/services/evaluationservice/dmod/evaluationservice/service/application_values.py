@@ -234,6 +234,16 @@ DATABASES = {
 }
 """Configuration for the default database for Django"""
 
+# Concurrency in SQLite is not reliable, so add a timeout to any detected SQLite databases that
+#   don't already have a timeout. This isn't guaranteed to work, but should provide a bare-bones mitigation
+for database_configuration in DATABASES.values():
+    if 'lite' in database_configuration['ENGINE']:
+        if 'OPTIONS' not in database_configuration:
+            database_configuration['OPTIONS'] = dict()
+
+        if 'timeout' not in database_configuration['OPTIONS']:
+            database_configuration['OPTIONS']['timeout'] = os.environ.get("SQLITE_TIMEOUT", 20)
+
 START_DELAY = os.environ.get('EVALUATION_START_DELAY', '5')
 """The amount of seconds that an evaluation should wait before launching"""
 

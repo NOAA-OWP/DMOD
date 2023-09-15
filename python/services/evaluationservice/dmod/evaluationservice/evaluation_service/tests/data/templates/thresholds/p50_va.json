@@ -1,0 +1,8 @@
+{
+    "name": "Median",
+    "field": "p50_va",
+    "weight": 1,
+    "unit": {
+        "value": "ft^3/s"
+    }
+}

@@ -1,9 +1,10 @@
 """
 Defines a wrapper class for Django models that may function within an async context
 """
+from __future__ import annotations
+
 import typing
 import threading
-import inspect
 
 from django.db import models as django_models
 from django.db.models import Q
@@ -47,6 +48,9 @@ class WrapperResults:
             return iter(self.__mapping.items())
         return iter(self.__multiple_values)
 
+    def __repr__(self):
+        return str(self.value)
+
 
 _T = typing.TypeVar("_T")
 _V = typing.TypeVar("_V")
@@ -57,33 +61,52 @@ class wrapper_fn(typing.Protocol, typing.Generic[_T, _V]):
 
 
 def wrapper_caller(
+    function: typing.Callable[[typing.Any, ...], typing.Union[_MODEL_TYPE, QuerySet[_MODEL_TYPE]]],
     function: wrapper_fn[_T, _V],
     _wrapper_return_values: WrapperResults,
     args: typing.Sequence[_T],
     kwargs: typing.Mapping[str, _V],
 ):
-    function_results = function(*args, **kwargs)
+    try:
+        function_results = function(*args, **kwargs)
 
-    # A queryset might have nested lazy objects, so call 'get' on each to attempt to fully load them
-    if isinstance(function_results, QuerySet):
-        processed_results = list()
+        # A queryset might have nested lazy objects, so call 'get' on each to attempt to fully load them
+        if isinstance(function_results, QuerySet):
+            processed_results = list()
 
-        for instance in function_results.select_related().all():
-            processed_results.append(instance)
+            if "values" not in function.__name__:
+                function_results = function_results.select_related()
 
-        function_results = processed_results
+            for instance in function_results.all():
+                processed_results.append(instance)
 
-    _wrapper_return_values.value = function_results
+            function_results = processed_results
+
+        _wrapper_return_values.value = function_results
+    except BaseException as e:
+        _wrapper_return_values.value = e
 
 
-class ModelWrapper:
+class ModelWrapper(typing.Generic[_MODEL_TYPE]):
     @classmethod
-    def for_model(cls, model_type: typing.Type[django_models.Model]):
+    def for_model(cls, model_type: typing.Type[_MODEL_TYPE]) -> ModelWrapper[_MODEL_TYPE]:
         return ModelWrapper(model_type=model_type)
 
-    def __init__(self, model_type: typing.Type[django_models.Model]):
-        self.__model_type: typing.Type[django_models.Model] = model_type
+    def __init__(self, model_type: typing.Type[_MODEL_TYPE]):
+        self.__model_type: typing.Type[_MODEL_TYPE] = model_type
         self.__manager: django_models.Manager = self.__model_type.objects
+
+        # SQLite cannot handle multiple threads well and ends up locking and causing locking errors.
+        #   If the database being used is determined to be SQLite, avoid threading
+        self.__can_use_concurrency = True
+
+    def enable_concurrency(self):
+        self.__can_use_concurrency = True
+        return self
+
+    def disable_concurrency(self):
+        self.__can_use_concurrency = False
+        return self
 
     def __call_wrapper(
         self,
@@ -91,20 +114,30 @@ class ModelWrapper:
         *args: _T,
         **kwargs: _V,
     ) -> typing.Union[_MODEL_TYPE, typing.Sequence[_MODEL_TYPE]]:
+        function: typing.Callable[[typing.Any, ...], typing.Union[_MODEL_TYPE, QuerySet[_MODEL_TYPE]]],
+        *args,
+        **kwargs
+    ) -> typing.Union[_MODEL_TYPE, typing.List[_MODEL_TYPE]]:
         results = WrapperResults()
 
-        caller_thread = threading.Thread(
-            target=wrapper_caller,
-            kwargs={
-                "function": function,
-                "_wrapper_return_values": results,
-                "args": args,
-                "kwargs": kwargs
-            }
-        )
+        if self.__can_use_concurrency:
+            caller_thread = threading.Thread(
+                target=wrapper_caller,
+                kwargs={
+                    "function": function,
+                    "_wrapper_return_values": results,
+                    "args": args,
+                    "kwargs": kwargs
+                }
+            )
 
-        caller_thread.start()
-        caller_thread.join()
+            caller_thread.start()
+            caller_thread.join()
+        else:
+            wrapper_caller(function=function, _wrapper_return_values=results, args=args, kwargs=kwargs)
+
+        if isinstance(results.value, BaseException):
+            raise results.value
 
         for value in results:
             if isinstance(value, django_models.Model):
@@ -227,7 +260,7 @@ class ModelWrapper:
             *fields
         )
 
-    def all(self) -> typing.Sequence[_MODEL_TYPE]:
+    def all(self) -> typing.List[_MODEL_TYPE]:
         return self.__call_wrapper(
             self.__manager.all
         )
@@ -253,7 +286,7 @@ class ModelWrapper:
         update_conflicts=False,
         update_fields=None,
         unique_fields=None,
-    ) -> typing.Sequence[_MODEL_TYPE]:
+    ) -> typing.List[_MODEL_TYPE]:
         """
 
         Insert each of the instances into the database. Do *not* call
@@ -286,10 +319,10 @@ class ModelWrapper:
             batch_size=batch_size
         )
 
-    def complex_filter(self, filter_obj: typing.Union[Q, typing.Dict[str, typing.Any]]) -> typing.Sequence[_MODEL_TYPE]:
+    def complex_filter(self, filter_obj: typing.Union[Q, typing.Dict[str, typing.Any]]) -> typing.List[_MODEL_TYPE]:
         """
 
-        Return a new QuerySet instance with filter_obj added to the filters.
+        Return a new list instance with filter_obj added to the filters.
 
         filter_obj can be a Q object or a dictionary of keyword lookup
         arguments.
@@ -339,10 +372,10 @@ class ModelWrapper:
             **kwargs
         )
 
-    def distinct(self, *field_names) -> typing.Sequence[_MODEL_TYPE]:
+    def distinct(self, *field_names) -> typing.List[_MODEL_TYPE]:
         """
 
-        Return a new QuerySet instance that will select only distinct results.
+        Return a new list instance that will select only distinct results.
 
         """
         return self.__call_wrapper(
@@ -356,7 +389,7 @@ class ModelWrapper:
             *fields
         )
 
-    def exclude(self, *args, **kwargs) -> typing.Sequence[_MODEL_TYPE]:
+    def exclude(self, *args, **kwargs) -> typing.List[_MODEL_TYPE]:
         """
 
         Return a new QuerySet instance with NOT (args) ANDed to the existing
@@ -379,7 +412,7 @@ class ModelWrapper:
             self.__manager.exists
         )
 
-    def filter(self, *args, **kwargs) -> typing.Sequence[_MODEL_TYPE]:
+    def filter(self, *args, **kwargs) -> typing.List[_MODEL_TYPE]:
         """
 
         Return a new QuerySet instance with the args ANDed to the existing
@@ -447,7 +480,7 @@ class ModelWrapper:
             *fields
         )
 
-    def order_by(self, *field_names) -> typing.Sequence[_MODEL_TYPE]:
+    def order_by(self, *field_names) -> typing.List[_MODEL_TYPE]:
         """
         Return a new QuerySet instance with the ordering changed.
         """
@@ -456,7 +489,7 @@ class ModelWrapper:
             *field_names
         )
 
-    def prefetch_related(self, *lookups) -> typing.Sequence[_MODEL_TYPE]:
+    def prefetch_related(self, *lookups) -> typing.List[_MODEL_TYPE]:
         """
 
         Return a new QuerySet instance that will prefetch the specified
@@ -472,7 +505,7 @@ class ModelWrapper:
             *lookups
         )
 
-    def raw(self, raw_query, params=(), translations=None, using=None) -> typing.Sequence[_MODEL_TYPE]:
+    def raw(self, raw_query, params=(), translations=None, using=None) -> typing.List[_MODEL_TYPE]:
         return self.__call_wrapper(
             self.__manager.raw,
             raw_query=raw_query,
@@ -481,7 +514,7 @@ class ModelWrapper:
             using=using
         )
 
-    def reverse(self) -> typing.Sequence[_MODEL_TYPE]:
+    def reverse(self) -> typing.List[_MODEL_TYPE]:
         """
         Reverse the ordering of the QuerySet.
         """
@@ -489,7 +522,7 @@ class ModelWrapper:
             self.__manager.reverse
         )
 
-    def select_related(self, *fields) -> typing.Sequence[_MODEL_TYPE]:
+    def select_related(self, *fields) -> typing.List[_MODEL_TYPE]:
         """
 
         Return a new QuerySet instance that will select related objects.
@@ -544,3 +577,9 @@ class ModelWrapper:
             flat=flat,
             named=named
         )
+
+    def __str__(self):
+        return f"Wrapper for {self.__model_type}"
+
+    def __repr__(self):
+        return f"{str(self.__model_type)}: {'Concurrent' if self.__can_use_concurrency else 'Synchronous'}"

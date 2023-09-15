@@ -1,0 +1,5 @@
+{
+    "name":"value_date",
+    "path": ["values[*]", "value[*]", "dateTime"],
+    "datatype": "datetime"
+}

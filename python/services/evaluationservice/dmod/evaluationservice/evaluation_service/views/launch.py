@@ -57,7 +57,7 @@ class LaunchEvaluation(APIView):
 
 
 class ReadyListenEvaluation(View):
-    template = "evaluation_service/ready_evaluation_async.html"
+    template = "evaluation_service/ready_evaluation.html"
 
     def get_evaluation_template(self) -> str:
         with open(EVALUATION_TEMPLATE_PATH, "r") as evaluation_template_file:
@@ -79,29 +79,6 @@ class ReadyListenEvaluation(View):
             "geometry_name": "",
             "show_map": True,
             "production": not application_values.in_debug_mode()
-        }
-        return render(request, template_name=self.template, context=context)
-
-
-class ReadyEvaluation(View):
-    template = "evaluation_service/ready_evaluation.html"
-
-    def get_evaluation_template(self) -> str:
-        with open(EVALUATION_TEMPLATE_PATH, "r") as evaluation_template_file:
-            return evaluation_template_file.read()
-
-    def _generate_evaluation_id(self, request: HttpRequest) -> str:
-        current_date = datetime.now()
-        date_representation = current_date.strftime("%m-%d_%H.%M")
-        evaluation_id = f"manual_evaluation_at_{date_representation}"
-        return evaluation_id
-
-    def get(self, request: HttpRequest) -> HttpResponse:
-        context = {
-            "evaluation_template": self.get_evaluation_template(),
-            "launch_url": "/evaluation_service/launch",
-            "generated_evaluation_id": self._generate_evaluation_id(request),
-            "evaluation_id_pattern": EVALUATION_ID_PATTERN
         }
         return render(request, template_name=self.template, context=context)
 
