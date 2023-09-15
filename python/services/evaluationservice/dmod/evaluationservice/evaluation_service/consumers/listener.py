@@ -15,6 +15,7 @@ import redis
 import redis.client as redis_client
 
 from channels.generic.websocket import AsyncWebsocketConsumer
+from django.db.models import QuerySet
 
 from dmod.evaluations.specification import EvaluationSpecification
 
@@ -721,7 +722,7 @@ class LaunchConsumer(AsyncWebsocketConsumer, ActionDescriber):
             if 'name' in payload:
                 filter_arguments['name__icontains'] = payload['name']
 
-            saved_definitions: typing.Sequence[EvaluationDefinition] = EvaluationDefinitionCommunicator.filter(
+            saved_definitions: typing.List[EvaluationDefinition] = EvaluationDefinitionCommunicator.filter(
                 **filter_arguments
             )
 
@@ -733,7 +734,6 @@ class LaunchConsumer(AsyncWebsocketConsumer, ActionDescriber):
                     "author": saved_definition.author,
                     "name": saved_definition.name,
                     "description": saved_definition.description,
-                    "last_modified": saved_definition.last_edited
                 })
 
             await self.send_message(

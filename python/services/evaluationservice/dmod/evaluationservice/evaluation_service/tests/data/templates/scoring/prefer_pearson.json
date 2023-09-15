@@ -1,0 +1,25 @@
+{
+    "name": "Prefer Pearson, then Nash and Kling, then POD and FAR",
+    "metrics": [
+        {
+            "name": "False Alarm Ratio",
+            "weight": 10
+        },
+        {
+            "name": "Probability of Detection",
+            "weight": 10
+        },
+        {
+            "name": "Kling-Gupta Efficiency",
+            "weight": 15
+        },
+        {
+            "name": "Normalized Nash-Sutcliffe Efficiency",
+            "weight": 15
+        },
+        {
+            "name": "Pearson Correlation Coefficient",
+            "weight": 18
+        }
+    ]
+}

@@ -23,14 +23,10 @@ import scipy.stats
 
 from pandas.api import types as pandas_types
 
-from . import common
 from . import scoring
 from . import threshold
 from . import categorical
 from .threshold import Threshold
-
-
-common.configure_logging()
 
 NUMBER = typing.Union[int, float]
 DEFAULT_TRUTH_TABLES_KEY = "TRUTH_TABLES"
@@ -42,7 +38,7 @@ WHITESPACE_PATTERN = re.compile(f"[{string.whitespace}]+")
 
 def is_type(value: object, value_type: typing.Type) -> bool:
     """
-    Determines whether or not the given value matches the given type
+    Determines whether the given value matches the given type
 
     This can be used to evaluated types such as unions since you cannot use `isinstance`
 
@@ -51,12 +47,12 @@ def is_type(value: object, value_type: typing.Type) -> bool:
         value_type: The type to check against
 
     Returns:
-        Whether or not the value matches the given type
+        Whether the value matches the given type
     """
     value_is_valid = False
 
     try:
-        type_members: typing.Tuple = typing.get_args(value_type)
+        type_members: typing.Tuple[typing.Type, ...] = typing.get_args(value_type)
 
         # If the given value is not a scalar value, we need to check the types against
         if isinstance(value, typing.Sequence):

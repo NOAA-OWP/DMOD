@@ -6,8 +6,8 @@ from .communication import get_channel_key
 from .communication import get_evaluation_pointers
 from .communication import get_evaluation_key
 from .common import key_separator
-from .async_orm import communicate_with_database
-from .async_orm import select_from_database
+from .common import create_basic_credentials
+from .common import create_token_credentials
 from .message import make_message_serializable
 
 from dmod.metrics import Communicator

@@ -19,7 +19,8 @@ from dmod.evaluations.specification.base import get_subclasses
 from evaluation_service import models
 
 BINARY_TYPES = re.compile(
-    r'((?<!,)\s*\{\s*"type": "string",\s*"format": "binary"\s*},\s*|,\s*\{\s*"type": "string",\s*"format": "binary"\s*}\s*)'
+    r'((?<!,)\s*\{\s*"type": "string",\s*"format": "binary"\s*},\s*|'
+    r',\s*\{\s*"type": "string",\s*"format": "binary"\s*}\s*)'
 )
 """
 A regular expression that finds all type definitions that are strings formatted as bytes
@@ -48,6 +49,7 @@ Examples:
     '{"types": [{"type": "string"}, {"type": "number"}]}'
 """
 
+
 def get_editor_friendly_model_schema(model: typing.Type[BaseModel]) -> typing.Optional[dict]:
     """
     Get the schema for a model and scrub any editor unfriendly type from it
@@ -68,6 +70,7 @@ def get_editor_friendly_model_schema(model: typing.Type[BaseModel]) -> typing.Op
         return json.loads(json_data)
     return None
 
+
 def get_specification_schema_map() -> typing.Dict[str, typing.Any]:
     """
     Generate a dictionary mapping specification types to their schemas
@@ -87,7 +90,11 @@ class EvaluationDefinitionForm(forms.ModelForm):
     """
     class Meta:
         model = models.EvaluationDefinition
-        fields = "__all__"
+        fields = [
+            field.name
+            for field in models.EvaluationDefinition._meta.get_fields()
+            if field.name.lower() not in ("owner", "author")
+        ]
 
     definition = forms.JSONField(
         widget=JSONArea(
@@ -95,13 +102,18 @@ class EvaluationDefinitionForm(forms.ModelForm):
         )
     )
 
+
 class SpecificationTemplateForm(forms.ModelForm):
     """
     A specialized form for SpecificationTemplate that allows its JSON data to be manipulated within a JSONArea
     """
     class Meta:
         model = models.SpecificationTemplate
-        fields = "__all__"
+        fields = [
+            field.name
+            for field in models.SpecificationTemplate._meta.get_fields()
+            if field.name.lower() not in ("owner", "author")
+        ]
 
     class Media:
         # Include a script to add functionality that will update the json area's
