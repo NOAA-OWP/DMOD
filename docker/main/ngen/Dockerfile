@@ -47,8 +47,9 @@ ARG ROCKY_NGEN_DEPS_REQUIRED="sudo gcc gcc-c++ make cmake tar git gcc-gfortran l
     bzip2 expat expat-devel flex bison udunits2 udunits2-devel zlib-devel"
 # TODO: removed texinfo from list because it couldn't be found; make sure this doesn't lead to issues
 
-ARG BOOST_VERSION=1.72.0
-ARG MPICH_VERSION="3.2"
+ARG BOOST_VERSION=1.82.0
+#mpich 3.2 doesn't work well gfortran 11 it seems, an alignment error crops up, but 3.3.2 seems to work...
+ARG MPICH_VERSION="3.3.2"
 ARG MIN_PYTHON="3.8.0"
 ARG MIN_NUMPY="1.18.0"
 ARG BLOSC2_VERSION
@@ -325,7 +326,8 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && cd /tmp/ngen-deps \
     && tar xfz mpich-${MPICH_VERSION}.tar.gz  \
     && cd mpich-${MPICH_VERSION} \
-    && ./configure ${MPICH_CONFIGURE_OPTIONS} \
+    # mpich3 and gfortran > 10 don't get along...https://gcc.gnu.org/bugzilla/show_bug.cgi?id=91731 \
+    && FFLAGS="-w -fallow-argument-mismatch -O2"  ./configure ${MPICH_CONFIGURE_OPTIONS} \
     && make -j ${BUILD_PARALLEL_JOBS} ${MPICH_MAKE_OPTIONS} && make install \
     ##### Build and install HDF5 \
     && cd /tmp/ngen-deps \
