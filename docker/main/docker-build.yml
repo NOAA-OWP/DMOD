@@ -59,7 +59,17 @@ services:
       context: ./ngen
       target: rocky_ngen_build_testing
       args:
+        REPO_URL: ${NGEN_REPO_URL?No NGen repo url configured}
+        BRANCH: ${NGEN_BRANCH?No NGen branch configured}
+        COMMIT: ${NGEN_COMMIT}
+        TROUTE_REPO_URL: ${TROUTE_REPO_URL:-https://github.com/NOAA-OWP/t-route}
+        TROUTE_BRANCH: ${TROUTE_BRANCH:-master}
+        TROUTE_COMMIT: ${TROUTE_COMMIT}
+        BUILD_PARALLEL_JOBS: ${NGEN_BUILD_PARALLEL_JOBS:-2}
+        REFRESH_BEFORE_BUILD: ${NGEN_REFRESH_BEFORE_BUILD:-true}
         DOCKER_INTERNAL_REGISTRY: ${DOCKER_INTERNAL_REGISTRY:?}
+    depends_on:
+      - ngen-deps
 
   ngen:
     image: ${DOCKER_INTERNAL_REGISTRY:?}/ngen:${NGEN_VERSION:-latest}
@@ -74,6 +84,7 @@ services:
         TROUTE_BRANCH: ${TROUTE_BRANCH:-master}
         TROUTE_COMMIT: ${TROUTE_COMMIT}
         BUILD_PARALLEL_JOBS: ${NGEN_BUILD_PARALLEL_JOBS:-2}
+        REFRESH_BEFORE_BUILD: ${NGEN_REFRESH_BEFORE_BUILD:-true}
         DOCKER_INTERNAL_REGISTRY: ${DOCKER_INTERNAL_REGISTRY:?}
     depends_on:
       - ngen-deps
@@ -91,6 +102,7 @@ services:
         BRANCH: ${NGEN_BRANCH?No NGen branch configured}
         COMMIT: ${NGEN_COMMIT}
         BUILD_PARALLEL_JOBS: ${NGEN_BUILD_PARALLEL_JOBS:-2}
+        REFRESH_BEFORE_BUILD: ${NGEN_REFRESH_BEFORE_BUILD:-true}
         DOCKER_INTERNAL_REGISTRY: ${DOCKER_INTERNAL_REGISTRY:?}
         PARTITIONER_EXECUTABLE: ${PARTITIONER_EXECUTABLE:-partitionGenerator}
     depends_on:
@@ -111,6 +123,7 @@ services:
         TROUTE_BRANCH: ${TROUTE_BRANCH:-master}
         TROUTE_COMMIT: ${TROUTE_COMMIT}
         BUILD_PARALLEL_JOBS: ${NGEN_BUILD_PARALLEL_JOBS:-2}
+        REFRESH_BEFORE_BUILD: ${NGEN_REFRESH_BEFORE_BUILD:-true}
         DOCKER_INTERNAL_REGISTRY: ${DOCKER_INTERNAL_REGISTRY:?}
     depends_on:
       - ngen
