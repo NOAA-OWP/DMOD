@@ -43,7 +43,7 @@ ARG ROCKY_BASE_REQUIRED="sudo openssh openssh-server bash git which"
 #    bzip2 expat expat-devel flex bison udunits2 udunits2-devel"
 
 ARG ROCKY_NGEN_DEPS_REQUIRED="sudo gcc gcc-c++ make cmake tar git gcc-gfortran libgfortran \
-    python39 python39-devel python39-pip \
+    python3 python3-devel python3-pip \
     bzip2 expat expat-devel flex bison udunits2 udunits2-devel zlib-devel"
 # TODO: removed texinfo from list because it couldn't be found; make sure this doesn't lead to issues
 
@@ -86,7 +86,7 @@ ARG BUILD_SLOTH="true"
 ################################################################################################################
 ################################################################################################################
 ##### Create intermediate Docker build stage for Rocky-Linux-based "base"
-FROM rockylinux:8.5 as rocky-base
+FROM rockylinux:9.1 as rocky-base
 
 ARG USER=mpi
 ENV USER=${USER} USER_HOME=/home/${USER}
@@ -96,9 +96,10 @@ ARG ROCKY_BASE_REQUIRED
 
 RUN dnf update -y \
     && dnf install -y 'dnf-command(config-manager)' \
-    && dnf config-manager --set-enabled powertools \
+    && dnf config-manager --set-enabled crb \
     && dnf install -y epel-release \
     && dnf -y install ${ROCKY_BASE_REQUIRED} \
+    && dnf -y clean all \
     # Note that adduser -p expects an encrypted/hashed password, so it will ignore a simple password \
     && adduser -p 'ignored' ${USER} \
     && echo "${USER}   ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
@@ -140,7 +141,7 @@ USER ${USER}
 ################################################################################################################
 ################################################################################################################
 ##### Create intermediate Docker build stage for downloading Boost
-FROM rockylinux:8.5 AS download_boost
+FROM rockylinux:9.1 AS download_boost
 
 # Redeclaring inside this stage to get default from before first FROM
 ARG BOOST_VERSION
@@ -160,7 +161,7 @@ RUN mkdir /boost \
 ################################################################################################################
 ################################################################################################################
 ##### Create intermediate Docker build stage for downloading MPICH
-FROM rockylinux:8.5 AS download_mpich
+FROM rockylinux:9.1 AS download_mpich
 
 # Redeclaring inside this stage to get default from before first FROM
 ARG MPICH_VERSION
@@ -171,7 +172,7 @@ RUN curl -o /tmp/mpich-${MPICH_VERSION}.tar.gz https://www.mpich.org/static/down
 ################################################################################################################
 ################################################################################################################
 ##### Create intermediate Docker build stage for downloading MPICH
-FROM rockylinux:8.5 AS download_hd5
+FROM rockylinux:9.1 AS download_hd5
 
 # Redeclaring inside this stage to get default from before first FROM
 ARG HD5_VERSION
@@ -266,7 +267,6 @@ ARG ROCKY_NGEN_DEPS_REQUIRED
 USER root
 RUN dnf update -y && dnf install -y ${ROCKY_NGEN_DEPS_REQUIRED} && dnf clean -y all \
     && ln -s $(which python3) $(which python3 | sed 's/python3/python/') \
-    && ln -s $(which pip3) $(which pip3 | sed 's/pip3/pip/') \
     && pip install --no-cache-dir "pip>=23.0,<23.1" wheel packaging \
     && if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then pip install --no-cache-dir numpy; fi
 USER ${USER}
@@ -592,9 +592,12 @@ RUN cd ${WORKDIR}/ngen \
 ################################################################################################################
 ##### A build stage for testing using the ngen-build-test image
 FROM rocky_build_ngen as rocky_ngen_build_testing
+#FROM ${DOCKER_INTERNAL_REGISTRY}/ngen-deps:latest as rocky_ngen_build_testing
 
 #COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/ngen
 #ENV BOOST_ROOT=${WORKDIR}/boost
+#COPY --chown=${USER} --from=rocky_build_troute ${WORKDIR}/t-route/wheels /tmp/t-route-wheels
+#COPY --chown=${USER} --from=rocky_build_troute ${WORKDIR}/t-route/requirements.txt /tmp/t-route-requirements.txt
 WORKDIR ${WORKDIR}/ngen
 
 ################################################################################################################
