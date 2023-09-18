@@ -262,19 +262,6 @@ REST_FORWARDING_CONFIG_PATH = os.environ.get(
     STATIC_RESOURCE_DIRECTORY / "rest_forwarding.json"
 )
 
-REQUIRED_ENVIRONMENT_VARIABLES: typing.List[typing.Dict[str, str]] = [
-    {
-        "name": "MAAS_ENDPOINT_HOST",
-        "purpose": "The default host address for MaaS"
-    },
-    {
-        "name": "MAAS_ENDPOINT_PORT",
-        "purpose": "The port for the default MaaS endpoint"
-    }
-]
-"""A list of all environments that are required to get the system to function"""
-
-
 def load_maas_endpoints() -> typing.Dict[str, typing.Dict[str, str]]:
     endpoints: typing.Dict[str, typing.Dict[str, str]] = dict()
 

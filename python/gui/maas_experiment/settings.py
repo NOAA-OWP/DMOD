@@ -144,27 +144,3 @@ STATICFILES_DIRS = [
     BASE_DIRECTORY / "static"
 ]
 
-
-def ensure_required_environment_variables():
-    missing_variables = [
-        variable_name
-        for variable_name in REQUIRED_ENVIRONMENT_VARIABLES
-        if variable_name['name'] not in os.environ.keys()
-    ]
-
-    if missing_variables:
-        missing_keys = [
-            variable['name']
-            for variable in missing_variables
-        ]
-
-        error("The following required environment variables are missing:")
-
-        for missing_variable in missing_variables:
-            error(f"{missing_variable['name']}: {missing_variable['purpose']}")
-
-        raise ValueError(f"The following environment variables have not been set: [{', '.join(missing_keys)}]")
-
-
-ensure_required_environment_variables()
-

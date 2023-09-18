@@ -5,6 +5,7 @@ __pycache__/
 .idea/
 /docker_host_volumes/
 /venv/
+/*_venv/
 /venv_*/
 .env
 docker/main/base/ssh/
