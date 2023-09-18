@@ -729,6 +729,9 @@ ARG NGEN_CAL_COMMIT
 # Overwrite the ngen entrypoint script from the parent stage, which is already set up with ENTRYPOINT
 COPY --chown=${USER:?} ngen_cal_entrypoint.sh ${WORKDIR:?}/entrypoint.sh
 
+USER root
 # Try NGEN_CAL_COMMIT, if not set or empty, use NGEN_CAL_BRANCH
-RUN pip install "git+https://github.com/noaa-owp/ngen-cal@${NGEN_CAL_COMMIT:-${NGEN_CAL_BRANCH}}#egg=ngen_cal&subdirectory=python/ngen_cal" \
-    && chmod +x ${WORKDIR}/entrypoint.sh
+RUN pip install --no-cache-dir "git+https://github.com/noaa-owp/ngen-cal@${NGEN_CAL_COMMIT:-${NGEN_CAL_BRANCH}}#egg=ngen_cal&subdirectory=python/ngen_cal"
+
+USER ${USER}
+RUN chmod +x ${WORKDIR}/entrypoint.sh
