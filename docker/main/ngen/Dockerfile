@@ -638,7 +638,7 @@ RUN cd ${WORKDIR}/ngen \
             if [ "${REFRESH_BEFORE_BUILD:-}" = "true" ] ; then  \
                 git pull --ff-only ; \
             fi ; \
-        if \
+        fi \
     && if [ -z "${PARTITIONER_EXECUTABLE:-}" ]; then echo "Error: target/executable name not set" 2>&1 ; exit 1; fi \
     && cmake -B cmake_build -S . \
                -DMPI_ACTIVE:BOOL=OFF \
