@@ -352,7 +352,7 @@ class TestOutput:
             message = TestMessage(status=current_status, content=current_content, description=current_description)
             self.messages.append(message)
 
-    def print(self, verbose: bool = None, quiet: bool = None):
+    def print(self, verbose: bool = False, quiet: bool = False):
         """
         Print the test results in one of a different number of formats
 
@@ -366,16 +366,8 @@ class TestOutput:
                 "Output cannot be both quiet and verbose; choose either '--quiet' or '--verbose', but not both",
                 file=sys.stderr
             )
-            # Exit with a code of -1 to indicate that this was an application error, not a test error or failure
-            exit(-1)
-
-        # We know we're not in verbose mode if it wasn't stated, so set it as False in order to be explicit
-        if verbose is None:
-            verbose = False
-
-        # We know we're not in quiet mode if it wasn't stated, so set it as False in order to be explicit
-        if quiet is None:
-            quiet = False
+            # Exit with a code of 255 to indicate that this was an application error, not a test error or failure
+            exit(255)
 
         # Print the maximum amount of data if in verbose mode
         if verbose:
