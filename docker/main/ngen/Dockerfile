@@ -22,6 +22,8 @@ ARG DATASET_DIRECTORIES="config forcing hydrofabric observation output"
 ARG REPO_URL=https://github.com/NOAA-OWP/ngen.git
 ARG BRANCH=master
 ARG COMMIT
+# Helper flag to, if "true" AND if COMMIT is not set, `git pull --ff-only` within the repo dir just before building ngen
+ARG REFRESH_BEFORE_BUILD=true
 ARG WORKDIR=/ngen
 
 ARG TROUTE_REPO_URL=https://github.com/NOAA-OWP/t-route.git
@@ -365,7 +367,7 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && make install \
     # Also set up boost here, since we copied the download but only just installed bzip2 to work with it \
     && cd ${BOOST_ROOT} \
-    && tar -xf boost_tarball.blob \
+    && tar -xf boost_tarball.blob --strip 1 \
     && rm boost_tarball.blob \
     # Set the regular user as the owner \
     && chown -R ${USER}:${USER} ${BOOST_ROOT} \
@@ -430,9 +432,9 @@ RUN cd ${WORKDIR} \
 ##### Create intermediate Docker build stage for building t-route in Rocky Linux environment
 FROM rocky-ngen-deps as rocky_build_troute
 
-ARG REPO_URL
-ARG BRANCH
-ARG COMMIT
+ARG TROUTE_REPO_URL
+ARG TROUTE_BRANCH
+ARG TROUTE_COMMIT
 ARG BUILD_PARALLEL_JOBS
 
 COPY --chown=${USER} --from=rocky_init_troute_repo ${WORKDIR}/t-route ${WORKDIR}/t-route
@@ -467,6 +469,7 @@ FROM rocky-ngen-deps as rocky_build_ngen
 ARG REPO_URL
 ARG BRANCH
 ARG COMMIT
+ARG REFRESH_BEFORE_BUILD
 ARG BUILD_PARALLEL_JOBS
 
 ARG NGEN_BUILD_CONFIG_TYPE
@@ -499,17 +502,26 @@ RUN if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
     fi \
     && if [ "${NGEN_ROUTING_ACTIVE}" == "ON" ]; then \
         # These packages install command line tools, which try to go in /usr/local/bin \
-        pip3 install pyarrow pyproj fiona; \
+        pip3 install --no-cache-dir pyarrow pyproj fiona; \
     fi
 USER ${USER}
 
 RUN cd ${WORKDIR}/ngen \
-    && if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
-        pip3 install -r extern/test_bmi_py/requirements.txt; \
-        if [ "${NGEN_ROUTING_ACTIVE}" == "ON" ] ; then \
-            pip3 install /tmp/t-route-wheels/*.whl; \
-            pip3 install -r /tmp/t-route-requirements.txt; \
-            pip3 install deprecated geopandas ; \
+    &&  if [ -z "${COMMIT:-}" ]; then \
+            if [ "${REFRESH_BEFORE_BUILD:-}" = "true" ] ; then  \
+                git pull --ff-only ; \
+                git submodule update --init --depth 1 test/googletest ; \
+                git submodule update --init --recursive --depth 1 ; \
+            fi ; \
+        fi \
+    # C++ functionality isn't separate, so always build the test_bmi_cpp shared lib \
+    && ./build_sub extern/test_bmi_cpp \
+    &&  if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
+            pip3 install --no-cache-dir -r extern/test_bmi_py/requirements.txt; \
+            if [ "${NGEN_ROUTING_ACTIVE}" == "ON" ] ; then \
+                pip3 install --no-cache-dir /tmp/t-route-wheels/*.whl; \
+                pip3 install --no-cache-dir -r /tmp/t-route-requirements.txt; \
+                pip3 install --no-cache-dir deprecated geopandas ; \
             fi; \
         fi \
     &&  if [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ]; then \
@@ -564,8 +576,7 @@ RUN cd ${WORKDIR}/ngen \
         #Run the tests, if they fail, the image build fails \
         && cmake --build $BUILD_DIR --target test_unit -j ${BUILD_PARALLEL_JOBS} \
         && $BUILD_DIR/test/test_unit \
-        # C++ functionality isn't separate, so always build the test_bmi_cpp shared lib (also needed for test_bmi_multi) \
-        && ./build_sub extern/test_bmi_cpp \
+        # C++ functionality isn't separate, so always build and run the test_bmi_cpp testing target \
         && cmake --build $BUILD_DIR --target test_bmi_cpp \
         && $BUILD_DIR/test/test_bmi_cpp \
         # For the external language BMI integrations, conditionally build the test packages/libraries and run tests \
@@ -586,7 +597,7 @@ RUN cd ${WORKDIR}/ngen \
         &&  if [ "${NGEN_ACTIVATE_C}" == "ON" ] && [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ] && [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
                 cmake --build $BUILD_DIR --target test_bmi_multi; \
                 $BUILD_DIR/test/test_bmi_multi; \
-            fi \
+            fi ; \
     done \
     && find cmake_build* -type f -name "*" ! \( -name "*.so" -o -name "ngen" -o -name "partitionGenerator" \) -exec rm {} +
 
@@ -608,6 +619,8 @@ WORKDIR ${WORKDIR}/ngen
 FROM rocky-ngen-deps as partitioner_image
 
 ARG BUILD_PARALLEL_JOBS
+ARG COMMIT
+ARG REFRESH_BEFORE_BUILD
 ARG NGEN_ACTIVATE_C
 ARG NGEN_ACTIVATE_FORTRAN
 ARG NGEN_ACTIVATE_PYTHON
@@ -621,6 +634,11 @@ COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/ngen
 ENV BOOST_ROOT=${WORKDIR}/boost
 
 RUN cd ${WORKDIR}/ngen \
+    &&  if [ "x$COMMIT" = "x" ]; then \
+            if [ "${REFRESH_BEFORE_BUILD:-}" = "true" ] ; then  \
+                git pull --ff-only ; \
+            fi ; \
+        if \
     && if [ -z "${PARTITIONER_EXECUTABLE:-}" ]; then echo "Error: target/executable name not set" 2>&1 ; exit 1; fi \
     && cmake -B cmake_build -S . \
                -DMPI_ACTIVE:BOOL=OFF \
@@ -668,7 +686,7 @@ RUN rm -rf ${BOOST_ROOT} && echo "export PATH=${PATH}" >> /etc/profile \
     && sed -i "s/PermitRootLogin yes/PermitRootLogin no/g" /etc/ssh/sshd_config \
     && sed -i "s/#ClientAliveInterval.*/ClientAliveInterval 60/" /etc/ssh/sshd_config \
     && sed -i "s/#ClientAliveCountMax.*/ClientAliveCountMax 5/" /etc/ssh/sshd_config \
-    && rm /var/run/nologin  \
+    && if [ -f /var/run/nologin ]; then rm /var/run/nologin ; fi  \
     && mkdir -p /dmod/datasets && chown ${USER} /dmod/datasets \
     && mkdir -p /dmod/shared_libs && chown ${USER} /dmod/shared_libs \
     && mkdir -p /dmod/bin && chown ${USER} /dmod/bin 
