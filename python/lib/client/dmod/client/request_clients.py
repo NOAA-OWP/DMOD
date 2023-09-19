@@ -345,7 +345,10 @@ class SimpleDataTransferAgent(DataTransferAgent):
             # Do initial request outside of generator
             await self._transport_client.async_send(data=str(request))
             async for received_data_msg in self._transfer_receiver():
-                file.write(received_data_msg.data)
+                data = received_data_msg.data
+                while data:
+                    bytes_written = file.write(data)
+                    data = data[bytes_written:]
             final_data = await self._transport_client.async_recv()
 
         try:
