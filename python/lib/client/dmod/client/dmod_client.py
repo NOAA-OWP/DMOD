@@ -108,7 +108,7 @@ class DmodClient:
             elif action == 'list_datasets':
                 return await self.data_service_client.get_dataset_names(**kwargs)
             elif action == 'list_items':
-                return await self.data_service_client.get_dataset_items(**kwargs)
+                return await self.data_service_client.get_dataset_item_names(**kwargs)
             else:
                 raise ValueError(f"Unsupported data service action to {self.__class__.__name__}: {action}")
         except NotImplementedError:

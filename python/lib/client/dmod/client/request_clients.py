@@ -646,7 +646,7 @@ class DataServiceClient:
         except DmodRuntimeError as e:
             raise DmodRuntimeError(f"DMOD error when getting dataset names: {str(e)}")
 
-    async def get_dataset_items(self, dataset_name: str, **kwargs) -> DatasetManagementResponse:
+    async def get_dataset_item_names(self, dataset_name: str, **kwargs) -> DatasetManagementResponse:
         """
         Request the name/id of all items in the given dataset.
 
@@ -687,7 +687,7 @@ class DataServiceClient:
         See Also
         -------
         extract_dataset_names
-        get_dataset_items
+        get_dataset_item_names
         """
         return self.extract_dataset_names(response=await self.get_dataset_names(category=category, **kwargs))
 
@@ -707,9 +707,9 @@ class DataServiceClient:
 
         See Also
         -------
-        get_dataset_items
+        get_dataset_item_names
         """
-        response = await self.get_dataset_items(dataset_name=dataset_name, **kwargs)
+        response = await self.get_dataset_item_names(dataset_name=dataset_name, **kwargs)
         return response.query_results.get('files', []) if response.success else []
 
     async def retrieve_from_dataset(self, dataset_name: str, dest_dir: Path,
