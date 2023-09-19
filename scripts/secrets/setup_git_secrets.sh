@@ -113,7 +113,7 @@ OPTIONS:
     echo "${_INFO_OUT}" | less
 }
 
-cleanup_before_exit()
+cleanup_repo()
 {
     # Only do this deletion if both the flag is set and we have established at some point it is safe to do so
     if [ ${SAFE_REMOVE_REPO:-1} -eq 0 ] && [ -n "${DO_REMOVE_REPO:-}" ];  then
@@ -292,7 +292,7 @@ while [ ${#} -gt 0 ]; do
 done
 
 # Trap to make sure we "clean up" script activity before exiting
-trap cleanup_before_exit 0 1 2 3 6 15
+trap cleanup_repo 0 1 2 3 6 15
 
 # Make sure a repo directory was set
 if [ -z "${REPO_DIR:-}" ]; then

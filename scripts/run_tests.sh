@@ -278,16 +278,22 @@ done
 
 if [ -n "${TEST_DJANGO_SERVICES:-}" ]; then
     if [ -n "${DO_QUIET:-}" ]; then
+        py_dev_activate_venv
         echo "Running django tests in quiet mode"
         ${DJANGO_TEST_SCRIPT_PATH} --quiet
+        DJANGO_ERROR_COUNT=$?
     elif [ -z "${SET_VERBOSE:-}" ]; then
+        py_dev_activate_venv
         ${DJANGO_TEST_SCRIPT_PATH}
+        DJANGO_ERROR_COUNT=$?
     else
         echo "-----------------------------------"
         echo ""
         echo "Django Tests:"
         echo ""
+        py_dev_activate_venv
         VERBOSE_DJANGO_OUTPUT=$("${DJANGO_TEST_SCRIPT_PATH}" --verbose)
+        DJANGO_ERROR_COUNT=$?
         echo "$VERBOSE_DJANGO_OUTPUT"
 
         # Extract the lines containing the summary to print later
@@ -297,6 +303,8 @@ if [ -n "${TEST_DJANGO_SERVICES:-}" ]; then
         echo ""
         echo ""
     fi
+    TOTAL_RESULT=$((TOTAL_RESULT+$DJANGO_ERROR_COUNT))
+    py_dev_deactivate_venv
 fi
 
 
