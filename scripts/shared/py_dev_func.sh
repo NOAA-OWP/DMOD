@@ -123,3 +123,31 @@ py_dev_activate_venv()
         VENV_WAS_ACTIVATED=1
     fi
 }
+
+# If appropriate, deactivate the virtual env set within VENV_DIR, and note whether this is done in VENV_WAS_ACTIVATED.
+py_dev_deactivate_venv()
+{
+    # If the flag is set that a virtual environment was activated, then deactivate it
+    if [ ${VENV_WAS_ACTIVATED:-1} -eq 0 ]; then
+        >&2 echo "Deactiving active virtual env at ${VIRTUAL_ENV}"
+        >&2 echo ""
+        deactivate
+        VENV_WAS_ACTIVATED=1
+    fi
+}
+
+
+# Make sure we end up in the same starting directory, and deactivate venv if it was activated
+cleanup_before_exit()
+{
+    # Make sure we don't accidentally run this more than once
+    CLEANUP_DONE=$((${CLEANUP_DONE:=0}+1))
+    if [ ${CLEANUP_DONE} -gt 1 ]; then
+        >&2 echo "Warning: cleanup function being run for ${CLEANUP_DONE} time"
+    fi
+
+    # Go back to shell starting dir
+    cd "${STARTING_DIR:?}"
+
+    py_dev_deactivate_venv
+}

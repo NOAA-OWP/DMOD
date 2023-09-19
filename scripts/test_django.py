@@ -52,6 +52,7 @@ class Arguments(object):
     """
     A concrete definition for what arguments are accepted by this application and how to parse them
     """
+
     def __init__(self, *args):
         """
         Constructor
@@ -75,7 +76,7 @@ class Arguments(object):
         """Whether to ONLY print found django applications to test"""
 
         self.__parse_command_line(*args)
-        
+
     @property
     def root(self) -> Path:
         """
@@ -93,7 +94,7 @@ class Arguments(object):
     @property
     def verbose(self) -> bool:
         """
-        Whether to print as much testing information as possible. 
+        Whether to print as much testing information as possible.
         This will print each error/failure message along with a summary at the very end.
         """
         return self.__verbose
@@ -109,9 +110,9 @@ class Arguments(object):
         parser = ArgumentParser(
             "Run all found Django Tests",
             epilog=f"{os.linesep}A positive return code is the number of errors."
-                f"{os.linesep}A negative return code represents an application failure."
-                f"{os.linesep}A return code of 0 means that all tests passed. "
-                f"{os.linesep}Check by referencing the '$?' variable in your terminal."
+                   f"{os.linesep}A negative return code represents an application failure."
+                   f"{os.linesep}A return code of 0 means that all tests passed. "
+                   f"{os.linesep}Check by referencing the '$?' variable in your terminal."
         )
 
         # Add Arguments
@@ -137,7 +138,7 @@ class Arguments(object):
             dest="quiet",
             action="store_true",
             default=False,
-            help="Only print the bare minimum. Mutally exclusive with --verbose and --list"
+            help="Only print the bare minimum. Mutually exclusive with --verbose and --list"
         )
 
         parser.add_argument(
@@ -145,7 +146,7 @@ class Arguments(object):
             dest="list",
             action="store_true",
             default=False,
-            help="Only list tests that may be run. Mutally exclusive with --quiet and --verbose"
+            help="Only list tests that may be run. Mutually exclusive with --quiet and --verbose"
         )
 
         # Parse the list of args if one is passed instead of args passed to the script
@@ -172,13 +173,14 @@ class TestMessage:
     """
     Specifies the components of an encountered message from a test
     """
+
     def __init__(self, status: str, content: str, description: str = None):
         """
         Constructor
 
         Messages are expected to look like:
 
-    
+
         ================================================
         error: test.module.that.produced.message
         This was a test module that apparently produced a message
@@ -220,6 +222,7 @@ class TestOutput:
     """
     Metadata read from all messages resulting from a Django unit test
     """
+
     def __init__(self, path: str, stdout: str, stderr: str, runtime: float):
         """
         Constructor
@@ -227,13 +230,13 @@ class TestOutput:
         Args:
             path: The path to the application where 'manage.py' was run
             stdout: The data written to stdout during the process of running the tests
-            stderr: The data written to stderr during the process of running the tests. 
+            stderr: The data written to stderr during the process of running the tests.
                 This will hold the bulk of the data of interest
             runtime: The number of seconds that it took to run the test
         """
         self.path = path
         """The path to the application where 'manage.py' was run"""
-        
+
         self.stdout = stdout
         """The data written to stdout during the process of running the tests"""
 
@@ -244,7 +247,7 @@ class TestOutput:
         """
 
         self.messages: typing.List[TestMessage] = list()
-        """Messages encountered when interpretting stderr"""
+        """Messages encountered when interpreting stderr"""
 
         self.runtime: float = runtime
         """The number of seconds it took to run the test that produced this output"""
@@ -261,23 +264,30 @@ class TestOutput:
         The relative path to the django application from the root DMOD directory
         """
         return self.path.replace(str(APPLICATION_ROOT) + "/", "")
-    
+
     def __interpret_stdout(self):
         """
         Interprets the data read from stdout and stores them as helpful metadata
         """
-        # stdout should have a line like 'Found 38 tests'. Use the regular expression to 
+        # stdout should have a line like 'Found 38 tests'. Use the regular expression to
         # extract and store that number.
         test_count_matches = TEST_COUNT_PATTERN.search(self.stdout)
 
         if not test_count_matches:
-            raise ValueError(f"No line stating the number of tests run could be found:{os.linesep}{os.linesep}{self.stderr}")
-
-        self.test_count = int(test_count_matches.group())
+            description = "No line stating the number of tests run could be found."
+            print(description, file=sys.stderr)
+            error_message = TestMessage(
+                status=self.path,
+                content=self.stdout,
+                description=description
+            )
+            self.messages.append(error_message)
+        else:
+            self.test_count = int(test_count_matches.group())
 
     def __interpret_stderr(self):
         """
-        Interprets the data read from stderr and stores them as messages with easier to 
+        Interprets the data read from stderr and stores them as messages with easier to
         extract metadata
         """
         # Each line to parse
@@ -287,10 +297,10 @@ class TestOutput:
         in_message: bool = False
 
         # The parsed content for a message
-        current_content: str = ""        
+        current_content: str = ""
 
         # The parsed status for a message
-        current_status: str = ""        
+        current_status: str = ""
 
         # The parsed description for the message
         current_description = None
@@ -308,7 +318,7 @@ class TestOutput:
                 current_content = ""
                 current_status = ""
                 current_description = None
-            # If we're in a header and the line of '-' is found, we can surmise that we've reached the 
+            # If we're in a header and the line of '-' is found, we can surmise that we've reached the
             # end of the header and that it's not time to parse the content of the message
             elif in_header and line == LAST_END_MESSAGE:
                 # Stop parsing header data
@@ -327,13 +337,13 @@ class TestOutput:
                 in_header = False
             # Otherwise, if we're in a message, we want to append what we're reading to whatever we're currently building
             elif in_message:
-                # If we're in the header, the status will be the first encountered line, so if we're in a header 
+                # If we're in the header, the status will be the first encountered line, so if we're in a header
                 # and we don't have a status, assign this line to the status
                 if in_header and not current_status:
                     current_status = line.strip()
                 # If we're still in the header, we know we want to attach this to the description
                 elif in_header:
-                    # Since we've read a new line, we want to add a line separator to make sure that this data is 
+                    # Since we've read a new line, we want to add a line separator to make sure that this data is
                     # separated from the previously read
                     if current_description:
                         current_description += os.linesep
@@ -341,18 +351,18 @@ class TestOutput:
                     current_description += line
                 # Otherwise, we want to just tack the read data onto the content of the message we're building
                 else:
-                    # If we're on the final line of the messages, just tack on a new line to our content, 
+                    # If we're on the final line of the messages, just tack on a new line to our content,
                     # otherwise attach the new content after a new line in order to keep the natural separation from stderr
                     current_content += os.linesep if line == LAST_END_MESSAGE else f"{os.linesep}{line}"
 
-        # If it's detected that we're still parsing and have reached the end of the document, we want to attach 
+        # If it's detected that we're still parsing and have reached the end of the document, we want to attach
         # what we have as a new message
         if current_content and in_message:
             current_content = current_content.strip()
             message = TestMessage(status=current_status, content=current_content, description=current_description)
             self.messages.append(message)
 
-    def print(self, verbose: bool = False, quiet: bool = False):
+    def print(self, verbose: bool = None, quiet: bool = None):
         """
         Print the test results in one of a different number of formats
 
@@ -366,8 +376,16 @@ class TestOutput:
                 "Output cannot be both quiet and verbose; choose either '--quiet' or '--verbose', but not both",
                 file=sys.stderr
             )
-            # Exit with a code of 255 to indicate that this was an application error, not a test error or failure
-            exit(255)
+            # Exit with a code of -1 to indicate that this was an application error, not a test error or failure
+            exit(-1)
+
+        # We know we're not in verbose mode if it wasn't stated, so set it as False in order to be explicit
+        if verbose is None:
+            verbose = False
+
+        # We know we're not in quiet mode if it wasn't stated, so set it as False in order to be explicit
+        if quiet is None:
+            quiet = False
 
         # Print the maximum amount of data if in verbose mode
         if verbose:
@@ -413,7 +431,7 @@ class TestOutput:
 
             # Create a barrier between messages and metadata
             print(LAST_END_MESSAGE)
-            
+
             # Indicate how many tests were run and how long it took
             print(f"Ran {self.test_count} tests in {self.runtime}s")
             print()
@@ -482,11 +500,11 @@ def find_django_applications(root: Path) -> typing.List[Path]:
     """
     application_paths = list()
 
-    # Indicates if the current root directory might be able to be interpreted 
+    # Indicates if the current root directory might be able to be interpreted
     # as a testable Django application
     has_manage = False
 
-    # Iterate through each item to see if we've found a Django application 
+    # Iterate through each item to see if we've found a Django application
     # or if we need to look deeper
     for path in root.iterdir():
         # A __pycache__ file or directory is a 'compiled' artifact that we want to ignore
@@ -495,7 +513,7 @@ def find_django_applications(root: Path) -> typing.List[Path]:
         # Anything starting with '.' is considered 'hidden', so we need to skip that
         elif path.name.startswith("."):
             continue
-        # If a file named 'manage.py' is found, we might need to check if we're in 
+        # If a file named 'manage.py' is found, we might need to check if we're in
         # a Django application
         elif path.is_file() and path.name == "manage.py":
             has_manage = True
@@ -503,13 +521,13 @@ def find_django_applications(root: Path) -> typing.List[Path]:
         elif path.is_dir():
             application_paths.extend(find_django_applications(path))
 
-    # If this directory has a file that looks like Django's 'manage.py', we need to check it and see if it 
+    # If this directory has a file that looks like Django's 'manage.py', we need to check it and see if it
     # probably is one
     if has_manage:
         # Build up the path to the manage.py file so we can open it
         possible_manage_py_path = root.joinpath("manage.py")
 
-        # Open and read the manage.py file. If it contains a marker indicating that it is indeed the file 
+        # Open and read the manage.py file. If it contains a marker indicating that it is indeed the file
         # we're looking for, add this current directory to the list of django applications
         with possible_manage_py_path.open() as manage_file:
             if MANAGE_MARKER in manage_file.read():
@@ -547,13 +565,13 @@ def run_django_test(path: typing.Union[Path, str]) -> TestOutput:
     # Wait for the tests to finish and collect the values from stdout and stderr
     stdout, stderr = process.communicate()
 
-    # Mark the time of completion to the total runtime may be caalculated
+    # Mark the time of completion to the total runtime may be calculated
     end_time = datetime.now()
 
     # Figured out the amount of time it took to run the tests
     duration = end_time - start_time
 
-    # Record and return the results of the the test
+    # Record and return the results of the test
     output = TestOutput(
         path=path,
         stdout=stdout.decode(),
@@ -599,7 +617,7 @@ def test_django_applications(root: typing.Union[str, Path] = None) -> typing.Seq
         root: Where to start looking for Django applications
 
     Returns:
-        A list of test results from all found found Django applications
+        A list of test results from all found Django applications
     """
     manage_files = find_django_applications(root or DEFAULT_ROOT)
     return run_all_django_tests(django_paths=manage_files)
@@ -666,7 +684,7 @@ def main() -> int:
     """
     arguments = Arguments()
 
-    # Start out by setting the initial code to 0 - this is the default 
+    # Start out by setting the initial code to 0 - this is the default
     # 'success' return code and will indicate that there were no failed tests
     code = 0
 
