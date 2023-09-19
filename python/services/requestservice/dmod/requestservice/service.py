@@ -144,13 +144,18 @@ class RequestService(WebSocketSessionsInterface):
                                                            service_host=data_service_host,
                                                            service_port=int(data_service_port),
                                                            service_ssl_dir=self.data_service_ssl_dir)
-
-        self._evaluation_service_handler = EvaluationRequestHandler(
-            target_service='evaluation-service',
-            service_host=evaluation_service_host,
-            service_port=evaluation_service_port,
-            ssl_directory=evaluation_service_ssl_dir
-        )
+        # This probably won't work until evaluation service is properly added in Docker stack, so wrap in try for now
+        try:
+            self._evaluation_service_handler = EvaluationRequestHandler(
+                target_service='evaluation-service',
+                service_host=evaluation_service_host,
+                service_port=evaluation_service_port,
+                ssl_directory=evaluation_service_ssl_dir
+            )
+            self._eval_handler_exception = None
+        except Exception as e:
+            self._evaluation_service_handler = None
+            self._eval_handler_exception = e
 
     @property
     def session_manager(self):
@@ -170,6 +175,10 @@ class RequestService(WebSocketSessionsInterface):
                 event_type = MessageEventType.INVALID if req_message is None else req_message.get_message_event_type()
 
                 if isinstance(req_message, LaunchEvaluationMessage) or isinstance(req_message, OpenEvaluationMessage):
+                    if self._evaluation_service_handler is None:
+                        msg = (f"{self.__class__.__name__} could not initialize evaluation handler due to "
+                               f"{self._eval_handler_exception.__class__.__name__}: {self._eval_handler_exception!s}")
+                        raise RuntimeError(msg)
                     response = await self._evaluation_service_handler.handle_request(
                         request=req_message,
                         socket=websocket,
