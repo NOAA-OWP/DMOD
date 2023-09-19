@@ -465,7 +465,7 @@ class DataServiceClient:
         self._transport_client: TransportLayerClient = transport_client
         self._auth_client: Optional[AuthClient] = auth_client
 
-    async def _process_request(self, request: DatasetManagementMessage, originating_func_name: str) -> DatasetManagementResponse:
+    async def _process_request(self, request: DatasetManagementMessage) -> DatasetManagementResponse:
         """
         Reusable, general helper function to process a custom-assembled request for the data service.
 
@@ -476,7 +476,6 @@ class DataServiceClient:
         ----------
         request : DatasetManagementMessage
             The assembled request message, of a type that does not yet (and cannot) have any auth applied.
-        kwargs
 
         Returns
         -------
@@ -511,8 +510,8 @@ class DataServiceClient:
         response_data = await self._transport_client.async_recv()
         response_obj = response_type.factory_init_from_deserialized_json(json.loads(response_data))
         if not isinstance(response_obj, response_type):
-            msg = f"{self.__class__.__name__} {originating_func_name} could not deserialize {response_type.__name__}" \
-                  f" from raw response data '{response_data}'"
+            msg = f"{self.__class__.__name__} could not deserialize {response_type.__name__} from raw response data" \
+                  f" '{response_data}'"
             raise DmodRuntimeError(msg)
         else:
             return response_obj
@@ -556,7 +555,11 @@ class DataServiceClient:
         """
         request = DatasetManagementMessage(action=ManagementAction.CREATE, domain=domain, dataset_name=name,
                                            category=category)
-        create_response = await self._process_request(request=request, originating_func_name='create_dataset')
+        try:
+            create_response = await self._process_request(request=request)
+        except DmodRuntimeError as e:
+            raise DmodRuntimeError(f"DMOD error when creating dataset: {str(e)}")
+
         if not create_response.success or not upload_paths:
             return create_response
 
@@ -612,7 +615,10 @@ class DataServiceClient:
         uses_auth
         """
         request = DatasetManagementMessage(action=ManagementAction.DELETE, dataset_name=name)
-        return await self._process_request(request=request, originating_func_name='delete_dataset')
+        try:
+            return await self._process_request(request=request)
+        except DmodRuntimeError as e:
+            raise DmodRuntimeError(f"DMOD error when deleting dataset: {str(e)}")
 
     # TODO: this needs a storage client instead of to figure out where/how to "put" the data
     async def get_dataset_names(self, category: Optional[DataCategory] = None, **kwargs) -> DatasetManagementResponse:
@@ -635,7 +641,10 @@ class DataServiceClient:
         """
         action = ManagementAction.LIST_ALL if category is None else ManagementAction.SEARCH
         request = DatasetManagementMessage(action=action, category=category)
-        return await self._process_request(request=request, originating_func_name='get_dataset_names')
+        try:
+            return await self._process_request(request=request)
+        except DmodRuntimeError as e:
+            raise DmodRuntimeError(f"DMOD error when getting dataset names: {str(e)}")
 
     async def get_dataset_items(self, dataset_name: str, **kwargs) -> DatasetManagementResponse:
         """
@@ -653,7 +662,10 @@ class DataServiceClient:
         """
         request = DatasetManagementMessage(action=ManagementAction.QUERY, dataset_name=dataset_name,
                                            query=DatasetQuery(query_type=QueryType.LIST_FILES))
-        return await self._process_request(request=request, originating_func_name="get_dataset_items")
+        try:
+            return await self._process_request(request=request)
+        except DmodRuntimeError as e:
+            raise DmodRuntimeError(f"DMOD error when getting dataset item: {str(e)}")
 
     async def list_datasets(self, category: Optional[DataCategory] = None, **kwargs) -> List[str]:
         """
