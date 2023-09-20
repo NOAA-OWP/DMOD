@@ -775,7 +775,7 @@ class ConnectionContextClient(Generic[CONN], TransportLayerClient, ABC):
         Union[str, bytes]
             The data received over the connection.
         """
-        with self as connection_owner:
+        async with self as connection_owner:
             return await connection_owner._connection_recv()
 
     @property
