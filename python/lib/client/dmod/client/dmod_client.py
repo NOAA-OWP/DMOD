@@ -105,9 +105,9 @@ class DmodClient:
                 return await self.data_service_client.upload_to_dataset(**kwargs)
             elif action == 'download':
                 return await self.data_service_client.retrieve_from_dataset(**kwargs)
-            elif action == 'list_datasets':
+            elif action == 'list':
                 return await self.data_service_client.get_dataset_names(**kwargs)
-            elif action == 'list_items':
+            elif action == 'items':
                 return await self.data_service_client.get_dataset_item_names(**kwargs)
             else:
                 raise ValueError(f"Unsupported data service action to {self.__class__.__name__}: {action}")
