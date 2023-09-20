@@ -111,10 +111,11 @@ class RequestService(WebSocketSessionsInterface):
         # FIXME: implement real authorizer
         self.authorizer = self.authenticator
 
-        self._scheduler_client = SchedulerClient(transport_client=WebSocketClient(endpoint_host=self.scheduler_host,
-                                                                                  endpoint_port=self.scheduler_port,
-                                                                                  capath=self.scheduler_client_ssl_dir))
-        """SchedulerClient: Client for interacting with scheduler, which also is a context manager for connections."""
+        # TODO: make sure this isn't still needed (or shouldn't be re-added)
+        #self._scheduler_client = SchedulerClient(transport_client=WebSocketClient(endpoint_host=self.scheduler_host,
+        #                                                                          endpoint_port=self.scheduler_port,
+        #                                                                          capath=self.scheduler_client_ssl_dir))
+        #"""SchedulerClient: Client for interacting with scheduler, which also is a context manager for connections."""
 
         self._auth_handler: AuthHandler = AuthHandler(session_manager=self._session_manager,
                                                       authenticator=self.authenticator,
