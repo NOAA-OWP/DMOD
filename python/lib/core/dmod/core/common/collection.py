@@ -414,6 +414,8 @@ class CacheEntry(typing.Generic[_HT]):
             "}"
 
 
+# Part of Issue https://github.com/NOAA-OWP/DMOD/issues/434
+#   "Make metric computations asynchronous by location"
 class AccessCache(typing.Generic[_HT], typing.MutableMapping[str, CacheEntry[_HT]]):
     """
     A base class that implements a caching mechanism that organizes entries based on access time and fires events

@@ -236,6 +236,7 @@ class Evaluator:
             self._communicators.write(reason="crosswalk", data=crosswalk_data.to_dict(), verbosity=Verbosity.ALL)
 
         # TODO: Use the crosswalk_data to distribute following work so that everything isn't being loaded at once
+        #  - utilize dmod.core.common.collections.AccessCache
 
         data_to_evaluate = self.get_data_to_evaluate(crosswalk_data)
 
@@ -532,7 +533,7 @@ class Evaluator:
 
         scores: typing.Dict[typing.Tuple[str, str], metrics.MetricResults] = dict()
 
-        # TODO: Distribute each group to different processes
+        # TODO: Distribute each group to different processes - utilize dmod.core.common.collections.AccessCache
         for identifiers, group in data_to_evaluate.groupby(by=groupby_columns):  # type: tuple, pandas.DataFrame
             observed_location, predicted_location = identifiers     # type: str, str
 
@@ -574,7 +575,7 @@ class Evaluator:
                 )
                 scores[identifiers] = location_scores
 
-                # TODO: Save location scores
+                # TODO: Save location scores - additional communicators may achieve this
 
                 if self._verbosity == Verbosity.ALL:
                     data = {
