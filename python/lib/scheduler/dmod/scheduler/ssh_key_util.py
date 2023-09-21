@@ -494,7 +494,7 @@ class SshKeyDockerSecretsUtil(DecoratingSshKeyUtil, DockerSecretsUtil):
             The ::class:`SecretReference` object for the desired Docker secret, or ``None`` if none is found.
         """
         try:
-            return self.docker_client.secrets.get(name, )
+            return self.docker_client.secrets.get(name)
         except NotFound:
             return None
 
@@ -584,7 +584,7 @@ class SshKeyDockerSecretsUtil(DecoratingSshKeyUtil, DockerSecretsUtil):
         """
         for key_pair in self.get_registered_keys():
             try:
-                service = self.docker_client.services.get(key_pair.name, )
+                service = self.docker_client.services.get(key_pair.name)
             except NotFound as e:
                 self.release_ssh_key_and_secrets(lookup_obj=key_pair, assume_service_removed=True)
 
@@ -628,13 +628,13 @@ class SshKeyDockerSecretsUtil(DecoratingSshKeyUtil, DockerSecretsUtil):
                 "Invalid type passed to release SSH key secrets (was {})".format(lookup_obj.__class__.__name__))
 
         # Then obtain the secrets based on knowing the key pair
-        private_key_secret_ref = self.docker_client.secrets.get(self.get_key_pair_secret_names(key_pair)[0], )
-        public_key_secret_ref = self.docker_client.secrets.get(self.get_key_pair_secret_names(key_pair)[1], )
+        private_key_secret_ref = self.docker_client.secrets.get(self.get_key_pair_secret_names(key_pair)[0])
+        public_key_secret_ref = self.docker_client.secrets.get(self.get_key_pair_secret_names(key_pair)[1])
 
         # Determine if service still exists and, if so, remove secrets from it
         if not assume_service_removed:
             try:
-                service = self.docker_client.services.get(key_pair.name, )
+                service = self.docker_client.services.get(key_pair.name)
                 self.remove_secrets_for_service(service, private_key_secret_ref, public_key_secret_ref)
             except NotFound:
                 pass

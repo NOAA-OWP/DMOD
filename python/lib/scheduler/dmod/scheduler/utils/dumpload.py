@@ -39,9 +39,9 @@ def dump(redis, filename="/data/ru101.json", compress=False, match="*"):
         encoding = redis.object("encoding", obj['k'])
         obj['e'] = encoding
         if encoding == "embstr":
-          obj['v'] = redis.get(k, )
+          obj['v'] = redis.get(k)
         elif encoding == "raw":
-          obj['v'] = base64.b64encode(bytearray(redis.get(k, )))
+          obj['v'] = base64.b64encode(bytearray(redis.get(k)))
         else:
           print("got a string encoded as {}".format(encoding))
           continue

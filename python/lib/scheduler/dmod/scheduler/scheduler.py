@@ -126,7 +126,7 @@ class SimpleDockerUtil:
         ::class:`docker.errors.APIError`
             If the server returns an error.
         """
-        secret_obj = self.docker_client.secrets.get(secret_name, )
+        secret_obj = self.docker_client.secrets.get(secret_name)
         return SecretReference(secret_id=secret_obj.id, secret_name=secret_obj.name)
 
     def run_container(self, image: str, **kwargs):
