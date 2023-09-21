@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import typing
 from abc import ABC, abstractmethod
 from .meta_data import ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction, \
     StandardDatasetIndex, TimeRange
@@ -7,7 +10,7 @@ from datetime import datetime, timedelta
 from .serializable import Serializable, ResultIndicator
 from .enum import PydanticEnum
 from typing import Any, Callable, ClassVar, Dict, FrozenSet, List, Optional, Set, Tuple, Type, Union
-from pydantic import Field, validator, root_validator
+from pydantic import Field, validator, root_validator, PrivateAttr
 from uuid import UUID, uuid4
 
 
@@ -101,16 +104,16 @@ class Dataset(Serializable):
     Rrepresentation of the descriptive metadata for a grouped collection of data.
     """
 
-    _SERIAL_DATETIME_STR_FORMAT: ClassVar = '%Y-%m-%d %H:%M:%S'
+    _SERIAL_DATETIME_STR_FORMAT: ClassVar[str] = '%Y-%m-%d %H:%M:%S'
     name: str = Field(description="The name for this dataset, which also should be a unique identifier.")
     category: DataCategory = Field(None, alias="data_category", description="The ::class:`DataCategory` type value for this instance.")
     data_domain: DataDomain
-    dataset_type: DatasetType = Field(DatasetType.UNKNOWN, alias="type")
+    dataset_type: DatasetType = Field(default=None, alias="type")
     access_location: str = Field(description="String representation of the location at which this dataset is accessible.")
     uuid: Optional[UUID] = Field(default_factory=uuid4)
     # manager can only be passed as constructed DatasetManager subtype. Manager not included in `dict` or `json` deserialization.
     # TODO: don't include `manager` in `Dataset.schema()`. Inclusion is not reflective of the de/serialization behavior.
-    manager: Optional['DatasetManager'] = Field(exclude=True)
+    _manager: Optional[DatasetManager] = PrivateAttr(default=None)
     manager_uuid: Optional[UUID]
     is_read_only: bool = Field(True, description="Whether this is a dataset that can only be read from.")
     description: Optional[str]
@@ -135,24 +138,13 @@ class Dataset(Serializable):
     def drop_microseconds(cls, v: datetime):
         return v.replace(microsecond=0)
 
-    @validator("manager", pre=True)
-    def drop_manager_if_not_constructed_subtype(cls, value):
-        # manager can only be passed as constructed DatasetManager subtype
-        if isinstance(value, DatasetManager):
-            return value
-        return None
-
-    @root_validator()
-    def set_manager_uuid(cls, values) -> dict:
-        manager: Optional[DatasetManager] = values["manager"]
-        # give preference to `manager.uuid` otherwise use specified `manager_uuid`
-        if manager is not None:
-            # pydantic will not validate this, so we need to check it
-            if not isinstance(manager.uuid, UUID):
-                raise ValueError(f"Expected UUID got {type(manager.uuid)}")
-            values["manager_uuid"] = manager.uuid
-
-        return values
+    @validator("dataset_type")
+    def set_default_dataset_type(cls, value: Union[str, DatasetType] = None) -> DatasetType:
+        if value is None:
+            value = DatasetType.UNKNOWN
+        elif isinstance(value, str):
+            value = DatasetType.get_for_name(value)
+        return value
 
     class Config:
         # NOTE: re-validate when any field is re-assigned (i.e. `model.foo = 12`)
@@ -172,6 +164,31 @@ class Dataset(Serializable):
             "created_on": _serialize_datetime,
             "last_updated": _serialize_datetime,
         }
+
+    def __init__(self, manager: DatasetManager = None, **kwargs):
+        super().__init__(**kwargs)
+
+        self._manager = manager if isinstance(manager, DatasetManager) else None
+
+        if manager is not None:
+            # pydantic will not validate this, so we need to check it
+            if not isinstance(manager.uuid, UUID):
+                raise ValueError(f"Expected UUID got {type(manager.uuid)}")
+            self.manager_uuid = manager.uuid
+
+    @property
+    def manager(self) -> Optional[DatasetManager]:
+        return self._manager
+
+    @manager.setter
+    def manager(self, value: DatasetManager = None):
+        self._manager = value if isinstance(value, DatasetManager) else None
+
+        if value is not None:
+            # pydantic will not validate this, so we need to check it
+            if not isinstance(value.uuid, UUID):
+                raise ValueError(f"Expected UUID got {type(value.uuid)}")
+            self.manager_uuid = value.uuid
 
     def __hash__(self):
         members = [
