@@ -337,7 +337,7 @@ class EchoMixin:
             try:
                 data = json.loads(message)
                 if 'should_print' in data:
-                    should_print = bool(data.get('should_print', ))
+                    should_print = bool(data.get('should_print'))
             except:
                 pass
 
