@@ -28,7 +28,7 @@ export interface TemplateMetadata {
 
 
 
-function getTemplates(type: TemplateType): TemplateMetadata[] {
+function getTemplates(type: string): TemplateMetadata[] {
     let templates: TemplateMetadata[];
     
     switch(type) {
