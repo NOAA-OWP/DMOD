@@ -1,0 +1,968 @@
+{
+    "title": "EvaluationSpecification",
+    "description": "Instructions for how different aspects of an evaluation should work",
+    "type": "object",
+    "properties": {
+        "properties": {
+            "title": "Properties",
+            "description": "Extra fields related to this configuration",
+            "type": "object"
+        },
+        "name": {
+            "title": "Name",
+            "description": "A helpful name used to identify this section of the configuration",
+            "type": "string"
+        },
+        "template_name": {
+            "title": "Template Name",
+            "description": "The name of the template to use",
+            "type": "string"
+        },
+        "observations": {
+            "title": "Observations",
+            "description": "Information on what data to use as \u0027true\u0027 data for the evaluation",
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/DataSourceSpecification"
+            }
+        },
+        "predictions": {
+            "title": "Predictions",
+            "description": "Information on what data to evaluate",
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/DataSourceSpecification"
+            }
+        },
+        "crosswalks": {
+            "title": "Crosswalks",
+            "description": "Specifications for how to tie locations from the observations to the predictions",
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/CrosswalkSpecification"
+            }
+        },
+        "thresholds": {
+            "title": "Thresholds",
+            "description": "Specifications for how different ranges of values should be treated and selected",
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/ThresholdSpecification"
+            }
+        },
+        "scheme": {
+            "title": "Scheme",
+            "description": "Instructions for how to evaluate the specified data",
+            "allOf": [
+                {
+                    "$ref": "#/definitions/SchemeSpecification"
+                }
+            ]
+        }
+    },
+    "required": [
+        "observations",
+        "predictions",
+        "crosswalks",
+        "thresholds",
+        "scheme"
+    ],
+    "definitions": {
+        "BackendSpecification": {
+            "title": "BackendSpecification",
+            "description": "A specification of how data should be loaded",
+            "type": "object",
+            "properties": {
+                "properties": {
+                    "title": "Properties",
+                    "description": "Extra fields related to this configuration",
+                    "type": "object"
+                },
+                "name": {
+                    "title": "Name",
+                    "description": "A helpful name used to identify this section of the configuration",
+                    "type": "string"
+                },
+                "template_name": {
+                    "title": "Template Name",
+                    "description": "The name of the template to use",
+                    "type": "string"
+                },
+                "backend_type": {
+                    "title": "Backend Type",
+                    "description": "What sort of backend to use to load the data",
+                    "type": "string"
+                },
+                "address": {
+                    "title": "Address",
+                    "description": "Where the data for the backend to the interpreter lies",
+                    "type": "string"
+                },
+                "format": {
+                    "title": "Format",
+                    "description": "What format the data is in",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "backend_type",
+                "format"
+            ]
+        },
+        "AssociatedField": {
+            "title": "AssociatedField",
+            "description": "A specification for additional data that should accompany selected data\n(retrieved measurements? Also get their dates)",
+            "type": "object",
+            "properties": {
+                "properties": {
+                    "title": "Properties",
+                    "description": "Extra fields related to this configuration",
+                    "type": "object"
+                },
+                "name": {
+                    "title": "Name",
+                    "description": "A helpful name used to identify this section of the configuration",
+                    "type": "string"
+                },
+                "template_name": {
+                    "title": "Template Name",
+                    "description": "The name of the template to use",
+                    "type": "string"
+                },
+                "datatype": {
+                    "title": "Datatype",
+                    "description": "A datatype to coerce this value to",
+                    "type": "string"
+                },
+                "path": {
+                    "title": "Path",
+                    "description": "The path to the data in the source",
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "ValueSelector": {
+            "title": "ValueSelector",
+            "description": "Instructions for how to retrieve values from a data source",
+            "type": "object",
+            "properties": {
+                "properties": {
+                    "title": "Properties",
+                    "description": "Extra fields related to this configuration",
+                    "type": "object"
+                },
+                "name": {
+                    "title": "Name",
+                    "description": "A helpful name used to identify this section of the configuration",
+                    "type": "string"
+                },
+                "template_name": {
+                    "title": "Template Name",
+                    "description": "The name of the template to use",
+                    "type": "string"
+                },
+                "where": {
+                    "title": "Where",
+                    "description": "Where the value may be found (Dict key? Dict value? Column?)",
+                    "enum": [
+                        "key",
+                        "value",
+                        "filename",
+                        "constant",
+                        "column"
+                    ],
+                    "type": "string"
+                },
+                "origin": {
+                    "title": "Origin",
+                    "description": "The path from which to look. The value should be `` or `\u0027/\u0027` if searching from the root.",
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "string",
+                            "format": "binary"
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    ]
+                },
+                "path": {
+                    "title": "Path",
+                    "description": "The path from which to look from the origin",
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "string",
+                            "format": "binary"
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    ]
+                },
+                "associated_fields": {
+                    "title": "Associated Fields",
+                    "description": "Additional values to retrieve with selected values",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AssociatedField"
+                    }
+                },
+                "datatype": {
+                    "title": "Datatype",
+                    "description": "How to interpret selected values",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "where"
+            ]
+        },
+        "FieldMappingSpecification": {
+            "title": "FieldMappingSpecification",
+            "description": "Details on how a field should be aliased",
+            "type": "object",
+            "properties": {
+                "properties": {
+                    "title": "Properties",
+                    "description": "Extra fields related to this configuration",
+                    "type": "object"
+                },
+                "name": {
+                    "title": "Name",
+                    "description": "A helpful name used to identify this section of the configuration",
+                    "type": "string"
+                },
+                "template_name": {
+                    "title": "Template Name",
+                    "description": "The name of the template to use",
+                    "type": "string"
+                },
+                "field": {
+                    "title": "Field",
+                    "description": "The field to be aliased",
+                    "type": "string"
+                },
+                "map_type": {
+                    "title": "Map Type",
+                    "description": "Where the field to be aliased lies (is it a key? Is it a dictionary value? Is it a column?)",
+                    "type": "string"
+                },
+                "value": {
+                    "title": "Value",
+                    "description": "What the field should end up being called",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "field",
+                "map_type",
+                "value"
+            ]
+        },
+        "UnitDefinition": {
+            "title": "UnitDefinition",
+            "description": "A definition of what a measurement unit is or where to find it",
+            "type": "object",
+            "properties": {
+                "properties": {
+                    "title": "Properties",
+                    "description": "Extra fields related to this configuration",
+                    "type": "object"
+                },
+                "name": {
+                    "title": "Name",
+                    "description": "A helpful name used to identify this section of the configuration",
+                    "type": "string"
+                },
+                "template_name": {
+                    "title": "Template Name",
+                    "description": "The name of the template to use",
+                    "type": "string"
+                },
+                "value": {
+                    "title": "Value",
+                    "description": "A hardcoded definition for what the unit is",
+                    "type": "string"
+                },
+                "field": {
+                    "title": "Field",
+                    "description": "A hardcoded name for the field that stores unit data",
+                    "type": "string"
+                },
+                "path": {
+                    "title": "Path",
+                    "description": "A path to the field containing unit data",
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "LocationSpecification": {
+            "title": "LocationSpecification",
+            "description": "A specification for where location data should be found",
+            "type": "object",
+            "properties": {
+                "properties": {
+                    "title": "Properties",
+                    "description": "Extra fields related to this configuration",
+                    "type": "object"
+                },
+                "name": {
+                    "title": "Name",
+                    "description": "A helpful name used to identify this section of the configuration",
+                    "type": "string"
+                },
+                "template_name": {
+                    "title": "Template Name",
+                    "description": "The name of the template to use",
+                    "type": "string"
+                },
+                "identify": {
+                    "title": "Identify",
+                    "description": "Whether locations should even be attempted to be identified\n\nLocation identification isn\u0027t really necessary for single location evaluations, for example",
+                    "default": false,
+                    "type": "boolean"
+                },
+                "from_field": {
+                    "title": "From Field",
+                    "description": "A field from which to retrieve location names from a source\nThis would be where you\u0027d indicate that the location name came from the filename, for example",
+                    "type": "string"
+                },
+                "pattern": {
+                    "title": "Pattern",
+                    "description": "An optional regex for how to retrieve the name\n\nIf the data are in files like `cat-67.json`, a regex like `^[A-Za-z]+-\\d+` would indicate that the name\nshould be interpreted as `cat-67` and not `cat-67.json`",
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    ]
+                },
+                "ids": {
+                    "title": "Ids",
+                    "description": "A list of specific ids to use for locations",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "DataSourceSpecification": {
+            "title": "DataSourceSpecification",
+            "description": "Specification for where to get the actual data for evaluation",
+            "type": "object",
+            "properties": {
+                "properties": {
+                    "title": "Properties",
+                    "description": "Extra fields related to this configuration",
+                    "type": "object"
+                },
+                "name": {
+                    "title": "Name",
+                    "description": "A helpful name used to identify this section of the configuration",
+                    "type": "string"
+                },
+                "template_name": {
+                    "title": "Template Name",
+                    "description": "The name of the template to use",
+                    "type": "string"
+                },
+                "backend": {
+                    "title": "Backend",
+                    "description": "Instructions on how to load data",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/BackendSpecification"
+                        }
+                    ]
+                },
+                "x_axis": {
+                    "title": "X Axis",
+                    "description": "What axis to evaluate found data upon",
+                    "default": "value_date",
+                    "type": "string"
+                },
+                "value_selectors": {
+                    "title": "Value Selectors",
+                    "description": "What values to select from the input data",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ValueSelector"
+                    }
+                },
+                "field_mapping": {
+                    "title": "Field Mapping",
+                    "description": "How to map fields to expected names",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/FieldMappingSpecification"
+                    }
+                },
+                "unit": {
+                    "title": "Unit",
+                    "description": "What unit the input data is measured in",
+                    "anyOf": [
+                        {
+                            "$ref": "#/definitions/UnitDefinition"
+                        },
+                        {
+                            "type": "object"
+                        },
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "locations": {
+                    "title": "Locations",
+                    "description": "Details about how to glean location information from the input data",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/LocationSpecification"
+                        }
+                    ]
+                },
+                "value_field": {
+                    "title": "Value Field",
+                    "description": "What field within the input contains the value data to use within the evaluation",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "backend",
+                "value_selectors",
+                "unit",
+                "value_field"
+            ]
+        },
+        "CrosswalkSpecification": {
+            "title": "CrosswalkSpecification",
+            "description": "Specifies how locations in the observations should be linked to locations in the predictions",
+            "type": "object",
+            "properties": {
+                "properties": {
+                    "title": "Properties",
+                    "description": "Extra fields related to this configuration",
+                    "type": "object"
+                },
+                "name": {
+                    "title": "Name",
+                    "description": "A helpful name used to identify this section of the configuration",
+                    "type": "string"
+                },
+                "template_name": {
+                    "title": "Template Name",
+                    "description": "The name of the template to use",
+                    "type": "string"
+                },
+                "backend": {
+                    "title": "Backend",
+                    "description": "How to load crosswalk data",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/BackendSpecification"
+                        }
+                    ]
+                },
+                "field": {
+                    "title": "Field",
+                    "description": "How to interpret values within the data",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/ValueSelector"
+                        }
+                    ]
+                },
+                "observation_field_name": {
+                    "title": "Observation Field Name",
+                    "description": "The field within the data that describes the names of observed locations",
+                    "type": "string"
+                },
+                "prediction_field_name": {
+                    "title": "Prediction Field Name",
+                    "description": "The field within the data that describes the identifiers of predicted locations",
+                    "type": "string"
+                },
+                "origin": {
+                    "title": "Origin",
+                    "description": "Where to start looking for the needed data within the loaded data",
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "backend",
+                "field",
+                "observation_field_name"
+            ]
+        },
+        "ThresholdDefinition": {
+            "title": "ThresholdDefinition",
+            "description": "A definition of a single threshold, the field that it comes from, and its significance",
+            "type": "object",
+            "properties": {
+                "properties": {
+                    "title": "Properties",
+                    "description": "Extra fields related to this configuration",
+                    "type": "object"
+                },
+                "name": {
+                    "title": "Name",
+                    "description": "A helpful name used to identify this section of the configuration",
+                    "type": "string"
+                },
+                "template_name": {
+                    "title": "Template Name",
+                    "description": "The name of the template to use",
+                    "type": "string"
+                },
+                "field": {
+                    "title": "Field",
+                    "description": "Where to look for threshold values",
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    ]
+                },
+                "weight": {
+                    "title": "Weight",
+                    "description": "A relative score for the significance of this threshold",
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "number"
+                        }
+                    ]
+                },
+                "unit": {
+                    "title": "Unit",
+                    "description": "A definition for what the threshold is measured in",
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "object"
+                        },
+                        {
+                            "$ref": "#/definitions/UnitDefinition"
+                        }
+                    ]
+                }
+            }
+        },
+        "ThresholdApplicationRules": {
+            "title": "ThresholdApplicationRules",
+            "description": "Added rules for how thresholds should be applied.\n\nOne example for use is transforming one or more values in a threshold and one or more values in the\nobservations to put all values needed to apply thresholds to values equivalent.\n\nIf a threshold is described as being on a month or day and an observation is taken at a date and time,\nthe threshold month and day will need to be transformed into a new \u0027Day\u0027 object field while the date field on the\nobservations will need to be converted to a `Day` object\n\nExample:\n    \u003e\u003e\u003e application_rules \u003d {\n            \"name\": \"Date to Day\",\n            \"threshold_field\": {\n                \"name\": \"threshold_day\",\n                \"path\": [\n                    \"month_nu\",\n                    \"day_nu\"\n                ],\n                \"datatype\": \"Day\"\n            },\n            \"observation_field\": {\n                \"name\": \"threshold_day\",\n                \"path\": [\n                    \"value_date\"\n                ],\n                \"datatype\": \"Day\"\n            }\n        }\n\nThis indicates that thresholds and observations should line up by matching the day of the threshold generated\nby combining the month and day and the day of the observation by getting the day of each value date. Thresholds\nwith single values per location or such wouldn\u0027t need this definition since no other transformations are needed\nto link the threshold values to their observations or predictions.",
+            "type": "object",
+            "properties": {
+                "properties": {
+                    "title": "Properties",
+                    "description": "Extra fields related to this configuration",
+                    "type": "object"
+                },
+                "name": {
+                    "title": "Name",
+                    "description": "A helpful name used to identify this section of the configuration",
+                    "type": "string"
+                },
+                "template_name": {
+                    "title": "Template Name",
+                    "description": "The name of the template to use",
+                    "type": "string"
+                },
+                "threshold_field": {
+                    "title": "Threshold Field",
+                    "description": "How to interpret one or more threshold fields to line up with observations or predictions",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AssociatedField"
+                        }
+                    ]
+                },
+                "observation_field": {
+                    "title": "Observation Field",
+                    "description": "How to interpret one or more observation fields to line up with thresholds",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AssociatedField"
+                        }
+                    ]
+                },
+                "prediction_field": {
+                    "title": "Prediction Field",
+                    "description": "How to interpret one or more prediction fields to line up with thresholds",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AssociatedField"
+                        }
+                    ]
+                }
+            }
+        },
+        "ThresholdSpecification": {
+            "title": "ThresholdSpecification",
+            "description": "Represents a class that uses a backend to load data",
+            "type": "object",
+            "properties": {
+                "properties": {
+                    "title": "Properties",
+                    "description": "Extra fields related to this configuration",
+                    "type": "object"
+                },
+                "name": {
+                    "title": "Name",
+                    "description": "A helpful name used to identify this section of the configuration",
+                    "type": "string"
+                },
+                "template_name": {
+                    "title": "Template Name",
+                    "description": "The name of the template to use",
+                    "type": "string"
+                },
+                "backend": {
+                    "title": "Backend",
+                    "description": "Instructions on how to load data",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/BackendSpecification"
+                        }
+                    ]
+                },
+                "definitions": {
+                    "title": "Definitions",
+                    "description": "The thresholds to apply to data",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ThresholdDefinition"
+                    }
+                },
+                "locations": {
+                    "title": "Locations",
+                    "description": "How locations are identified within the threshold data",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/LocationSpecification"
+                        }
+                    ]
+                },
+                "application_rules": {
+                    "title": "Application Rules",
+                    "description": "Extra transformations needed to match thresholds to their observations and predictions",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/ThresholdApplicationRules"
+                        }
+                    ]
+                },
+                "origin": {
+                    "title": "Origin",
+                    "description": "Where to start looking for threshold data within the threshold input",
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "backend",
+                "definitions"
+            ]
+        },
+        "MetricSpecification": {
+            "title": "MetricSpecification",
+            "description": "Instructions for how different aspects of an evaluation should work",
+            "type": "object",
+            "properties": {
+                "properties": {
+                    "title": "Properties",
+                    "description": "Extra fields related to this configuration",
+                    "type": "object"
+                },
+                "name": {
+                    "title": "Name",
+                    "description": "The name of the metric to use",
+                    "anyOf": [
+                        {
+                            "enum": [
+                                "probabilityofdetection"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "Probability Of Detection"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "falsealarmratio"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "False Alarm Ratio"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "probabilityoffalsedetection"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "Probability Of False Detection"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "frequencybias"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "Frequency Bias"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "accuracy"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "Accuracy"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "criticalsuccessindex"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "Critical Success Index"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "equitablethreatscore"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "Equitable Threat Score"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "generalskill"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "General Skill"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "precision"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "Precision"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "lineartemporaltrendofabsoluteerror"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "Linear Temporal Trend of Absolute Error"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "pearsoncorrelationcoefficient"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "Pearson Correlation Coefficient"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "klingguptaefficiency"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "Kling-Gupta Efficiency"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "normalizednashsutcliffeefficiency"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "Normalized Nash-Sutcliffe Efficiency"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "volumeerror"
+                            ],
+                            "type": "string"
+                        },
+                        {
+                            "enum": [
+                                "Volume Error"
+                            ],
+                            "type": "string"
+                        }
+                    ]
+                },
+                "template_name": {
+                    "title": "Template Name",
+                    "description": "The name of the template to use",
+                    "type": "string"
+                },
+                "weight": {
+                    "title": "Weight",
+                    "description": "A relative rating of the significance of this metric",
+                    "default": 1,
+                    "type": "number"
+                }
+            },
+            "required": [
+                "name"
+            ]
+        },
+        "SchemeSpecification": {
+            "title": "SchemeSpecification",
+            "description": "Instructions for how different aspects of an evaluation should work",
+            "type": "object",
+            "properties": {
+                "properties": {
+                    "title": "Properties",
+                    "description": "Extra fields related to this configuration",
+                    "type": "object"
+                },
+                "name": {
+                    "title": "Name",
+                    "description": "A helpful name used to identify this section of the configuration",
+                    "type": "string"
+                },
+                "template_name": {
+                    "title": "Template Name",
+                    "description": "The name of the template to use",
+                    "type": "string"
+                },
+                "metrics": {
+                    "title": "Metrics",
+                    "description": "The metrics to perform within the evaluation",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/MetricSpecification"
+                    }
+                }
+            },
+            "required": [
+                "metrics"
+            ]
+        }
+    }
+}

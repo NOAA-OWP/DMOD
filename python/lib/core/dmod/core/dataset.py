@@ -138,7 +138,7 @@ class Dataset(Serializable):
     def drop_microseconds(cls, v: datetime):
         return v.replace(microsecond=0)
 
-    @validator("dataset_type")
+    @validator("dataset_type", always=True)
     def set_default_dataset_type(cls, value: Union[str, DatasetType] = None) -> DatasetType:
         if value is None:
             value = DatasetType.UNKNOWN
@@ -180,8 +180,7 @@ class Dataset(Serializable):
     def manager(self) -> Optional[DatasetManager]:
         return self._manager
 
-    @manager.setter
-    def manager(self, value: DatasetManager = None):
+    def set_manager(self, value: DatasetManager = None):
         self._manager = value if isinstance(value, DatasetManager) else None
 
         if value is not None:

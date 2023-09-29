@@ -1,0 +1,37 @@
+{
+    "data": {
+        "identifier": "data",
+        "address": "http://127.0.0.1",
+        "port": 9429
+    },
+    "data_requests": {
+        "identifier": "data_requests",
+        "address": "http://127.0.0.1",
+        "port": 9430
+    },
+    "evaluations": {
+        "identifier": "evaluations",
+        "address": "http://127.0.0.1",
+        "port": 9431
+    },
+    "monitoring": {
+        "identifier": "monitoring",
+        "address": "http://127.0.0.1",
+        "port": 9432
+    },
+    "requests": {
+        "identifier": "requests",
+        "address": "http://127.0.0.1",
+        "port": 9433
+    },
+    "scheduling": {
+        "identifier": "scheduling",
+        "address": "http://127.0.0.1",
+        "port": 9434
+    },
+    "subsetting": {
+        "identifier": "subsetting",
+        "address": "http://127.0.0.1",
+        "port": 9435
+    }
+}

@@ -6,6 +6,7 @@ import TableRow from "@mui/material/TableRow";
 import Button from "@mui/material/Button";
 import { File } from "./index";
 import humanReadableFileSize from "../../utils/humanReadableFileSize";
+import {RowFunction} from "../GenericTable";
 
 export interface FilesTableProps {
   files: File[];

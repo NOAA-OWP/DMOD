@@ -1,0 +1,281 @@
+{
+    "title": "DatasetManagementMessage",
+    "description": "Message type for initiating any action related to dataset management.\n\nValid actions are enumerated by the ::class:`ManagementAction`.",
+    "type": "object",
+    "properties": {
+        "action": {
+            "description": "The type of ::class:`ManagementAction` this message embodies or requests.",
+            "allOf": [
+                {
+                    "$ref": "#/definitions/ManagementAction"
+                }
+            ]
+        },
+        "dataset_name": {
+            "title": "Dataset Name",
+            "description": "The name of the involved dataset, if applicable.",
+            "type": "string"
+        },
+        "read_only": {
+            "title": "Read Only",
+            "description": "Whether the dataset involved is, should be, or must be (depending on action) read-only.",
+            "default": false,
+            "type": "boolean"
+        },
+        "category": {
+            "description": "The category of the involved data, if applicable.",
+            "allOf": [
+                {
+                    "$ref": "#/definitions/DataCategory"
+                }
+            ]
+        },
+        "data_domain": {
+            "title": "Data Domain",
+            "description": "The domain of the involved data, if applicable.",
+            "allOf": [
+                {
+                    "$ref": "#/definitions/DataDomain"
+                }
+            ]
+        },
+        "data_location": {
+            "title": "Data Location",
+            "description": "Location for acted-upon data.",
+            "type": "string"
+        },
+        "pending_data": {
+            "title": "Pending Data",
+            "description": "Whether the sender has data pending transmission after this message.",
+            "default": false,
+            "type": "boolean"
+        },
+        "query": {
+            "$ref": "#/definitions/DatasetQuery"
+        }
+    },
+    "required": [
+        "action"
+    ],
+    "definitions": {
+        "ManagementAction": {
+            "title": "ManagementAction",
+            "description": "Type enumerating the standard actions that can be requested via ::class:`DatasetManagementMessage`.",
+            "enum": [
+                "UNKNOWN",
+                "CREATE",
+                "ADD_DATA",
+                "REMOVE_DATA",
+                "DELETE",
+                "SEARCH",
+                "QUERY",
+                "CLOSE_AWAITING",
+                "LIST_ALL",
+                "REQUEST_DATA"
+            ],
+            "type": "string"
+        },
+        "DataCategory": {
+            "title": "DataCategory",
+            "description": "The general category values for different data.",
+            "enum": [
+                "CONFIG",
+                "FORCING",
+                "HYDROFABRIC",
+                "OBSERVATION",
+                "OUTPUT"
+            ],
+            "type": "string"
+        },
+        "DataFormat": {
+            "title": "DataFormat",
+            "description": "Supported data format types for data needed or produced by workflow execution tasks.\n\nEnum member values are a tuple corresponding to the params in the ``__init__`` function, which in turn correspond to\nthe document properties.  Assignment is based on ordering within the tuple.\n\nThe ::attribute:`indices` property contains the indices of the data, from which it is possible to uniquely identify\ndata records/object.  The ::attribute:`data_fields` property, when not ``None`` provides the data fields contained\nwithin the data (some of which may be indices) and, when possible, the data type.  When this property is ``None``,\nthis means that data fields are not known, as opposed to there being no data fields.\n\nSome indices will be data fields, while others will not (e.g., for ``AORC_CSV``, data in a given file corresponds to\na particular catchment, so the catchment itself is inferred based on the file, instead of explicitly appearing\nwithin the data).  While not accessible via public property, an additional (but optional) tuple element after the\ndata fields is set when appropriate to provide such implicit indices and their types.\n\nA particularly important, common implied index is that of ``data_id``.  Collections of data of several formats may\nbe observably indistinguishable (i.e., according to index values) from certain other collections of the same\nformat, while being significantly functionally different.  When this is possible and it is likely to need two such\nsimilar collections of data to be available at the same time, the ``data_id`` implied indices is added to give users\nof the format an additional \"standard\" index that can provide some distinction.\n\nAn example of the need for ``data_id`` would be a Nextgen framework realization configuration.  Two separate\n\"pieces\" (i.e., config files) of data may cover the exact same catchments and time period.  There must be a separate\nindex that can be used to distinguish the collections, so that the right data can be identified.",
+            "enum": [
+                "AORC_CSV",
+                "NETCDF_FORCING_CANONICAL",
+                "NETCDF_AORC_DEFAULT",
+                "NGEN_OUTPUT",
+                "NGEN_REALIZATION_CONFIG",
+                "NGEN_GEOJSON_HYDROFABRIC",
+                "NGEN_PARTITION_CONFIG",
+                "BMI_CONFIG",
+                "NWM_OUTPUT",
+                "NWM_CONFIG",
+                "NGEN_CAL_OUTPUT",
+                "NGEN_CAL_CONFIG",
+                "NGEN_JOB_COMPOSITE_CONFIG",
+                "T_ROUTE_CONFIG"
+            ],
+            "type": "string"
+        },
+        "StandardDatasetIndex": {
+            "title": "StandardDatasetIndex",
+            "description": "An enumeration.",
+            "enum": [
+                "UNKNOWN",
+                "TIME",
+                "CATCHMENT_ID",
+                "DATA_ID",
+                "HYDROFABRIC_ID",
+                "LENGTH",
+                "GLOBAL_CHECKSUM",
+                "ELEMENT_ID",
+                "REALIZATION_CONFIG_DATA_ID",
+                "FILE_NAME",
+                "COMPOSITE_SOURCE_ID"
+            ],
+            "type": "string"
+        },
+        "ContinuousRestriction": {
+            "title": "ContinuousRestriction",
+            "description": "A filtering component, typically applied as a restriction on a domain, by a continuous range of values of a variable.\n\nIf a subclass name is passed to the optional ``subclass`` parameter during initialization the subclass will be\ninitialized and returned. For example, `ContinuousRestriction(..., subclass=\"TimeRange\")` would return a\n``TimeRange`` instance. Invalid ``subclass`` parameter values will return an``ContinuousRestriction`` instance and\ndisplay a RuntimeWarning.",
+            "type": "object",
+            "properties": {
+                "variable": {
+                    "$ref": "#/definitions/StandardDatasetIndex"
+                },
+                "begin": {
+                    "title": "Begin",
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "end": {
+                    "title": "End",
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "datetime_pattern": {
+                    "title": "Datetime Pattern",
+                    "type": "string"
+                },
+                "subclass": {
+                    "title": "Subclass",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "variable",
+                "begin",
+                "end"
+            ]
+        },
+        "DiscreteRestriction": {
+            "title": "DiscreteRestriction",
+            "description": "A filtering component, typically applied as a restriction on a domain, by a discrete set of values of a variable.\n\nNote that an empty list for the ::attribute:`values` property implies a restriction of all possible values being\nrequired.  This is reflected by the :method:`is_all_possible_values` property.",
+            "type": "object",
+            "properties": {
+                "variable": {
+                    "$ref": "#/definitions/StandardDatasetIndex"
+                },
+                "values": {
+                    "title": "Values",
+                    "anyOf": [
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "number"
+                            }
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "variable",
+                "values"
+            ]
+        },
+        "DataDomain": {
+            "title": "DataDomain",
+            "description": "A domain for a dataset, with domain-defining values contained by one or more discrete and/or continuous components.",
+            "type": "object",
+            "properties": {
+                "data_format": {
+                    "description": "The format for the data in this domain, which contains details like the indices and other data fields.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/DataFormat"
+                        }
+                    ]
+                },
+                "continuous": {
+                    "title": "Continuous",
+                    "description": "Map of the continuous restrictions defining this domain, keyed by variable name.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/ContinuousRestriction"
+                    }
+                },
+                "discrete": {
+                    "title": "Discrete",
+                    "description": "Map of the discrete restrictions defining this domain, keyed by variable name.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/DiscreteRestriction"
+                    }
+                },
+                "data_fields": {
+                    "title": "Data Fields",
+                    "description": "This will either be directly from the format, if its format specifies any fields, or from a custom fieldsattribute that may be set during initialization (but is ignored when the format specifies fields).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "number"
+                            },
+                            {}
+                        ]
+                    }
+                }
+            },
+            "required": [
+                "data_format"
+            ]
+        },
+        "QueryType": {
+            "title": "QueryType",
+            "description": "An enumeration.",
+            "enum": [
+                "LIST_FILES",
+                "GET_CATEGORY",
+                "GET_FORMAT",
+                "GET_INDICES",
+                "GET_DATA_FIELDS",
+                "GET_VALUES",
+                "GET_MIN_VALUE",
+                "GET_MAX_VALUE"
+            ],
+            "type": "string"
+        },
+        "DatasetQuery": {
+            "title": "DatasetQuery",
+            "description": "An interface class for an object that can be serialized to a dictionary-like format (i.e., potentially a JSON\nobject) and JSON string format based directly from dumping the aforementioned dictionary-like representation.\n\nSubtypes of `Serializable` should specify their fields following\n[`pydantic.BaseModel`](https://docs.pydantic.dev/usage/models/) semantics (see example below).\nNotably, `to_dict` and `to_json` will exclude `None` fields and serialize fields using any\nprovided aliases (i.e.  `pydantic.Field(alias=\"some_alias\")`). Also, enum subtypes are\nserialized using their member `name` property.\n\nObjects of this type will also used the JSON string format as their default string representation.\n\nWhile not strictly enforced (because this probably isn't possible), it is HIGHLY recommended that instance\nattribute members of implemented sub-types be of types that are either convertible to strings using the ``str()``\nbuilt-in, or are themselves also implementations of ::class:`Serializable`.  The convenience class method\n::method:`serialize` will handle serializing any such member objects appropriately, providing a clean interface for\nthis.\n\nAn exception to the aforementioned recommendation is the ::class:`datetime.datetime` type.  Subtype attributes of\n::class:`datetime.datetime` type should be parsed and serialized using the pattern returned by the\n::method:`get_datetime_str_format` class method.  A reasonable default is provided in the base interface class, but\nthe pattern can be adjusted either by overriding the class method directly or by having a subtypes set/override\nits ::attribute:`_SERIAL_DATETIME_STR_FORMAT` class attribute.  Note that the actual parsing/serialization logic is\nleft entirely to the subtypes, as many will not need it (and thus should not have to worry about implement another\nmethod or have their superclass bloated by importing the ``datetime`` package).\n\nExample:\n```\n# specify field as class variable, specify final type using type hint.\n# pydantic will try to coerce a field into the specified type, if it can't, a\n# `pydantic.ValidationError` is raised.\n\nclass User(Serializable):\n    id: int\n    username: str\n    email: str # more appropriately, `pydantic.EmailStr`\n\n>>> user = User(id=1, username=\"uncle_sam\", email=\"uncle_sam@fake.gov\")\n>>> user.to_dict() # {\"id\": 1, \"username\": \"uncle_sam\", \"email\": \"uncle_sam@fake.gov\"}\n>>> user.to_json() # '{\"id\": 1, \"username\": \"uncle_sam\", \"email\": \"uncle_sam@fake.gov\"}'\n```",
+            "type": "object",
+            "properties": {
+                "query_type": {
+                    "$ref": "#/definitions/QueryType"
+                }
+            },
+            "required": [
+                "query_type"
+            ]
+        }
+    }
+}

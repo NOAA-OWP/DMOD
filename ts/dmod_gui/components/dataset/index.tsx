@@ -16,6 +16,7 @@ export interface DatasetResponse {
   item_name: string;
   query_results: any; // dont know what this should be
   is_awaiting: boolean;
+  category: string;
   //   [k: string]: keyof DatasetResponse;
 }
 

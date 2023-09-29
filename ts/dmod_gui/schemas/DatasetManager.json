@@ -1,0 +1,261 @@
+{
+    "title": "Dataset",
+    "description": "Rrepresentation of the descriptive metadata for a grouped collection of data.",
+    "type": "object",
+    "properties": {
+        "name": {
+            "title": "Name",
+            "description": "The name for this dataset, which also should be a unique identifier.",
+            "type": "string"
+        },
+        "data_category": {
+            "description": "The ::class:`DataCategory` type value for this instance.",
+            "allOf": [
+                {
+                    "$ref": "#/definitions/DataCategory"
+                }
+            ]
+        },
+        "data_domain": {
+            "$ref": "#/definitions/DataDomain"
+        },
+        "type": {
+            "default": "UNKNOWN",
+            "allOf": [
+                {
+                    "$ref": "#/definitions/DatasetType"
+                }
+            ]
+        },
+        "access_location": {
+            "title": "Access Location",
+            "description": "String representation of the location at which this dataset is accessible.",
+            "type": "string"
+        },
+        "description": {
+            "title": "Description",
+            "type": "string"
+        },
+        "expires": {
+            "title": "Expires",
+            "description": "The time after which a dataset may \"expire\" and be removed, or ``None`` if the dataset is not temporary.",
+            "type": "string",
+            "format": "date-time"
+        },
+        "derived_from": {
+            "title": "Derived From",
+            "description": "The name of the dataset from which this dataset was derived, if it is known to have been derived.",
+            "type": "string"
+        },
+        "derivations": {
+            "title": "Derivations",
+            "description": "List of names of datasets which were derived from this dataset.\n\n    Note that it is not guaranteed that any such dataset still exist and/or are still available.",
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "created_on": {
+            "title": "Created On",
+            "description": "When this dataset was created, or ``None`` if that is not known.",
+            "type": "string",
+            "format": "date-time"
+        },
+        "last_updated": {
+            "title": "Last Updated",
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "name",
+        "data_domain",
+        "access_location"
+    ],
+    "definitions": {
+        "DataCategory": {
+            "title": "DataCategory",
+            "description": "The general category values for different data.",
+            "enum": [
+                "CONFIG",
+                "FORCING",
+                "HYDROFABRIC",
+                "OBSERVATION",
+                "OUTPUT"
+            ],
+            "type": "string"
+        },
+        "DataFormat": {
+            "title": "DataFormat",
+            "description": "Supported data format types for data needed or produced by workflow execution tasks.\n\nEnum member values are a tuple corresponding to the params in the ``__init__`` function, which in turn correspond to\nthe document properties.  Assignment is based on ordering within the tuple.\n\nThe ::attribute:`indices` property contains the indices of the data, from which it is possible to uniquely identify\ndata records/object.  The ::attribute:`data_fields` property, when not ``None`` provides the data fields contained\nwithin the data (some of which may be indices) and, when possible, the data type.  When this property is ``None``,\nthis means that data fields are not known, as opposed to there being no data fields.\n\nSome indices will be data fields, while others will not (e.g., for ``AORC_CSV``, data in a given file corresponds to\na particular catchment, so the catchment itself is inferred based on the file, instead of explicitly appearing\nwithin the data).  While not accessible via public property, an additional (but optional) tuple element after the\ndata fields is set when appropriate to provide such implicit indices and their types.\n\nA particularly important, common implied index is that of ``data_id``.  Collections of data of several formats may\nbe observably indistinguishable (i.e., according to index values) from certain other collections of the same\nformat, while being significantly functionally different.  When this is possible and it is likely to need two such\nsimilar collections of data to be available at the same time, the ``data_id`` implied indices is added to give users\nof the format an additional \"standard\" index that can provide some distinction.\n\nAn example of the need for ``data_id`` would be a Nextgen framework realization configuration.  Two separate\n\"pieces\" (i.e., config files) of data may cover the exact same catchments and time period.  There must be a separate\nindex that can be used to distinguish the collections, so that the right data can be identified.",
+            "enum": [
+                "AORC_CSV",
+                "NETCDF_FORCING_CANONICAL",
+                "NETCDF_AORC_DEFAULT",
+                "NGEN_OUTPUT",
+                "NGEN_REALIZATION_CONFIG",
+                "NGEN_GEOJSON_HYDROFABRIC",
+                "NGEN_PARTITION_CONFIG",
+                "BMI_CONFIG",
+                "NWM_OUTPUT",
+                "NWM_CONFIG",
+                "NGEN_CAL_OUTPUT",
+                "NGEN_CAL_CONFIG",
+                "NGEN_JOB_COMPOSITE_CONFIG",
+                "T_ROUTE_CONFIG"
+            ],
+            "type": "string"
+        },
+        "StandardDatasetIndex": {
+            "title": "StandardDatasetIndex",
+            "description": "An enumeration.",
+            "enum": [
+                "UNKNOWN",
+                "TIME",
+                "CATCHMENT_ID",
+                "DATA_ID",
+                "HYDROFABRIC_ID",
+                "LENGTH",
+                "GLOBAL_CHECKSUM",
+                "ELEMENT_ID",
+                "REALIZATION_CONFIG_DATA_ID",
+                "FILE_NAME",
+                "COMPOSITE_SOURCE_ID"
+            ],
+            "type": "string"
+        },
+        "ContinuousRestriction": {
+            "title": "ContinuousRestriction",
+            "description": "A filtering component, typically applied as a restriction on a domain, by a continuous range of values of a variable.\n\nIf a subclass name is passed to the optional ``subclass`` parameter during initialization the subclass will be\ninitialized and returned. For example, `ContinuousRestriction(..., subclass=\"TimeRange\")` would return a\n``TimeRange`` instance. Invalid ``subclass`` parameter values will return an``ContinuousRestriction`` instance and\ndisplay a RuntimeWarning.",
+            "type": "object",
+            "properties": {
+                "variable": {
+                    "$ref": "#/definitions/StandardDatasetIndex"
+                },
+                "begin": {
+                    "title": "Begin",
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "end": {
+                    "title": "End",
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "datetime_pattern": {
+                    "title": "Datetime Pattern",
+                    "type": "string"
+                },
+                "subclass": {
+                    "title": "Subclass",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "variable",
+                "begin",
+                "end"
+            ]
+        },
+        "DiscreteRestriction": {
+            "title": "DiscreteRestriction",
+            "description": "A filtering component, typically applied as a restriction on a domain, by a discrete set of values of a variable.\n\nNote that an empty list for the ::attribute:`values` property implies a restriction of all possible values being\nrequired.  This is reflected by the :method:`is_all_possible_values` property.",
+            "type": "object",
+            "properties": {
+                "variable": {
+                    "$ref": "#/definitions/StandardDatasetIndex"
+                },
+                "values": {
+                    "title": "Values",
+                    "anyOf": [
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "number"
+                            }
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "variable",
+                "values"
+            ]
+        },
+        "DataDomain": {
+            "title": "DataDomain",
+            "description": "A domain for a dataset, with domain-defining values contained by one or more discrete and/or continuous components.",
+            "type": "object",
+            "properties": {
+                "data_format": {
+                    "description": "The format for the data in this domain, which contains details like the indices and other data fields.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/DataFormat"
+                        }
+                    ]
+                },
+                "continuous": {
+                    "title": "Continuous",
+                    "description": "Map of the continuous restrictions defining this domain, keyed by variable name.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/ContinuousRestriction"
+                    }
+                },
+                "discrete": {
+                    "title": "Discrete",
+                    "description": "Map of the discrete restrictions defining this domain, keyed by variable name.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/DiscreteRestriction"
+                    }
+                },
+                "data_fields": {
+                    "title": "Data Fields",
+                    "description": "This will either be directly from the format, if its format specifies any fields, or from a custom fieldsattribute that may be set during initialization (but is ignored when the format specifies fields).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "number"
+                            },
+                            {}
+                        ]
+                    }
+                }
+            },
+            "required": [
+                "data_format"
+            ]
+        },
+        "DatasetType": {
+            "title": "DatasetType",
+            "description": "An enumeration.",
+            "enum": [
+                "UNKNOWN",
+                "OBJECT_STORE",
+                "FILESYSTEM"
+            ],
+            "type": "string"
+        }
+    }
+}
