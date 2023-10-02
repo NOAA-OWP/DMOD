@@ -401,6 +401,33 @@ def execute_workflow_command(args, client: DmodClient):
 
 # TODO: (later) add something to TransportLayerClient to check if it supports multiplexing
 
+
+def _load_debugger_and_settrace(debug_cfg):
+    """
+    Helper function to append the path of Pycharm debug egg to system path, import it, and set the remote debug trace.
+
+    Parameters
+    ----------
+    debug_cfg
+
+    Returns
+    -------
+
+    """
+    if debug_cfg is None:
+        return False
+    import sys
+    sys.path.append(str(debug_cfg.egg_path))
+    import pydevd_pycharm
+    try:
+        pydevd_pycharm.settrace(debug_cfg.debug_host, port=debug_cfg.port, stdoutToServer=True, stderrToServer=True)
+        return True
+    except Exception as error:
+        print(f'Warning: could not set debugging trace to {debug_cfg.debug_host} on {debug_cfg.port!s} due to'
+              f' {error.__class__.__name__} - {error!s}')
+        return False
+
+
 def main():
     args = _handle_args()
     client_config_path = find_client_config() if args.client_config is None else Path(args.client_config)
@@ -410,7 +437,11 @@ def main():
 
     try:
 
-        client = DmodClient(client_config=ClientConfig.parse_file(client_config_path), bypass_request_service=args.bypass_reqsrv)
+        client_config = ClientConfig.parse_file(client_config_path)
+        if client_config.pycharm_debug_config is not None:
+            _load_debugger_and_settrace(debug_cfg=client_config.pycharm_debug_config)
+
+        client = DmodClient(client_config=client_config, bypass_request_service=args.bypass_reqsrv)
 
         if args.command == 'config':
             execute_config_command(args, client)
