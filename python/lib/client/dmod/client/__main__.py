@@ -11,6 +11,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 
+DEFAULT_CLIENT_CONFIG_BASENAME = '.dmod_client_config.json'
+
+
 class DmodCliArgumentError(ValueError):
     """
     Trivial, but distinct, error type for errors involving bad args to the DMOD CLI client.
@@ -455,7 +458,7 @@ def main():
             raise ValueError("Unsupported command {}".format(args.command))
 
     except Exception as error:
-        print("ERROR: {}".format(error))
+        print(f"ERROR: {error!s}")
         exit(1)
 
 
