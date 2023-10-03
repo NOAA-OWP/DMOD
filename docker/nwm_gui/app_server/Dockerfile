@@ -46,15 +46,31 @@ COPY ./python/gui/MaaS ./MaaS
 COPY ./docker/nwm_gui/app_server/entrypoint.sh ./
 COPY ./docker/nwm_gui/app_server/client_debug_helper.py ./
 
-RUN echo "request-service:" > .dmod_client_config.yml \
-    && echo "  hostname: 'request-service'" >> .dmod_client_config.yml \
-    && echo "  port: 3012" >> .dmod_client_config.yml \
-    && echo "  ssl-dir: '/usr/maas_portal/ssl'" >> .dmod_client_config.yml
+ENV PYCHARM_DEBUG_EGG=/pydevd-pycharm.egg
+ENV REQ_SRV_SSL_DIR=${WORKDIR}/request_service_ssl
+COPY ./ssl/requestservice ${REQ_SRV_SSL_DIR}
+
+# TODO: move to heredoc syntax once confirmed it's reasonable to expect all environments run sufficiently recent Docker
+RUN     echo '{'                                                            > .dmod_client_config.json \
+    &&  if [ ${PYCHARM_REMOTE_DEBUG_ACTIVE:-} = 'true' ]; then \
+            echo '    "remote-debug": {'                                    >> .dmod_client_config.json ; \
+            echo "        \"remote-debug\": \"${PYCHARM_DEBUG_EGG:?}\","    >> .dmod_client_config.json ; \
+            echo "        \"port\": \"${MAAS_PORTAL_DEBUG_PORT:?}\","       >> .dmod_client_config.json ; \
+            echo "        \"host\": \"${MAAS_PORTAL_DEBUG_HOST:?}\""        >> .dmod_client_config.json ; \
+            echo '    },'                                                   >> .dmod_client_config.json ; \
+        fi \
+    &&  echo '    "request-service": {'                                     >> .dmod_client_config.json \
+    &&  echo '        "protocol": "wss",'                                   >> .dmod_client_config.json \
+    &&  echo "        \"pem\": \"${REQ_SRV_SSL_DIR}/certificate.pem\","     >> .dmod_client_config.json \
+    &&  echo "        \"port\": ${MAAS_ENDPOINT_PORT},"                     >> .dmod_client_config.json \
+    &&  echo '        "hostname": "request-service",'                       >> .dmod_client_config.json \
+    &&  echo '    }'                                                        >> .dmod_client_config.json \
+    &&  echo '}'                                                            >> .dmod_client_config.json
 
 # TODO: when image tagging/versioning is improved, look at keeping this in a "debug" image only
 # Copy this to have access to debugging pydevd egg
 COPY --from=sources /dmod /dmod_src
-RUN if [ -e /dmod_src/python/pydevd-pycharm.egg ]; then mv /dmod_src/python/pydevd-pycharm.egg /. ; fi \
+RUN if [ -e /dmod_src/python/pydevd-pycharm.egg ]; then mv /dmod_src/python/pydevd-pycharm.egg ${PYCHARM_DEBUG_EGG} ; fi \
     && rm -rf /dmod_src
 
 # Set the entry point so that it is run every time the container is started
