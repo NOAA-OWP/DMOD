@@ -97,7 +97,7 @@ networks:
 
 secrets:
   postgres_password:
-    file: ../secrets/postgres_password.txt
+    file: docker/secrets/postgres_password.txt
 # Define persistent volumes that may be shared and persisted between containers
 volumes:
     dmod_db_volume:
