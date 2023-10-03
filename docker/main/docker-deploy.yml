@@ -5,7 +5,7 @@ services:
     image: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/scheduler-service
     networks:
       - mpi-net
-      - requests-net
+      - main-internal-net
     ports:
         - "3013:3013"
     volumes:
@@ -42,7 +42,7 @@ services:
     ports:
       - "6379:6379"
     networks:
-      requests-net:
+      main-internal-net:
         aliases:
           - ${DOCKER_REDIS_SERVICE_ALIAS:-redis}
     entrypoint: "/entrypoint.sh"
@@ -64,6 +64,7 @@ services:
     networks:
       #- mpi-net
       - requests-net
+      - main-internal-net
     deploy:
       #mode: global
       placement:
@@ -113,7 +114,7 @@ services:
   subset-service:
     image: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/subset-service
     networks:
-      - requests-net
+      - main-internal-net
     ports:
       - ${DOCKER_SUBSET_API_PORT:-5001}:${DOCKER_SUBSET_CONTAINER_PORT:-5001}
     volumes:
@@ -144,7 +145,7 @@ services:
     hostname: data-service
     networks:
       - mpi-net
-      - requests-net
+      - main-internal-net
     deploy:
       placement:
         constraints:
@@ -186,7 +187,7 @@ services:
     image: "${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/partitioner-service:latest"
     networks:
       #- mpi-net
-      - requests-net
+      - main-internal-net
     ports:
       - "${DOCKER_PARTITIONER_SERVICE_CONTAINER_PORT:-3014}:${DOCKER_PARTITIONER_SERVICE_CONTAINER_PORT:-3014}"
     secrets:
@@ -220,6 +221,9 @@ networks:
     mpi-net:
         external: true
         name: ${DOCKER_MPI_NET_NAME}
+    main-internal-net:
+      external: true
+      name: ${DOCKER_MAIN_INTERNAL_NET_NAME}
     requests-net:
         external: true
         name: ${DOCKER_REQUESTS_NET_NAME}
