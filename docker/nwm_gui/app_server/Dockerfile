@@ -4,10 +4,18 @@
 ARG docker_internal_registry
 FROM ${docker_internal_registry}/dmod-py-sources as sources
 
-FROM python:3.8-slim as base
-# Update the aptitude package listing so that packages may be loaded and installed
-# Install python binaries to make pip installs a little smoother
-RUN apt-get update && apt-get install -y python3-django netcat
+FROM rockylinux:9.1
+
+# Do this separately at the beginning to get some caching help
+RUN dnf update -y && \
+    dnf install -y python3-pip git \
+    && ln -s /usr/bin/python3 /usr/bin/python
+
+RUN dnf install -y 'dnf-command(config-manager)' \
+    && dnf config-manager --set-enabled crb \
+    && dnf install -y epel-release \
+    && dnf install -y netcat libpq-devel \
+    && dnf clean -y all
 
 # Move to a new directory at "/usr/wres-gui"
 WORKDIR /usr/maas_portal
@@ -15,7 +23,7 @@ WORKDIR /usr/maas_portal
 # working directory of the docker image (/usr/wres-gui)
 COPY ./python/gui/dependencies.txt ./
 # Install all the python packages described in the requirements file
-RUN pip install -r dependencies.txt
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r dependencies.txt
 # Ensures that raw data directed at a terminal moves in one go rather than being buffered
 ENV PYTHONUNBUFFERED 1
 
@@ -25,8 +33,8 @@ ARG client_package_name=dmod-client
 
 # Copy custom built packages from external sources image
 COPY --from=sources /DIST /DIST
-RUN pip install --upgrade --find-links=/DIST ${comms_package_name} \
-    && pip install --upgrade --find-links=/DIST ${client_package_name} \
+RUN pip install --no-cache-dir --upgrade --find-links=/DIST ${comms_package_name} \
+    && pip install --no-cache-dir --upgrade --find-links=/DIST ${client_package_name} \
     # After eventually installing all dist files like this, clean up ... \
     && rm -rf /DIST
 
