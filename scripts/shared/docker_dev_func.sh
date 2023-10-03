@@ -81,6 +81,45 @@ docker_dev_get_stack_service_task_container_id()
 
 }
 
+# Function primarily to check that a network was initialized as expected ... sometimes the network will partially, but
+# not fully/correctly init in certain circumstances (probably related to a conflict in the select IP address range)
+docker_dev_check_swarm_net_init()
+{
+    # 1 - network name
+    # 2 - driver
+    # 3 - scope
+
+    # Unfortunately, no easy way to filter by subnet at the moment
+    if [ $(docker network ls -q --filter driver=${2:?No net driver given for check} \
+                                --filter name=${1:?No net name given for check} \
+                                --filter scope=${3:?No net scope given for check} \
+                                | wc -l) -eq 0 ]; then
+        >&2 echo "###############################################################################"
+        >&2 echo "Error: cannot init swarm network '${1}' with driver '${2}'!"
+        >&2 echo "Often times this is due to a conflict with the configured IP address ranges."
+        if [ $(docker network ls -q --filter name=${1:?No net name given for check} | wc -l) -ne 0 ]; then
+            >&2 echo "###############################################################################"
+            >&2 echo "##############################    IMPORTANT   #################################"
+            >&2 echo "###############################################################################"
+            >&2 echo "## It appears a network was partially, incompletely created, and now needs   ##"
+            >&2 echo "## to be removed!  You can confirm this using the 'docker network ls'        ##"
+            >&2 echo "## command.                                                                  ##"
+            >&2 echo "##                                                                           ##"
+            >&2 echo "## You must manually remove this bad network using the 'docker network rm'   ##"
+            >&2 echo "## command.  Otherwise, the scripts and deployment tools will assume that    ##"
+            >&2 echo "## the network already exists and is usable, though it almost certainly      ##"
+            >&2 echo "## won't work properly.                                                      ##"
+            >&2 echo "##                                                                           ##"
+            >&2 echo "###############################################################################"
+            >&2 echo "###############################################################################"
+            >&2 echo "###############################################################################"
+        else
+            >&2 echo "###############################################################################"
+        fi
+        exit 1
+    fi
+}
+
 docker_dev_init_swarm_network()
 {
     # 1 - network name
@@ -119,6 +158,7 @@ docker_dev_init_swarm_network()
         else
             docker network create --driver "${4}" --scope swarm --attachable --subnet ${2} --gateway ${3} ${1}
         fi
+        docker_dev_check_swarm_net_init "${1}" "${4}" swarm
     fi
 }
 
@@ -158,6 +198,7 @@ docker_dev_init_swarm_network_from_config()
         else
             docker network create --driver "${3}" --scope swarm --attachable --config-from "${2}" ${1}
         fi
+        docker_dev_check_swarm_net_init "${1}" "${3}" swarm
     fi
 }
 
