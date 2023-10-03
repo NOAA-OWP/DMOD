@@ -280,6 +280,11 @@ exec_requested_actions()
                 ${DOCKER_REQUESTS_NET_SUBNET:?} \
                 ${DOCKER_REQUESTS_NET_GATEWAY:?} \
                 ${DOCKER_REQUESTS_NET_DRIVER:-overlay}
+        # Finally the main-internal-net
+        docker_dev_init_swarm_network ${DOCKER_MAIN_INTERNAL_NET_NAME:=main-internal-net} \
+                ${DOCKER_MAIN_INTERNAL_NET_SUBNET:?} \
+                ${DOCKER_MAIN_INTERNAL_NET_GATEWAY:?} \
+                ${DOCKER_MAIN_INTERNAL_NET_DRIVER:-overlay}
     fi
 
     if [ -n "${DO_CHECK_ACTION:-}" ]; then
