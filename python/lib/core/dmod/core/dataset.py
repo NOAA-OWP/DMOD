@@ -568,6 +568,35 @@ class DatasetManager(ABC):
         """
         pass
 
+    def create_temporary(self, expires_on: Optional[datetime] = None, **kwargs) -> Dataset:
+        """
+        Convenience method that always creates a temporary dataset, and by default will have it expire after 1 day.
+
+        This method essentially just returns a nested call to ::method:`create`.  Its purpose is simply to make sure
+        that a non-``None`` argument is passed for the ``expires_on`` param.  It will provide a value for this param on
+        its own of ``datetime.now() + timedelta(days=1)``.  It also can accept a specified ``expires_on`` and simply
+        pass that through.
+
+        Parameters
+        ----------
+        expires_on: Optional[datetime]
+            Optional explicit expire time.
+        kwargs
+            Other keyword args passed in nested call to ::method:`create`.
+
+        Returns
+        -------
+        Dataset
+            A newly created temporary dataset instance ready for use.
+
+        See Also
+        -------
+        create
+        """
+        if expires_on is None:
+            expires_on = datetime.now() + timedelta(days=1)
+        return self.create(expires_on=expires_on, **kwargs)
+
     @abstractmethod
     def delete(self, dataset: Dataset, **kwargs) -> bool:
         """
