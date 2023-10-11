@@ -1,7 +1,7 @@
 import Form from "@rjsf/mui";
-import { UiSchema, WidgetProps } from "@rjsf/utils";
+import {RJSFSchema, UiSchema, WidgetProps} from "@rjsf/utils";
 import { useRef, useState } from "react";
-import schema from "../../../schemas/DatasetManager.schema.json";
+import rawSchema from "../../../schemas/DatasetManager.schema.json";
 
 import AddCircleIcon from "@mui/icons-material/AddCircle";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -16,6 +16,8 @@ import {
   TextField,
 } from "@mui/material";
 import validator from "@rjsf/validator-ajv8";
+
+const schema = rawSchema as RJSFSchema
 
 const CatchmentIdField = (props: WidgetProps) => {
   const textRef = useRef<HTMLInputElement>();

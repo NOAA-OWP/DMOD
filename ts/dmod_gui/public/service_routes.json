@@ -12,7 +12,8 @@
     "evaluations": {
         "identifier": "evaluations",
         "address": "http://127.0.0.1",
-        "port": 9431
+        "port": 9431,
+        "path": "evaluation_service"
     },
     "monitoring": {
         "identifier": "monitoring",

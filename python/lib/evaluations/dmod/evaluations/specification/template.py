@@ -247,6 +247,12 @@ class FileTemplateDetails(TemplateDetails):
     def description(self) -> typing.Optional[str]:
         return self.__description
 
+    def __str__(self):
+        return str(self.text_value)
+
+    def __repr__(self):
+        return str(self.text_value)
+
 
 class FileTemplateManager(TemplateManager):
     def __init__(self, manifest_path: typing.Union[str, pathlib.Path]):

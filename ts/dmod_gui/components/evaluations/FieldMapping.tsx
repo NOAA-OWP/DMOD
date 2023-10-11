@@ -1,52 +1,153 @@
-import {useState} from "react";
-import {Label} from "@mui/icons-material";
-import FormLabel from "@mui/material/FormLabel";
-import getTemplates from "./Templates";
+import React, {ChangeEvent, ReactNode} from "react";
+import {renderText} from "../../hooks/useString";
+import {Option, renderSelect} from "../../hooks/useOptions";
+import {FieldMappingSpecification} from "../../lib/evaluation/Specification";
+import {SelectChangeEvent} from "@mui/material";
 
-export interface FieldMappingProperties {
-    id: string;
-    count: number
-}
-
-function useTemplateName(specificationType: string) {
-    const [selectedTemplateID, setSelectedTemplateID] = useState()
-    const templates = getTemplates(specificationType)
-    
-    function selectTemplate() {
-        // This should handle the onChange event from the markup
+export function FieldMapping(
+    mappingID: string,
+    index: number,
+    mappingChanged: (id: string, index: number, mapping: FieldMappingSpecification) => any,
+    specification: FieldMappingSpecification
+): JSX.Element {
+    const style = {
+        marginLeft: "10px",
+        marginRight: "10px"
+    }
+    function getFieldMappingArticle(): "a"|"an" {
+        const selectedMapType = specification.mapType;
+        
+        if (!selectedMapType) {
+            return "a";
+        }
+        
+        let selectedText: string|null = null;
+        
+        for (let [optionText, optionValue] of mapTypeOptions) {
+            if (optionValue === selectedMapType) {
+                selectedText = optionText;
+                break;
+            }
+        }
+        
+        if (!selectedText) {
+            return "a";
+        }
+        
+        const firstCharacter = selectedText[0].toLowerCase();
+        
+        if ('aeiou'.includes(firstCharacter)) {
+            return 'an';
+        }
+        
+        return 'a';
     }
     
-    function getMarkup() {
-        // Generate a select box that displays information about all found templates
+    const mapTypeOptions: Option<string>[] = [
+            ["Object Key", "key"],
+            ["Object Value", "value"],
+            ["Column", "column"]
+        ]
+    
+    function originalFieldChanged(event: ChangeEvent<HTMLInputElement|HTMLTextAreaElement>) {
+        const newMapping: FieldMappingSpecification = {
+            field: event.target.value
+        };
+        
+        if (specification.mapType) {
+            newMapping.mapType = specification.mapType;
+        }
+        
+        if (specification.value) {
+            newMapping.value = specification.value;
+        }
+        
+        mappingChanged(mappingID, index, newMapping);
     }
     
-    function getSelectedTemplate() {
-        // Get all template data that was selected in the proper object format (i.e. not just the id or name)
+    function mapTypeChanged(event: SelectChangeEvent) {
+        const newMapping: FieldMappingSpecification = {};
+        
+        if (specification.field) {
+            newMapping.field = specification.field;
+        }
+        
+        const updatedMapType = event.target.value;
+        
+        for (const [_, value] of mapTypeOptions) {
+            if (value === updatedMapType) {
+                newMapping.mapType = value;
+                break;
+            }
+        }
+        
+        if (specification.value) {
+            newMapping.value = specification.value;
+        }
+        
+        mappingChanged(mappingID, index, newMapping)
     }
     
-    return [getMarkup, getSelectedTemplate]
-}
-
-function FieldMapping(properties: FieldMappingProperties) {
-    const [name, setName] = useState<string>()
-    // TODO: Find a way to get template names dynamically
-    const [templateName, setTemplateName] = useState<string>();
-    const [field, setField] = useState<string>()
-    const [mapType, setMapType] = useState<string>()
-    const [value, setValue] = useState<string>()
+    function newFieldChanged(event: ChangeEvent<HTMLInputElement|HTMLTextAreaElement>) {
+        const newMapping: FieldMappingSpecification = {};
+        
+        if (specification.field) {
+            newMapping.field = specification.field;
+        }
+        
+        if (specification.mapType) {
+            newMapping.mapType = specification.mapType;
+        }
+        
+        const updatedNewField = event.target.value;
+        
+        if (updatedNewField) {
+            newMapping.value = updatedNewField;
+        }
+        
+        mappingChanged(mappingID, index, newMapping);
+    }
     
-    const mappingID = `${properties.id}-FieldMapping-${properties.count}`
-    const isEvenElement = properties.count % 2 == 0;
+    const renderedMapType: JSX.Element = renderSelect({
+        id: `${mappingID}-map-type`,
+        key: `${mappingID}-map-type`,
+        name: "Field Type",
+        index: index,
+        options: [
+            ["Object Key", "key"],
+            ["Object Value", "value"],
+            ["Column", "column"]
+        ],
+        selectValueChanged: mapTypeChanged,
+        currentValue: specification.mapType,
+        style: style
+    })
+    
+    const renderedFieldText: JSX.Element = renderText({
+        id: `${mappingID}-field`,
+        key: `${mappingID}-field`,
+        name: "Original Field",
+        index: index,
+        valueChanged: originalFieldChanged,
+        currentValue: specification.field,
+        style: style
+    })
+    
+    const renderedValueText: JSX.Element = renderText({
+        id: `${mappingID}-value`,
+        key: `${mappingID}-value`,
+        name: "New Field",
+        index: index,
+        valueChanged: newFieldChanged,
+        currentValue: specification.value,
+        style: style
+    })
     
     return (
-        <div
-            id={mappingID}
-            className={'FieldMapping'}
-        >
-            <label htmlFor={`${mappingID}-Name`}>Name</label>
-            <input type={"text"} id={`${mappingID}-Name`} name={`${mappingID}-Name`} value={name}/>
-            <br/>
-            <label htmlFor={`${mappingID}-TemplateName`}>Template Name</label>
+        <div id={mappingID} key={mappingID}>
+            Data within {getFieldMappingArticle()}
+            {renderedMapType} at {renderedFieldText} should map to a new field named
+            {renderedValueText}
         </div>
     );
 }

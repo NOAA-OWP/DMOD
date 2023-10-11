@@ -1,4 +1,3 @@
-import { TemplateMap } from "../../mock_data/evaluations/templates"
 export enum TemplateType {
     FieldMapping = "FieldMappingSpecification",
     Backend = "BackendSpecification",
@@ -11,7 +10,8 @@ export enum TemplateType {
     Scheme = "SchemeSpecification",
     Threshold = "ThresholdDefinition",
     ThresholdApplicationRule = "ThresholdApplicationRules",
-    Evaluation = "EvaluationSpecification"
+    Evaluation = "EvaluationSpecification",
+    DataSource = "DataSourceSpecification"
 }
 
 
@@ -21,26 +21,8 @@ export enum TemplateType {
 export interface TemplateMetadata {
     description: string
     name: string
-    specification_type: string
+    specification_type: TemplateType;
     id?: number;
     author?: string
+    path?: string|null
 }
-
-
-
-function getTemplates(type: string): TemplateMetadata[] {
-    let templates: TemplateMetadata[];
-    
-    switch(type) {
-        case TemplateType.FieldMapping:
-            templates = TemplateMap.FieldMapping;
-            break
-        default:
-            throw new Error(`Templates cannot be found for a type named "${type}"`);
-    }
-    
-    
-    return templates;
-}
-
-export default getTemplates;

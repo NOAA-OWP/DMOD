@@ -7,10 +7,8 @@ export default function App({ Component, pageProps }: AppProps) {
     return (
         <>
             <main>
-                <ServiceRouteProvider>
-                    <Header />
-                    <Component {...pageProps} />
-                </ServiceRouteProvider>
+                <Header />
+                <Component {...pageProps} />
             </main>
         </>
     );

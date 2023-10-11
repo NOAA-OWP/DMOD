@@ -18,6 +18,7 @@ import {
 import validator from "@rjsf/validator-ajv8";
 import subsetSchema from "../../utils/subsetSchema";
 import {FormSteps, FormWizard} from "../../components/lib/FormWizard";
+import CreateEvaluation from "../../components/evaluations/forms/CreateEvaluation";
 
 const EvaluationSchema = schema as RJSFSchema;
 
@@ -39,7 +40,7 @@ const configurationSteps: FormSteps = [
 ]
 
 export function Index() {
-  return <FormWizard steps={configurationSteps}/>
+  return <CreateEvaluation />
 }
 
 export default Index;

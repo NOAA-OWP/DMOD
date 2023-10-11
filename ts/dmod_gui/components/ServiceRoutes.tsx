@@ -9,6 +9,9 @@ import React, {
     useState
 } from "react";
 import {SERVICE_ROUTE_FILEPATH, ServiceName} from "../utils/constants";
+import rawRoutes from "../public/service_routes.json";
+
+const routes = rawRoutes as Record<ServiceName, ServiceRoute>;
 
 /**
  * Basic interface used to describe the basic building blocks used to describe a route to a service
@@ -38,6 +41,7 @@ export type ServiceRouteLoader = (setter: Dispatch<SetStateAction<ServiceRoutes>
  * @param storeRoutes The function used to store route data
  */
 export function DefaultServiceRouteLoader(storeRoutes: Dispatch<SetStateAction<ServiceRoutes>>) {
+    console.log(`Looking for service routes at ${SERVICE_ROUTE_FILEPATH}`);
     fetch(SERVICE_ROUTE_FILEPATH).then(
         (value: globalThis.Response): Record<string, any> => {
             if (value.ok) {
@@ -63,10 +67,11 @@ export function useServiceRouteLoader(loader?: ServiceRouteLoader, options?: obj
     const [routes, setRoutes] = useState<ServiceRoutes>({});
     
     useEffect(() => {
+        console.log("Loading routes");
         if(loader) {
             loader(setRoutes, options);
         }
-    }, [loader, options])
+    }, [loader, options, routes])
     
     return routes;
 }
@@ -103,8 +108,6 @@ export function ServiceRouteProvider(
 }
 
 export function useServiceAddress(serviceName: ServiceName): string {
-    const routes = useContext<ServiceRoutes>(ServiceRouteContext);
-    
     if (!Object.hasOwn(routes, serviceName)) {
         throw new Error(`There is no route to a service identified as ${serviceName}`);
     }

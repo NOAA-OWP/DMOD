@@ -12,3 +12,9 @@ export enum ServiceName {
     SCHEDULER_SERVICE = "scheduling",
     SUBSET_SERVICE = "subsetting"
 }
+
+export interface ServiceRoute {
+    identifier: string;
+    host: string;
+    port?: string|number;
+}

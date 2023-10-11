@@ -16,7 +16,7 @@ export default function subsetSchema(
     }, {});
 
   const subset_required = (s.required ?? []).filter(
-    (prop_name) => prop_name in target_fields
+    (prop_name): boolean => target_fields.has(prop_name)
   );
 
   return {
