@@ -470,7 +470,7 @@ class ScoreDescription:
         return f"{self.name}: {self.value} out of {self.maximum_value}"
 
 
-class Scores(abstract_collections.Sized, abstract_collections.Iterable):
+class Scores(abstract_collections.Sequence):
     def __len__(self) -> int:
         return len(self.__results)
 
@@ -592,7 +592,7 @@ class Scores(abstract_collections.Sized, abstract_collections.Iterable):
         return self.__str__()
 
 
-class MetricResults(object):
+class MetricResults:
     """
     A mapping thresholds to a variety of metrics and their values
 

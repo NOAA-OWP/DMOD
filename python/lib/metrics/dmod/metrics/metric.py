@@ -6,8 +6,8 @@ References for Metrics:
 * Forecast Verification - Issues, Methods and FAQ, Ebert,
     https://www.cawcr.gov.au/projects/verification/verif_web_page.html
 """
+from __future__ import annotations
 
-import os
 import typing
 import abc
 import math
@@ -42,7 +42,7 @@ WHITESPACE_PATTERN = re.compile(f"[{string.whitespace}]+")
 
 def is_type(value: object, value_type: typing.Type) -> bool:
     """
-    Determines whether or not the given value matches the given type
+    Determines whether the given value matches the given type
 
     This can be used to evaluated types such as unions since you cannot use `isinstance`
 
@@ -51,7 +51,7 @@ def is_type(value: object, value_type: typing.Type) -> bool:
         value_type: The type to check against
 
     Returns:
-        Whether or not the value matches the given type
+        Whether the value matches the given type
     """
     value_is_valid = False
 
@@ -184,7 +184,7 @@ def find_truthtables_key(**kwargs) -> typing.Optional[str]:
     Returns:
         "TRUTH_TABLES" if there's a TruthTables in the kwargs, otherwise the first TruthTables present if it exists
     """
-    # Find all TruthTables in the passed kwargs
+    # Find all TruthTables in the provided kwargs
     keys = [
         key
         for key, value in kwargs.items()
