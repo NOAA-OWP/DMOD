@@ -60,7 +60,7 @@ Alternatively, one could also set these in the machine's global Git config (or r
      
 ### Fork Consistency Requirements
 
-Within a local repo and personal fork, users are mostly free to do whatever branching strategy works for them.  However, branches used for PRs must have all new commits based on the current `HEAD` commit of the `upstream/master` branch, to ensure the repo history remains consistent.  I.e., a branch need to be up to date with the commits in `upstream/master` before submitting it in a PR.  How this is maintained is up to the user/developer, but the following suggested setup will make that relatively easy.
+Within a local repo and personal fork, users are mostly free to do whatever branching strategy works for them.  However, a branch used for a pull request typically should be (re)based on the `HEAD` commit of the current OWP `upstream/master` branch, to ensure the repo history remains consistent.
 
 ### Fork Setup Suggestions
 
@@ -70,22 +70,28 @@ Maintain a personal `master` branch, on any local development clones and within 
 
 Use separate feature branches for development work as appropriate.  When preparing to make a PR, making sure the branch is both up to date with `upstream/master` and has all the desired local changes.
 
-A separate, "clean" local `master` should be easy to keep it in sync with `upstream/master`, which in turn will make it relatively easy to rebase local development branches whenever needed.  This simplifies maintaining the base-commit consistency requirement for the branches used for pull requests.
+A separate, "clean" local `master` should be easy to keep it in sync with `upstream/master`, which in turn will make it relatively easy to rebase local development branches on `master` whenever needed.  This simplifies maintaining the base-commit consistency requirement for the branches used for pull requests.
 
 Clean up above mentioned PR branches regularly (i.e., once their changes get incorporated).  This is generally a good practice for other local or fork development branches, to avoid having [diverged histories that need to be fixed](#fixing-diverging-development-branches).
 
 ## Keeping Forks Up to Date
 
+- [A Rebase Strategy](#a-rebase-strategy)
 - [Getting Upstream Changes](#getting-upstream-changes)
 - [Rebasing Development Branches](#rebasing-development-branches)
 - [Fixing Diverging Development Branches](#fixing-diverging-development-branches)
 
 
-Note that to stay in sync with other separate changes added to the main **upstream** repo, a developer will typically need to regularly synchronize with it.  This requires having an `upstream` remote configured, as described in the section on [getting started with your fork and local repo](#getting-started-with-your-fork).  
+To remain consistent with changes to the official OWP DMOD repo (i.e., the **upstream** repo), a developer will need to regularly synchronize with it.  This requires having an `upstream` remote configured, as described in the section on [getting started with your fork and local repo](#getting-started-with-your-fork).  
+
+### A Rebase Strategy
+
+The development team for DMOD uses a *rebase* strategy for integrating code changes, rather than a *merge* strategy.  More information on rebasing is [available here](https://git-scm.com/book/en/v2/Git-Branching-Rebasing), but the main takeaway is that it is important all changes are integrated into branches using this approach.  Deviation from this will likely cause a bit of mess with branch commit histories, which could force rejection of otherwise-good PRs.
+
 
 ### Getting Upstream Changes
 
-When it is time to check for or apply updates to a personal fork (and a local repo), check out the local `master` branch and do fetch-and-rebase, which can be done with `pull` and the `--rebase` option:
+When it is time to check for or apply updates to a personal fork and/or a local repo, check out the local `master` branch and do fetch-and-rebase, which can be done with `pull` and the `--rebase` option:
 
     # Checkout local master branch 
     git checkout master
@@ -95,7 +101,7 @@ When it is time to check for or apply updates to a personal fork (and a local re
     
 Then, make sure these get pushed to the personal fork. Assuming a typical setup where a developer has cloned from a fork, and still has `master` checked out, that is just:
 
-    # Note the assumptions mentioned above that required for this syntax
+    # Note the assumptions mentioned above that are required for this syntax
     git push
 
 Depending on individual setup, a developer may want to do this immediately (e.g., if the `master` branch is "clean", as [discussed in the forking suggestions](#fork-setup-suggestions)), or wait until the local `master` is in a state ready to push to the personal fork. 
@@ -107,10 +113,16 @@ When the steps in [Getting Upstream Changes](#getting-upstream-changes) do bring
     # If using a development branch named 'dev'
     git checkout dev
     git rebase master
+
+See documentation on [the "git rebase" command](https://git-scm.com/docs/git-rebase) for more details.
     
-Alternatively, it is possible to do an interactive rebase.  This will open up a text editor allowing for rearranging, squashing, dropping, etc. development branch commits when rebasing them onto the new state of `master`. 
+#### Interactive Rebasing
+
+It is possible to have more control over rebasing by doing an interactive rebase.  E.g.:
 
     git rebase -i master
+
+This will open up a text editor allowing for reordering, squashing, dropping, etc., development branch commits prior to rebasing them onto the new base commit from `master`.  See the [**Interactive Mode**](https://git-scm.com/docs/git-rebase#_interactive_mode) section on the rebase command  for more details.
     
 ### Fixing Diverging Development Branches
 
