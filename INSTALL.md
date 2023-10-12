@@ -19,7 +19,7 @@ Because of its custom nature and potentially sensitive contents, local environme
 
 ### File Name and Path
 
-The general recommendation is to name this file `.env` and place it the project root on development systems.  This is the expected default for many DMOD management script and tools.  The Git repo is also configured to ignore this path.
+The general recommendation is to name this file `.env` and place it in the project root on development systems.  This is the expected default for many DMOD management script and tools.  The Git repo is also configured to ignore this path.
 
 However, most DMOD management tools support an optional parameter for setting a custom path to an environment config, so a file can be named or located elsewhere if needed.
 
@@ -106,13 +106,15 @@ See its _help_/_usage_ message for more details.
 
 ## Docker Images
 
-DMOD deploys using several Docker stacks, with many of the service/worker containers within those stacks requiring custom Docker images.  These must be built before a deployment can be started.   The [`scripts/control_stack.sh`](./scripts/control_stack.sh) script can help with this
+DMOD deploys using several Docker stacks, and the service/worker containers within those stacks require custom Docker images.  These must be built before a deployment can be started.  The [`scripts/control_stack.sh`](./scripts/control_stack.sh) script has subcommands for performing these builds.
 
 The following is usually enough to get started (note that order is important):
 
 ```
-./scripts/control_stack.sh py-sources build
-./scripts/control_stack.sh main build
+./scripts/control_stack.sh py-sources build push
+./scripts/control_stack.sh main build push
 ```
 
+<!--- TODO: re-add this once such a readme exists!
 See the [Docker usage README](./docker/README.md) for more information on Docker stacks, images, and building commands.
+--->
