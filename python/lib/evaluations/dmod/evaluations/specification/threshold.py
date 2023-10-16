@@ -296,6 +296,9 @@ class ThresholdApplicationRules(TemplatedSpecification):
 
 
 class ThresholdSpecification(LoaderSpecification):
+    """
+    Instructions for how to load and apply thresholds to observed and predicted data
+    """
     definitions: typing.List[ThresholdDefinition] = Field(
         description="The thresholds to apply to data"
     )
