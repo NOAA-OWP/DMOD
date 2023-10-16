@@ -22,13 +22,33 @@ from .backend import LoaderSpecification
 
 import typing
 
+SPECIFICATION_TYPES = typing.Sequence[typing.Type[Specification]]
 
-def get_specification_options(*args, **kwargs) -> typing.Sequence[typing.Tuple[str, str]]:
+def get_specification_types(all_specifications: bool = False, *args, **kwargs) -> SPECIFICATION_TYPES:
     from .base import get_subclasses
 
+    if all_specifications:
+        base_class = Specification
+    else:
+        base_class = TemplatedSpecification
+
+    return get_subclasses(base_class)
+
+
+def get_specification_options(all_specifications: bool = False, *args, **kwargs) -> typing.Sequence[typing.Tuple[str, str]]:
+    from .base import get_subclasses
+
+    if all_specifications:
+        base_class = Specification
+    else:
+        base_class = TemplatedSpecification
+
     return [
-        (cls.get_specification_type(), cls.get_specification_description())
-        for cls in get_subclasses(TemplatedSpecification)
+        (
+            cls.get_specification_type(),
+            cls.get_specification_description()
+        )
+        for cls in get_subclasses(base_class)
     ]
 
 

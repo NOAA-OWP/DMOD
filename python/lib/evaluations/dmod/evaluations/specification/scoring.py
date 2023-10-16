@@ -20,6 +20,9 @@ from .template import TemplateManager
 
 
 class MetricSpecification(TemplatedSpecification):
+    """
+    The definition for what metric should be used and how important it should be
+    """
     weight: typing.Union[float] = Field(description="A relative rating of the significance of this metric")
 
     def __eq__(self, other: MetricSpecification) -> bool:
@@ -52,6 +55,9 @@ class MetricSpecification(TemplatedSpecification):
 
 
 class SchemeSpecification(TemplatedSpecification):
+    """
+    Instructions for how metrics should be applied to observations and forecasts along with how to interpret them
+    """
     class Config:
         fields = {
             "metric_functions": {
