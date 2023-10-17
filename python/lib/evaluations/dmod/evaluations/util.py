@@ -603,13 +603,14 @@ class Day:
                 day = possible_args[0]
             elif len(possible_args) == 2:
                 # We are going to interpret this as month-day
+                # The year doesn't matter since we are focused on a day of the year separate from the year itself
                 day = pandas.Timestamp(year=2020, month=possible_args[0], day=possible_args[1])
             elif len(possible_args) > 3:
                 # We're going to interpret this as year-month-day. Further args may include time, but those are not
                 # important for this
                 day = pandas.Timestamp(year=possible_args[0], month=possible_args[1], day=possible_args[2])
             else:
-                raise ValueError("A list of no numbers was passed; a Day cannot be interpretted.")
+                raise ValueError("A list of no numbers was passed; a Day cannot be interpreted.")
 
         if isinstance(day, str) and value_is_number(day):
             day = float(day)
