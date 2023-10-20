@@ -1,0 +1,8 @@
+{
+    "name": "80th Percentile",
+    "field": "p80_va",
+    "weight": 5,
+    "unit": {
+        "value": "ft^3/s"
+    }
+}

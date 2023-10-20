@@ -1,0 +1,10 @@
+{
+    "name": "predicted",
+    "where": "column",
+    "associated_fields": [
+        {
+            "name": "date",
+            "datatype": "datetime"
+        }
+    ]
+}

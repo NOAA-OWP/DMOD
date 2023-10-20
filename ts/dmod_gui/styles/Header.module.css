@@ -1,0 +1,13 @@
+.header {
+  /* background-color: var(--color-primary); */
+  background-color: hsl(218 17% 69% / 0.25);
+
+  display: flex;
+  align-items: center;
+  padding: 0.25em 2em;
+}
+
+.logo {
+  height: 34px;
+  width: auto;
+}

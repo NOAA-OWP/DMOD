@@ -1,0 +1,23 @@
+{
+    "name": "All Templates for NWIS Stat Percentiles",
+    "backend": {
+        "template_name": "NWIS Stat Thresholds"
+    },
+    "locations": {
+        "template_name": "Site Number Column"
+    },
+    "application_rules": {
+        "template_name": "Date to Day"
+    },
+    "definitions": [
+        {
+            "template_name": "75th Percentile"
+        },
+        {
+            "template_name": "80th Percentile"
+        },
+        {
+            "template_name": "Median"
+        }
+    ]
+}

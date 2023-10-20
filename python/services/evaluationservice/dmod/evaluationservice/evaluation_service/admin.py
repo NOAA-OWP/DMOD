@@ -14,7 +14,7 @@ class EvaluationDefinitionAdmin(admin.ModelAdmin):
     form = EvaluationDefinitionForm
 
     # Display these fields on the list screen
-    list_display = ('name', 'author', 'description', "last_edited")
+    list_display = ('name', 'owner', 'description')
 
     # Regardless of what fields are displayed on the screen,
     # we want to be able to enter the editor by clicking on the template_name
@@ -34,7 +34,7 @@ class EvaluationDefinitionAdmin(admin.ModelAdmin):
         # If the user is a superuser, they'll see DataSources belonging to all users;
         # tack the author's name to it so that superusers may know whose DataSources they are editing
         if request.user.is_superuser:
-            list_display = ["author"] + list(list_display)
+            list_display = ["owner"] + list(list_display)
 
         return list_display
 
@@ -53,7 +53,7 @@ class EvaluationDefinitionAdmin(admin.ModelAdmin):
         # If the user is a superuser, they will also be able to see the authors of the datasources.
         # Allow the user to limit displayed items to those owned by specific users
         if request.user.is_superuser:
-            list_filter = ["author"] + list(list_filter)
+            list_filter = ["owner"] + list(list_filter)
 
         return list_filter
 
@@ -71,7 +71,7 @@ class EvaluationDefinitionAdmin(admin.ModelAdmin):
         # If a user is a superuser, they will see the name of the author.
         # In order to prevent the user from changing that, we set it as read-only
         if request.user.is_superuser:
-            readonly_fields = tuple(['author'] + list(readonly_fields))
+            readonly_fields = tuple(['owner'] + list(readonly_fields))
 
         return readonly_fields
 
@@ -87,18 +87,10 @@ class EvaluationDefinitionAdmin(admin.ModelAdmin):
         :param change: The change to the object
         :return: The result of the parent class's save_model function
         """
+        if obj.owner is None:
+            obj.owner = request.user
 
-        # If the object doesn't have an author, make the current user
-        if obj.author is None:
-            if request.user.first_name and request.user.last_name:
-                name = f"{request.user.first_name} {request.user.last_name}"
-            elif request.user.first_name:
-                name = request.user.first_name
-            elif request.user.last_name:
-                name = request.user.last_name
-            else:
-                name = request.user.username
-            obj.author = name
+        obj.author = obj.owner.username
 
         super().save_model(request, obj, form, change)
 

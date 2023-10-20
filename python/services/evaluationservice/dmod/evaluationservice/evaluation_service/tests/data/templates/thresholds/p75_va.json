@@ -1,0 +1,8 @@
+{
+    "name": "75th Percentile",
+    "field": "p75_va",
+    "weight": 10,
+    "unit": {
+        "value": "ft^3/s"
+    }
+}

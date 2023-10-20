@@ -1,0 +1,5 @@
+{
+    "identify": true,
+    "from_field": "column",
+    "pattern": "site_no"
+}

@@ -13,6 +13,11 @@ from django.db.models.query_utils import DeferredAttribute as ModelField
 
 from django.contrib.auth.models import User
 from django.contrib.auth.models import AnonymousUser
+from rest_framework.authentication import BasicAuthentication
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
+
+from rest_framework.views import APIView
 
 from .message import __MessageSerializer
 from .message import SERIALIZABLE_TYPE
@@ -172,3 +177,4 @@ DjangoObjectSerializer = __DjangoMessageSerializer()
 """A naive Django object serializer"""
 
 make_message_serializable = DjangoObjectSerializer.make_message_serializable
+

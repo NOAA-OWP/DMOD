@@ -1,0 +1,26 @@
+{
+    "name": "Templated Evaluation",
+    "observations": [
+        {
+            "template_name": "Observations from Templates"
+        }
+    ],
+    "predictions": [
+        {
+            "template_name": "Predictions"
+        }
+    ],
+    "crosswalks": [
+        {
+            "template_name": "Templated Crosswalk"
+        }
+    ],
+    "thresholds": [
+        {
+            "template_name": "All Templates for NWIS Stat Percentiles"
+        }
+    ],
+    "scheme": {
+        "template_name": "Prefer Pearson, then Nash and Kling, then POD and FAR"
+    }
+}

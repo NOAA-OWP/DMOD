@@ -1,0 +1,7 @@
+{
+    "name": "Multitemplate",
+    "templates": [
+        "Top Half",
+        "Bottom Half"
+    ]
+}

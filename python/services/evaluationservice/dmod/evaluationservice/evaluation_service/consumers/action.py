@@ -231,41 +231,82 @@ class ActionDescriber:
         }
 
     @classmethod
-    def generate_action_catalog(cls) -> typing.Sequence[typing.Mapping[str, typing.Union[str, typing.Mapping[str, typing.Any]]]]:
-        actions = list()
+    def _interpret_handler_as_schema(cls, name: str, function: typing.Callable[[typing.Dict[str, typing.Any]], typing.Coroutine]) -> typing.Mapping[str, typing.Union[str, typing.Mapping[str, typing.Any]]]:
+        schema = {
+            "title": name,
+            "type": 'object',
+            "required": list(),
+            "properties": dict()
+        }
 
-        for name, function in cls.get_action_handlers().items():
-            # `function` will be a function like `(dict) => Coroutine`, where the function will have a dictionary
-            # mapping the name of required parameters for each handler to a human friendly description of its type
-            documentation = ""
+        documentation = ""
 
-            if function.__doc__:
-                split_documentation = function.__doc__.strip().split("\n")
-                if len(split_documentation) > 0:
-                    documentation = split_documentation[0]
+        if function.__doc__:
+            split_documentation = function.__doc__.strip().split("\n")
+            if len(split_documentation) > 0:
+                documentation = split_documentation[0]
 
-            descriptor = {
-                "action": name,
-                "documentation": documentation
+        schema['description'] = documentation
+
+        for parameter_name, parameter_type in getattr(function, 'required_parameters').items():
+            schema['required'].append(parameter_name)
+            schema['properties'][parameter_name] = {
+                "title": parameter_name.replace("_", " ").title(),
+                "type": parameter_type
             }
 
-            action_parameters = {
-                parameter_name: {
-                    "type": parameter_type,
-                    "required": False
-                }
-                for parameter_name, parameter_type in getattr(function, "optional_parameters", dict()).items()
-            }
+        return schema
 
-            action_parameters.update({
+    @classmethod
+    def _interpret_handler(cls, name: str, function: typing.Callable[[typing.Dict[str, typing.Any]], typing.Coroutine]) -> typing.Mapping[str, typing.Union[str, typing.Mapping[str, typing.Any]]]:
+        documentation = ""
+
+        if function.__doc__:
+            split_documentation = function.__doc__.strip().split("\n")
+            if len(split_documentation) > 0:
+                documentation = split_documentation[0]
+
+        descriptor = {
+            "action": name,
+            "documentation": documentation
+        }
+
+        action_parameters = {
+            parameter_name: {
+                "type": parameter_type,
+                "required": False
+            }
+            for parameter_name, parameter_type in getattr(function, "optional_parameters", dict()).items()
+        }
+
+        action_parameters.update(
+            {
                 parameter_name: {
                     "type": parameter_type,
                     "required": True
                 }
                 for parameter_name, parameter_type in getattr(function, "required_parameters").items()
-            })
+            }
+        )
 
-            descriptor['action_parameters'] = action_parameters
+        descriptor['action_parameters'] = action_parameters
+
+        return descriptor
+
+    @classmethod
+    def generate_action_catalog(cls, schema: bool = None) -> typing.Sequence[typing.Mapping[str, typing.Union[str, typing.Mapping[str, typing.Any]]]]:
+        if schema is None:
+            schema = False
+
+        actions = list()
+
+        for name, function in cls.get_action_handlers().items():
+            # `function` will be a function like `(dict) => Coroutine`, where the function will have a dictionary
+            # mapping the name of required parameters for each handler to a human friendly description of its type
+            if schema:
+                descriptor = cls._interpret_handler_as_schema(name, function)
+            else:
+                descriptor = cls._interpret_handler(name, function)
 
             actions.append(descriptor)
 
@@ -919,6 +960,7 @@ window.DMOD.clients.{cls.get_client_name()}Options = {cls.get_client_name()}Opti
 
     @classmethod
     def build_code(cls, language: str = None):
+        # TODO: Add support for python
         if language is None:
             language = SUPPORTED_LANGUAGES.javascript
 

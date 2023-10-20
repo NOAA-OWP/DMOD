@@ -1,3 +1,5 @@
+import base64
+import typing
 from datetime import datetime
 
 import dateutil
@@ -13,6 +15,48 @@ def key_separator() -> str:
         The character(s) to use as delimiters when forming redis keys
     """
     return "--"
+
+
+def create_basic_credentials(
+    username: typing.Union[str, bytes],
+    password: typing.Union[str, bytes]
+) -> typing.Mapping[typing.Literal["HTTP_AUTHORIZATION"], str]:
+    """
+    Creates a key-value pair with the appropriate header key and header value for basic credential authentication
+
+    Args:
+        username: The username for the credentials
+        password: The password for the credentials
+
+    Returns:
+        A mapping from the header key to the header value
+    """
+    if isinstance(username, bytes):
+        username = username.decode()
+
+    if isinstance(password, bytes):
+        password = password.decode()
+
+    username_and_password = f"{username}:{password}".encode()
+    return {"HTTP_AUTHORIZATION": f"Basic {base64.b64encode(username_and_password).decode()}"}
+
+
+def create_token_credentials(
+    token: typing.Union[bytes, str]
+) -> typing.Mapping[typing.Literal["HTTP_AUTHORIZATION"], str]:
+    """
+    Creates a key-value pair with the appropriate header key and header value for token credential authentication
+
+    Args:
+        token: An assigned token
+
+    Returns:
+        A mapping from the header key to the header value
+    """
+    if isinstance(token, bytes):
+        token = token.decode()
+
+    return {"HTTP_AUTHORIZATION": f"Token {token}"}
 
 
 def application_prefix() -> str:

@@ -236,7 +236,6 @@
                                 <th>Author</th>
                                 <th>Name</th>
                                 <th>Description</th>
-                                <th>Last Modified</th>
                             </tr>
                             <tr id="search-filter-row">
                                 <td>
@@ -334,9 +333,9 @@
                 </div>
                 <div id="validation-results" class="popup-fields">
                     <div id="overall-validation-result">
-                        <img id="validation-error" class="status-icon status-error-icon" src="{% static 'img/error.png' %}">
-                        <img id="validation-ok" class="status-icon status-ok-icon" src="{% static 'img/ok.png' %}">
-                        <img id="validation-unknown" class="status-icon status-unknown-icon" src="{% static 'img/unknown.png' %}">
+                        <img alt="Validations Failed" id="validation-error" class="status-icon status-error-icon" src="{% static 'img/error.png' %}">
+                        <img alt="All validations passed" id="validation-ok" class="status-icon status-ok-icon" src="{% static 'img/ok.png' %}">
+                        <img alt="Validation Results could not be reached" id="validation-unknown" class="status-icon status-unknown-icon" src="{% static 'img/unknown.png' %}">
                         <p id="overall-validation-message" class="status-unknown"></p>
                     </div>
                     <div id="individual-validation-messages">

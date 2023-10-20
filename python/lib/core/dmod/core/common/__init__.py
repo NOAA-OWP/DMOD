@@ -1,6 +1,14 @@
 """
 Provides common functions and helper classes
 """
+from __future__ import annotations
+
+import typing
+import math
+from abc import abstractmethod
+from typing import Sequence
+from typing import overload
+
 from .failure import Failure
 from .helper_functions import get_current_function_name
 from .helper_functions import is_sequence_type
@@ -20,3 +28,23 @@ from .tasks import wait_on_task
 from .tasks import cancel_task
 from .tasks import cancel_tasks
 from .collection import Bag
+
+from .types import CommonEnum
+from .types import TEXT_VALUE_COLLECTION
+
+
+class Status(str, CommonEnum):
+    """
+    Very basic enumeration used to describe the status of something
+    """
+    UNKNOWN = "UNKNOWN"
+    SUCCESS = "SUCCESS"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+
+    @classmethod
+    def default(cls) -> Status:
+        """
+        The default Status
+        """
+        return cls.UNKNOWN

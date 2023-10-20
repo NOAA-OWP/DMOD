@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import typing
 import json
 
@@ -6,6 +8,9 @@ from django.db import models
 
 import geopandas
 from django.db.models import UniqueConstraint
+from dmod.core.common.types import TextValue
+from dmod.core.common import humanize_text
+from dmod.evaluations.specification import TemplateDetails
 
 from . import choices
 from .wrapper import ModelWrapper
@@ -22,6 +27,17 @@ class SpecificationTemplate(models.Model):
         constraints = [
             UniqueConstraint(name="unique_template_idx", fields=["template_name", "template_specification_type"])
         ]
+
+    @classmethod
+    def from_template_details(cls, user: User, template_details: TemplateDetails) -> SpecificationTemplate:
+        template = SpecificationTemplate(
+            author=user,
+            template_name=template_details.name,
+            template_description=template_details.description,
+            template_specification_type=template_details.specification_type,
+            template_configuration=json.dumps(template_details.get_configuration(), indent=4)
+        )
+        return template
 
     template_name = models.CharField(verbose_name="name", max_length=100, help_text="The name of the template")
     template_specification_type = models.CharField(
@@ -42,6 +58,14 @@ class SpecificationTemplate(models.Model):
     author = models.ForeignKey(to=User, on_delete=models.CASCADE, help_text="The user who created this template")
 
     @property
+    def owner(self) -> User:
+        return self.author
+
+    @owner.setter
+    def owner(self, new_owner: User):
+        self.author = new_owner
+
+    @property
     def name(self) -> str:
         return self.template_name
 
@@ -56,6 +80,21 @@ class SpecificationTemplate(models.Model):
     def description(self) -> typing.Optional[str]:
         return self.template_description
 
+    @property
+    def field_choice(self) -> typing.Tuple[str, str]:
+        """
+        A value-name pair that allows for templates to be selected from a dropdown
+        """
+        return self.name, self.name.replace("_", " ").title()
+
+    @property
+    def text_value(self) -> TextValue[int]:
+        return TextValue(
+            group=str(self.specification_type),
+            text=humanize_text(self.name),
+            value=self.id
+        )
+
     def __str__(self):
         return f"[{self.specification_type}] {self.name}{':' + self.description if self.description else ''}"
 
@@ -65,7 +104,7 @@ class EvaluationDefinition(models.Model):
     Represents a definition for an evaluation that may be stored for reuse
     """
     class Meta:
-        unique_together = ('name', 'author', 'description')
+        unique_together = ('name', 'owner')
 
     name = models.CharField(max_length=255, help_text="The name of the evaluation")
     """(:class:`str`) The name of the evaluation"""
@@ -90,8 +129,21 @@ class EvaluationDefinition(models.Model):
     )
     """(:class:`str`) The raw json that will be sent as the instructions to the evaluation service"""
 
-    last_edited = models.DateTimeField(auto_now=True)
-    """(:class:`datetime.datetime`) The last time this definition was edited"""
+    owner = models.ForeignKey(
+        to=User,
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        help_text="The user who owns the editing rights on this definition"
+    )
+
+    @property
+    def title(self) -> str:
+        return self.name
+
+    @title.setter
+    def title(self, new_title: str):
+        self.name = new_title
 
     def __str__(self):
         return f"{self.name} by {self.author}"
@@ -155,17 +207,21 @@ class StoredDataset(models.Model):
         return f"{self.name} => {self.path}"
 
 
-SpecificationTemplateCommunicator = ModelWrapper.for_model(SpecificationTemplate)
+SpecificationTemplateCommunicator: ModelWrapper[SpecificationTemplate] = ModelWrapper.for_model(SpecificationTemplate)
 """
 A specialized handler for SpecificationTemplate database operations that should work the same in sync and async contexts
 """
 
-EvaluationDefinitionCommunicator = ModelWrapper.for_model(EvaluationDefinition)
+EvaluationDefinitionCommunicator: ModelWrapper[EvaluationDefinition] = ModelWrapper.for_model(EvaluationDefinition)
 """
 A specialized handler for EvaluationDefinition database operations that should work the same in sync and async contexts
 """
 
-StoredDatasetCommunicator = ModelWrapper.for_model(StoredDataset)
+StoredDatasetCommunicator: ModelWrapper[StoredDataset] = ModelWrapper.for_model(StoredDataset)
 """
 A specialized handler for StoredDataset database operations that should work the same in sync and async contexts
 """
+
+
+def get_model_wrappers() -> typing.Sequence[ModelWrapper]:
+    return [value for value in globals().values() if isinstance(value, ModelWrapper)]

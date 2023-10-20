@@ -1,0 +1,5 @@
+{
+    "identify": true,
+    "from_field": "filename",
+    "pattern": "cat-\\d\\d"
+}

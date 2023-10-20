@@ -208,7 +208,25 @@ class EvaluationList(View):
             evaluation_data.append(evaluation)
         return evaluation_data
 
+    @classmethod
+    def accept_page(cls, request: HttpRequest, **kwargs) -> HttpResponse:
+        context = {"evaluations": cls.get_evaluations()}
+        return render(request, template_name=cls.template, context=context)
+
+    @classmethod
+    def accept_json(cls, request: HttpRequest, **kwargs) -> JsonResponse:
+        context = {"evaluations": cls.get_evaluations()}
+        return render(request, template_name=cls.template, context=context)
+
+    @classmethod
+    def direct_request(cls, request: HttpRequest) -> typing.Callable[[HttpRequest, typing.Dict[str, typing.Any]], HttpResponse]:
+        if "Accept" in request.headers:
+            if "json" in request.headers["Accept"]:
+                return cls.accept_json
+
+        return cls.accept_page
+
     def get(self, request: HttpRequest) -> HttpResponse:
-        context = {"evaluations": self.get_evaluations()}
-        return render(request, template_name=self.template, context=context)
+        handler = self.direct_request(request=request)
+        return handler(request, **{key: value for key, value in request.GET.items()})
 

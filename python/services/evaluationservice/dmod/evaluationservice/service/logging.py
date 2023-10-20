@@ -9,6 +9,7 @@ import typing
 import json
 import traceback
 import inspect
+import re
 
 from datetime import datetime
 
@@ -31,6 +32,11 @@ The name of the default logger to use when configuring the logging system
 DEFAULT_SOCKET_LOGGER_NAME = os.environ.get("DEFAULT_SOCKET_LOGGER_NAME", "SocketLogger")
 """
 The name of the default logger intended for use by web sockets
+"""
+
+HANDLER_CONFIGURATION_INABILITY_PATTERN = re.compile(r"(?<=Unable to configure handler ').+(?=')")
+"""
+Pattern to search for if a handler cannot be configured
 """
 
 # Set the default logging variable to None so that Django doesn't try to 'help'
@@ -507,7 +513,40 @@ def configure_logging():
         logging.config.fileConfig(fname=configuration_filename, disable_existing_loggers=False)
     else:
         # Otherwise, roll with the generated configuration
-        logging.config.dictConfig(DEFAULT_LOGGING_CONFIGURATION)
+        logging_configuration = DEFAULT_LOGGING_CONFIGURATION
+
+        try_count = 0
+        maximum_attempts = 5
+
+        while try_count < maximum_attempts:
+            try_count += 1
+            try:
+                logging.config.dictConfig(logging_configuration)
+                logging.info("Default logging has been configured.")
+                break
+            except BaseException as exception:
+                logging.error(str(exception))
+                bad_handler_name = HANDLER_CONFIGURATION_INABILITY_PATTERN.search(str(exception))
+
+                if bad_handler_name:
+                    handler_name = bad_handler_name.group()
+                    logging.warning(f"Trying to remove the default `{handler_name}` handler")
+                    if handler_name in logging_configuration['handlers']:
+                        logging_configuration['handlers'].pop(handler_name)
+
+                    for logger in logging_configuration['loggers'].values():
+                        if handler_name in logger['handlers']:
+                            logger['handlers'].remove(handler_name)
+
+                    if 'root' in logging_configuration and 'handlers' in logging_configuration['root']:
+                        if handler_name in logging_configuration['root']['handlers']:
+                            logging_configuration['root']['handlers'].remove(handler_name)
+                    logging.warning(f"The '{handler_name}' handler will not be active during this runtime")
+                else:
+                    logging.error("Could not apply the default logging configuration.")
+                    break
+        if try_count >= maximum_attempts:
+            logging.error("Ran out of attempts to configure the logger")
 
 
 def log(message: MESSAGE, exception: Exception = None, logger_name: str = None, level: int = None):

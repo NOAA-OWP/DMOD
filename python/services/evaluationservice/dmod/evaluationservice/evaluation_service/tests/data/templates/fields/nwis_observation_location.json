@@ -1,0 +1,5 @@
+{
+    "name":"observation_location",
+    "path": ["sourceInfo", "siteCode", "[0]", "value"],
+    "datatype": "string"
+}

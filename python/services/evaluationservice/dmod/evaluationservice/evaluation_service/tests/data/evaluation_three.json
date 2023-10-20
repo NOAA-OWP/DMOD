@@ -1,0 +1,175 @@
+{
+    "name": "Evaluation-Three",
+    "observations": [
+        {
+            "name": "Third Observations",
+            "value_field": "obs",
+            "value_selectors": [
+                {
+                    "name": "obs",
+                    "where": "value",
+                    "path": ["values[*]", "value[*]", "value"],
+                    "datatype": "float",
+                    "origin": ["$", "value", "timeSeries[*]"],
+                    "associated_fields": [
+                        {
+                            "name":"valdate",
+                            "path": ["values[*]", "value[*]", "dateTime"],
+                            "datatype": "datetime"
+                        },
+                        {
+                            "name":"obs_loc",
+                            "path": ["sourceInfo", "siteCode", "[0]", "value"],
+                            "datatype": "string"
+                        },
+                        {
+                            "name":"MEASUREMENT_UNIT",
+                            "path": ["variable", "unit", "unitCode"],
+                            "datatype": "string"
+                        }
+                    ]
+                }
+            ],
+            "backend": {
+                "backend_type": "file",
+                "format": "json",
+                "address": "third/resources/obs.json"
+            },
+            "locations": {
+                "identify": true,
+                "from_field": "value"
+            },
+            "unit": {
+                "field": "MEASUREMENT_UNIT"
+            },
+            "x_axis": "valdate"
+        }
+    ],
+    "predictions": [
+        {
+            "name": "Third Predictions",
+            "value_field": "prediction",
+            "value_selectors": [
+                {
+                    "name": "predicted",
+                    "where": "column",
+                    "associated_fields": [
+                        {
+                            "name": "date",
+                            "datatype": "datetime"
+                        }
+                    ]
+                }
+            ],
+            "backend": {
+                "backend_type": "file",
+                "format": "csv",
+                "address": "resources/cat.*cfs.csv",
+                "parse_dates": ["date"]
+            },
+            "locations": {
+                "identify": true,
+                "from_field": "filename",
+                "pattern": "cat-\\d\\d"
+            },
+            "field_mapping": [
+                {
+                    "field": "prediction",
+                    "map_type": "column",
+                    "value": "predicted"
+                },
+                {
+                    "field": "prediction_location",
+                    "map_type": "column",
+                    "value": "location"
+                },
+                {
+                    "field": "value_date",
+                    "map_type": "column",
+                    "value": "date"
+                }
+            ],
+            "unit": {
+                "value": "cms"
+            },
+            "x_axis": "value_date"
+        }
+    ],
+    "crosswalks": [
+        {
+            "name": "Third Crosswalk",
+            "backend": {
+                "backend_type": "file",
+                "address": "resources/crosswalk.json",
+                "format": "json"
+            },
+            "observation_field_name": "obs_loc",
+            "prediction_field_name": "prediction_location",
+            "field": {
+                "name": "prediction_location",
+                "where": "key",
+                "path": ["* where site_no"],
+                "origin": "$",
+                "datatype": "string",
+                "associated_fields": [
+                    {
+                        "name": "obs_loc",
+                        "path": "site_no",
+                        "datatype": "string"
+                    }
+                ]
+            }
+        }
+    ],
+    "thresholds": [
+        {
+            "name": "Third NWIS Stat Percentiles",
+            "backend": {
+                "name": "NWIS Stat Thresholds",
+                "backend_type": "file",
+                "format": "csv",
+                "address": "third/resources/thresholds.csv"
+            },
+            "locations": {
+                "identify": true,
+                "from_field": "column",
+                "pattern": "site_no"
+            },
+            "definitions": [
+                {
+                    "name": "Action",
+                    "field": "action",
+                    "weight": 1064,
+                    "unit": {
+                        "value": "ft^3/s"
+                    }
+                },
+                {
+                    "name": "Record",
+                    "field": "record",
+                    "weight": 51,
+                    "unit": {
+                        "value": "ft^3/s"
+                    }
+                },
+                {
+                    "name": "Major",
+                    "field": "major",
+                    "weight": 9851,
+                    "unit": {
+                        "value": "ft^3/s"
+                    }
+                }
+            ]
+        }
+    ],
+    "scheme": {
+        "name": "Only Pearson",
+        "metrics": [
+            {
+                "name": "Pearson Correlation Coefficient",
+                "weight": 18
+            }
+        ]
+    }
+}

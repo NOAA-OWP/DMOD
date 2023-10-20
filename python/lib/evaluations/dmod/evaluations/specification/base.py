@@ -1,6 +1,8 @@
 """
 Defines the core classes for specifications and how to create them
 """
+from __future__ import annotations
+
 import typing
 import json
 import logging
@@ -15,6 +17,7 @@ import dmod.core.common as common
 from dmod.core.common import get_subclasses
 from dmod.core.common import humanize_text
 from pydantic import root_validator
+from pydantic.utils import update_not_none
 
 from ..utilities import merge_dictionaries
 
@@ -35,6 +38,46 @@ Sequence[ThresholdDefinition]
 """
 
 CLASS_MODULE_PATTERN = re.compile(r".+\.(?=.+)")
+
+
+class OptionError(pydantic.PydanticTypeError):
+    msg_template = "value not a valid option"
+
+
+class Options(typing.Generic[_CLASS_TYPE]):
+    @classmethod
+    def create(cls, name: str, values: typing.Iterable[_CLASS_TYPE]) -> _CLASS_TYPE:
+        new_type = type(name, (cls,), dict(values=values))
+        new_type.__str__ = lambda self: str(self.values)
+        new_type.__repr__ = lambda self: str(self.values)
+        return new_type
+
+    values: typing.List[_CLASS_TYPE]
+
+    def __init__(self, values: typing.Iterable[_CLASS_TYPE]):
+        self.values: typing.Sequence[_CLASS_TYPE] = [value for value in values]
+
+    @classmethod
+    def __modify_schema__(cls, field_schema: typing.Dict[_CLASS_TYPE, typing.Any]) -> None:
+        update_not_none(field_schema, values=cls.values)
+
+    @classmethod
+    def __get_validators__(cls) -> typing.Generator:
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, value: _CLASS_TYPE) -> _CLASS_TYPE:
+        if value not in cls.values:
+            raise OptionError(missing=value)
+        return value
+
+    def __str__(self):
+        return str(self.values)
+
+    def __repr__(self):
+        return str(self.values)
+
+
 
 
 # TODO: Evaluate the need for this after the integration with pydantic
@@ -710,7 +753,11 @@ def convert_value(
         return value
 
     inner_types: typing.Tuple[type, ...] = typing.get_args(parameter_type)
-    is_optional = typing.get_origin(parameter_type) == typing.Union and len(inner_types) == 2 and isinstance(None, inner_types[-1])
+
+    if typing.get_origin(parameter_type) == typing.Union and len(inner_types) == 2:
+        is_optional = inner_types[-1] is None or inner_types[-1] == type(None)
+    else:
+        is_optional = False
 
     # If the parameter type is optional, get the wrapped type
     if is_optional:

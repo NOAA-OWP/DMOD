@@ -44,7 +44,7 @@ class TestMetricSpecificationConstruction(ConstructionTest, unittest.TestCase):
 
     def setUp(self) -> None:
         self.__params = {
-            "name": "metric1",
+            "name": "precision",
             "weight": 1,
             "properties": {
                 "prop1": 6,
@@ -54,7 +54,7 @@ class TestMetricSpecificationConstruction(ConstructionTest, unittest.TestCase):
         }
         self.__param_list: typing.Sequence[typing.Dict[str, typing.Any]] = [
             {
-                "name": "metric1",
+                "name": "precision",
                 "weight": 1,
                 "properties": {
                     "prop1": 6,
@@ -63,7 +63,7 @@ class TestMetricSpecificationConstruction(ConstructionTest, unittest.TestCase):
                 }
             },
             {
-                "name": "metric2",
+                "name": "generalskill",
                 "weight": 7,
                 "properties": {
                     "prop1": 8,
@@ -72,7 +72,7 @@ class TestMetricSpecificationConstruction(ConstructionTest, unittest.TestCase):
                 }
             },
             {
-                "name": "metric3",
+                "name": "criticalsuccessindex",
                 "weight": 3,
                 "properties": {
                     "prop1": 10,
