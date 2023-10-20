@@ -133,11 +133,15 @@ async function submit_evaluation(event) {
     
     await window.DMOD.evaluation.client.launch(evaluationName, instructions);
 
+    // Launching an evaluation effectively stops the users ability to alter the eval and run again without refreshing
+    // Ideal functionality here would be to add a handler that detects project completion and re-enables functionality
+    /**
     if (!editorData.view.getOption("readonly")) {
         editorData.view.setOption("readonly", true);
     }
 
     $(event.target).button("disable");
+     **/
 
     $("#tabs").tabs("option", "active", 1);
 }
@@ -1054,15 +1058,6 @@ async function renderDefinitions(event, socket) {
         descriptionCell.setAttribute("identifier", definition.identifier);
 
         row.appendChild(descriptionCell);
-
-        let lastModifiedCell = document.createElement("td");
-        lastModifiedCell.id = `${definition.identifier}-last_modified`;
-        lastModifiedCell.classList.add("last_modified-cell");
-        lastModifiedCell.classList.add("search-cell");
-        lastModifiedCell.textContent = definition.last_modified.trim();
-        lastModifiedCell.setAttribute("identifier", definition.identifier);
-
-        row.appendChild(lastModifiedCell);
 
         searchTableBody.appendChild(row);
     }
