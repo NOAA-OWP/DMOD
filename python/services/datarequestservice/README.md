@@ -8,7 +8,5 @@ This endpoint can be used to check whether some catchment id is a recognized cat
 
 * Endpoint: `/datarequest/valid`
 * Message: POST
-* JSON Format: `{"data-provider" : "<provider-id>", "start_date" : <start_date>, "stop-date" : <stop_date>, "required-variables" : <required-variables> }`
+* JSON Format: `{"data_sources" : "<source-id>", "start_dates" : "%m/%d/%y: %H:%M:%S %Z", "stop_dates" : "%m/%d/%y: %H:%M:%S %Z", "variables" : ["<required-variables>"] }`
 * Response: `{ "valid": <bool>}`
-
-
