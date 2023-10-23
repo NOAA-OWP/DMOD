@@ -1,24 +1,132 @@
-# Distributed Model on Demand
+# Distributed Model on Demand (DMOD)
 
-DMOD is a utility to facilitate running scientific models and other similar HPC application tasks.  Its primary purpose is to automate both the management of the necessary compute infrastructure and the performance of variety of execution workflows (e.g., a simple model test execution, evaluating a specific model configuration, etc.).  It also provides other tools for making certain model development and experiment tasks easier.
+DMOD is an extensible suite of software tools for creating and running specialized compute environments (and in some sense the environments themselves).
+The primary goal for DMOD is to make it easier to develop, test, and experiment with scientific models, with particular emphasis on models run through the [NextGen framework](https://github.com/noaa-owp/ngen).
 
-As of summer 2022, the project is in an early Alpha stage. Infrastructure and workflows have been initially developed with the [OWP Next Generation Water Resources Modeling Framework](https://github.com/NOAA-OWP/ngen) in mind, though the intent is to work toward a generalized design.
+As of Fall 2023, the project is in an early Beta stage.
+Infrastructure and workflows have been initially developed with the [NextGen framework](https://github.com/NOAA-OWP/ngen) in mind, though the intent is to work toward a generalized design.
 
-[//]: # (TODO: create sections and/or dedicated documents for these items)
-[//]: # (- Architecture Overview)
-[//]: # (- Services and Stacks)
 [//]: # (- Code Organization)
 [//]: # (- Workflows)
 [//]: # (- Technology Stack)
 
-[//]: # (**System Overview**)
-[//]: # (![](https://raw.githubusercontent.com/noaa-owp/DMOD/master/doc/DMOD_system_overview.png\))
+## Architecture Overview
 
+The below diagram shows an architecture overview of a fully deployed DMOD. Rounded boxes represent
+services. Lines that connect boxes represent communication between services and optionally inline
+text specifies the transport protocol used (e.g. WS - WebSocket). Subgraphs (e.g. `requests net`)
+represent one or more Docker networks and show the networks a service is a member of.
+
+```mermaid
+flowchart TB
+
+%% "datarequest service" %% I dont think we use this?
+
+subgraph docker swarm net
+
+gui <-- WS --> rs
+
+%% backend requests
+rs <-- WS --> ds
+rs <-- WS --> scs
+rs <-- WS --> ps
+rs <-- WS --> sus
+rs <-- WS --> es
+
+ds <-- REST --> minio_proxy
+
+minio_proxy -- REST --> minio
+
+ds <--> redis
+scs <--> redis
+ps <--> redis
+sus <--> redis
+ms <--> redis
+
+es <-- WS --> ds
+
+
+subgraph requests net
+%% requests
+gui["frontend"]
+end
+
+subgraph "internal net & mpi net"
+%% mpi, internal
+ds["data service"]
+
+%% mpi, internal
+scs["scheduler service"]
+
+%% mpi, internal ?? ask Bobby; I dont think this is in use
+ms["monitor service"]
+end
+
+subgraph "internal net & requests net"
+%% requests, internal
+rs["request service"]
+
+end
+
+subgraph internal net
+%% internal
+redis[("redis")]
+
+%% internal
+ps["partitioner service"]
+
+%% internal
+sus["subset service"]
+
+%% internal?
+es["evaluation service"]
+end
+
+%% subgraph mpi network
+%% end
+
+
+
+subgraph "mpi net & requests net"
+%% mpi, requests
+minio[("minio")]
+
+%% mpi, requests
+minio_proxy["minio proxy"]
+end
+
+end
+```
+
+## Services and Stacks
+
+<!-- - Data Request service -->
+- Data service - Primary data and metadata store that houses model input, output, and evaluation data. This service is also responsible for creating Docker volumes to support model execution job environments (e.g. model input data).
+- Evaluation service - 
+- Monitor service - Monitors and updates the status of model execution job environments.
+- Partitioner service - Partitions NextGen hydrofabric domains to enable parallel execution (mpi) of NextGen model runs.
+- Request service - API gateway that coordinates communication with DMOD backend services.
+- Scheduler service - Schedules and commences model execution jobs and their associated environments.
+<!-- - Subset service -->
+
+### Stacks
+
+- GUI
+- Main
+- Object store
+
+## Networks
+
+- Internal - Primary network for service to service communication
+- MPI - Network in which model execution environments and related services communicate
+- Requests - Ingress network
 
 ## Dependencies
-The primary dependencies for this project are Docker, Python, and some specific Python packages.
+
+The primary dependencies for this project are Docker, Minio, PostgreSQL, Python, and Redis.
 
 More detailed information can be found on the [Dependencies](doc/DEPENDENCIES.md) page.
+Python package dependencies can be found in [`requirements.txt`](requirements.txt)
 
 ## Installation
 
