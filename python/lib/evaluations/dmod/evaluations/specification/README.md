@@ -62,7 +62,7 @@ all that must be done to include it is to set the value of `template_name` to it
 
 Templates are environment specific - one environment may have an important template while another might not,
 but the templates are configurable, so more and more may be created as new use cases arise. Template Manager
-constructs (such as the [FileTemplateManager](template.py)) provide all the means necessary to find out what is
+constructs (such as the [FileTemplateManager](template.py)) provide all the means necessary to find out what templates are
 available. Services providing access to evaluations should provide querying capabilities so that templates may be
 reused as much as possible.
 
@@ -172,7 +172,7 @@ will yield a Data Frame that will be ready for manipulation.
 The most important aspects defined by a `DataSourceSpecification` are:
 
 1. What fields to load
-2. What the data is measured in or how to find out
+2. What the data is [measured in or how to find out](#unit-definition)
 3. What locations are represented within the data or how to find out
 4. How to load and interpret the raw data
 5. What field within the resultant data should be used for all calculations.
@@ -805,6 +805,10 @@ is dictated, the system will interpret all primary values from the datasource as
 `field` of `unit` is dictated, the unit will be interpreted as whatever lies within the `unit` field of the 
 selected data. The former option is great for cases where the unit isn't in the dataset and is instead known via 
 institutional knowledge, while the former is great for cases where the unit _is_ in the dataset.
+
+Any type of unit may be used, but unit conversions will occur if units are not the same. When these conversions take place,
+only the stock units available in [Pint](https://github.com/hgrecco/pint/blob/master/pint/default_en.txt), along with
+m3, ft3, cms, cfs, and KCFS (case insensitive), may be used.
 
 <a id="UnitDefinitionExamples"></a>
 ### Examples
