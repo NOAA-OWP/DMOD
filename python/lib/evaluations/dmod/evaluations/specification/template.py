@@ -1,6 +1,7 @@
 """
 Provides classes that enable the representation and discovery of specification templates
 """
+from __future__ import annotations
 import abc
 import json
 import pathlib
@@ -10,64 +11,9 @@ from collections import defaultdict
 from dmod.core.common import humanize_text
 from dmod.core.common.types import TextValue
 
-
-@typing.runtime_checkable
-class GetSpecificationTypeProtocol(typing.Protocol):
-    @classmethod
-    def get_specification_type(cls) -> str:
-        pass
-
-
-@typing.runtime_checkable
-class TemplateDetails(typing.Protocol):
-    """
-    A base class prescribing basic details about a template for specification objects
-    """
-    @property
-    @abc.abstractmethod
-    def name(self) -> str:
-        """
-        The user configured name for the template
-        """
-        pass
-
-    @property
-    @abc.abstractmethod
-    def specification_type(self) -> str:
-        """
-        What type of specification that this template is for
-        """
-        pass
-
-    @abc.abstractmethod
-    def get_configuration(self, decoder_type: typing.Type[json.JSONDecoder] = None) -> dict:
-        """
-        Get the deserialized configuration
-        """
-        pass
-
-    @property
-    @abc.abstractmethod
-    def description(self) -> typing.Optional[str]:
-        """
-        A friendly description for what the template provides
-        """
-        pass
-
-    @property
-    def field_choice(self) -> typing.Tuple[str, str]:
-        """
-        A value-name pair that allows for templates to be selected from a dropdown
-        """
-        return self.name, self.name
-
-    @property
-    @abc.abstractmethod
-    def text_value(self) -> TextValue[str]:
-        pass
-
-    def __str__(self):
-        return f"[{self.specification_type}] {self.name}{': ' + self.description if self.description else ''}"
+from .templates import FileTemplateManifest
+from .templates import TemplateDetails
+from .templates import GetSpecificationTypeProtocol
 
 
 class TemplateManager(abc.ABC):
@@ -215,6 +161,10 @@ class TemplateManager(abc.ABC):
             for detail in self.get_templates(specification_type)
         ]
 
+    def export_to_database(self, directory: typing.Union[str, pathlib.Path]) -> pathlib.Path:
+        raise Exception(
+            f"Database Exports have not been implemented for '{self.__class__.__name__}' template managers"
+        )
 
 class FileTemplateDetails(TemplateDetails):
     @property
@@ -231,65 +181,30 @@ class FileTemplateDetails(TemplateDetails):
         self.__description = description
         self.__path = path
 
-    @property
-    def name(self) -> str:
-        return self.__name
+    def export_to_file(self, directory: typing.Union[str, pathlib.Path]) -> pathlib.Path:
+        raise Exception(
+            f"File Exports have not been implemented for '{self.__class__.__name__}' template managers"
+        )
 
-    @property
-    def specification_type(self) -> str:
-        return self.__specification_type
-
-    def get_configuration(self, decoder_type: typing.Type[json.JSONDecoder] = None) -> dict:
-        with self.__path.open('r') as configuration_file:
-            return json.load(fp=configuration_file, cls=decoder_type)
-
-    @property
-    def description(self) -> typing.Optional[str]:
-        return self.__description
+    def export_to_archive(self, directory: typing.Union[str, pathlib.Path]) -> pathlib.Path:
+        raise Exception(
+            f"Archive Exports have not been implemented for '{self.__class__.__name__}' template managers"
+        )
 
 
 class FileTemplateManager(TemplateManager):
     def __init__(self, manifest_path: typing.Union[str, pathlib.Path]):
-        self.__manifest: typing.Dict[str, typing.Dict[str, FileTemplateDetails]] = dict()
-        self.__load_manifest(manifest_path)
-
-    def __load_manifest(self, path: typing.Union[str, pathlib.Path]):
-        manifest_path = pathlib.Path(path) if isinstance(path, str) else path
-
-        if not manifest_path.exists():
-            raise Exception(f"No template manifest could be found at '{manifest_path}'")
-
+        manifest_path = pathlib.Path(manifest_path) if isinstance(manifest_path, str) else manifest_path
         with manifest_path.open('r') as manifest_file:
-            manifest = json.load(manifest_file)
-
-        manifest_directory = manifest_path.parent
-
-        for specification_name, template_details in manifest.items():  # type: str, typing.List[typing.Dict[str, str]]
-            if specification_name not in self.__manifest:
-                self.__manifest[specification_name]: typing.Dict[str, FileTemplateDetails] = dict()
-
-            for details in template_details:  # type: typing.Dict[str, str]
-                name = details['name']
-                template_path = manifest_directory / pathlib.Path(details['path'])
-                template_path = template_path.resolve()
-
-                if not template_path.exists():
-                    raise ValueError(f"File Template Manifest cannot find the template named {name}")
-
-                description = details.get("description")
-
-                manifest_entry = FileTemplateDetails(
-                    name=name,
-                    specification_type=specification_name,
-                    path=template_path,
-                    description=description
-                )
-                self.__manifest[specification_name][name] = manifest_entry
+            manifest_data = json.load(manifest_file)
+        self.manifest: FileTemplateManifest = FileTemplateManifest.parse_obj(manifest_data)
+        self.manifest.set_root_directory(manifest_path.parent)
+        self.manifest.ensure_validity()
 
     def get_specification_types(self) -> typing.Sequence[typing.Tuple[str, str]]:
         types: typing.List[typing.Tuple[str, str]] = list()
 
-        for specification_type in self.__manifest:
+        for specification_type in self.manifest.keys():
             types.append(
                 (specification_type, humanize_text(specification_type, exclude_phrases='Specification'))
             )
@@ -297,11 +212,22 @@ class FileTemplateManager(TemplateManager):
         return types
 
     def get_templates(self, specification_type: str) -> typing.Sequence[TemplateDetails]:
-        if specification_type not in self.__manifest:
+        if specification_type not in self.manifest:
             raise ValueError(f"There are no {specification_type}s configured within the File Template Manager")
 
         return [
             details
-            for details in self.__manifest[specification_type].values()
+            for details in self.manifest[specification_type].as_details()
         ]
+
+    def export_to_file(self, directory: typing.Union[str, pathlib.Path]) -> pathlib.Path:
+        return self.manifest.save(directory=directory)
+
+    def export_to_archive(self, directory: typing.Union[str, pathlib.Path]) -> pathlib.Path:
+        return self.manifest.archive(output_path=directory)
+
+    def __eq__(self, other: FileTemplateManager) -> bool:
+        if not isinstance(other, FileTemplateManager):
+            return False
+        return self.manifest == other.manifest
 

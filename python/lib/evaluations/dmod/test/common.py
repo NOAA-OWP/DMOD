@@ -6,8 +6,20 @@ import abc
 import json
 import io
 import pathlib
+import re
+import shutil
+
+from datetime import datetime
+from datetime import timedelta
 
 from ..evaluations import specification
+
+
+OLD_AGE: typing.Final[timedelta] = timedelta(hours=4)
+"""The default maximum acceptable age for an output directory"""
+
+DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+"""A pattern matching a date such as '2023-10-20'"""
 
 
 def get_resource_directory() -> pathlib.Path:
@@ -17,6 +29,116 @@ def get_resource_directory() -> pathlib.Path:
     """
     relative_path = pathlib.Path(os.path.join(os.path.dirname(__file__), 'resources'))
     return relative_path.absolute()
+
+
+def directory_is_old(current_time: datetime, directory: pathlib.Path, maximum_age: timedelta = None) -> bool:
+    """
+    Determine if an identified directory is too old
+
+    Args:
+        current_time: What date to compare to file dates
+        directory: The directory to search through
+        maximum_age: The oldest a directory is allowed to be
+
+    Returns:
+        True if all entries in the directory are older than the maximum age
+    """
+    if maximum_age is None:
+        maximum_age = OLD_AGE
+
+    # Step through each file recursively to find the date and time of the most recently modified file
+    #   We know if this directory is old if the amount of time between now and it the modified date of the most
+    #   recently modified file is greater than the maximum age
+    for file in directory.rglob("*"):
+        # Only files are reflective of how recent the data is so only consider skip this entry if it
+        # isn't a file
+        if not file.is_file():
+            continue
+
+        # file.stat will yield the metadata including the times the file was created and modified
+        file_stat: os.stat_result = file.stat()
+
+        # The modified time is stored in `st_mtime` as a timestamp number, so load that into a datetime to
+        # get a value to work with
+        modified_time = datetime.fromtimestamp(file_stat.st_mtime)
+
+        # We can short circuit if we automatically know that this most recent file is young enough to stay
+        if current_time - modified_time <= maximum_age:
+            return False
+
+    # We only reach this code if no file old enough to stay was found, so go ahead and declare that this directory
+    # is too old
+    return True
+
+
+def purge_output(maximum_age: timedelta = None):
+    """
+    Remove test output deemed old enough to clean up
+    """
+    if maximum_age is None:
+        maximum_age = OLD_AGE
+
+    # Get the current date and time to use for age comparison
+    current_time = datetime.now()
+
+    # Get the correct base output directory to search within
+    output_directory = get_output_directory()
+
+    # Gather all subdirectories in the output directory that is signed by their creation day and whose most recent
+    # content is deemed too old
+    old_subdirectories = [
+        directory
+        for directory in output_directory.glob("*")
+        if directory.is_dir()
+           and DATE_PATTERN.search(directory.name) is not None
+           and directory_is_old(current_time=current_time, directory=directory, maximum_age=maximum_age)
+    ]
+
+    # Remove all directories that have been identified as being too old
+    for directory in old_subdirectories:
+        # Actually delete once it's confirmed that source won't be deleted
+        shutil.rmtree(directory, ignore_errors=True)
+
+
+def get_output_directory() -> pathlib.Path:
+    """
+    Returns:
+        The path to where outputs should be written
+    """
+    directory = get_resource_directory() / "output"
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
+def allocate_output_directory(purpose: str) -> pathlib.Path:
+    """
+    Create a directory where test output might be written
+
+    Examples:
+        >>> path = allocate_output_directory('template-export')
+        >>> print(path)
+        resources/output/2023-10-20/template-export-1697829800
+
+    Args:
+        purpose: Why the output directory is being created
+
+    Returns:
+        The path to the output directory
+    """
+    # Attempt to clean up
+    purge_output()
+
+    # Create directory based on today's date - this will help with later cleanup
+    now = datetime.now().astimezone()
+    date_path = get_output_directory() / now.strftime("%Y-%m-%d")
+
+    # Create a directory related to the purpose of the directory
+    #   Attach the timestamp to prevent conflicts
+    output_name = f"{purpose.replace(' ', '_')}-{int(now.timestamp())}"
+    output_path = date_path / output_name
+    output_path.mkdir(parents=True)
+
+    return output_path
 
 
 def get_resource_path(resource_name: str) -> pathlib.Path:

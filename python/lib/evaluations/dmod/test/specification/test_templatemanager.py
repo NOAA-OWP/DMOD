@@ -1,11 +1,14 @@
-import os.path
+import logging
+import os
 import unittest
-import json
-import pathlib
 import typing
+import traceback
+import shutil
+import zipfile
 
 from ...evaluations import specification
 from ..common import RESOURCE_DIRECTORY
+from ..common import allocate_output_directory
 
 TEMPLATE_MANIFEST_PATH = os.path.join(
     RESOURCE_DIRECTORY,
@@ -48,6 +51,65 @@ class TestTemplateManager(unittest.TestCase):
                 specification_types,
                 f"The specification type pair of ({type_pair[0]}, {type_pair[1]}) wasn't returned from the template manager"
             )
+
+    def test_file_export(self):
+        output_directory = allocate_output_directory("test_file_export")
+
+        try:
+            manifest_path = self.template_manager.export_to_file(output_directory)
+        except Exception as export_error:
+            message = str(export_error)
+            message += os.linesep
+            message += traceback.format_exc()
+            self.fail(message)
+
+        new_manager: specification.TemplateManager = specification.FileTemplateManager(
+            manifest_path=manifest_path
+        )
+
+        self.assertEqual(self.template_manager, new_manager)
+
+        shutil.rmtree(output_directory, ignore_errors=True)
+
+    def test_archive_export(self):
+        output_directory = allocate_output_directory("test_archive_export")
+
+        try:
+            archive_path = self.template_manager.export_to_archive(output_directory / "archive")
+        except BaseException as export_error:
+            message = str(export_error)
+            message += os.linesep
+            message += traceback.format_exc(limit=4)
+            self.fail(message)
+
+        comparison_directory = output_directory / "comparison"
+
+        try:
+            with zipfile.ZipFile(archive_path) as archive:
+                archive.extractall(path=comparison_directory)
+        except BaseException as extraction_error:
+            message = "Exported archive could not be unpacked"
+            message += os.linesep
+            message += str(extraction_error)
+            message += os.linesep
+            message += traceback.format_exc(limit=4)
+            self.fail(message)
+
+        comparison_manifest = comparison_directory / "template_manifest.json"
+
+        self.assertTrue(comparison_manifest.exists(), msg="The uncompressed template manifest could not be found")
+
+        new_manager: specification.TemplateManager = specification.FileTemplateManager(
+            manifest_path=comparison_manifest
+        )
+
+        self.assertEqual(
+            self.template_manager,
+            new_manager,
+            msg="The two managers were deemed different due to different contents"
+        )
+
+        shutil.rmtree(output_directory, ignore_errors=True)
 
     def test_evaluationspecification(self):
         specification_type = specification.EvaluationSpecification.get_specification_type()
@@ -98,7 +160,6 @@ class TestTemplateManager(unittest.TestCase):
             template=templates[4],
             template_name="Multi-Template"
         )
-
 
     def template_matches(self, specification_type: str, template: specification.TemplateDetails, template_name: str):
         self.assertEqual(
