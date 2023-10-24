@@ -5,15 +5,35 @@ to describing available functionality and performing mathematical operations upo
 
 ## How are metrics called?
 
-There lies a class at `dmod.scoring` named `ScoringScheme` that manages operations.
+There lies a class at `dmod.metrics.scoring` named `ScoringScheme` that manages operations.
 You first provide it a list of all metrics you intend to gather from your input data and a set of
 `Communicator` objects to help distribute information generated during evaluation. Next, you can
 call the `ScoringScheme` as a function with prepared pairs, where to find "observed" values within
 the pairs, where to find the "predicted" values within the pairs, and thresholds. This invocation
 will yield a `MetricResults` object.
 
+```python
+import pandas
+import dmod.metrics as metrics
+
+pairs = pandas.read_csv("path/to/pairs.csv")
+
+scheme = metrics.ScoringScheme([
+    metrics.KlingGuptaEfficiency(3),
+    metrics.PearsonCorrelationCoefficient(6),
+])
+
+results = scheme.score(pairs=pairs, observed_value_label="observation", predicted_value_label="prediction")
+```
+
 This same `ScoringScheme` may be called many times over with different sets of data, usually 
 corresponding to different locations, while maintaining a common standard of expected results.
+
+```python
+results2 = scheme.score(pairs=pandas.read_csv("path/to/pairs2.csv"), observed_value_label="observation", predicted_value_label="prediction")
+results3 = scheme.score(pairs=pandas.read_csv("path/to/pairs3.csv"), observed_value_label="observation", predicted_value_label="prediction")
+results4 = scheme.score(pairs=pandas.read_csv("path/to/pairs4.csv"), observed_value_label="observation", predicted_value_label="prediction")
+```
 
 ## What do `MetricResults` provide?
 
@@ -24,15 +44,15 @@ results in different ways and making it easier to serialize results for further 
 
 Each `MetricResults` object contains the evaluated metrics performed on a singular set of data.
 When providing the `Metric`s that are run to the `ScoringScheme`, a weight is passed along for 
-each metric and passing thresholds to the invocation will provide weights for each threshold. This
-provides a basis for determine a hierarchy of importance for each metric and threshold. For an
-evaluation, the `Critical Success Index` may be deemed as twice as important as the results for
+each metric. Passing thresholds to the invocation will provide weights for each threshold. This
+provides a basis to establish a hierarchy of importance for each metric and threshold. For
+example, the `Critical Success Index` may be deemed as twice as important as the results for
 the `Normalized Nash-Sutcliffe Efficiency` and results for the "Major" threshold may be deemed
 1.5 times more important than the results for the "Moderate" threshold.
 
 These weights, along with metadata for each metric provides a means of scaling and grading. The 
-`PearsonCorrelationCoefficient` `Metric` class, for example, knows that the maximum value is `1`,
-the minimum value is `-1`, the ideal value is `1`, and `0` marks a total failure of the predicted
+`PearsonCorrelationCoefficient` `Metric` class, for example, stores the maximum value as `1`,
+the minimum value as `-1`, the ideal value as `1`, and `0` marks a total failure of the predicted
 data to correlate in some fashion to the observed data (negative values aren't considered a total
 failure since they indicate some degree of negative correlation whereas `0` is absolutely none
 whatsoever). For the following example, let us say that the result of a given instance of 
@@ -51,7 +71,7 @@ of the combination of these two thresholds is now `7.3538` + `2.73` out of `10` 
 ## What is a `Metric` in the codebase?
 
 An instance of `dmod.metrics.scoring.Metric` is an object that may be called to provide scores 
-for a collection of pairs when filtered via thresholds. Examples of these 
+for a collection of pairs. Examples of these 
 `dmod.metrics.scoring.Metric` classes are `dmod.metrics.ProbabilityOfFalseDetection`
 and `dmod.metrics.PearsonCorrelationCoefficient`. These are constructed with a given weight, so 
 an instance of `dmod.metrics.ProbabilityOfDetection` may be created with a weight of `3` and
