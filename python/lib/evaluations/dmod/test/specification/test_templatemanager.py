@@ -1,10 +1,13 @@
 import logging
 import os
+import sqlite3
 import unittest
 import typing
 import traceback
 import shutil
 import zipfile
+
+from dmod.core.common import find
 
 from ...evaluations import specification
 from ..common import RESOURCE_DIRECTORY
@@ -41,7 +44,9 @@ class TestTemplateManager(unittest.TestCase):
             ('CrosswalkSpecification', 'Crosswalk'),
             ('BackendSpecification', 'Backend'),
             ('AssociatedField', 'Associated Field'),
-            ('ThresholdApplicationRules', 'Threshold Application Rules')
+            ('ThresholdApplicationRules', 'Threshold Application Rules'),
+            ('UnitDefinition', 'Unit Definition'),
+            ('MetricSpecification', 'Metric'),
         ]
         self.assertEqual(len(specification_types), len(expected_types))
 
@@ -110,6 +115,36 @@ class TestTemplateManager(unittest.TestCase):
         )
 
         shutil.rmtree(output_directory, ignore_errors=True)
+
+    def test_database_export(self):
+        template_table = "template"
+
+        database_directory = allocate_output_directory("test_database_export")
+        database_file = database_directory / "test_database_export.sqlite3"
+
+        try:
+            with sqlite3.connect(database=database_file) as database_connection:
+                self.template_manager.export_to_database(table_name=template_table, connection=database_connection)
+
+            with sqlite3.connect(database=database_file) as database_connection:
+                database_template_manager: specification.TemplateManager = specification.DatabaseTemplateManager(
+                    table_name=template_table,
+                    connection=database_connection
+                )
+
+                for specification_type, templates in database_template_manager.get_all_templates().items():
+                    control_templates = self.template_manager.get_templates(specification_type=specification_type)
+
+                    self.assertEqual(len(templates), len(control_templates))
+
+                    for control_template in control_templates:
+                        matching_template = find(templates, lambda template: template.name == control_template.name)
+                        self.assertIsNotNone(
+                            matching_template,
+                            msg="The database is missing a template from the file manager"
+                        )
+        finally:
+            database_file.unlink(missing_ok=True)
 
     def test_evaluationspecification(self):
         specification_type = specification.EvaluationSpecification.get_specification_type()

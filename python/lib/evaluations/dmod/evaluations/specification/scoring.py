@@ -17,7 +17,7 @@ from pydantic import validator
 
 from .base import TemplatedSpecification
 
-from .template import TemplateManager
+from .base import TemplateManagerProtocol
 
 def get_metric_identifiers() -> typing.Tuple:
     identifiers = list()
@@ -77,7 +77,7 @@ class MetricSpecification(TemplatedSpecification):
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
-        template_manager: TemplateManager,
+        template_manager: TemplateManagerProtocol,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         if 'weight' in configuration:
@@ -110,7 +110,7 @@ class SchemeSpecification(TemplatedSpecification):
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
-        template_manager: TemplateManager,
+        template_manager: TemplateManagerProtocol,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         metric_definitions = configuration.get("metrics", list())

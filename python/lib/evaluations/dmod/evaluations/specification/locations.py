@@ -11,9 +11,8 @@ from dmod.core.common import is_true
 from dmod.core.common import contents_are_equivalent
 from dmod.core.common import Bag
 from pydantic import root_validator
-from pydantic import validator
 
-from .template import TemplateManager
+from .base import TemplateManagerProtocol
 from .base import TemplatedSpecification
 
 from .backend import BackendSpecification
@@ -65,7 +64,7 @@ should be interpreted as `cat-67` and not `cat-67.json`"""
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
-        template_manager: TemplateManager,
+        template_manager: TemplateManagerProtocol,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         if "from_field" in configuration:
@@ -215,7 +214,7 @@ class CrosswalkSpecification(LoaderSpecification):
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
-        template_manager: TemplateManager,
+        template_manager: TemplateManagerProtocol,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         if 'backend' in configuration:

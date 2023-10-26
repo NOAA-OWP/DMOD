@@ -18,7 +18,7 @@ from dmod.core.common import contents_are_equivalent
 from dmod.core.common import Bag
 from dmod.core.common import order_dictionary
 
-from . import TemplateManager
+from .base import TemplateManagerProtocol
 from .base import TemplatedSpecification
 
 from .data import DataSourceSpecification
@@ -75,7 +75,7 @@ class EvaluationSpecification(TemplatedSpecification):
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
-        template_manager: TemplateManager,
+        template_manager: TemplateManagerProtocol,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         if 'observations' in configuration:

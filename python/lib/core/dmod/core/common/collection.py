@@ -332,8 +332,8 @@ class EventfulMap(abc.ABC, typing.MutableMapping[_KT, _VT], typing.Generic[_KT, 
 
 
 class BaseEventfulSequence(abc.ABC, typing.MutableSequence[_T], typing.Generic[_T]):
-    @abc.abstractmethod
     @property
+    @abc.abstractmethod
     def _inner_sequence(self) -> typing.List[_T]:
         pass
 
@@ -463,7 +463,7 @@ class BaseEventfulSequence(abc.ABC, typing.MutableSequence[_T], typing.Generic[_
             return False
 
         for item_index, item in enumerate(self.values):
-            other_item = other[other_item]
+            other_item = other[item_index]
             if item != other_item:
                 return False
 

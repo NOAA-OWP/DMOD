@@ -1,6 +1,10 @@
 """
 Provides simple helper functions
 """
+import functools
+import logging
+import pathlib
+import shutil
 import typing
 import inspect
 import math
@@ -21,6 +25,13 @@ from .types import TypeDefinition
 
 _CLASS_TYPE = typing.TypeVar('_CLASS_TYPE')
 """A type that points directly to a class. The _CLASS_TYPE of `6`, for example, is `<class 'int'>`"""
+
+
+_T = typing.TypeVar('_T')
+"""A type used in conjunction with `_CLASS_TYPE`"""
+
+_KT = typing.TypeVar('_KT')
+"""A type used as a key for a map"""
 
 
 def get_mro_names(value) -> typing.List[str]:
@@ -643,6 +654,68 @@ def on_each(
         func(element)
 
 
+def flat(collection: typing.Iterable[typing.Iterable[_CLASS_TYPE]]) -> typing.Sequence[_CLASS_TYPE]:
+    """
+    Flatten a collection of collections
+
+    Examples:
+        >>> example_values = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+        >>> flat(example_values)
+        [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+    Args:
+        collection: The collection of collections to flatten
+
+    Returns:
+        A flattened representation of the given values
+    """
+    flattened_list: typing.MutableSequence[_CLASS_TYPE] = list()
+
+    for inner_collection in collection:
+        flattened_list.extend(inner_collection)
+
+    return flattened_list
+
+
+def flatmap(
+    function: typing.Callable[[_CLASS_TYPE], _T],
+    collection: typing.Union[
+        typing.Iterable[typing.Iterable[_CLASS_TYPE]],
+        typing.Mapping[_KT, typing.Iterable[_CLASS_TYPE]]
+    ]
+) -> typing.Sequence[_T]:
+    """
+    Call a mapping function on each element of either a collection of collections or a map of collections
+
+    Examples:
+        >>> dict_example = {'first': [1, 2, 3], 'second': [4, 5, 6]}
+        >>> list_example = [[7, 8, 9], [10, 11, 12]]
+        >>> def mutate_value(value: int) -> str:
+        ...     return str(value * 2)
+        >>> flatmap(mutate_value, dict_example)
+        ['2', '4', '6', '8', '10', '12']
+        >>> flatmap(mutate_value, list_example)
+        ['14', '16', '18', '20', '22', '24']
+
+    Args:
+        collection: The collection of collections
+        function: A transformative function to call on each value within the collection of collections
+
+    Returns:
+        A single collection of all mapped values
+    """
+    if isinstance(collection, typing.Mapping):
+        data_to_flatten: typing.Iterable[typing.Iterable[_CLASS_TYPE]] = collection.values()
+    else:
+        data_to_flatten: typing.Iterable[typing.Iterable[_CLASS_TYPE]] = collection
+
+    # Flatten the data
+    flattened_data = flat(data_to_flatten)
+
+    # Now map the data
+    return [function(entry) for entry in flattened_data]
+
+
 def find(
     iterable: typing.Iterable[_CLASS_TYPE],
     predicate: typing.Callable[[_CLASS_TYPE], bool],
@@ -656,6 +729,24 @@ def find(
         >>> next(filter(lambda val: val == 999, range(1000000)), None)
 
     This results in lower cognitive overload
+
+    Examples:
+        >>> class ExampleClass:
+        ...     def __init__(self, value1: int, value2: str, value3: bool):
+        ...         self.value1 = value1
+        ...         self.value2 = value2
+        ...         self.value3 = value3
+        ...     def __repr__(self):
+        ...         return f'[value1: {self.value1}, value2: {self.value2}, value3: {self.value3}]'
+        >>> example_collection = [
+        ...     ExampleClass(8, "example", False)
+        ...     ExampleClass(9, "example", True)
+        ...     ExampleClass(10, "other", True)
+        ...     ExampleClass(11, "other", False)
+        ...     ExampleClass(27, "Found it", False)
+        ... ]
+        >>> find(example_collection, lambda entry: entry.value1 % 9 == 0 and not entry.value3)
+        [value1: 27, value2: Found it, value3: False]
 
     Args:
         iterable: The collection to search
@@ -1095,6 +1186,39 @@ def instanceof(obj: object, *object_type: type) -> bool:
             return True
 
     return False
+
+
+def package_directory(directory_to_archive: pathlib.Path, output_path: typing.Union[pathlib.Path, str]) -> pathlib.Path:
+    if isinstance(output_path, pathlib.Path):
+        output_path = str(output_path)
+
+    archive_format = "zip"
+
+    archive_pattern = re.compile(r"\.(zip|tar|gz|gztar|bztar|xztar)$")
+    non_zip_pattern = re.compile(r"\.(tar|gz|gztar|bztar|xztar)$")
+
+    while archive_pattern.search(output_path) is not None:
+        non_zip_extension = non_zip_pattern.search(output_path)
+
+        if non_zip_extension is not None:
+            desired_archive_type = non_zip_extension.group()
+            logging.warning(
+                f"A request to archive templates to a {desired_archive_type} file was given - "
+                f"all template archives are saved as zip files to maintain near-universal compatibility. "
+                f"The desired {desired_archive_type} archive type will not be used."
+            )
+
+        output_path = archive_pattern.sub("", output_path)
+
+    archive_path = shutil.make_archive(
+        output_path,
+        format=archive_format,
+        root_dir=directory_to_archive,
+        base_dir="./",
+        verbose=True
+    )
+
+    return pathlib.Path(archive_path)
 
 
 def intersects(collection: typing.Sequence, *expected_values, condition: typing.Callable[[typing.Any], bool] = None) -> bool:
