@@ -9,7 +9,7 @@ from pydantic import validator
 
 from dmod.core.common import contents_are_equivalent
 
-from . import TemplateManager
+from .base import TemplateManagerProtocol
 from .base import TemplatedSpecification
 
 
@@ -40,7 +40,7 @@ class UnitDefinition(TemplatedSpecification):
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
-        template_manager: TemplateManager,
+        template_manager: TemplateManagerProtocol,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         if 'field' in configuration:

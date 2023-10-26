@@ -7,7 +7,7 @@ import abc
 
 import pydantic
 
-from . import TemplateManager
+from .base import TemplateManagerProtocol
 from .base import TemplatedSpecification
 
 
@@ -28,7 +28,7 @@ class BackendSpecification(TemplatedSpecification):
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
-        template_manager: TemplateManager,
+        template_manager: TemplateManagerProtocol,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         if 'backend_type' in configuration:
@@ -69,7 +69,7 @@ class LoaderSpecification(TemplatedSpecification, abc.ABC):
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
-        template_manager: TemplateManager,
+        template_manager: TemplateManagerProtocol,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         """

@@ -14,6 +14,9 @@ from .helper_functions import is_true
 from .helper_functions import to_json
 from .helper_functions import order_dictionary
 from .helper_functions import find
+from .helper_functions import flat
+from .helper_functions import flatmap
+from .helper_functions import package_directory
 from .helper_functions import contents_are_equivalent
 from .helper_functions import humanize_text
 from .helper_functions import generate_identifier
@@ -22,6 +25,9 @@ from .tasks import wait_on_task
 from .tasks import cancel_task
 from .tasks import cancel_tasks
 from .collection import Bag
+from .protocols import DBAPIConnection
+from .protocols import DBAPICursor
+from .protocols import DBAPIColumnDescription
 
 from .types import CommonEnum
 from .types import TEXT_VALUE_COLLECTION

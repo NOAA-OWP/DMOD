@@ -14,9 +14,8 @@ from dmod.core.common import Bag
 from pydantic import validator
 
 from .base import TemplatedSpecification
-from .template import TemplateManager
+from .base import TemplateManagerProtocol
 
-from .backend import BackendSpecification
 from .backend import LoaderSpecification
 
 from .locations import LocationSpecification
@@ -55,7 +54,7 @@ class ThresholdDefinition(TemplatedSpecification):
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
-        template_manager: TemplateManager,
+        template_manager: TemplateManagerProtocol,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         if 'unit' in configuration:
@@ -211,7 +210,7 @@ class ThresholdApplicationRules(TemplatedSpecification):
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
-        template_manager: TemplateManager,
+        template_manager: TemplateManagerProtocol,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         if "threshold_field" in configuration:
@@ -332,7 +331,7 @@ class ThresholdSpecification(LoaderSpecification):
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
-        template_manager: TemplateManager,
+        template_manager: TemplateManagerProtocol,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         super().apply_configuration(

@@ -56,6 +56,7 @@ async def communicate_with_database(function: typing.Callable[[typing.Any, ...],
     result = await asyncio.get_running_loop().run_in_executor(None, prepared_function)
     return result
 
+
 def wrapper_communicate(function: typing.Callable[[typing.Any, ...], _T], cwds_return_data: typing.MutableMapping, kwargs: typing.Mapping):
     results = function(**kwargs)
 

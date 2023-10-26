@@ -11,7 +11,6 @@ from datetime import date
 from datetime import time
 from datetime import datetime
 
-import pydantic
 import pytz
 
 from dateutil.parser import parse as parse_date
@@ -24,7 +23,7 @@ from dmod.core.common import Bag
 from pydantic import root_validator
 from pydantic import validator
 
-from . import TemplateManager
+from .base import TemplateManagerProtocol
 from .base import TemplatedSpecification
 from .. import util
 
@@ -55,7 +54,7 @@ class FieldMappingSpecification(TemplatedSpecification):
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
-        template_manager: TemplateManager,
+        template_manager: TemplateManagerProtocol,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         self.field = configuration.get("field", self.field)
@@ -94,7 +93,7 @@ class AssociatedField(TemplatedSpecification):
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
-        template_manager: TemplateManager,
+        template_manager: TemplateManagerProtocol,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         self.datatype = configuration.get("datatype", self.datatype)
@@ -238,7 +237,7 @@ class ValueSelector(TemplatedSpecification):
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
-        template_manager: TemplateManager,
+        template_manager: TemplateManagerProtocol,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         if "where" in configuration:

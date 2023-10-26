@@ -4,19 +4,17 @@
 from __future__ import annotations
 
 import json
-import logging
 import pathlib
-import re
-import shutil
 import typing
 import tempfile
 
 import pydantic
+from dmod.core.common import package_directory
 from dmod.core.common.collection import CollectionEvent
 from dmod.core.common.collection import MapModel
 from dmod.core.common.collection import SequenceModel
 
-from . import base
+from .. import base
 
 StringOrInt = typing.Union[str, int]
 StringOrIntToAnything = typing.Mapping[StringOrInt, typing.Any]
@@ -261,6 +259,18 @@ class FileTemplateManifest(MapModel[str, FileTemplateManifestEntries]):
             entries.set_specification_type(specification_type)
             missing_templates.extend(entries.missing_templates)
 
+    @property
+    def all_entries(self) -> typing.Sequence[FileTemplateManifestEntry]:
+        entries: typing.MutableSequence[FileTemplateManifestEntry] = list()
+
+        for entry_collection in self.values():  # type: FileTemplateManifestEntries
+            entries.extend([
+                entry
+                for entry in entry_collection.values
+            ])
+
+        return entries
+
     def set_root_directory(self, directory: pathlib.Path):
         for entries in self.values():
             entries.set_root_directory(directory)
@@ -285,40 +295,11 @@ class FileTemplateManifest(MapModel[str, FileTemplateManifestEntries]):
         return manifest_path
 
     def archive(self, output_path: typing.Union[pathlib.Path, str]) -> pathlib.Path:
-        if isinstance(output_path, pathlib.Path):
-            output_path = str(output_path)
-
         with tempfile.TemporaryDirectory() as output_directory:
             saved_directory = self.save(directory=output_directory).parent
+            archive_path = package_directory(saved_directory, output_path)
 
-            # Defined separately from the function call in case the use case for different formats is desired
-            archive_format = "zip"
-
-            archive_pattern = re.compile(r"\.(zip|tar|gz|gztar|bztar|xztar)$")
-            non_zip_pattern = re.compile(r"\.(tar|gz|gztar|bztar|xztar)$")
-
-            while archive_pattern.search(output_path) is not None:
-                non_zip_extension = non_zip_pattern.search(output_path)
-
-                if non_zip_extension is not None:
-                    desired_archive_type = non_zip_extension.group()
-                    logging.warning(
-                        f"A request to archive templates to a {desired_archive_type} file was given - "
-                        f"all template archives are saved as zip files to maintain near-universal compatibility. "
-                        f"The desired {desired_archive_type} archive type will not be used."
-                    )
-
-                output_path = archive_pattern.sub("", output_path)
-
-            archive_path = shutil.make_archive(
-                output_path,
-                format=archive_format,
-                root_dir=saved_directory,
-                base_dir="./",
-                verbose=True
-            )
-
-            return pathlib.Path(archive_path)
+            return archive_path
 
     def __eq__(self, other: FileTemplateManifest) -> bool:
         if not isinstance(other, FileTemplateManifest):

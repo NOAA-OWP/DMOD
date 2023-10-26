@@ -12,7 +12,7 @@ from dmod.core.common import Bag
 from dmod.core.common import is_sequence_type
 from pydantic import validator
 
-from . import TemplateManager
+from .base import TemplateManagerProtocol
 from .backend import BackendSpecification
 from .backend import LoaderSpecification
 
@@ -95,7 +95,7 @@ class DataSourceSpecification(LoaderSpecification):
     def apply_configuration(
         self,
         configuration: typing.Dict[str, typing.Any],
-        template_manager: TemplateManager,
+        template_manager: TemplateManagerProtocol,
         decoder_type: typing.Type[json.JSONDecoder] = None
     ):
         if 'backend' in configuration:
