@@ -75,6 +75,15 @@ class BasicTemplateDetails(TemplateDetails):
             configuration=record[configuration_field]
         )
 
+    @classmethod
+    def from_details(cls, details: TemplateDetails) -> BasicTemplateDetails:
+        return cls(
+            name=details.name,
+            specification_type=details.specification_type,
+            configuration=json.dumps(details.get_configuration(), indent=4),
+            description=details.description
+        )
+
     def __init__(
         self,
         name: str,

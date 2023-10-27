@@ -5,6 +5,7 @@ from .base import Specification
 from .base import TemplatedSpecification
 from .base import TemplateDetails
 from .base import TemplateManagerProtocol
+from .base import GetSpecificationTypeProtocol
 
 from .evaluation import EvaluationSpecification
 from .threshold import ThresholdDefinition

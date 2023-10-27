@@ -10,7 +10,7 @@ from django.db import models as django_models
 from django.db.models import Q
 from django.db.models import QuerySet
 
-_MODEL_TYPE = typing.TypeVar("_MODEL_TYPE", bound=django_models.Model)
+_MODEL_TYPE = typing.TypeVar("_MODEL_TYPE", bound=django_models.Model, covariant=True)
 
 
 class WrapperResults:
