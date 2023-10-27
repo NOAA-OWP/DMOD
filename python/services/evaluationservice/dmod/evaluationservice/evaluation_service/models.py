@@ -11,6 +11,7 @@ from django.db.models import UniqueConstraint
 from dmod.core.common.types import TextValue
 from dmod.core.common import humanize_text
 from dmod.evaluations.specification import TemplateDetails
+from dmod.evaluations.specification import BasicTemplateDetails
 
 from . import choices
 from .wrapper import ModelWrapper
@@ -25,7 +26,7 @@ _BOX_TYPE = typing.Union[typing.Tuple[int, int, int, int], geopandas.GeoDataFram
 class SpecificationTemplate(models.Model):
     class Meta:
         constraints = [
-            UniqueConstraint(name="unique_template_idx", fields=["template_name", "template_specification_type"])
+            UniqueConstraint(name="unique_template_idx", fields=["author", "template_name", "template_specification_type"])
         ]
 
     @classmethod
@@ -79,6 +80,9 @@ class SpecificationTemplate(models.Model):
     @property
     def description(self) -> typing.Optional[str]:
         return self.template_description
+
+    def to_details(self) -> TemplateDetails:
+        return BasicTemplateDetails.from_details(self)
 
     @property
     def field_choice(self) -> typing.Tuple[str, str]:
