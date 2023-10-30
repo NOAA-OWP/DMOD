@@ -1,0 +1,31 @@
+nwm:
+  version:
+    2: '127.0.0.1:5000/nwm:2.0'
+    latest: '127.0.0.1:5000/nwm:latest'
+    reservoir: '127.0.0.1:5000/nwm-conus-reservoir'
+  domains:
+    croton_NY:
+      local: './domains/example_case/NWM'
+      run: '/nwm/domains'
+    SixMileXCreek:
+      local: './domains/SixMileCreek'
+      run: './domains/SixMileCreek'
+    test-domain:
+      local: './domains'
+      run: './domains'
+  output:
+    local: 'docker_host_volumes/output'
+    run: '/nwm/output'
+
+ngen:
+  version:
+    1: '127.0.0.1:5000/ngen:latest'
+  domains:
+      local: './domains/ngen/data/'
+    example-domain-A:
+      run: '/ngen/data'
+
+  output:
+    local: 'docker_host_volumes/output'
+    run: '/ngen/output'
+
