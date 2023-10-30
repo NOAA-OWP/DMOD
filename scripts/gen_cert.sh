@@ -6,10 +6,13 @@ HOST=''
 EMAIL=''
 EXIST_COUNT=0
 
+# TODO: in future, use YAML parser to read this from deployment config
+DMOD_SSL_SERVICES="scheduler-service request-service data-service partitioner-service subset-service"
+
 usage()
 {
     echo "Usage:
-    ${NAME} [-d|--directory <cert_dir>] [-o|-check] [-host <host>] [-email <email>]
+    ${NAME} [-d|--directory <cert_dir>] [-init|-o|-check] [-host <host>] [-email <email>]
 
     The default directory for cert files will be the parent directory of
     this script when not specified via command line argument.
@@ -20,6 +23,14 @@ usage()
     take priority.  Additionally, script will fall back to using the
     output of the $(which hostname) command as the cert host value, but
     an email address must be provided to generate the cert.
+
+    The '-init' flag causes the script to initialize the required DMOD
+    services SSL directory structure, as well as the individual certs.
+    For this, if a directory is not provided with '-d' or '--directory',
+    then a sub-directory 'ssl/' under the current working directory will
+    be used.  In this default case, the 'ssl' subdirectory will be created
+    if it does not already exist; if explicitly given, the directory must
+    already exist.
 
     The '-check' option may be used to check whether any existing cert
     are valid for expected host and/or email address values. No cert is
@@ -109,6 +120,31 @@ generate_cert()
     openssl req -newkey rsa:2048 -nodes -keyout "${KEY_FILE}" -x509 -days 36500 -out "${CERT_FILE}" -subj "${_SUBJ}"
 }
 
+exec_dmod_services_ssl_init()
+{
+    # If necessary, use a default for output dir; in such cases, create the directory too if it's not there already
+    if [[ -z "${OUTPUT_DIR:-}" ]]; then
+        _ROOT_DIR=$(pwd)/ssl
+        mkdir -p "${_ROOT_DIR}"
+    else
+        _ROOT_DIR="${OUTPUT_DIR}"
+    fi
+
+    # Prepare some args so that they are passed through properly if they were provided
+    if [[ -n "${OVERWRITE:-}" ]]; then
+        _NESTED_OVERWRITE_ARG="-o"
+    fi
+    if [[ -n "${EMAIL_CLI:-}" ]]; then
+        _NESTED_EMAIL_ARGS="-email ${EMAIL_CLI}"
+    fi
+
+    # Create sub-directories and self-signed certs for each DMOD service
+    for s in ${DMOD_SSL_SERVICES}; do
+        mkdir -p "${_ROOT_DIR}/${s}"
+        "${0}" -d "${_ROOT_DIR}/${s}" ${_NESTED_OVERWRITE_ARG:-} -host ${s}  ${_NESTED_EMAIL_ARGS:-}
+    done
+}
+
 while [[ ${#} -gt 0 ]]; do
     case "$1" in
         -h|-help|--help)
@@ -118,16 +154,28 @@ while [[ ${#} -gt 0 ]]; do
         -check)
             [[ -n "${DO_CHECK:-}" ]] && usage && exit 1
             [[ -n "${OVERWRITE:-}" ]] && usage && exit 1
+            [[ -n "${DO_INIT:-}" ]] && usage && exit 1
             DO_CHECK='true'
             ;;
         -d|--directory)
             [[ -n "${OUTPUT_DIR:-}" ]] && usage && exit 1
-            OUTPUT_DIR="${2}"
+            OUTPUT_DIR="${2:?Not enough args; no output directory defined}"
+            if [ ! -d "${OUTPUT_DIR}" ]; then
+                >&2 echo "Given certs dir path '${OUTPUT_DIR}' is not an existing directory!"
+                exit 1
+            fi
             shift
+            ;;
+        -init)
+            [[ -n "${OVERWRITE:-}" ]] && usage && exit 1
+            [[ -n "${DO_CHECK:-}" ]] && usage && exit 1
+            [[ -n "${DO_INIT:-}" ]] && usage && exit 1
+            DO_INIT='true'
             ;;
         -o)
             [[ -n "${OVERWRITE:-}" ]] && usage && exit 1
             [[ -n "${DO_CHECK:-}" ]] && usage && exit 1
+            [[ -n "${DO_INIT:-}" ]] && usage && exit 1
             OVERWRITE='true'
             ;;
         -host)
@@ -139,7 +187,7 @@ while [[ ${#} -gt 0 ]]; do
         -email)
             # Store command line values in separate var so not lost when sourcing a config file
             [[ -n "${EMAIL_CLI:-}" ]] && usage && exit 1
-            EMAIL_CLI="${2}"
+            EMAIL_CLI="${2:?No email address given after -email flag}"
             shift
             ;;
         *)
@@ -149,6 +197,12 @@ while [[ ${#} -gt 0 ]]; do
     esac
     shift
 done
+
+# If we are doing init, handle a bit differently
+if [[ -n "${DO_INIT:-}" ]]; then
+    exec_dmod_services_ssl_init
+    exit $?
+fi
 
 # Read in the .ssl_env, if it exists (also, set the output dir to the default of the script's base dir when necessary)
 CONFIG_FILE="${OUTPUT_DIR:=${BASE_DIR}}/.ssl_env"
