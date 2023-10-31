@@ -334,6 +334,7 @@ exec_requested_actions()
     if [ -n "${DO_BUILD_ACTION:-}" ]; then
         gen_docker_build_ssh_dirs ${DOCKER_BASE_IMAGE_SSH_HOST_DIR:-./docker/main/base/ssh}
         gen_docker_build_ssh_dirs ${DOCKER_NGEN_IMAGE_SSH_HOST_DIR:-./docker/main/ngen/ssh}
+        docker_pre_deploy_create_secrets ${STACK_DIR_NAME:?Stack dir name not known; cannot create secrets pre-deploy}
         echo "Building Docker images for stack ${STACK_NAME:?}"
         docker_dev_build_stack_images "${DOCKER_BUILD_CONFIG:?}" "${STACK_NAME:?}" ${DOCKER_IMAGE_BUILD_EXTRA_ARGS:-}
         bail_if_action_failed $? build
@@ -347,6 +348,11 @@ exec_requested_actions()
     fi
 
     if [ -n "${DO_DEPLOY_ACTION:-}" ]; then
+        # TODO: sanity check that given stack directory name exists
+        # Run some checks/default setup first
+        docker_pre_deploy_bind_mount_dir_check ${STACK_DIR_NAME:?No stack directory name; cannot check bind mounts prior to deploying}
+        docker_pre_deploy_create_secrets ${STACK_DIR_NAME:?No stack directory name; cannot check Docker secret files prior to deploying}
+        docker_pre_deploy_scheduler_resources ${STACK_DIR_NAME:?No stack directory name; cannot create scheduler resource files prior to deploying}
         echo "Deploying stack ${STACK_NAME:?}"
         docker_dev_deploy_stack_from_compose_using_env "${DOCKER_DEPLOY_CONFIG:?}" "${STACK_NAME:?}"
         bail_if_action_failed $? deploy
