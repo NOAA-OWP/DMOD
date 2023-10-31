@@ -27,6 +27,8 @@ request_handler/*.tar.gz
 requestservice/macbook_ssl/
 docker/main/schedulerservice/scheduler.log
 
+data/scheduler_service/
+
 docker/main/base/Dockerfile.bkup
 custom_up_stack.sh-orig
 docker-build-custom.yml-orig
@@ -46,6 +48,7 @@ docker/main/nwm/run.sh
 docker/main/nwm/run_model.sh-work
 docker/main/nwm/run_test.sh
 docker/main/nwm/testfile
+docker/main/ngen/ssh/
 /docker/secrets/*
 
 redis_test/
