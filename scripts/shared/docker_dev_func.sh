@@ -237,6 +237,86 @@ docker_dev_build_stack_images()
     fi
 }
 
+# Sanity check certain directories on the host used for bind mounts exist for certain stacks
+# arg 1 - stack directory name
+docker_pre_deploy_bind_mount_dir_check()
+{
+    # TODO: sanity check that all the stack names we check for correspond to existing stack directories
+    if [ "${1:?No stack directory name given to bind mount check}" == "dev_registry_stack" ]; then
+        mkdir -p ${DOCKER_HOST_IMAGE_STORE:?No Docker host bind mount set for development registry images directory}
+    elif [ "${1:?}" == "object_store" ]; then
+        # It's possible this doesn't exist, but we are ok with that (i.e., multi-node deployments)
+        if [ -n "${DMOD_OBJECT_STORE_SINGLE_NODE_HOST_DIR:-}" ]; then
+            mkdir -p "${DMOD_OBJECT_STORE_SINGLE_NODE_HOST_DIR:?}"
+        # However, in such cases, these need to be set up, and for now at least, that needs to be done manually
+        elif [ ! -d "${DMOD_OBJECT_STORE_HOST_DIR_1:?Object store dir 1 not setup in apparent multi-node deployment}" ]; then
+            >&2 echo "Object store dir 1 '${DMOD_OBJECT_STORE_HOST_DIR_1}' does not exist and needs to be manually created before starting stack"
+            exit 1
+        elif [ ! -d "${DMOD_OBJECT_STORE_HOST_DIR_2:?Object store dir 2 not setup in apparent multi-node deployment}" ]; then
+            >&2 echo "Object store dir 2 '${DMOD_OBJECT_STORE_HOST_DIR_2}' does not exist and needs to be manually created before starting stack"
+            exit 1
+        fi
+    elif [ "${1:?}" == "main" ]; then
+        mkdir -p ${DOCKER_VOL_DOMAINS:?No Docker host bind mount set for NWM 2.x/3.x domains file}
+    fi
+}
+
+# Check for existence of expected Docker secrets files for given stack, creating if necessary
+# arg 1 - stack directory name
+docker_pre_deploy_create_secrets()
+{
+    #>&2 echo "DEBUG: Stack name is: '${1}'"
+    # TODO: sanity check that all the stack names we check for correspond to existing stack directories
+    if [ "${1:?No stack directory name given to Docker secrets check}" == "object_store" ]; then
+        # Create object_store secrets parent directory
+        mkdir -p $(dirname ${DMOD_OBJECT_STORE_ADMIN_USER_NAME_SECRET_FILE:?Cannot create object store secrets directory with admin name file not set})
+        # Create access and secret for both admin and model_exec
+        if [ ! -e ${DMOD_OBJECT_STORE_ADMIN_USER_NAME_SECRET_FILE} ]; then
+            echo "minioadmin" > ${DMOD_OBJECT_STORE_ADMIN_USER_NAME_SECRET_FILE}
+        fi
+        if [ ! -e ${DMOD_OBJECT_STORE_ADMIN_USER_PASSWD_SECRET_FILE:?Cannot check for object store admin secret file when path is unset} ]; then
+            openssl rand -hex 12 > ${DMOD_OBJECT_STORE_ADMIN_USER_PASSWD_SECRET_FILE}
+        fi
+        if [ ! -e ${DMOD_OBJECT_STORE_EXEC_USER_NAME_SECRET_FILE:?Cannot check for object store model exec user name file when path is unset} ]; then
+            echo "model_exec_user" > ${DMOD_OBJECT_STORE_EXEC_USER_NAME_SECRET_FILE}
+        fi
+        if [ ! -e ${DMOD_OBJECT_STORE_EXEC_USER_PASSWD_SECRET_FILE:?Cannot check for object store model exec user secret file when path is unset} ]; then
+            openssl rand -hex 12 > ${DMOD_OBJECT_STORE_EXEC_USER_PASSWD_SECRET_FILE}
+        fi
+    elif [ "${1:?No stack directory name given to Docker secrets check}" == "main" ]; then
+        # Make sure top-level secrets directory exists
+        mkdir -p $(dirname ${DOCKER_REDIS_SECRET_FILE:?Cannot create secrets directory parent of redis secret when file is unset})
+        if [ ! -e ${DOCKER_REDIS_SECRET_FILE} ]; then
+            openssl rand -hex 12 > ${DOCKER_REDIS_SECRET_FILE}
+        fi
+    elif [ "${1:?No stack directory name given to Docker secrets check}" == "nwm_gui" ]; then
+        # Make sure top-level secrets directory exists
+        mkdir -p "${PROJECT_ROOT:?Cannot create GUI PostGres secret; project root path not known}/docker/secrets"
+        if [ ! -e "${PROJECT_ROOT}/docker/secrets/postgres_password.txt" ]; then
+            openssl rand -hex 12 > "${PROJECT_ROOT}/docker/secrets/postgres_password.txt"
+        fi
+    fi
+}
+
+# arg 1 - stack directory name
+docker_pre_deploy_scheduler_resources()
+{
+    mkdir -p ${SCHEDULER_RESOURCE_DIR:?Scheduler resources host directory not defined; cannot check for required files}
+    # Copy image_and_domain.yaml example to SCHEDULER_RESOURCE_DIR
+    if [ ! -e ${SCHEDULER_RESOURCE_DIR}/image_and_domain.yaml ]; then
+        if [ ! -f ${PROJECT_ROOT}/data/example_image_and_domain.yaml ]; then
+            >&2 echo "Error: example image and domains template file does not exist!"
+            exit 1
+        fi
+        cp ${PROJECT_ROOT}/data/example_image_and_domain.yaml ${SCHEDULER_RESOURCE_DIR}/image_and_domain.yaml
+    fi
+    # TODO: generate resources.yaml in SCHEDULER_RESOURCE_DIR
+    if [ ! -e ${SCHEDULER_RESOURCE_DIR}/resources.yaml ]; then
+       >&2 echo "Error: ${SCHEDULER_RESOURCE_DIR}/resources.yaml does not exist; create manually or with included helper script"
+       exit 1
+    fi
+}
+
 # Work-around to use the .env file loading for compose files when deploying with docker stack (which doesn't by itself)
 # See: https://github.com/moby/moby/issues/29133
 # arg 1 - the base config file
@@ -261,6 +341,7 @@ docker_dev_deploy_stack_from_compose_using_env()
         >&2 echo "Error: invalid docker-compose file '${1}'; cannot start stack; exiting"
         exit 1
     fi
+
 }
 
 # Useful for, e.g., seeing of the OS value is "Docker Desktop" to indicate this a local dev environment
