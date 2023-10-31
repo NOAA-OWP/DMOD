@@ -12,11 +12,12 @@ if [ -e "${PROJECT_ROOT}/.env" ]; then
     . "${PROJECT_ROOT}/.env"
 fi
 
-MC_COMMAND="mc"
+DEFAULT_MC_COMMAND_1="minio-client"
+DEFAULT_MC_COMMAND_2="mc"
 DEFAULT_ALIAS="dmod"
 DEFAULT_ADMIN_ALIAS="dmodadmin"
 DEFAULT_GROUP="dataset_users"
-DEFAULT_URL="http://localhost:${DMOD_OBJECT_STORE_1_HOST_PORT:-9000}"
+DEFAULT_URL="http://127.0.0.1:${DMOD_OBJECT_STORE_1_HOST_PORT:-9000}"
 
 USER_NAME_SECRET_FILE="${PROJECT_ROOT}/docker/secrets/object_store/model_exec_access_key"
 USER_PASS_SECRET_FILE="${PROJECT_ROOT}/docker/secrets/object_store/model_exec_secret_key"
@@ -26,7 +27,7 @@ MINIO_ROOT_USER_FILE="${PROJECT_ROOT}/docker/secrets/object_store/access_key"
 check_alias_exists()
 {
     # $1 - alias name
-    ${MC_COMMAND} alias ls ${1:?No alias set when verifying alias exists} > /dev/null 2>&1;
+    ${MC_COMMAND:?} alias ls ${1:?No alias set when verifying alias exists} > /dev/null 2>&1;
 }
 
 create_alias()
@@ -36,7 +37,7 @@ create_alias()
     # $3 - connection user
     # $4 - connection password
 
-    ${MC_COMMAND} alias set \
+    ${MC_COMMAND:?} --insecure alias set \
         ${1:?No alias name set when creating alias} \
         ${2:?No connection url set when creating alias} \
         ${3:?No user name set when creating alias ${1}} \
@@ -59,7 +60,7 @@ prep_connection_alias()
         if [ -n "${RESET_CONN:-}" ]; then
             if check_alias_exists ${ALIAS:?No alias name set when trying to reset}; then
                 echo "Removing existing alias ${ALIAS}"
-                ${MC_COMMAND} alias rm ${ALIAS}
+                ${MC_COMMAND:?} alias rm ${ALIAS}
             else
                 echo "WARN: option set to reset connection alias ${ALIAS}, but it did not already exist"
             fi
@@ -83,16 +84,18 @@ prep_admin_alias()
         # The option to create the admin alias implies an existing one should first be removed
         if check_alias_exists ${ADMIN_ALIAS:?No admin alias name set when trying to create}; then
             echo "INFO: Removing existing admin alias ${ADMIN_ALIAS}"
-            ${MC_COMMAND} alias rm ${ADMIN_ALIAS:?}
+            ${MC_COMMAND:?} alias rm ${ADMIN_ALIAS:?}
         fi
         # Once we are sure there is no previously existing (still), create the admin alias
+        echo "INFO: Creating admin alias ${ADMIN_ALIAS} over connection ${CONNECTION_URL}"
         create_alias ${ADMIN_ALIAS} ${CONNECTION_URL} ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}
+        echo "INFO: Admin alias ${ADMIN_ALIAS} created"
     fi
 }
 
 create_user()
 {
-    ${MC_COMMAND} admin user add \
+    ${MC_COMMAND:?} admin user add \
         ${ADMIN_ALIAS:?No admin alias set when adding USER} \
         ${USER_NAME:?No user name given when adding USER} \
         ${USER_SECRET:?No user secret given when adding USER}
@@ -101,7 +104,7 @@ create_user()
 create_group()
 {
     # Create group and add user to it assumes group doesn't exist
-    ${MC_COMMAND} admin group add ${ADMIN_ALIAS:?} ${GROUP_NAME:?} ${USER_NAME:?}
+    ${MC_COMMAND:?} admin group add ${ADMIN_ALIAS:?} ${GROUP_NAME:?} ${USER_NAME:?}
 
     # Add the necessary policy for the group
     ${MC_COMMAND} admin policy set ${ADMIN_ALIAS} ${READ_WRITE_POLICY:-readwrite} group=${GROUP_NAME}
@@ -130,6 +133,13 @@ print_info()
 
 usage()
 {
+    # For usage, try to use the right default, but fall back to the last guess for the message
+    if which ${DEFAULT_MC_COMMAND_1:?} > /dev/null 2>&1; then
+        MC_COMMAND=${DEFAULT_MC_COMMAND_1:?}
+    else
+        MC_COMMAND=${DEFAULT_MC_COMMAND_2:?}
+    fi
+
     local _O="${NAME:?}:
 ${INFO:?}
 
@@ -143,6 +153,9 @@ Options:
 
     --alias|-a <name>       Specify the connection alias name for the 'mc' CLI
                             (default: ${DEFAULT_ALIAS}).
+
+    --mc-command|-c <path>  Specify path to minio client
+                            (default ${MC_COMMAND:?Not attempting to guess default mc command for usage message}).
 
     --create-admin-alias    Set that the 'mc' CLI admin alias must be created,
                             or removed and recreated if it already exists.
@@ -180,6 +193,10 @@ while [ ${#} -gt 0 ]; do
         --alias-exists|-x)
             ALIAS_EXISTS='true'
             ;;
+        --mc-command|-c)
+            MC_COMMAND=${2:?}
+            shift
+            ;;
         --create-admin-alias)
             CREATE_ADMIN_ALIAS='true'
             ;;
@@ -201,10 +218,20 @@ while [ ${#} -gt 0 ]; do
     shift
 done
 
-# Sanity check util is install
-which ${MC_COMMAND} > /dev/null 2>&1
+# Sanity check util is set/install
+if [ -z "${MC_COMMAND:-}" ]; then
+    # Try our defaults
+    if which ${DEFAULT_MC_COMMAND_1:?} > /dev/null 2>&1; then
+        MC_COMMAND=${DEFAULT_MC_COMMAND_1:?}
+    elif which ${DEFAULT_MC_COMMAND_2:?} > /dev/null 2>&1; then
+        MC_COMMAND=${DEFAULT_MC_COMMAND_2:?}
+    else
+        echo "Error: default options for minio client command (${DEFAULT_MC_COMMAND_1}, ${DEFAULT_MC_COMMAND_2}) do not appear to be valid." 1>&2
+    fi
+fi
+which ${MC_COMMAND:?} > /dev/null 2>&1
 if [ $? -ne 0 ]; then
-    echo "Error: minio command line tool not installed." 1>&2
+    echo "Error: given minio command line tool ${MC_COMMAND} not valid." 1>&2
     exit 1
 fi
 # Sanity check that these required files exist 
