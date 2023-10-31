@@ -22,7 +22,7 @@ DEFAULT_COMPOSE_FILENAME="docker-compose.yml"
 
 DOCKER_DIR="${PROJECT_ROOT:?}/docker"
 
-ACTION_ORDER_STRING="check stop build push deploy"
+ACTION_ORDER_STRING="networks check stop build push deploy"
 ACTION_COUNT=0
 
 details()
@@ -78,6 +78,10 @@ Stack Selection:
     ${DOCKER_DIR}
 
 Actions:
+    networks
+        Just check for and create any required Docker networks
+        that don't yet exist.
+
     check
         Check and display whether the stack is running.
 
@@ -131,8 +135,9 @@ Options:
     --init-networks, --no-init-networks
         Check for required/expected Docker networks and create
         any that don't exist, prior to executing the specified
-        action. This is done by default for the 'build' and
-        'deploy' actions, but can be prevented using the 'no'
+        action(s). Effectively the same thing as adding the
+        'networks' action. This is done by default for the 'build'
+        and 'deploy' actions, but can be prevented using the 'no'
         variant.
 
     --stack-name <name>
@@ -155,7 +160,7 @@ Usage:
     ${NAME:?} [opts] <stack_dir_name> <action>[ <action>]*
 
 Actions:
-    check build push deploy|start stop restart
+    networks check build push deploy|start stop restart
 
 Options:
     --[build-|deploy-]config <path> | -[b|d]|c <path>
@@ -220,6 +225,10 @@ process_stop_action_arg()
 process_action_args()
 {
     case "${1}" in
+        networks)
+            [ -n "${DO_NETWORKS_ACTION:-}" ] && short_usage && exit 1
+            DO_NETWORKS_ACTION='true'
+            ;;
         check)
             [ -n "${DO_CHECK_ACTION:-}" ] && short_usage && exit 1
             DO_CHECK_ACTION='true'
@@ -266,25 +275,39 @@ bail_if_action_failed()
     fi
 }
 
-exec_requested_actions()
+deployment_networks_init()
 {
-    # First, handle network init if set to
-    if [ "${DO_DOCKER_NETWORK:-false}" == "true" ]; then
-        # First the mpi-net
+    # First the mpi-net
+    if [ "${DOCKER_MPI_NET_USE_CONFIG:-}" == "true" ]; then
         docker_dev_init_swarm_network_from_config ${DOCKER_MPI_NET_NAME:=mpi-net} \
                 ${DOCKER_MPI_NET_NAME}-config \
                 ${DOCKER_MPI_NET_DRIVER:=macvlan} \
                 ${DOCKER_MPI_NET_VXLAN_ID:=4097}
-        # Then the requests-net
-        docker_dev_init_swarm_network ${DOCKER_REQUESTS_NET_NAME:=requests-net} \
-                ${DOCKER_REQUESTS_NET_SUBNET:?} \
-                ${DOCKER_REQUESTS_NET_GATEWAY:?} \
-                ${DOCKER_REQUESTS_NET_DRIVER:-overlay}
-        # Finally the main-internal-net
-        docker_dev_init_swarm_network ${DOCKER_MAIN_INTERNAL_NET_NAME:=main-internal-net} \
-                ${DOCKER_MAIN_INTERNAL_NET_SUBNET:?} \
-                ${DOCKER_MAIN_INTERNAL_NET_GATEWAY:?} \
-                ${DOCKER_MAIN_INTERNAL_NET_DRIVER:-overlay}
+    else
+        docker_dev_init_swarm_network ${DOCKER_MPI_NET_NAME:=mpi-net} \
+                ${DOCKER_MPI_NET_SUBNET:?Cannot init ${DOCKER_MPI_NET_NAME} network without configured subnet} \
+                ${DOCKER_MPI_NET_GATEWAY:?Cannot init ${DOCKER_MPI_NET_NAME} network without configured gateway} \
+                ${DOCKER_MPI_NET_DRIVER:-overlay}
+    fi
+
+    # Then the requests-net
+    docker_dev_init_swarm_network ${DOCKER_REQUESTS_NET_NAME:=requests-net} \
+            ${DOCKER_REQUESTS_NET_SUBNET:?Cannot init ${DOCKER_REQUESTS_NET_NAME} network without configured subnet} \
+            ${DOCKER_REQUESTS_NET_GATEWAY:?Cannot init ${DOCKER_REQUESTS_NET_NAME} network without configured gateway} \
+            ${DOCKER_REQUESTS_NET_DRIVER:-overlay}
+
+    # Finally the main-internal-net
+    docker_dev_init_swarm_network ${DOCKER_MAIN_INTERNAL_NET_NAME:=main-internal-net} \
+            ${DOCKER_MAIN_INTERNAL_NET_SUBNET:?Cannot init ${DOCKER_MAIN_INTERNAL_NET_NAME} network without configured subnet} \
+            ${DOCKER_MAIN_INTERNAL_NET_GATEWAY:?Cannot init ${DOCKER_MAIN_INTERNAL_NET_NAME} network without configured gateway} \
+            ${DOCKER_MAIN_INTERNAL_NET_DRIVER:-overlay}
+}
+
+exec_requested_actions()
+{
+    # First, handle network init if set to
+    if [ "${DO_NETWORKS_ACTION:-}" ] || [ "${DO_DOCKER_NETWORK:-false}" == "true" ]; then
+        deployment_networks_init
     fi
 
     if [ -n "${DO_CHECK_ACTION:-}" ]; then
