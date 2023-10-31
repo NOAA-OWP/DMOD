@@ -303,6 +303,17 @@ deployment_networks_init()
             ${DOCKER_MAIN_INTERNAL_NET_DRIVER:-overlay}
 }
 
+gen_docker_build_ssh_dirs()
+{
+    # 1 - expected SSH directory
+    if [ ! -d "${1:?No SSH build arg given}" ]; then
+        mkdir "${1}"
+    fi
+    if [ ! -f "${1}/id_rsa" ]; then
+        ssh-keygen -N "" -f "${1}/id_rsa" -t rsa
+    fi
+}
+
 exec_requested_actions()
 {
     # First, handle network init if set to
@@ -321,6 +332,8 @@ exec_requested_actions()
     fi
 
     if [ -n "${DO_BUILD_ACTION:-}" ]; then
+        gen_docker_build_ssh_dirs ${DOCKER_BASE_IMAGE_SSH_HOST_DIR:-./docker/main/base/ssh}
+        gen_docker_build_ssh_dirs ${DOCKER_NGEN_IMAGE_SSH_HOST_DIR:-./docker/main/ngen/ssh}
         echo "Building Docker images for stack ${STACK_NAME:?}"
         docker_dev_build_stack_images "${DOCKER_BUILD_CONFIG:?}" "${STACK_NAME:?}" ${DOCKER_IMAGE_BUILD_EXTRA_ARGS:-}
         bail_if_action_failed $? build
