@@ -443,7 +443,7 @@ COPY --chown=${USER} --from=rocky_init_troute_repo ${WORKDIR}/t-route ${WORKDIR}
 RUN cd ${WORKDIR}/t-route \
     && mkdir wheels \
     && pip3 install -r ./requirements.txt \
-    && pip3 install wheel deprecated dask pyarrow geopandas \
+    && pip3 install wheel deprecated dask pyarrow geopandas Cython==3.0.3 \
     && export FC=gfortran \
     && cd ${WORKDIR}/t-route \
     && ./compiler.sh \
