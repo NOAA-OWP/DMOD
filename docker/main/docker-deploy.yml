@@ -111,35 +111,37 @@ services:
       #- updated_packages:${UPDATED_PACKAGES_CONTAINER_DIR:?Check if updated packages directory should be used}
     #depends_on:
     #  - myredis
-  subset-service:
-    image: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/subset-service
-    networks:
-      - main-internal-net
-    ports:
-      - ${DOCKER_SUBSET_API_PORT:-5001}:${DOCKER_SUBSET_CONTAINER_PORT:-5001}
-    volumes:
-      - ${HYDROFABRIC_DATA_DIR:?Please set HYDROFABRIC_DATA_DIR for Docker environment in .env config file}:/hydrofabric_data
-      # This typically needs to be commented out; intended for development use (see related 'environment' config above)
-      #- updated_packages:${UPDATED_PACKAGES_CONTAINER_DIR:?Check if updated packages directory should be used}
-    deploy:
-      placement:
-        constraints:
-          - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_1:-node.role==manager}
-          - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
-    secrets:
-      - myredis_pass
-    environment:
-      - LISTEN_PORT=${DOCKER_SUBSET_CONTAINER_PORT:-5000}
-      - SERVICE_PACKAGE_NAME=${PYTHON_PACKAGE_NAME_SUBSET_SERVICE:?}
-      - FILES_DIRECTORY=/hydrofabric_data
-      - PYCHARM_REMOTE_DEBUG_ACTIVE=${PYCHARM_REMOTE_DEBUG_SUBSET_SERVICE_ACTIVE:-false}
-      - PYCHARM_REMOTE_DEBUG_SERVER_HOST=${PYCHARM_REMOTE_DEBUG_SERVER_HOST:-host.docker.internal}
-      - PYCHARM_REMOTE_DEBUG_SERVER_PORT=${PYCHARM_REMOTE_DEBUG_SERVER_PORT_SUBSET_SERVICE:-55874}
-      # This typically needs to be commented out; intended for development use (see related 'volume' config below)
-      #- UPDATED_PACKAGES_DIR=${UPDATED_PACKAGES_CONTAINER_DIR:?Updated packages directory not set, make sure this should be active}
-    command: ["--files-directory", "/hydrofabric_data",
-              "--port", "${DOCKER_SUBSET_CONTAINER_PORT:-5000}",
-              "--crosswalk-file", "${HYRDOFABRIC_CROSSWALK_FILE_BASENAME:-crosswalk.json}"]
+# TODO: service not especially useful with hard-coded hydrofabric bind mount and only single hydrofabric support
+# TODO: create issue for re-activating after support added for using multiple (DMOD-dataset-based) hydrofabrics
+#  subset-service:
+#    image: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/subset-service
+#    networks:
+#      - main-internal-net
+#    ports:
+#      - ${DOCKER_SUBSET_API_PORT:-5001}:${DOCKER_SUBSET_CONTAINER_PORT:-5001}
+#    volumes:
+#      - ${HYDROFABRIC_DATA_DIR:?Please set HYDROFABRIC_DATA_DIR for Docker environment in .env config file}:/hydrofabric_data
+#      # This typically needs to be commented out; intended for development use (see related 'environment' config above)
+#      #- updated_packages:${UPDATED_PACKAGES_CONTAINER_DIR:?Check if updated packages directory should be used}
+#    deploy:
+#      placement:
+#        constraints:
+#          - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_1:-node.role==manager}
+#          - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
+#    secrets:
+#      - myredis_pass
+#    environment:
+#      - LISTEN_PORT=${DOCKER_SUBSET_CONTAINER_PORT:-5000}
+#      - SERVICE_PACKAGE_NAME=${PYTHON_PACKAGE_NAME_SUBSET_SERVICE:?}
+#      - FILES_DIRECTORY=/hydrofabric_data
+#      - PYCHARM_REMOTE_DEBUG_ACTIVE=${PYCHARM_REMOTE_DEBUG_SUBSET_SERVICE_ACTIVE:-false}
+#      - PYCHARM_REMOTE_DEBUG_SERVER_HOST=${PYCHARM_REMOTE_DEBUG_SERVER_HOST:-host.docker.internal}
+#      - PYCHARM_REMOTE_DEBUG_SERVER_PORT=${PYCHARM_REMOTE_DEBUG_SERVER_PORT_SUBSET_SERVICE:-55874}
+#      # This typically needs to be commented out; intended for development use (see related 'volume' config below)
+#      #- UPDATED_PACKAGES_DIR=${UPDATED_PACKAGES_CONTAINER_DIR:?Updated packages directory not set, make sure this should be active}
+#    command: ["--files-directory", "/hydrofabric_data",
+#              "--port", "${DOCKER_SUBSET_CONTAINER_PORT:-5000}",
+#              "--crosswalk-file", "${HYRDOFABRIC_CROSSWALK_FILE_BASENAME:-crosswalk.json}"]
   data-service:
     image: ${DOCKER_INTERNAL_REGISTRY:?}/dmod-data-service
     hostname: data-service
