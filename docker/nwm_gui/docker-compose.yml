@@ -3,7 +3,7 @@ version: "3.7"
 services:
   # Define a container belonging exclusively to the web server
   web_server:
-    image: nginx:1.21
+    image: nginx:1.25.3
     networks:
       - request-listener-net
     # Only restart if a failure occurs
@@ -61,7 +61,7 @@ services:
       - DOCKER_SECRET_POSTGRES_PASS=postgres_password
     volumes:
       - ${DMOD_APP_STATIC:?}:/usr/maas_portal/static
-      - ${DMOD_SSL_DIR}/requestservice:/usr/maas_portal/ssl
+      - ${DMOD_SSL_DIR}/request-service:/usr/maas_portal/ssl
       #- ${DOCKER_GUI_HOST_VENV_DIR:-/tmp/blah}:${DOCKER_GUI_CONTAINER_VENV_DIR:-/tmp/blah}
     # Expose Django's port to the internal network so that the web server may access it
     expose:
