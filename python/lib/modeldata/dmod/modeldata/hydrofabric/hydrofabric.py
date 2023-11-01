@@ -391,7 +391,7 @@ class HydrofabricFilesManager(ABC):
         self._hydrofabric_initializers: List[Callable[[Any, ...], Hydrofabric]] = []
         self._hydrofabric_uids: List[Optional[str]] = []
         self.find_hydrofabrics()
-        super(HydrofabricFilesManager, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def find_hydrofabrics(self, recheck: bool = False):
         """
