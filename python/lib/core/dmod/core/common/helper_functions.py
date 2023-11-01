@@ -762,6 +762,21 @@ def find(
     return next(filter(predicate, iterable), default)
 
 
+def first(values: typing.Iterable[_CLASS_TYPE]) -> typing.Optional[_CLASS_TYPE]:
+    """
+    Return the first item in an iterable object
+
+    Args:
+        values: A collection of values that may be iterable over
+
+    Returns:
+        The first item in the collection if there are any items in the collection
+    """
+    for value in values:
+        return value
+    return None
+
+
 def true_for_all(
     collection: typing.Iterable[_CLASS_TYPE],
     condition: typing.Callable[[_CLASS_TYPE], bool] = None

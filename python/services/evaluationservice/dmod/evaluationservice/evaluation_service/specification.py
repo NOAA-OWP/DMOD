@@ -1,11 +1,15 @@
 """
 Provides classes and functions used to manipulated Evaluation specifications
 """
+import pathlib
 import json
 import os
 import typing
+import sqlite3
+from collections import defaultdict
 import re
 
+from dmod.core.common import DBAPIConnection
 from collections import defaultdict
 
 from django.contrib.auth.models import User
@@ -24,6 +28,7 @@ class SpecificationTemplateManager(TemplateManager):
     """
     Object manager used to provide details about available templates defined within the Django DB instance
     """
+    def get_templates(self, specification_type: str) -> typing.Sequence[TemplateDetails]:
     def __init__(self, *args, **kwargs):
         pass
 
@@ -69,12 +74,26 @@ class SpecificationTemplateManager(TemplateManager):
 
     def get_templates(self, specification_type: str) -> typing.Sequence[SpecificationTemplate]:
         specification_type = specification_type.strip()
-        return [
-            template
-            for template in SpecificationTemplateCommunicator.filter(
-                template_specification_type=specification_type
-            )
-        ]
+        return SpecificationTemplateCommunicator.filter(template_specification_type=specification_type)
+
+    def get_all_templates(self) -> typing.Mapping[str, typing.Sequence[TemplateDetails]]:
+        templates: typing.Dict[str, typing.List[TemplateDetails]] = defaultdict(list)
+
+        for template_specification in SpecificationTemplateCommunicator.all():
+            templates[template_specification.specification_type].append(template_specification.to_details())
+
+        return templates
+
+    def export_to_database(
+        self,
+        table_name: str,
+        database_connection: typing.Union[DBAPIConnection, pathlib.Path, str],
+        exists_ok: bool = None
+    ):
+        if isinstance(database_connection, (str, pathlib.Path)):
+            database_connection = sqlite3.connect(database_connection)
+
+        return super().export_to_database(table_name, database_connection, exists_ok)
 
     def get_template(
         self,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import typing
 import json
+from datetime import datetime
 
 from django.contrib.auth.models import User
 from django.db import models
@@ -55,6 +56,10 @@ class SpecificationTemplate(models.Model):
         blank=True,
         help_text="A description of what the template does"
     )
+    template_last_modified = models.DateTimeField(
+        auto_now=True,
+        help_text="When this was last modified"
+    )
 
     author = models.ForeignKey(to=User, on_delete=models.CASCADE, help_text="The user who created this template")
 
@@ -71,11 +76,19 @@ class SpecificationTemplate(models.Model):
         return self.template_name
 
     @property
+    def author_name(self) -> typing.Optional[str]:
+        return self.author.username
+
+    @property
     def specification_type(self) -> str:
         return self.template_specification_type
 
-    def get_configuration(self, decoder_type: typing.Type[json.JSONDecoder] = None):
-        return json.loads(self.template_configuration, cls=decoder_type)
+    @property
+    def last_modified(self) -> datetime:
+        return self.template_last_modified
+
+    def get_configuration(self, decoder_type: typing.Type[json.JSONDecoder] = None) -> dict:
+        return self.template_configuration
 
     @property
     def description(self) -> typing.Optional[str]:

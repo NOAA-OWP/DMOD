@@ -11,6 +11,8 @@ import abc
 import os
 import re
 import traceback
+from datetime import datetime
+
 import pydantic
 
 import dmod.core.common as common
@@ -82,6 +84,22 @@ class TemplateDetails(typing.Protocol):
         A value-name pair that allows for templates to be selected from a dropdown
         """
         return self.name, self.name
+
+    @property
+    @abc.abstractmethod
+    def author_name(self) -> typing.Optional[str]:
+        """
+        The name of the individual who created the template
+        """
+        pass
+
+    @property
+    @abc.abstractmethod
+    def last_modified(self) -> typing.Optional[datetime]:
+        """
+        When this was last edited
+        """
+        pass
 
     def __str__(self):
         return f"[{self.specification_type}] {self.name}{': ' + self.description if self.description else ''}"

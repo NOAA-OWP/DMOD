@@ -3,30 +3,323 @@ Provides classes that enable the representation and discovery of specification t
 """
 from __future__ import annotations
 import abc
+import dataclasses
 import json
 import logging
 import os
 import pathlib
+import sqlite3
+import sys
 import tempfile
 import typing
+import shutil
+
 from collections import defaultdict
+from datetime import datetime
+
+from dateutil.parser import parse as parse_date
 
 from dmod.core.common import humanize_text
 from dmod.core.common.types import TextValue
 from dmod.core.common import DBAPIConnection
 from dmod.core.common import DBAPICursor
 from dmod.core.common import find
+from dmod.core.common import flat
 from dmod.core.common import flatmap
 from dmod.core.common.helper_functions import package_directory
 
 from ._all import get_specification_options
 from ._all import TemplateDetails
 from ._all import TemplateManagerProtocol
-from ._all import TemplatedSpecification
 from .base import GetSpecificationTypeProtocol
 from .base import SUPPORTS_SPECIFICATION_TYPE
 
 from .templates import FileTemplateManifest
+
+
+_DEFAULT_TEMPLATE_TABLE_NAME = os.environ.get("DEFAULT_TEMPLATE_TABLE_NAME", "template")
+
+
+@dataclasses.dataclass
+class QueryDetails:
+    query: str
+    """The SQL query to execute"""
+
+    value_labels: typing.Sequence[str]
+    """The order of value names that need to be used as parameters"""
+
+
+@dataclasses.dataclass
+class Column:
+    """
+    Represents a column in a database table
+    """
+    name: str
+    """The name of the column"""
+    
+    datatype: str
+    """The data type for the column"""
+    
+    optional: typing.Optional[bool] = dataclasses.field(default=False)
+    """Whether values in the column are optional"""
+    @property
+    def definition(self) -> str:
+        """
+        The definition of the column if it were to appear within a table creation script
+        """
+        return f"{self.name} {self.datatype}{' NULL' if self.optional else ''}"
+
+    def __str__(self):
+        return self.definition
+
+    def __repr__(self):
+        return self.__str__()
+
+
+@dataclasses.dataclass
+class Table:
+    """
+    Represents a table in a database
+    """
+    name: str
+    """The name of the table"""
+    
+    columns: typing.List[Column]
+    """The columns within a database"""
+    
+    keys: typing.Optional[typing.List[str]] = dataclasses.field(default=None)
+    """Any sort of identifying values for each row in the table"""
+    
+    @property
+    def required_columns(self) -> typing.Set[str]:
+        """
+         The name of all columns that MUST have a value
+        """
+        return set([
+            column.name
+            for column in self.columns
+            if not column.optional
+        ])
+
+    @property
+    def column_names(self) -> typing.Sequence[str]:
+        """
+        The name of each column
+        """
+        return [column.name for column in self.columns]
+
+    @property
+    def definition(self) -> str:
+        """
+        A script that will create this table in a database
+        """
+        lines: typing.List[str] = list()
+        lines.append(f"CREATE TABLE IF NOT EXISTS {self.name} (")
+
+        column_definitions = [column.definition for column in self.columns]
+        full_column_definitions = "    " + f",{os.linesep}    ".join(column_definitions)
+
+        lines.append(full_column_definitions)
+        lines.append(");")
+
+        return os.linesep.join(lines)
+
+    def initialize(self, connection: DBAPIConnection):
+        """
+        Ensure that this table exists within the given database
+        
+        Args:
+            connection: A connection to the database that will hold this table
+        """
+        cursor: typing.Optional[DBAPICursor] = None
+
+        try:
+            cursor = connection.cursor()
+            cursor.execute(self.definition)
+
+            try:
+                connection.commit()
+            except BaseException as exception:
+                print(f"Could not commit possible changes to the {self.name} table - {exception}", file=sys.stderr)
+        finally:
+            if cursor:
+                cursor.close()
+
+    def create_keyed_insert_query(self, columns: typing.Sequence[str]) -> QueryDetails:
+        """
+        Generate a query that will insert unique values into the table
+
+        Args:
+            columns: The columns that will have values inserted
+
+        Returns:
+            A sql query that will insert data into a database table
+        """
+        missing_columns: typing.Set[str] = self.required_columns.union(self.keys).difference(columns)
+        
+        if missing_columns:
+            raise ValueError(
+                f"Cannot create a script to insert values into '{self.name}' - "
+                f"missing the following required columns: {', '.join(columns)}"
+            )
+
+        # Insert values into each column that don't already exist based on the given values
+        query = f"""
+INSERT INTO {self.name}
+    ({', '.join(columns)})
+SELECT {', '.join(['?' for _ in columns])}
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM {self.name}
+    WHERE {' AND '.join([f'{key} = ?' for key in self.keys])}
+)"""
+        labels = [name for name in columns] + [key for key in self.keys]
+        return QueryDetails(query=query, value_labels=labels)
+
+    def create_unkeyed_insert_query(self, columns: typing.Sequence[str]) -> QueryDetails:
+        """
+        Create an insert query for this table that does not identify values based on keys
+
+        Args:
+            columns: The columns that will have values to insert
+
+        Returns:
+            An insert script for this table that will insert values into the given columns
+        """
+        missing_columns: typing.Set[str] = self.required_columns.difference(columns)
+
+        if missing_columns:
+            raise ValueError(
+                f"Cannot create a script to insert values into '{self.name}' - "
+                f"missing the following required columns: {', '.join(columns)}"
+            )
+
+        # Insert values into the given database
+        query = f"""
+INSERT INTO {self.name}
+    ({', '.join(columns)}
+VALUES ({', '.join(['?' for _ in columns])});
+"""
+        labels = [name for name in columns]
+        return QueryDetails(query=query, value_labels=labels)
+
+    def override_table(self, connection: DBAPIConnection):
+        cursor: typing.Optional[DBAPICursor] = None
+
+        try:
+            cursor = connection.cursor()
+            cursor.execute(f"SELECT * FROM {self.name}")
+            results = cursor.fetchall()
+            table_is_present = len(results) > 0
+        except:
+            table_is_present = True
+        finally:
+            if cursor:
+                cursor.close()
+
+        if table_is_present:
+            try:
+                cursor = connection.cursor()
+
+                cursor.execute(f"TRUNCATE TABLE {self.name}")
+                cursor.fetchall()
+
+                try:
+                    connection.commit()
+                except BaseException as exception:
+                    print(f"Could not commit possible changes to the {self.name} table - {exception}", file=sys.stderr)
+            finally:
+                if cursor:
+                    cursor.close()
+
+        self.initialize(connection=connection)
+
+    def insert_templates(
+        self,
+        connection: DBAPIConnection,
+        rows: typing.Union[typing.Sequence[TemplateDetails], typing.Mapping[str, typing.Sequence[TemplateDetails]]],
+        override: bool = None
+    ):
+        """
+        Insert template data into this database
+
+        Args:
+            connection: The connection to the database of interest
+            rows: The templates to insert
+            override: Replace data that is within the database
+        """
+        if override is None:
+            override = False
+
+        if override:
+            self.override_table(connection=connection)
+
+        if isinstance(rows, typing.Mapping):
+            rows = flat(rows)
+
+        query_details: QueryDetails
+
+        if self.keys and not override:
+            query_details = self.create_keyed_insert_query(self.column_names)
+        else:
+            query_details = self.create_unkeyed_insert_query(self.column_names)
+
+        query: str = query_details.query
+
+        parameters: typing.Sequence[typing.Sequence[typing.Any]] = [
+            [
+                getattr(row, label)
+                for label in query_details.value_labels
+            ]
+            for row in rows
+        ]
+
+        cursor: typing.Optional[DBAPICursor] = None
+        try:
+            cursor = connection.cursor()
+            cursor.executemany(query, parameters)
+
+            try:
+                connection.commit()
+            except BaseException as exception:
+                print(f"Could not commit possible changes to the {self.name} table - {exception}", file=sys.stderr)
+        finally:
+            if cursor:
+                cursor.close()
+
+    def __str__(self):
+        return self.definition
+
+    def __repr__(self):
+        return self.__str__()
+
+
+def get_template_table(name: str) -> Table:
+    """
+    Get the specification for how a template will be stored in a database table
+
+    Args:
+        name: The expected name of the database table
+
+    Returns:
+        A Table object representing the appearance of a specification template
+    """
+    return Table(
+        name=name,
+        columns=[
+            Column(name="name", datatype="VARCHAR(255)"),
+            Column(name="specification_type", datatype="VARCHAR(255)"),
+            Column(name="description", datatype="VARCHAR(500)", optional=True),
+            Column(name="author", datatype="VARCHAR(500)", optional=True),
+            Column(name="configuration", datatype="TEXT"),
+            Column(name="last_modified", datatype="VARCHAR(50)")
+        ],
+        keys=[
+            'name',
+            'specification_type',
+            'author'
+        ]
+    )
 
 
 class BasicTemplateDetails(TemplateDetails):
@@ -34,6 +327,14 @@ class BasicTemplateDetails(TemplateDetails):
     The most basic implementation of TemplateDetails possible
     Gained by just providing all raw values
     """
+
+    @property
+    def last_modified(self) -> typing.Optional[datetime]:
+        """
+        The last time this template changed
+        """
+        return self.__last_modified
+
     @classmethod
     def from_record(
         cls,
@@ -41,7 +342,9 @@ class BasicTemplateDetails(TemplateDetails):
         name_field: str = None,
         specification_type_field: str = None,
         description_field: str = None,
-        configuration_field: str = None
+        configuration_field: str = None,
+        author_name_field: str = None,
+        last_modified_field: str = None
     ) -> TemplateDetails:
         """
         Generate TemplateDetails from values in a Map
@@ -52,6 +355,8 @@ class BasicTemplateDetails(TemplateDetails):
             specification_type_field:
             description_field:
             configuration_field:
+            author_name_field:
+            last_modified_field:
 
         Returns:
             A basic TemplateDetails object
@@ -68,29 +373,61 @@ class BasicTemplateDetails(TemplateDetails):
         if not configuration_field:
             configuration_field = 'configuration'
 
+        if not author_name_field:
+            author_name_field = "author"
+
+        if not last_modified_field:
+            last_modified_field = "last_modified"
+
         return cls(
             name=record[name_field],
             specification_type=record[specification_type_field],
             description=record.get(description_field),
-            configuration=record[configuration_field]
+            configuration=record[configuration_field],
+            author_name=record.get(author_name_field),
+            last_modified=record.get(last_modified_field)
         )
 
     @classmethod
-    def from_details(cls, details: TemplateDetails) -> BasicTemplateDetails:
+    def copy(cls, details: TemplateDetails) -> BasicTemplateDetails:
+        """
+        Create a copy of the given TemplateDetails object
+
+        Args:
+            details: The details to copy
+
+        Returns:
+            A new TemplateDetails object detached from the source
+        """
         return cls(
             name=details.name,
             specification_type=details.specification_type,
             configuration=json.dumps(details.get_configuration(), indent=4),
-            description=details.description
+            description=details.description,
+            author_name=details.author_name,
+            last_modified=details.last_modified
         )
 
     def __init__(
         self,
         name: str,
         specification_type: str,
-        configuration: str,
-        description: str = None
+        configuration: typing.Union[str, typing.Dict[str, typing.Any]],
+        description: str = None,
+        author_name: str = None,
+        last_modified: typing.Optional[typing.Union[str, datetime]] = None
     ):
+        """
+        Constructor
+
+        Args:
+            name: The name of the template
+            specification_type: What type of template this is
+            configuration: The configuration that this template represents
+            description: A description of what this template does
+            author_name: The name of whoever created or maintains this template
+            last_modified: The last time this template was modified
+        """
         if not name:
             raise ValueError("Cannot create template information - no name was passed")
 
@@ -105,23 +442,64 @@ class BasicTemplateDetails(TemplateDetails):
             )
 
         self.__name = name
+        """The name of the template"""
+
         self.__specification_type = specification_type
+        """What type of template this is"""
+
         self.__description = description
+        """A description of what this template does"""
+
         self.__configuration = configuration
+        """The configuration that this template represents"""
+
+        self.__author_name = author_name
+        """The name of whoever created or maintains this template"""
+
+        self.__last_modified = parse_date(last_modified) if isinstance(last_modified, str) else last_modified
+        """The last time this template was modified"""
 
     @property
     def name(self) -> str:
+        """
+        The name of the template
+        """
         return self.__name
 
     @property
     def specification_type(self) -> str:
+        """
+        What type of template this is
+        """
         return self.__specification_type
 
+    @property
+    def author_name(self) -> typing.Optional[str]:
+        """
+        The name of whoever created or maintains this template
+        """
+        return self.__author_name
+
     def get_configuration(self, decoder_type: typing.Type[json.JSONDecoder] = None) -> dict:
-        return json.loads(self.__configuration, decoder_type=decoder_type)
+        """
+        Get the configuration for this template
+
+        Args:
+            decoder_type: A JSON Decoder containing specialized details on how to convert the configuration from a
+                str/bytes to a dictionary
+
+        Returns:
+            The dictionary containing the configuration for the template
+        """
+        if isinstance(self.__configuration, (str, bytes, bytearray)):
+            self.__configuration = json.loads(self.__configuration, cls=decoder_type)
+        return self.__configuration
 
     @property
     def description(self) -> typing.Optional[str]:
+        """
+        A description of what this template does
+        """
         return self.__description
 
     def __hash__(self):
@@ -284,52 +662,26 @@ class TemplateManager(abc.ABC, TemplateManagerProtocol):
             for detail in self.get_templates(specification_type)
         ]
 
-    def export_to_database(self, table_name: str, connection: DBAPIConnection, exists_ok: bool = None):
+    def export_to_database(self, table_name: str, connection: DBAPIConnection, override: bool = None):
         """
         Write templates to a database
 
         Args:
             table_name: The name of the table to store templates in
             connection: A connection to the desired database
-            exists_ok: Whether it is ok to insert data into the table if it already exists
+            override: Replace data that already exists
         """
-        cursor: typing.Optional[DBAPICursor] = None
+        if override is None:
+            override = False
 
-        if exists_ok is None:
-            exists_ok = False
+        table = get_template_table(table_name)
 
         try:
-            cursor = connection.cursor()
-            table_creation_script = f"""CREATE TABLE{' IF NOT EXISTS' if exists_ok else ''} "{table_name}" (
-    name varchar(255),
-    specification_type varchar(255),
-    description varchar(500) NULL,
-    configuration TEXT
-)"""
-            cursor.execute(table_creation_script)
-            connection.commit()
+            table.initialize(connection=connection)
+        except BaseException as creation_exception:
+            raise Exception(f"Could not create the {table_name} table: {creation_exception}") from creation_exception
 
-            entries = flatmap(
-                lambda entry: (
-                    entry.name,
-                    entry.specification_type,
-                    entry.description,
-                    json.dumps(entry.get_configuration(), indent=4)
-                ),
-                self.get_all_templates()
-            )
-
-            insertion_script = f'INSERT INTO "{table_name}" (name, specification_type, description, configuration) ' \
-                               f'VALUES (?, ?, ?, ?)'
-
-            cursor.executemany(insertion_script, entries)
-
-            connection.commit()
-        finally:
-            try:
-                cursor.close()
-            except:
-                logging.error("A cursor for a connection could not be closed")
+        table.insert_templates(connection=connection, rows=self.get_all_templates(), override=override)
 
 class FileTemplateDetails(TemplateDetails):
     @property
@@ -414,6 +766,30 @@ class InMemoryTemplateManager(TemplateManager):
     """
     A template manager that just stores template data in memory
     """
+    @classmethod
+    def from_archive(
+        cls,
+        path: pathlib.Path,
+        manifest_path: pathlib.Path = None,
+        archive_format: typing.Literal["zip", "tar", "gztar", "bztar", "xztar"] = None,
+        *args,
+        **kwargs
+    ) -> InMemoryTemplateManager:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            file_manager = FileTemplateManager.from_archive(
+                path,
+                temporary_directory,
+                manifest_path,
+                archive_format,
+                *args,
+                **kwargs
+            )
+            return cls.from_template_manager(file_manager)
+
+    @classmethod
+    def from_template_manager(cls, manager: TemplateManager) -> InMemoryTemplateManager:
+        return cls(templates=manager.get_all_templates())
+
     def __init__(self, templates: typing.Mapping[str, typing.Iterable[TemplateDetails]] = None):
         """
         An in-memory manager requires data to be passed in directly, ready to go
@@ -423,7 +799,10 @@ class InMemoryTemplateManager(TemplateManager):
         """
         if templates:
             self.__templates = {
-                key: [entry for entry in value]
+                key: [
+                    BasicTemplateDetails.copy(entry)
+                    for entry in value
+                ]
                 for key, value in templates.items()
             }
         else:
@@ -467,18 +846,68 @@ class FileTemplateManager(TemplateManager):
     """
     A template manager that reads everything based on a manifest on the file system
     """
-    def __init__(self, manifest_path: typing.Union[str, pathlib.Path]):
+    @classmethod
+    def from_archive(
+        cls,
+        archive_path: pathlib.Path,
+        output_path: pathlib.Path,
+        manifest_path: pathlib.Path = None,
+        archive_format: typing.Literal["zip", "tar", "gztar", "bztar", "xztar"] = None,
+        *args,
+        **kwargs
+    ) -> FileTemplateManager:
+        """
+        Create a file template manager from an archived manager
+
+        Args:
+            archive_path: The path to the archive
+            output_path: Where to unpack the archive
+            manifest_path: The path to the manifest within the archive
+            archive_format: The format of the archive
+
+        Returns:
+            A file manager based on the contents of the archive
+        """
+        if not archive_path.exists():
+            raise FileNotFoundError(f"There is no archive file at {archive_path}")
+
+        if not manifest_path:
+            manifest_path = pathlib.Path("template_manifest.json")
+
+        if not archive_format:
+            archive_format = "zip"
+
+        manifest_path = output_path / manifest_path
+
+        directory_created = False
+        if not output_path.exists():
+            output_path.mkdir(parents=True, exist_ok=True)
+            directory_created = True
+
+        try:
+            shutil.unpack_archive(archive_path, output_path, format=archive_format)
+
+            if not manifest_path.exists():
+                raise FileNotFoundError(f"No manifest was found at {manifest_path}")
+
+            return cls(path=manifest_path, *args, **kwargs)
+        except BaseException as exception:
+            if directory_created:
+                shutil.rmtree(output_path, ignore_errors=True)
+            raise
+
+    def __init__(self, path: typing.Union[str, pathlib.Path], *args, **kwargs):
         """
         Load a manifest to instruct access to elements on disk
 
         Args:
-            manifest_path: The path to the manifest file
+            path: The path to the manifest file
         """
-        manifest_path = pathlib.Path(manifest_path) if isinstance(manifest_path, str) else manifest_path
-        with manifest_path.open('r') as manifest_file:
+        path = pathlib.Path(path) if isinstance(path, str) else path
+        with path.open('r') as manifest_file:
             manifest_data = json.load(manifest_file)
         self.manifest: FileTemplateManifest = FileTemplateManifest.parse_obj(manifest_data)
-        self.manifest.set_root_directory(manifest_path.parent)
+        self.manifest.set_root_directory(path.parent)
         self.manifest.ensure_validity()
 
     def get_templates(self, specification_type: SUPPORTS_SPECIFICATION_TYPE) -> typing.Sequence[TemplateDetails]:
@@ -557,6 +986,10 @@ class DatabaseTemplateManager(TemplateManager):
     """
     Template manager for data whose contents lie within a database
     """
+    @classmethod
+    def default_template_table_name(cls) -> str:
+        return "template"
+
     def get_templates(self, specification_type: SUPPORTS_SPECIFICATION_TYPE) -> typing.Sequence[TemplateDetails]:
         if isinstance(specification_type, GetSpecificationTypeProtocol):
             specification_type = specification_type.get_specification_type()
@@ -660,12 +1093,14 @@ class DatabaseTemplateManager(TemplateManager):
 
     def __init__(
         self,
-        table_name: str,
-        connection: DBAPIConnection,
+        table_name: str = None,
+        connection: typing.Union[DBAPIConnection, str, pathlib.Path] = None,
         name_column: str = None,
         specification_type_column: str = None,
         description_column: str = None,
-        configuration_column: str = None
+        configuration_column: str = None,
+        *args,
+        **kwargs
     ):
         """
         Store details used to connect to the table containing templates and define what columns to expect values
@@ -680,7 +1115,14 @@ class DatabaseTemplateManager(TemplateManager):
             configuration_column: The name of the column that stores the configuration of a template
         """
         self.table_name = table_name
-        self.connection = connection
+
+        if connection is None:
+            connection = ":memory:"
+
+        if isinstance(connection, (str, pathlib.Path)):
+            self.connection: DBAPIConnection = sqlite3.connect(connection)
+        else:
+            self.connection: DBAPIConnection = connection
 
         self.__name_column = name_column if name_column else 'name'
 
