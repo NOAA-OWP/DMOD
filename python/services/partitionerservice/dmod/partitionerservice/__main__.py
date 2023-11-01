@@ -10,6 +10,7 @@ from . import name as package_name
 from .service import ServiceManager
 from dmod.scheduler.job import DefaultJobUtilFactory
 from dmod.externalrequests.maas_request_handlers import DataServiceClient
+from dmod.communication import WebSocketClient
 from pathlib import Path
 from socket import gethostname
 
@@ -38,7 +39,7 @@ def _handle_args():
     parser.add_argument('--ssl-dir',
                         help='Change the base directory when using SSL certificate and key files with default names',
                         dest='ssl_dir',
-                        default='/ssl/partitionerservice')
+                        default='/ssl/partitioner-service')
     parser.add_argument('--cert',
                         help='Specify path for a particular SSL certificate file to use',
                         dest='cert_path',
@@ -154,8 +155,9 @@ def main():
     job_util = DefaultJobUtilFactory.factory_create(redis_host=args.redis_host, redis_port=args.redis_port,
                                                     redis_pass=redis_pass)
 
-    data_service_url = DataServiceClient.build_endpoint_uri(host=args.data_service_host, port=args.data_service_port)
-    data_client = DataServiceClient(endpoint_uri=data_service_url, ssl_directory=Path(args.data_service_ssl_dir))
+    data_client = DataServiceClient(transport_client=WebSocketClient(endpoint_host=args.data_service_host,
+                                                                     endpoint_port=args.data_service_port,
+                                                                     capath=args.data_service_ssl_dir))
 
     service = ServiceManager(port=args.listen_port, listen_host=args.listen_host, ssl_dir=Path(args.ssl_dir),
                              cert_pem=args.cert_path, priv_key_pem=args.key_path, image_name=image, job_util=job_util,
