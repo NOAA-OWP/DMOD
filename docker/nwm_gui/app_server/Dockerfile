@@ -48,7 +48,8 @@ COPY ./docker/nwm_gui/app_server/client_debug_helper.py ./
 
 ENV PYCHARM_DEBUG_EGG=/pydevd-pycharm.egg
 ENV REQ_SRV_SSL_DIR=${WORKDIR}/request_service_ssl
-COPY ./ssl/requestservice ${REQ_SRV_SSL_DIR}
+# TODO: needs to be fixed ... doesn't mesh with configurability of location
+COPY ./ssl/request-service ${REQ_SRV_SSL_DIR}
 
 # TODO: move to heredoc syntax once confirmed it's reasonable to expect all environments run sufficiently recent Docker
 RUN     echo '{'                                                            > .dmod_client_config.json \
