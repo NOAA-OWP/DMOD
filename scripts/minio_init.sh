@@ -30,6 +30,29 @@ check_alias_exists()
     ${MC_COMMAND:?} alias ls ${1:?No alias set when verifying alias exists} > /dev/null 2>&1;
 }
 
+# arg 1 - version string
+version_homogenizer()
+{
+    echo "${1:?No version string to homogenize}" \
+        | sed -E 's/(20[0-9][0-9]).?([0-9][0-9]).?([0-9][0-9]T[0-9][0-9]).?([0-9][0-9]).?([0-9][0-9]Z).*/\1\2\3\4\5/'
+}
+
+get_client_version()
+{
+    version_homogenizer $(  ${MC_COMMAND:?No command set for client} --version \
+                                | grep -i version \
+                                | sed -E 's/.*(20[0-9][0-9].?[0-9][0-9].?[0-9][0-9]T[0-9][0-9].?[0-9][0-9].?[0-9][0-9]Z).*/\1/'
+                         )
+}
+
+get_service_version()
+{
+    version_homogenizer $(  ${MC_COMMAND:?No command set for client} admin info ${ADMIN_ALIAS:?No admin alias name set when checking API version} \
+                                    | grep -i version \
+                                    | sed -E 's/.*(20[0-9][0-9].?[0-9][0-9].?[0-9][0-9]T[0-9][0-9].?[0-9][0-9].?[0-9][0-9]Z).*/\1/'
+                         )
+}
+
 create_alias()
 {
     # $1 - alias name
@@ -107,12 +130,40 @@ create_group()
     ${MC_COMMAND:?} admin group add ${ADMIN_ALIAS:?} ${GROUP_NAME:?} ${USER_NAME:?}
 
     # Add the necessary policy for the group
-    ${MC_COMMAND} admin policy set ${ADMIN_ALIAS} ${READ_WRITE_POLICY:-readwrite} group=${GROUP_NAME}
+    if [ "${USE_POLICY_SET:?Flag on policy applying API command not set via sanity checker}" == "true" ]; then
+        ${MC_COMMAND} admin policy set ${ADMIN_ALIAS} ${READ_WRITE_POLICY:-readwrite} group=${GROUP_NAME}
+    else
+        ${MC_COMMAND} admin policy attach ${ADMIN_ALIAS} ${READ_WRITE_POLICY:-readwrite} --group ${GROUP_NAME}
+    fi
+}
+
+sanity_check_apis()
+{
+    _CLIENT_API_VERSION=$(get_client_version)
+    _SERVICE_API_VERSION=$(get_service_version)
+
+    if [ "${JUST_CHECK_API_VERSIONS:-false}" == "true" ]; then
+        echo "Client Version: ${_CLIENT_API_VERSION}"
+        echo "Service Version: ${_SERVICE_API_VERSION}"
+    fi
+
+    # Change in API to require "policy attach" rather than "policy set" at "20230527T055619Z"
+    if [[ "${_SERVICE_API_VERSION:?}" > "20230527T055619Y" ]] && [[ "${_CLIENT_API_VERSION:?}" < "20230527T055619Z" ]]; then
+        if [ "${JUST_CHECK_API_VERSIONS:-false}" == "true" ]; then
+            >&2 echo "Incompatible client and server API versions"
+        fi
+        exit 1
+    elif [[ "${_CLIENT_API_VERSION:?}" < "20230527T055619Z" ]]; then
+        USE_POLICY_SET="true"
+    else
+        USE_POLICY_SET="false"
+    fi
 }
 
 initial_setup()
 {
     prep_admin_alias
+    sanity_check_apis
     prep_connection_alias
 
     # TODO: add logic/options for conditional processing if things exist already
@@ -154,6 +205,8 @@ Options:
     --alias|-a <name>       Specify the connection alias name for the 'mc' CLI
                             (default: ${DEFAULT_ALIAS}).
 
+    --api-versions          Do not run init steps; instead, check API versions.
+
     --mc-command|-c <path>  Specify path to minio client
                             (default ${MC_COMMAND:?Not attempting to guess default mc command for usage message}).
 
@@ -192,6 +245,9 @@ while [ ${#} -gt 0 ]; do
             ;;
         --alias-exists|-x)
             ALIAS_EXISTS='true'
+            ;;
+        --api-versions)
+            JUST_CHECK_API_VERSIONS='true'
             ;;
         --mc-command|-c)
             MC_COMMAND=${2:?}
@@ -234,7 +290,29 @@ if [ $? -ne 0 ]; then
     echo "Error: given minio command line tool ${MC_COMMAND} not valid." 1>&2
     exit 1
 fi
-# Sanity check that these required files exist 
+
+# Also, set up these default if needed
+if [ -z "${ALIAS:-}" ]; then
+    ALIAS="${DEFAULT_ALIAS}"
+fi
+if [ -z "${ADMIN_ALIAS:-}" ]; then
+    ADMIN_ALIAS="${DEFAULT_ADMIN_ALIAS}"
+fi
+# Set the default for URL, but only if it isn't set AND at least one of the aliases is not expected to exist
+# (Better to have a failure happen otherwise, as we shouldn't expect to NEED it EXCEPT to create an alias)
+if [ -z "${CONNECTION_URL:-}" ]; then
+    if [ -z "${ALIAS_EXISTS:-}" ] || [ -n "${CREATE_ADMIN_ALIAS:-}" ]; then
+        CONNECTION_URL="${DEFAULT_URL}"
+    fi
+fi
+
+# If just checking API versions, do that and exit
+if [ "${JUST_CHECK_API_VERSIONS:-false}" == "true" ]; then
+    sanity_check_apis
+    exit $?
+fi
+
+# Sanity check that these required files exist
 if [ ! -e "${USER_NAME_SECRET_FILE}" ]; then
     echo "Error: user name file ${USER_NAME_SECRET_FILE} does not exist." 1>&2
     exit 1
@@ -258,20 +336,6 @@ MINIO_ROOT_PASSWORD="$(cat ${MINIO_ROOT_PASSWORD_FILE})"
 USER_NAME="$(cat ${USER_NAME_SECRET_FILE})"
 USER_SECRET="$(cat ${USER_PASS_SECRET_FILE})"
 
-# Also, set up these default if needed
-if [ -z "${ALIAS:-}" ]; then
-    ALIAS="${DEFAULT_ALIAS}"
-fi
-if [ -z "${ADMIN_ALIAS:-}" ]; then
-    ADMIN_ALIAS="${DEFAULT_ADMIN_ALIAS}"
-fi
-# Set the default for URL, but only if it isn't set AND at least one of the aliases is not expected to exist
-# (Better to have a failure happen otherwise, as we shouldn't expect to NEED it EXCEPT to create an alias)
-if [ -z "${CONNECTION_URL:-}" ]; then
-    if [ -z "${ALIAS_EXISTS:-}" ] || [ -n "${CREATE_ADMIN_ALIAS:-}" ]; then
-        CONNECTION_URL="${DEFAULT_URL}"
-    fi
-fi
 if [ -z "${GROUP_NAME:-}" ]; then
     GROUP_NAME="${DEFAULT_GROUP}"
 fi
