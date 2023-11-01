@@ -13,7 +13,7 @@ from websockets import WebSocketServerProtocol
 from dmod.access import DummyAuthUtil, RedisBackendSessionManager
 from dmod.communication import AbstractInitRequest, InvalidMessageResponse, MessageEventType, NGENRequest, NWMRequest, \
     NgenCalibrationRequest, PartitionRequest, WebSocketSessionsInterface, SessionInitMessage, SchedulerClient, \
-    UnsupportedMessageTypeResponse
+    UnsupportedMessageTypeResponse, WebSocketClient
 from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage
 from dmod.externalrequests import AuthHandler, DatasetRequestHandler, ModelExecRequestHandler, \
     NgenCalibrationRequestHandler, PartitionRequestHandler, EvaluationRequestHandler
@@ -111,9 +111,9 @@ class RequestService(WebSocketSessionsInterface):
         # FIXME: implement real authorizer
         self.authorizer = self.authenticator
 
-        scheduler_url = "wss://{}:{}".format(self.scheduler_host, self.scheduler_port)
-
-        self._scheduler_client = SchedulerClient(scheduler_url, self.scheduler_client_ssl_dir)
+        self._scheduler_client = SchedulerClient(transport_client=WebSocketClient(endpoint_host=self.scheduler_host,
+                                                                                  endpoint_port=self.scheduler_port,
+                                                                                  capath=self.scheduler_client_ssl_dir))
         """SchedulerClient: Client for interacting with scheduler, which also is a context manager for connections."""
 
         self._auth_handler: AuthHandler = AuthHandler(session_manager=self._session_manager,
