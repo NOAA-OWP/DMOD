@@ -733,3 +733,21 @@ The `output_writer` and `destination` variables will be available will be availa
 These values will take precedence over standard environment variables. Given the above hash, if 
 `MAAS::EVALUATION::OUTPUT::output_writer=JSONWriter` is also set, `output_writer` will still be considered as 
 `NetcdfWriter`.  Please see `dmod.evaluations` to see options for what may be set.
+
+## Templates
+
+Templates are powerful building blocks belonging to the Evaluation Service that may be used to build evaluation 
+configurations. While each instance of the evaluation service may have its own definitions, a common set may be 
+found in `common_templates.sqlite`. 
+
+Running the following command will import the data into the servcie:
+
+```bash
+python3 manage.py templates import --path common_templates.sqlite
+```
+
+Configured templates may be saved and distributed by calling:
+
+```bash
+python3 manage.py templates export
+```

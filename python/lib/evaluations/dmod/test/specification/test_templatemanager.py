@@ -26,7 +26,7 @@ TEST_DECODER = None
 class TestTemplateManager(unittest.TestCase):
     def setUp(self) -> None:
         self.template_manager: specification.TemplateManager = specification.FileTemplateManager(
-            manifest_path=TEMPLATE_MANIFEST_PATH
+            path=TEMPLATE_MANIFEST_PATH
         )
 
     def test_manager(self):
@@ -69,7 +69,7 @@ class TestTemplateManager(unittest.TestCase):
             self.fail(message)
 
         new_manager: specification.TemplateManager = specification.FileTemplateManager(
-            manifest_path=manifest_path
+            path=manifest_path
         )
 
         self.assertEqual(self.template_manager, new_manager)
@@ -105,7 +105,7 @@ class TestTemplateManager(unittest.TestCase):
         self.assertTrue(comparison_manifest.exists(), msg="The uncompressed template manifest could not be found")
 
         new_manager: specification.TemplateManager = specification.FileTemplateManager(
-            manifest_path=comparison_manifest
+            path=comparison_manifest
         )
 
         self.assertEqual(

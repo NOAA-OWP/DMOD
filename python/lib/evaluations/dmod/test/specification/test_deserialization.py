@@ -21,7 +21,7 @@ TEST_DECODER = None
 class TestSpecificationDeserialization(unittest.TestCase):
     def setUp(self) -> None:
         self.__template_manager: specification.TemplateManager = specification.FileTemplateManager(
-            manifest_path=TEMPLATE_MANIFEST_PATH
+            path=TEMPLATE_MANIFEST_PATH
         )
 
         with open(NO_TEMPLATE_CONFIGURATION, 'r') as no_template_configuration_file:

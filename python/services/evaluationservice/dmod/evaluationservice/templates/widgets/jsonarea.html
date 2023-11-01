@@ -193,6 +193,8 @@
                     assignEventHandler("{{ handler.element_selector }}", "{{ widget.event }}", "{{ handler.function }}");
                 {% endfor %}
             {% endif %}
+
+            changeConfigurationSchema();
         }
     );
 </script>

@@ -8,15 +8,17 @@ import json
 import os
 import pathlib
 import typing
-from collections import defaultdict
+from datetime import datetime
 
 from django.contrib.auth.models import User
 from dmod.core.common import DBAPIConnection
 from dmod.core.common import flat
+from dmod.core.common.helper_functions import first
 from dmod.evaluations.specification import TemplateDetails
 
 from dmod.evaluations.specification import TemplateManager
 
+from evaluation_service.models import SpecificationTemplate
 from evaluation_service.models import SpecificationTemplateCommunicator
 from evaluation_service.specification import SpecificationTemplateManager
 
@@ -52,26 +54,48 @@ class TemplateImportResults:
         return self.__str__()
 
 
-def import_templates(user: User, manager: TemplateManager) -> TemplateImportResults:
+def import_templates(author: User, manager: TemplateManager) -> TemplateImportResults:
     templates_to_add_or_update = flat(manager.get_all_templates().values())
     templates_updated: typing.List[TemplateDetails] = list()
     templates_added: typing.List[TemplateDetails] = list()
 
     for template in templates_to_add_or_update:
-        instance, created = SpecificationTemplateCommunicator.update_or_create(
+        possible_owners = User.objects.filter(username=template.author_name)
+
+        if possible_owners.exists():
+            owner = possible_owners.first()
+        else:
+            owner = author
+
+        preexisting_templates: typing.Sequence[SpecificationTemplate] = SpecificationTemplateCommunicator.filter(
             template_name=template.name,
             template_specification_type=template.specification_type,
-            author=user,
-            defaults={
-                "template_description": template.description,
-                "template_configuration": template.get_configuration()
-            }
+            author=owner
         )
 
-        if created:
-            templates_added.append(instance.to_details())
+        if preexisting_templates:
+            preexisting_template = first(preexisting_templates)
+
+            if template.last_modified is None or preexisting_template.last_modified < template.last_modified:
+                if template.description:
+                    preexisting_template.template_description = template.description
+
+                preexisting_template.template_configuration = template.get_configuration()
+                preexisting_template.template_last_modified = template.last_modified or datetime.now()
+
+                preexisting_template.save()
+
+                templates_updated.append(preexisting_template.to_details())
         else:
-            templates_updated.append(instance.to_details())
+            instance = SpecificationTemplateCommunicator.create(
+                template_name=template.name,
+                template_specification_type=template.specification_type,
+                template_configuration=template.get_configuration(),
+                author=owner,
+                template_description=template.description,
+                template_last_modified=template.last_modified
+            )
+            templates_added.append(instance.to_details())
 
     return TemplateImportResults(templates_added=templates_added, templates_updated=templates_updated)
 

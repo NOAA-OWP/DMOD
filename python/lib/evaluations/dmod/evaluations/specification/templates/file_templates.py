@@ -7,6 +7,9 @@ import json
 import pathlib
 import typing
 import tempfile
+from datetime import datetime
+
+from dateutil.parser import parse as parse_date
 
 import pydantic
 from dmod.core.common import package_directory
@@ -22,11 +25,29 @@ SetOfStringsOrInts = typing.Set[StringOrInt]
 
 
 class FileTemplateDetails(base.TemplateDetails):
-    def __init__(self, name: str, specification_type: str, description: str, path: pathlib.Path):
+    @property
+    def author_name(self) -> typing.Optional[str]:
+        return self.__author_name
+
+    @property
+    def last_modified(self) -> typing.Optional[datetime]:
+        return self.__last_modified
+
+    def __init__(
+        self,
+        name: str,
+        specification_type: str,
+        description: str,
+        path: pathlib.Path,
+        author_name: str = None,
+        last_modified: typing.Union[str, datetime] = None
+    ):
         self.__name = name
         self.__specification_type = specification_type
         self.__description = description
         self.__path = path
+        self.__author_name = author_name
+        self.__last_modified = parse_date(last_modified) if isinstance(last_modified, str) else last_modified
 
     @property
     def name(self) -> str:
@@ -49,12 +70,22 @@ class FileTemplateDetails(base.TemplateDetails):
         return self.__path
 
     def dict(self) -> typing.Dict[str, typing.Union[str, pathlib.Path]]:
-        return {
+        details = {
             "name": self.name,
             "specification_type": self.specification_type,
             "description": self.description,
             "path": self.path
         }
+
+        if self.author_name:
+            details['author_name'] = self.__author_name
+
+        if self.last_modified:
+            details['last_modified'] = self.last_modified.isoformat()
+        else:
+            details['last_modified'] = datetime.now().astimezone().isoformat()
+
+        return details
 
 
 def serialize_path(path: pathlib.Path, *args, **kwargs) -> str:
@@ -65,13 +96,16 @@ class FileTemplateManifestEntry(pydantic.BaseModel):
     name: str
     path: pathlib.Path
     description: str
+    author_name: typing.Optional[str]
+    last_modified: typing.Optional[datetime]
     specification_type: typing.Optional[str]
 
     _root_directory: typing.Optional[pathlib.Path] = pydantic.PrivateAttr(None)
 
     class Config:
         json_encoders = {
-            "path": serialize_path
+            "path": serialize_path,
+            "last_modified": lambda lm: lm.isoformat() if lm is not None else lm.isoformat
         }
 
     def as_details(self) -> FileTemplateDetails:
@@ -79,7 +113,9 @@ class FileTemplateManifestEntry(pydantic.BaseModel):
             name=self.name,
             specification_type=self.specification_type,
             description=self.description,
-            path=self.full_path()
+            path=self.full_path(),
+            author_name=self.author_name,
+            last_modified=self.last_modified,
         )
 
     @property
@@ -90,12 +126,20 @@ class FileTemplateManifestEntry(pydantic.BaseModel):
                 f"Make sure 'specification_type' is populated on all Manifest Entries"
             )
 
-        return {
+        details = {
             "name": self.name,
             "path": self.path,
             "description": self.description,
-            "specification_type": self.specification_type
+            "specification_type": self.specification_type,
         }
+
+        if self.author_name:
+            details['author_name'] = self.author_name
+
+        if self.last_modified:
+            details['last_modified'] = self.last_modified
+
+        return details
 
     def set_root_directory(self, directory: pathlib.Path):
         self._root_directory = directory
