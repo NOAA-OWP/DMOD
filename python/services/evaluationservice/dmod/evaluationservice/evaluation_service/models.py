@@ -27,7 +27,7 @@ _BOX_TYPE = typing.Union[typing.Tuple[int, int, int, int], geopandas.GeoDataFram
 class SpecificationTemplate(models.Model):
     class Meta:
         constraints = [
-            UniqueConstraint(name="unique_template_idx", fields=["author", "template_name", "template_specification_type"])
+            UniqueConstraint(name="unique_template_idx", fields=["template_name"])
         ]
 
     @classmethod
