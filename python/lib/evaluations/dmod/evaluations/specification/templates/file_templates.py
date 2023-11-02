@@ -87,6 +87,12 @@ class FileTemplateDetails(base.TemplateDetails):
 
         return details
 
+    def __str__(self):
+        return f"[{self.specification_type}] {self.name}{f' : {self.description}' if self.description else ''}"
+
+    def __repr__(self):
+        return self.__str__()
+
 
 def serialize_path(path: pathlib.Path, *args, **kwargs) -> str:
     return str(path)

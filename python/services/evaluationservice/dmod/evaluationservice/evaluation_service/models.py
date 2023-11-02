@@ -95,7 +95,7 @@ class SpecificationTemplate(models.Model):
         return self.template_description
 
     def to_details(self) -> TemplateDetails:
-        return BasicTemplateDetails.from_details(self)
+        return BasicTemplateDetails.copy(self)
 
     @property
     def field_choice(self) -> typing.Tuple[str, str]:
@@ -114,6 +114,9 @@ class SpecificationTemplate(models.Model):
 
     def __str__(self):
         return f"[{self.specification_type}] {self.name}{':' + self.description if self.description else ''}"
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class EvaluationDefinition(models.Model):
