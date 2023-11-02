@@ -104,6 +104,13 @@ jobs:
           cp -a ssl/local/*.pem ssl/requests/.
           cp -a ssl/local/*.pem ssl/scheduler/.
 
+      - name: Echo dependency versions
+        run: |
+          . dmod_venv/bin/activate
+          python3 -m pip freeze
+          deactivate
+        timeout-minutes: 1
+
       - name: Run Tests
         run: ./scripts/run_tests.sh --venv dmod_venv -v -d -srv
         timeout-minutes: 1
