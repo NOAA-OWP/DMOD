@@ -91,7 +91,6 @@ jobs:
           key: dmod-ssl-setup
 
       # Set up the SSL directory
-      # TODO: use more project-generic choice for email address for generated certs
       - name: Setup SSL
         if: steps.cache-ssl-setup.outputs.cache-hit != 'true'
         run: |
@@ -100,7 +99,7 @@ jobs:
           mkdir ssl/requestservice
           mkdir ssl/requests
           mkdir ssl/scheduler
-          ./scripts/gen_cert.sh -d ssl/local -email robert.bartel@noaa.gov
+          ./scripts/gen_cert.sh -d ssl/local -email dmod_gh_action@fake.gov
           cp -a ssl/local/*.pem ssl/requestservice/.
           cp -a ssl/local/*.pem ssl/requests/.
           cp -a ssl/local/*.pem ssl/scheduler/.
