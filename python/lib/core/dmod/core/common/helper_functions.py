@@ -23,7 +23,7 @@ _CLASS_TYPE = typing.TypeVar('_CLASS_TYPE')
 """A type that points directly to a class. The _CLASS_TYPE of `6`, for example, is `<class 'int'>`"""
 
 
-def get_mro_names(value) -> list[str]:
+def get_mro_names(value) -> typing.List[str]:
     if type(value) != type:
         value = value.__class__
 
