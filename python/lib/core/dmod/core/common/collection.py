@@ -17,6 +17,9 @@ import pydantic
 from pydantic import PrivateAttr
 from pydantic.generics import GenericModel
 
+from typing_extensions import ParamSpec
+
+from collections.abc import Collection
 from typing import Iterator
 
 from ..events import EventRouter
@@ -27,7 +30,7 @@ _KT = typing.TypeVar("_KT", bound=typing.Hashable, covariant=True)
 _VT = typing.TypeVar("_VT")
 _HT = typing.TypeVar("_HT", bound=typing.Union[typing.Hashable, typing.Mapping, typing.Sequence[typing.Hashable]])
 
-_VARIABLE_PARAMETERS = typing.ParamSpec("_VARIABLE_PARAMETERS")
+_VARIABLE_PARAMETERS = ParamSpec("_VARIABLE_PARAMETERS")
 """Represents *args and **kwargs"""
 
 

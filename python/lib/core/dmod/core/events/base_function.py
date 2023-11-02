@@ -8,12 +8,14 @@ import typing
 import inspect
 import logging
 
+from typing_extensions import ParamSpec
+
 from dataclasses import field
 from dataclasses import dataclass
 
 from pydantic import root_validator
 
-PARAMS = typing.ParamSpec("PARAMS")
+PARAMS = ParamSpec("PARAMS")
 
 
 class Event:
