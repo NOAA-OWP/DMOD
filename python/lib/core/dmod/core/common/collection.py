@@ -492,5 +492,5 @@ class SequenceModel(GenericModel, BaseEventfulSequence[_T], typing.Generic[_T]):
     def _get_handlers(self) -> typing.Dict[CollectionEvent, typing.MutableSequence[typing.Callable]]:
         return self._handlers
 
-    __root__: list[_T] = pydantic.Field(default_factory=list)
+    __root__: typing.List[_T] = pydantic.Field(default_factory=list)
     _handlers: typing.Dict[CollectionEvent, typing.List[typing.Callable]] = PrivateAttr(default_factory=dict)

@@ -662,6 +662,15 @@ def flat(collection: typing.Iterable[typing.Iterable[_CLASS_TYPE]]) -> typing.Se
         >>> example_values = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
         >>> flat(example_values)
         [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        >>> second_example_values = {
+        ...     "one": [1, 2, 3],
+        ...     "two": [4, 5, 6],
+        ...     "three": 7,
+        ...     "four": 8,
+        ...     "five": 9
+        ... }
+        >>> flat(second_example_values)
+        [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
     Args:
         collection: The collection of collections to flatten
@@ -671,8 +680,15 @@ def flat(collection: typing.Iterable[typing.Iterable[_CLASS_TYPE]]) -> typing.Se
     """
     flattened_list: typing.MutableSequence[_CLASS_TYPE] = list()
 
-    for inner_collection in collection:
-        flattened_list.extend(inner_collection)
+    if isinstance(collection, typing.Mapping):
+        for mapped_value in collection.values():
+            if is_iterable_type(mapped_value):
+                flattened_list.extend(mapped_value)
+            else:
+                flattened_list.append(mapped_value)
+    else:
+        for inner_collection in collection:
+            flattened_list.extend(inner_collection)
 
     return flattened_list
 

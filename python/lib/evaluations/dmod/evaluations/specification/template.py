@@ -145,7 +145,7 @@ class Table:
             if cursor:
                 cursor.close()
 
-    def create_keyed_insert_query(self, columns: typing.Sequence[str]) -> QueryDetails:
+    def create_keyed_insert_query(self) -> QueryDetails:
         """
         Generate a query that will insert unique values into the table
 
@@ -155,28 +155,20 @@ class Table:
         Returns:
             A sql query that will insert data into a database table
         """
-        missing_columns: typing.Set[str] = self.required_columns.union(self.keys).difference(columns)
-        
-        if missing_columns:
-            raise ValueError(
-                f"Cannot create a script to insert values into '{self.name}' - "
-                f"missing the following required columns: {', '.join(columns)}"
-            )
-
         # Insert values into each column that don't already exist based on the given values
         query = f"""
 INSERT INTO {self.name}
-    ({', '.join(columns)})
-SELECT {', '.join(['?' for _ in columns])}
+    ({', '.join(self.column_names)})
+SELECT {', '.join(['?' for _ in self.column_names])}
 WHERE NOT EXISTS (
     SELECT 1
     FROM {self.name}
     WHERE {' AND '.join([f'{key} = ?' for key in self.keys])}
 )"""
-        labels = [name for name in columns] + [key for key in self.keys]
+        labels = [name for name in self.column_names] + [key for key in self.keys]
         return QueryDetails(query=query, value_labels=labels)
 
-    def create_unkeyed_insert_query(self, columns: typing.Sequence[str]) -> QueryDetails:
+    def create_unkeyed_insert_query(self) -> QueryDetails:
         """
         Create an insert query for this table that does not identify values based on keys
 
@@ -186,21 +178,13 @@ WHERE NOT EXISTS (
         Returns:
             An insert script for this table that will insert values into the given columns
         """
-        missing_columns: typing.Set[str] = self.required_columns.difference(columns)
-
-        if missing_columns:
-            raise ValueError(
-                f"Cannot create a script to insert values into '{self.name}' - "
-                f"missing the following required columns: {', '.join(columns)}"
-            )
-
         # Insert values into the given database
         query = f"""
 INSERT INTO {self.name}
-    ({', '.join(columns)}
-VALUES ({', '.join(['?' for _ in columns])});
+    ({', '.join(self.column_names)})
+VALUES ({', '.join(['?' for _ in self.column_names])});
 """
-        labels = [name for name in columns]
+        labels = [name for name in self.column_names]
         return QueryDetails(query=query, value_labels=labels)
 
     def override_table(self, connection: DBAPIConnection):
@@ -221,7 +205,7 @@ VALUES ({', '.join(['?' for _ in columns])});
             try:
                 cursor = connection.cursor()
 
-                cursor.execute(f"TRUNCATE TABLE {self.name}")
+                cursor.execute(f"DROP TABLE {self.name}")
                 cursor.fetchall()
 
                 try:
@@ -260,24 +244,41 @@ VALUES ({', '.join(['?' for _ in columns])});
         query_details: QueryDetails
 
         if self.keys and not override:
-            query_details = self.create_keyed_insert_query(self.column_names)
+            query_details = self.create_keyed_insert_query()
         else:
-            query_details = self.create_unkeyed_insert_query(self.column_names)
+            query_details = self.create_unkeyed_insert_query()
 
         query: str = query_details.query
 
-        parameters: typing.Sequence[typing.Sequence[typing.Any]] = [
-            [
-                getattr(row, label)
-                for label in query_details.value_labels
-            ]
-            for row in rows
-        ]
+        parameters: typing.List[typing.Sequence[typing.Any]] = list()
+
+        for template in rows:
+            template_parameters: typing.List[str, int, float, bool] = list()
+
+            for label in query_details.value_labels:
+                # The configuration may not always be on the template object and will need to be read, so call
+                # 'get_configuration' instead of just grabbing 'configuration'
+                if label == 'configuration':
+                    template_parameters.append(
+                        json.dumps(
+                            template.get_configuration()
+                        )
+                    )
+                else:
+                    template_parameters.append(getattr(template, label))
+
+            parameters.append(template_parameters)
 
         cursor: typing.Optional[DBAPICursor] = None
+
         try:
             cursor = connection.cursor()
-            cursor.executemany(query, parameters)
+
+            try:
+                cursor.executemany(query, parameters)
+            except:
+                print(query, file=sys.stderr)
+                raise
 
             try:
                 connection.commit()
@@ -310,14 +311,12 @@ def get_template_table(name: str) -> Table:
             Column(name="name", datatype="VARCHAR(255)"),
             Column(name="specification_type", datatype="VARCHAR(255)"),
             Column(name="description", datatype="VARCHAR(500)", optional=True),
-            Column(name="author", datatype="VARCHAR(500)", optional=True),
+            Column(name="author_name", datatype="VARCHAR(500)", optional=True),
             Column(name="configuration", datatype="TEXT"),
             Column(name="last_modified", datatype="VARCHAR(50)")
         ],
         keys=[
-            'name',
-            'specification_type',
-            'author'
+            'name'
         ]
     )
 
@@ -512,6 +511,12 @@ class BasicTemplateDetails(TemplateDetails):
         return self.name == other.name \
             and self.specification_type == other.specification_type \
             and self.get_configuration() == other.get_configuration()
+
+    def __str__(self):
+        return f"[{self.specification_type}] {self.name}{f' : {self.description}' if self.description else ''}"
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class TemplateManager(abc.ABC, TemplateManagerProtocol):
