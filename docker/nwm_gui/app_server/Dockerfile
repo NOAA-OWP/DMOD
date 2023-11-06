@@ -46,6 +46,10 @@ COPY ./python/gui/MaaS ./MaaS
 COPY ./docker/nwm_gui/app_server/entrypoint.sh ./
 COPY ./docker/nwm_gui/app_server/client_debug_helper.py ./
 
+ARG PYCHARM_REMOTE_DEBUG_HOST
+ARG PYCHARM_REMOTE_DEBUG_PORT
+ARG REQUEST_SERVICE_PORT
+
 ENV PYCHARM_DEBUG_EGG=/pydevd-pycharm.egg
 ENV REQ_SRV_SSL_DIR=${WORKDIR}/request_service_ssl
 # TODO: needs to be fixed ... doesn't mesh with configurability of location
@@ -53,18 +57,18 @@ COPY ./ssl/request-service ${REQ_SRV_SSL_DIR}
 
 # TODO: move to heredoc syntax once confirmed it's reasonable to expect all environments run sufficiently recent Docker
 RUN     echo '{'                                                            > .dmod_client_config.json \
-    &&  if [ ${PYCHARM_REMOTE_DEBUG_ACTIVE:-} = 'true' ]; then \
+    &&  if [ -n "${PYCHARM_DEBUG_EGG:-}" ] && [ -n "${PYCHARM_REMOTE_DEBUG_PORT:-}" ] && [ -n "${PYCHARM_REMOTE_DEBUG_HOST:-}" ]; then \
             echo '    "remote-debug": {'                                    >> .dmod_client_config.json ; \
-            echo "        \"remote-debug\": \"${PYCHARM_DEBUG_EGG:?}\","    >> .dmod_client_config.json ; \
-            echo "        \"port\": \"${MAAS_PORTAL_DEBUG_PORT:?}\","       >> .dmod_client_config.json ; \
-            echo "        \"host\": \"${MAAS_PORTAL_DEBUG_HOST:?}\""        >> .dmod_client_config.json ; \
+            echo "        \"egg-path\": \"${PYCHARM_DEBUG_EGG:?}\","        >> .dmod_client_config.json ; \
+            echo "        \"port\": ${PYCHARM_REMOTE_DEBUG_PORT:?},"        >> .dmod_client_config.json ; \
+            echo "        \"host\": \"${PYCHARM_REMOTE_DEBUG_HOST:?}\""     >> .dmod_client_config.json ; \
             echo '    },'                                                   >> .dmod_client_config.json ; \
         fi \
     &&  echo '    "request-service": {'                                     >> .dmod_client_config.json \
     &&  echo '        "protocol": "wss",'                                   >> .dmod_client_config.json \
     &&  echo "        \"pem\": \"${REQ_SRV_SSL_DIR}/certificate.pem\","     >> .dmod_client_config.json \
-    &&  echo "        \"port\": ${MAAS_ENDPOINT_PORT},"                     >> .dmod_client_config.json \
-    &&  echo '        "hostname": "request-service",'                       >> .dmod_client_config.json \
+    &&  echo "        \"port\": ${REQUEST_SERVICE_PORT:?},"                 >> .dmod_client_config.json \
+    &&  echo '        "hostname": "request-service"'                        >> .dmod_client_config.json \
     &&  echo '    }'                                                        >> .dmod_client_config.json \
     &&  echo '}'                                                            >> .dmod_client_config.json
 
