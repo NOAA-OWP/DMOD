@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from dmod.communication import (AuthClient, InvalidMessageResponse, ManagementAction, NGENRequest, NGENRequestResponse,
                                 NgenCalibrationRequest, NgenCalibrationResponse, TransportLayerClient)
+from dmod.communication.client import ConnectionContextClient
 from dmod.communication.dataset_management_message import DatasetManagementMessage, DatasetManagementResponse, \
     MaaSDatasetManagementMessage, MaaSDatasetManagementResponse, QueryType, DatasetQuery
 from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
@@ -25,8 +26,14 @@ class JobClient:
 
     async def _submit_job_request(self, request) -> str:
         if await self._auth_client.apply_auth(request):
-            await self._transport_client.async_send(data=str(request))
-            return await self._transport_client.async_recv()
+            # Some clients may be async context managers
+            if isinstance(self._transport_client, ConnectionContextClient):
+                async with self._transport_client as t_client:
+                    await t_client.async_send(data=str(request))
+                    return await t_client.async_recv()
+            else:
+                await self._transport_client.async_send(data=str(request))
+                return await self._transport_client.async_recv()
         else:
             msg = f"{self.__class__.__name__} could not use {self._auth_client.__class__.__name__} to authenticate " \
                   f"{request.__class__.__name__}"
@@ -506,8 +513,15 @@ class DataServiceClient:
             msg = f'{self.__class__.__name__} create_dataset could not apply auth to {request.__class__.__name__}'
             return response_type(success=False, reason=reason, message=msg)
 
-        await self._transport_client.async_send(data=str(request))
-        response_data = await self._transport_client.async_recv()
+        # Some clients may be async context managers
+        if isinstance(self._transport_client, ConnectionContextClient):
+            async with self._transport_client as t_client:
+                await t_client.async_send(data=str(request))
+                response_data = await t_client.async_recv()
+        else:
+            await self._transport_client.async_send(data=str(request))
+            response_data = await self._transport_client.async_recv()
+
         response_obj = response_type.factory_init_from_deserialized_json(json.loads(response_data))
         if not isinstance(response_obj, response_type):
             msg = f"{self.__class__.__name__} could not deserialize {response_type.__name__} from raw response data" \
