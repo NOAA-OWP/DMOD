@@ -34,6 +34,10 @@ services:
       args:
         docker_internal_registry: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}
         comms_package_name: ${PYTHON_PACKAGE_DIST_NAME_COMMS:?}
+        # Necessary to generate the CLI's ClientConfig to support remote debugging
+        PYCHARM_REMOTE_DEBUG_HOST: ${PYCHARM_REMOTE_DEBUG_SERVER_HOST:-host.docker.internal}
+        PYCHARM_REMOTE_DEBUG_PORT: ${PYCHARM_REMOTE_DEBUG_SERVER_PORT_GUI:-55875}
+        REQUEST_SERVICE_PORT: ${DOCKER_REQUESTS_CONTAINER_PORT:-3012}
     networks:
       - request-listener-net
     # Call this when starting the container
