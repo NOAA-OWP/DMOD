@@ -300,6 +300,8 @@ def _handle_args():
                         default=Path('.dmod_client_config.json'))
     parser.add_argument('--bypass-request-service', '-b', dest='bypass_reqsrv', action='store_true', default=False,
                         help='Attempt to connect directly to the applicable service')
+    parser.add_argument('--remote-debug', '-D', dest='remote_debug', action='store_true', default=False,
+                        help='Activate remote debugging, according to loaded client configuration.')
     # Top-level subparsers container, splitting off a variety of handled commands for different behavior
     # e.g., 'dataset' to do things related to datasets, like creation
     subparsers = parser.add_subparsers(dest='command')
@@ -441,8 +443,11 @@ def main():
     try:
 
         client_config = ClientConfig.parse_file(client_config_path)
-        if client_config.pycharm_debug_config is not None:
+        if args.remote_debug and client_config.pycharm_debug_config is not None:
             _load_debugger_and_settrace(debug_cfg=client_config.pycharm_debug_config)
+        elif args.remote_debug:
+            print("ERROR: received arg to activate remote debugging, but client config lacks debugging parameters.")
+            exit(1)
 
         client = DmodClient(client_config=client_config, bypass_request_service=args.bypass_reqsrv)
 
