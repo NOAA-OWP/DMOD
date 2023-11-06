@@ -7,9 +7,11 @@ from abc import ABC, abstractmethod
 from asyncio import AbstractEventLoop
 from deprecated import deprecated
 from pathlib import Path
-from typing import Generic, Optional, Type, TypeVar, Union
+from typing import Generic, List, Optional, Type, TypeVar, Union
 
 import websockets
+
+from dmod.core.exception import DmodRuntimeError
 
 from .maas_request import ExternalRequest, ExternalRequestResponse
 from .message import AbstractInitRequest, Response
@@ -25,6 +27,9 @@ import logging
 logger = logging.getLogger("gui_log")
 
 CONN = TypeVar("CONN")
+
+ResponseTypes = Union[Type[Response], List[Type[Response]]]
+
 
 def get_or_create_eventloop() -> AbstractEventLoop:
     """
@@ -536,17 +541,17 @@ class RequestClient:
         self._transport_client = transport_client
         self._default_response_type: Optional[Type[Response]] = default_response_type
 
-    def _process_request_response(self, response_str: str, response_type: Optional[Type[Response]] = None) -> Response:
+    def _process_request_response(self, response_str: str, response_type: Optional[ResponseTypes] = None) -> Response:
         """
-        Process the serial form of a response returned by ::method:`async_send` into a response object.
+        Process the serial form of a response into a response object.
 
         Parameters
         ----------
         response_str : str
             The string returned by a request made via ::method:`async_send`.
-        response_type: Optional[Type[Response]]
-            An optional class type for the response that, if ``None`` (the default) is replaced with the default
-            provided at initialization.
+        response_type: Optional[ResponseTypes]
+            One or more optional class types for the response that, if ``None`` (the default) is replaced with the
+            default provided at initialization.
 
         Returns
         -------
@@ -558,35 +563,33 @@ class RequestClient:
         async_send
         """
         if response_type is None:
-            response_type = self._default_response_type
+            response_type = [self._default_response_type]
+        elif not isinstance(response_type, list):
+            response_type = [response_type]
 
-        response_json = {}
         try:
             # Consume the response confirmation by deserializing first to JSON, then from this to a response object
             response_json = json.loads(response_str)
-            try:
-                response_object = response_type.factory_init_from_deserialized_json(response_json)
-                if response_object is None:
-                    msg = f'********** {self.__class__.__name__} could not deserialize {response_type.__name__} ' \
-                          f'from raw websocket response: `{str(response_str)}`'
-                    reason = f'{self.__class__.__name__} Could Not Deserialize To {response_type.__name__}'
-                    response_object = response_type(success=False, reason=reason, message=msg, data=response_json)
-            except Exception as e2:
-                msg = f'********** While deserializing {response_type.__name__}, {self.__class__.__name__} ' \
-                      f'encountered {e2.__class__.__name__}: {str(e2)}'
-                reason = f'{self.__class__.__name__} {e2.__class__.__name__} Deserialize {response_type.__name__}'
-                response_object = response_type(success=False, reason=reason, message=msg, data=response_json)
         except Exception as e:
-            reason = 'Invalid JSON Response'
-            msg = f'Encountered {e.__class__.__name__} loading response to JSON: {str(e)}'
-            response_object = response_type(success=False, reason=reason, message=msg, data=response_json)
+            raise DmodRuntimeError(f"{self.__class__.__name__} could not parse JSON due to {e.__class__.__name__} "
+                                   f"({e!s}); raw response was: `{response_str}`")
+        response_object = None
+        try:
+            for t in response_type:
+                response_object = t.factory_init_from_deserialized_json(response_json)
+                if response_object is not None:
+                    break
+        except Exception as e2:
+            raise DmodRuntimeError(
+                f'{e2.__class__.__name__} for {self.__class__.__name__} deserializing {t.__name__}: {str(e2)}')
 
-        if not response_object.success:
-            logging.error(response_object.message)
-        logging.debug(f'{self.__class__.__name__} returning {str(response_type)} {response_str}')
+        if response_object is None:
+            raise DmodRuntimeError(f"{self.__class__.__name__} could not deserialize to any of "
+                                   f"{','.join([r.__name__ for r in response_type])} from raw websocket response: "
+                                   f"`{response_str}`")
         return response_object
 
-    async def async_make_request(self, message: AbstractInitRequest, response_type: Optional[Type[Response]] = None) -> Response:
+    async def async_make_request(self, message: AbstractInitRequest, response_type: Optional[ResponseTypes] = None) -> Response:
         """
         Async send a request message object and return the received response.
 
@@ -597,9 +600,9 @@ class RequestClient:
         ----------
         message : AbstractInitRequest
             The request message object.
-        response_type: Optional[Type[Response]]
-            An optional class type for the response that, if ``None`` (the default) is replaced with the default
-            provided at initialization.
+        response_type: Optional[ResponseTypes]
+            One or more optional class types for the response that, if ``None`` (the default) is replaced with the
+            default provided at initialization.
 
         Returns
         -------
@@ -613,20 +616,13 @@ class RequestClient:
             else:
                 response_type = self._default_response_type
 
-        response_json = {}
-        try:
-            # Send the request and get the service response
-            serialized_response = await self._transport_client.async_send(data=str(message), await_response=True)
-            if serialized_response is None:
-                raise ValueError(f'Serialized response from {self.__class__.__name__} async message was `None`')
-        except Exception as e:
-            reason = f'{self.__class__.__name__} Send {message.__class__.__name__} Failure ({e.__class__.__name__})'
-            msg = f'Sending {message.__class__.__name__} raised {e.__class__.__name__}: {str(e)}'
-            logger.error(msg)
-            return response_type(success=False, reason=reason, message=msg, data=response_json)
+        # Send the request and get the service response
+        serialized_response = await self._transport_client.async_send(data=str(message), await_response=True)
+        if serialized_response is None:
+            raise ValueError(f'Serialized response from {self.__class__.__name__} async message was `None`')
 
         assert isinstance(serialized_response, str)
-        return self._process_request_response(serialized_response)
+        return self._process_request_response(serialized_response, response_type)
 
 
 class ConnectionContextClient(Generic[CONN], TransportLayerClient, ABC):
