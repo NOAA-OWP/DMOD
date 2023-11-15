@@ -28,7 +28,7 @@ setup(
         "dmod-communication>=0.4.2",
         "dmod-core>=0.9.0",
         "minio",
-        "aiohttp<=3.7.4",
+        "aiohttp~=3.8",
         "shapely>=2.0.0",
         "hypy@git+https://github.com/noaa-owp/hypy@master#egg=hypy&subdirectory=python",
         "gitpython",
