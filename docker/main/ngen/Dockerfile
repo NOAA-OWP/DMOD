@@ -69,12 +69,12 @@ ARG MPICH_MAKE_OPTIONS
 
 ARG BUILD_PARALLEL_JOBS
 
-ARG NGEN_ACTIVATE_C="ON"
-ARG NGEN_ACTIVATE_FORTRAN="ON"
-ARG NGEN_ACTIVATE_PYTHON="ON"
-ARG NGEN_NETCDF_ACTIVE="ON"
-ARG NGEN_ROUTING_ACTIVE="ON"
-ARG NGEN_UDUNITS_ACTIVE="ON"
+ARG NGEN_WITH_BMI_C="ON"
+ARG NGEN_WITH_BMI_FORTRAN="ON"
+ARG NGEN_WITH_PYTHON="ON"
+ARG NGEN_WITH_NETCDF="ON"
+ARG NGEN_WITH_ROUTING="ON"
+ARG NGEN_WITH_UDUNITS="ON"
 ARG NGEN_UDUNITS_QUIET="ON"
 ARG NGEN_WITH_SQLITE="ON"
 
@@ -272,7 +272,7 @@ USER root
 RUN dnf update -y && dnf install -y ${ROCKY_NGEN_DEPS_REQUIRED} && dnf clean -y all \
     && ln -s $(which python3) $(which python3 | sed 's/python3/python/') \
     && pip install --no-cache-dir "pip>=23.0,<23.1" wheel packaging \
-    && if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then pip install --no-cache-dir numpy; fi
+    && if [ "${NGEN_WITH_PYTHON}" == "ON" ]; then pip install --no-cache-dir numpy; fi
 USER ${USER}
 
 ################################################################################################################
@@ -474,12 +474,12 @@ ARG REFRESH_BEFORE_BUILD
 ARG BUILD_PARALLEL_JOBS
 
 ARG NGEN_BUILD_CONFIG_TYPE
-ARG NGEN_ACTIVATE_C
-ARG NGEN_ACTIVATE_FORTRAN
-ARG NGEN_ACTIVATE_PYTHON
-ARG NGEN_NETCDF_ACTIVE
-ARG NGEN_ROUTING_ACTIVE
-ARG NGEN_UDUNITS_ACTIVE
+ARG NGEN_WITH_BMI_C
+ARG NGEN_WITH_BMI_FORTRAN
+ARG NGEN_WITH_PYTHON
+ARG NGEN_WITH_NETCDF
+ARG NGEN_WITH_ROUTING
+ARG NGEN_WITH_UDUNITS
 ARG NGEN_UDUNITS_QUIET
 ARG NGEN_WITH_SQLITE
 
@@ -498,11 +498,11 @@ COPY --chown=${USER} --from=rocky_build_troute ${WORKDIR}/t-route/requirements.t
 ENV BOOST_ROOT=${WORKDIR}/boost
 
 USER root
-RUN if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
+RUN if [ "${NGEN_WITH_PYTHON}" == "ON" ]; then \
         chgrp -R ${USER} /usr/local/lib*/python3.* ; \
         chmod -R g+sw /usr/local/lib*/python3.* ; \
     fi \
-    && if [ "${NGEN_ROUTING_ACTIVE}" == "ON" ]; then \
+    && if [ "${NGEN_WITH_ROUTING}" == "ON" ]; then \
         # These packages install command line tools, which try to go in /usr/local/bin \
         pip3 install --no-cache-dir pyarrow pyproj fiona; \
     fi
@@ -518,19 +518,19 @@ RUN cd ${WORKDIR}/ngen \
         fi \
     # C++ functionality isn't separate, so always build the test_bmi_cpp shared lib \
     && ./build_sub extern/test_bmi_cpp \
-    &&  if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
+    &&  if [ "${NGEN_WITH_PYTHON}" == "ON" ]; then \
             pip3 install --no-cache-dir -r extern/test_bmi_py/requirements.txt; \
-            if [ "${NGEN_ROUTING_ACTIVE}" == "ON" ] ; then \
+            if [ "${NGEN_WITH_ROUTING}" == "ON" ] ; then \
                 pip3 install --no-cache-dir /tmp/t-route-wheels/*.whl; \
                 pip3 install --no-cache-dir -r /tmp/t-route-requirements.txt; \
                 pip3 install --no-cache-dir deprecated geopandas ; \
             fi; \
         fi \
-    &&  if [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ]; then \
+    &&  if [ "${NGEN_WITH_BMI_FORTRAN}" == "ON" ]; then \
                 ./build_sub extern/iso_c_fortran_bmi; \
                 if [ "${BUILD_NOAH_OWP}" == "true" ] ; then ./build_sub extern/noah-owp-modular; fi; \
         fi \
-    &&  if [ "${NGEN_ACTIVATE_C}" == "ON" ]; then \
+    &&  if [ "${NGEN_WITH_BMI_C}" == "ON" ]; then \
                 if [ "${BUILD_CFE}" == "true" ] ; then ./build_sub extern/cfe; fi; \
                 if [ "${BUILD_PET}" == "true" ] ; then ./build_sub extern/evapotranspiration/evapotranspiration; fi; \
                 if [ "${BUILD_TOPMODEL}" == "true" ] ; then ./build_sub extern/topmodel; fi; \
@@ -538,13 +538,13 @@ RUN cd ${WORKDIR}/ngen \
     && if [ "${BUILD_SLOTH}" == "true" ] ; then ./build_sub extern/sloth; fi \
     && if [ "${BUILD_NGEN_SERIAL}" == "true" ]; then \
         cmake -B cmake_build_serial -S . \
-        -DMPI_ACTIVE:BOOL=OFF \
-        -DNETCDF_ACTIVE:BOOL=${NGEN_NETCDF_ACTIVE} \
-        -DBMI_C_LIB_ACTIVE:BOOL=${NGEN_ACTIVATE_C} \
-        -DBMI_FORTRAN_ACTIVE:BOOL=${NGEN_ACTIVATE_FORTRAN} \
-        -DNGEN_ACTIVATE_PYTHON:BOOL=${NGEN_ACTIVATE_PYTHON} \
-        -DNGEN_ACTIVATE_ROUTING:BOOL=${NGEN_ROUTING_ACTIVE} \
-        -DUDUNITS_ACTIVE:BOOL=${NGEN_UDUNITS_ACTIVE} \
+        -DNGEN_WITH_MPI:BOOL=OFF \
+        -DNGEN_WITH_NETCDF:BOOL=${NGEN_WITH_NETCDF} \
+        -DNGEN_WITH_BMI_C:BOOL=${NGEN_WITH_BMI_C} \
+        -DNGEN_WITH_BMI_FORTRAN:BOOL=${NGEN_WITH_BMI_FORTRAN} \
+        -DNGEN_WITH_PYTHON:BOOL=${NGEN_WITH_PYTHON} \
+        -DNGEN_WITH_ROUTING:BOOL=${NGEN_WITH_ROUTING} \
+        -DNGEN_WITH_UDUNITS:BOOL=${NGEN_WITH_UDUNITS} \
         -DUDUNITS_QUIET:BOOL=${NGEN_UDUNITS_QUIET} \
         -DNGEN_WITH_SQLITE=${NGEN_WITH_SQLITE} \
         -DCMAKE_INSTALL_PREFIX=${WORKDIR} \
@@ -555,13 +555,13 @@ RUN cd ${WORKDIR}/ngen \
     fi \
     && if [ "${BUILD_NGEN_PARALLEL}" == "true" ]; then \
         cmake -B cmake_build_parallel -S . \
-        -DMPI_ACTIVE:BOOL=ON \
-        -DNETCDF_ACTIVE:BOOL=${NGEN_NETCDF_ACTIVE} \
-        -DBMI_C_LIB_ACTIVE:BOOL=${NGEN_ACTIVATE_C} \
-        -DBMI_FORTRAN_ACTIVE:BOOL=${NGEN_ACTIVATE_FORTRAN} \
-        -DNGEN_ACTIVATE_PYTHON:BOOL=${NGEN_ACTIVATE_PYTHON} \
-        -DNGEN_ACTIVATE_ROUTING:BOOL=${NGEN_ROUTING_ACTIVE} \
-        -DUDUNITS_ACTIVE:BOOL=${NGEN_UDUNITS_ACTIVE} \
+        -DNGEN_WITH_MPI:BOOL=ON \
+        -DNGEN_WITH_NETCDF:BOOL=${NGEN_WITH_NETCDF} \
+        -DNGEN_WITH_BMI_C:BOOL=${NGEN_WITH_BMI_C} \
+        -DNGEN_WITH_BMI_FORTRAN:BOOL=${NGEN_WITH_BMI_FORTRAN} \
+        -DNGEN_WITH_PYTHON:BOOL=${NGEN_WITH_PYTHON} \
+        -DNGEN_WITH_ROUTING:BOOL=${NGEN_WITH_ROUTING} \
+        -DNGEN_WITH_UDUNITS:BOOL=${NGEN_WITH_UDUNITS} \
         -DUDUNITS_QUIET:BOOL=${NGEN_UDUNITS_QUIET} \
         -DNGEN_WITH_SQLITE=${NGEN_WITH_SQLITE} \
         -DCMAKE_INSTALL_PREFIX=${WORKDIR} \
@@ -584,21 +584,21 @@ RUN cd ${WORKDIR}/ngen \
         && cmake --build $BUILD_DIR --target test_bmi_cpp \
         && $BUILD_DIR/test/test_bmi_cpp \
         # For the external language BMI integrations, conditionally build the test packages/libraries and run tests \
-        &&  if [ "${NGEN_ACTIVATE_C}" == "ON" ]; then \
+        &&  if [ "${NGEN_WITH_BMI_C}" == "ON" ]; then \
                 ./build_sub extern/test_bmi_c; \
                 cmake --build $BUILD_DIR --target test_bmi_c; \
                 $BUILD_DIR/test/test_bmi_c; \
             fi \
-        &&  if [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ]; then \
+        &&  if [ "${NGEN_WITH_BMI_FORTRAN}" == "ON" ]; then \
                 ./build_sub extern/test_bmi_fortran; \
                 cmake --build $BUILD_DIR --target test_bmi_fortran; \
                 $BUILD_DIR/test/test_bmi_fortran; \
             fi \
-        &&  if [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
+        &&  if [ "${NGEN_WITH_PYTHON}" == "ON" ]; then \
                 cmake --build $BUILD_DIR --target test_bmi_python; \
                 $BUILD_DIR/test/test_bmi_python; \
             fi \
-        &&  if [ "${NGEN_ACTIVATE_C}" == "ON" ] && [ "${NGEN_ACTIVATE_FORTRAN}" == "ON" ] && [ "${NGEN_ACTIVATE_PYTHON}" == "ON" ]; then \
+        &&  if [ "${NGEN_WITH_BMI_C}" == "ON" ] && [ "${NGEN_WITH_BMI_FORTRAN}" == "ON" ] && [ "${NGEN_WITH_PYTHON}" == "ON" ]; then \
                 cmake --build $BUILD_DIR --target test_bmi_multi; \
                 $BUILD_DIR/test/test_bmi_multi; \
             fi ; \
@@ -625,11 +625,11 @@ FROM rocky-ngen-deps as partitioner_image
 ARG BUILD_PARALLEL_JOBS
 ARG COMMIT
 ARG REFRESH_BEFORE_BUILD
-ARG NGEN_ACTIVATE_C
-ARG NGEN_ACTIVATE_FORTRAN
-ARG NGEN_ACTIVATE_PYTHON
-ARG NGEN_NETCDF_ACTIVE
-ARG NGEN_UDUNITS_ACTIVE
+ARG NGEN_WITH_BMI_C
+ARG NGEN_WITH_BMI_FORTRAN
+ARG NGEN_WITH_PYTHON
+ARG NGEN_WITH_NETCDF
+ARG NGEN_WITH_UDUNITS
 ARG NGEN_UDUNITS_QUIET
 ARG NGEN_WITH_SQLITE
 ARG PARTITIONER_EXECUTABLE
@@ -646,13 +646,13 @@ RUN cd ${WORKDIR}/ngen \
         fi \
     && if [ -z "${PARTITIONER_EXECUTABLE:-}" ]; then echo "Error: target/executable name not set" 2>&1 ; exit 1; fi \
     && cmake -B cmake_build -S . \
-               -DMPI_ACTIVE:BOOL=OFF \
-               -DNETCDF_ACTIVE:BOOL=${NGEN_NETCDF_ACTIVE} \
-               #-DBMI_C_LIB_ACTIVE:BOOL=${NGEN_ACTIVATE_C} \
-               #-DBMI_FORTRAN_ACTIVE:BOOL=${NGEN_ACTIVATE_FORTRAN} \
-               #-DNGEN_ACTIVATE_PYTHON:BOOL=${NGEN_ACTIVATE_PYTHON} \
-               #-DNGEN_ACTIVATE_ROUTING:BOOL=${NGEN_ROUTING_ACTIVE} \
-               -DUDUNITS_ACTIVE:BOOL=${NGEN_UDUNITS_ACTIVE} \
+               -DNGEN_WITH_MPI:BOOL=OFF \
+               -DNGEN_WITH_NETCDF:BOOL=${NGEN_WITH_NETCDF} \
+               #-DNGEN_WITH_BMI_C:BOOL=${NGEN_WITH_BMI_C} \
+               #-DNGEN_WITH_BMI_FORTRAN:BOOL=${NGEN_WITH_BMI_FORTRAN} \
+               #-DNGEN_WITH_PYTHON:BOOL=${NGEN_WITH_PYTHON} \
+               #-DNGEN_WITH_ROUTING:BOOL=${NGEN_WITH_ROUTING} \
+               -DNGEN_WITH_UDUNITS:BOOL=${NGEN_WITH_UDUNITS} \
                -DUDUNITS_QUIET:BOOL=${NGEN_UDUNITS_QUIET} \
                -DNGEN_WITH_SQLITE=${NGEN_WITH_SQLITE} \
                -DCMAKE_INSTALL_PREFIX=${WORKDIR} \
