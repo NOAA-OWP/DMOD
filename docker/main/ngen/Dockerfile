@@ -46,7 +46,7 @@ ARG ROCKY_BASE_REQUIRED="sudo openssh openssh-server bash git which"
 
 ARG ROCKY_NGEN_DEPS_REQUIRED="sudo gcc gcc-c++ make cmake tar git gcc-gfortran libgfortran \
     python3 python3-devel python3-pip \
-    bzip2 expat expat-devel flex bison udunits2 udunits2-devel zlib-devel"
+    bzip2 expat expat-devel flex bison udunits2 udunits2-devel zlib-devel sqlite-devel sqlite-libs"
 # TODO: removed texinfo from list because it couldn't be found; make sure this doesn't lead to issues
 
 ARG BOOST_VERSION=1.82.0
@@ -76,6 +76,7 @@ ARG NGEN_NETCDF_ACTIVE="ON"
 ARG NGEN_ROUTING_ACTIVE="ON"
 ARG NGEN_UDUNITS_ACTIVE="ON"
 ARG NGEN_UDUNITS_QUIET="ON"
+ARG NGEN_WITH_SQLITE="ON"
 
 ARG BUILD_NGEN_SERIAL="true"
 ARG BUILD_NGEN_PARALLEL="true"
@@ -480,6 +481,7 @@ ARG NGEN_NETCDF_ACTIVE
 ARG NGEN_ROUTING_ACTIVE
 ARG NGEN_UDUNITS_ACTIVE
 ARG NGEN_UDUNITS_QUIET
+ARG NGEN_WITH_SQLITE
 
 ARG BUILD_NGEN_SERIAL
 ARG BUILD_NGEN_PARALLEL
@@ -544,6 +546,7 @@ RUN cd ${WORKDIR}/ngen \
         -DNGEN_ACTIVATE_ROUTING:BOOL=${NGEN_ROUTING_ACTIVE} \
         -DUDUNITS_ACTIVE:BOOL=${NGEN_UDUNITS_ACTIVE} \
         -DUDUNITS_QUIET:BOOL=${NGEN_UDUNITS_QUIET} \
+        -DNGEN_WITH_SQLITE=${NGEN_WITH_SQLITE} \
         -DCMAKE_INSTALL_PREFIX=${WORKDIR} \
         -DNETCDF_INCLUDE_DIR=/usr/include \
         -DNETCDF_LIBRARY=/usr/lib/libnetcdf.so \
@@ -560,6 +563,7 @@ RUN cd ${WORKDIR}/ngen \
         -DNGEN_ACTIVATE_ROUTING:BOOL=${NGEN_ROUTING_ACTIVE} \
         -DUDUNITS_ACTIVE:BOOL=${NGEN_UDUNITS_ACTIVE} \
         -DUDUNITS_QUIET:BOOL=${NGEN_UDUNITS_QUIET} \
+        -DNGEN_WITH_SQLITE=${NGEN_WITH_SQLITE} \
         -DCMAKE_INSTALL_PREFIX=${WORKDIR} \
         -DNETCDF_INCLUDE_DIR=/usr/include \
         -DNETCDF_LIBRARY=/usr/lib/libnetcdf.so \
@@ -627,6 +631,7 @@ ARG NGEN_ACTIVATE_PYTHON
 ARG NGEN_NETCDF_ACTIVE
 ARG NGEN_UDUNITS_ACTIVE
 ARG NGEN_UDUNITS_QUIET
+ARG NGEN_WITH_SQLITE
 ARG PARTITIONER_EXECUTABLE
 
 COPY --chown=${USER} partitioner_entrypoint.sh ${WORKDIR}/entrypoint.sh
@@ -649,6 +654,7 @@ RUN cd ${WORKDIR}/ngen \
                #-DNGEN_ACTIVATE_ROUTING:BOOL=${NGEN_ROUTING_ACTIVE} \
                -DUDUNITS_ACTIVE:BOOL=${NGEN_UDUNITS_ACTIVE} \
                -DUDUNITS_QUIET:BOOL=${NGEN_UDUNITS_QUIET} \
+               -DNGEN_WITH_SQLITE=${NGEN_WITH_SQLITE} \
                -DCMAKE_INSTALL_PREFIX=${WORKDIR} \
                -DNETCDF_INCLUDE_DIR=/usr/include \
                -DNETCDF_LIBRARY=/usr/lib/libnetcdf.so \
