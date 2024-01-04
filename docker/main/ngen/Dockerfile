@@ -64,7 +64,7 @@ ARG HD5_VERSION=1.10.9
 # Work around Fortran MPI issue
 ARG FCFLAGS="-w -fallow-argument-mismatch -O2"
 ARG FFLAGS="-w -fallow-argument-mismatch -O2"
-ARG MPICH_CONFIGURE_OPTIONS=""
+ARG MPICH_CONFIGURE_OPTIONS="--enable-shared"
 ARG MPICH_MAKE_OPTIONS
 
 ARG BUILD_PARALLEL_JOBS
@@ -277,6 +277,23 @@ USER ${USER}
 
 ################################################################################################################
 ################################################################################################################
+##### Create intermediate Docker build stage for building t-route in Rocky Linux environment
+FROM rocky-base as rocky_init_troute_repo
+ARG TROUTE_REPO_URL
+ARG TROUTE_BRANCH
+ARG TROUTE_COMMIT
+ARG WORKDIR
+
+WORKDIR ${WORKDIR}
+
+RUN cd ${WORKDIR} \
+    && git clone --single-branch --branch $TROUTE_BRANCH $TROUTE_REPO_URL \
+    && cd ./t-route \
+    && if [ "x$TROUTE_COMMIT" != "x" ]; then git checkout $TROUTE_COMMIT; fi \
+    && git submodule update --init
+
+################################################################################################################
+################################################################################################################
 ##### Create intermediate Docker build stage for Rocky-Linux-based "ngen-deps"
 FROM rocky-ngen-packaged-deps as rocky-ngen-deps
 
@@ -307,6 +324,8 @@ ENV HD5_VERSION=${HD5_VERSION}
 ENV NETCDF_C_VERSION=${NETCDF_C_VERSION}
 ENV NETCDF_CXX_VERSION=${NETCDF_CXX_VERSION}
 ENV NETCDF_FORTRAN_VERSION=${NETCDF_FORTRAN_VERSION}
+
+ARG NGEN_WITH_ROUTING
 
 COPY --from=download_mpich /tmp/mpich-${MPICH_VERSION}.tar.gz /tmp/ngen-deps/mpich-${MPICH_VERSION}.tar.gz
 COPY --from=download_hd5 /tmp/hdf5-${HD5_VERSION}.tar.gz /tmp/ngen-deps/hdf5-${HD5_VERSION}.tar.gz
@@ -343,7 +362,8 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && mkdir netcdf \
     && tar -xzf netcdf-${NETCDF_C_VERSION}.tar.gz -C netcdf --strip 1 \
     && cd netcdf \
-    && LIBS=curl && ./configure --prefix=/usr \
+    # Make sure the netcdf prefix and install dirs align with t-route env var NETCDFINC set a little further below \
+    && LIBS=curl && ./configure --enable-shared --prefix=/usr \
     && make -j ${BUILD_PARALLEL_JOBS} && make install \
     # TODO: if we run into any problem, might need to reactivate this \
     #&& make check \
@@ -374,31 +394,36 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     && chown -R ${USER}:${USER} ${BOOST_ROOT} \
     && rm -rf /tmp/ngen-deps
 
-# Install required Python packages for troute build/run that needed one or more of the source dependencies
-RUN pip install --no-cache-dir numpy pandas pyyaml bmipy Cython blosc2==${BLOSC2_VERSION:-2.0.0} netCDF4 wheel packaging \
-    && env HDF5_DIR=/usr pip install --no-cache-dir --no-build-isolation tables
-
 ENV PATH=${PATH}:/usr/lib64/mpich/bin
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib:/usr/local/lib64
+# This next value is eventually needed for the t-route build ...
+# ... make sure it stays in sync with configure step for netcdf above
+ENV NETCDFINC=/usr/include
+ENV CC=gcc
+
+# Get this for the times we need to install t-route
+COPY --from=rocky_init_troute_repo ${WORKDIR}/t-route/requirements.txt ${WORKDIR}/t-route-requirements.txt
+
+# Install troute and required Python packages, with some deps needing some special attention
+RUN if [ "${NGEN_WITH_ROUTING}" == "ON" ]; then \
+      # Get subset of requirements needed first (including version specifiers if present) because of netCDF4 handling \
+      cat ${WORKDIR}/t-route-requirements.txt | grep -i numpy >> first_reqs.txt ; \
+      cat ${WORKDIR}/t-route-requirements.txt | grep -i pandas | grep -v geo >> first_reqs.txt ; \
+      cat ${WORKDIR}/t-route-requirements.txt | grep -i pyyaml >> first_reqs.txt ; \
+      cat ${WORKDIR}/t-route-requirements.txt | grep -i cython >> first_reqs.txt ; \
+      cat ${WORKDIR}/t-route-requirements.txt | grep -i pyarrow >> first_reqs.txt ; \
+      pip3 install --no-cache-dir -r first_reqs.txt ; \
+      rm first_reqs.txt ; \
+      # Then install a few more things, including a particular blosc2 version and an adjusted build of tables \
+      pip3 install --no-cache-dir bmipy blosc2==${BLOSC2_VERSION:-2.0.0} build wheel packaging pyproj fiona geopandas ; \
+      env HDF5_DIR=/usr pip3 install --no-cache-dir --no-build-isolation tables ; \
+      env HDF5_DIR=/usr pip3 install --no-cache-dir netCDF4==1.6.3 ; \
+      # Then install remaining t-route requirements
+      pip3 install --no-cache-dir -r ${WORKDIR}/t-route-requirements.txt ; \
+    fi \
+    && rm ${WORKDIR}/t-route-requirements.txt
 
 USER ${USER}
-
-################################################################################################################
-################################################################################################################
-##### Create intermediate Docker build stage for building t-route in Rocky Linux environment
-FROM rocky-base as rocky_init_troute_repo
-ARG TROUTE_REPO_URL
-ARG TROUTE_BRANCH
-ARG TROUTE_COMMIT
-ARG WORKDIR
-
-WORKDIR ${WORKDIR}
-
-RUN cd ${WORKDIR} \
-    && git clone --single-branch --branch $TROUTE_BRANCH $TROUTE_REPO_URL \
-    && cd ./t-route \
-    && if [ "x$TROUTE_COMMIT" != "x" ]; then git checkout $TROUTE_COMMIT; fi \
-    && git submodule update --init
 
 ################################################################################################################
 ################################################################################################################
@@ -430,33 +455,39 @@ RUN cd ${WORKDIR} \
 
 ################################################################################################################
 ################################################################################################################
-##### Create intermediate Docker build stage for building t-route in Rocky Linux environment
+###### Create intermediate Docker build stage for building t-route in Rocky Linux environment
 FROM rocky-ngen-deps as rocky_build_troute
 
 ARG TROUTE_REPO_URL
 ARG TROUTE_BRANCH
 ARG TROUTE_COMMIT
 ARG BUILD_PARALLEL_JOBS
+ARG NGEN_WITH_ROUTING
 
 COPY --chown=${USER} --from=rocky_init_troute_repo ${WORKDIR}/t-route ${WORKDIR}/t-route
 
 #    && python(){ /usr/bin/python3 \$@; } && export -f python \
-RUN cd ${WORKDIR}/t-route \
-    && mkdir wheels \
-    && pip3 install -r ./requirements.txt \
-    && pip3 install wheel deprecated dask pyarrow geopandas Cython==3.0.3 \
-    && export FC=gfortran \
-    && cd ${WORKDIR}/t-route \
-    && ./compiler.sh \
-    && cd ./src/troute-network \
-    && python3 setup.py --use-cython bdist_wheel \
-    && cp dist/*.whl ${WORKDIR}/t-route/wheels/ \
-    && cd ../troute-routing \
-    && python3 setup.py --use-cython bdist_wheel \
-    && cp dist/*.whl ${WORKDIR}/t-route/wheels/ \
-    && cd ../troute-nwm \
-    && python3 setup.py bdist_wheel \
-    && cp dist/*.whl ${WORKDIR}/t-route/wheels/ 
+RUN if [ "${NGEN_WITH_ROUTING}" == "ON" ]; then \
+      export FC=gfortran ; \
+      export F90=gfortran ; \
+      mkdir ${WORKDIR}/t-route/wheels \
+      && cd ${WORKDIR}/t-route \
+      && ./compiler.sh \
+      && cd ${WORKDIR}/t-route/src/troute-network \
+      && python3 setup.py --use-cython bdist_wheel \
+      && cp dist/*.whl ${WORKDIR}/t-route/wheels/ \
+      && cd ${WORKDIR}/t-route/src/troute-routing \
+      && python3 setup.py --use-cython bdist_wheel \
+      && cp dist/*.whl ${WORKDIR}/t-route/wheels/ \
+      && cd ${WORKDIR}/t-route/src/troute-config \
+      # troute-config doesn't use setup.py ... use build to make the wheel \
+      #&& python3 setup.py --use-cython bdist_wheel \
+      && python3 -m build . \
+      && cp dist/*.whl ${WORKDIR}/t-route/wheels/ \
+      && cd ${WORKDIR}/t-route/src/troute-nwm \
+      && python3 setup.py bdist_wheel \
+      && cp dist/*.whl ${WORKDIR}/t-route/wheels/ ; \
+    fi
 
 USER root
 RUN rm /usr/bin/python
@@ -494,6 +525,7 @@ ARG BUILD_SLOTH
 
 COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/ngen
 COPY --chown=${USER} --from=rocky_build_troute ${WORKDIR}/t-route/wheels /tmp/t-route-wheels
+COPY --chown=${USER} --from=rocky_build_troute ${WORKDIR}/t-route/src/kernel /tmp/t-route-kernels
 COPY --chown=${USER} --from=rocky_build_troute ${WORKDIR}/t-route/requirements.txt /tmp/t-route-requirements.txt
 ENV BOOST_ROOT=${WORKDIR}/boost
 
@@ -501,10 +533,6 @@ USER root
 RUN if [ "${NGEN_WITH_PYTHON}" == "ON" ]; then \
         chgrp -R ${USER} /usr/local/lib*/python3.* ; \
         chmod -R g+sw /usr/local/lib*/python3.* ; \
-    fi \
-    && if [ "${NGEN_WITH_ROUTING}" == "ON" ]; then \
-        # These packages install command line tools, which try to go in /usr/local/bin \
-        pip3 install --no-cache-dir pyarrow pyproj fiona; \
     fi
 USER ${USER}
 
@@ -521,9 +549,7 @@ RUN cd ${WORKDIR}/ngen \
     &&  if [ "${NGEN_WITH_PYTHON}" == "ON" ]; then \
             pip3 install --no-cache-dir -r extern/test_bmi_py/requirements.txt; \
             if [ "${NGEN_WITH_ROUTING}" == "ON" ] ; then \
-                pip3 install --no-cache-dir /tmp/t-route-wheels/*.whl; \
-                pip3 install --no-cache-dir -r /tmp/t-route-requirements.txt; \
-                pip3 install --no-cache-dir deprecated geopandas ; \
+                pip3 install --no-cache-dir /tmp/t-route-wheels/*.whl ; \
             fi; \
         fi \
     &&  if [ "${NGEN_WITH_BMI_FORTRAN}" == "ON" ]; then \
