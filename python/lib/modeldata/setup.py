@@ -33,6 +33,7 @@ setup(
         "hypy@git+https://github.com/noaa-owp/hypy@master#egg=hypy&subdirectory=python",
         "gitpython",
         "pydantic>=1.10.8,~=1.10",
+        "pyogrio",
     ],
     packages=find_namespace_packages(exclude=["dmod.test", "schemas", "ssl", "src"]),
 )
