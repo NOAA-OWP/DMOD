@@ -345,7 +345,7 @@ class GeoPackageHydrofabric(Hydrofabric):
         """
         layer_names = fiona.listlayers(geopackage_file)
         return cls(layer_names=layer_names,
-                   layer_dataframes=dict([(ln, gpd.read_file(geopackage_file, layer=ln)) for ln in layer_names]),
+                   layer_dataframes={ln: gpd.read_file(geopackage_file, layer=ln, engine="pyogrio") for ln in layer_names},
                    vpu=vpu,
                    is_conus=is_conus)
 

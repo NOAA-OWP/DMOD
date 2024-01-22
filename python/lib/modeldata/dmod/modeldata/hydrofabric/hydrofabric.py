@@ -675,13 +675,13 @@ class GeoJsonHydrofabricReader:
         if isinstance(catchment_data, gpd.GeoDataFrame):
             self.catchment_geodataframe = catchment_data
         else:
-            self.catchment_geodataframe = gpd.read_file(catchment_data)
+            self.catchment_geodataframe = gpd.read_file(catchment_data, engine="pyogrio")
         self._standardize(self.catchment_geodataframe, catchment_data, 'catchment hydrofabric')
 
         if isinstance(nexus_data, gpd.GeoDataFrame):
             self.nexus_geodataframe = nexus_data
         else:
-            self.nexus_geodataframe = gpd.read_file(nexus_data)
+            self.nexus_geodataframe = gpd.read_file(nexus_data, engine="pyogrio")
         self._standardize(self.nexus_geodataframe, nexus_data, 'nexus hydrofabric')
 
         if isinstance(cross_walk, pd.DataFrame):
