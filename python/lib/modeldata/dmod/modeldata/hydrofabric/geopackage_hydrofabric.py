@@ -546,7 +546,7 @@ class GeoPackageHydrofabric(Hydrofabric):
         int
             A unique id for this instance.
         """
-        layer_hashes = [hash_pandas_object(self._dataframes[layer]).values.sum() for layer in self._layer_names]
+        layer_hashes = [hash_pandas_object(self._dataframes[layer]).values.sum() for layer in sorted(self._layer_names)]
         return hashlib.sha1(','.join([str(h) for h in layer_hashes]).encode('UTF-8')).hexdigest()
 
     @property
