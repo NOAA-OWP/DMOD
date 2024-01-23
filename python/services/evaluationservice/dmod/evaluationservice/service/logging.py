@@ -239,10 +239,8 @@ def get_evaluation_service_logging_filename() -> str:
     Returns:
         Gets a suggested name for the core application log filename
     """
-    evaluation_service_log_filename = os.environ.get(
-        'APPLICATION_LOG_PATH',
-        os.path.join(application_values.BASE_DIRECTORY, f'{DEFAULT_LOGGER_NAME}.log')
-    )
+    evaluation_service_log_filename = os.environ.get('APPLICATION_LOG_PATH') \
+        or os.path.join(application_values.BASE_DIRECTORY, f'{DEFAULT_LOGGER_NAME}.log')
 
     if not evaluation_service_log_filename.endswith(".log"):
         evaluation_service_log_filename += ".log"
@@ -259,15 +257,31 @@ def get_socket_log_filename() -> str:
     Returns:
         The name of the log file for sockets
     """
-    socket_log_filename = os.environ.get(
-        "EVALUATION_SOCKET_LOG_PATH",
-        os.path.join(application_values.BASE_DIRECTORY, "EvaluationSockets.log")
-    )
+    socket_log_filename = os.environ.get("EVALUATION_SOCKET_LOG_PATH") \
+        or os.path.join(application_values.BASE_DIRECTORY, "EvaluationSockets.log")
 
     if not socket_log_filename.endswith(".log"):
         socket_log_filename += ".log"
 
     return socket_log_filename
+
+
+def get_error_log_filename() -> str:
+    """
+    Gets the name of the log file for errors
+
+    Controlled via the optional `EVALUATION_ERROR_LOG_PATH` environment variable
+
+    Returns:
+        The name of the log file for errors
+    """
+    error_log_filename = os.environ.get("EVALUATION_ERROR_LOG_PATH") \
+                         or os.path.join(application_values.BASE_DIRECTORY, "errors.log")
+
+    if not error_log_filename.endswith(".log"):
+        error_log_filename += ".log"
+
+    return error_log_filename
 
 
 def get_maximum_log_size() -> int:
@@ -463,13 +477,13 @@ DEFAULT_LOGGING_CONFIGURATION = {
             possible_filename=get_socket_log_filename()
         ),
         'stdout': {
-            'level': 'DEBUG',
+            'level': logging.DEBUG,
             'class': 'logging.StreamHandler',
             'formatter': 'standard_formatter'
         },
         "errors": {
-            "level": "ERROR",
-            "filename": "errors.log",
+            "level": logging.ERROR,
+            "filename": get_error_log_filename(),
             "formatter": "standard_formatter",
             "class": "logging.handlers.RotatingFileHandler",
             "maxBytes": get_maximum_log_size(),
