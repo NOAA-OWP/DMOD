@@ -3,13 +3,12 @@ Defines specialized collections that aren't built into any of the first or third
 """
 import typing
 
-from collections.abc import Collection
 from typing import Iterator
 
 _T = typing.TypeVar("_T")
 
 
-class Bag(Collection[_T]):
+class Bag(typing.Collection[_T]):
     """
     A wrapper collection that hides functions/elements that treat the contents as anything other than an abstract
     collection
