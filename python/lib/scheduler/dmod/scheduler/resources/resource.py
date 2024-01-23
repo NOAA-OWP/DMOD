@@ -2,8 +2,18 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
 from typing_extensions import Self
 from pydantic import Field, Extra, validator, root_validator
-from functools import cache
 from warnings import warn
+import sys
+# TODO: remove guard when 3.8 support is dropped
+if sys.version_info >= (3, 9):
+    from functools import cache
+else:
+    # support python <= 3.8
+    # functools.cache introduced in 3.9
+    # https://docs.python.org/3.9/library/functools.html#functools.cache
+    # > Returns the same as lru_cache(maxsize=None)
+    from functools import lru_cache
+    cache = lru_cache(maxsize=None)
 
 
 from dmod.core.enum import PydanticEnum
