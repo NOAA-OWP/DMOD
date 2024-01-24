@@ -55,7 +55,7 @@ class TestJobImpl(unittest.TestCase):
 
         self.assertNotEqual(job.job_id, uuid_as_str)
 
-        job.job_id = uuid_val
+        job.set_job_id(uuid_val)
 
         self.assertEqual(job.job_id, uuid_as_str)
 
@@ -68,7 +68,7 @@ class TestJobImpl(unittest.TestCase):
         job = self._example_jobs[example_index]
         initial_last_updated = job.last_updated
 
-        job.job_id = uuid_val
+        job.set_job_id(uuid_val)
 
         self.assertLess(initial_last_updated, job.last_updated)
 
@@ -81,7 +81,7 @@ class TestJobImpl(unittest.TestCase):
 
         self.assertNotEqual(job.job_id, uuid_as_str)
 
-        job.job_id = uuid_as_str
+        job.set_job_id(uuid_as_str)
 
         self.assertEqual(job.job_id, uuid_as_str)
 
@@ -93,7 +93,7 @@ class TestJobImpl(unittest.TestCase):
         job = self._example_jobs[example_index]
         initial_last_updated = job.last_updated
 
-        job.job_id = uuid_as_str
+        job.set_job_id(uuid_as_str)
 
         self.assertLess(initial_last_updated, job.last_updated)
 
@@ -142,7 +142,7 @@ class TestJobImpl(unittest.TestCase):
         job = self._example_jobs[example_index_job]
 
         self.assertIsNone(job.allocations)
-        job.allocations = allocations
+        job.set_allocations(allocations)
         self.assertIsNotNone(job.allocations)
 
     # Test that allocation setter works with tuple
@@ -155,7 +155,7 @@ class TestJobImpl(unittest.TestCase):
         job = self._example_jobs[example_index_job]
 
         self.assertIsNone(job.allocations)
-        job.allocations = allocations
+        job.set_allocations(allocations)
         self.assertIsNotNone(job.allocations)
 
     # Test that allocation setter works correctly with list
@@ -166,7 +166,7 @@ class TestJobImpl(unittest.TestCase):
         allocation = self._resource_allocations[example_index_allocation]
         allocations = [allocation]
         job = self._example_jobs[example_index_job]
-        job.allocations = allocations
+        job.set_allocations(allocations)
         self.assertEqual(len(allocations), len(job.allocations))
         for i in range(len(allocations)):
             self.assertEqual(allocations[i], job.allocations[i])
@@ -179,7 +179,7 @@ class TestJobImpl(unittest.TestCase):
         allocation = self._resource_allocations[example_index_allocation]
         allocations = (allocation,)
         job = self._example_jobs[example_index_job]
-        job.allocations = allocations
+        job.set_allocations(allocations)
         self.assertEqual(len(allocations), len(job.allocations))
         for i in range(len(allocations)):
             self.assertEqual(allocations[i], job.allocations[i])
@@ -193,7 +193,7 @@ class TestJobImpl(unittest.TestCase):
         allocations = [allocation]
         job = self._example_jobs[example_index_job]
         initial_last_updated = job.last_updated
-        job.allocations = allocations
+        job.set_allocations(allocations)
         self.assertLess(initial_last_updated, job.last_updated)
 
     # Test that allocation setter updates last_updated correctly with tuple
@@ -206,7 +206,7 @@ class TestJobImpl(unittest.TestCase):
         job = self._example_jobs[example_index_job]
         initial_last_updated = job.last_updated
 
-        job.allocations = allocations
+        job.set_allocations(allocations)
         self.assertLess(initial_last_updated, job.last_updated)
 
     # TODO: add tests for rest of setters that should update last_updated property
