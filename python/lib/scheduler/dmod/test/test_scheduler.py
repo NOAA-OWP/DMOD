@@ -68,7 +68,7 @@ class TestLauncher(unittest.TestCase):
                                           allocation_paradigm='SINGLE_NODE')
         ex_job = RequestedJob(sch_req)
         alloc = ResourceAllocation('1', 'hostname1', cpu_count, mem_size)
-        ex_job.allocations = [alloc]
+        ex_job.set_allocations([alloc])
         self._example_jobs.append(ex_job)
 
         # Example 2 - with two node allocated with 4 cpus
@@ -96,7 +96,7 @@ class TestLauncher(unittest.TestCase):
         allocs = []
         allocs.append(ResourceAllocation('1', 'hostname1', 2, int(mem_size/2)))
         allocs.append(ResourceAllocation('2', 'hostname2', 2, int(mem_size/2)))
-        ex_job.allocations = allocs
+        ex_job.set_allocations(allocs)
         self._example_jobs.append(ex_job)
 
 
