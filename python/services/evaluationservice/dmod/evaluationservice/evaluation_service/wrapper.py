@@ -48,11 +48,19 @@ class WrapperResults:
         return iter(self.__multiple_values)
 
 
+_T = typing.TypeVar("_T")
+_V = typing.TypeVar("_V")
+
+class wrapper_fn(typing.Protocol, typing.Generic[_T, _V]):
+    def __call__(self, *args: _T, **kwargs: _V) -> typing.Union[_MODEL_TYPE, typing.Sequence[_MODEL_TYPE]]:
+        ...
+
+
 def wrapper_caller(
-    function: typing.Callable[[typing.Any, ...], typing.Union[_MODEL_TYPE, typing.Sequence[_MODEL_TYPE]]],
+    function: wrapper_fn[_T, _V],
     _wrapper_return_values: WrapperResults,
-    args: typing.Iterable,
-    kwargs: typing.Mapping
+    args: typing.Sequence[_T],
+    kwargs: typing.Mapping[str, _V],
 ):
     function_results = function(*args, **kwargs)
 
@@ -79,9 +87,9 @@ class ModelWrapper:
 
     def __call_wrapper(
         self,
-        function: typing.Callable[[typing.Any, ...], typing.Union[_MODEL_TYPE, typing.Sequence[_MODEL_TYPE]]],
-        *args,
-        **kwargs
+        function: wrapper_fn[_T, _V],
+        *args: _T,
+        **kwargs: _V,
     ) -> typing.Union[_MODEL_TYPE, typing.Sequence[_MODEL_TYPE]]:
         results = WrapperResults()
 
