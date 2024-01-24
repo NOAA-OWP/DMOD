@@ -2,6 +2,7 @@
 Helper functions used for interacting with the Django ORM in an asynchronous context
 """
 import typing
+import typing_extensions
 import functools
 import asyncio
 import threading
@@ -10,7 +11,7 @@ from django.db.models import QuerySet
 
 
 _T = typing.TypeVar("_T")
-LAZY_RETRIEVER = typing.Callable[[typing.Any, ...], typing.Optional[QuerySet[_T]]]
+LAZY_RETRIEVER = typing.Callable[[typing_extensions.ParamSpec], typing.Optional[QuerySet[_T]]]
 
 
 def get_values_eagerly(function: LAZY_RETRIEVER, *args, **kwargs) -> typing.Optional[typing.Sequence[_T]]:
@@ -35,7 +36,7 @@ def get_values_eagerly(function: LAZY_RETRIEVER, *args, **kwargs) -> typing.Opti
     return result
 
 
-async def communicate_with_database(function: typing.Callable[[typing.Any, ...], _T], *args, **kwargs) -> _T:
+async def communicate_with_database(function: typing.Callable[[typing_extensions.ParamSpec], _T], *args, **kwargs) -> _T:
     """
     Use a function that has to use the Django database.
 
@@ -56,7 +57,7 @@ async def communicate_with_database(function: typing.Callable[[typing.Any, ...],
     result = await asyncio.get_running_loop().run_in_executor(None, prepared_function)
     return result
 
-def wrapper_communicate(function: typing.Callable[[typing.Any, ...], _T], cwds_return_data: typing.MutableMapping, kwargs: typing.Mapping):
+def wrapper_communicate(function: typing.Callable[[typing_extensions.ParamSpecKwargs], _T], cwds_return_data: typing.MutableMapping, kwargs: typing.Mapping):
     results = function(**kwargs)
 
     if results and isinstance(results, QuerySet):
@@ -65,7 +66,7 @@ def wrapper_communicate(function: typing.Callable[[typing.Any, ...], _T], cwds_r
         cwds_return_data['results'] = results
 
 
-def select_from_database(function: typing.Callable[[typing.Any, ...], _T], **kwargs) -> _T:
+def select_from_database(function: typing.Callable[[typing_extensions.ParamSpec], _T], **kwargs) -> _T:
     _cwds_return_data = {
         "results": []
     }
