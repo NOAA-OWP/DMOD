@@ -572,7 +572,7 @@ class RequestClient:
             response_json = json.loads(response_str)
         except Exception as e:
             raise DmodRuntimeError(f"{self.__class__.__name__} could not parse JSON due to {e.__class__.__name__} "
-                                   f"({e!s}); raw response was: `{response_str}`")
+                                   f"({e!s}); raw response to request was: `{response_str}`")
         response_object = None
         try:
             for t in response_type:
@@ -608,6 +608,13 @@ class RequestClient:
         -------
         Response
             the request response object
+
+        Raises
+        -------
+        ValueError
+            Raised if serialized response to message is simply ``None``.
+        DmodRuntimeError
+            Raised if the response cannot be deserialized to a response message as expected.
         """
         if response_type is None:
             if self._default_response_type is None:
