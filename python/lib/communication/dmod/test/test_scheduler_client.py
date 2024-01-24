@@ -5,6 +5,7 @@ import unittest
 from typing import Optional, Union
 from ..communication import NWMRequest, SchedulerClient, SchedulerRequestMessage, SchedulerRequestResponse, \
     TransportLayerClient
+from dmod.core.exception import DmodRuntimeError
 
 
 class MockTransportLayerClient(TransportLayerClient):
@@ -141,139 +142,46 @@ class TestSchedulerClient(unittest.TestCase):
 
     def test_async_make_request_1_a(self):
         """
-        Test when function gets ``None`` returned over websocket that response object ``success`` is ``False``.
+        Test when function gets ``None`` returned over websocket that a ::class:`ValueError` is raised.
 
         Test ``async_make_request()`` in the case where it receives ``None`` back over the websocket connection, to
-        confirm that the function then returns a response with a ``success`` value of ``False``.
+        confirm that the function then raises a ::class:`ValueError`.
         """
         self.client.set_scheduler_response_none()
         request = self.test_scheduler_request_1
 
         self.disable_logging()
-        response = self.loop.run_until_complete(self.client.async_make_request(request))
+        with self.assertRaises(ValueError):
+            self.loop.run_until_complete(self.client.async_make_request(request))
         self.disable_logging(None)
-        self.assertFalse(response.success)
-
-    def test_async_make_request_1_b(self):
-        """
-        Test when function gets ``None`` returned over websocket that response object ``data`` is empty dict.
-
-        Test ``async_make_request()`` when response from sending over websocket is ``None``, ensuring response object's
-        value for ``data`` is an empty dictionary.
-        """
-        self.client.set_scheduler_response_none()
-        request = self.test_scheduler_request_1
-
-        self.disable_logging()
-        response = self.loop.run_until_complete(self.client.async_make_request(request))
-        self.disable_logging(None)
-        self.assertEqual(response.data, {})
-
-    def test_async_make_request_1_c(self):
-        """
-        Test when function gets ``None`` returned over websocket that response object has expected ``reason``.
-
-        Test ``async_make_request()`` when response from sending over websocket is ``None``, ensuring response object's
-        value for ``reason`` is the expected string.
-        """
-        self.client.set_scheduler_response_none()
-        request = self.test_scheduler_request_1
-
-        expected_reason = '{} Send {} Failure (ValueError)'.format(self.client.__class__.__name__,
-                                                                   request.__class__.__name__)
-        self.disable_logging()
-        response = self.loop.run_until_complete(self.client.async_make_request(request))
-        self.disable_logging(None)
-        self.assertEqual(response.reason, expected_reason)
 
     def test_async_make_request_2_a(self):
         """
-        Test when function gets back invalid JSON over websocket that response object ``success`` is ``False``.
+        Test when function gets back invalid JSON over websocket that a ::class:`DmodRuntimeError` is raised.
 
         Test ``async_make_request()`` when response from sending over websocket is not a valid JSON string, ensuring
-        response object's value for ``success`` is ``False``.
+        that a ::class:`DmodRuntimeError` is raised..
         """
         self.client.set_scheduler_response_non_json_string()
         request = self.test_scheduler_request_1
 
-        response = self.loop.run_until_complete(self.client.async_make_request(request))
-        self.assertFalse(response.success)
-
-    def test_async_make_request_2_b(self):
-        """
-        Test when function gets back invalid JSON over websocket that response object ``data`` is empty dict.
-
-        Test ``async_make_request()`` when response from sending over websocket is not a valid JSON string, ensuring
-        response object's value for ``data`` is an empty dictionary.
-        """
-        self.client.set_scheduler_response_non_json_string()
-        request = self.test_scheduler_request_1
-
-        response = self.loop.run_until_complete(self.client.async_make_request(request))
-        self.assertEqual(response.data, {})
-
-    def test_async_make_request_2_c(self):
-        """
-        Test when function gets back invalid JSON over websocket that response object has expected  ``reason``.
-
-        Test ``async_make_request()`` when response from sending over websocket is not a valid JSON string, ensuring
-        response object's value for ``reason`` is the expected string.
-        """
-        self.client.set_scheduler_response_non_json_string()
-        request = self.test_scheduler_request_1
-
-        response = self.loop.run_until_complete(self.client.async_make_request(request))
-        self.assertEqual(response.reason, 'Invalid JSON Response')
+        with self.assertRaises(DmodRuntimeError):
+            self.loop.run_until_complete(self.client.async_make_request(request))
 
     def test_async_make_request_3_a(self):
         """
-        Test when function gets wrongly formatted JSON over websocket that response object ``success`` is ``False``.
+        Test when function gets wrongly formatted JSON over websocket that a ::class:`DmodRuntimeError` is raised.
 
         Test ``async_make_request()`` when response from sending over websocket is a valid JSON string, but not one that
-        can be deserialized to a :class:`SchedulerRequestResponse`, ensuring response object's value for ``success`` is
-        ``False``.
+        can be deserialized to a :class:`SchedulerRequestResponse`, ensuring a ::class:`DmodRuntimeError` is raised.
         """
         self.client.set_scheduler_response_unrecognized_json()
         request = self.test_scheduler_request_1
 
         self.disable_logging()
-        response = self.loop.run_until_complete(self.client.async_make_request(request))
+        with self.assertRaises(DmodRuntimeError):
+            self.loop.run_until_complete(self.client.async_make_request(request))
         self.disable_logging(None)
-        self.assertFalse(response.success)
-
-    def test_async_make_request_3_b(self):
-        """
-        Test when function gets wrongly formatted JSON over websocket that response object ``data`` is empty dict.
-        """
-        self.client.set_scheduler_response_unrecognized_json()
-        request = self.test_scheduler_request_1
-
-        expected_data_obj = dict()
-
-        self.disable_logging()
-        response = self.loop.run_until_complete(self.client.async_make_request(request))
-        self.disable_logging(None)
-        self.assertEqual(response.data, expected_data_obj)
-
-    def test_async_make_request_3_c(self):
-        """
-        Test when function gets wrongly formatted JSON over websocket that response object has expected ``reason``.
-
-        Test ``async_make_request()`` when response from sending over websocket is a valid JSON string, but not one that
-        can be deserialized to a :class:`SchedulerRequestResponse`, ensuring response object's value for ``reason`` is
-        the expected string.
-        """
-        self.client.set_scheduler_response_unrecognized_json()
-        request = self.test_scheduler_request_1
-
-        self.disable_logging()
-        response = self.loop.run_until_complete(self.client.async_make_request(request))
-        self.disable_logging(None)
-
-        expected_response = '{} Could Not Deserialize To {}'.format(self.client.__class__.__name__,
-                                                                    response.__class__.__name__)
-
-        self.assertEqual(response.reason, expected_response)
 
     def test_async_make_request_4_a(self):
         """
