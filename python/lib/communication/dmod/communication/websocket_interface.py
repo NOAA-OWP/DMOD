@@ -87,7 +87,8 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
 
     def __del__(self):
         try:
-            asyncio.run(self.shutdown())
+            if self._loop.is_running():
+                self._loop.run_until_complete(self.shutdown())
         except Exception as e:
             pass
 
