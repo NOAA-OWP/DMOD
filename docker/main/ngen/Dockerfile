@@ -430,6 +430,7 @@ USER ${USER}
 ##### Create intermediate Docker build stage for building framework in Rocky Linux environment
 FROM rocky-base as rocky_init_repo
 ARG REPO_URL
+ARG NGEN_BUILD_CONFIG_TYPE
 ARG BRANCH
 ARG COMMIT
 ARG WORKDIR
@@ -564,6 +565,7 @@ RUN cd ${WORKDIR}/ngen \
     && if [ "${BUILD_SLOTH}" == "true" ] ; then ./build_sub extern/sloth; fi \
     && if [ "${BUILD_NGEN_SERIAL}" == "true" ]; then \
         cmake -B cmake_build_serial -S . \
+        -DCMAKE_BUILD_TYPE=${NGEN_BUILD_CONFIG_TYPE} \
         -DNGEN_WITH_MPI:BOOL=OFF \
         -DNGEN_WITH_NETCDF:BOOL=${NGEN_WITH_NETCDF} \
         -DNGEN_WITH_BMI_C:BOOL=${NGEN_WITH_BMI_C} \
@@ -581,6 +583,7 @@ RUN cd ${WORKDIR}/ngen \
     fi \
     && if [ "${BUILD_NGEN_PARALLEL}" == "true" ]; then \
         cmake -B cmake_build_parallel -S . \
+        -DCMAKE_BUILD_TYPE=${NGEN_BUILD_CONFIG_TYPE} \
         -DNGEN_WITH_MPI:BOOL=ON \
         -DNGEN_WITH_NETCDF:BOOL=${NGEN_WITH_NETCDF} \
         -DNGEN_WITH_BMI_C:BOOL=${NGEN_WITH_BMI_C} \
@@ -658,6 +661,7 @@ ARG NGEN_WITH_NETCDF
 ARG NGEN_WITH_UDUNITS
 ARG NGEN_UDUNITS_QUIET
 ARG NGEN_WITH_SQLITE
+ARG NGEN_BUILD_CONFIG_TYPE
 ARG PARTITIONER_EXECUTABLE
 
 COPY --chown=${USER} partitioner_entrypoint.sh ${WORKDIR}/entrypoint.sh
@@ -672,6 +676,7 @@ RUN cd ${WORKDIR}/ngen \
         fi \
     && if [ -z "${PARTITIONER_EXECUTABLE:-}" ]; then echo "Error: target/executable name not set" 2>&1 ; exit 1; fi \
     && cmake -B cmake_build -S . \
+               -DCMAKE_BUILD_TYPE=${NGEN_BUILD_CONFIG_TYPE} \
                -DNGEN_WITH_MPI:BOOL=OFF \
                -DNGEN_WITH_NETCDF:BOOL=${NGEN_WITH_NETCDF} \
                #-DNGEN_WITH_BMI_C:BOOL=${NGEN_WITH_BMI_C} \
