@@ -46,7 +46,7 @@ ARG ROCKY_BASE_REQUIRED="sudo openssh openssh-server bash git which"
 
 ARG ROCKY_NGEN_DEPS_REQUIRED="sudo gcc gcc-c++ make cmake tar git gcc-gfortran libgfortran \
     python3 python3-devel python3-pip \
-    bzip2 expat expat-devel flex bison udunits2 udunits2-devel zlib-devel sqlite-devel sqlite-libs"
+    bzip2 expat expat-devel flex bison udunits2 udunits2-devel zlib-devel sqlite-devel sqlite-libs gdal-devel"
 # TODO: removed texinfo from list because it couldn't be found; make sure this doesn't lead to issues
 
 ARG BOOST_VERSION=1.82.0
