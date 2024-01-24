@@ -185,7 +185,6 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
             self._listen_host,
             self._port,
             ssl=self.ssl_context,
-            loop=self._loop
         )
         self._requested_tasks = []
         self._scheduled_tasks = []
