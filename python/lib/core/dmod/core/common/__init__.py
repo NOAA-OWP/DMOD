@@ -29,7 +29,7 @@ from .types import TextValue
 from .types import TextValues
 
 
-class Status(str, CommonEnum):
+class Status(CommonEnum):
     """
     Very basic enumeration used to describe the status of something
     """
