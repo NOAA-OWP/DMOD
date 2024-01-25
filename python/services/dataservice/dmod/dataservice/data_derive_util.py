@@ -7,8 +7,6 @@ from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequir
 from dmod.core.exception import DmodRuntimeError
 from dmod.core.dataset import Dataset, DatasetManager, DatasetType
 from dmod.scheduler.job import Job, JobExecStep
-from ngen.config.configurations import Forcing, Time
-from ngen.config.realization import NgenRealization, Realization
 from typing import Dict, List, Optional
 
 
@@ -100,8 +98,8 @@ class DataDeriveUtil:
         data_adder = CompositeConfigDataAdder(requirement=requirement, job=job, hydrofabric_id=hydrofabric_id,
                                               all_dataset_managers=self._all_data_managers, dataset_name=ds_name,
                                               dataset_manager=manager)
-        dataset: Dataset = manager.create(name=ds_name, category=DataCategory.CONFIG, domain=domain, is_read_only=False,
-                                          initial_data=data_adder)
+        dataset: Dataset = manager.create_temporary(name=ds_name, category=DataCategory.CONFIG, domain=domain,
+                                                    is_read_only=False, initial_data=data_adder)
 
         self._apply_dataset_to_requirement(dataset=dataset, requirement=requirement, job=job)
 
@@ -132,11 +130,11 @@ class DataDeriveUtil:
         domain = DataDomain(data_format=req_domain.data_format, continuous_restrictions=continuous_restricts,
                             discrete_restrictions=discrete_restricts)
 
-        dataset: Dataset = self._all_data_managers[ds_type].create(name=ds_name,
-                                                                   category=DataCategory.CONFIG,
-                                                                   domain=domain,
-                                                                   is_read_only=False,
-                                                                   initial_data=initial_data)
+        dataset: Dataset = self._all_data_managers[ds_type].create_temporary(name=ds_name,
+                                                                             category=DataCategory.CONFIG,
+                                                                             domain=domain,
+                                                                             is_read_only=False,
+                                                                             initial_data=initial_data)
 
         self._apply_dataset_to_requirement(dataset=dataset, requirement=requirement, job=job)
 
