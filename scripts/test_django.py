@@ -347,8 +347,10 @@ class TestOutput:
                     # separated from the previously read
                     if current_description:
                         current_description += os.linesep
+                        current_description += line
+                    else:
+                        current_description = line
 
-                    current_description += line
                 # Otherwise, we want to just tack the read data onto the content of the message we're building
                 else:
                     # If we're on the final line of the messages, just tack on a new line to our content,

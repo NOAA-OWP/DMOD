@@ -61,7 +61,6 @@ class wrapper_fn(typing.Protocol, typing.Generic[_T, _V]):
 
 
 def wrapper_caller(
-    function: typing.Callable[[typing.Any, ...], typing.Union[_MODEL_TYPE, QuerySet[_MODEL_TYPE]]],
     function: wrapper_fn[_T, _V],
     _wrapper_return_values: WrapperResults,
     args: typing.Sequence[_T],
@@ -114,10 +113,6 @@ class ModelWrapper(typing.Generic[_MODEL_TYPE]):
         *args: _T,
         **kwargs: _V,
     ) -> typing.Union[_MODEL_TYPE, typing.Sequence[_MODEL_TYPE]]:
-        function: typing.Callable[[typing.Any, ...], typing.Union[_MODEL_TYPE, QuerySet[_MODEL_TYPE]]],
-        *args,
-        **kwargs
-    ) -> typing.Union[_MODEL_TYPE, typing.List[_MODEL_TYPE]]:
         results = WrapperResults()
 
         if self.__can_use_concurrency:
