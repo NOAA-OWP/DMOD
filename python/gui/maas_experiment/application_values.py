@@ -117,7 +117,8 @@ def get_full_localtimezone():
 
     # If this is a system with 'zoneinfo' set up as part of the environment, parse the name from the linked zone
     zone_path = Path("/etc/localtime")
-    zone_path = str(zone_path.readlink()) if zone_path.exists() and zone_path.is_symlink() else ""
+    zone_path = zone_path.resolve()
+    zone_path = str(zone_path) if zone_path.exists() else ""
 
     # We can predict the path if the zone is linked to a file under 'zoneinfo'.
     if 'zoneinfo' in zone_path:
