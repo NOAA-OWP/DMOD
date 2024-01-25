@@ -131,9 +131,9 @@ class TestMonitorService(unittest.TestCase):
         self._connect_metadata_examples.append('{"purpose": "PROMPT", "additional_metadata": false}')
         self._connect_metadata_examples.append('{"purpose": "CONNECT", "additional_metadata": true}')
 
-        self._jobs[0].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
-        self._jobs[1].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_SCHEDULING)
-        self._jobs[2].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.SCHEDULED)
+        self._jobs[0].set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
+        self._jobs[1].set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_SCHEDULING))
+        self._jobs[2].set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.SCHEDULED))
 
         self._services.append(MockMonitorService(MockMonitor(monitored_jobs=self._jobs)))
 
@@ -141,9 +141,9 @@ class TestMonitorService(unittest.TestCase):
         for j in self._jobs:
             self._original_statuses.append(j.status)
 
-        self._jobs[0].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_SCHEDULING)
-        self._jobs[1].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.SCHEDULED)
-        self._jobs[2].status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.RUNNING)
+        self._jobs[0].set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_SCHEDULING))
+        self._jobs[1].set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.SCHEDULED))
+        self._jobs[2].set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.RUNNING))
 
         self._job_ids = list()
         self._jobs_by_id = dict()
@@ -947,7 +947,7 @@ class TestMonitorService(unittest.TestCase):
         get_next_one = False
         for status in self._generate_all_status_values():
             if get_next_one:
-                job.status = status
+                job.set_status(status)
                 break
             elif status == original_status:
                 get_next_one = True
@@ -978,7 +978,7 @@ class TestMonitorService(unittest.TestCase):
 
         for status in self._generate_all_status_values():
             if get_next_one:
-                job.status = status
+                job.set_status(status)
                 break
             elif status == original_status:
                 get_next_one = True
@@ -1004,7 +1004,7 @@ class TestMonitorService(unittest.TestCase):
         get_next_one = False
         for status in self._generate_all_status_values():
             if get_next_one:
-                job.status = status
+                job.set_status(status)
                 break
             elif status == original_status:
                 get_next_one = True
