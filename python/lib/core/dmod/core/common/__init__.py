@@ -3,12 +3,6 @@ Provides common functions and helper classes
 """
 from __future__ import annotations
 
-import typing
-import math
-from abc import abstractmethod
-from typing import Sequence
-from typing import overload
-
 from .failure import Failure
 from .helper_functions import get_current_function_name
 from .helper_functions import is_sequence_type
@@ -31,6 +25,8 @@ from .collection import Bag
 
 from .types import CommonEnum
 from .types import TEXT_VALUE_COLLECTION
+from .types import TextValue
+from .types import TextValues
 
 
 class Status(str, CommonEnum):
