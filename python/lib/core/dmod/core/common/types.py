@@ -476,8 +476,6 @@ class CommonEnum(typing.Generic[_T], PydanticEnum):
 
         return this_index >= other_index
 
-
-
     @classmethod
     def validate(cls, value: typing.Union[Self, _T, typing.SupportsInt, str]) -> Self:
         """
