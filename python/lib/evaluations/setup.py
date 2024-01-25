@@ -21,6 +21,7 @@ setup(
     url='',
     license='',
     install_requires=[
+        'dmod-core',
         'dmod-metrics',
         'pandas',
         'xarray',

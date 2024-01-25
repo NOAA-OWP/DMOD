@@ -20,6 +20,6 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=['scikit-learn', 'pandas'],
+    install_requires=['dmod.core', 'scikit-learn', 'pandas'],
     packages=find_namespace_packages(exclude=['dmod.test', 'schemas', 'ssl', 'src'])
 )
