@@ -287,7 +287,7 @@ class TextValues(typing.Generic[_T]):
         return str(self.options)
 
 
-class CommonEnum(typing.Generic[_T], PydanticEnum):
+class CommonEnum(PydanticEnum):
     """
     Base enum class allowing for advanced
     """
@@ -477,7 +477,7 @@ class CommonEnum(typing.Generic[_T], PydanticEnum):
         return this_index >= other_index
 
     @classmethod
-    def validate(cls, value: typing.Union[Self, _T, typing.SupportsInt, str]) -> Self:
+    def validate(cls, value: typing.Union[Self, typing.SupportsInt, str]) -> Self:
         """
         Method used by pydantic to validate and potentially coerce a `v` into a `cls` enum type.
 
