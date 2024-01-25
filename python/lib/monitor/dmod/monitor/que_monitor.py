@@ -429,11 +429,23 @@ class RedisDockerSwarmMonitor(DockerSwarmMonitor, RedisBackedMonitor):
     monitoring logic) and ::class:`RedisBackedMonitor` (for job monitoring eligibility/filtering logic).
     """
 
-    def __init__(self, resource_pool: str,
-                 docker_client: docker.from_env() = None, api_client: docker.APIClient() = None,
-                 redis_host: Optional[str] = None, redis_port: Optional[int] = None,
-                 redis_pass: Optional[str] = None, **kwargs):
+    def __init__(
+        self,
+        resource_pool: str,
+        docker_client: Optional[docker.DockerClient] = None,
+        api_client: Optional[docker.APIClient] = None,
+        redis_host: Optional[str] = None,
+        redis_port: Optional[int] = None,
+        redis_pass: Optional[str] = None,
+        **kwargs
+    ):
         DockerSwarmMonitor.__init__(self, docker_client, api_client)
-        RedisBackedMonitor.__init__(self, resource_pool=resource_pool, redis_host=redis_host, redis_port=redis_port,
-                                    redis_pass=redis_pass, **kwargs)
+        RedisBackedMonitor.__init__(
+            self,
+            resource_pool=resource_pool,
+            redis_host=redis_host,
+            redis_port=redis_port,
+            redis_pass=redis_pass,
+            **kwargs
+        )
 
