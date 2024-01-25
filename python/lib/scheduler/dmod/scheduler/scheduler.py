@@ -95,7 +95,7 @@ class SimpleDockerUtil:
         else:
             self.checkDocker()
             self.docker_client = docker.from_env()
-            self.api_client = docker.APIClient()
+            self.api_client = self.docker_client.api
 
     def checkDocker(self):
         """Test that docker is up running"""
