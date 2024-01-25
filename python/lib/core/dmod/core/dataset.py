@@ -362,6 +362,15 @@ class DatasetUser(ABC):
     This provides a more direct designation of something using one or more datasets.
     """
 
+    def __init__(self, datasets_and_managers: Optional[Dict[str, 'DatasetManager']] = None, *args, **kwargs):
+        self._datasets_and_managers = datasets_and_managers if datasets_and_managers else dict()
+
+    def __eq__(self, other) -> bool:
+        return self.uuid == other.uuid
+
+    def __hash__(self) -> int:
+        return self.uuid.__hash__()
+
     @property
     @abstractmethod
     def uuid(self) -> UUID:
@@ -376,17 +385,16 @@ class DatasetUser(ABC):
         pass
 
     @property
-    @abstractmethod
-    def datasets_in_use(self) -> Dict[UUID, str]:
+    def datasets_and_managers(self) -> Dict[str, 'DatasetManager']:
         """
-        A collection of datasets in used, keyed by UUID, with values being the dataset names.
+        A collection of associated managers of in-use datasets, key by the unique name of the in-use dataset.
 
         Returns
         -------
-        Dict[UUID, str]
-            A collection of datasets in used, keyed by UUID, with values being the dataset names.
+        Dict[str, 'DatasetManager']
+            A collection of associated managers of in-use datasets, key by the unique name of the in-use dataset.
         """
-        pass
+        return self._datasets_and_managers
 
     def link_to_dataset(self, dataset: Dataset) -> bool:
         """
@@ -408,25 +416,7 @@ class DatasetUser(ABC):
         bool
             Whether establishing the link was successful.
         """
-        if dataset.manager is not None and dataset.manager.link_user(user=self, dataset=dataset):
-            self.datasets_in_use[dataset.uuid] = dataset.name
-            self.linked_dataset_managers[dataset.uuid] = dataset.manager
-            return True
-        else:
-            return False
-
-    @property
-    @abstractmethod
-    def linked_dataset_managers(self) -> Dict[UUID, 'DatasetManager']:
-        """
-        A collection of associated managers of in-use datasets, key by UUID of the in-use dataset.
-
-        Returns
-        -------
-        Dict[UUID, 'DatasetManager']
-            A collection of associated managers of in-use datasets, key by UUID of the in-use dataset.
-        """
-        pass
+        return dataset.manager is not None and dataset.manager.link_user(user=self, dataset=dataset)
 
     def unlink_to_dataset(self, dataset: Dataset) -> bool:
         """
@@ -435,21 +425,14 @@ class DatasetUser(ABC):
         Parameters
         ----------
         dataset : Dataset
-            The used dataset.
+            The unlinked dataset.
 
         Returns
         -------
         bool
-            Whether an established usage link was successful released.
+            Whether an established usage link was successfully released.
         """
-        if dataset.uuid not in self.datasets_in_use or dataset.uuid not in self.linked_dataset_managers:
-            return False
-        elif self.linked_dataset_managers[dataset.uuid].unlink_user(user=self, dataset=dataset):
-            self.datasets_in_use.pop(dataset.uuid)
-            self.linked_dataset_managers.pop(dataset.uuid)
-            return True
-        else:
-            return False
+        return dataset.manager is not None and dataset.manager.unlink_user(user=self, dataset=dataset)
 
 
 class DatasetManager(ABC):
@@ -487,8 +470,10 @@ class DatasetManager(ABC):
     def __init__(self, uuid: Optional[UUID] = None, datasets: Optional[Dict[str, Dataset]] = None, *args, **kwargs):
         self._uuid = uuid4() if uuid is None else uuid
         self._datasets = datasets if datasets is not None else dict()
-        self._dataset_users: Dict[str, Set[UUID]] = dict()
+        self._dataset_usage: Dict[str, Set[UUID]] = dict()
         """ Collection of dataset names each keyed to a set of UUIDs of each user using the corresponding dataset. """
+        self._dataset_users: Dict[UUID, DatasetUser] = dict()
+        """ All linked dataset users, keyed by each user's UUID. """
         self._errors = []
         """ A property attribute to hold errors encountered during operations. """
 
@@ -700,6 +685,41 @@ class DatasetManager(ABC):
         """
         pass
 
+    def get_dataset_user(self, uuid: UUID) -> DatasetUser:
+        """
+        Get the linked ::class:`DatasetUser` with the given uuid.
+
+        Parameters
+        ----------
+        uuid : UUID
+            The ::class:`DatasetUser.uuid` of the :class:`DatasetUser` of interest.
+
+        Returns
+        -------
+        DatasetUser
+            The linked ::class:`DatasetUser` with the given uuid.
+
+        Raises
+        -------
+        ValueError
+            If there is no linked user with the given UUID.
+        """
+        try:
+            return self._dataset_users[uuid]
+        except KeyError as e:
+            raise ValueError(f"Manager {self.uuid!s} does not have linked dataset user {uuid!s}.")
+
+    def get_dataset_user_ids(self) -> FrozenSet[UUID]:
+        """
+        Get an immutable set of UUIDs for all ::class:`DatasetUser` linked to this manager.
+
+        Returns
+        -------
+        FrozenSet[UUID]
+            Get an immutable set of UUIDs for all ::class:`DatasetUser` linked to this manager.
+        """
+        return frozenset(du_id for du_id in self._dataset_users)
+
     @abstractmethod
     def get_data(self, dataset_name: str, item_name: str, **kwargs) -> Union[bytes, Any]:
         """
@@ -724,9 +744,9 @@ class DatasetManager(ABC):
         """
         pass
 
-    def get_dataset_users(self, dataset_name: str) -> FrozenSet[UUID]:
+    def get_user_ids_for_dataset(self, dataset_name: str) -> FrozenSet[UUID]:
         """
-        Get an immutable set of UUIDs for the linked users of a dataset.
+        Get an immutable set of UUIDs for the linked ::class:`DatasetUser` of a dataset.
 
         Parameters
         ----------
@@ -736,9 +756,47 @@ class DatasetManager(ABC):
         Returns
         -------
         FrozenSet[UUID]
-            Immutable set of UUIDs for the linked users of a dataset.
+            Immutable set of UUIDs for the linked ::class:`DatasetUser` of a dataset.
         """
-        return frozenset(self._dataset_users[dataset_name]) if dataset_name in self._dataset_users else frozenset()
+        return frozenset(self._dataset_usage[dataset_name]) if dataset_name in self._dataset_usage else frozenset()
+
+    def is_managed_dataset(self, dataset: Dataset) -> bool:
+        """
+        Test whether the given dataset is managed by this manager, setting an unset manager reference if UUIDs match.
+
+        The method returns ``True`` if and only if the following two conditions are true **at the end of execution of
+        this method** (see special case below):
+            - the given dataset's name is a key within the ::attribute:`datasets` property
+            - the given dataset's ::attribute:`Dataset.manager` property is this instance
+
+        Additionally, if and only if all the following are true, then the method will set ::attribute:`Dataset.manager`
+        for the dataset to this instance, resulting in the aforementioned conditions for the method returning ``True``:
+            - the dataset's name is a key within the ::attribute:`datasets` property
+            - the dataset's ::attribute:`Dataset.manager` property is ``None``
+            - the dataset's ::attribute:`Dataset.manager_uuid` property is equal to the UUID of this instance
+
+        Parameters
+        ----------
+        dataset : Dataset
+            The given dataset of interest.
+
+        Returns
+        -------
+        bool
+            ``True`` iff both of the follow are true at the end of the methods executions (subject to documented side
+            effects):
+                - the dataset's name is a key within the ::attribute:`datasets` property
+                - the dataset's ::attribute:`Dataset.manager` property is this instance
+
+        """
+        # TODO: (later) ensure any dataset created, reloaded, or transformed/derived passes this method in all impls
+        if dataset.name not in self.datasets:
+            return False
+
+        if dataset.manager is None and self.uuid == dataset.manager_uuid:
+            dataset.manager = self
+
+        return
 
     def link_user(self, user: DatasetUser, dataset: Dataset) -> bool:
         """
@@ -757,10 +815,12 @@ class DatasetManager(ABC):
             Whether the link was successful.
         """
         if dataset.name not in self.datasets:
-            raise RuntimeError("Cannot link user {} to unknown dataset {}".format(user.uuid, dataset.name))
-        if dataset.name not in self._dataset_users:
-            self._dataset_users[dataset.name] = set()
-        self._dataset_users[dataset.name].add(user.uuid)
+            raise RuntimeError(f"Cannot link user {user.uuid!s} to unknown dataset {dataset.name}")
+        if dataset.name not in self._dataset_usage:
+            self._dataset_usage[dataset.name] = set()
+        self._dataset_usage[dataset.name].add(user.uuid)
+        self._dataset_users[user.uuid] = user
+        user.datasets_and_managers[dataset.name] = self
         return True
 
     @abstractmethod
@@ -872,12 +932,21 @@ class DatasetManager(ABC):
         bool
             Whether the usage link was successfully unlinked.
         """
-        if dataset.name not in self._dataset_users or user.uuid not in self._dataset_users[dataset.name]:
+        if dataset.name not in user.datasets_and_managers:
             return False
-        elif len(self._dataset_users[dataset.name]) == 1:
-            self._dataset_users.pop(dataset.name)
+        if dataset.name not in self._dataset_usage or user.uuid not in self._dataset_usage[dataset.name]:
+            return False
+
+        if len(self._dataset_usage[dataset.name]) == 1:
+            self._dataset_usage.pop(dataset.name)
         else:
-            self._dataset_users[dataset.name].remove(user.uuid)
+            self._dataset_usage[dataset.name].remove(user.uuid)
+
+        if not any([user.uuid in self._dataset_usage[ds_name] for ds_name in self._dataset_usage]):
+            self._dataset_users.pop(user.uuid)
+
+        user.datasets_and_managers.pop(dataset.name)
+
         return True
 
     @property
