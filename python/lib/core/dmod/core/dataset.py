@@ -11,6 +11,7 @@ from .serializable import Serializable, ResultIndicator
 from .enum import PydanticEnum
 from typing import Any, Callable, ClassVar, Dict, FrozenSet, List, Optional, Set, Tuple, Type, Union
 from pydantic import Field, validator, root_validator, PrivateAttr
+from pydantic.fields import ModelField
 from uuid import UUID, uuid4
 
 
@@ -135,8 +136,8 @@ class Dataset(Serializable):
         return datetime.strptime(v, cls.get_datetime_str_format())
 
     @validator("created_on", "last_updated", "expires")
-    def drop_microseconds(cls, v: datetime):
-        return v.replace(microsecond=0)
+    def drop_microseconds(cls, v: datetime, field: ModelField):
+        return v.replace(microsecond=0) if (field.required or v is not None) else v
 
     @validator("dataset_type")
     def set_default_dataset_type(cls, value: Union[str, DatasetType] = None) -> DatasetType:
