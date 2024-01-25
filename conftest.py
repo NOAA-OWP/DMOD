@@ -1,10 +1,12 @@
+import logging
 import os
+import subprocess
 import sys
 from pathlib import Path
-import logging
-from typing import Dict, List, Set, TYPE_CHECKING, Optional
-from pytest import Item, CallInfo, Session
-import subprocess
+from typing import TYPE_CHECKING, Dict, List, Optional, Set
+
+import pytest
+from pytest import CallInfo, Item, Session
 
 logger = logging.getLogger("dmod_conftest")
 
@@ -35,13 +37,16 @@ def pytest_addoption(parser: "Parser"):
     parser.addini(
         "it_env_vars", "Environment variables for integration tests", type="args"
     )
+    parser.addini(
+        "env_vars", "Environment variables to set", type="args"
+    )
 
 
-def parse_it_env_vars(name_values: List[str]) -> Dict[str, str]:
+def parse_env_vars(name_values: List[str]) -> Dict[str, str]:
     return dict(map(lambda pair: pair.split("="), name_values))
 
 
-def pytest_configure(config: "Config"):
+def _configure_it_env_vars(config: "Config"):
     if config.getoption("it"):
         python_files = config.getini("python_files")
         assert isinstance(python_files, list)
@@ -50,10 +55,21 @@ def pytest_configure(config: "Config"):
         it_env_vars = config.getini("it_env_vars")
         integration_testing_flag()
 
-        parsed_vars = parse_it_env_vars(it_env_vars)
+        parsed_vars = parse_env_vars(it_env_vars)
         logger.debug(f"Adding these environment variables: {parsed_vars}")
 
         os.environ.update(parsed_vars)
+
+def _configure_env_vars(config: "Config"):
+    env_vars = config.getini("env_vars")
+    assert isinstance(env_vars, list)
+    parsed_vars = parse_env_vars(env_vars)
+    logger.debug(f"Adding these environment variables: {parsed_vars}")
+    os.environ.update(parsed_vars)
+
+def pytest_configure(config: "Config"):
+    _configure_env_vars(config)
+    _configure_it_env_vars(config)
 
 
 def get_setup_script_path(module: Path) -> Path:
