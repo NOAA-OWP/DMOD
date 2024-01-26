@@ -1,0 +1,149 @@
+# Test changes that have been pushed to the master and dev branches
+
+name: Intergration Tests
+
+# Controls when the action will run.
+on:
+  push:
+    branches: [ master, dev ]
+  pull_request:
+    branches: [ master, dev ]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # Run unit tests on Python
+  integration_test_latest:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+
+    # Service containers to run with `runner-job`
+    services:
+      # Label used to access the service container
+      redis:
+        # Docker Hub image
+        image: bitnami/redis
+        # Set health checks to wait until redis has started
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          -e REDIS_PASSWORD="DPXzqRqjhsXokOVQcPUqOJuzKePMsfUc"
+
+        ports:
+          # Maps port 6379 on service container to the host
+          - 19639:6379
+
+      minio:
+        image: bitnami/minio:2022.10.8
+        ports:
+          - 9000:9000
+          - 9001:9001
+        options: >-
+          -e MINIO_ROOT_USER="dmod"
+          -e MINIO_ROOT_PASSWORD="password"
+          -e MINIO_SERVER_ACCESS_KEY="dmod"
+          -e MINIO_SERVER_SECRET_KEY="password"
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache Python Venv
+        id: cache-python-venv
+        uses: actions/cache@v1
+        with:
+          path: dmod_venv
+          key: dmod-venv-dir-${{ hashFiles('python/**/_version.py', '**/requirements*.txt') }}
+
+      - name: Init Python Venv
+        if: steps.cache-python-venv.outputs.cache-hit != 'true'
+        run: |
+          python3 -m venv dmod_venv
+          . dmod_venv/bin/activate
+          pip install --upgrade pip
+          deactivate 
+          export PROJECT_ROOT=$(pwd)
+          echo ${PROJECT_ROOT}
+          ./scripts/update_package.sh --venv dmod_venv --no-service-packages --dependencies
+
+      - name: Cache Package Checksums
+        id: cache-packages-md5
+        uses: actions/cache@v1
+        with:
+          path: package_md5s
+          key: package_md5s-${{ hashFiles('python/**/*') }}
+
+      - name: Update Individual Packages
+        id: update-individual-packages
+        run: |
+          [ ! -d package_md5s ] && mkdir package_md5s
+          set -e
+          for p in `./scripts/run_tests.sh --list-packages --service-packages --quiet`; do
+            _P_SIMPLE_NAME="`basename ${p}`"
+            _P_MD5_FILE="package_md5s/${_P_SIMPLE_NAME}.md5"
+            _P_EXPECTED_MD5="`find ${p} -type f -exec md5sum {} \; | sort -k 2 | md5sum`"
+            if [ -e ${p}/setup.py ]; then
+              if [ '${{ steps.cache-python-venv.outputs.cache-hit }}' = 'true' ]; then
+                if [ -e ${_P_MD5_FILE} ]; then
+                  if [ "`cat ${_P_MD5_FILE}`" = "${_P_EXPECTED_MD5}" ]; then
+                    echo "Package checksum file '${_P_MD5_FILE}' matches expected"
+                  else
+                    echo "Package checksum file '${_P_MD5_FILE}' contents do not match; updating"
+                    ./scripts/update_package.sh --venv dmod_venv ${p}
+                  fi
+                else
+                  echo "Creating package checksum file '${_P_MD5_FILE}'"
+                  echo "${_P_EXPECTED_MD5}" > ${_P_MD5_FILE}
+                fi
+              else
+                echo "Creating package checksum file '${_P_MD5_FILE}'"
+                echo "${_P_EXPECTED_MD5}" > ${_P_MD5_FILE}
+              fi
+            fi
+          done
+          set +e
+
+      - name: Cache SSL Setup
+        id: cache-ssl-setup
+        uses: actions/cache@v1
+        with:
+          path: ssl
+          key: dmod-ssl-setup
+
+      # Set up the SSL directory
+      - name: Setup SSL
+        if: steps.cache-ssl-setup.outputs.cache-hit != 'true'
+        run: |
+          mkdir ssl
+          mkdir ssl/local
+          mkdir ssl/requestservice
+          mkdir ssl/requests
+          mkdir ssl/scheduler
+          ./scripts/gen_cert.sh -d ssl/local -email dmod_gh_action@fake.gov
+          cp -a ssl/local/*.pem ssl/requestservice/.
+          cp -a ssl/local/*.pem ssl/requests/.
+          cp -a ssl/local/*.pem ssl/scheduler/.
+
+      - name: Echo dependency versions
+        run: |
+          . dmod_venv/bin/activate
+          python3 -m pip freeze
+          deactivate
+        timeout-minutes: 1
+
+      - name: Run Tests
+        run: |
+          . dmod_venv/bin/activate
+          python3 -m pip install pytest
+          python3 -m pytest -o python_files="it_*.py" -o env_vars='IT_REDIS_CONTAINER_PASS="DPXzqRqjhsXokOVQcPUqOJuzKePMsfUc" IT_REDIS_CONTAINER_HOST_PORT=19639 MODEL_EXEC_ACCESS_KEY=dmod MODEL_EXEC_SECRET_KEY=password'
+
