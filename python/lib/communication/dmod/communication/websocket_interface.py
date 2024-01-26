@@ -524,18 +524,6 @@ class EchoHandler(WebSocketInterface):
         """
         return cls._PARSEABLE_REQUEST_TYPES
 
-    @classmethod
-    def _get_async_loop(cls):
-        """
-        Override of default, to provide a new, non-primary loop for testing purposes.
-
-        Returns
-        -------
-        AbstractEventLoop
-            a new asyncio event loop
-        """
-        return asyncio.new_event_loop()
-
     async def listener(self, websocket: WebSocketServerProtocol, path):
         received_data = await websocket.recv()
         print("Echo Listener")
