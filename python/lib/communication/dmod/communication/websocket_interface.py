@@ -28,12 +28,6 @@ from typing import Dict, List, Optional, Tuple, Type
 from websockets import WebSocketServerProtocol
 from .async_service import AsyncServiceInterface
 
-#logging.basicConfig(
-#    level=logging.ERROR,
-#    format="%(asctime)s,%(msecs)d %(levelname)s: %(message)s",
-#    datefmt="%H:%M:%S"
-#)
-
 
 class WebSocketInterface(AsyncServiceInterface, ABC):
     """
