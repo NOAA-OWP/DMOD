@@ -528,7 +528,7 @@ class ServiceManager(WebSocketInterface):
             Map of all ::class:`DatasetUser` from all associated managers of the service, keyed by the UUID of each.
         """
         return {uuid: mgr.get_dataset_user(uuid)
-                for _, mgr in self._all_data_managers.values() for uuid in mgr.get_dataset_user_ids()}
+                for _, mgr in self._all_data_managers.items() for uuid in mgr.get_dataset_user_ids()}
 
     def _process_dataset_create(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
         """
@@ -674,10 +674,10 @@ class ServiceManager(WebSocketInterface):
         next invocation).
         """
         # Get these upfront, since no meaningful changes can happen during the course of an iteration
-        temp_datasets = {ds_name: ds for ds_name, ds in self.get_known_datasets().values() if ds.is_temporary}
+        temp_datasets = {ds_name: ds for ds_name, ds in self.get_known_datasets().items() if ds.is_temporary}
 
         # Account for any in-use temporary datasets by potentially unmarking and updating expire time
-        for ds in (ds for _, ds in temp_datasets.values() if ds.manager.get_user_ids_for_dataset(ds)):
+        for ds in (ds for _, ds in temp_datasets.items() if ds.manager.get_user_ids_for_dataset(ds)):
             if ds.name in self._marked_expired_datasets:
                 self._marked_expired_datasets.remove(ds.name)
 
@@ -689,7 +689,7 @@ class ServiceManager(WebSocketInterface):
             ds.manager.delete(dataset=ds)
 
         # Mark any expired datasets for deletion on the next iteration
-        self._marked_expired_datasets.update(n for n, ds in temp_datasets.values() if ds.expires > datetime.now())
+        self._marked_expired_datasets.update(n for n, ds in temp_datasets.items() if ds.expires > datetime.now())
 
     def _unlink_finished_jobs(self, ds_users: Dict[UUID, DatasetUser]) -> Set[UUID]:
         """
@@ -711,7 +711,7 @@ class ServiceManager(WebSocketInterface):
         """
         finished_job_users: Set[UUID] = set()
         active_job_ids = {UUID(j.job_id) for j in self._job_util.get_all_active_jobs()}
-        for user in (u for uid, u in ds_users.values() if isinstance(u, JobDatasetUser) and uid not in active_job_ids):
+        for user in (u for uid, u in ds_users.items() if isinstance(u, JobDatasetUser) and uid not in active_job_ids):
             for ds in (self.get_known_datasets()[ds_name] for ds_name in user.datasets_and_managers):
                 user.unlink_to_dataset(ds)
             finished_job_users.add(user.uuid)
