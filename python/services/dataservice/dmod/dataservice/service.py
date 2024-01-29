@@ -18,7 +18,7 @@ from dmod.modeldata.data.filesystem_manager import FilesystemDatasetManager
 from dmod.scheduler import SimpleDockerUtil
 from dmod.scheduler.job import Job, JobExecStep, JobUtil
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
+from typing import Dict, List, NoReturn, Optional, Set, Tuple, Type, TypeVar, Union
 from uuid import UUID, uuid4
 from websockets import WebSocketServerProtocol
 from .dataset_inquery_util import DatasetInqueryUtil
@@ -945,7 +945,7 @@ class ServiceManager(WebSocketInterface):
             self._job_util.unlock_active_jobs(lock_id)
             await asyncio.sleep(5)
 
-    async def manage_temp_datasets(self) -> typing.NoReturn:
+    async def manage_temp_datasets(self) -> NoReturn:
         """
         Async task for managing temporary datasets, including updating expire times and purging of expired datasets.
         """
