@@ -945,7 +945,7 @@ class ServiceManager(WebSocketInterface):
             self._job_util.unlock_active_jobs(lock_id)
             await asyncio.sleep(5)
 
-    async def manage_temp_datasets(self):
+    async def manage_temp_datasets(self) -> typing.NoReturn:
         """
         Async task for managing temporary datasets, including updating expire times and purging of expired datasets.
         """
