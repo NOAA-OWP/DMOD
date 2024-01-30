@@ -67,8 +67,14 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
         self._hostname = 'localhost'
 
         self._secrets_dir: Path = Path(self.find_git_root_dir()).joinpath("docker/secrets/")
-        self._access_key = self._secrets_dir.joinpath("object_store/model_exec_access_key").read_text()
-        self._secret_key = self._secrets_dir.joinpath("object_store/model_exec_secret_key").read_text()
+        if self._secrets_dir.exists():
+            self._access_key = self._secrets_dir.joinpath("object_store/model_exec_access_key").read_text()
+            self._secret_key = self._secrets_dir.joinpath("object_store/model_exec_secret_key").read_text()
+        else:
+            self._access_key = os.environ.get("MODEL_EXEC_ACCESS_KEY")
+            assert self._access_key is not None, "'MODEL_EXEC_ACCESS_KEY' environment variable or 'docker/secrets/object_store/model_exec_access_key' file is required"
+            self._secret_key =  os.environ.get("MODEL_EXEC_SECRET_KEY")
+            assert self._secret_key is not None, "'MODEL_EXEC_SECRET_KEY' environment variable or 'docker/secrets/object_store/model_exec_secret_key' file is required"
 
         # Initialize the manager and its backing minio client
         self._initialize_manager()
