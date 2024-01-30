@@ -205,6 +205,14 @@ class Dataset(Serializable):
 
     @property
     def manager(self) -> Optional[DatasetManager]:
+        """
+        The ::class:`DatasetManager` for this instance.
+
+        Returns
+        -------
+        DatasetManager
+            The ::class:`DatasetManager` for this instance.
+        """
         return self._manager
 
     @manager.setter
