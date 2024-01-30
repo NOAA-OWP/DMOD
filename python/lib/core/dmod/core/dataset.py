@@ -844,7 +844,7 @@ class DatasetManager(ABC):
             return False
 
         if dataset.manager is None and self.uuid == dataset.manager_uuid:
-            dataset.manager = self
+            dataset.set_manager(self)
 
         return
 
