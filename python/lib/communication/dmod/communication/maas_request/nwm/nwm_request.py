@@ -51,8 +51,14 @@ class NWMRequest(ModelExecRequest):
             super().__init__(**data)
         else:
             data["request_body"] = dict()
-            nwm_inner_request_body = {"config_data_id": config_data_id}
-            data["request_body"]["nwm"] = nwm_inner_request_body
+            if "model" in data:
+                nwm_inner_request_body = data["model"][self.get_model_name()]
+                if config_data_id is not None:
+                    nwm_inner_request_body["config_data_id"] = config_data_id
+                data["request_body"][self.get_model_name()] = nwm_inner_request_body
+            else:
+                data["request_body"][self.get_model_name()] = {"config_data_id": config_data_id}
+
             super().__init__(**data)
 
     @classmethod
