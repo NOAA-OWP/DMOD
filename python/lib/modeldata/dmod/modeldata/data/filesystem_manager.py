@@ -182,7 +182,7 @@ class FilesystemDatasetManager(DatasetManager):
         dataset = Dataset.factory_init_from_deserialized_json(dataset_json)
         if dataset is None:
             raise DmodRuntimeError("Unable to reload dataset: could not deserialize a object from the loaded JSON data")
-        dataset.manager = self
+        dataset.set_manager(self)
         self.datasets[dataset.name] = dataset
         return dataset
 

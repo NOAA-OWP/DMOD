@@ -583,7 +583,7 @@ class ObjectStoreDatasetManager(DatasetManager):
             response_data["type"] = list(self.supported_dataset_types)[0].name
 
         dataset = Dataset.factory_init_from_deserialized_json(response_data)
-        dataset.manager = self
+        dataset.set_manager(self)
         self.datasets[dataset_name] = dataset
         return dataset
 
