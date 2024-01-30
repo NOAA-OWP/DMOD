@@ -177,6 +177,32 @@ class Dataset(Serializable):
                 raise ValueError(f"Expected UUID got {type(manager.uuid)}")
             self.manager_uuid = manager.uuid
 
+    def __eq__(self, other):
+        now = datetime.now()
+        def cond_eq(a, b):
+            return a is None or b is None or a == b
+        return (
+            isinstance(other, Dataset)
+            and (
+                (self.expires is not None and self.expires > now)
+                or self.expires is None
+            )
+            and (
+                (other.expires is not None and other.expires > now)
+                or other.expires is None
+            )
+            and self.access_location == other.access_location
+            and self.category == other.category
+            and self.created_on == other.created_on
+            and self.data_domain == other.data_domain
+            and self.dataset_type == other.dataset_type
+            and self.is_read_only == other.is_read_only
+            and self.name == other.name
+            and cond_eq(self.derived_from, other.derived_from)
+            and cond_eq(self.last_updated, other.last_updated)
+            and cond_eq(self.uuid, other.uuid)
+        )
+
     @property
     def manager(self) -> Optional[DatasetManager]:
         return self._manager
