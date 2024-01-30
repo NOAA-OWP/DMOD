@@ -168,14 +168,7 @@ class Dataset(Serializable):
 
     def __init__(self, manager: DatasetManager = None, **kwargs):
         super().__init__(**kwargs)
-
-        self._manager = manager if isinstance(manager, DatasetManager) else None
-
-        if manager is not None:
-            # pydantic will not validate this, so we need to check it
-            if not isinstance(manager.uuid, UUID):
-                raise ValueError(f"Expected UUID got {type(manager.uuid)}")
-            self.manager_uuid = manager.uuid
+        self.set_manager(manager)
 
     def __eq__(self, other):
         now = datetime.now()
@@ -215,15 +208,37 @@ class Dataset(Serializable):
         """
         return self._manager
 
-    @manager.setter
-    def manager(self, value: DatasetManager = None):
-        self._manager = value if isinstance(value, DatasetManager) else None
+    def set_manager(self, value: Union[DatasetManager, None]):
+        """
+        Sets the ::class:`DatasetManager` and updates the
+        ::attribute:`manager_uuid` property on this instances.
+        If `None` is passed, the instances
+        ::attribute:`manager_uuid` property is untouched.
 
-        if value is not None:
-            # pydantic will not validate this, so we need to check it
-            if not isinstance(value.uuid, UUID):
-                raise ValueError(f"Expected UUID got {type(value.uuid)}")
-            self.manager_uuid = value.uuid
+        Parameters
+        ----------
+        value: DatasetManager | None
+            The new value for ::attribute:`manager`.
+
+        Raises
+        -------
+        TypeError
+            Raised if non-None value not a DatasetManager
+        ValueError
+            Raised if DatasetManager value's uuid property is not a uuid.UUID
+        """
+        if value is None:
+            self._manager = None
+            return
+
+        # pydantic will not validate this, so we need to check it
+        if not isinstance(value, DatasetManager):
+            raise TypeError(f"Expected DatasetManager got {type(value)}")
+        if not isinstance(value.uuid, UUID):
+            raise ValueError(f"Expected UUID got {type(value.uuid)}")
+
+        self._manager = value
+        self.manager_uuid = value.uuid
 
     def __hash__(self):
         members = [
