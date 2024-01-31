@@ -6,16 +6,31 @@ from dotenv import load_dotenv
 from pathlib import Path
 from typing import Optional
 from dmod.access import RedisBackendSessionManager
-from dmod.communication import NWMRequest, NWMRequestResponse, SchedulerClient, SchedulerRequestMessage, \
-    SchedulerRequestResponse, InitRequestResponseReason
+from dmod.communication import (
+    NWMRequest,
+    NWMRequestResponse,
+    SchedulerRequestMessage,
+    SchedulerRequestResponse,
+    InitRequestResponseReason,
+    WebSocketClient,
+    RequestClient,
+)
 from dmod.externalrequests import ModelExecRequestHandler
 from ..test import FailureTestingAuthUtil, SucceedTestAuthUtil
 
 
-class DummySchedulerClient(SchedulerClient):
+class DummySchedulerClient(RequestClient):
 
     def __init__(self, test_successful: bool = True, starting_job_id: int = 1):
-        super().__init__(endpoint_uri='wss://127.0.0.1:12345', ssl_directory=Path('.'))
+        transport_client = WebSocketClient(
+            endpoint_host="127.0.0.1",
+            endpoint_port="12345",
+            capath=Path("."),
+        )
+        super().__init__(
+            transport_client=transport_client,
+            default_response_type=SchedulerRequestResponse,
+        )
         self.test_successful = test_successful
         self._next_job_id = starting_job_id if isinstance(starting_job_id, int) else 1
         self._first_job_id = self._next_job_id
@@ -65,45 +80,6 @@ class DummySchedulerClient(SchedulerClient):
             data = None
         return SchedulerRequestResponse(success=self.test_successful, reason='Testing Stub', message='Testing stub',
                                         data=data)
-
-    async def __aenter__(self):
-        """
-        Override superclass implementation with stub that replaces :attr:`connection` value with a dummy int, rather
-        than an actual websocket connection.
-        """
-        # Basically, block here using await+sleep (with a timeout) if another task/event exec is opening a connection
-        # Implicitly, this would mean said task is in an await, and execution went back to event loop (i.e., this call)
-        # Also, for efficiency, delay datetime-related ops until first loop iteration, to avoid if the loop never runs
-        timeout_limit = None
-        while self._opening_connection and (timeout_limit is None or datetime.datetime.now() < timeout_limit):
-            if timeout_limit is None:
-                timeout_limit = datetime.datetime.now() + datetime.timedelta(seconds=15)
-            await asyncio.sleep(0.25)
-
-        # Safely conclude at this point that nothing else (worth paying attention to) is in the middle of opening a
-        # connection, so check whether there already is one ...
-        if self.connection is None:
-            # If not, mark that this exec is opening a connection, before giving up control during the await
-            self._opening_connection = True
-            # Then set the stub for the connection
-            self.connection = 0
-            # And now, note that we are no longer in the middle of an attempt to open a connection
-            self._opening_connection = False
-
-        self.active_connections += 1
-        return self
-
-    async def __aexit__(self, *exc_info):
-        """
-        Override superclass implementation with stub that knows :attr:`connection` is not an actual connection, and thus
-        does everything like the superclass implementation except make a call to ``close()``.
-        """
-        self.active_connections -= 1
-        if self.active_connections < 1:
-            #await self.connection.close()
-            self.connection = None
-            self.active_connections = 0
-
 
 class IntegrationTestNWMRequestHandler(unittest.TestCase):
 
