@@ -167,9 +167,8 @@ class ModelExecRequestHandler(MaaSRequestHandler):
         scheduler_message = SchedulerRequestMessage(model_request=request, user_id=session.user)
         logging.debug("************* Scheduler request message ready:\n{}".format(str(scheduler_message)))
         # Should be able to do this to reuse same object/context/connection across tasks, even from other methods
-        async with self.service_client as scheduler_client:
-            initial_response = await scheduler_client.async_make_request(scheduler_message)
-            logging.debug("************* Scheduler client received response:\n{}".format(str(initial_response)))
+        initial_response = await self.service_client.async_make_request(scheduler_message)
+        logging.debug("************* Scheduler client received response:\n{}".format(str(initial_response)))
 
         # TODO: consider registering the job and relationship with session, etc.
         success = initial_response.success
