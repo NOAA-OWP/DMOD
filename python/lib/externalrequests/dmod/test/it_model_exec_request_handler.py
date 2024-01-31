@@ -244,7 +244,7 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         self.handler._authorizer = self.fail_authorizer
 
         response = asyncio.run(self.handler.handle_request(request=request), debug=True)
-        self.assertEquals(response.reason, InitRequestResponseReason.UNAUTHORIZED.name)
+        self.assertEqual(response.reason, InitRequestResponseReason.UNAUTHORIZED.name)
 
     def test_handle_request_2_a(self):
         """
@@ -281,7 +281,7 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
 
         response = asyncio.run(self.handler.handle_request(request=request), debug=True)
         expected_reason = InitRequestResponseReason.ACCEPTED.name
-        self.assertEquals(response.reason, expected_reason)
+        self.assertEqual(response.reason, expected_reason)
 
     def test_handle_request_2_c(self):
         """
@@ -299,7 +299,7 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         self.handler._scheduler_client = dummy_scheduler_client
 
         response = asyncio.run(self.handler.handle_request(request=request), debug=True)
-        self.assertEquals(response.job_id, dummy_scheduler_client.last_job_id)
+        self.assertEqual(response.job_id, dummy_scheduler_client.last_job_id)
 
     def test_handle_request_2_d(self):
         """
@@ -384,7 +384,7 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
 
         response = asyncio.run(self.handler.handle_request(request=request), debug=True)
         expected_reason = InitRequestResponseReason.REJECTED.name
-        self.assertEquals(response.reason, expected_reason)
+        self.assertEqual(response.reason, expected_reason)
 
     def test_handle_request_3_c(self):
         """
@@ -402,7 +402,7 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         self.handler._scheduler_client = dummy_scheduler_client
 
         response = asyncio.run(self.handler.handle_request(request=request), debug=True)
-        self.assertEquals(response.job_id, -1)
+        self.assertEqual(response.job_id, -1)
 
     def test_handle_request_3_d(self):
         """
