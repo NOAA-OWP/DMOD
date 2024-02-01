@@ -101,7 +101,7 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
     def tearDown(self) -> None:
         # Remove testing datasets slated to be cleaned up
         for dataset_name in self._datasets_to_cleanup:
-            for obj in self.minio_client.list_objects(dataset_name):
+            for obj in self.minio_client.list_objects(dataset_name, recursive=True):
                 self.minio_client.remove_object(dataset_name, obj.object_name)
             self.minio_client.remove_bucket(dataset_name)
 
@@ -176,10 +176,7 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
         one_files_name = 'GIT_USAGE.md'
         one_file = dir_to_add.joinpath(one_files_name)
         one_files_expected_data = one_file.read_bytes()
-        num_uploaded_files = 0
-        for p in dir_to_add.iterdir():
-            if p.is_file():
-                num_uploaded_files += 1
+        num_uploaded_files = sum([len(files) for _, _, files in os.walk(dir_to_add)])
         # This is actually one more, because of the serialized dataset state file
         expected_num_files = num_uploaded_files + 1
 
