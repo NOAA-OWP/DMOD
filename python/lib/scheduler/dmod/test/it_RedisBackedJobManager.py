@@ -351,7 +351,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         self._job_manager.save_job(job)
         original_cpu_count = job.cpu_count
         # Then update the record
-        job._cpu_count += 100
+        job.cpu_count += 100
         self._job_manager.save_job(job)
         updated_cpu_count = job.cpu_count
         # Get the updated record
@@ -419,16 +419,16 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         # Should be one allocation for single-node
         self.assertTrue(isinstance(created_job.allocations, tuple))
 
-    # Test request_allocations for a job with a single-node allocation paradigm gets back a tuple with one node
     def test_request_allocations_1_d(self):
+        """ Test request_allocations for job w/ single-node paradigm gets back tuple with only one allocation host. """
         example_index = 0
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
         created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
-        # Should be one allocation for single-node
-        self.assertEqual(len(allocations), 1)
+        # Should be only one unique host value among all allocation for single-node
+        self.assertEqual(1, len(set(alloc.hostname for alloc in allocations)))
 
     # Test request_allocations for a job with a single-node allocation paradigm gets back a proper allocation of cpus
     def test_request_allocations_1_e(self):
@@ -438,8 +438,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
-        # Should be one allocation for single-node, with right number of cpus
-        self.assertEqual(allocations[0].cpu_count, created_job.cpu_count)
+        self.assertEqual(created_job.cpu_count, sum(alloc.cpu_count for alloc in allocations))
 
     # Test request_allocations for a job with a single-node allocation paradigm gets back a proper allocation of memory
     def test_request_allocations_1_f(self):
@@ -449,8 +448,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
-        # Should be one allocation for single-node, with right number of cpus
-        self.assertEqual(allocations[0].memory, created_job.memory_size)
+        self.assertEqual(created_job.memory_size, sum(alloc.memory for alloc in allocations))
 
     # Test request_allocations for a job with a fill-nodes allocation paradigm succeeds
     def test_request_allocations_2_a(self):
@@ -473,14 +471,15 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
 
     # Test request_allocations for a job with a fill-nodes allocation paradigm gets back a tuple with one node
     def test_request_allocations_2_c(self):
+        """ Test request_allocations for job w/ fill-nodes gets back allocations on same host when they all fit. """
         example_index = 2
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
         created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
-        # Should be one allocation for fill-nodes
-        self.assertEqual(len(allocations), 1)
+        # Should be only one unique host value among all allocation for fill-nodes in this example (they should all fit)
+        self.assertEqual(1, len(set(alloc.hostname for alloc in allocations)))
 
     # Test request_allocations for a job with a fill-nodes allocation paradigm gets back a proper allocation of cpus
     def test_request_allocations_2_d(self):
@@ -490,8 +489,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
-        # Should be one allocation for fill-nodes, with right number of cpus
-        self.assertEqual(allocations[0].cpu_count, created_job.cpu_count)
+        self.assertEqual(created_job.cpu_count, sum(alloc.cpu_count for alloc in allocations))
 
     # Test request_allocations for a job with a fill-nodes allocation paradigm gets back a proper allocation of memory
     def test_request_allocations_2_e(self):
@@ -501,8 +499,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
-        # Should be one allocation for fill-nodes, with right number of cpus
-        self.assertEqual(allocations[0].memory, created_job.memory_size)
+        self.assertEqual(created_job.memory_size, sum(alloc.memory for alloc in allocations))
 
     # Test request_allocations for a job with a round-robin allocation paradigm succeeds
     def test_request_allocations_3_a(self):
@@ -530,7 +527,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
-        self.assertEqual(len(allocations), 3)
+        self.assertEqual(3, len(set(alloc.hostname for alloc in allocations)))
 
     # Test request_allocations for a job with a fill-nodes allocation paradigm gets back a proper allocation of cpus
     def test_request_allocations_3_d(self):
@@ -540,10 +537,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
-        cpu_total = 0
-        for a in allocations:
-            cpu_total += a.cpu_count
-        self.assertEqual(cpu_total, created_job.cpu_count)
+        self.assertEqual(created_job.cpu_count, sum(alloc.cpu_count for alloc in allocations))
 
     # Test request_allocations for a job with a fill-nodes allocation paradigm gets back a proper allocation of memory
     def test_request_allocations_3_e(self):
@@ -559,7 +553,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         #for a in allocations:
         #    mem_total += a.memory
         mem_total = allocations[0].memory
-        self.assertEqual(mem_total, created_job.memory_size)
+        self.assertEqual(created_job.memory_size, sum(alloc.memory for alloc in allocations))
 
     def test_release_allocations_1_a(self):
         example_index = 0
