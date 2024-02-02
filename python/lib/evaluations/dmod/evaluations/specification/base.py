@@ -23,8 +23,6 @@ from pydantic.utils import update_not_none
 
 from ..utilities import merge_dictionaries
 
-from .template import TemplateManager
-
 from .. import util
 
 from .helpers import is_a_value

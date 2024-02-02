@@ -6,7 +6,6 @@ import json
 import os
 import typing
 import sqlite3
-from collections import defaultdict
 import re
 
 from dmod.core.common import DBAPIConnection
@@ -28,7 +27,6 @@ class SpecificationTemplateManager(TemplateManager):
     """
     Object manager used to provide details about available templates defined within the Django DB instance
     """
-    def get_templates(self, specification_type: str) -> typing.Sequence[TemplateDetails]:
     def __init__(self, *args, **kwargs):
         pass
 
