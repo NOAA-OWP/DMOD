@@ -45,7 +45,7 @@ class TemplateViewTest(TestCase):
 
         cls.token = Token.objects.create(user=cls.test_user)
 
-        cls.manager = FileTemplateManager(manifest_path=TEMPLATE_MANIFEST_PATH)
+        cls.manager = FileTemplateManager(path=TEMPLATE_MANIFEST_PATH)
 
         for template_details_group in cls.manager.get_all_templates().values():
             for template_details in template_details_group:
@@ -253,7 +253,6 @@ class TemplateViewTest(TestCase):
 
                 self.assertIsNotNone(matching_template)
 
-
     def test_get_all_templates(self):
         get_response = self.client.get(
             "/evaluation_service/templates/"
@@ -269,7 +268,7 @@ class TemplateViewTest(TestCase):
         templates = get_data['templates']
 
         self.assertTrue(isinstance(templates, typing.Mapping))
-        self.assertEqual(len(templates), 9)
+        self.assertEqual(len(templates), 12)
 
         self.assertIn("BackendSpecification", templates)
         self.assertIn("FieldMappingSpecification", templates)
@@ -280,6 +279,9 @@ class TemplateViewTest(TestCase):
         self.assertIn("ThresholdDefinition", templates)
         self.assertIn("ThresholdApplicationRules", templates)
         self.assertIn("EvaluationSpecification", templates)
+        self.assertIn("CrosswalkSpecification", templates)
+        self.assertIn("DataSourceSpecification", templates)
+        self.assertIn("ThresholdSpecification", templates)
 
         self.assertEqual(len(templates['BackendSpecification']), 4)
         self.assertEqual(len(templates['FieldMappingSpecification']), 3)
@@ -290,6 +292,9 @@ class TemplateViewTest(TestCase):
         self.assertEqual(len(templates['ThresholdDefinition']), 3)
         self.assertEqual(len(templates['ThresholdApplicationRules']), 1)
         self.assertEqual(len(templates['EvaluationSpecification']), 5)
+        self.assertEqual(len(templates['CrosswalkSpecification']), 2)
+        self.assertEqual(len(templates["DataSourceSpecification"]), 4)
+        self.assertEqual(len(templates["ThresholdSpecification"]), 2)
 
         post_response = self.client.post(
             "/evaluation_service/templates/"

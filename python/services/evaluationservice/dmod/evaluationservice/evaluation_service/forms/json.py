@@ -107,13 +107,13 @@ class SpecificationTemplateForm(forms.ModelForm):
     """
     A specialized form for SpecificationTemplate that allows its JSON data to be manipulated within a JSONArea
     """
-    class Meta:
-        model = models.SpecificationTemplate
-        fields = [
-            field.name
-            for field in models.SpecificationTemplate._meta.get_fields()
-            if field.name.lower() not in ("owner", "author")
-        ]
+    #class Meta:
+    #    model = models.SpecificationTemplate
+    #    fields = [
+    #        field.name
+    #        for field in models.SpecificationTemplate._meta.get_fields()
+    #        if field.name.lower() not in ("owner", "author")
+    #    ]
 
     class Media:
         # Include a script to add functionality that will update the json area's

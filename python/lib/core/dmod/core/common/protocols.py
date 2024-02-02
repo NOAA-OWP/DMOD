@@ -67,7 +67,7 @@ else:
 
     # Strictly speaking, this should be a Sequence, but the type system does
     # not support fixed-length sequences.
-    DBAPIColumnDescription: typing.TypeAlias = tuple[
+    DBAPIColumnDescription: typing.TypeAlias = typing.Tuple[
         str,
         DBAPITypeCode,
         typing.Optional[int],
