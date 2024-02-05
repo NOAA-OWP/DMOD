@@ -132,6 +132,13 @@ class WebSocketInterfaceTestBase(unittest.TestCase):
 
         self._client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         self._client_ssl_context.load_verify_locations(str(self.test_ssl_dir.joinpath('certificate.pem')))
+        # NOTE: To avoid a `SSL: CERTIFICATE_VERIFY_FAILED` hostname checking
+        # is turned off. TLS Certs are cached by github action runners. When
+        # the certs are created, their subject field will be populated using
+        # the hostname of the runner. When the _cached_ certs are used by a
+        # different runner, there will be a hostname mismatch b.c. the certs
+        # were created using a different hostname.
+        self._client_ssl_context.check_hostname = False
 
         self.port = '3012'
         self.host = gethostname()
