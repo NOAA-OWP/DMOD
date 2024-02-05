@@ -13,7 +13,18 @@ from uuid import UUID
 
 # TODO: also add another test for the job manager factory and its factory method
 
+try:
+    import pytest
+    import os
+    # https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables
+    in_ci = os.environ.get("CI", False) == "true"
+    skip_in_ci = pytest.mark.skipif(in_ci, reason="Tests require access to Docker Daemon. Do not have access to Docker Daemon in GH Actions.")
+except ImportError:
+    def skip_in_ci(fn):
+        return fn
 
+
+@skip_in_ci
 class IntegrationTestRedisBackedJobManager(unittest.TestCase):
 
     _TEST_ENV_FILE_BASENAME = ".test_env"
