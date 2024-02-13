@@ -2,7 +2,6 @@ import fiona
 import geopandas as gpd
 import hashlib
 from pandas.util import hash_pandas_object
-import numpy as np
 from pathlib import Path
 from typing import Callable, Dict, FrozenSet, Iterable, List, Optional, Tuple, Union
 from hypy import Catchment, Nexus, Realization
