@@ -100,7 +100,7 @@ class GeoPackageCatchment(Catchment):
             return df
 
     @property
-    def conjoined_catchments(self) -> Tuple['GeoPackageCatchment']:
+    def conjoined_catchments(self) -> Tuple['GeoPackageCatchment', ...]:
         """
 
         Returns
@@ -112,7 +112,7 @@ class GeoPackageCatchment(Catchment):
                       c is not None])
 
     @property
-    def contained_catchments(self) -> Tuple['GeoPackageCatchment']:
+    def contained_catchments(self) -> Tuple['GeoPackageCatchment', ...]:
         """
         Tuple of catchment object having an "is-in" relationship with this catchment object.
 
@@ -275,7 +275,7 @@ class GeoPackageNexus(Nexus):
         return self._nex_id
 
     @property
-    def receiving_catchments(self) -> Tuple['GeoPackageCatchment']:
+    def receiving_catchments(self) -> Tuple['GeoPackageCatchment', ...]:
         """
         Tuple of GeoPackageCatchment object(s) receiving water from nexus
 
@@ -289,7 +289,7 @@ class GeoPackageNexus(Nexus):
         return tuple([c for c in catchments if c is not None])
 
     @property
-    def contributing_catchments(self) -> Tuple['GeoPackageCatchment']:
+    def contributing_catchments(self) -> Tuple['GeoPackageCatchment', ...]:
         """
         Tuple of GeoPackageCatchment object(s) contributing water to nexus
 
