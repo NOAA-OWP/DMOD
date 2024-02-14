@@ -4,6 +4,7 @@ Provides common functions and helper classes
 from __future__ import annotations
 
 from .failure import Failure
+
 from .helper_functions import get_current_function_name
 from .helper_functions import is_sequence_type
 from .helper_functions import is_iterable_type
@@ -21,10 +22,18 @@ from .helper_functions import contents_are_equivalent
 from .helper_functions import humanize_text
 from .helper_functions import generate_identifier
 from .helper_functions import generate_key
+
 from .tasks import wait_on_task
 from .tasks import cancel_task
 from .tasks import cancel_tasks
-from .collection import Bag
+
+from .collections import Bag
+from .collections import AccessCache
+from .collections import CacheEntry
+from .collections import MapModel
+from .collections import SequenceModel
+from .collections import CollectionEvent
+
 from .protocols import DBAPIConnection
 from .protocols import DBAPICursor
 from .protocols import DBAPIColumnDescription

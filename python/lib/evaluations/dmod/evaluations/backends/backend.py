@@ -2,9 +2,9 @@
 import abc
 import typing
 
-from dmod.core.common.collection import AccessCache
-
+from dmod.core.common import AccessCache
 from dmod.core.events import EventRouter
+
 from .. import specification
 
 

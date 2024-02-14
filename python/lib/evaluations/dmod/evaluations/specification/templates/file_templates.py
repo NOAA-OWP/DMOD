@@ -13,9 +13,9 @@ from dateutil.parser import parse as parse_date
 
 import pydantic
 from dmod.core.common import package_directory
-from dmod.core.common.collection import CollectionEvent
-from dmod.core.common.collection import MapModel
-from dmod.core.common.collection import SequenceModel
+from dmod.core.common import CollectionEvent
+from dmod.core.common import MapModel
+from dmod.core.common import SequenceModel
 
 from .. import base
 

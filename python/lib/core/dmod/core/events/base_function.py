@@ -8,7 +8,12 @@ import typing
 import inspect
 import logging
 
-from typing_extensions import ParamSpec
+try:
+    from typing import ParamSpec
+    from typing import Concatenate
+except ImportError:
+    from typing_extensions import ParamSpec
+    from typing_extensions import Concatenate
 
 from dataclasses import field
 from dataclasses import dataclass
@@ -27,9 +32,8 @@ class Event:
         return self.__event_name
 
 
-GATHERING_RESULTS = asyncio.Future[typing.Tuple[typing.Union[BaseException, typing.Any], ...]]
 EVENT_HANDLER = typing.Callable[
-    [
+    Concatenate[
         Event,
         PARAMS
     ],
@@ -593,22 +597,27 @@ class EventFunctionGroup:
         return function.parameters.complies_with(self.__expected_arguments)
 
     async def fire(self, event: Event, *args, **kwargs):
-        async_function_calls = [
+        scheduled_async_functions: asyncio.Future = asyncio.gather(*[
             function(event, *args, **kwargs)
             for function in self.__functions
             if function.is_async
-        ]
-
-        scheduled_async_functions: GATHERING_RESULTS = asyncio.gather(*async_function_calls)
+        ])
 
         exceptions: typing.List[BaseException] = list()
 
-        for function in self.__functions:
-            if not function.is_async:
-                function(event, *args, **kwargs)
+        synchronous_functions: typing.List[EVENT_HANDLER] = [
+            func
+            for func in self.__functions
+            if not func.is_async
+        ]
+
+        for function in synchronous_functions:
+            function(event, *args, **kwargs)
 
         results = list(await scheduled_async_functions)
 
+        # Loop through all results in a while loop rather than a for-loop
+        #   awaited results will be placed back into the collection for iteration
         while results:
             result = results.pop()
             if isinstance(result, BaseException):

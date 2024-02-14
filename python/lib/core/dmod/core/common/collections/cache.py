@@ -1,46 +1,49 @@
 """
-Defines specialized collections that aren't built into any of the first or third party libraries
+@TODO: Put a module wide description here
 """
 from __future__ import annotations
 
 import asyncio
-import math
-
-import abc
-import enum
 import inspect
 import typing
+import math
 
 from datetime import datetime
 
-import pydantic
-from pydantic import PrivateAttr
-from pydantic.generics import GenericModel
+try:
+    from typing import ParamSpec
+    from typing import Concatenate
+except ImportError:
+    from typing_extensions import ParamSpec
+    from typing_extensions import Concatenate
 
-from typing_extensions import ParamSpec
+from .constants import EntryType
 
-from collections.abc import Collection
-from typing import Iterator
-
-from ..events import EventRouter
-from ..events import Event
-
-_T = typing.TypeVar("_T")
-_KT = typing.TypeVar("_KT", bound=typing.Hashable, covariant=True)
-_VT = typing.TypeVar("_VT")
-_HT = typing.TypeVar("_HT", bound=typing.Union[typing.Hashable, typing.Mapping, typing.Sequence[typing.Hashable]])
-
-_VARIABLE_PARAMETERS = ParamSpec("_VARIABLE_PARAMETERS")
-"""Represents *args and **kwargs"""
-
+from ...events import Event
+from ...events import EventRouter
 
 ON_ADDITION_KEY = "on_addition"
 ON_REMOVAL_KEY = "on_removal"
 ON_ACCESS_KEY = "on_access"
 ON_UPDATE_KEY = "on_update"
 
+HashableType = typing.TypeVar("HashableType", bound=typing.Union[typing.Hashable, typing.Mapping, typing.Sequence[typing.Hashable]])
 
-def hash_hashable_map_sequence(value: _HT) -> int:
+
+_VARIABLE_PARAMETERS = ParamSpec("_VARIABLE_PARAMETERS")
+"""Represents *args and **kwargs"""
+
+
+def hash_hashable_map_sequence(value: HashableType) -> int:
+    """
+    Generate the hash or hash of a collection of objects
+
+    Args:
+        value: The value to be hashed
+
+    Returns:
+        The result of the hashing operation
+    """
     if not isinstance(value, (str, bytes)) and isinstance(value, typing.Sequence):
         return hash(
             (
@@ -61,15 +64,15 @@ def hash_hashable_map_sequence(value: _HT) -> int:
         return hash(value)
 
 
-class CacheEntry(typing.Generic[_HT]):
+class CacheEntry(typing.Generic[HashableType]):
     """
     An item to be stored within an AccessCache
     """
     def __init__(
         self,
-        owner: AccessCache[_HT],
+        owner: AccessCache[HashableType],
         identifier: str,
-        data: _HT,
+        data: HashableType,
         last_accessed: datetime = None,
         event_router: EventRouter = None
     ):
@@ -147,7 +150,7 @@ class CacheEntry(typing.Generic[_HT]):
         self._update_time(new_time)
         self.entry_accessed(*args, **kwargs)
 
-    def _set_data(self, data: _HT = None, *args, **kwargs):
+    def _set_data(self, data: HashableType = None, *args, **kwargs):
         """
         Set the data within the entry
 
@@ -155,7 +158,7 @@ class CacheEntry(typing.Generic[_HT]):
         """
         self.__data = data
 
-    async def _async_set_data(self, data: _HT = None, *args, **kwargs):
+    async def _async_set_data(self, data: HashableType = None, *args, **kwargs):
         """
         Set the data within the entry and allow for any implementable asynchronous functionality
 
@@ -163,7 +166,7 @@ class CacheEntry(typing.Generic[_HT]):
         """
         self.__data = data
 
-    def update(self, data: _HT = None, *args, **kwargs):
+    def update(self, data: HashableType = None, *args, **kwargs):
         """
         Update the data within this entry and fire the 'on_update' event
 
@@ -172,7 +175,7 @@ class CacheEntry(typing.Generic[_HT]):
         self._set_data(data)
         self.entry_updated(*args, **kwargs)
 
-    async def async_update(self, data: _HT = None, *args, resolve: bool = None, **kwargs):
+    async def async_update(self, data: HashableType = None, *args, resolve: bool = None, **kwargs):
         """
         Update the data within this entry and fire the 'on_update' event
 
@@ -207,12 +210,12 @@ class CacheEntry(typing.Generic[_HT]):
         return self.__data_hash
 
     @property
-    def data(self) -> _HT:
+    def data(self) -> HashableType:
         self.touch()
         return self.__data
 
     @property
-    async def async_data(self) -> _HT:
+    async def async_data(self) -> HashableType:
         await self.async_touch()
         return self.__data
 
@@ -337,8 +340,8 @@ class CacheEntry(typing.Generic[_HT]):
         else:
             firing = self.__event_router.fire(event_name, self)
 
-        if inspect.isawaitable(firing):
-            await firing
+        while inspect.isawaitable(firing):
+            firing = await firing
 
     async def entry_deleted_async(self, *args, resolve: bool = None, **kwargs):
         """
@@ -419,7 +422,7 @@ class CacheEntry(typing.Generic[_HT]):
 
 # Part of Issue https://github.com/NOAA-OWP/DMOD/issues/434
 #   "Make metric computations asynchronous by location"
-class AccessCache(typing.Generic[_HT], typing.MutableMapping[str, CacheEntry[_HT]]):
+class AccessCache(typing.Generic[HashableType], typing.MutableMapping[str, CacheEntry[HashableType]]):
     """
     A base class that implements a caching mechanism that organizes entries based on access time and fires events
     when adding, removing, accessing, and updating entries
@@ -427,7 +430,7 @@ class AccessCache(typing.Generic[_HT], typing.MutableMapping[str, CacheEntry[_HT
     def __init__(
         self,
         max_size: int = 100,
-        values: typing.Mapping[str, typing.Union[_HT, CacheEntry[_HT], None]] = None,
+        values: typing.Mapping[str, typing.Union[HashableType, CacheEntry[HashableType], None]] = None,
         on_addition: typing.Union[CACHE_HANDLER, typing.Sequence[CACHE_HANDLER]] = None,
         on_removal: typing.Union[CACHE_HANDLER, typing.Sequence[CACHE_HANDLER]] = None,
         on_access: typing.Union[CACHE_HANDLER, typing.Sequence[CACHE_HANDLER]] = None,
@@ -472,8 +475,8 @@ class AccessCache(typing.Generic[_HT], typing.MutableMapping[str, CacheEntry[_HT
 
         self.__leftover_tasks: typing.List[typing.Awaitable] = list()
 
-        self.__internal_cache: typing.Dict[str, CacheEntry[_HT]] = dict()
-        self.__earliest: typing.Optional[CacheEntry[_HT]] = None
+        self.__internal_cache: typing.Dict[str, CacheEntry[HashableType]] = dict()
+        self.__earliest: typing.Optional[CacheEntry[HashableType]] = None
         self.__max_size = max_size if isinstance(max_size, (int, float)) and max_size > 0 else math.inf
 
         for key, value in values:
@@ -517,7 +520,7 @@ class AccessCache(typing.Generic[_HT], typing.MutableMapping[str, CacheEntry[_HT
 
         self.__update_earliest()
 
-    def __setitem__(self, key: str, data: typing.Union[CacheEntry[_HT], _HT, None]) -> None:
+    def __setitem__(self, key: str, data: typing.Union[CacheEntry[HashableType], HashableType, None]) -> None:
         """
         Add or update an item in the cache
 
@@ -552,7 +555,7 @@ class AccessCache(typing.Generic[_HT], typing.MutableMapping[str, CacheEntry[_HT
         finally:
             self.release()
 
-    def construct_entry(self, key: str, data: typing.Union[_HT, CacheEntry[_HT]] = None) -> CacheEntry[_HT]:
+    def construct_entry(self, key: str, data: typing.Union[HashableType, CacheEntry[HashableType]] = None) -> CacheEntry[HashableType]:
         """
         Create a new entry that will fit into the cache
 
@@ -594,7 +597,7 @@ class AccessCache(typing.Generic[_HT], typing.MutableMapping[str, CacheEntry[_HT
     async def async_set(
         self,
         key: str,
-        data: typing.Union[CacheEntry[_HT], _HT, None],
+        data: typing.Union[CacheEntry[HashableType], HashableType, None],
         resolve: bool = None
     ) -> None:
         """
@@ -648,7 +651,7 @@ class AccessCache(typing.Generic[_HT], typing.MutableMapping[str, CacheEntry[_HT
                     if entry.last_accessed < self.__earliest.last_accessed:
                         self.__earliest = entry
 
-    def remove(self, key: str) -> typing.Optional[_T]:
+    def remove(self, key: str) -> typing.Optional[EntryType]:
         """
         Remove an item based on its identifier
 
@@ -670,7 +673,7 @@ class AccessCache(typing.Generic[_HT], typing.MutableMapping[str, CacheEntry[_HT
             self.release()
         return None
 
-    async def remove_async(self, key: str, resolve: bool = None) -> typing.Optional[_T]:
+    async def remove_async(self, key: str, resolve: bool = None) -> typing.Optional[EntryType]:
         """
         Remove an item based on its identifier
 
@@ -727,7 +730,7 @@ class AccessCache(typing.Generic[_HT], typing.MutableMapping[str, CacheEntry[_HT
             self.release()
             self.__update_earliest()
 
-    def __getitem__(self, key: str) -> typing.Union[_HT, None]:
+    def __getitem__(self, key: str) -> typing.Union[HashableType, None]:
         """
         Get data from the Cache
 
@@ -750,7 +753,7 @@ class AccessCache(typing.Generic[_HT], typing.MutableMapping[str, CacheEntry[_HT
             self.release()
             self.__update_earliest()
 
-    def get(self, key: str, default: typing.Any = None) -> typing.Union[_HT, None]:
+    def get(self, key: str, default: typing.Any = None) -> typing.Union[HashableType, None]:
         """
         Get data from the cache or a default if it is not present
 
@@ -826,7 +829,7 @@ class AccessCache(typing.Generic[_HT], typing.MutableMapping[str, CacheEntry[_HT
 
     def update(
         self,
-        other: typing.Union[AccessCache[_HT], typing.Mapping[str, typing.Union[CacheEntry[_HT], _HT, None]]],
+        other: typing.Union[AccessCache[HashableType], typing.Mapping[str, typing.Union[CacheEntry[HashableType], HashableType, None]]],
         **kwargs
     ) -> None:
         """
@@ -855,7 +858,7 @@ class AccessCache(typing.Generic[_HT], typing.MutableMapping[str, CacheEntry[_HT
             self.release()
             self.__update_earliest()
 
-    def popitem(self) -> typing.Optional[typing.Tuple[str, _HT]]:
+    def popitem(self) -> typing.Optional[typing.Tuple[str, HashableType]]:
         """
         Remove the oldest item in the cache
 
@@ -879,7 +882,7 @@ class AccessCache(typing.Generic[_HT], typing.MutableMapping[str, CacheEntry[_HT
             self.release()
             self.__update_earliest()
 
-    async def async_popitem(self, resolve: bool = None) -> typing.Optional[typing.Tuple[str, _HT]]:
+    async def async_popitem(self, resolve: bool = None) -> typing.Optional[typing.Tuple[str, HashableType]]:
         """
         Remove the oldest item in the cache
 
@@ -913,7 +916,7 @@ class AccessCache(typing.Generic[_HT], typing.MutableMapping[str, CacheEntry[_HT
             self.release()
             self.__update_earliest()
 
-    def __order_entries(self, descending: bool = None) -> typing.Sequence[CacheEntry[_HT]]:
+    def __order_entries(self, descending: bool = None) -> typing.Sequence[CacheEntry[HashableType]]:
         """
         Create a collection of all cached data in access time order
 
@@ -938,7 +941,7 @@ class AccessCache(typing.Generic[_HT], typing.MutableMapping[str, CacheEntry[_HT
             self.release()
 
     def set_on_addition(self, handler: typing.Callable[
-        [Event, CacheEntry[_HT], AccessCache[_HT], typing.Tuple[typing.Any, ...], typing.Dict[str, typing.Any]],
+        [Event, CacheEntry[HashableType], AccessCache[HashableType], typing.Tuple[typing.Any, ...], typing.Dict[str, typing.Any]],
         typing.Any
     ]):
         """
@@ -965,7 +968,7 @@ class AccessCache(typing.Generic[_HT], typing.MutableMapping[str, CacheEntry[_HT
             raise TypeError(f"Only functions and methods may be set as event handlers. Received '{type(handler)}'")
 
     def set_on_access(self, handler: typing.Callable[
-        [Event, CacheEntry[_HT], typing.Optional[AccessCache[_HT]], _VARIABLE_PARAMETERS],
+        [Event, CacheEntry[HashableType], typing.Optional[AccessCache[HashableType]], _VARIABLE_PARAMETERS],
         typing.Any
     ]):
         """
@@ -997,494 +1000,16 @@ class AccessCache(typing.Generic[_HT], typing.MutableMapping[str, CacheEntry[_HT
     def __contains__(self, key: str) -> bool:
         return key in self.__internal_cache
 
-    def __iter__(self) -> Iterator[CacheEntry[_HT]]:
+    def __iter__(self) -> typing.Iterator[CacheEntry[HashableType]]:
         return iter(self.__order_entries())
 
 
 CACHE_HANDLER = typing.Callable[
-    [
+    Concatenate[
         Event,
-        CacheEntry[_HT],
+        CacheEntry[HashableType],
         _VARIABLE_PARAMETERS
     ],
     typing.Union[typing.Coroutine, typing.Any]
 ]
 """The signature for a function that may serve as a handler for events within an AccessCache"""
-
-
-class CollectionEvent(str, enum.Enum):
-    SET = "SET"
-    GET = "GET"
-    UPDATE = "UPDATE"
-    EXTEND = "EXTEND"
-    DELETE = "DELETE"
-    ADD = "ADD"
-    INSERT = "INSERT"
-    POP = "POP"
-    REMOVE = "REMOVE"
-    REVERSE = "REVERSE"
-    SORT = "SORT"
-    CLEAR = "CLEAR"
-
-    @classmethod
-    def get(cls, name: str) -> CollectionEvent:
-        lowercase_name = name.lower()
-        for entry in cls:
-            if entry.lower() == lowercase_name:
-                return cls[entry]
-        raise KeyError(f"There are no collection events named '{name}'")
-
-
-class FunctionEnum:
-    @classmethod
-    def entries(cls) -> typing.Iterable[typing.Tuple[str, typing.Callable]]:
-        all_members: typing.List[typing.Tuple[str, typing.Any]] = inspect.getmembers(
-            cls,
-            predicate=lambda member: not inspect.isroutine(member)
-        )
-
-        return [
-            (name, value)
-            for name, value in all_members
-            if not name.startswith("__")
-               and not name.endswith("__")
-        ]
-
-    @classmethod
-    def values(cls) -> typing.Iterable[typing.Callable]:
-        return [
-            value
-            for name, value in cls.entries()
-        ]
-
-    @classmethod
-    def keys(cls) -> typing.Iterable[str]:
-        return [
-            name
-            for name, value in cls.entries()
-        ]
-
-    @classmethod
-    def from_name(cls, name: str) -> typing.Callable:
-        entry = cls.find(name)
-
-        if entry is None:
-            raise KeyError(f"There are not entries in the '{cls.__name__}' Enum named '{name}")
-
-        return entry
-
-    @classmethod
-    def has(cls, name: str) -> bool:
-        return cls.find(name) is not None
-
-    @classmethod
-    def find(cls, name: str) -> typing.Optional[typing.Callable]:
-        name = name.lower()
-        for handler_name, value in cls.entries():
-            if handler_name.lower() == name:
-                return value
-        return None
-
-
-class MapHandler(typing.Generic[_KT, _VT]):
-    SET = typing.Callable[[typing.MutableMapping[_KT, _VT], _KT, _VT], typing.Any]
-    GET = typing.Callable[[typing.MutableMapping[_KT, _VT], _KT, _VT], typing.Any]
-    UPDATE = typing.Callable[[typing.MutableMapping[_KT, _VT], typing.Mapping[_KT, _VT]], typing.Any]
-    DELETE = typing.Callable[[typing.MutableMapping[_KT, _VT], _KT, _VT], typing.Any]
-    POP = typing.Callable[[typing.MutableMapping[_KT, _VT], typing.Optional[_KT]], typing.Any]
-    REMOVE = typing.Callable[[typing.MutableMapping[_KT, _VT], _KT, _VT], typing.Any]
-    CLEAR = typing.Callable[[typing.MutableMapping[_KT, _VT]], typing.Any]
-
-
-class SequenceHandler(typing.Generic[_T]):
-    GET = typing.Callable[
-        [
-            typing.MutableSequence[_T],
-            typing.Union[int, slice],
-            typing.Union[_T, typing.MutableSequence[_T]]
-        ],
-        typing.Any
-    ]
-    SET = typing.Callable[
-        [
-            typing.MutableSequence[_T],
-            typing.Union[int, slice],
-            typing.Union[_T, typing.MutableSequence[_T]]
-        ],
-        typing.Any
-    ]
-    EXTEND = typing.Callable[[typing.MutableSequence[_T], typing.Iterable[_T]], typing.Any]
-    ADD = typing.Callable[[typing.MutableSequence[_T], _T], typing.Any]
-    DELETE = typing.Callable[
-        [
-            typing.MutableSequence[_T],
-            typing.Union[int, slice],
-            typing.Union[_T, typing.MutableSequence[_T]]
-        ],
-        typing.Any
-    ]
-    INSERT = typing.Callable[[typing.MutableSequence[_T], int, _T], typing.Any]
-    POP = typing.Callable[[typing.MutableSequence[_T], typing.Optional[int]], typing.Any]
-    REMOVE = typing.Callable[[typing.MutableSequence[_T], _T], typing.Any]
-    REVERSE = typing.Callable[[typing.MutableSequence[_T]], typing.Any]
-    CLEAR = typing.Callable[[typing.MutableSequence[_T]], typing.Any]
-    SORT = typing.Callable[[typing.MutableSequence[_T], typing.Any, bool], typing.Any]
-
-
-class Bag(typing.Collection[_T]):
-    """
-    A wrapper collection that hides functions/elements that treat the contents as anything other than an abstract
-    collection
-
-    Elements do not have to be hashable nor unique
-
-    Example Use Case:
-
-        You need to represent collected data that is meant to be unordered, but not unique/requiring a hash.
-        This leaves out list and set types.
-    """
-    def __init__(self, data: typing.Collection[_T] = None):
-        self.__data = [value for value in data] if data is not None else list()
-
-    def to_list(self) -> typing.List[_T]:
-        """
-        Convert the data into a normal list
-
-        Returns:
-            A list of the values within the bag
-        """
-        return [value for value in self.__data]
-
-    def add(self, value: _T) -> "Bag[_T]":
-        """
-        Add a value to the bag
-
-        Args:
-            value: The item to add
-
-        Returns:
-            The updated bag
-        """
-        self.__data.append(value)
-        return self
-
-    def find(self, condition: typing.Callable[[_T], bool]) -> typing.Optional[_T]:
-        """
-        Find the first item in the bag that matches the given condition
-
-        Args:
-            condition: A function defining if the encountered element counts as the one the caller is looking for
-
-        Returns:
-            The first item in the collection that matches the condition
-        """
-        for entry in self.__data:
-            if condition(entry):
-                return entry
-
-        return None
-
-    def remove(self, element: _T):
-        """
-        Remove an element from the bag
-
-        Args:
-            element: The element to remove
-        """
-        if element in self.__data:
-            self.__data.remove(element)
-
-    def pick(self) -> typing.Optional[_T]:
-        """
-        Extract an element from the bag
-
-        Returns:
-            An element from the bag if one exists
-        """
-        extracted_value: typing.Optional[_T] = None
-
-        if len(self.__data) > 0:
-            extracted_value = self.__data.pop()
-
-        return extracted_value
-
-    def count(self, element: _T) -> int:
-        """
-        Count the number of times that a particular element is within the bag
-
-        Args:
-            element: The item to look for
-
-        Returns:
-            The number of times that that element is within the bag
-        """
-        return sum([entry for entry in self.__data if entry == element])
-
-    def __len__(self) -> int:
-        return len(self.__data)
-
-    def __iter__(self) -> Iterator[_T]:
-        return iter(self.__data)
-
-    def __contains__(self, obj: object) -> bool:
-        return obj in self.__data
-
-
-class EventfulMap(abc.ABC, typing.MutableMapping[_KT, _VT], typing.Generic[_KT, _VT]):
-    @abc.abstractmethod
-    def get_handlers(self) -> typing.Dict[CollectionEvent, typing.MutableSequence[typing.Callable]]:
-        ...
-
-    @abc.abstractmethod
-    def inner_map(self) -> typing.MutableMapping[_KT, _VT]:
-        pass
-
-    def add_handler(self, event_type: typing.Union[CollectionEvent, str], handler: typing.Callable):
-        event_type = CollectionEvent.get(event_type) if isinstance(event_type, str) else event_type
-
-        if event_type not in self.get_handlers():
-            self.get_handlers()[event_type] = list()
-
-        if handler not in self.get_handlers()[event_type]:
-            self.get_handlers()[event_type].append(handler)
-
-    def get(self, __key: _KT, default=None):
-        value = self.inner_map().get(__key, default)
-
-        handlers: typing.Iterable[MapHandler.GET] = self.get_handlers().get(CollectionEvent.GET, [])
-
-        for handler in handlers:
-            handler(self, __key, value)
-
-        return value
-
-    def clear(self) -> None:
-        handlers: typing.Iterable[MapHandler.CLEAR] = self.get_handlers().get(CollectionEvent.CLEAR, [])
-        for handler in handlers:
-            handler(self)
-        return self.inner_map().clear()
-
-    def items(self) -> typing.ItemsView[str, _VT]:
-        return self.inner_map().items()
-
-    def keys(self) -> typing.KeysView[str]:
-        return self.inner_map().keys()
-
-    def values(self) -> typing.ValuesView[_VT]:
-        return self.inner_map().values()
-
-    def pop(self, __key: _KT, default=None) -> _VT:
-        handlers: typing.Iterable[MapHandler.POP] = self.get_handlers().get(CollectionEvent.POP, [])
-        for handler in handlers:
-            handler(self, __key)
-        return self.inner_map().pop(__key, default)
-
-    def popitem(self) -> tuple[_KT, _VT]:
-        handlers: typing.Iterable[MapHandler.POP] = self.get_handlers().get(CollectionEvent.POP, [])
-        for handler in handlers:
-            handler(self, None)
-        return self.inner_map().popitem()
-
-    def setdefault(self, __key: _KT, __default: _VT = ...) -> typing.Optional[_VT]:
-        return self.inner_map().setdefault(__key, __default)
-
-    def update(self, __m: typing.Mapping[_KT, _VT], **kwargs: _VT) -> None:
-        handlers: typing.Iterable[MapHandler.UPDATE] = self.get_handlers().get(CollectionEvent.UPDATE, [])
-        for handler in handlers:
-            handler(self, __m)
-        return self.inner_map().update(__m, **kwargs)
-
-    def __setitem__(self, __k: _KT, __v: _VT) -> None:
-        handlers: typing.Iterable[MapHandler.SET] = self.get_handlers().get(CollectionEvent.SET, [])
-        for handler in handlers:
-            handler(self, __k, __v)
-
-        self.inner_map()[__k] = __v
-
-    def __delitem__(self, __v: _KT) -> None:
-        handlers: typing.Iterable[MapHandler.DELETE] = self.get_handlers().get(CollectionEvent.DELETE, [])
-        for handler in handlers:
-            handler(self, __v, self[__v])
-        del self.inner_map()[__v]
-
-    def __getitem__(self, __k: _KT) -> _VT:
-        value = self.inner_map()[__k]
-
-        handlers: typing.Iterable[MapHandler.GET] = self.get_handlers().get(CollectionEvent.GET, [])
-        for handler in handlers:
-            handler(self, __k, value)
-        return value
-
-    def __iter__(self):
-        return iter(self.keys())
-
-    def __contains__(self, item: _KT) -> bool:
-        return item in self.keys()
-
-    def __len__(self) -> int:
-        return len(self.inner_map())
-
-
-class BaseEventfulSequence(abc.ABC, typing.MutableSequence[_T], typing.Generic[_T]):
-    @property
-    @abc.abstractmethod
-    def _inner_sequence(self) -> typing.List[_T]:
-        pass
-
-    @abc.abstractmethod
-    def _get_handlers(self) -> typing.Dict[CollectionEvent, typing.MutableSequence[typing.Callable]]:
-        pass
-
-    @property
-    def values(self) -> typing.Sequence[_T]:
-        return self._inner_sequence
-
-    def add_handler(self, event_type: typing.Union[CollectionEvent, str], handler: typing.Callable):
-        event_type = CollectionEvent.get(event_type) if isinstance(event_type, str) else event_type
-
-        if event_type not in self._get_handlers():
-            self._get_handlers()[event_type] = list()
-
-        if handler not in self._get_handlers()[event_type]:
-            self._get_handlers()[event_type].append(handler)
-
-    def insert(self, index: int, value: _T) -> None:
-        handlers: typing.Sequence[SequenceHandler.INSERT] = self._get_handlers().get(CollectionEvent.INSERT, [])
-
-        for handler in handlers:
-            handler(self, index, value)
-
-        self._inner_sequence.insert(index, value)
-
-    def append(self, value: _T) -> None:
-        handlers: typing.Sequence[SequenceHandler.ADD] = self._get_handlers().get(CollectionEvent.ADD, [])
-
-        for handler in handlers:
-            handler(self, value)
-
-        self._inner_sequence.append(value)
-
-    def remove(self, value: _T) -> None:
-        handlers: typing.Sequence[SequenceHandler.REMOVE] = self._get_handlers().get(CollectionEvent.REMOVE, [])
-
-        for handler in handlers:
-            handler(self, value)
-
-        self._inner_sequence.remove(value)
-
-    def pop(self, index: int = ...) -> _T:
-        handlers: typing.Sequence[SequenceHandler.POP] = self._get_handlers().get(CollectionEvent.POP, [])
-
-        for handler in handlers:
-            handler(self, index)
-
-        return self._inner_sequence.pop(index)
-
-    def reverse(self) -> None:
-        handlers: typing.Sequence[SequenceHandler.REVERSE] = self._get_handlers().get(CollectionEvent.REVERSE, [])
-        for handler in handlers:
-            handler(self)
-
-        self._inner_sequence.reverse()
-
-    def sort(self, *, key: None = ..., reverse: bool = ...):
-        handlers: typing.Sequence[SequenceHandler.SORT] = self._get_handlers().get(CollectionEvent.SORT, [])
-
-        for handler in handlers:
-            handler(self, key, reverse)
-
-        return self._inner_sequence.sort(key=key, reverse=reverse)
-
-    def index(self, value: typing.Any, start: int = ..., stop: int = ...) -> int:
-        return self._inner_sequence.index(value, start, stop)
-
-    def extend(self, values: typing.Iterable[_T]) -> None:
-        handlers: typing.Sequence[SequenceHandler.EXTEND] = self._get_handlers().get(CollectionEvent.EXTEND, [])
-
-        for handler in handlers:
-            handler(self, values)
-
-        self._inner_sequence.extend(values)
-
-    def count(self, __value: _T) -> int:
-        return self._inner_sequence.count(__value)
-
-    def clear(self) -> None:
-        handlers: typing.Sequence[SequenceHandler.CLEAR] = self._get_handlers().get(CollectionEvent.CLEAR, [])
-
-        for handler in handlers:
-            handler(self)
-
-        return self._inner_sequence.clear()
-
-    def __getitem__(self, index: typing.Union[int, slice]) -> _T:
-        value = self._inner_sequence[index]
-
-        handlers: typing.Iterable[SequenceHandler.GET] = self._get_handlers().get(CollectionEvent.GET, [])
-
-        for handler in handlers:
-            handler(self, index, value)
-
-        return value
-
-    def __setitem__(self, index: typing.Union[int, slice], value: typing.Union[_T, typing.MutableSequence[_T]]) -> None:
-        handlers: typing.Sequence[SequenceHandler.SET] = self._get_handlers().get(CollectionEvent.SET, [])
-
-        for handler in handlers:
-            handler(self, index, value)
-
-        self._inner_sequence[index] = value
-
-    def __delitem__(self, index: typing.Union[int, slice]) -> None:
-        handlers: typing.Sequence[SequenceHandler.DELETE] = self._get_handlers().get(CollectionEvent.REMOVE, [])
-
-        for handler in handlers:
-            handler(self, index, self[index])
-
-        del self._inner_sequence[index]
-
-    def __contains__(self, item: _T) -> bool:
-        return item in self._inner_sequence
-
-    def __iter__(self):
-        return iter(self._inner_sequence)
-
-    def __eq__(self, other: BaseEventfulSequence[_T]) -> bool:
-        if not isinstance(other, self.__class__):
-            return False
-
-        if len(self) != len(other):
-            return False
-
-        for item_index, item in enumerate(self.values):
-            other_item = other[item_index]
-            if item != other_item:
-                return False
-
-        return True
-
-    def __len__(self) -> int:
-        return len(self._inner_sequence)
-
-
-class MapModel(GenericModel, EventfulMap[_KT, _VT], typing.Generic[_KT, _VT]):
-    def get_handlers(self) -> typing.Dict[CollectionEvent, typing.MutableSequence[typing.Callable]]:
-        return self._handlers
-
-    def inner_map(self) -> typing.MutableMapping[_KT, _VT]:
-        return self.__root__
-
-    __root__: typing.Dict[_KT, _VT]
-    _handlers: typing.Dict[CollectionEvent, typing.MutableSequence[typing.Callable]] = PrivateAttr(default_factory=dict)
-
-
-class SequenceModel(GenericModel, BaseEventfulSequence[_T], typing.Generic[_T]):
-    @property
-    def _inner_sequence(self) -> typing.MutableSequence[_T]:
-        return self.__root__
-
-    def _get_handlers(self) -> typing.Dict[CollectionEvent, typing.MutableSequence[typing.Callable]]:
-        return self._handlers
-
-    __root__: typing.List[_T] = pydantic.Field(default_factory=list)
-    _handlers: typing.Dict[CollectionEvent, typing.List[typing.Callable]] = PrivateAttr(default_factory=dict)

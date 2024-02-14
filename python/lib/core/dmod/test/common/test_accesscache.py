@@ -12,12 +12,11 @@ from dataclasses import field
 
 from datetime import datetime
 
-from ...core.common.collection import CacheEntry
-from ...core.common.collection import AccessCache
+from ...core.common import CacheEntry
+from ...core.common import AccessCache
 from ...core.events import Event
 
-KT = typing.TypeVar("KT")
-VT = typing.TypeVar("VT")
+from ...core.common.collections.constants import ValueType
 
 COLLECTION_KEY = "collection"
 COLLECTION_TYPE = list
@@ -43,6 +42,7 @@ class DataToAdd:
     identifier: str
     data: typing.Optional[str] = field(default_factory=generate_data)
 
+
 @dataclass
 class ActionRecord:
     event: str
@@ -55,6 +55,7 @@ class ActionRecord:
 
     def __eq__(self, other):
         return hash(self) == hash(other)
+
 
 @dataclass
 class AccessRecord:
@@ -80,7 +81,7 @@ ASYNC_TEST_DATA = [
 ]
 
 
-def add_record(event: Event, entry: CacheEntry[VT], *args, **kwargs):
+def add_record(event: Event, entry: CacheEntry[ValueType], *args, **kwargs):
     getattr(GLOBAL_ADDITION_RECORD, COLLECTION_ADD_KEY)(ActionRecord(
         event=event.event_name,
         id=entry.identifier,
@@ -89,7 +90,7 @@ def add_record(event: Event, entry: CacheEntry[VT], *args, **kwargs):
     ))
 
 
-async def async_add_record(event: Event, entry: CacheEntry[VT], *args, **kwargs):
+async def async_add_record(event: Event, entry: CacheEntry[ValueType], *args, **kwargs):
     getattr(GLOBAL_ASYNC_ADDITION_RECORD, COLLECTION_ADD_KEY)(ActionRecord(
         event=event.event_name,
         id=entry.identifier,
@@ -98,7 +99,7 @@ async def async_add_record(event: Event, entry: CacheEntry[VT], *args, **kwargs)
     ))
 
 
-def remove_record(event: Event, entry: CacheEntry[VT],  *args, **kwargs):
+def remove_record(event: Event, entry: CacheEntry[ValueType],  *args, **kwargs):
     getattr(GLOBAL_REMOVAL_RECORD, COLLECTION_ADD_KEY)(ActionRecord(
         event=event.event_name,
         id=entry.identifier,
@@ -107,7 +108,7 @@ def remove_record(event: Event, entry: CacheEntry[VT],  *args, **kwargs):
     ))
 
 
-async def async_remove_record(event: Event, entry: CacheEntry[VT], *args, **kwargs):
+async def async_remove_record(event: Event, entry: CacheEntry[ValueType], *args, **kwargs):
     getattr(GLOBAL_ASYNC_REMOVAL_RECORD, COLLECTION_ADD_KEY)(ActionRecord(
         event=event.event_name,
         id=entry.identifier,
@@ -116,7 +117,7 @@ async def async_remove_record(event: Event, entry: CacheEntry[VT], *args, **kwar
     ))
 
 
-def update_access_record(event: Event, entry: CacheEntry[VT], *args, **kwargs):
+def update_access_record(event: Event, entry: CacheEntry[ValueType], *args, **kwargs):
     getattr(GLOBAL_ACCESS_RECORD, COLLECTION_ADD_KEY)(AccessRecord(
         event=event.event_name,
         id=entry.identifier,
@@ -124,7 +125,7 @@ def update_access_record(event: Event, entry: CacheEntry[VT], *args, **kwargs):
     ))
 
 
-def async_update_access_record(event: Event, entry: CacheEntry[VT], *args, **kwargs):
+def async_update_access_record(event: Event, entry: CacheEntry[ValueType], *args, **kwargs):
     getattr(GLOBAL_ASYNC_ACCESS_RECORD, COLLECTION_ADD_KEY)(AccessRecord(
         event=event.event_name,
         id=entry.identifier,
@@ -166,7 +167,7 @@ class TestAccessCache(unittest.IsolatedAsyncioTestCase):
     def add_record_method(
         self,
         event: Event,
-        entry: CacheEntry[VT],
+        entry: CacheEntry[ValueType],
         *args,
         **kwargs
     ):
@@ -178,7 +179,7 @@ class TestAccessCache(unittest.IsolatedAsyncioTestCase):
         ))
 
 
-    async def async_add_record_method(self, event: Event, entry: CacheEntry[VT], *args, **kwargs):
+    async def async_add_record_method(self, event: Event, entry: CacheEntry[ValueType], *args, **kwargs):
         getattr(self.async_addition_record, COLLECTION_ADD_KEY)(ActionRecord(
             event=event.event_name,
             id=entry.identifier,
@@ -187,7 +188,7 @@ class TestAccessCache(unittest.IsolatedAsyncioTestCase):
         ))
 
 
-    def remove_record_method(self, event: Event, entry: CacheEntry[VT], *args, **kwargs):
+    def remove_record_method(self, event: Event, entry: CacheEntry[ValueType], *args, **kwargs):
         getattr(self.removal_record, COLLECTION_ADD_KEY)(ActionRecord(
             event=event.event_name,
             id=entry.identifier,
@@ -196,7 +197,7 @@ class TestAccessCache(unittest.IsolatedAsyncioTestCase):
         ))
 
 
-    async def async_remove_record_method(self, event: Event, entry: CacheEntry[VT], *args, **kwargs):
+    async def async_remove_record_method(self, event: Event, entry: CacheEntry[ValueType], *args, **kwargs):
         getattr(self.async_removal_record, COLLECTION_ADD_KEY)(ActionRecord(
             event=event.event_name,
             id=entry.identifier,
@@ -204,14 +205,14 @@ class TestAccessCache(unittest.IsolatedAsyncioTestCase):
             last_accessed=entry.last_accessed
         ))
 
-    def update_access_record(self, event: Event, entry: CacheEntry[VT], *args, **kwargs):
+    def update_access_record(self, event: Event, entry: CacheEntry[ValueType], *args, **kwargs):
         getattr(self.access_record, COLLECTION_ADD_KEY)(AccessRecord(
             event=event.event_name,
             id=entry.identifier,
             last_accessed=entry.last_accessed
         ))
 
-    def async_update_access_record(self, event: Event, entry: CacheEntry[VT], *args, **kwargs):
+    def async_update_access_record(self, event: Event, entry: CacheEntry[ValueType], *args, **kwargs):
         getattr(self.async_access_record, COLLECTION_ADD_KEY)(AccessRecord(
             event=event.event_name,
             id=entry.identifier,
