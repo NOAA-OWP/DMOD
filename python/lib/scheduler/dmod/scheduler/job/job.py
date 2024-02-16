@@ -57,10 +57,14 @@ class JobExecStep(PydanticEnum):
     """ The step after a job has been scheduled. """
     RUNNING = (7, False, False)
     """ The step after a scheduled job has started running. """
-    STOPPED = (8, True, False)
-    """ The step that occurs if a running job is stopped deliberately. """
-    COMPLETED = (9, False, False, True)
-    """ The step after a running job is finished. """
+    STOPPING = (8, True, False)
+    """ The step that occurs for a running job after a successful request to be stopped, but before it has stopped. """
+    STOPPED = (9, True, False)
+    """ The step for a previously running job for which a stopping was request, once the job has actually stopped. """
+    COMPLETED = (10, False, False, True)
+    """ The step after a running job is finished executing and its resources have been released. """
+    CANCELED = (11, True, False, True)
+    """ The step occurring after ``STOPPED`` if allocated resources are release, indicated it will not be resumed. """
     FAILED = (-10, True, True, True)
     """ The step indicating failure happened that stopped a job after it entered the ``RUNNING`` step. """
 
