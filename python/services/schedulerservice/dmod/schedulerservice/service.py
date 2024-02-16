@@ -7,7 +7,9 @@ logging.basicConfig(
 )
 
 from websockets import WebSocketServerProtocol
-from typing import List, Type
+from typing import Awaitable, Callable, Dict, List, Type, TypeVar
+from dmod.core.exception import DmodRuntimeError
+from dmod.core.serializable import BasicResultIndicator
 from dmod.communication import AbstractInitRequest, InvalidMessageResponse, Message, SchedulerRequestMessage, \
     SchedulerRequestResponse, UpdateMessage, UpdateMessageResponse, WebSocketInterface
 from dmod.communication.maas_request.job_message import (JobControlAction, JobControlRequest, JobControlResponse,
@@ -18,6 +20,7 @@ import json
 
 import asyncio
 import websockets
+from datetime import datetime, timedelta
 
 # TODO: consider taking out loop init from WebsocketInterface implementations, instead having some "service" class own loop
 # TODO: then, have WebsocketInterface implementations attach to some service
@@ -78,8 +81,38 @@ class SchedulerHandler(WebSocketInterface):
             logging.error('Expected response to update message {}, but response digest {}'.format(
                 update_message.digest, response.digest))
 
-    _PARSEABLE_REQUEST_TYPES = [SchedulerRequestMessage]
-    """ Parseable request types, which are all authenticated ::class:`ExternalRequest` subtypes for this implementation. """
+    _REQ_C = TypeVar('_REQ_C', bound=Type[AbstractInitRequest])
+    """Type var needed for the bounds of keys for :meth:`_get_parseable_request_funcs` (`TypeVar`)."""
+    _REQ_T = TypeVar('_REQ_T', bound=AbstractInitRequest)
+    """Type var needed for the bounds of callable values for :meth:`_get_parseable_request_funcs` (`TypeVar`)."""
+
+    # TODO: perhaps add this functionality below to the actual abstract interface
+    @classmethod
+    def get_parseable_request_funcs(cls) -> Dict[_REQ_C, Callable[[_REQ_T, WebSocketServerProtocol], Awaitable[None]]]:
+        """
+        Get the collection of handled :class:`AbstractInitRequest` subtypes mapped to handler funcs.
+
+        Get a dictionary whose keys are all :class:`AbstractInitRequest` subtypes for which this type supports parsing
+        when handling incoming messages in :meth:`listener`.  The keys are mapped to the particular instance function
+        of this type that the type's :meth:`listener` uses to handle the processing of a message of the key's type.
+
+        Returns
+        -------
+        Dict[_REQ_C, Callable[[_REQ_T, WebSocketServerProtocol], Awaitable[None]]]
+            The collection of handled :class:`AbstractInitRequest` subtypes mapped to handler funcs.
+
+        See Also
+        --------
+        listener
+        """
+        # TODO: add something for reconnecting to monitor progress of job after being disconnected
+        return {
+            JobControlRequest: cls._handle_job_control_request,
+            JobInfoRequest: cls._handle_job_info_request,
+            JobListRequest: cls._handle_job_list_request,
+            SchedulerRequestMessage: cls._handle_scheduler_request,
+            UpdateMessage: cls._handle_update_message
+        }
 
     @classmethod
     def get_parseable_request_types(cls) -> List[Type[AbstractInitRequest]]:
@@ -90,8 +123,12 @@ class SchedulerHandler(WebSocketInterface):
         -------
         List[Type[AbstractInitRequest]]
             The ::class:`AbstractInitRequest` subtypes this type supports parsing when handling incoming messages.
+
+        See Also
+        --------
+        get_parseable_request_funcs
         """
-        return cls._PARSEABLE_REQUEST_TYPES
+        return sorted(k for k in cls.get_parseable_request_funcs())
 
     def __init__(self, job_mgr: JobManager, *args, **kwargs):
         """
@@ -292,32 +329,23 @@ class SchedulerHandler(WebSocketInterface):
             data = json.loads(message)
             logging.info(f"Got payload: {data}")
 
-            # TODO: perhaps add this functionality below to the actual abstract interface
-            # Define the types of initial messages we can receive, and the specific function that handles the rest of
-            # processing when such a message comes in
-            supported_init_message_types: List[Type[Message]] = [SchedulerRequestMessage, UpdateMessage]
-
+            found_type = None
             # Deserialize the message to the appropriate type if possible
-            for init_message_class_type in supported_init_message_types:
+            for init_message_class_type in self.get_parseable_request_funcs():
                 message = init_message_class_type.factory_init_from_deserialized_json(data)
                 # If successfully deserialized to something non-None, break here and process the message
                 if message is not None:
+                    found_type = init_message_class_type
                     break
-            # Once message is deserialized (or potential supported types are exhausted), handle appropriately
-            if isinstance(message, SchedulerRequestMessage):
-                await self._handle_scheduler_request(message=message, websocket=websocket)
-            elif isinstance(message, UpdateMessage):
-                await self._handle_update_message(message=message, websocket=websocket)
-            # TODO: add something for reconnecting to monitor progress of job after being disconnected
-            # TODO: potentially add something for restarting a stopped job (if the workflow requires)
             # If not some supported message type ...
-            else:
-                content = str(data)
-                msg = "Unrecognized message format received over {} websocket (message: `{}`)".format(
-                    self.__class__.__name__, content)
-                response = InvalidMessageResponse(data={'message_content': content})
+            if found_type is None:
+                msg = f"Unrecognized message received over {self.__class__.__name__} websocket (message: `{message}`)"
+                response = InvalidMessageResponse(data={'message_content': message})
                 await websocket.send(str(response))
                 raise TypeError(msg)
+
+            # Once message type is found and instance is deserialized handle appropriately
+            await self.get_parseable_request_funcs()[found_type](message, websocket)
 
         except TypeError as te:
             logging.error("Problem with object types when processing received message", te)
