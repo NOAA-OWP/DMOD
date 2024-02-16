@@ -956,7 +956,8 @@ class JobImpl(Job):
         # TODO: update to account for JobCategory
         # TODO: confirm that allocations should be maintained for stopped model exec jobs while in output phase
         # TODO: confirm that allocations should be maintained for stopped output jobs while in eval or calibration phase
-        return self.status_step == JobExecStep.FAILED or self.status_phase == JobExecPhase.CLOSED
+        return self.status_step in {JobExecStep.FAILED, JobExecStep.COMPLETED, JobExecStep.CANCELED} \
+            or self.status_phase == JobExecPhase.CLOSED
 
     def set_status(self, status: JobStatus):
         if status != self.status:
