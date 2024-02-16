@@ -10,7 +10,10 @@ from websockets import WebSocketServerProtocol
 from typing import List, Type
 from dmod.communication import AbstractInitRequest, InvalidMessageResponse, Message, SchedulerRequestMessage, \
     SchedulerRequestResponse, UpdateMessage, UpdateMessageResponse, WebSocketInterface
-from dmod.scheduler.job import Job, JobManager, JobStatus
+from dmod.communication.maas_request.job_message import (JobControlAction, JobControlRequest, JobControlResponse,
+                                                         JobInfoRequest, JobInfoResponse, JobListRequest,
+                                                         JobListResponse)
+from dmod.scheduler.job import Job, JobExecStep, JobManager, JobStatus
 import json
 
 import asyncio
@@ -18,6 +21,7 @@ import websockets
 
 # TODO: consider taking out loop init from WebsocketInterface implementations, instead having some "service" class own loop
 # TODO: then, have WebsocketInterface implementations attach to some service
+
 
 # TODO: rename to something like ExecutionHandler, and rename package as well (really goes beyond the Scheduler now)
 class SchedulerHandler(WebSocketInterface):
@@ -95,6 +99,35 @@ class SchedulerHandler(WebSocketInterface):
         """
         super().__init__(*args, **kwargs)
         self._job_manager = job_mgr
+
+    async def _handle_job_control_request(self, message: JobControlRequest, websocket: WebSocketServerProtocol):
+        try:
+            if message.action == JobControlAction.INVALID:
+                raise DmodRuntimeError(f"Can't request scheduler service to perform {message.action!s} action on job.")
+            elif message.action == JobControlAction.STOP:
+                response = await self._request_job_stop(job_id=message.job_id)
+            elif message.action == JobControlAction.RELEASE:
+                response = await self._request_job_release(job_id=message.job_id)
+            elif message.action == JobControlAction.RESTART:
+                response = await self._request_job_restart(message.job_id)
+            else:
+                raise NotImplementedError(f"Scheduler service unable to handle {message.action!s} job control action.")
+        except Exception as e:
+            response = BasicResultIndicator(action=message.action, job_id=message.job_id, success=False,
+                                            reason=f"{e.__class__.__name__}", message=f"Error message was: `{e!s}`")
+        await websocket.send(str(response))
+
+    async def _handle_job_info_request(self, message: JobInfoRequest, websocket: WebSocketServerProtocol):
+        # Get current persisted copy of Job object
+        job = self._job_manager.retrieve_job(message.job_id)
+        response = JobInfoResponse(job_id=message.job_id, status_only=message.status_only,
+                                   data=job.status.to_dict() if message.status_only else job.to_dict())
+        await websocket.send(str(response))
+
+    async def _handle_job_list_request(self, message: JobListRequest, websocket: WebSocketServerProtocol):
+        response = JobListResponse(only_active=message.only_active,
+                                   data=self._job_manager.get_job_ids(message.only_active))
+        await websocket.send(str(response))
 
     async def _handle_scheduler_request(self, message: SchedulerRequestMessage, websocket: WebSocketServerProtocol):
         """
@@ -201,6 +234,46 @@ class SchedulerHandler(WebSocketInterface):
         response = UpdateMessageResponse(digest=message.digest, object_found=True, success=True,
                                          reason='Successful Update')
         await websocket.send(str(response))
+
+    async def _request_job_release(self, job_id: str) -> JobControlResponse:
+        mgr_result = self._job_manager.release_allocations(job_id)
+        return JobControlResponse(action=JobControlAction.RELEASE, job_id=job_id, success=mgr_result.success,
+                                  reason=mgr_result.reason, message=mgr_result.message)
+
+    async def _request_job_restart(self, job_id: str) -> JobControlResponse:
+        mgr_result = self._job_manager.request_restart(job_id)
+        return JobControlResponse(action=JobControlAction.RESTART, job_id=job_id, success=mgr_result.success,
+                                  reason=mgr_result.reason, message=mgr_result.message)
+
+    async def _request_job_stop(self, job_id: str, timeout: timedelta = timedelta(minutes=1)) -> JobControlResponse:
+        """
+        Request that the job manager stop a job, then watch to see that a job enters the ``STOPPED`` step.
+
+        Parameters
+        ----------
+        job_id: str
+            The id of the job in question.
+        timeout: timedelta
+            An amount of time to wait before considering the operation to have failed (by default, 1 minute)
+
+        Returns
+        ----------
+        JobControlResponse
+            An response to the original request indicating whether the stop was successful.
+        """
+        mgr_result = self._job_manager.request_stop(job_id)
+        if not mgr_result.success:
+            return JobControlResponse(action=JobControlAction.STOP, job_id=job_id, success=False,
+                                      reason=f"Manager Rejected: {mgr_result.reason}", message=mgr_result.message)
+
+        deadline = datetime.now() + timeout
+        while datetime.now() < deadline:
+            if self._job_manager.retrieve_job(job_id).status_step == JobExecStep.STOPPED:
+                return JobControlResponse(action=JobControlAction.STOP, job_id=job_id, success=True,
+                                            reason="Job Stopped")
+            await asyncio.sleep(2)
+        return JobControlResponse(action=JobControlAction.STOP, job_id=job_id, success=False,
+                                  reason="Timeout Wait For Stop", message=f"Timeout of {timedelta!s} reached.")
 
     async def listener(self, websocket: WebSocketServerProtocol, path):
         """
