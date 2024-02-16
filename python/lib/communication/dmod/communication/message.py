@@ -2,7 +2,7 @@ from abc import ABC
 from typing import Any, ClassVar, Dict, Literal, Optional, Type
 from pydantic import Field
 
-from dmod.core.serializable import Serializable, ResultIndicator
+from dmod.core.serializable import BasicResultIndicator, Serializable
 from dmod.core.enum import PydanticEnum
 
 
@@ -14,7 +14,7 @@ class MessageEventType(PydanticEnum):
     """ Represents when a request occurs for model execution. """
 
     SCHEDULER_REQUEST = 3
-    """ Represents when a request occurs for an allocated, model execution ***job*** to be scheduled and run. """
+    """ Request of the scheduler, either to take an action - e.g., allocation and starting a job - or provide info. """
 
     INFORMATION_UPDATE = 4
 
@@ -91,7 +91,7 @@ class AbstractInitRequest(Message, ABC):
     """
 
 
-class Response(ResultIndicator, Message, ABC):
+class Response(BasicResultIndicator, Message, ABC):
     """
     Class representing a response to some ::class:`Message`, typically a ::class:`AbstractInitRequest` sub-type.
 
@@ -121,8 +121,6 @@ class Response(ResultIndicator, Message, ABC):
 
     response_to_type: ClassVar[Type[AbstractInitRequest]] = AbstractInitRequest
     """ The type of :class:`AbstractInitRequest` for which this type is the response"""
-
-    data: Optional[Serializable]
 
     @classmethod
     def get_message_event_type(cls) -> MessageEventType:
