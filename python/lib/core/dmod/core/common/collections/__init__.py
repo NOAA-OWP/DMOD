@@ -1,5 +1,5 @@
 """
-@TODO: Put a module wide description here
+Helpful collections used for expanded functionality for iterables, caching, maps, and sequences
 """
 from .bag import Bag
 
