@@ -14,6 +14,7 @@ from datetime import datetime
 
 from ...core.common import CacheEntry
 from ...core.common import AccessCache
+from ...core.common.collections.cache import hash_hashable_map_sequence
 from ...core.events import Event
 
 from ...core.common.collections.constants import ValueType
@@ -235,6 +236,15 @@ class TestAccessCache(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.addition_record), records_added)
         self.assertEqual(len(self.removal_record), records_removed)
         self.assertEqual(len(self.access_record), records_added * 4 + records_removed * 5)
+
+    def test_hash_hashable_map_sequence(self):
+        input_1 = [{'one': 48}, {'two': 2}, {'three': 3}]
+        input_2 = {object(): 42, object(): 0}
+
+        input_1_hash = hash_hashable_map_sequence(input_1)
+        input_2_hash = hash_hashable_map_sequence(input_2)
+
+        self.assertNotEqual(input_1_hash, input_2_hash)
 
     async def test_accesscache(self):
         records_added = 0

@@ -1,5 +1,5 @@
 """
-@TODO: Put a module wide description here
+Define a cache that may contain and share data between processes while triggering operations upon alteration.
 """
 from __future__ import annotations
 
@@ -27,10 +27,58 @@ ON_REMOVAL_KEY = "on_removal"
 ON_ACCESS_KEY = "on_access"
 ON_UPDATE_KEY = "on_update"
 
+
+@typing.runtime_checkable
+class ToDictProtocol(typing.Protocol):
+    """
+    A type of object that has a `to_dict` method that converts itself into a of strings to values
+    """
+    def to_dict(self, *args, **kwargs) -> typing.Dict[str, typing.Any]:
+        ...
+
+
+@typing.runtime_checkable
+class ToJsonProtocol(typing.Protocol):
+    """
+    A type of object that has a `to_json` method that converts itself into a a string interpretation of a dictionary
+    """
+    def to_json(self, *args, **kwargs) -> str:
+        ...
+
+
 T = typing.TypeVar("T")
 """Any sort of class that might indicate consistency"""
 
-HashableType = typing.TypeVar("HashableType", bound=typing.Union[typing.Hashable, typing.Mapping, typing.Sequence[typing.Hashable]])
+HashableType = typing.TypeVar(
+    "HashableType",
+    bound=typing.Union[
+        typing.Mapping[
+            str,
+            typing.Union[
+                typing.Hashable,
+                typing.Mapping[str, typing.ForwardRef("HashableType")],
+                typing.Iterable[typing.ForwardRef("HashableType")]
+            ]
+        ],
+        typing.Iterable[
+            typing.Union[
+                typing.Hashable,
+                typing.Mapping[
+                    str,
+                    typing.Union[
+                        typing.Hashable,
+                        typing.Mapping[str, typing.ForwardRef("HashableType")],
+                        typing.Iterable[typing.ForwardRef("HashableType")]
+                    ]
+                ],
+                typing.Iterable[typing.ForwardRef("HashableType")]
+            ]
+        ],
+        ToJsonProtocol,
+        ToDictProtocol,
+        typing.Hashable
+    ]
+)
 """A type of item that may either be hashed or we have a method of hashing (such as `hash_hashable_map_sequence`)"""
 
 
@@ -48,22 +96,41 @@ def hash_hashable_map_sequence(value: HashableType) -> int:
     Returns:
         The result of the hashing operation
     """
-    if not isinstance(value, (str, bytes)) and isinstance(value, typing.Sequence):
+    def key_function(element: T) -> int:
+        """
+        Function used to provided a value used to act as the key value for sorting
+
+        Args:
+            element: The value serving as the initial key for sorting
+
+        Returns:
+            A representation of that key value that may be used for comparisons
+        """
+        if isinstance(element, typing.Hashable):
+            return hash(element)
+        else:
+            return hash(str(element))
+
+    if isinstance(value, typing.Mapping):
         return hash(
-            (
-                hash_hashable_map_sequence(item) for item in value
-            )
-        )
-    elif isinstance(value, typing.Mapping):
-        return hash(
-            (
+            tuple(
                 (
                     key if isinstance(key, typing.Hashable) else hash_hashable_map_sequence(key),
                     value if isinstance(value, typing.Hashable) else hash_hashable_map_sequence(value)
                 )
-                for key, value in sorted(value.items())
+                for key, value in sorted(value.items(), key=key_function)
             )
         )
+    elif not isinstance(value, (str, bytes)) and isinstance(value, typing.Iterable):
+        return hash(
+            tuple(
+                hash_hashable_map_sequence(item) for item in value
+            )
+        )
+    elif isinstance(value, ToDictProtocol):
+        return hash_hashable_map_sequence(value.to_dict())
+    elif isinstance(value, ToJsonProtocol):
+        return hash_hashable_map_sequence(value.to_json())
     else:
         return hash(value)
 
@@ -446,7 +513,8 @@ class AccessCache(typing.Generic[HashableType], typing.MutableMapping[str, Cache
         Constructor
 
         Args:
-            max_size: The maximum number of items that this cache may contain. Non-positive numbers or None will store all data
+            max_size: The maximum number of items that this cache may contain. Values other than positive numbers will
+                cause the cache to become unbounded
             values: Preexisting data to add to the cache
             on_addition: Handlers to call when an item is added to the cache
             on_removal: Handlers to call when an item is removed from the cache

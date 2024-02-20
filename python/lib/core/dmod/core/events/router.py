@@ -127,7 +127,7 @@ class EventRouter:
         if isinstance(event, str):
             event = Event(event_name=event)
 
-        if self.__fail_on_missing_event and event.event_name not in self.__events:
+        if not (self.__fail_on_missing_event or event.event_name in self.__events):
             return
         elif event.event_name not in self.__events:
             raise ValueError(f"There are no registered handlers for the '{event.event_name}' event")
