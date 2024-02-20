@@ -213,6 +213,25 @@ class JobManager(JobUtil, ABC):
         """
         pass
 
+    # TODO: (later) once pausing is supported, expand this to paused jobs
+    @abstractmethod
+    def request_restart(self, job_id: str) -> BasicResultIndicator:
+        """
+        Request a stopped job be restarted by the scheduler.
+
+        Parameters
+        ----------
+        job_id : str
+            The identifier of the job in question.
+
+        Returns
+        -------
+        BasicResultIndicator
+            Indicator and details of whether job was previously in ``STOPPED`` status step and is now in
+            ``AWAITING_SCHEDULING`` step.
+        """
+        pass
+
     @abstractmethod
     def request_scheduling(self, job: Job) -> bool:
         """
@@ -227,6 +246,24 @@ class JobManager(JobUtil, ABC):
         -------
         bool
             Whether the job was scheduled.
+        """
+        pass
+
+    # TODO: (later) consider stopping/pausing from states other than RUNNING (probably requires tracking state history)
+    @abstractmethod
+    def request_stop(self, job_id: str) -> BasicResultIndicator:
+        """
+        Request a running job be stopped by the scheduler.
+
+        Parameters
+        ----------
+        job_id : str
+            The identifier of the job in question.
+
+        Returns
+        -------
+        BasicResultIndicator
+            Indicator and details of whether the job was previously running and is now stopped.
         """
         pass
 
@@ -501,7 +538,7 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
         job_obj = self.retrieve_job_by_redis_key(job_key)
 
         # Ensure allocations are released
-        self.release_allocations(job_obj)
+        self.release_allocations(job_id)
 
         i = 0
         while i < 5:
@@ -522,6 +559,35 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
         # If we get here, it means we failed the max allowed times, so bail
         return False
 
+    # TODO: (later) once pausing is supported, expand this to paused jobs
+    def request_restart(self, job_id: str) -> BasicResultIndicator:
+        """
+        Request a stopped job be restarted by the scheduler.
+
+        Note that this is a "safe" operation with respect to system-wide conflicts on job state changes.  I.e., only a
+        ``STOPPED`` job will be updated, and a ``STOPPED`` job is not of interest to any other services, so no
+        inconsistent simultaneous save operations are possible across the deployment.
+
+        Parameters
+        ----------
+        job_id : str
+            The identifier of the job in question.
+
+        Returns
+        -------
+        BasicResultIndicator
+            Indicator and details of whether job was previously in the ``STOPPED`` status step and is now in the `
+            `AWAITING_SCHEDULING`` step.
+        """
+        job = self.retrieve_job(job_id)
+        if job.status_step != JobExecStep.STOPPED:
+            return BasicResultIndicator(success=False, reason="Invalid Status Step For Restart",
+                                        message=f"{JobExecStep.STOPPED!s} required, but job was {job.status_step!s}.")
+        else:
+            job.set_status_step(JobExecStep.AWAITING_SCHEDULING)
+            self.save_job(job)
+            return BasicResultIndicator(success=True, reason="Job Restarted")
+
     def request_scheduling(self, job: RequestedJob) -> Tuple[bool, tuple]:
         """
             TODO rename this function, by the time we get here, we are already scheduled, just need to run
@@ -538,6 +604,34 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
         logging.debug("Failed to start job")
         return False, ()
 
+    def request_stop(self, job_id: str) -> BasicResultIndicator:
+        """
+        Request a running job be stopped by the scheduler.
+
+        Note that this is a "safe" operation with respect to system-wide conflicts on job state changes.  I.e., only a
+        ``RUNNING`` job will be updated, and a ``RUNNING`` job is not of interest to any other services, so no
+        inconsistent simultaneous save operations are possible across the deployment.
+
+        Parameters
+        ----------
+        job_id : str
+            The identifier of the job in question.
+
+        Returns
+        -------
+        BasicResultIndicator
+            Indicator and details of whether the job was previously running and is now ``STOPPING`` (but not necessarily
+            ``STOPPED``).
+        """
+        job = self.retrieve_job(job_id)
+        if job.status_step != JobExecStep.RUNNING:
+            return BasicResultIndicator(success=False, reason="Invalid Status Step For Stop",
+                                        message=f"{JobExecStep.RUNNING!s} required, but job was {job.status_step!s}.")
+        else:
+            job.set_status_step(JobExecStep.STOPPING)
+            self.save_job(job)
+            return BasicResultIndicator(success=True, reason="Job Stopping")
+
     async def manage_job_processing(self):
         """
         Monitor for created jobs and perform steps for job queueing, allocation of resources, and hand-off to scheduler.
@@ -553,6 +647,17 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
 
             # Get collection of "active" jobs
             active_jobs: List[RequestedJob] = self.get_all_active_jobs()
+
+            # Prioritize stopping and handle separately for clarity
+            for job in [j for j in active_jobs if j.status_step == JobExecStep.STOPPING]:
+                try:
+                    # Should be the case that this blocks until stopping is done
+                    self._launcher.stop_job(job=job)
+                    job.set_status_step(JobExecStep.STOPPED)
+                except Exception as e:
+                    logging.error(f"Service failed to stop job {job.job_id} due to {e.__class__.__name__} ({e!s}).")
+                    job.set_status_step(JobExecStep.FAILED)
+                self.save_job(job)
 
             for j in active_jobs:
                 if j.status_step.is_error:
