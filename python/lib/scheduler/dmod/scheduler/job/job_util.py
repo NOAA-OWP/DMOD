@@ -84,6 +84,23 @@ class JobUtil(ABC):
         pass
 
     @abstractmethod
+    def get_job_ids(self, only_active: bool = True) -> List[str]:
+        """
+        Get a job ids list of either all or all active jobs known to this object.
+
+        Parameters
+        ----------
+        only_active : bool
+            Whether only the ids of active jobs should be returned, which is ``True`` by default.
+
+        Returns
+        -------
+        List[str]
+            A list of the job ids of either all or all active jobs known to this object.
+        """
+        pass
+
+    @abstractmethod
     def lock_active_jobs(self, lock_id: str) -> bool:
         """
         Attempt to acquire an actual or de facto lock for access to ::method:`get_all_active_jobs`.
@@ -226,6 +243,9 @@ class RedisBackedJobUtil(JobUtil, RedisBacked):
         else:
             key_prefix = self.get_key_prefix()
         self._active_jobs_set_key = self.keynamehelper.create_key_name(key_prefix, 'active_jobs')
+        """ Key to Redis set containing the job ids (not keys) of active jobs. """
+        self._all_jobs_set_key = self.keynamehelper.create_key_name(key_prefix, 'all_jobs')
+        """ Key to Redis set containing the job ids (not keys) of all jobs. """
 
     def _dev_setup(self):
         self._clean_keys()
@@ -293,6 +313,22 @@ class RedisBackedJobUtil(JobUtil, RedisBacked):
         """
         return [self.retrieve_job_by_redis_key(self._get_job_key_for_id(job_id)) for job_id in
                 self.redis.smembers(self._active_jobs_set_key)]
+
+    def get_job_ids(self, only_active: bool = True) -> List[str]:
+        """
+        Get a job ids list of either all or all active jobs known to this object.
+
+        Parameters
+        ----------
+        only_active : bool
+            Whether only the ids of active jobs should be returned, which is ``True`` by default.
+
+        Returns
+        -------
+        List[str]
+            A list of the job ids of either all or all active jobs known to this object.
+        """
+        return sorted(self.redis.smembers(self._active_jobs_set_key if only_active else self._all_jobs_set_key))
 
     def get_jobs_for_status(self, status: JobStatus) -> List[Job]:
         """
@@ -405,18 +441,17 @@ class RedisBackedJobUtil(JobUtil, RedisBacked):
         job : RequestedJob
             The job to be updated or added.
         """
-        job_key = self._get_job_key_for_id(job.job_id)
-        serialized_job_str = job.to_json()
-
         pipeline = self.redis.pipeline()
         try:
-            pipeline.set(job_key, serialized_job_str)
+            pipeline.set(name=self._get_job_key_for_id(job.job_id), value=job.to_json())
+            # Always add to our all-jobs set
+            pipeline.sadd(self._all_jobs_set_key, job.job_id)
             if job.status.is_active:
                 # Add to active set
-                pipeline.sadd(self._active_jobs_set_key, job_key)
+                pipeline.sadd(self._active_jobs_set_key, job.job_id)
             else:
                 # Make sure not in active set
-                pipeline.srem(self._active_jobs_set_key, job_key)
+                pipeline.srem(self._active_jobs_set_key, job.job_id)
             pipeline.execute()
         finally:
             pipeline.reset()
