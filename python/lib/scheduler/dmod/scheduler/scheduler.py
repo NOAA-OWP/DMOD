@@ -7,7 +7,6 @@ from dmod.core.exception import DmodRuntimeError
 from dmod.core.meta_data import DataCategory, DataFormat
 from os import getenv
 import docker
-from docker.models.services import Service as DockerService
 from docker.types import Mount, SecretReference
 from docker.models.services import Service as DockerService
 import yaml
@@ -604,6 +603,28 @@ class Launcher(SimpleDockerUtil):
 
         return image, [input_mount, output_mount]
 
+    def remove_job_services(self, job: Job):
+        """
+        Stop and remove all services that are part of executing the given job.
+
+        Parameters
+        ----------
+        job: Job
+            The job object associated with the service(s) of interest.
+
+        Notes
+        -----
+        Function retrieves the :class:`DockerService` objects for all allocations of this job, then calls the
+        :meth:`~DockerService.remove` function on each.  In the Docker Python SDK, :meth:`DockerService.remove` is used
+        to both stop and remove a service.
+
+        See Also
+        --------
+        `stop_job`
+        """
+        for service in (self.docker_client.services.get(srv_name) for srv_name in job.allocation_service_names):
+            service.remove()
+
     def start_job(self, job: 'Job') -> Tuple[bool, tuple]:
         """
         Launch the necessary services to execute the given job, according to its obtained allocations.
@@ -697,3 +718,24 @@ class Launcher(SimpleDockerUtil):
 
         logging.info("\n")
         return True, tuple(service_per_allocation)
+
+    def stop_job(self, job: Job):
+        """
+        Stop and remove services for a job; convenience alias for :py:meth:`remove_job_services`.
+
+        Parameters
+        ----------
+        job: Job
+            The job object of interest to be stopped.
+
+        Notes
+        -----
+        In the Docker Python SDK, stopping and removing a service are both done via the :py:class:`DockerService`
+        :meth:`~DockerService.remove` function. For convenience (and possible future-proofing), launcher objects provide
+        dual, more intuitively named methods for removing job services and stopping jobs.
+
+        See Also
+        --------
+        `remove_job_services`
+        """
+        self.remove_job_services(job)
