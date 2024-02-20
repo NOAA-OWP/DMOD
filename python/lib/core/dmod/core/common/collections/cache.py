@@ -27,7 +27,11 @@ ON_REMOVAL_KEY = "on_removal"
 ON_ACCESS_KEY = "on_access"
 ON_UPDATE_KEY = "on_update"
 
+T = typing.TypeVar("T")
+"""Any sort of class that might indicate consistency"""
+
 HashableType = typing.TypeVar("HashableType", bound=typing.Union[typing.Hashable, typing.Mapping, typing.Sequence[typing.Hashable]])
+"""A type of item that may either be hashed or we have a method of hashing (such as `hash_hashable_map_sequence`)"""
 
 
 _VARIABLE_PARAMETERS = ParamSpec("_VARIABLE_PARAMETERS")
@@ -479,7 +483,7 @@ class AccessCache(typing.Generic[HashableType], typing.MutableMapping[str, Cache
         self.__earliest: typing.Optional[CacheEntry[HashableType]] = None
         self.__max_size = max_size if isinstance(max_size, (int, float)) and max_size > 0 else math.inf
 
-        for key, value in values:
+        for key, value in values.items():
             self[key] = value
 
         for key, value in kwargs.items():
@@ -753,7 +757,7 @@ class AccessCache(typing.Generic[HashableType], typing.MutableMapping[str, Cache
             self.release()
             self.__update_earliest()
 
-    def get(self, key: str, default: typing.Any = None) -> typing.Union[HashableType, None]:
+    def get(self, key: str, default: T = None) -> typing.Union[HashableType, T]:
         """
         Get data from the cache or a default if it is not present
 
@@ -771,9 +775,9 @@ class AccessCache(typing.Generic[HashableType], typing.MutableMapping[str, Cache
     async def get_async(
         self,
         key: str,
-        default: typing.Any = None,
+        default: T = None,
         resolve: bool = None
-    ) -> typing.Union[bytes, typing.Any]:
+    ) -> typing.Union[bytes, T]:
         """
         Get data from the cache or a default if it is not present
 
@@ -829,7 +833,10 @@ class AccessCache(typing.Generic[HashableType], typing.MutableMapping[str, Cache
 
     def update(
         self,
-        other: typing.Union[AccessCache[HashableType], typing.Mapping[str, typing.Union[CacheEntry[HashableType], HashableType, None]]],
+        other: typing.Union[
+            AccessCache[HashableType],
+            typing.Mapping[str, typing.Union[CacheEntry[HashableType], HashableType, None]]
+        ],
         **kwargs
     ) -> None:
         """
@@ -940,10 +947,13 @@ class AccessCache(typing.Generic[HashableType], typing.MutableMapping[str, Cache
         finally:
             self.release()
 
-    def set_on_addition(self, handler: typing.Callable[
-        [Event, CacheEntry[HashableType], AccessCache[HashableType], typing.Tuple[typing.Any, ...], typing.Dict[str, typing.Any]],
-        typing.Any
-    ]):
+    def set_on_addition(
+        self,
+        handler: typing.Callable[
+            Concatenate[Event, CacheEntry[HashableType], AccessCache[HashableType], _VARIABLE_PARAMETERS],
+            typing.Any
+        ]
+    ) -> None:
         """
         Add an event handler for the 'on_addition' event. This event will fire when an item is added
 
@@ -967,10 +977,13 @@ class AccessCache(typing.Generic[HashableType], typing.MutableMapping[str, Cache
         elif handler is not None:
             raise TypeError(f"Only functions and methods may be set as event handlers. Received '{type(handler)}'")
 
-    def set_on_access(self, handler: typing.Callable[
-        [Event, CacheEntry[HashableType], typing.Optional[AccessCache[HashableType]], _VARIABLE_PARAMETERS],
-        typing.Any
-    ]):
+    def set_on_access(
+        self,
+        handler: typing.Callable[
+            [Event, CacheEntry[HashableType], typing.Optional[AccessCache[HashableType]], _VARIABLE_PARAMETERS],
+            typing.Any
+        ]
+    ) -> None:
         """
         Add an event handler for the 'on_access' event. This will fire when an item is accessed
 
