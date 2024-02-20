@@ -87,7 +87,10 @@ class Bag(typing.Collection[_T]):
         Args:
             element: The element to remove
         """
-        if element in self.__data:
+        try:
+            self.__data.remove(element)
+         except ValueError:
+             pass
             self.__data.remove(element)
 
     def pick(self) -> typing.Optional[_T]:
