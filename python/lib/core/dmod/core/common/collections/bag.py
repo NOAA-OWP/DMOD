@@ -31,7 +31,7 @@ class Bag(typing.Collection[_T]):
         Convert the data into a normal list
 
         Returns:
-            A list of the values within the bag
+            A shallow copy of the contained items as a list
         """
         return [value for value in self.__data]
 
@@ -72,7 +72,7 @@ class Bag(typing.Collection[_T]):
             condition: A function defining what should appear within the new collection
 
         Returns:
-            A new collection containing only elements matching the given condition
+            A new collection containing only elements matching the given condition in a shallow copied sequence
         """
         return [
             entry
@@ -114,13 +114,25 @@ class Bag(typing.Collection[_T]):
         Returns:
             The number of times that that element is within the bag
         """
-        return sum([entry for entry in self.__data if entry == element])
+        return sum((entry for entry in self.__data if entry == element))
 
     def __len__(self) -> int:
         return len(self.__data)
 
     def __iter__(self) -> typing.Iterator[_T]:
         return iter(self.__data)
+
+    def __eq__(self, other: typing.Collection) -> bool:
+        if len(self) != len(other):
+            return False
+
+        for item in self:
+            item_count = sum((value in self for value in self if value == item))
+            matching_item_count = sum((value in other for value in other if value == item))
+            if item_count != matching_item_count:
+                return
+
+        return True
 
     def __contains__(self, obj: object) -> bool:
         return obj in self.__data
