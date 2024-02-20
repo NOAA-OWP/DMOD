@@ -291,10 +291,8 @@ class RedisBackedJobUtil(JobUtil, RedisBacked):
         List[RequestedJob]
             A list of every job known to this util object that is considered active based on each job's status.
         """
-        active_jobs = []
-        for active_job_redis_key in self.redis.smembers(self._active_jobs_set_key):
-            active_jobs.append(self.retrieve_job_by_redis_key(active_job_redis_key))
-        return active_jobs
+        return [self.retrieve_job_by_redis_key(self._get_job_key_for_id(job_id)) for job_id in
+                self.redis.smembers(self._active_jobs_set_key)]
 
     def get_jobs_for_status(self, status: JobStatus) -> List[Job]:
         """
