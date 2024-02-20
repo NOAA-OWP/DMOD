@@ -89,9 +89,8 @@ class Bag(typing.Collection[_T]):
         """
         try:
             self.__data.remove(element)
-         except ValueError:
-             pass
-            self.__data.remove(element)
+        except ValueError:
+            pass
 
     def pick(self) -> typing.Optional[_T]:
         """
