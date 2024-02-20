@@ -4,6 +4,7 @@ from asyncio import sleep
 from typing import Dict, List, Optional, Tuple, Union
 from uuid import UUID, uuid4 as random_uuid
 from dmod.core.execution import AllocationParadigm
+from dmod.core.serializable import BasicResultIndicator
 from dmod.communication.maas_request.dmod_job_request import DmodJobRequest
 from .job import Job, JobExecPhase, JobExecStep, JobStatus, RequestedJob
 from .job_util import JobUtil, RedisBackedJobUtil
@@ -163,14 +164,25 @@ class JobManager(JobUtil, ABC):
         pass
 
     @abstractmethod
-    def release_allocations(self, job: Job):
+    def release_allocations(self, job_ref: Union[str, Job]) -> BasicResultIndicator:
         """
-        Release any resource allocations held by the given job back to the resource manager.
+        Release any resource allocations held by the referenced job back to the resource manager.
+
+        Not all jobs are eligible to release resources.  This is a property of the job itself and is accessible via
+        ::method:`Job.should_release_resources`.
+
+        Assuming a job is eligible, release will be considered successful even if there are no allocations (i.e., so
+        long as the job is eligible and has no resources when the method returns).
 
         Parameters
         ----------
-        job : Job
-            The job for which any held allocations should be released.
+        job_ref: Union[str, Job]
+            A direct or indirect reference to the job from which to release resources.
+
+        Returns
+        ----------
+        BasicResultIndicator
+            An indicator and details of whether resources were released.
         """
         pass
 
@@ -559,8 +571,10 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
             jobs_completed_phase = organized_lists[2]
 
             for job_with_allocations_to_release in jobs_to_release_resources:
-                self.release_allocations(job_with_allocations_to_release)
-                self.save_job(job_with_allocations_to_release)
+                result = self.release_allocations(job_with_allocations_to_release.job_id)
+                if not result.success:
+                    logging.error(f"Failure deallocating {job_with_allocations_to_release.job_id} due to "
+                                  f"'{result.reason}' (message was: `{result.message}`)")
 
             for job_transitioning_phases in jobs_completed_phase:
                 # TODO: figure out what to do here; e.g., start output service after model_exec is done
@@ -596,19 +610,40 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
             self.unlock_active_jobs(lock_id)
             await sleep(5)
 
-    def release_allocations(self, job: Job):
+    def release_allocations(self, job_ref: Union[str, Job]) -> BasicResultIndicator:
         """
-        Release any resource allocations held by the given job back to the resource manager and unset the allocation
-        assignment for the object.
+        If permitted, release any resource allocations held by the referenced job back to the resource manager.
+
+        If the referenced job is eligible, release any resource allocations it holds back to the resource manager and
+        update the job to unset the allocations.  When such release is performed, the backing state maintained by the
+        job manager is updated, as is the value of the `job_ref` parameter if it is a :class:`Job` object.
+
+        Not all jobs are eligible to release resources.  This is a property of the job itself and is accessible via the
+        :class:`Job`'s ``should_release_resources`` function.
+
+        Assuming a job is eligible, release will be considered successful even if there are no allocations (i.e., so
+        long as the job is eligible and has no resources when the method returns).
 
         Parameters
         ----------
-        job : Job
-            The job for which any held allocations should be released.
+        job_ref: Union[str, Job]
+            A direct or indirect reference to the job from which to release resources.
+
+        Returns
+        ----------
+        BasicResultIndicator
+            An indicator and details of whether resources were released.
         """
-        if job.allocations is not None and len(job.allocations) > 0:
+        job = job_ref if isinstance(job_ref, Job) else self.retrieve_job(job_id=job_ref)
+
+        if not job.should_release_resources:
+            return BasicResultIndicator(success=False, reason="Not Eligible",
+                                        message=f"Can't release resources for job with status {job.status!s}.")
+        elif job.allocations is not None and len(job.allocations) > 0:
             self._resource_manager.release_resources(job.allocations)
         job.allocations = None
+        self.save_job(job)
+        return BasicResultIndicator(success=True, reason="Release Successful")
 
     def request_allocations(self, job: Job, require_awaiting_status: bool = True) -> bool:
         """
