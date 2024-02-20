@@ -17,6 +17,6 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=['dmod-core>=0.2.0', 'dmod-communication>=0.17.0', 'dmod-scheduler>=0.10.0'],
+    install_requires=['dmod-core>=0.2.0', 'dmod-communication>=0.17.0', 'dmod-scheduler>=0.11.0'],
     packages=find_namespace_packages(exclude=['dmod.test', 'deprecated', 'conf', 'schemas', 'ssl', 'src'])
     )
