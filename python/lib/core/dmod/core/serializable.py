@@ -372,7 +372,7 @@ class BasicResultIndicator(ResultIndicator):
     Bare-bones, concrete implementation of ::class:`ResultIndicator` that also supports carrying simple data.
     """
 
-    data: Optional[Union[SimpleData, Dict[str, SimpleData], List[SimpleData]]]
+    data: Optional[Union[SimpleData, Dict[str, SimpleData], List[SimpleData], Serializable]]
 
 # NOTE: function below are intentionally not methods on `Serializable` to avoid subclasses
 # overriding their behavior.
