@@ -5,15 +5,17 @@ import os
 from abc import ABC, abstractmethod
 
 from dmod.access import Authorizer
-from dmod.communication import AbstractRequestHandler, DataServiceClient, FullAuthSession, ExternalRequest, \
-    InitRequestResponseReason, RequestClient, PartitionRequest, PartitionResponse, PartitionerServiceClient, \
-    TransportLayerClient, Session, SessionManager, WebSocketClient
+from dmod.communication import (AbstractRequestHandler, DataServiceClient, FullAuthSession, ExternalRequest,
+                                InitRequestResponseReason, RequestClient, PartitionRequest, PartitionResponse,
+                                PartitionerServiceClient, TransportLayerClient, Session, SessionManager,
+                                WebSocketClient)
 from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage, MaaSDatasetManagementResponse, \
     ManagementAction
 from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
+from dmod.communication.maas_request.job_message import *
 from dmod.core.exception import DmodRuntimeError
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 logging.basicConfig(
     level=logging.getLevelName(os.environ.get("DEFAULT_LOG_LEVEL", "INFO").upper()),
@@ -340,3 +342,108 @@ class DatasetRequestHandler(MaaSRequestHandler):
         if self._service_client is None:
             self._service_client = DataServiceClient(transport_client=self.transport_client)
         return self._service_client
+
+
+class ExistingJobRequestHandler(MaaSRequestHandler):
+
+    def __init__(self, *args, **kwargs):
+        """
+
+        Parameters
+        ----------
+        args
+        kwargs
+
+        Other Parameters
+        ----------
+        session_manager
+        authorizer
+        service_host
+        service_port
+        service_ssl_dir
+
+        """
+        super().__init__(*args, **kwargs)
+
+        # TODO: implement properly
+        self._default_required_access_type = None
+
+        self._scheduler_client = None
+        """SchedulerClient: Client for interacting with scheduler, which also is a context manager for connections."""
+
+    def _generate_request_response(self, request: Union[JobControlRequest, JobInfoRequest, JobListRequest],
+                                   success: bool, reason: str, message: Optional[str] = None) -> Union[JobControlResponse, JobInfoResponse, JobListResponse]:
+        """
+        Generate an appropriate response object for the supplied request.
+
+        Parameters
+        ----------
+        request: Union[JobControlRequest, JobInfoRequest, JobListRequest]
+            A request instance of one of the valid types for this instance.
+        success: bool
+            Whether the response should indicate success.
+        reason: str
+            The summary reason for success or failure in the response.
+        message: Optional[str]
+            An optional, more detailed message on success or failure for the response.
+
+        Returns
+        -------
+        Union[JobControlResponse, JobInfoResponse, JobListResponse]
+            An appropriate response object.
+        """
+        if isinstance(request, JobControlRequest):
+            return JobControlResponse(action=request.action, job_id=request.job_id, success=success, reason=reason,
+                                      message=message)
+        elif isinstance(request, JobInfoRequest):
+            return JobInfoResponse(job_id=request.job_id, status_only=request.status_only, success=success,
+                                   reason=reason, message=message)
+        elif isinstance(request, JobListRequest):
+            return JobListResponse(only_active=request.only_active, success=success, reason=reason, message=message)
+        else:
+            raise TypeError(f"Invalid message type {request.__class__.__name__} sent to {self.__class__.__name__}")
+
+    async def determine_required_access_types(self, request: ExternalRequest, user) -> tuple:
+        """
+        Determine what access is required for this request from this user to be accepted.
+
+        Determine the necessary access types for which the given user needs to be authorized in order for the user to
+        be allow to submit this request, in the context of the current state of the system.
+
+        Parameters
+        ----------
+        request
+        user
+
+        Returns
+        -------
+        A tuple of required access types required for authorization for the given request at this time.
+        """
+        # TODO: implement something
+        # TODO: may have to start to track both access level and job "ownership"
+        # FIXME: for now, just use the default type (which happens to be "everything")
+        return self._default_required_access_type,
+
+    async def handle_request(self, request: Union[JobControlRequest, JobInfoRequest, JobListRequest],
+                             **kwargs) -> Union[JobControlResponse, JobInfoResponse, JobListResponse]:
+        if not any(isinstance(request, rt) for rt in {JobControlRequest, JobInfoRequest, JobListRequest}):
+            raise TypeError(f"Invalid message type {request.__class__.__name__} sent to {self.__class__.__name__}")
+
+        session, is_authorized, reason, msg = await self.get_authorized_session(request)
+        # Generate this regardless as a way to determine what our response type is, but ...
+        response_if_not_auth = self._generate_request_response(request=request, success=is_authorized,
+                                                               reason=reason.name, message=msg)
+        # ... only use this directly if we fail to be authorized
+        if not is_authorized:
+            return response_if_not_auth
+        else:
+            async with self.service_client as scheduler_client:
+                # ... use as just an indicator of the right type otherwise
+                return await scheduler_client.async_make_request(message=request,
+                                                                 response_type=response_if_not_auth.__class__)
+
+    @property
+    def service_client(self) -> RequestClient:
+        if self._scheduler_client is None:
+            self._scheduler_client = RequestClient(transport_client=self.transport_client)
+        return self._scheduler_client
