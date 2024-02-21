@@ -88,7 +88,7 @@ class SchedulerHandler(WebSocketInterface):
 
     # TODO: perhaps add this functionality below to the actual abstract interface
     @classmethod
-    def get_parseable_request_funcs(cls) -> Dict[_REQ_C, Callable[[_REQ_T, WebSocketServerProtocol], Awaitable[None]]]:
+    def _get_parseable_request_funcs(cls) -> Dict[_REQ_C, Callable[[_REQ_T, WebSocketServerProtocol], Awaitable[None]]]:
         """
         Get the collection of handled :class:`AbstractInitRequest` subtypes mapped to handler funcs.
 
@@ -128,7 +128,7 @@ class SchedulerHandler(WebSocketInterface):
         --------
         get_parseable_request_funcs
         """
-        return sorted(k for k in cls.get_parseable_request_funcs())
+        return sorted(k for k in cls._get_parseable_request_funcs())
 
     def __init__(self, job_mgr: JobManager, *args, **kwargs):
         """
@@ -331,7 +331,7 @@ class SchedulerHandler(WebSocketInterface):
 
             found_type = None
             # Deserialize the message to the appropriate type if possible
-            for init_message_class_type in self.get_parseable_request_funcs():
+            for init_message_class_type in self._get_parseable_request_funcs():
                 message = init_message_class_type.factory_init_from_deserialized_json(data)
                 # If successfully deserialized to something non-None, break here and process the message
                 if message is not None:
@@ -345,7 +345,7 @@ class SchedulerHandler(WebSocketInterface):
                 raise TypeError(msg)
 
             # Once message type is found and instance is deserialized handle appropriately
-            await self.get_parseable_request_funcs()[found_type](message, websocket)
+            await self._get_parseable_request_funcs()[found_type](message, websocket)
 
         except TypeError as te:
             logging.error("Problem with object types when processing received message", te)
