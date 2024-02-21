@@ -5,6 +5,7 @@ from dmod.communication.client import ConnectionContextClient
 from dmod.communication.dataset_management_message import DatasetManagementMessage, DatasetManagementResponse, \
     MaaSDatasetManagementMessage, MaaSDatasetManagementResponse, QueryType, DatasetQuery
 from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
+from dmod.communication.maas_request.job_message import *
 from dmod.core.exception import DmodRuntimeError
 from dmod.core.meta_data import DataCategory, DataDomain
 from dmod.core.serializable import BasicResultIndicator, ResultIndicator
@@ -71,8 +72,7 @@ class JobClient:
         else:
             return indicator.data
 
-    # TODO: this is going to need some adjustments to the type hinting
-    async def request_job_info(self, job_id: str, *args, **kwargs) -> ResultIndicator:
+    async def request_job_info(self, job_id: str, *args, **kwargs) -> JobInfoResponse:
         """
         Request the full state of the provided job, formatted as a JSON dictionary.
 
@@ -87,14 +87,14 @@ class JobClient:
 
         Returns
         -------
-        ResultIndicator
-            An indicator of success of the request that, when successful, contains he full state of the provided job,
+        JobInfoResponse
+            An indicator of success of the request that, when successful, contains the full state of the provided job,
             formatted as a JSON dictionary, in the ``data`` attribute.
         """
-        # TODO: implement
-        raise NotImplementedError('{} function "request_job_info" not implemented yet'.format(self.__class__.__name__))
+        return JobInfoResponse.factory_init_from_deserialized_json(
+            json.loads(await self._submit_job_request(request=JobInfoRequest(job_id=job_id))))
 
-    async def request_job_release(self, job_id: str, *args, **kwargs) -> ResultIndicator:
+    async def request_job_release(self, job_id: str, *args, **kwargs) -> JobControlResponse:
         """
         Request the allocated resources for the provided job be released.
 
@@ -109,13 +109,36 @@ class JobClient:
 
         Returns
         -------
-        ResultIndicator
+        JobControlResponse
             An indicator of whether there had been allocated resources for the job, all of which are now released.
         """
-        # TODO: implement
-        raise NotImplementedError('{} function "request_job_release" not implemented yet'.format(self.__class__.__name__))
+        return JobControlResponse.factory_init_from_deserialized_json(
+            json.loads(
+                await self._submit_job_request(JobControlRequest(job_id=job_id, action=JobControlAction.RELEASE))))
 
-    async def request_job_status(self, job_id: str, *args, **kwargs) -> BasicResultIndicator:
+    async def request_job_resume(self, job_id: str, *args, **kwargs) -> JobControlResponse:
+        """
+        Request a job - expected be stopped - be resumed; i.e., transitioned from ``STOPPED`` to ``RUNNING` exec step.
+
+        Parameters
+        ----------
+        job_id : str
+            The id of the job in question.
+        args
+            (Unused) variable positional args.
+        kwargs
+            (Unused) variable keyword args.
+
+        Returns
+        -------
+        JobControlResponse
+            An indicator of whether the job was resumed as requested.
+        """
+        return JobControlResponse.factory_init_from_deserialized_json(
+            json.loads(
+                await self._submit_job_request(JobControlRequest(job_id=job_id, action=JobControlAction.RESTART))))
+
+    async def request_job_status(self, job_id: str, *args, **kwargs) -> JobInfoResponse:
         """
         Request the status of the provided job.
 
@@ -133,13 +156,13 @@ class JobClient:
 
         Returns
         -------
-        BasicResultIndicator
-            An indicator that, when successful, includes as ``data`` the serialized status string of the provided job.
+        JobInfoResponse
+            An indicator that, when successful, includes as ``data`` the serialized status of the provided job.
         """
-        # TODO: implement
-        raise NotImplementedError('{} function "request_job_status" not implemented yet'.format(self.__class__.__name__))
+        return JobInfoResponse.factory_init_from_deserialized_json(
+            json.loads(await self._submit_job_request(request=JobInfoRequest(job_id=job_id, status_only=True))))
 
-    async def request_job_stop(self, job_id: str, *args, **kwargs) -> ResultIndicator:
+    async def request_job_stop(self, job_id: str, *args, **kwargs) -> JobControlResponse:
         """
         Request the provided job be stopped; i.e., transitioned to the ``STOPPED`` exec step.
 
@@ -154,13 +177,14 @@ class JobClient:
 
         Returns
         -------
-        ResultIndicator
+        JobControlResponse
             An indicator of whether the job was stopped as requested.
         """
-        # TODO: implement
-        raise NotImplementedError('{} function "request_job_stop" not implemented yet'.format(self.__class__.__name__))
+        return JobControlResponse.factory_init_from_deserialized_json(
+            json.loads(
+                await self._submit_job_request(JobControlRequest(job_id=job_id, action=JobControlAction.STOP))))
 
-    async def request_jobs_list(self, jobs_list_active_only: bool, *args, **kwargs) -> BasicResultIndicator:
+    async def request_jobs_list(self, jobs_list_active_only: bool, *args, **kwargs) -> JobListResponse:
         """
         Request a list of ids of existing jobs.
 
@@ -177,15 +201,15 @@ class JobClient:
 
         Returns
         -------
-        BasicResultIndicator
+        JobListResponse
             An indicator that, when successful, includes as ``data`` the list of ids of existing jobs.
 
         See Also
         -------
         get_jobs_list
         """
-        # TODO: implement
-        raise NotImplementedError('{} function "request_jobs_list" not implemented yet'.format(self.__class__.__name__))
+        return JobListResponse.factory_init_from_deserialized_json(
+            json.loads(await self._submit_job_request(JobListRequest(only_active=jobs_list_active_only))))
 
     async def submit_ngen_request(self, **kwargs) -> NGENRequestResponse:
         return NGENRequestResponse.factory_init_from_deserialized_json(
