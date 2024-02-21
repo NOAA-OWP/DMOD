@@ -15,8 +15,9 @@ from dmod.communication import AbstractInitRequest, InvalidMessageResponse, Mess
     NgenCalibrationRequest, PartitionRequest, WebSocketSessionsInterface, SessionInitMessage, SchedulerClient, \
     UnsupportedMessageTypeResponse, WebSocketClient
 from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage
+from dmod.communication.maas_request.job_message import *
 from dmod.externalrequests import AuthHandler, DatasetRequestHandler, ModelExecRequestHandler, \
-    NgenCalibrationRequestHandler, PartitionRequestHandler, EvaluationRequestHandler
+    NgenCalibrationRequestHandler, PartitionRequestHandler, EvaluationRequestHandler, ExistingJobRequestHandler
 
 from .alternate_service import LaunchEvaluationMessage, OpenEvaluationMessage
 
@@ -52,7 +53,10 @@ class RequestService(WebSocketSessionsInterface):
         MaaSDatasetManagementMessage,
         PartitionRequest,
         LaunchEvaluationMessage,
-        OpenEvaluationMessage
+        OpenEvaluationMessage,
+        JobControlRequest,
+        JobInfoRequest,
+        JobListRequest
     ]
     """ Parseable request types, which are all authenticated ::class:`ExternalRequest` subtypes for this implementation. """
 
@@ -145,6 +149,12 @@ class RequestService(WebSocketSessionsInterface):
                                                            service_host=data_service_host,
                                                            service_port=int(data_service_port),
                                                            service_ssl_dir=self.data_service_ssl_dir)
+
+        self._existing_job_request_handler = ExistingJobRequestHandler(session_manager=self._session_manager,
+                                                                       authorizer=self.authorizer,
+                                                                       service_host=scheduler_host,
+                                                                       service_port=int(scheduler_port),
+                                                                       service_ssl_dir=self.scheduler_client_ssl_dir)
         # This probably won't work until evaluation service is properly added in Docker stack, so wrap in try for now
         try:
             self._evaluation_service_handler = EvaluationRequestHandler(
@@ -219,6 +229,10 @@ class RequestService(WebSocketSessionsInterface):
                     logging.debug('Handled calibration request')
                     response = await self._calibration_request_handler.handle_request(request=req_message)
                     logging.debug('Processed calibration request; response was: {}'.format(str(response)))
+                    await websocket.send(str(response))
+                elif event_type == MessageEventType.SCHEDULER_REQUEST:
+                    response = await self._existing_job_request_handler.handle_request(request=req_message)
+                    logging.debug('Handled existing jobs request')
                     await websocket.send(str(response))
                 # FIXME: add another message type for closing a session
                 else:
