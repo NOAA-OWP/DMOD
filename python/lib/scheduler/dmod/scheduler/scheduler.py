@@ -603,7 +603,7 @@ class Launcher(SimpleDockerUtil):
 
         return image, [input_mount, output_mount]
 
-    def remove_job_services(self, job: Job):
+    def remove_job_services(self, job: 'Job'):
         """
         Stop and remove all services that are part of executing the given job.
 
@@ -719,7 +719,7 @@ class Launcher(SimpleDockerUtil):
         logging.info("\n")
         return True, tuple(service_per_allocation)
 
-    def stop_job(self, job: Job):
+    def stop_job(self, job: 'Job'):
         """
         Stop and remove services for a job; convenience alias for :py:meth:`remove_job_services`.
 
