@@ -18,6 +18,6 @@ setup(
     url='',
     license='',
     install_requires=['websockets', 'dmod-core>=0.3.0', 'dmod-communication>=0.17.0', 'dmod-access>=0.2.0',
-                      'dmod-externalrequests>=0.4.0'],
+                      'dmod-externalrequests>=0.6.0'],
     packages=find_namespace_packages(exclude=['dmod.test', 'schemas', 'ssl', 'src'])
 )
