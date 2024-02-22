@@ -98,12 +98,12 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         uuid_str = self._uuid_str_vals[example_index]
         uuid_val = UUID(uuid_str)
         job = RequestedJob(request)
-        job.job_id = uuid_val
+        job.set_job_id(uuid_val)
 
         self._generate_rsa_keys()
         # Only do this when not None
         if self._rsa_key_pairs[example_index] is not None:
-            job.rsa_key_pair = self._rsa_key_pairs[example_index]
+            job.set_rsa_key_pair(self._rsa_key_pairs[example_index])
         return job
 
     def _exec_job_manager_create_from_expected(self, example_index: int) -> Tuple[Job, Job]:
@@ -417,7 +417,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         example_index = 0
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
-        created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
         self.assertTrue(self._job_manager.request_allocations(created_job))
 
     # Test request_allocations for a job with a single-node allocation paradigm gets back a tuple
@@ -425,7 +425,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         example_index = 0
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
-        created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
         self._job_manager.request_allocations(created_job)
         # Should be one allocation for single-node
         self.assertTrue(isinstance(created_job.allocations, tuple))
@@ -435,7 +435,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         example_index = 0
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
-        created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
         # Should be only one unique host value among all allocation for single-node
@@ -446,7 +446,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         example_index = 0
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
-        created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
         self.assertEqual(created_job.cpu_count, sum(alloc.cpu_count for alloc in allocations))
@@ -456,7 +456,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         example_index = 0
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
-        created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
         self.assertEqual(created_job.memory_size, sum(alloc.memory for alloc in allocations))
@@ -466,7 +466,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         example_index = 2
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
-        created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
         self.assertTrue(self._job_manager.request_allocations(created_job))
 
     # Test request_allocations for a job with a fill-nodes allocation paradigm gets back a tuple
@@ -474,7 +474,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         example_index = 2
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
-        created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
         # Should be one allocation for fill-nodes
@@ -486,7 +486,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         example_index = 2
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
-        created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
         # Should be only one unique host value among all allocation for fill-nodes in this example (they should all fit)
@@ -497,7 +497,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         example_index = 2
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
-        created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
         self.assertEqual(created_job.cpu_count, sum(alloc.cpu_count for alloc in allocations))
@@ -507,7 +507,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         example_index = 2
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
-        created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
         self.assertEqual(created_job.memory_size, sum(alloc.memory for alloc in allocations))
@@ -517,7 +517,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         example_index = 3
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
-        created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
         self.assertTrue(self._job_manager.request_allocations(created_job))
 
     # Test request_allocations for a job with a round-robin allocation paradigm gets back a tuple
@@ -525,7 +525,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         example_index = 3
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
-        created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
         self.assertTrue(isinstance(allocations, tuple))
@@ -535,7 +535,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         example_index = 3
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
-        created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
         self.assertEqual(3, len(set(alloc.hostname for alloc in allocations)))
@@ -545,7 +545,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         example_index = 3
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
-        created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
         self.assertEqual(created_job.cpu_count, sum(alloc.cpu_count for alloc in allocations))
@@ -555,7 +555,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         example_index = 3
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
-        created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
         self._job_manager.request_allocations(created_job)
         allocations = created_job.allocations
         # FIXME: for now, resource allocation does not properly handle memory across multiple nodes, instead getting the
@@ -570,7 +570,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         example_index = 0
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
-        created_job.status = JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION)
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
         self._job_manager.request_allocations(created_job)
         self._job_manager.save_job(created_job)
         retrieved_job_1 = self._job_manager.retrieve_job(created_job.job_id)
