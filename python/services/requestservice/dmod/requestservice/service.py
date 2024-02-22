@@ -15,7 +15,7 @@ from dmod.communication import AbstractInitRequest, InvalidMessageResponse, Mess
     NgenCalibrationRequest, PartitionRequest, WebSocketSessionsInterface, SessionInitMessage, SchedulerClient, \
     UnsupportedMessageTypeResponse, WebSocketClient
 from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage
-from dmod.communication.maas_request.job_message import *
+from dmod.communication.maas_request.job_message import JobControlRequest, JobInfoRequest, JobListRequest
 from dmod.externalrequests import AuthHandler, DatasetRequestHandler, ModelExecRequestHandler, \
     NgenCalibrationRequestHandler, PartitionRequestHandler, EvaluationRequestHandler, ExistingJobRequestHandler
 
