@@ -504,7 +504,7 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
         while self._does_redis_key_exist(self._get_job_key_for_id(job_uuid)):
             job_uuid = random_uuid()
 
-        job_obj.job_id = job_uuid
+        job_obj.set_job_id(job_uuid)
         self.save_job(job_obj)
         return job_obj
 
