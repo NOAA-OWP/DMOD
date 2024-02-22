@@ -567,6 +567,7 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         self.assertEqual(created_job.memory_size, sum(alloc.memory for alloc in allocations))
 
     def test_release_allocations_1_a(self):
+        """ Test that release fails if the job has the wrong status. """
         example_index = 0
         expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
         # We will need to adjust the status
@@ -575,7 +576,53 @@ class IntegrationTestRedisBackedJobManager(unittest.TestCase):
         self._job_manager.save_job(created_job)
         retrieved_job_1 = self._job_manager.retrieve_job(created_job.job_id)
         self.assertEqual(retrieved_job_1.allocations, created_job.allocations)
-        self._job_manager.release_allocations(retrieved_job_1)
-        self.assertIsNone(retrieved_job_1.allocations)
+        result = self._job_manager.release_allocations(retrieved_job_1)
+        self.assertFalse(result.success)
+
+    def test_release_allocations_1_b(self):
+        """ Test that resources are not released if the job has the wrong status. """
+        example_index = 0
+        expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
+        # We will need to adjust the status
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
+        self._job_manager.request_allocations(created_job)
+        self._job_manager.save_job(created_job)
+        retrieved_job_1 = self._job_manager.retrieve_job(created_job.job_id)
+        self.assertEqual(retrieved_job_1.allocations, created_job.allocations)
+        result = self._job_manager.release_allocations(retrieved_job_1)
+        self.assertEqual(retrieved_job_1.allocations, created_job.allocations)
+
+    def test_release_allocations_1_c(self):
+        example_index = 0
+        expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
+        # We will need to adjust the status
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
+        self._job_manager.request_allocations(created_job)
+        self._job_manager.save_job(created_job)
+        retrieved_job_1 = self._job_manager.retrieve_job(created_job.job_id)
+        # Now adjust the status again
+        retrieved_job_1.set_status_step(JobExecStep.COMPLETED)
+        self._job_manager.save_job(retrieved_job_1)
+        retrieved_job_2 = self._job_manager.retrieve_job(created_job.job_id)
+        self.assertEqual(retrieved_job_2.allocations, created_job.allocations)
+        result = self._job_manager.release_allocations(retrieved_job_2)
+        self.assertTrue(result.success)
+        #self.assertIsNone(retrieved_job_2.allocations)
+
+    def test_release_allocations_1_d(self):
+        example_index = 0
+        expected_job, created_job = self._exec_job_manager_create_from_expected(example_index)
+        # We will need to adjust the status
+        created_job.set_status(JobStatus(JobExecPhase.MODEL_EXEC, JobExecStep.AWAITING_ALLOCATION))
+        self._job_manager.request_allocations(created_job)
+        self._job_manager.save_job(created_job)
+        retrieved_job_1 = self._job_manager.retrieve_job(created_job.job_id)
+        # Now adjust the status again
+        retrieved_job_1.set_status_step(JobExecStep.COMPLETED)
+        self._job_manager.save_job(retrieved_job_1)
+        retrieved_job_2 = self._job_manager.retrieve_job(created_job.job_id)
+        self.assertEqual(retrieved_job_2.allocations, created_job.allocations)
+        result = self._job_manager.release_allocations(retrieved_job_2)
+        self.assertIsNone(retrieved_job_2.allocations)
 
     # TODO: tests for manage_job_processing (maybe ... async so this might be too difficult)
