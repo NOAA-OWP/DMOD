@@ -12,7 +12,8 @@ from dmod.communication import (AbstractRequestHandler, DataServiceClient, FullA
 from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage, MaaSDatasetManagementResponse, \
     ManagementAction
 from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
-from dmod.communication.maas_request.job_message import *
+from dmod.communication.maas_request.job_message import (JobControlRequest, JobControlResponse, JobInfoRequest,
+                                                         JobInfoResponse, JobListRequest, JobListResponse)
 from dmod.core.exception import DmodRuntimeError
 from pathlib import Path
 from typing import Optional, Tuple, Union
