@@ -5,7 +5,9 @@ from dmod.communication.client import ConnectionContextClient
 from dmod.communication.dataset_management_message import DatasetManagementMessage, DatasetManagementResponse, \
     MaaSDatasetManagementMessage, MaaSDatasetManagementResponse, QueryType, DatasetQuery
 from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
-from dmod.communication.maas_request.job_message import *
+from dmod.communication.maas_request.job_message import (JobControlAction, JobControlRequest, JobControlResponse,
+                                                         JobInfoRequest, JobInfoResponse, JobListRequest,
+                                                         JobListResponse)
 from dmod.core.exception import DmodRuntimeError
 from dmod.core.meta_data import DataCategory, DataDomain
 from dmod.core.serializable import BasicResultIndicator, ResultIndicator
