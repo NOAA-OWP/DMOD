@@ -116,7 +116,7 @@ class JobClient:
             json.loads(
                 await self._submit_job_request(JobControlRequest(job_id=job_id, action=JobControlAction.RELEASE))))
 
-    async def request_job_resume(self, job_id: str, *args, **kwargs) -> JobControlResponse:
+    async def request_job_restart(self, job_id: str, *args, **kwargs) -> JobControlResponse:
         """
         Request a job - expected be stopped - be resumed; i.e., transitioned from ``STOPPED`` to ``RUNNING` exec step.
 
@@ -132,7 +132,7 @@ class JobClient:
         Returns
         -------
         JobControlResponse
-            An indicator of whether the job was resumed as requested.
+            An indicator of whether the job was restarted as requested.
         """
         return JobControlResponse.factory_init_from_deserialized_json(
             json.loads(
