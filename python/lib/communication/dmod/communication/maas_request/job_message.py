@@ -59,7 +59,7 @@ class JobInfoRequest(ExternalRequest):
     status_only: bool = Field(False, description="Whether only the 'status' attribute of the job need be returned.")
 
     @classmethod
-    def factory_init_correct_response_subtype(cls, json_obj: dict):
+    def factory_init_correct_response_subtype(cls, json_obj: dict) -> "JobInfoResponse":
         return JobInfoResponse.factory_init_from_deserialized_json(json_obj=json_obj)
 
 
