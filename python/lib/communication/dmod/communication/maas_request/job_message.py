@@ -129,7 +129,7 @@ class JobListRequest(ExternalRequest):
     only_active: bool = Field(False, description="Whether to return only the ids of active jobs.")
 
     @classmethod
-    def factory_init_correct_response_subtype(cls, json_obj: dict):
+    def factory_init_correct_response_subtype(cls, json_obj: dict) -> "JobListResponse":
         return JobListResponse.factory_init_from_deserialized_json(json_obj)
 
 
