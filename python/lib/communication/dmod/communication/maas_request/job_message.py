@@ -32,7 +32,7 @@ class JobControlRequest(ExternalRequest):
     job_id: str = Field(description="The identifier of the job of interest.")
 
     @classmethod
-    def factory_init_correct_response_subtype(cls, json_obj: dict):
+    def factory_init_correct_response_subtype(cls, json_obj: dict) -> "JobControlResponse":
         return JobControlResponse.factory_init_from_deserialized_json(json_obj)
 
 
