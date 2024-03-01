@@ -117,6 +117,16 @@ RUN dnf update -y \
     #&& passwd -u ${USER} \
     # Set up user's public and private keys \
     && mkdir -p ${SSHDIR} \
+    # Create DMOD-specific directory structure \
+    && mkdir -p /dmod && chown ${USER} /dmod \
+    && mkdir -p /dmod/datasets && chown ${USER} /dmod/datasets \
+    #&& mkdir -p /dmod/shared_libs && chown ${USER} /dmod/shared_libs \
+    && mkdir -p /dmod/lib && chown ${USER} /dmod/lib \
+    && mkdir -p /dmod/lib64 && chown ${USER} /dmod/lib64 \
+    && mkdir -p /dmod/include && chown ${USER} /dmod/include \
+    && mkdir -p /dmod/bmi_module_data && chown ${USER} /dmod/bmi_module_data \
+    && mkdir -p /dmod/bin && chown ${USER} /dmod/bin  \
+    && mkdir -p /dmod/serial_bin && chown ${USER} /dmod/serial_bin  \
     # Default ssh config file that skips (yes/no) question when first login to the host \
     && echo "Host *" > ${SSHDIR}/config \
     && echo "    StrictHostKeyChecking no" >> ${SSHDIR}/config \
@@ -721,10 +731,7 @@ RUN rm -rf ${BOOST_ROOT} && echo "export PATH=${PATH}" >> /etc/profile \
     && sed -i "s/PermitRootLogin yes/PermitRootLogin no/g" /etc/ssh/sshd_config \
     && sed -i "s/#ClientAliveInterval.*/ClientAliveInterval 60/" /etc/ssh/sshd_config \
     && sed -i "s/#ClientAliveCountMax.*/ClientAliveCountMax 5/" /etc/ssh/sshd_config \
-    && if [ -f /var/run/nologin ]; then rm /var/run/nologin ; fi  \
-    && mkdir -p /dmod/datasets && chown ${USER} /dmod/datasets \
-    && mkdir -p /dmod/shared_libs && chown ${USER} /dmod/shared_libs \
-    && mkdir -p /dmod/bin && chown ${USER} /dmod/bin 
+    && if [ -f /var/run/nologin ]; then rm /var/run/nologin ; fi ;
 USER ${USER}
 
 COPY --chown=${USER} ngen_entrypoint.sh ${WORKDIR}/entrypoint.sh
