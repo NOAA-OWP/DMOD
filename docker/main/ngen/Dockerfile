@@ -41,6 +41,10 @@ ARG SAC_SMA_REPO_URL="https://github.com/NOAA-OWP/sac-sma.git"
 ARG SAC_SMA_BRANCH="master"
 ARG SAC_SMA_COMMIT
 
+ARG SNOW_17_REPO_URL="https://github.com/NOAA-OWP/snow17.git"
+ARG SNOW_17_BRANCH="master"
+ARG SNOW_17_COMMIT
+
 #### Default arguments for required dependencies needed during various build stages
 # The Rocky-Linux-based "base" stage, rocky-base
 ARG ROCKY_BASE_REQUIRED="sudo openssh openssh-server bash git which"
@@ -560,6 +564,35 @@ RUN mkdir ${WORKDIR}/sac-sma \
 
 ################################################################################################################
 ################################################################################################################
+##### Create intermediate Docker build stage for building SNOW_17
+FROM rocky-ngen-deps as build_bmi_snow_17
+
+ARG NGEN_BUILD_CONFIG_TYPE
+ARG SNOW_17_REPO_URL
+ARG SNOW_17_BRANCH
+ARG SNOW_17_COMMIT
+
+# Snow17 needs iso_c_fortran_bmi built, and it needs it at ../iso_c_fortran_bmi (i.e., as if snow17 was under extern)
+
+COPY --chown=${USER} --from=build_bmi_iso_c_fortran_dep ${WORKDIR}/iso_c_fortran_bmi ${WORKDIR}/iso_c_fortran_bmi
+
+RUN git clone \
+        --single-branch \
+        --branch ${SNOW_17_BRANCH:?No snow-17 branch set} \
+        ${SNOW_17_REPO_URL:?No snow-17 repo set} \
+        ${WORKDIR}/snow-17 \
+    && cd ${WORKDIR}/snow-17 \
+    && if [ "x$SNOW_17_COMMIT" != "x" ]; then git checkout $SNOW_17_COMMIT ; fi \
+    && cmake -B ./cmake_build -DCMAKE_BUILD_TYPE=${NGEN_BUILD_CONFIG_TYPE:?} -DCMAKE_INSTALL_PREFIX:PATH=/dmod -S . \
+    && cmake --build ./cmake_build \
+    && mkdir -p /dmod/shared_libs \
+    && cp -a ./cmake_build/*.so* /dmod/lib64/. \
+    && cp -a ./cmake_build/*.so* /dmod/shared_libs/. \
+    # Clean-up a little more for Release builds \
+    && if [ "${NGEN_BUILD_CONFIG_TYPE}" == "Release" ]; then cd ${WORKDIR} && rm -rf ${WORKDIR}/snow-17 ; fi
+
+################################################################################################################
+################################################################################################################
 ##### Create intermediate Docker build stage for building LGAR_C
 FROM rocky-ngen-deps as build_bmi_lgar_c
 
@@ -815,6 +848,7 @@ ARG DATASET_DIRECTORIES
 # Copy libs/data/etc. from various per-module stages
 COPY --chown=${USER} --from=build_bmi_lgar_c /dmod/ /dmod/
 COPY --chown=${USER} --from=build_bmi_sac_sma /dmod/ /dmod/
+COPY --chown=${USER} --from=build_bmi_snow_17 /dmod/ /dmod/
 
 USER root
 # Remove the boost headers now that ngen is compiled; also update path and make sure dataset directory is there
