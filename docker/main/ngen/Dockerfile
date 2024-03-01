@@ -578,39 +578,39 @@ RUN cd ${WORKDIR}/ngen \
 #    && if [ "${BUILD_SLOTH}" == "true" ] ; then ./build_sub extern/sloth; fi \
     && if [ "${BUILD_NGEN_SERIAL}" == "true" ]; then \
         cmake -B cmake_build_serial -S . \
-        -DCMAKE_BUILD_TYPE=${NGEN_BUILD_CONFIG_TYPE} \
-        -DNGEN_WITH_MPI:BOOL=OFF \
-        -DNGEN_WITH_NETCDF:BOOL=${NGEN_WITH_NETCDF} \
-        -DNGEN_WITH_BMI_C:BOOL=${NGEN_WITH_BMI_C} \
-        -DNGEN_WITH_BMI_FORTRAN:BOOL=${NGEN_WITH_BMI_FORTRAN} \
-        -DNGEN_WITH_PYTHON:BOOL=${NGEN_WITH_PYTHON} \
-        -DNGEN_WITH_ROUTING:BOOL=${NGEN_WITH_ROUTING} \
-        -DNGEN_WITH_UDUNITS:BOOL=${NGEN_WITH_UDUNITS} \
-        -DUDUNITS_QUIET:BOOL=${NGEN_UDUNITS_QUIET} \
-        -DNGEN_WITH_SQLITE=${NGEN_WITH_SQLITE} \
-        -DCMAKE_INSTALL_PREFIX=${WORKDIR} \
-        -DNETCDF_INCLUDE_DIR=/usr/include \
-        -DNETCDF_LIBRARY=/usr/lib/libnetcdf.so \
-        -DNETCDF_CXX_INCLUDE_DIR=/usr/local/include \
-        -DNETCDF_CXX_LIBRARY=/usr/local/lib64/libnetcdf-cxx4.so ; \
+            -DCMAKE_BUILD_TYPE=${NGEN_BUILD_CONFIG_TYPE} \
+            -DNGEN_WITH_MPI:BOOL=OFF \
+            -DNGEN_WITH_NETCDF:BOOL=${NGEN_WITH_NETCDF} \
+            -DNGEN_WITH_BMI_C:BOOL=${NGEN_WITH_BMI_C} \
+            -DNGEN_WITH_BMI_FORTRAN:BOOL=${NGEN_WITH_BMI_FORTRAN} \
+            -DNGEN_WITH_PYTHON:BOOL=${NGEN_WITH_PYTHON} \
+            -DNGEN_WITH_ROUTING:BOOL=${NGEN_WITH_ROUTING} \
+            -DNGEN_WITH_UDUNITS:BOOL=${NGEN_WITH_UDUNITS} \
+            -DUDUNITS_QUIET:BOOL=${NGEN_UDUNITS_QUIET} \
+            -DNGEN_WITH_SQLITE=${NGEN_WITH_SQLITE} \
+            -DCMAKE_INSTALL_PREFIX=/dmod \
+            -DNETCDF_INCLUDE_DIR=/usr/include \
+            -DNETCDF_LIBRARY=/usr/lib/libnetcdf.so \
+            -DNETCDF_CXX_INCLUDE_DIR=/usr/local/include \
+            -DNETCDF_CXX_LIBRARY=/usr/local/lib64/libnetcdf-cxx4.so ; \
     fi \
     && if [ "${BUILD_NGEN_PARALLEL}" == "true" ]; then \
         cmake -B cmake_build_parallel -S . \
-        -DCMAKE_BUILD_TYPE=${NGEN_BUILD_CONFIG_TYPE} \
-        -DNGEN_WITH_MPI:BOOL=ON \
-        -DNGEN_WITH_NETCDF:BOOL=${NGEN_WITH_NETCDF} \
-        -DNGEN_WITH_BMI_C:BOOL=${NGEN_WITH_BMI_C} \
-        -DNGEN_WITH_BMI_FORTRAN:BOOL=${NGEN_WITH_BMI_FORTRAN} \
-        -DNGEN_WITH_PYTHON:BOOL=${NGEN_WITH_PYTHON} \
-        -DNGEN_WITH_ROUTING:BOOL=${NGEN_WITH_ROUTING} \
-        -DNGEN_WITH_UDUNITS:BOOL=${NGEN_WITH_UDUNITS} \
-        -DUDUNITS_QUIET:BOOL=${NGEN_UDUNITS_QUIET} \
-        -DNGEN_WITH_SQLITE=${NGEN_WITH_SQLITE} \
-        -DCMAKE_INSTALL_PREFIX=${WORKDIR} \
-        -DNETCDF_INCLUDE_DIR=/usr/include \
-        -DNETCDF_LIBRARY=/usr/lib/libnetcdf.so \
-        -DNETCDF_CXX_INCLUDE_DIR=/usr/local/include \
-        -DNETCDF_CXX_LIBRARY=/usr/local/lib64/libnetcdf-cxx4.so ; \
+            -DCMAKE_BUILD_TYPE=${NGEN_BUILD_CONFIG_TYPE} \
+            -DNGEN_WITH_MPI:BOOL=ON \
+            -DNGEN_WITH_NETCDF:BOOL=${NGEN_WITH_NETCDF} \
+            -DNGEN_WITH_BMI_C:BOOL=${NGEN_WITH_BMI_C} \
+            -DNGEN_WITH_BMI_FORTRAN:BOOL=${NGEN_WITH_BMI_FORTRAN} \
+            -DNGEN_WITH_PYTHON:BOOL=${NGEN_WITH_PYTHON} \
+            -DNGEN_WITH_ROUTING:BOOL=${NGEN_WITH_ROUTING} \
+            -DNGEN_WITH_UDUNITS:BOOL=${NGEN_WITH_UDUNITS} \
+            -DUDUNITS_QUIET:BOOL=${NGEN_UDUNITS_QUIET} \
+            -DNGEN_WITH_SQLITE=${NGEN_WITH_SQLITE} \
+            -DCMAKE_INSTALL_PREFIX=/dmod \
+            -DNETCDF_INCLUDE_DIR=/usr/include \
+            -DNETCDF_LIBRARY=/usr/lib/libnetcdf.so \
+            -DNETCDF_CXX_INCLUDE_DIR=/usr/local/include \
+            -DNETCDF_CXX_LIBRARY=/usr/local/lib64/libnetcdf-cxx4.so ; \
     fi \
     && ln -s $(if [ "${BUILD_NGEN_PARALLEL}" == "true" ]; then echo "cmake_build_parallel"; else echo "cmake_build_serial"; fi) cmake_build \
     &&  if [ "${BUILD_NGEN_PARTITIONER}" == "true" ]; then \
