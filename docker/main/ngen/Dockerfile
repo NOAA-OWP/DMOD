@@ -33,6 +33,10 @@ ARG TROUTE_COMMIT
 ARG NGEN_CAL_BRANCH=master
 ARG NGEN_CAL_COMMIT
 
+ARG LGAR_C_REPO_URL="https://github.com/NOAA-OWP/LGAR-C.git"
+ARG LGAR_C_BRANCH="master"
+ARG LGAR_C_COMMIT
+
 #### Default arguments for required dependencies needed during various build stages
 # The Rocky-Linux-based "base" stage, rocky-base
 ARG ROCKY_BASE_REQUIRED="sudo openssh openssh-server bash git which"
@@ -509,6 +513,38 @@ USER ${USER}
 
 ################################################################################################################
 ################################################################################################################
+##### Create intermediate Docker build stage for building LGAR_C
+FROM rocky-ngen-deps as build_bmi_lgar_c
+
+ARG NGEN_BUILD_CONFIG_TYPE
+ARG LGAR_C_REPO_URL
+ARG LGAR_C_BRANCH
+ARG LGAR_C_COMMIT
+
+RUN git clone \
+        --single-branch \
+        --branch ${LGAR_C_BRANCH:?No lgar-c branch set} \
+        ${LGAR_C_REPO_URL:?No lgar-c repo set} \
+        ${WORKDIR}/lgar-c \
+    && cd ${WORKDIR}/lgar-c \
+    && if [ "x$LGAR_C_COMMIT" != "x" ]; then git checkout $LGAR_C_COMMIT ; fi \
+    && cmake -B ./cmake_build \
+            -DCMAKE_BUILD_TYPE=${NGEN_BUILD_CONFIG_TYPE:?} \
+            -DNGEN=ON  \
+            -DCMAKE_INSTALL_PREFIX:PATH=/dmod \
+            -S . \
+    && cmake --build ./cmake_build \
+    && cmake --build ./cmake_build --target install \
+    && mkdir -p /dmod/shared_libs \
+    && cp -a /dmod/lib64/liblasambmi.so* /dmod/shared_libs/ \
+    # An extra bit here for copying lgar-c data \
+    && mkdir -p /dmod/bmi_module_data/lgar-c/data \
+    && cp -a ./data/ /dmod/bmi_module_data/lgar-c/data/ \
+    # Clean-up a little more for Release builds \
+    && if [ "${NGEN_BUILD_CONFIG_TYPE}" == "Release" ]; then cd ${WORKDIR} && rm -rf ${WORKDIR}/lgar-c ; fi
+
+################################################################################################################
+################################################################################################################
 ##### Create intermediate Docker build stage for building framework in Rocky Linux environment
 FROM rocky-ngen-deps as rocky_build_ngen
 
@@ -727,6 +763,9 @@ ARG DATASET_DIRECTORIES
 
 #RUN cd ./ngen && mkdir ${WORKDIR}/bin && cp cmake_build/ngen ${WORKDIR}/bin && cp -r data ${WORKDIR}/data \
 #    && cd $WORKDIR && rm -rf ngen boost
+
+# Copy libs/data/etc. from various per-module stages
+COPY --chown=${USER} --from=build_bmi_lgar_c /dmod/ /dmod/
 
 USER root
 # Remove the boost headers now that ngen is compiled; also update path and make sure dataset directory is there
