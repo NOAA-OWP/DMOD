@@ -553,16 +553,16 @@ RUN cd ${WORKDIR}/ngen \
                 pip3 install --no-cache-dir /tmp/t-route-wheels/*.whl ; \
             fi; \
         fi \
-    &&  if [ "${NGEN_WITH_BMI_FORTRAN}" == "ON" ]; then \
-                ./build_sub extern/iso_c_fortran_bmi; \
-                if [ "${BUILD_NOAH_OWP}" == "true" ] ; then ./build_sub extern/noah-owp-modular; fi; \
-        fi \
-    &&  if [ "${NGEN_WITH_BMI_C}" == "ON" ]; then \
-                if [ "${BUILD_CFE}" == "true" ] ; then ./build_sub extern/cfe; fi; \
-                if [ "${BUILD_PET}" == "true" ] ; then ./build_sub extern/evapotranspiration/evapotranspiration; fi; \
-                if [ "${BUILD_TOPMODEL}" == "true" ] ; then ./build_sub extern/topmodel; fi; \
-        fi \
-    && if [ "${BUILD_SLOTH}" == "true" ] ; then ./build_sub extern/sloth; fi \
+#    &&  if [ "${NGEN_WITH_BMI_FORTRAN}" == "ON" ]; then \
+#                ./build_sub extern/iso_c_fortran_bmi; \
+#                if [ "${BUILD_NOAH_OWP}" == "true" ] ; then ./build_sub extern/noah-owp-modular; fi; \
+#        fi \
+#    &&  if [ "${NGEN_WITH_BMI_C}" == "ON" ]; then \
+#                if [ "${BUILD_CFE}" == "true" ] ; then ./build_sub extern/cfe; fi; \
+#                if [ "${BUILD_PET}" == "true" ] ; then ./build_sub extern/evapotranspiration/evapotranspiration; fi; \
+#                if [ "${BUILD_TOPMODEL}" == "true" ] ; then ./build_sub extern/topmodel; fi; \
+#        fi \
+#    && if [ "${BUILD_SLOTH}" == "true" ] ; then ./build_sub extern/sloth; fi \
     && if [ "${BUILD_NGEN_SERIAL}" == "true" ]; then \
         cmake -B cmake_build_serial -S . \
         -DCMAKE_BUILD_TYPE=${NGEN_BUILD_CONFIG_TYPE} \
@@ -614,12 +614,10 @@ RUN cd ${WORKDIR}/ngen \
         && $BUILD_DIR/test/test_bmi_cpp \
         # For the external language BMI integrations, conditionally build the test packages/libraries and run tests \
         &&  if [ "${NGEN_WITH_BMI_C}" == "ON" ]; then \
-                ./build_sub extern/test_bmi_c; \
                 cmake --build $BUILD_DIR --target test_bmi_c; \
                 $BUILD_DIR/test/test_bmi_c; \
             fi \
         &&  if [ "${NGEN_WITH_BMI_FORTRAN}" == "ON" ]; then \
-                ./build_sub extern/test_bmi_fortran; \
                 cmake --build $BUILD_DIR --target test_bmi_fortran; \
                 $BUILD_DIR/test/test_bmi_fortran; \
             fi \
