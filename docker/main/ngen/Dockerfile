@@ -87,6 +87,9 @@ ARG BUILD_TOPMODEL="true"
 ARG BUILD_PET="true"
 ARG BUILD_SLOTH="true"
 
+# BMI submodules (and fortran bindings) in ngen extern/ dir that should have shared libs copied to /dmod/shared_libs/
+ARG NGEN_BMI_ACTIVE_SUBMODULES="iso_c_fortran_bmi SoilFreezeThaw SoilMoistureProfiles noah-owp-modular topmodel cfe sloth evapotranspiration"
+
 ################################################################################################################
 ################################################################################################################
 ##### Create intermediate Docker build stage for Rocky-Linux-based "base"
@@ -719,6 +722,7 @@ ENTRYPOINT ["entrypoint.sh"]
 ##### Model exec ngen worker image build stage
 FROM rocky_build_ngen AS ngen_worker
 
+ARG NGEN_BMI_ACTIVE_SUBMODULES
 ARG DATASET_DIRECTORIES
 
 #RUN cd ./ngen && mkdir ${WORKDIR}/bin && cp cmake_build/ngen ${WORKDIR}/bin && cp -r data ${WORKDIR}/data \
@@ -742,9 +746,12 @@ ENV HYDRA_PROXY_RETRY_COUNT=5
 # Change permissions for entrypoint and make sure dataset volume mount parent directories exists
 RUN chmod +x ${WORKDIR}/entrypoint.sh \
     && for d in ${DATASET_DIRECTORIES}; do mkdir -p /dmod/datasets/${d}; done \
-    && for d in noah-owp-modular topmodel cfe sloth 'evapotranspiration/evapotranspiration'; do \
+    # TODO: look at doing this earlier/differently (especially to not need to be explicit)
+    && for d in ${NGEN_BMI_ACTIVE_SUBMODULES:?List of active BMI git submodules not defined}; do \
         if [ -d ${WORKDIR}/ngen/extern/${d}/cmake_build ]; then \
             cp -a ${WORKDIR}/ngen/extern/${d}/cmake_build/*.so* /dmod/shared_libs/.; \
+        elif [ -d ${WORKDIR}/ngen/extern/${d}/${d}/cmake_build ]; then \
+            cp -a ${WORKDIR}/ngen/extern/${d}/${d}/cmake_build/*.so* /dmod/shared_libs/.; \
         fi; \
     done \
     && ( cp -a ${WORKDIR}/ngen/cmake_build_parallel/ngen /dmod/bin/ngen-parallel || true ) \
