@@ -201,7 +201,7 @@ def _handle_data_service_action_args(parent_subparsers_container):
     action_subparsers.required = True
 
     dataset_categories = [e.name.lower() for e in DataCategory]
-    dataset_formats = [e.name for e in DataFormat]
+    dataset_formats = [e for e in DataFormat]
 
     # Nested parser for the 'create' action, with required argument for dataset name, category, and format
     parser_create = action_subparsers.add_parser('create', description="Create a new dataset.")
@@ -220,7 +220,7 @@ def _handle_data_service_action_args(parent_subparsers_container):
     parser_create.add_argument('--discrete-restriction', type=lambda s: DiscreteRestriction(**json.loads(s)),
                                dest='discrete_restrictions', nargs='*', help=d_restrict_help_str.format(d_json_form))
     parser_create.add_argument('--format', dest='dataset_format', choices=dataset_formats, type=DataFormat.get_for_name,
-                               help='Specify dataset domain format.')
+                               metavar=f"{{{', '.join(f.name for f in dataset_formats)}}}", help='Specify dataset domain format.')
     parser_create.add_argument('--domain-json', dest='domain_file', type=Path, help='Deserialize the dataset domain from a file.')
     parser_create.add_argument('category', type=DataCategory.get_for_name, choices=dataset_categories, help='Specify dataset category.')
 
