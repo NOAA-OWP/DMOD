@@ -411,11 +411,7 @@ RUN echo "export HYDRA_HOST_FILE=${HYDRA_HOST_FILE}" >> /etc/profile \
     # TODO: if we run into any problem, might need to reactivate this \
     # && ctest \
     && make install \
-    # Also set up boost here, since we copied the download but only just installed bzip2 to work with it \
-    && cd ${BOOST_ROOT} \
-    && tar -xf boost_tarball.blob --strip 1 \
-    && rm boost_tarball.blob \
-    # Set the regular user as the owner \
+    # Set the regular user as the owner of the BOOST_ROOT dir we copied in \
     && chown -R ${USER}:${USER} ${BOOST_ROOT} \
     && rm -rf /tmp/ngen-deps
 
@@ -644,6 +640,8 @@ ARG NGEN_WITH_UDUNITS
 ARG NGEN_UDUNITS_QUIET
 ARG NGEN_WITH_SQLITE
 
+ARG NGEN_BMI_ACTIVE_SUBMODULES
+
 ARG BUILD_NGEN_SERIAL
 ARG BUILD_NGEN_PARALLEL
 ARG BUILD_PARTITIONER
@@ -666,7 +664,10 @@ RUN if [ "${NGEN_WITH_PYTHON}" == "ON" ]; then \
     fi
 USER ${USER}
 
-RUN cd ${WORKDIR}/ngen \
+RUN cd ${BOOST_ROOT} \
+    && tar -xf boost_tarball.blob --strip 1 \
+    && rm boost_tarball.blob \
+    && cd ${WORKDIR}/ngen \
     &&  if [ -z "${COMMIT:-}" ]; then \
             if [ "${REFRESH_BEFORE_BUILD:-}" = "true" ] ; then  \
                 git pull --ff-only ; \
@@ -720,36 +721,55 @@ RUN cd ${WORKDIR}/ngen \
     fi \
     && ln -s $(if [ "${BUILD_NGEN_PARALLEL}" == "true" ]; then echo "cmake_build_parallel"; else echo "cmake_build_serial"; fi) cmake_build \
     &&  if [ "${BUILD_NGEN_PARTITIONER}" == "true" ]; then \
-            cmake --build cmake_build --target partitionGenerator; \
+            cmake --build cmake_build --target partitionGenerator -- -j ${BUILD_PARALLEL_JOBS}; \
             $BUILD_DIR/test/test_bmi_python; \
         fi \
     && for BUILD_DIR in $(if [ "${BUILD_NGEN_PARALLEL}" == "true" ]; then echo "cmake_build_parallel"; fi) $(if [ "${BUILD_NGEN_SERIAL}" == "true" ]; then echo "cmake_build_serial"; fi) ; do \
-        cmake --build $BUILD_DIR --target ngen -j ${BUILD_PARALLEL_JOBS} \
+        cmake --build $BUILD_DIR --target ngen -- -j ${BUILD_PARALLEL_JOBS} \
         #Run the tests, if they fail, the image build fails \
-        && cmake --build $BUILD_DIR --target test_unit -j ${BUILD_PARALLEL_JOBS} \
+        && cmake --build $BUILD_DIR --target test_unit -- -j ${BUILD_PARALLEL_JOBS} \
         && $BUILD_DIR/test/test_unit \
         # C++ functionality isn't separate, so always build and run the test_bmi_cpp testing target \
-        && cmake --build $BUILD_DIR --target test_bmi_cpp \
+        && cmake --build $BUILD_DIR --target test_bmi_cpp -- -j ${BUILD_PARALLEL_JOBS} \
         && $BUILD_DIR/test/test_bmi_cpp \
         # For the external language BMI integrations, conditionally build the test packages/libraries and run tests \
         &&  if [ "${NGEN_WITH_BMI_C}" == "ON" ]; then \
-                cmake --build $BUILD_DIR --target test_bmi_c; \
+                cmake --build $BUILD_DIR --target test_bmi_c -- -j ${BUILD_PARALLEL_JOBS}; \
                 $BUILD_DIR/test/test_bmi_c; \
             fi \
         &&  if [ "${NGEN_WITH_BMI_FORTRAN}" == "ON" ]; then \
-                cmake --build $BUILD_DIR --target test_bmi_fortran; \
+                cmake --build $BUILD_DIR --target test_bmi_fortran -- -j ${BUILD_PARALLEL_JOBS}; \
                 $BUILD_DIR/test/test_bmi_fortran; \
             fi \
         &&  if [ "${NGEN_WITH_PYTHON}" == "ON" ]; then \
-                cmake --build $BUILD_DIR --target test_bmi_python; \
+                cmake --build $BUILD_DIR --target test_bmi_python -- -j ${BUILD_PARALLEL_JOBS} ; \
                 $BUILD_DIR/test/test_bmi_python; \
             fi \
         &&  if [ "${NGEN_WITH_BMI_C}" == "ON" ] && [ "${NGEN_WITH_BMI_FORTRAN}" == "ON" ] && [ "${NGEN_WITH_PYTHON}" == "ON" ]; then \
-                cmake --build $BUILD_DIR --target test_bmi_multi; \
+                cmake --build $BUILD_DIR --target test_bmi_multi -- -j ${BUILD_PARALLEL_JOBS}; \
                 $BUILD_DIR/test/test_bmi_multi; \
             fi ; \
     done \
-    && find cmake_build* -type f -name "*" ! \( -name "*.so" -o -name "ngen" -o -name "partitionGenerator" \) -exec rm {} +
+    && rm -rf ${BOOST_ROOT} \
+    && mkdir -p /dmod/bin \
+    && chown ${USER} /dmod/bin \
+    && mkdir -p /dmod/shared_libs \
+    && chown ${USER} /dmod/shared_libs \
+    && mkdir -p /dmod/datasets \
+    && chown ${USER} /dmod/datasets \
+    && if [ "${BUILD_NGEN_PARALLEL}" == "true" ]; then cp -a ${WORKDIR}/ngen/cmake_build_parallel/ngen /dmod/bin/ngen-parallel ; fi \
+    && if [ "${BUILD_NGEN_SERIAL}" == "true" ]; then cp -a ${WORKDIR}/ngen/cmake_build_serial/ngen /dmod/bin/ngen-serial ; fi \
+    && for d in ${NGEN_BMI_ACTIVE_SUBMODULES:?List of active BMI git submodules not defined}; do \
+            if [ -d ${WORKDIR}/ngen/extern/${d}/cmake_build ]; then \
+                cp -a ${WORKDIR}/ngen/extern/${d}/cmake_build/*.so* /dmod/shared_libs/.; \
+            elif [ -d ${WORKDIR}/ngen/extern/${d}/${d}/cmake_build ]; then \
+                cp -a ${WORKDIR}/ngen/extern/${d}/${d}/cmake_build/*.so* /dmod/shared_libs/.; \
+            fi; \
+        done \
+    && cd ${WORKDIR} \
+    && if [ "${NGEN_BUILD_CONFIG_TYPE:?}" != "Debug" ]; then rm -rf ${WORKDIR}/ngen ; fi
+
+ENV PATH=${WORKDIR}:${WORKDIR}/bin:/dmod/bin:$PATH
 
 ################################################################################################################
 ################################################################################################################
@@ -786,7 +806,10 @@ COPY --chown=${USER} partitioner_entrypoint.sh ${WORKDIR}/entrypoint.sh
 COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/ngen
 ENV BOOST_ROOT=${WORKDIR}/boost
 
-RUN cd ${WORKDIR}/ngen \
+RUN cd ${BOOST_ROOT} \
+    && tar -xf boost_tarball.blob --strip 1 \
+    && rm boost_tarball.blob \
+    && cd ${WORKDIR}/ngen \
     &&  if [ "x$COMMIT" = "x" ]; then \
             if [ "${REFRESH_BEFORE_BUILD:-}" = "true" ] ; then  \
                 git pull --ff-only ; \
@@ -827,10 +850,18 @@ ENTRYPOINT ["entrypoint.sh"]
 ################################################################################################################
 ################################################################################################################
 ##### Model exec ngen worker image build stage
-FROM rocky_build_ngen AS ngen_worker
+#FROM rocky_build_ngen AS ngen_worker
+FROM rocky-base AS ngen_worker
+
+COPY --from=rocky_build_ngen / /
 
 ARG NGEN_BMI_ACTIVE_SUBMODULES
 ARG DATASET_DIRECTORIES
+ARG WORKDIR
+
+ENV WORKDIR=${WORKDIR}
+ENV HYDRA_HOST_FILE=/etc/opt/hosts
+ENV PATH=${WORKDIR}:${WORKDIR}/bin:/dmod/bin:${PATH}:/usr/lib64/mpich/bin
 
 #RUN cd ./ngen && mkdir ${WORKDIR}/bin && cp cmake_build/ngen ${WORKDIR}/bin && cp -r data ${WORKDIR}/data \
 #    && cd $WORKDIR && rm -rf ngen boost
@@ -841,8 +872,8 @@ COPY --chown=${USER} --from=build_bmi_sac_sma /dmod/ /dmod/
 COPY --chown=${USER} --from=build_bmi_snow_17 /dmod/ /dmod/
 
 USER root
-# Remove the boost headers now that ngen is compiled; also update path and make sure dataset directory is there
-RUN rm -rf ${BOOST_ROOT} && echo "export PATH=${PATH}" >> /etc/profile \
+# Update path and make sure dataset directory is there
+RUN echo "export PATH=${PATH}" >> /etc/profile \
     && sed -i "s/PasswordAuthentication yes/#PasswordAuthentication yes/g" /etc/ssh/sshd_config \
     && sed -i "s/PermitRootLogin yes/PermitRootLogin no/g" /etc/ssh/sshd_config \
     && sed -i "s/#ClientAliveInterval.*/ClientAliveInterval 60/" /etc/ssh/sshd_config \
@@ -858,21 +889,10 @@ ENV HYDRA_PROXY_RETRY_COUNT=5
 # Change permissions for entrypoint and make sure dataset volume mount parent directories exists
 RUN chmod +x ${WORKDIR}/entrypoint.sh \
     && for d in ${DATASET_DIRECTORIES}; do mkdir -p /dmod/datasets/${d}; done \
-    # TODO: look at doing this earlier/differently (especially to not need to be explicit)
-    && for d in ${NGEN_BMI_ACTIVE_SUBMODULES:?List of active BMI git submodules not defined}; do \
-        if [ -d ${WORKDIR}/ngen/extern/${d}/cmake_build ]; then \
-            cp -a ${WORKDIR}/ngen/extern/${d}/cmake_build/*.so* /dmod/shared_libs/.; \
-        elif [ -d ${WORKDIR}/ngen/extern/${d}/${d}/cmake_build ]; then \
-            cp -a ${WORKDIR}/ngen/extern/${d}/${d}/cmake_build/*.so* /dmod/shared_libs/.; \
-        fi; \
-    done \
-    && ( cp -a ${WORKDIR}/ngen/cmake_build_parallel/ngen /dmod/bin/ngen-parallel || true ) \
-    && ( cp -a ${WORKDIR}/ngen/cmake_build_serial/ngen /dmod/bin/ngen-serial || true ) \
-    && ( cp -a ${WORKDIR}/ngen/cmake_build/partitionGenerator /dmod/bin/partitionGenerator || true ) \
     && pushd /dmod/bin \
     # NOTE use of `ln -sf`. \
     && ( ( stat ngen-parallel && ln -sf ngen-parallel ngen ) || ( stat ngen-serial && ln -sf ngen-serial ngen ) ) \
-    && popd 
+    && popd
 
 WORKDIR ${WORKDIR}
 ENV PATH=${WORKDIR}:$PATH
