@@ -200,7 +200,7 @@ def _handle_data_service_action_args(parent_subparsers_container):
     action_subparsers = command_parser.add_subparsers(dest='action')
     action_subparsers.required = True
 
-    dataset_categories = [e.name.lower() for e in DataCategory]
+    dataset_categories = [e for e in DataCategory]
     dataset_formats = [e for e in DataFormat]
 
     # Nested parser for the 'create' action, with required argument for dataset name, category, and format
@@ -222,7 +222,8 @@ def _handle_data_service_action_args(parent_subparsers_container):
     parser_create.add_argument('--format', dest='dataset_format', choices=dataset_formats, type=DataFormat.get_for_name,
                                metavar=f"{{{', '.join(f.name for f in dataset_formats)}}}", help='Specify dataset domain format.')
     parser_create.add_argument('--domain-json', dest='domain_file', type=Path, help='Deserialize the dataset domain from a file.')
-    parser_create.add_argument('category', type=DataCategory.get_for_name, choices=dataset_categories, help='Specify dataset category.')
+    parser_create.add_argument('category', type=DataCategory.get_for_name, choices=dataset_categories,
+                               metavar=f"{{{', '.join(c.name.lower() for c in dataset_categories)}", help='Specify dataset category.')
 
     # Nested parser for the 'delete' action, with required argument for dataset name
     parser_delete = action_subparsers.add_parser('delete', description="Delete a specified (entire) dataset.")
@@ -245,7 +246,7 @@ def _handle_data_service_action_args(parent_subparsers_container):
     # Nested parser for the 'list_datasets' action
     parser_list = action_subparsers.add_parser('list', description="List available datasets.")
     parser_list.add_argument('--category', dest='category', choices=dataset_categories, type=DataCategory.get_for_name,
-                             help='Specify the category of dataset to list')
+                             metavar=f"{{{', '.join(c.name.lower() for c in dataset_categories)}", help='Specify the category of dataset to list')
 
     # Nested parser for the 'list_items' action
     parser_list = action_subparsers.add_parser('items', description="List items within a specified dataset.")
