@@ -2,7 +2,7 @@ import json
 
 from dmod.communication import AuthClient, TransportLayerClient, WebSocketClient
 from dmod.core.common import get_subclasses
-from dmod.core.serializable import ResultIndicator
+from dmod.core.serializable import BasicResultIndicator, ResultIndicator
 from dmod.core.meta_data import DataDomain
 from .request_clients import DataServiceClient, JobClient
 from .client_config import ClientConfig
@@ -64,6 +64,62 @@ class DmodClient:
 
         self._auth_client: AuthClient = AuthClient(transport_client=self._get_transport_client())
 
+    def _extract_dataset_domain(self, **kwargs) -> DataDomain:
+        """
+        Extract a dataset domain implicitly or explicitly described within the given keyword args, like CLI params.
+
+        Parameters
+        ----------
+        kwargs
+
+        Other Parameters
+        ----------------
+        domain : DataDomain
+            Optional parameter holding a complete, already existing domain object.
+        domain_json : dict
+            Optional parameter hold a serialized domain object.
+
+        Returns
+        -------
+        DataDomain
+            The extracted inflated domain object.
+
+        Raises
+        -------
+        TypeError
+            If a 'domain' keyword arg is present but of the wrong type.
+        ValueError
+            If a 'domain_file' arg is present but does not reference a file containing a serialized domain object.
+        RuntimeError
+            If neither 'domain' nor 'domain_file' args were present, and the keyword args as a whole could not be used
+            as init params to create a domain object.
+        """
+        if kwargs.get('domain') is not None:
+            domain = kwargs.pop('domain')
+            if not isinstance(domain, DataDomain):
+                raise TypeError(f"Object at 'domain' key was of type {domain.__class__.__name__}")
+            else:
+                return domain
+        elif kwargs.get('domain_file') is not None:
+            domain_file = kwargs.get('domain_file')
+            try:
+                if isinstance(domain_file, Path):
+                    domain_file = Path(domain_file)
+                with domain_file.open() as domain_file:
+                    domain_json = json.load(domain_file)
+            except Exception as e:
+                raise ValueError(f"Failure with 'domain_file' `{domain_file!s}`; {e.__class__.__name__} - {e!s}")
+            domain = DataDomain.factory_init_from_deserialized_json(domain_json)
+            if not isinstance(domain, DataDomain):
+                raise ValueError(f"Could not deserialize JSON in 'domain_file' `{domain_file!s}` to domain object")
+            else:
+                return domain
+        else:
+            try:
+                return DataDomain(**kwargs)
+            except Exception as e:
+                raise RuntimeError(f"Could not inflate keyword params to object due to {e.__class__.__name__} - {e!s}")
+
     def _get_transport_client(self, **kwargs) -> TransportLayerClient:
         # TODO: later add support for multiplexing capabilities and spawning wrapper clients
         return self._request_service_conn
@@ -90,14 +146,13 @@ class DmodClient:
         try:
             if action == 'create':
                 # Do a little extra here to get the domain
-                if 'domain' in kwargs:
-                    domain = kwargs.pop('domain')
-                elif 'domain_file' in kwargs:
-                    with kwargs['domain_file'].open() as domain_file:
-                        domain_json = json.load(domain_file)
-                    domain = DataDomain.factory_init_from_deserialized_json(domain_json)
-                else:
-                    domain = DataDomain(**kwargs)
+                try:
+                    domain = self._extract_dataset_domain(**kwargs)
+                except TypeError as e:
+                    return BasicResultIndicator(success=False, reason="No Dataset Domain Provided",
+                                                message=f"Invalid type provided for 'domain' param: {e!s} ")
+                except (ValueError, RuntimeError) as e:
+                    return BasicResultIndicator(success=False, reason="No Dataset Domain Provided", message=f"{e!s}")
                 return await self.data_service_client.create_dataset(domain=domain, **kwargs)
             elif action == 'delete':
                 return await self.data_service_client.delete_dataset(**kwargs)
