@@ -336,9 +336,16 @@ class ObjectStoreDatasetManager(DatasetManager):
             raise e
         created_on = datetime.now()
         access_loc = "{}://{}/{}".format('https' if self._secure_connection else 'http', self._obj_store_host_str, name)
-        dataset = Dataset(name=name, category=category, data_domain=domain, dataset_type=DatasetType.OBJECT_STORE,
-                          manager=self, access_location=access_loc, is_read_only=is_read_only, created_on=created_on,
-                          last_updated=created_on, expires_on=expires_on)
+        try:
+            dataset = Dataset(name=name, category=category, data_domain=domain, dataset_type=DatasetType.OBJECT_STORE,
+                            manager=self, access_location=access_loc, is_read_only=is_read_only, created_on=created_on,
+                            last_updated=created_on, expires_on=expires_on)
+        except Exception as e:
+            # if there is an issue creating the dataset, then remove the bucket
+            self._client.remove_bucket(name)
+            # TODO: may need to log something here
+            self.errors.append(e)
+            raise e
 
         # Once dataset is added to ``datasets``, it's "managed," so calls to add_data, delete, etc., should work
         self.datasets[name] = dataset
