@@ -26,7 +26,7 @@ setup(
         "fiona",
         "geopandas",
         "dmod-communication>=0.4.2",
-        "dmod-core>=0.9.0",
+        "dmod-core>=0.13.1",
         "minio",
         "aiohttp~=3.8",
         "shapely>=2.0.0",
