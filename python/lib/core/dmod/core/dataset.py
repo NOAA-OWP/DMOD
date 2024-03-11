@@ -14,6 +14,8 @@ from pydantic import Field, validator, root_validator, PrivateAttr
 from pydantic.fields import ModelField
 from uuid import UUID, uuid4
 
+from .common.reader import Reader
+
 
 class DatasetType(PydanticEnum):
     UNKNOWN = (-1, False, lambda dataset: None)
@@ -530,7 +532,7 @@ class DatasetManager(ABC):
     # TODO: implement functions and routines for scrubbing temporary datasets as needed
 
     @abstractmethod
-    def add_data(self, dataset_name: str, dest: str, data: Optional[bytes] = None, source: Optional[str] = None,
+    def add_data(self, dataset_name: str, dest: str, data: Optional[Union[bytes, Reader]] = None, source: Optional[str] = None,
                  is_temp: bool = False, **kwargs) -> bool:
         """
         Add data in some format to the dataset.
@@ -545,9 +547,9 @@ class DatasetManager(ABC):
         dest : str
             A path-like string specifying a location within the dataset (e.g., file, object, sub-URL) where the data
             should be added.
-        data : Optional[bytes]
-            Optional encoded byte string containing data to be inserted into the data set; either this or ``source``
-            must be provided.
+        data : Optional[Union[bytes, Reader]]
+            Optional encoded byte string _or_ object with read() method returning bytes containing data to be inserted
+            into the data set; either this or ``source`` must be provided.
         source : Optional[str]
             Optional string specifying a location from which to source the data to be added; either this or ``data``
             must be provided.
