@@ -5,12 +5,13 @@ import minio.retention
 
 from dmod.core.meta_data import DataCategory, DataDomain
 from dmod.core.dataset import Dataset, DatasetManager, DatasetType, InitialDataAdder
+from dmod.core.common.reader import Reader
 from datetime import datetime, timedelta
 from minio import Minio
 from minio.api import ObjectWriteResult
 from minio.deleteobjects import DeleteObject
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Union
 from uuid import UUID
 
 
@@ -173,14 +174,14 @@ class ObjectStoreDatasetManager(DatasetManager):
             self.persist_serialized(bucket_name)
 
     # TODO: update to also make adjustments to the domain appropriately when data changes (deleting data also)
-    def add_data(self, dataset_name: str, dest: str, data: Optional[bytes] = None, source: Optional[str] = None,
+    def add_data(self, dataset_name: str, dest: str, data: Optional[Union[bytes, Reader]] = None, source: Optional[str] = None,
                  is_temp: bool = False, **kwargs) -> bool:
         """
         Add raw data or data from one or more files to the object store for the given dataset.
 
-        Function adds either a binary data, data from a single file, or data from all files within a supplied directory,
-        to the backing object store of the given dataset.  The dataset name must be recognized; if it is not, ``False``
-        is immediately returned.
+        Function adds either a binary data, data from a single file, data from an object with a read() method that
+        returns bytes, or data from all files within a supplied directory, to the backing object store of the given
+        dataset.  The dataset name must be recognized; if it is not, ``False`` is immediately returned.
 
         Binary data must be added to a specified object, supplied by ``dest``.  A single ``source`` file may be pushed
         either to an explicitly named ``dest`` object, or to an object with a name derived from a ``bucket_root`` as
@@ -215,9 +216,9 @@ class ObjectStoreDatasetManager(DatasetManager):
             A path-like string that provides information on the location within the dataset where the data should be
             added when either adding byte string data from ``data`` or when adding from a single file specified in
             ``source`` (ignored when adding from files within a ``source`` directory).
-        data : Optional[bytes]
-            Optional encoded byte string containing data to be inserted into the data set; either this or ``source``
-            must be provided.
+        data : Optional[Union[bytes, Reader]]
+            Optional encoded byte string _or_ object with read() method returning bytes containing data to be inserted
+            into the data set; either this or ``source`` must be provided.
         source : Optional[str]
             Optional string specifying either a source file containing data to be added, or a directory containing
             multiple files to be added.
@@ -249,8 +250,15 @@ class ObjectStoreDatasetManager(DatasetManager):
                                                       retain_until_date=datetime.now() + timedelta(hours=1))
             else:
                 retention = None
-            result = self._client.put_object(bucket_name=dataset_name, data=io.BytesIO(data), length=len(data),
-                                             object_name=dest, retention=retention)
+            if isinstance(data, Reader):
+                # Use AWS S3 default part size of 5MiB
+                # https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html
+                part_size = 5 * 1024 * 1024
+                result = self._client.put_object(bucket_name=dataset_name, data=data, length=-1, part_size=part_size, object_name=dest,
+                retention=retention)
+            else:
+                result = self._client.put_object(bucket_name=dataset_name, data=io.BytesIO(data), length=len(data),
+                                                object_name=dest, retention=retention)
             # TODO: do something more intelligent than this for determining success
             return result.bucket_name == dataset_name
         elif is_temp:
