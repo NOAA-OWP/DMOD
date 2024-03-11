@@ -227,6 +227,45 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
         result = self.minio_client.get_object(bucket_name=dataset_name, object_name=serial_file_name)
         self.assertIsNotNone(result)
 
+    def test_create_1_c(self):
+        """
+        Test that create does not create a new dataset if a dataset already exists with that name.
+        """
+        ex_num = 1
+        dataset_name = self.examples[ex_num]['name']
+
+        self.assertFalse(self.minio_client.bucket_exists(dataset_name))
+        self.manager.create(**self.examples[ex_num])
+        self.assertTrue(self.minio_client.bucket_exists(dataset_name))
+
+        with self.assertRaises(Exception):
+            self.manager.create(**self.examples[ex_num])
+
+        does_exist = self.minio_client.bucket_exists(dataset_name)
+        if does_exist:
+            self._datasets_to_cleanup.add(dataset_name)
+
+        self.assertTrue(does_exist)
+
+    def test_create_fails_and_does_not_create_bucket_with_bad_domain(self):
+        """
+        Test that create does not create a dataset when provided a domain that cannot be used to create a Dataset
+        object.
+        """
+        dataset_name = "test-ds-1"
+        invalid_domain = object()
+
+        self.assertFalse(self.minio_client.bucket_exists(dataset_name))
+        with self.assertRaises(Exception):
+            self.manager.create(name=dataset_name, domain=invalid_domain, category=None, is_read_only=False)
+        self.assertFalse(self.minio_client.bucket_exists(dataset_name))
+
+        does_exist = self.minio_client.bucket_exists(dataset_name)
+        if does_exist:
+            self._datasets_to_cleanup.add(dataset_name)
+
+        self.assertFalse(does_exist)
+
     def test_get_data_1_a(self):
         """ Test that we can get the serialized file for a newly created dataset. """
         ex_num = 1
