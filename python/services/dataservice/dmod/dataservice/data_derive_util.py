@@ -1,13 +1,15 @@
 import logging
 
+
+from .dataset_manager_collection import DatasetManagerCollection
 from .initial_data_adder_impl import CompositeConfigDataAdder, FromPartialRealizationConfigAdder
-from dmod.communication import AbstractNgenRequest, NGENRequest
+from dmod.communication import AbstractNgenRequest
 from dmod.communication.maas_request.ngen.partial_realization_config import PartialRealizationConfig
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement, StandardDatasetIndex
 from dmod.core.exception import DmodRuntimeError
-from dmod.core.dataset import Dataset, DatasetManager, DatasetType
+from dmod.core.dataset import Dataset, DatasetType
 from dmod.scheduler.job import Job, JobExecStep
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 
 class DataDeriveUtil:
@@ -23,8 +25,8 @@ class DataDeriveUtil:
     possible to derive a new ::class:`Dataset` to satisfy a supplied ::class:`DataRequirement`.
     """
 
-    def __init__(self, data_mgrs_by_ds_type: Dict[DatasetType, DatasetManager]):
-        self._all_data_managers: Dict[DatasetType, DatasetManager] = data_mgrs_by_ds_type
+    def __init__(self, dataset_manager_collection: DatasetManagerCollection):
+        self._managers: DatasetManagerCollection = dataset_manager_collection
 
     def _apply_dataset_to_requirement(self, dataset: Dataset, requirement: DataRequirement, job: Job):
         """
@@ -94,9 +96,9 @@ class DataDeriveUtil:
 
         # TODO: (later) more intelligently determine type
         ds_type = DatasetType.OBJECT_STORE
-        manager = self._all_data_managers[ds_type]
+        manager = self._managers.manager(ds_type)
         data_adder = CompositeConfigDataAdder(requirement=requirement, job=job, hydrofabric_id=hydrofabric_id,
-                                              all_dataset_managers=self._all_data_managers, dataset_name=ds_name,
+                                              dataset_manager_collection=self._managers, dataset_name=ds_name,
                                               dataset_manager=manager)
         dataset: Dataset = manager.create_temporary(name=ds_name, category=DataCategory.CONFIG, domain=domain,
                                                     is_read_only=False, initial_data=data_adder)
@@ -115,9 +117,9 @@ class DataDeriveUtil:
         # TODO: (later) more intelligently determine type
         ds_type = DatasetType.OBJECT_STORE
         ds_name = requirement.domain.discrete_restrictions[StandardDatasetIndex.DATA_ID].values[0]
-        ds_mgr = self._all_data_managers[ds_type]
+        ds_mgr = self._managers.manager(ds_type)
 
-        initial_data = FromPartialRealizationConfigAdder(job=job, all_dataset_managers=self._all_data_managers,
+        initial_data = FromPartialRealizationConfigAdder(job=job, dataset_manager_collection=self._managers,
                                                          dataset_name=ds_name, dataset_manager=ds_mgr)
 
         # Build a modified domain, based on the requirement, but with any name/data_id restriction removed
@@ -130,7 +132,7 @@ class DataDeriveUtil:
         domain = DataDomain(data_format=req_domain.data_format, continuous_restrictions=continuous_restricts,
                             discrete_restrictions=discrete_restricts)
 
-        dataset: Dataset = self._all_data_managers[ds_type].create_temporary(name=ds_name,
+        dataset: Dataset = self._managers.manager(ds_type).create_temporary(name=ds_name,
                                                                              category=DataCategory.CONFIG,
                                                                              domain=domain,
                                                                              is_read_only=False,
@@ -173,24 +175,6 @@ class DataDeriveUtil:
         else:
             msg = "Could not determine proper access location for new dataset of type {} by non-Docker job {}."
             raise DmodRuntimeError(msg.format(dataset.__class__.__name__, job.job_id))
-
-    def _get_known_datasets(self) -> Dict[str, Dataset]:
-        """
-        Get real-time mapping of all datasets known to this instance via its managers, in a map keyed by dataset name.
-
-        This is implemented as a function, and not a property, since it is mutable and could change without this
-        instance or even the service manager being directly notified.  As such, a new collection object is created and
-        returned on every call.
-
-        Returns
-        -------
-        Dict[str, Dataset]
-            All datasets known to the service via its manager objects, in a map keyed by dataset name.
-        """
-        datasets = {}
-        for _, manager in self._all_data_managers.items():
-            datasets.update(manager.datasets)
-        return datasets
 
     async def async_can_dataset_be_derived(self, requirement: DataRequirement, job: Optional[Job] = None) -> bool:
         """

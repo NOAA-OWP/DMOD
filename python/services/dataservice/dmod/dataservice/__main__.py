@@ -9,6 +9,7 @@ import argparse
 from . import name as package_name
 from .service import ServiceManager
 from .service_settings import ServiceSettings
+from .dataset_manager_collection import DatasetManagerCollection
 from dmod.scheduler.job import DefaultJobUtilFactory
 from pathlib import Path
 from socket import gethostname
@@ -143,9 +144,16 @@ def main():
     job_util = DefaultJobUtilFactory.factory_create(redis_host=args.redis_host, redis_port=args.redis_port,
                                                     redis_pass=redis_pass)
 
+    dataset_manager_collection = DatasetManagerCollection()
     # Initiate a service manager WebsocketHandler implementation for primary messaging and async task loops
-    service_manager = ServiceManager(job_util=job_util, listen_host=listen_host, port=args.port,
-                                     ssl_dir=Path(args.ssl_dir), settings=service_settings)
+    service_manager = ServiceManager(
+        job_util=job_util,
+        listen_host=listen_host,
+        port=args.port,
+        ssl_dir=Path(args.ssl_dir),
+        settings=service_settings,
+        dataset_manager_collection=dataset_manager_collection,
+    )
 
     # If we are set to use the object store ...
     if use_obj_store:

@@ -1,9 +1,10 @@
 from dmod.core.meta_data import DataFormat, DataRequirement
 from dmod.core.serializable import BasicResultIndicator
-from dmod.modeldata.data.object_store_manager import Dataset, DatasetType, DatasetManager
+from dmod.modeldata.data.object_store_manager import Dataset
 from dmod.scheduler.job import Job
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 from .data_derive_util import DataDeriveUtil
+from .dataset_manager_collection import DatasetManagerCollection
 
 import logging
 
@@ -17,28 +18,10 @@ class DatasetInqueryUtil:
     that it does not include behavior on retrieving data.
     """
 
-    def __init__(self, data_mgrs_by_ds_type: Dict[DatasetType, DatasetManager],
+    def __init__(self, dataset_manager_collection: DatasetManagerCollection,
                  derive_util: Optional[DataDeriveUtil] = None):
-        self._all_data_managers: Dict[DatasetType, DatasetManager] = data_mgrs_by_ds_type
-        self._derive_util: DataDeriveUtil = DataDeriveUtil(data_mgrs_by_ds_type) if derive_util is None else derive_util
-
-    def _get_known_datasets(self) -> Dict[str, Dataset]:
-        """
-        Get real-time mapping of all datasets known to this instance via its managers, in a map keyed by dataset name.
-
-        This is implemented as a function, and not a property, since it is mutable and could change without this
-        instance or even the service manager being directly notified.  As such, a new collection object is created and
-        returned on every call.
-
-        Returns
-        -------
-        Dict[str, Dataset]
-            All datasets known to the service via its manager objects, in a map keyed by dataset name.
-        """
-        datasets = {}
-        for _, manager in self._all_data_managers.items():
-            datasets.update(manager.datasets)
-        return datasets
+        self._managers: DatasetManagerCollection = dataset_manager_collection
+        self._derive_util: DataDeriveUtil = DataDeriveUtil(dataset_manager_collection) if derive_util is None else derive_util
 
     # TODO: (later) in the future, this may also need to be able to check authorization/ownership/permissions
     async def async_can_provide_data(self, dataset_name: str, data_item_name: str) -> BasicResultIndicator:
@@ -66,7 +49,7 @@ class DatasetInqueryUtil:
             A result object indicating through its ``success`` property whether the referenced data can be provided and,
             if not, some details on why.
         """
-        dataset = self._get_known_datasets().get(dataset_name)
+        dataset = self._managers.known_datasets().get(dataset_name)
         if dataset is None:
             msg = "Data cannot be provided from unknown dataset '{}'".format(dataset_name)
             return BasicResultIndicator(success=False, reason="Unknown Dataset", message=msg)
@@ -147,7 +130,7 @@ class DatasetInqueryUtil:
         # Keep those of the right category but wrong format, in case one is needed and satisfactory
         potentially_compatible_alternates: List[Dataset] = []
 
-        for name, dataset in self._get_known_datasets().items():
+        for dataset in self._managers.known_datasets().values():
             # Skip anything with the wrong category
             if dataset.category != requirement.category:
                 continue
@@ -204,6 +187,6 @@ class DatasetInqueryUtil:
         List[str]
             A list of the names of all currently existing datasets.
         """
-        results = self._get_known_datasets().keys()
+        results = self._managers.known_datasets().keys()
         return sorted(results) if sort_result else results
 
