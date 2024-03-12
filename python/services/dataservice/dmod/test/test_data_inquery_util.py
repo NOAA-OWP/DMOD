@@ -4,11 +4,13 @@ import json
 
 from dmod.communication.client import get_or_create_eventloop
 from dmod.core.meta_data import DataCategory, DataDomain
-from dmod.core.dataset import Dataset
+from dmod.core.dataset import Dataset, DatasetType, DatasetManager
 from dmod.scheduler.job import RequestedJob
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union, Tuple
-from ..dataservice.dataset_inquery_util import DatasetInqueryUtil, DatasetType, DatasetManager
+
+from ..dataservice.dataset_manager_collection import DatasetManagerCollection
+from ..dataservice.dataset_inquery_util import DatasetInqueryUtil
 
 
 class MockDataset(Dataset):
@@ -53,7 +55,7 @@ class MockDatasetManager(DatasetManager):
 
     @property
     def supported_dataset_types(self) -> Set[DatasetType]:
-        pass
+        return {DatasetType.FILESYSTEM}
 
 
 class TestDataInqueryUtil(unittest.TestCase):
@@ -116,8 +118,9 @@ class TestDataInqueryUtil(unittest.TestCase):
 
         self.manager = MockDatasetManager(datasets=self.datasets)
 
-        managers = {DatasetType.FILESYSTEM: self.manager}
-        self.data_inquery_util = DatasetInqueryUtil(data_mgrs_by_ds_type=managers)
+        managers = DatasetManagerCollection()
+        managers.add(self.manager)
+        self.data_inquery_util = DatasetInqueryUtil(dataset_manager_collection=managers)
 
         # Example 0 - without fulfillment properties set before deserialization
         cpu_count_ex_0 = 8

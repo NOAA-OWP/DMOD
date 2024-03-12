@@ -2,6 +2,8 @@ import unittest
 import git
 import json
 import os
+
+from ..dataservice.dataset_manager_collection import DatasetManagerCollection
 from ..dataservice.service import ServiceManager
 from ..dataservice.service_settings import ServiceSettings
 from dmod.communication.client import get_or_create_eventloop
@@ -63,16 +65,22 @@ class MockKnownDatasetsServiceManager(ServiceManager):
     """
 
     def __init__(self, dataset_files: List[Path], *args, **kwargs):
-        # Should be able to get away with no job_util for what we are using this for
-        super(MockKnownDatasetsServiceManager, self).__init__(job_util=None, *args, settings=ServiceSettings(), **kwargs)
-
-        datasets = dict()
+        datasets: Dict[str, Dataset] = dict()
         for d_file in dataset_files:
             with d_file.open("r") as open_file:
-                dataset = MockDataset.factory_init_from_deserialized_json(json.load(open_file))
+                dataset: Dataset = MockDataset.factory_init_from_deserialized_json(json.load(open_file))
                 datasets[dataset.name] = dataset
+        dataset_manager_collection = DatasetManagerCollection()
+        dataset_manager_collection.add(MockDatasetManager(datasets=datasets))
 
-        self._add_manager(MockDatasetManager(datasets=datasets))
+        # Should be able to get away with no job_util for what we are using this for
+        super().__init__(
+            job_util=None,
+            *args,
+            settings=ServiceSettings(),
+            dataset_manager_collection=dataset_manager_collection,
+            **kwargs
+        )
 
 
 class TestServiceManager(unittest.TestCase):
