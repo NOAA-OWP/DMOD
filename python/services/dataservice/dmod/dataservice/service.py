@@ -24,6 +24,7 @@ from websockets import WebSocketServerProtocol
 from .dataset_inquery_util import DatasetInqueryUtil
 from .data_derive_util import DataDeriveUtil
 from .dataset_user_impl import JobDatasetUser
+from .service_settings import ServiceSettings
 
 import logging
 
@@ -211,9 +212,10 @@ class ServiceManager(WebSocketInterface):
         """
         return cls._PARSEABLE_REQUEST_TYPES
 
-    def __init__(self, job_util: JobUtil, *args, **kwargs):
+    def __init__(self, job_util: JobUtil, *args, settings: ServiceSettings, **kwargs):
         super().__init__(*args, **kwargs)
         self._job_util = job_util
+        self._settings: ServiceSettings = settings
         self._all_data_managers: Dict[DatasetType, DatasetManager] = {}
         """ Map of dataset class type (key), to service's dataset manager (value) for handling that dataset type. """
         self._managers_by_uuid: Dict[UUID, DatasetManager] = {}
@@ -753,11 +755,9 @@ class ServiceManager(WebSocketInterface):
         self._obj_store_access_key = access_key
         self._obj_store_secret_key = secret_key
 
-        s3fs_helper_networks = ['host']
-
-        s3fs_url_proto = os.getenv('S3FS_URL_PROTOCOL', 'http')
-        s3fs_url_host = os.getenv('S3FS_URL_HOST')
-        s3fs_url_port = os.getenv('S3FS_URL_PORT', '9000')
+        s3fs_url_proto = self._settings.s3fs_url_protocol
+        s3fs_url_host = self._settings.s3fs_url_host
+        s3fs_url_port = self._settings.s3fs_url_port
         if s3fs_url_host is not None:
             s3fs_helper_url = '{}://{}:{}/'.format(s3fs_url_proto, s3fs_url_host, s3fs_url_port)
         else:
@@ -766,10 +766,10 @@ class ServiceManager(WebSocketInterface):
         self._docker_s3fs_helper = DockerS3FSPluginHelper(service_manager=self,
                                                           obj_store_access=self._obj_store_access_key,
                                                           obj_store_secret=self._obj_store_secret_key,
-                                                          docker_image_name=os.getenv('S3FS_VOL_IMAGE_NAME', '127.0.0.1:5000/s3fs-volume-helper'),
-                                                          docker_image_tag=os.getenv('S3FS_VOL_IMAGE_TAG', 'latest'),
-                                                          docker_networks=s3fs_helper_networks,
-                                                          docker_plugin_alias=os.getenv('S3FS_PLUGIN_ALIAS', 's3fs'),
+                                                          docker_image_name=self._settings.s3fs_vol_image_name,
+                                                          docker_image_tag=self._settings.s3fs_vol_image_tag,
+                                                          docker_networks=[self._settings.s3fs_helper_network],
+                                                          docker_plugin_alias=self._settings.s3fs_plugin_alias,
                                                           obj_store_url=s3fs_helper_url,
                                                           *args, **kwargs)
 

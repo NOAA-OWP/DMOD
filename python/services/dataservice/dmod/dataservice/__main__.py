@@ -8,6 +8,7 @@ logging.basicConfig(
 import argparse
 from . import name as package_name
 from .service import ServiceManager
+from .service_settings import ServiceSettings
 from dmod.scheduler.job import DefaultJobUtilFactory
 from pathlib import Path
 from socket import gethostname
@@ -134,13 +135,15 @@ def main():
     else:
         redis_pass = args.redis_pass
 
+    service_settings = ServiceSettings()
+
     # Initialize a job util via the default factory, which requires some Redis params
     job_util = DefaultJobUtilFactory.factory_create(redis_host=args.redis_host, redis_port=args.redis_port,
                                                     redis_pass=redis_pass)
 
     # Initiate a service manager WebsocketHandler implementation for primary messaging and async task loops
     service_manager = ServiceManager(job_util=job_util, listen_host=listen_host, port=args.port,
-                                     ssl_dir=Path(args.ssl_dir))
+                                     ssl_dir=Path(args.ssl_dir), settings=service_settings)
 
     # If we are set to use the object store ...
     if use_obj_store:
