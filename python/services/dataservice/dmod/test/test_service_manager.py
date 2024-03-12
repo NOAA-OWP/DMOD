@@ -3,6 +3,7 @@ import git
 import json
 import os
 from ..dataservice.service import ServiceManager
+from ..dataservice.service_settings import ServiceSettings
 from dmod.communication.client import get_or_create_eventloop
 from dmod.core.dataset import DataCategory, DataDomain, Dataset, DatasetManager, DatasetType
 from dmod.scheduler.job import RequestedJob
@@ -63,7 +64,7 @@ class MockKnownDatasetsServiceManager(ServiceManager):
 
     def __init__(self, dataset_files: List[Path], *args, **kwargs):
         # Should be able to get away with no job_util for what we are using this for
-        super(MockKnownDatasetsServiceManager, self).__init__(job_util=None, *args, **kwargs)
+        super(MockKnownDatasetsServiceManager, self).__init__(job_util=None, *args, settings=ServiceSettings(), **kwargs)
 
         datasets = dict()
         for d_file in dataset_files:
