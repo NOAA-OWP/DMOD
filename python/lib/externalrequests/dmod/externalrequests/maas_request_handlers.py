@@ -425,7 +425,7 @@ class ExistingJobRequestHandler(MaaSRequestHandler):
         # FIXME: for now, just use the default type (which happens to be "everything")
         return self._default_required_access_type,
 
-        if not isinstance(request, (JobControlRequest, JobInfoRequest, JobListRequest)):
+    async def handle_request(self, request: Union[JobControlRequest, JobInfoRequest, JobListRequest],
                              **kwargs) -> Union[JobControlResponse, JobInfoResponse, JobListResponse]:
         if not any(isinstance(request, rt) for rt in {JobControlRequest, JobInfoRequest, JobListRequest}):
             raise TypeError(f"Invalid message type {request.__class__.__name__} sent to {self.__class__.__name__}")
