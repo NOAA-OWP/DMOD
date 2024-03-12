@@ -64,7 +64,8 @@ class DmodClient:
 
         self._auth_client: AuthClient = AuthClient(transport_client=self._get_transport_client())
 
-    def _extract_dataset_domain(self, **kwargs) -> DataDomain:
+    @staticmethod
+    def _extract_dataset_domain(**kwargs) -> DataDomain:
         """
         Extract a dataset domain implicitly or explicitly described within the given keyword args, like CLI params.
 
