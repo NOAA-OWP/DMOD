@@ -144,6 +144,6 @@ jobs:
       - name: Run Tests
         run: |
           . dmod_venv/bin/activate
-          python3 -m pip install pytest
+          python3 -m pip install pytest~=8.0.0
           python3 -m pytest -o python_files="it_*.py" -o env_vars='IT_REDIS_CONTAINER_PASS="DPXzqRqjhsXokOVQcPUqOJuzKePMsfUc" IT_REDIS_CONTAINER_HOST_PORT=19639 MODEL_EXEC_ACCESS_KEY=dmod MODEL_EXEC_SECRET_KEY=password'
 
