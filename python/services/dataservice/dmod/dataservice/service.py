@@ -1,17 +1,16 @@
 import asyncio
 from dmod.communication import AbstractInitRequest
 import json
-import os
 from time import sleep as time_sleep
 from datetime import datetime, timedelta
 from docker.types import Healthcheck, RestartPolicy, ServiceMode
 from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, ManagementAction, WebSocketInterface
 from dmod.communication.dataset_management_message import DatasetQuery, QueryType
 from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
-from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement, DiscreteRestriction, \
+from dmod.core.meta_data import DataCategory, DataDomain, DataRequirement, DiscreteRestriction, \
     StandardDatasetIndex
 from dmod.core.dataset import Dataset, DatasetManager, DatasetUser, DatasetType
-from dmod.core.serializable import ResultIndicator, BasicResultIndicator
+from dmod.core.serializable import BasicResultIndicator
 from dmod.core.exception import DmodRuntimeError
 from dmod.modeldata.data.object_store_manager import ObjectStoreDatasetManager
 from dmod.modeldata.data.filesystem_manager import FilesystemDatasetManager
@@ -25,6 +24,7 @@ from .dataset_inquery_util import DatasetInqueryUtil
 from .data_derive_util import DataDeriveUtil
 from .dataset_user_impl import JobDatasetUser
 from .service_settings import ServiceSettings
+from .dataset_manager_collection import DatasetManagerCollection
 
 import logging
 
@@ -42,7 +42,7 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
 
     DOCKER_SERVICE_NAME = 's3fs-volumes-initializer'
 
-    def __init__(self, service_manager: 'ServiceManager', obj_store_access: str, obj_store_secret: str,
+    def __init__(self, dataset_manager_collection: DatasetManagerCollection, obj_store_access: str, obj_store_secret: str,
                  docker_image_name: str, docker_image_tag: str, docker_networks: List[str], obj_store_url: Optional[str],
                  docker_plugin_alias: str = 's3fs', access_docker_secret_name: str = 'object_store_exec_user_name',
                  secret_docker_secret_name: str = 'object_store_exec_user_passwd', *args, **kwargs):
@@ -52,7 +52,7 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
         self.image = '{}:{}'.format(self._image_name, self._image_tag)
         self.networks = docker_networks
         self._docker_plugin_alias = docker_plugin_alias
-        self._service_manager = service_manager
+        self._managers = dataset_manager_collection
         self._obj_store_url = obj_store_url
         self._obj_store_access = obj_store_access
         self._obj_store_secret = obj_store_secret
@@ -77,7 +77,7 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
             Set of the names of required datasets for all the given job's workers.
         """
         worker_required_datasets = set()
-        all_dataset = self._service_manager.get_known_datasets()
+        all_dataset = self._managers.known_datasets()
         obj_store_dataset_names = [n for n in all_dataset if all_dataset[n].dataset_type == DatasetType.OBJECT_STORE]
         for worker_reqs in job.worker_data_requirements:
             for fulfilled_by in [r.fulfilled_by for r in worker_reqs if r.fulfilled_by in obj_store_dataset_names]:
@@ -212,21 +212,22 @@ class ServiceManager(WebSocketInterface):
         """
         return cls._PARSEABLE_REQUEST_TYPES
 
-    def __init__(self, job_util: JobUtil, *args, settings: ServiceSettings, **kwargs):
+    def __init__(
+        self,
+        job_util: JobUtil,
+        *args,
+        settings: ServiceSettings,
+        dataset_manager_collection: DatasetManagerCollection,
+        **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self._job_util = job_util
         self._settings: ServiceSettings = settings
-        self._all_data_managers: Dict[DatasetType, DatasetManager] = {}
+        self._managers: DatasetManagerCollection = dataset_manager_collection
         """ Map of dataset class type (key), to service's dataset manager (value) for handling that dataset type. """
-        self._managers_by_uuid: Dict[UUID, DatasetManager] = {}
-        """ Map of dataset managers keyed by the UUID of each. """
-        self._obj_store_data_mgr = None
-        self._obj_store_access_key = None
-        self._obj_store_secret_key = None
         self._docker_s3fs_helper = None
-        self._filesystem_data_mgr = None
-        self._data_derive_util: DataDeriveUtil = DataDeriveUtil(data_mgrs_by_ds_type=self._all_data_managers)
-        self._dataset_inquery_util: DatasetInqueryUtil = DatasetInqueryUtil(data_mgrs_by_ds_type=self._all_data_managers,
+        self._data_derive_util: DataDeriveUtil = DataDeriveUtil(dataset_manager_collection=self._managers)
+        self._dataset_inquery_util: DatasetInqueryUtil = DatasetInqueryUtil(dataset_manager_collection=self._managers,
                                                                             derive_util=self._data_derive_util)
         self._marked_expired_datasets: Set[str] = set()
         """ Names of expired datasets marked for deletion the next time through ::method:`manage_temp_datasets`. """
@@ -234,45 +235,6 @@ class ServiceManager(WebSocketInterface):
         """ Internal flag of whether any searches are being performed to fulfill requirements (to block purging). """
         #self._dataset_users: Dict[UUID, DatasetUser] = dict()
         #""" Dataset user records maintained in memory by the instance (e.g., when a job has a dataset provisioned). """
-
-    def _add_manager(self, manager: DatasetManager):
-        """
-        Add this manager and its managed datasets to this service's internal collections and mappings.
-
-        Method first ensures that this manager does not have any datasets conflicting with names of dataset of any
-        previously added manager.  It then ensures there is no previously-add manager for managing any of the dataset
-        types the given manager handles.  A ::class:`DmodRuntimeError` is thrown if there are any conflicts in either
-        case.
-
-        As long as there are no above-described conflicts, the method adds datasets of this manager to the service's
-        known datasets collection (mapping the name of each dataset to its type) and the dataset-type-to-manager-object
-        mapping.
-
-        Parameters
-        ----------
-        manager : DatasetManager
-            The new dataset manager to add/incorporate and use within this service.
-        """
-        # In this case, just return, as the manager is already added
-        if manager.uuid in self._managers_by_uuid:
-            return
-
-        known_dataset_names = set(self.get_known_datasets().keys())
-        if not known_dataset_names.isdisjoint(manager.datasets.keys()):
-            duplicates = known_dataset_names.intersection(manager.datasets.keys())
-            msg = "Can't add {} to service with already known dataset names {}."
-            raise DmodRuntimeError(msg.format(manager.__class__.__name__, duplicates))
-
-        if not manager.supported_dataset_types.isdisjoint(self._all_data_managers.keys()):
-            duplicates = manager.supported_dataset_types.intersection(self._all_data_managers.keys())
-            msg = "Can't add new {} to service for managing already managed dataset types {}."
-            raise DmodRuntimeError(msg.format(manager.__class__.__name__, duplicates))
-
-        # We've already done sanity checking for duplicates, so just add things.
-        self._managers_by_uuid[manager.uuid] = manager
-
-        for dataset_type in manager.supported_dataset_types:
-            self._all_data_managers[dataset_type] = manager
 
     async def _async_process_add_data(self, dataset_name: str, dest_item_name: str, message: DataTransmitMessage,
                                       manager: DatasetManager, is_temp: bool = False) -> Union[DataTransmitResponse,
@@ -344,7 +306,7 @@ class ServiceManager(WebSocketInterface):
                                              reason=can_provide.reason, message=can_provide.message)
 
         chunk_size = 1024
-        manager = self.get_known_datasets()[message.dataset_name].manager
+        manager = self._managers.known_datasets()[message.dataset_name].manager
         chunking_keys = manager.data_chunking_params
         if chunking_keys is None:
             raw_data = manager.get_data(dataset_name=message.dataset_name, item_name=message.data_location)
@@ -481,7 +443,7 @@ class ServiceManager(WebSocketInterface):
                     break
 
             # TODO: (later) more intelligently determine type
-            mgr = self._all_data_managers[DatasetType.OBJECT_STORE]
+            mgr = self._managers.manager(DatasetType.OBJECT_STORE)
             dataset = mgr.create(name='job-{}-output-{}'.format(job.job_id, i),
                                  is_read_only=False,
                                  category=DataCategory.OUTPUT,
@@ -530,7 +492,7 @@ class ServiceManager(WebSocketInterface):
             Map of all ::class:`DatasetUser` from all associated managers of the service, keyed by the UUID of each.
         """
         return {uuid: mgr.get_dataset_user(uuid)
-                for _, mgr in self._all_data_managers.items() for uuid in mgr.get_dataset_user_ids()}
+                for _, mgr in self._managers.managers() for uuid in mgr.get_dataset_user_ids()}
 
     def _process_dataset_create(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
         """
@@ -547,7 +509,7 @@ class ServiceManager(WebSocketInterface):
             A generated response object to the incoming creation message, indicating whether creation was successful.
         """
         # Make sure there is no conflict/existing dataset already
-        if message.dataset_name in self.get_known_datasets():
+        if message.dataset_name in self._managers.known_datasets():
             return DatasetManagementResponse(action=message.management_action, success=False,
                                              reason="Dataset Already Exists", dataset_name=message.dataset_name)
         # Handle when message to create fails to include a dataset domain
@@ -560,7 +522,7 @@ class ServiceManager(WebSocketInterface):
 
         # Create the dataset
         try:
-            dataset = self._all_data_managers[dataset_type].create(name=message.dataset_name,
+            dataset = self._managers.manager(dataset_type).create(name=message.dataset_name,
                                                                    category=message.data_category,
                                                                    domain=message.data_domain, is_read_only=False)
             # TODO: determine if there is an expectation to find data
@@ -602,7 +564,7 @@ class ServiceManager(WebSocketInterface):
         DatasetManagementResponse
             A generated response object to the incoming delete message, indicating whether deletion was successful.
         """
-        known_datasets = self.get_known_datasets()
+        known_datasets = self._managers.known_datasets()
         if message.dataset_name not in known_datasets:
             return DatasetManagementResponse(action=message.management_action, success=False,
                                              reason="Dataset Does Not Exists", dataset_name=message.dataset_name)
@@ -651,7 +613,7 @@ class ServiceManager(WebSocketInterface):
             raise ValueError(msg.format(ManagementAction.ADD_DATA.name, DatasetManagementMessage.__name__,
                                         message.management_action.name))
         dataset_name = message.dataset_name
-        manager = self.get_known_datasets()[dataset_name].manager
+        manager = self._managers.known_datasets()[dataset_name].manager
         series_uuid = uuid4()
         dest_item_name = message.data_location
         # TODO: (later) probably need some logic to check the manager to make sure this is actually ready
@@ -679,7 +641,7 @@ class ServiceManager(WebSocketInterface):
         query_type = message.query.query_type
         if query_type == QueryType.LIST_FILES:
             dataset_name = message.dataset_name
-            list_of_files = self.get_known_datasets()[dataset_name].manager.list_files(dataset_name)
+            list_of_files = self._managers.known_datasets()[dataset_name].manager.list_files(dataset_name)
             return DatasetManagementResponse(action=message.management_action, success=True, dataset_name=dataset_name,
                                              reason=f'Obtained {dataset_name} Items List',
                                              data={"query_results": {QueryType.LIST_FILES.name: list_of_files}})
@@ -698,7 +660,7 @@ class ServiceManager(WebSocketInterface):
         next invocation).
         """
         # Get these upfront, since no meaningful changes can happen during the course of an iteration
-        temp_datasets = {ds_name: ds for ds_name, ds in self.get_known_datasets().items() if ds.is_temporary}
+        temp_datasets = {ds_name: ds for ds_name, ds in self._managers.known_datasets().items() if ds.is_temporary}
 
         # Account for any in-use temporary datasets by potentially unmarking and updating expire time
         for ds in (ds for _, ds in temp_datasets.items() if ds.manager.get_user_ids_for_dataset(ds)):
@@ -736,33 +698,16 @@ class ServiceManager(WebSocketInterface):
         finished_job_users: Set[UUID] = set()
         active_job_ids = {UUID(j.job_id) for j in self._job_util.get_all_active_jobs()}
         for user in (u for uid, u in ds_users.items() if isinstance(u, JobDatasetUser) and uid not in active_job_ids):
-            for ds in (self.get_known_datasets()[ds_name] for ds_name in user.datasets_and_managers):
+            for ds in (self._managers.known_datasets()[ds_name] for ds_name in user.datasets_and_managers):
                 user.unlink_to_dataset(ds)
             finished_job_users.add(user.uuid)
         return finished_job_users
-
-    def get_known_datasets(self) -> Dict[str, Dataset]:
-        """
-        Get real-time mapping of all datasets known to this instance via its managers, in a map keyed by dataset name.
-
-        This is implemented as a function, and not a property, since it is mutable and could change without this service
-        instance being directly notified.  As such, a new collection object is created and returned on every call.
-
-        Returns
-        -------
-        Dict[str, Dataset]
-            All datasets known to the service via its manager objects, in a map keyed by dataset name.
-        """
-        datasets = {}
-        for uuid, manager in self._managers_by_uuid.items():
-            datasets.update(manager.datasets)
-        return datasets
 
     def init_filesystem_dataset_manager(self, file_dataset_config_dir: Path):
         logging.info("Initializing manager for {} type datasets".format(DatasetType.FILESYSTEM.name))
         mgr = FilesystemDatasetManager(serialized_files_directory=file_dataset_config_dir)
         logging.info("{} initialized with {} existing datasets".format(mgr.__class__.__name__, len(mgr.datasets)))
-        self._add_manager(mgr)
+        self._managers.add(mgr)
         self._filesystem_data_mgr = mgr
 
     def init_object_store_dataset_manager(self, obj_store_host: str, access_key: str, secret_key: str, port: int = 9000,
@@ -771,7 +716,7 @@ class ServiceManager(WebSocketInterface):
         logging.info("Initializing object store dataset manager at {}".format(host_str))
         mgr = ObjectStoreDatasetManager(obj_store_host_str=host_str, access_key=access_key, secret_key=secret_key)
         logging.info("Object store dataset manager initialized with {} existing datasets".format(len(mgr.datasets)))
-        self._add_manager(mgr)
+        self._managers.add(mgr)
         self._obj_store_data_mgr = mgr
 
         self._obj_store_access_key = access_key
@@ -949,7 +894,7 @@ class ServiceManager(WebSocketInterface):
 
                     # Create or retrieve dataset user job wrapper instance and link associated, newly-derived datasets
                     # It should be the case that pre-existing datasets were linked when found to be fulfilling
-                    known_ds = self.get_known_datasets()
+                    known_ds = self._managers.known_datasets()
                     job_uuid = UUID(job.job_id)
                     job_ds_user = prior_users[job_uuid] if job_uuid in prior_users else JobDatasetUser(job_uuid)
                     for ds in (known_ds[req.fulfilled_by] for req in reqs_w_derived_datasets if req.fulfilled_by):

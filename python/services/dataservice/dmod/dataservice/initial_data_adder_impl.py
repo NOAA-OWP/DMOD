@@ -10,6 +10,8 @@ from ngen.config.realization import NgenRealization, Realization
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
+from .dataset_manager_collection import DatasetManagerCollection
+
 
 class FromFilesInitialDataAdder(InitialDataAdder):
     """
@@ -110,15 +112,15 @@ class FromPartialRealizationConfigAdder(InitialDataAdder):
     # TODO: centrally define this somewhere else
     _REAL_CONFIG_FILE_NAME = 'realization_config.json'
 
-    def __init__(self, job: Job, all_dataset_managers: Dict[DatasetType, DatasetManager], *args, **kwargs):
+    def __init__(self, job: Job, dataset_manager_collection: DatasetManagerCollection, *args, **kwargs):
         """
 
         Parameters
         ----------
         job : Job
             The job requiring a realization config dataset, which must be an ngen-related job.
-        all_dataset_managers : Dict[DatasetType, DatasetManager]
-            Dictionary of all dataset managers currently available to the data service, keyed by dataset type.
+        dataset_manager_collection: DatasetManagerCollection
+            Collection of DatasetManager objects and their associated DatasetType.
         args
         kwargs
         """
@@ -129,7 +131,7 @@ class FromPartialRealizationConfigAdder(InitialDataAdder):
             self._job_request: AbstractNgenRequest = request
         else:
             raise ValueError("Can't do {} for job with {}".format(self.__class__.__name__, request.__class__.__name__))
-        self._all_dataset_managers: Dict[DatasetType, DatasetManager] = all_dataset_managers
+        self._managers: DatasetManagerCollection = dataset_manager_collection
 
     def _build_forcing_config_for_realization(self) -> Forcing:
         """
@@ -150,7 +152,7 @@ class FromPartialRealizationConfigAdder(InitialDataAdder):
         # TODO: double check that this is being added when we do data checks
         forcing_req = [r for r in self._job_request.data_requirements if r.category == DataCategory.FORCING][0]
         forcing_dataset_name = forcing_req.fulfilled_by
-        manager = [m for _, m in self._all_dataset_managers.items() if forcing_dataset_name in m.datasets][0]
+        manager = [m for _, m in self._managers.managers() if forcing_dataset_name in m.datasets][0]
         forcing_dataset = manager.datasets[forcing_dataset_name]
 
         # Figure out the correct provider type from the dataset format
@@ -472,7 +474,7 @@ class CompositeConfigDataAdder(FromPartialRealizationConfigAdder):
             self._source_datasets: Dict[str, Dataset] = {}
             try:
                 for ds_id in self._requirement.domain.discrete_restrictions[StandardDatasetIndex.COMPOSITE_SOURCE_ID].values:
-                    manager = [m for _, m in self._all_dataset_managers.items() if ds_id in m.datasets][0]
+                    manager = [m for _, m in self._managers.managers() if ds_id in m.datasets][0]
                     self._source_datasets[ds_id] = manager.datasets[ds_id]
             except Exception as e:
                 msg = "Failed to find source datasets and managers initializing {} ({}: {})"
