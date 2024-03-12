@@ -129,7 +129,7 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
                                                          healthcheck=self.service_healthcheck,
                                                          secrets=secrets)
             time_sleep(5)
-            for tries in range(5):
+            for _ in range(5):
                 service.reload()
                 if all([task['Status']['State'] == task['DesiredState'] for task in service.tasks()]):
                     break
