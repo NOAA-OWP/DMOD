@@ -2,6 +2,7 @@ import typing
 import json
 
 import pandas
+from dmod.core.common.collections import catalog
 
 from .. import reader
 from .. import specification
@@ -9,11 +10,12 @@ from .. import specification
 from . import retriever
 
 
+# TODO: Implement
 class FrameRetriever(retriever.CrosswalkRetriever):
     """
     Retrieves crosswalk data from tabulated formats, typically CSV
     """
-    pass
+    ...
 
 
 class JSONCrosswalkRetriever(retriever.CrosswalkRetriever):
@@ -36,10 +38,10 @@ class JSONCrosswalkRetriever(retriever.CrosswalkRetriever):
 
         return crosswalked_data
 
-    def __init__(self, definition: specification.CrosswalkSpecification):
-        super().__init__(definition)
+    def __init__(self, definition: specification.CrosswalkSpecification, input_catalog: catalog.InputCatalog):
+        super().__init__(definition, input_catalog=input_catalog)
 
-        full_document: typing.Dict[str, typing.Any] = dict()
+        full_document: typing.Dict[str, typing.Any] = {}
 
         for crosswalk_source in self.backend.sources:
             document = json.loads(self.backend.read(crosswalk_source))
@@ -51,5 +53,3 @@ class JSONCrosswalkRetriever(retriever.CrosswalkRetriever):
             full_document.update(document)
 
         self._document = full_document
-
-

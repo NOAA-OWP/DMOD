@@ -6,14 +6,14 @@ from __future__ import annotations
 import typing
 from collections import defaultdict
 
-from dmod.core.common.types import TEXT_VALUE_DICT_LIST
+from dmod.core.common.types import TextValueDictList
 from dmod.evaluations.specification import TemplateDetails
 from pydantic import BaseModel
 from pydantic import Json
 from pydantic import Field
 
 from dmod.core.common import CommonEnum
-from dmod.core.common import TEXT_VALUE_COLLECTION
+from dmod.core.common import TextValueCollection
 
 from .base import BaseRequest
 from .base import BaseResponse
@@ -38,7 +38,7 @@ class GetTemplateSpecificationTypesRequest(BaseRequest):
     Message type used to get data about what all can be made or read as a template
     """
     class Response(BaseResponse):
-        specification_types: TEXT_VALUE_DICT_LIST
+        specification_types: TextValueDictList
 
     action: typing.Optional[typing.Literal[TemplateAction.GET_SPECIFICATION_TYPES]] = Field(default=TemplateAction.GET_SPECIFICATION_TYPES)
 

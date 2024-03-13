@@ -88,6 +88,20 @@ class CollectionEvent(str, enum.Enum):
                 return cls[entry]
         raise KeyError(f"There are no collection events named '{name}'")
 
+    @classmethod
+    def contains(cls, name: str) -> bool:
+        """
+        Check to see if there are any entries in the enum that matches the given name
+
+        Args:
+            name: The name of the value to find
+
+        Returns:
+            True if the value exists and won't throw an exception when 'get' is called
+        """
+        lowercase_name = name.lower()
+        return any(entry.lower() == lowercase_name for entry in cls)
+
 
 class MapHandler(typing.Generic[KeyType, ValueType]):
     """

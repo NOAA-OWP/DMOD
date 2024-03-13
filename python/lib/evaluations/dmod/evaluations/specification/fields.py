@@ -148,9 +148,11 @@ class AssociatedField(TemplatedSpecification):
 
             if datatype == 'date':
                 return raw_datetime.date()
-            elif datatype == 'time':
+
+            if datatype == 'time':
                 return raw_datetime.time()
-            elif raw_datetime.tzinfo is not None:
+
+            if raw_datetime.tzinfo is not None:
                 raw_datetime = raw_datetime.astimezone(pytz.utc)
 
             return raw_datetime
@@ -189,9 +191,9 @@ class AssociatedField(TemplatedSpecification):
     def __str__(self):
         if self.name:
             return f"{self.name}{': ' + self.datatype if self.datatype else ''}"
-        else:
-            # We must have a path here
-            return f"{'/'.join([part for part in self.path])}{': ' + self.datatype if self.datatype else ''}"
+
+        # We must have a path here
+        return f"{'/'.join(list(self.path))}{': ' + self.datatype if self.datatype else ''}"
 
 
 class ValueSelector(TemplatedSpecification):
@@ -221,15 +223,20 @@ class ValueSelector(TemplatedSpecification):
     def __eq__(self, other: ValueSelector) -> bool:
         if not super().__eq__(other):
             return False
-        elif not hasattr(other, "name") or self.name != other.name:
+
+        if not hasattr(other, "name") or self.name != other.name:
             return False
-        elif not hasattr(other, "where") or self.where != other.where:
+
+        if not hasattr(other, "where") or self.where != other.where:
             return False
-        elif not hasattr(other, "origin") or self.origin != other.origin:
+
+        if not hasattr(other, "origin") or self.origin != other.origin:
             return False
-        elif not hasattr(other, "path") or self.path != other.path:
+
+        if not hasattr(other, "path") or self.path != other.path:
             return False
-        elif not hasattr(other, "associated_fields"):
+
+        if not hasattr(other, "associated_fields"):
             return False
 
         return contents_are_equivalent(Bag(self.associated_fields), Bag(other.associated_fields))
@@ -272,7 +279,7 @@ class ValueSelector(TemplatedSpecification):
         if 'origin' in configuration:
             self.__set_origin(configuration['origin'])
 
-        for associated_field in configuration.get("associated_fields", list()):
+        for associated_field in configuration.get("associated_fields", []):
             matching_field = find(
                 self.associated_fields,
                 lambda field: field.identities_match(associated_field)
@@ -294,7 +301,7 @@ class ValueSelector(TemplatedSpecification):
                 )
 
     def validate_self(self) -> typing.Sequence[str]:
-        return list()
+        return []
 
     @validator("datatype")
     def _interpret_datatype(cls, value: typing.Union[bytes, str] = None) -> typing.Optional[str]:
@@ -416,7 +423,7 @@ class ValueSelector(TemplatedSpecification):
         Returns:
             A dictionary mapping columns to their parsing types and an optional list of columns that are dates
         """
-        column_options = dict()
+        column_options = {}
 
         if self.datatype in ["datetime", "date"]:
             column_options['parse_dates'] = [self.name]
@@ -429,7 +436,7 @@ class ValueSelector(TemplatedSpecification):
         for index in self.associated_fields:
             if index.datatype in ["datetime", "date"]:
                 if 'parse_dates' not in column_options:
-                    column_options['parse_dates'] = list()
+                    column_options['parse_dates'] = []
 
                 if index.name not in column_options['parse_dates']:
                     column_options['parse_dates'].append(index.name)
@@ -438,7 +445,7 @@ class ValueSelector(TemplatedSpecification):
 
                 if dtype is not None:
                     if 'dtype' not in column_options:
-                        column_options['dtype'] = dict()
+                        column_options['dtype'] = {}
 
                     column_options['dtype'][index.name] = dtype
 
@@ -464,7 +471,8 @@ class ValueSelector(TemplatedSpecification):
 
             if datatype == 'date':
                 return raw_datetime.date()
-            elif datatype == 'time':
+
+            if datatype == 'time':
                 return raw_datetime.time()
 
             return raw_datetime

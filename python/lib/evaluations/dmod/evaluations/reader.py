@@ -10,7 +10,7 @@ from . import specification
 
 def select_values(document: dict, selector: specification.ValueSelector):
     origin_expression: jsonpath.This = jsonpath.parse(".".join(selector.origin))
-    tables: typing.List[pandas.DataFrame] = list()
+    tables: typing.List[pandas.DataFrame] = []
 
     for element in origin_expression.find(document):
         full_path = str(element.full_path)
@@ -23,7 +23,7 @@ def select_values(document: dict, selector: specification.ValueSelector):
         if not value_results:
             continue
 
-        columns = dict()
+        columns = {}
 
         if len(value_results) == 1:
             if selector.where == "key":

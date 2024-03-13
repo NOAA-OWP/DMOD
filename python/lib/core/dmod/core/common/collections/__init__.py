@@ -3,8 +3,8 @@ Helpful collections used for expanded functionality for iterables, caching, maps
 """
 from .bag import Bag
 
-from .cache import CacheEntry
-from .cache import AccessCache
+from .catalog import CatalogEntry
+from .catalog import InputCatalog
 
 from .models import MapModel
 from .models import SequenceModel

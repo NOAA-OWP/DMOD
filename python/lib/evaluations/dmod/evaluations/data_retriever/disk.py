@@ -1,13 +1,13 @@
-#!/usr/bin/env python3
 import typing
 import os
 import re
 import inspect
 import logging
+from abc import ABC
 
 import pandas
 
-import dmod.core.common as common
+from dmod.core import common
 
 from .. import specification
 from .. import retrieval
@@ -16,11 +16,10 @@ from .. import reader
 from .. import util
 
 
-def get_datasource(datasource_definition: specification.DataSourceSpecification) -> retrieval.Retriever:
-    return __FORMAT_MAPPING[datasource_definition.backend.format](datasource_definition)
-
-
-class JSONDataRetriever(retrieval.Retriever):
+class InputDataRetriever(retrieval.Retriever[specification.DataSourceSpecification], ABC):
+    """
+    Abstract class that defines the general purpose for this type of retriever and what it reads as its definition
+    """
     @classmethod
     def get_purpose(cls) -> str:
         """
@@ -29,21 +28,28 @@ class JSONDataRetriever(retrieval.Retriever):
         """
         return "input_data"
 
-    @property
-    def definition(self) -> specification.DataSourceSpecification:
-        return self._definition
 
+class JSONDataRetriever(InputDataRetriever):
+    """
+    Retriever that loads JSON data
+    """
     @classmethod
     def get_format(cls) -> str:
         return "json"
 
     def retrieve(self, *args, **kwargs) -> pandas.DataFrame:
+        """
+        Reads and interprets data based on the configuration
+
+        Returns:
+            A dataframe containing all configured information
+        """
         documents = {
             str(source): util.data_to_dictionary(self.backend.read(source))
             for source in self.backend.sources
         }
 
-        frames = dict()
+        frames = {}
 
         for document_name, document in documents.items():  # type: str, typing.Dict[str, typing.Any]
             frame = None
@@ -119,20 +125,12 @@ class JSONDataRetriever(retrieval.Retriever):
 
             frames[document_name] = frame
 
-        combined_frame = pandas.concat([frame for frame in frames.values()])
+        combined_frame = pandas.concat(list(frames.values()))
 
         return combined_frame
 
 
-class FrameDataRetriever(retrieval.Retriever):
-    @classmethod
-    def get_purpose(cls) -> str:
-        """
-        Returns:
-            What type of data this retriever is supposed to get
-        """
-        return "input_data"
-
+class CSVInputRetriever(InputDataRetriever):
     @property
     def definition(self) -> specification.DataSourceSpecification:
         return self._definition
@@ -178,8 +176,7 @@ class FrameDataRetriever(retrieval.Retriever):
                 logging.error(f"Failed to read {source}", exc_info=e)
                 raise
 
-            column_names: typing.List[str] = list()
-
+            column_names: typing.List[str] = []
             variable_selectors = [
                 selector
                 for selector in self.definition.value_selectors
@@ -213,7 +210,10 @@ class FrameDataRetriever(retrieval.Retriever):
                 file_name_without_extension = os.path.splitext(os.path.basename(source))[0]
                 pattern = self.definition.locations.pattern
 
-                path_to_check = os.path.join(*pattern) if common.is_sequence_type(pattern) else pattern
+                if isinstance(pattern, bytes):
+                    pattern = pattern.decode()
+
+                path_to_check: str = os.path.join(*pattern) if common.is_sequence_type(pattern) else str(pattern)
                 search_results = re.search(
                         path_to_check,
                         file_name_without_extension
@@ -228,7 +228,7 @@ class FrameDataRetriever(retrieval.Retriever):
                 unit_field = pandas.Series(data=[self.definition.unit.value for _ in range(len(index))], index=index)
                 table['unit'] = unit_field
 
-            fields_to_rename: typing.Dict[str, str] = dict()
+            fields_to_rename: typing.Dict[str, str] = {}
 
             for mapping in self.definition.field_mapping:
                 if mapping.map_type.lower() != 'column':
@@ -271,9 +271,3 @@ class FrameDataRetriever(retrieval.Retriever):
                 combined_table = pandas.concat([combined_table, table])
 
         return combined_table
-
-
-__FORMAT_MAPPING = {
-    "json": JSONDataRetriever,
-    "csv": FrameDataRetriever
-}

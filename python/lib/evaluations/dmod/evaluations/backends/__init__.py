@@ -11,22 +11,27 @@ __all__ = [
        and package_file != 'backend.py'
 ]
 
-from . import *
 
 from .backend import Backend
 
-import dmod.core.common as common
+from dmod.core import common
+from dmod.core.common.collections import catalog
+
+from . import *
 
 from .. import specification
 
 
-def get_backend(backend_specification: specification.BackendSpecification, cache_limit: int = None) -> Backend:
+def get_backend(
+    backend_specification: specification.BackendSpecification,
+    input_catalog:  catalog.InputCatalog
+) -> Backend:
     """
     Determine and create the right type of backend
 
     Args:
         backend_specification: Instructions for what backend to create
-        cache_limit: A limit to the amount of backend data that may be kept in memory
+        input_catalog: A shared catalog of data that has been loaded
 
     Returns:
          A backend through which to retrieve data
@@ -43,4 +48,4 @@ def get_backend(backend_specification: specification.BackendSpecification, cache
                 f"'{backend_specification.backend_type}' is not a supported type of data backend."
         )
 
-    return data_backend(backend_specification, cache_limit)
+    return data_backend(backend_specification, input_catalog)

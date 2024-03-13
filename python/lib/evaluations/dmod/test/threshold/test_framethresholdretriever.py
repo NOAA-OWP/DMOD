@@ -3,6 +3,8 @@ import unittest
 
 import pandas
 
+from dmod.core.common.collections import catalog
+
 from ...evaluations import specification
 from ...evaluations.retrieval import Retriever
 from ...evaluations import threshold
@@ -10,8 +12,6 @@ from ...evaluations.threshold import disk
 
 from ..common import get_resource_path
 
-#TEST_CSV_PATH = os.path.join(os.path.dirname(__file__), "thresholds.csv")
-#TEST_RDB_PATH = os.path.join(os.path.dirname(__file__), "nwis_stat_thresholds.rdb")
 TEST_CSV_PATH = str(get_resource_path("thresholds.csv"))
 TEST_RDB_PATH = str(get_resource_path("nwis_stat_thresholds.rdb"))
 
@@ -100,19 +100,19 @@ class TestFrameRetrieving(unittest.TestCase):
         self.__rdb_threshold_specification = TestFrameRetrieving.get_rdb_retriever_config()
 
     def test_direct_rdb(self) -> None:
-        retriever = threshold.disk.RDBThresholdRetriever(self.__rdb_threshold_specification)
+        retriever = threshold.disk.RDBThresholdRetriever(self.__rdb_threshold_specification, catalog.InputCatalog())
         self.run_rdb_assertions(self, retriever, self.__rdb_threshold_specification)
 
     def test_implicit_rdb(self) -> None:
-        retriever = threshold.get_threshold_retriever(self.__rdb_threshold_specification)
+        retriever = threshold.get_threshold_retriever(self.__rdb_threshold_specification, catalog.InputCatalog())
         self.run_rdb_assertions(self, retriever, self.__rdb_threshold_specification)
 
     def test_direct_csv(self):
-        retriever = disk.FrameThresholdRetriever(self.__csv_threshold_specification)
+        retriever = disk.CSVThresholdRetriever(self.__csv_threshold_specification, catalog.InputCatalog())
         self.run_csv_assertions(retriever)
 
     def test_implicit_csv(self):
-        retriever = threshold.get_threshold_retriever(self.__csv_threshold_specification)
+        retriever = threshold.get_threshold_retriever(self.__csv_threshold_specification, catalog.InputCatalog())
         self.run_csv_assertions(retriever)
 
     @classmethod
@@ -126,18 +126,18 @@ class TestFrameRetrieving(unittest.TestCase):
 
         data: pandas.DataFrame = retriever.retrieve()
 
-        test_case.assertEqual(sorted([column for column in data.keys()]), ['name', 'site_no', 'value'])
+        test_case.assertEqual(sorted(list(data.keys())), ['name', 'site_no', 'value'])
         test_case.assertEqual(len(data.site_no.unique()), 2)
         test_case.assertEqual(len(data.index.unique()), 366)
         test_case.assertEqual(data.index.name, 'threshold_day')
 
-        created_thresholds = threshold.get_thresholds(definition)
+        created_thresholds = threshold.get_thresholds(definition, catalog.InputCatalog())
 
         test_case.assertEqual(len(data.site_no.unique()), len(created_thresholds))
 
         for key, thresholds in created_thresholds.items():
             test_case.assertIn(key, data.site_no.unique())
-            for threshold_name, group_data in data[data.site_no == key].groupby('name'):
+            for threshold_name, _ in data[data.site_no == key].groupby('name'):
                 matching_thresholds = [
                     thresh
                     for thresh in thresholds

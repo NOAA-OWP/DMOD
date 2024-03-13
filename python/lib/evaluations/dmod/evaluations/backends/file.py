@@ -15,13 +15,12 @@ from deprecated import deprecated
 
 import pandas
 
-import dmod.core.common as common
+from dmod.core import common
+from dmod.core.common.collections import catalog
 
 from . import backend
 from .. import util
 from .. import specification
-
-util.configure_logging()
 
 
 RE_PATTERN = re.compile(r"(\{.+\}|\[.+\]|\(.+\)|(?<!\\)\.|\{|\}|\]|\[|\(|\)|\+|\*|\\[a-zA-Z]|\?)+")
@@ -34,8 +33,8 @@ class FileBackend(backend.Backend):
     def get_backend_type(cls) -> str:
         return "file"
 
-    def __init__(self, definition: specification.BackendSpecification, cache_limit: int = None):
-        super().__init__(definition, cache_limit)
+    def __init__(self, definition: specification.BackendSpecification, input_catalog: catalog.InputCatalog):
+        super().__init__(definition, cache=input_catalog)
         self._sources = util.get_matching_paths(self.address)
 
     def read(self, identifier: str, store_data: bool = None) -> bytes:

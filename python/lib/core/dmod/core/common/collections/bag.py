@@ -132,7 +132,7 @@ class Bag(typing.Collection[_T]):
             item_count = sum((value in self for value in self if value == item))
             matching_item_count = sum((value in other for value in other if value == item))
             if item_count != matching_item_count:
-                return
+                return False
 
         return True
 

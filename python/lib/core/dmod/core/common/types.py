@@ -14,7 +14,7 @@ from ..enum import PydanticEnum
 _T = typing.TypeVar("_T")
 
 
-TEXT_VALUE_TUPLES = typing.List[
+TextValueTuples = typing.List[
     typing.Union[
         typing.Tuple[_T, str],
         typing.Tuple[str, typing.Tuple[typing.Tuple[_T, str], ...]]
@@ -38,12 +38,12 @@ Organized text-value pairs that can be used to build select boxes. Can be format
 ]
 """
 
-TEXT_VALUE_DICT = typing.Dict[typing.Literal["value", "text"], typing.Union[str, _T, None]]
-TEXT_VALUE_DICT_LIST = typing.List[TEXT_VALUE_DICT]
-TEXT_VALUE_GROUPS = typing.Dict[str, TEXT_VALUE_DICT_LIST]
-TEXT_VALUE_COLLECTION = typing.Dict[
+TextValueDict = typing.Dict[typing.Literal["value", "text", "group"], typing.Union[str, _T, None]]
+TextValueDictList = typing.List[TextValueDict]
+TextValueGroups = typing.Dict[str, TextValueDictList]
+TextValueCollection = typing.Dict[
     typing.Literal["groups", "values"],
-    typing.Union[TEXT_VALUE_DICT_LIST, TEXT_VALUE_GROUPS]
+    typing.Union[TextValueDictList, TextValueGroups]
 ]
 
 
@@ -100,12 +100,14 @@ class TextValue(typing.Generic[_T]):
         else:
             index = ''
 
-        return '{{group}{index}"text": "{text}", "value": {value}}'.format(
-            group=group,
-            index=index,
-            text=self.text,
-            value=f'"{self.value}"' if isinstance(self.value, str) else self.value
-        )
+        value_text = f'"{self.value}"' if isinstance(self.value, str) else self.value
+
+        # This will look like either:
+        #   "text": "One", "value": 1
+        #   "group": "Example", "text": "One", "value": 1
+        #   "group": "Example", "index": 3, "text": "One", "value": 1
+        # Depending on if self.group and self.index are populated
+        return f'{group}{index}"text": "{self.text}", "value": {value_text}'
 
     def __eq__(self, other: typing.Union[str, TextValue[_T]]) -> bool:
         if isinstance(other, TextValue):
@@ -113,7 +115,8 @@ class TextValue(typing.Generic[_T]):
                 and self.index == other.index \
                 and self.text == other.text \
                 and self.value == other.value
-        elif isinstance(other, str):
+
+        if isinstance(other, str):
             return self.text == other
 
         return self.value == other
@@ -122,12 +125,16 @@ class TextValue(typing.Generic[_T]):
         if isinstance(other, TextValue):
             if self.group == other.group:
                 return self.text < other.text if self.index == other.index else self.index < other.index
-            elif self.group is None:
+
+            if self.group is None:
                 return True
-            elif other.group is None:
+
+            if other.group is None:
                 return False
+
             return self.group < other.group
-        elif isinstance(other, str):
+
+        if isinstance(other, str):
             return self.text < other
 
         return self.value < other
@@ -139,12 +146,16 @@ class TextValue(typing.Generic[_T]):
         if isinstance(other, TextValue):
             if self.group == other.group:
                 return self.text > other.text if self.index == other.index else self.index > other.index
-            elif self.group is None:
+
+            if self.group is None:
                 return True
-            elif other.group is None:
+
+            if other.group is None:
                 return False
+
             return self.group > other.group
-        elif isinstance(other, str):
+
+        if isinstance(other, str):
             return self.text > other
 
         return self.value > other
@@ -154,7 +165,7 @@ class TextValue(typing.Generic[_T]):
         return self > other or self == other
 
     def __hash__(self):
-        values_to_hash = list()
+        values_to_hash = []
 
         if self.group:
             values_to_hash.append(self.group)
@@ -180,7 +191,7 @@ class TextValue(typing.Generic[_T]):
         return self.value, self.value
 
     @property
-    def dict(self) -> TEXT_VALUE_DICT:
+    def dict(self) -> TextValueDict:
         """
         Returns:
             A dictionary representation of the value with the raw value, its text, and its group
@@ -219,8 +230,8 @@ class TextValues(typing.Generic[_T]):
         return self.__values[index]
 
     @property
-    def options(self) -> TEXT_VALUE_TUPLES:
-        formed_options: TEXT_VALUE_TUPLES = list()
+    def options(self) -> TextValueTuples:
+        formed_options: TextValueTuples = list()
         values_to_add = [value for value in self.__values]
 
         for group_name in self.groups:
@@ -253,8 +264,8 @@ class TextValues(typing.Generic[_T]):
         ])
 
     @property
-    def dict(self) -> TEXT_VALUE_COLLECTION:
-        formed_options: TEXT_VALUE_COLLECTION = {
+    def dict(self) -> TextValueCollection:
+        formed_options: TextValueCollection = {
             "groups": defaultdict(list)
         }
 
@@ -419,7 +430,7 @@ class CommonEnum(PydanticEnum):
         return values
 
     @classmethod
-    def get_options(cls) -> TEXT_VALUE_TUPLES:
+    def get_options(cls) -> TextValueTuples:
         return cls.values().options
 
     def __eq__(self, other: typing.Union[Self, typing.SupportsInt, str]) -> bool:
@@ -434,13 +445,22 @@ class CommonEnum(PydanticEnum):
         Returns:
             Whether this member matches the other
         """
-        if self == other:
-            return True
-
         other_index = self.__class__.get_index(other)
         this_index = self.__class__.get_index(self)
 
         return this_index == other_index
+
+    def __hash__(self) -> int:
+        """
+        Form the hash of this object
+
+        Redefined since ``__eq__`` was defined. ``__hash__`` is set to ``None`` if ``__eq__`` is defined but not
+        ``__hash__``, even if it's defined in a parent class
+
+        Returns:
+            A hash value for the value of this enum
+        """
+        return super().__hash__()
 
     def __lt__(self, other: typing.Union[Self, typing.SupportsInt, str]) -> bool:
         """
@@ -501,6 +521,21 @@ class CommonEnum(PydanticEnum):
         ```
         """
         return cls.get(value)
+
+    @classmethod
+    def contains(cls, value: typing.Any) -> bool:
+        """
+        Check to see if the the value exists within this enum
+
+        Checks both the name AND value
+
+        Args:
+            value: The value to look for
+
+        Returns:
+            True if the enum contains an entry whose name or value matches the passed in parameter
+        """
+        return cls.by_name(name=value) is not None
 
 
 class TypeDefinition:

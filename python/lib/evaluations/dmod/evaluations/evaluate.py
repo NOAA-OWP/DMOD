@@ -4,13 +4,13 @@ import json
 import logging
 
 import pandas
+from dmod.core.common.collections import catalog
 
 from dmod.metrics.communication import Verbosity
-import dmod.metrics as metrics
+from dmod import metrics
 
-import dmod.core.common as common
+from dmod.core import common
 
-from . import util
 from . import specification
 from . import crosswalk
 from . import data_retriever
@@ -56,10 +56,26 @@ class UnitConverter:
         )
 
 
+def convert_row_to_desired_data_type(field: specification.AssociatedField, column_name_and_value: pandas.Series):
+    """
+    Converts a series of column names vs values to the desired data type
+
+    Args:
+        field: The field that dictates how to transform the value
+        column_name_and_value:
+            A pandas Series mapping column names to values
+    Returns:
+        The converted value
+    """
+    converted_value = field.to_datatype(list(column_name_and_value))
+    return converted_value
+
+
 class Evaluator:
     def __init__(
         self,
         instructions: typing.Union[specification.EvaluationSpecification, str, dict],
+        input_catalog: catalog.InputCatalog = None,
         communicators: COMMUNICATORS = None,
         verbosity: Verbosity = None
     ):
@@ -68,6 +84,8 @@ class Evaluator:
 
         if isinstance(instructions, dict):
             instructions = specification.EvaluationSpecification.create(instructions)
+
+        self._catalog = input_catalog or catalog.InputCatalog()
 
         self._instructions = instructions
 
@@ -81,7 +99,7 @@ class Evaluator:
 
         if isinstance(communicators, metrics.CommunicatorGroup):
             self._communicators: metrics.CommunicatorGroup = communicators
-        elif isinstance(communicators, typing.Iterable) or isinstance(communicators, metrics.Communicator):
+        elif isinstance(communicators, (typing.Iterable, metrics.Communicator)):
             self._communicators: metrics.CommunicatorGroup = metrics.CommunicatorGroup(communicators)
         else:
             self._communicators: metrics.CommunicatorGroup = metrics.CommunicatorGroup()
@@ -102,14 +120,14 @@ class Evaluator:
         Returns:
             The maximum possible score of a whole evaluation
         """
-        total_threshold_weights = sum([configured_threshold for configured_threshold in self._instructions.thresholds])
-        total_metric_weights = sum([metric.weight for metric in self._instructions.scheme.metric_functions])
+        total_threshold_weights = sum((configured_threshold for configured_threshold in self._instructions.thresholds))
+        total_metric_weights = sum((metric.weight for metric in self._instructions.scheme.metric_functions))
 
         weight_per_location = total_metric_weights + total_threshold_weights
         return weight_per_location
 
     def _set_field_names(self):
-        error_messages = list()
+        error_messages = []
 
         observed_xaxis = None
         observed_value_field = None
@@ -123,10 +141,10 @@ class Evaluator:
             observed_value_field_is_mismatched &= observed_value_field != value_field
 
             if observed_xaxis_is_mismatched:
-                error_messages.append(f"Cannot collect observation data - the xaxis definition is not uniform")
+                error_messages.append("Cannot collect observation data - the xaxis definition is not uniform")
 
             if observed_value_field_is_mismatched:
-                error_messages.append(f"Cannot collect observation data - value label definitions are not uniform")
+                error_messages.append("Cannot collect observation data - value label definitions are not uniform")
 
             if observed_xaxis_is_mismatched or observed_value_field_is_mismatched:
                 break
@@ -149,10 +167,10 @@ class Evaluator:
             predicted_value_field_is_mismatched &= predicted_value_field != value_field
 
             if predicted_xaxis_is_mismatched:
-                error_messages.append(f"Cannot collect prediction data - the xaxis definition is not uniform")
+                error_messages.append("Cannot collect prediction data - the xaxis definition is not uniform")
 
             if predicted_value_field_is_mismatched:
-                error_messages.append(f"Cannot collect prediction data - value label definitions are not uniform")
+                error_messages.append("Cannot collect prediction data - value label definitions are not uniform")
 
             if predicted_xaxis_is_mismatched or predicted_value_field_is_mismatched:
                 break
@@ -188,7 +206,7 @@ class Evaluator:
 
                 raise mismatch_exception
 
-            elif observed_is_mismatched:
+            if observed_is_mismatched:
                 message = f"Crosswalk cannot be compiled - the new field name for observed locations " \
                           f"({crosswalk_definition.observation_field_name}) does not match the previous " \
                           f"field name ({observed_location_label})"
@@ -202,7 +220,8 @@ class Evaluator:
                 )
 
                 raise mismatch_exception
-            elif predicted_is_mismatched:
+
+            if predicted_is_mismatched:
                 message = f"Crosswalk cannot be compiled - the new field name for prediction locations " \
                           f"({crosswalk_definition.prediction_field_name}) does not match the previous " \
                           f"field name ({predicted_location_label})"
@@ -236,7 +255,6 @@ class Evaluator:
             self._communicators.write(reason="crosswalk", data=crosswalk_data.to_dict(), verbosity=Verbosity.ALL)
 
         # TODO: Use the crosswalk_data to distribute following work so that everything isn't being loaded at once
-        #  - utilize dmod.core.common.collections.AccessCache
 
         data_to_evaluate = self.get_data_to_evaluate(crosswalk_data)
 
@@ -275,7 +293,7 @@ class Evaluator:
         crosswalk_data: typing.Optional[pandas.DataFrame] = None
 
         for crosswalk_definition in self._instructions.crosswalks:
-            found_crosswalk = crosswalk.get_data(crosswalk_definition)
+            found_crosswalk = crosswalk.get_data(crosswalk_definition, self._catalog)
 
             if found_crosswalk is None or found_crosswalk.empty:
                 continue
@@ -289,7 +307,7 @@ class Evaluator:
             message = "No crosswalk data could be found"
             missing_data_exception = ValueError(message)
 
-            additional_information = list()
+            additional_information = []
 
             common.on_each(
                 lambda cross: additional_information.append(f"No crosswalk data was found at {str(cross)}"),
@@ -328,7 +346,7 @@ class Evaluator:
         )
 
         for observation_definition in self._instructions.observations:
-            found_observations = data_retriever.read(observation_definition)
+            found_observations = data_retriever.read(observation_definition, self._catalog)
 
             if found_observations is None or found_observations.empty:
                 continue
@@ -347,7 +365,7 @@ class Evaluator:
         predictions: typing.Optional[pandas.DataFrame] = None
 
         for prediction_definition in self._instructions.predictions:
-            found_predictions = data_retriever.read(prediction_definition)
+            found_predictions = data_retriever.read(prediction_definition, self._catalog)
 
             if found_predictions is None or found_predictions.empty:
                 continue
@@ -413,7 +431,7 @@ class Evaluator:
             observation_rule = threshold_specification.application_rules.observation_field
             prediction_rule = threshold_specification.application_rules.prediction_field
 
-            index_fields = list()
+            index_fields = []
 
             if observation_rule and observation_rule.name not in data.keys():
                 def conversion_function(column_name_and_value: pandas.Series):
@@ -497,13 +515,13 @@ class Evaluator:
         Returns:
             A mapping between all locations to be evaluated and a series of thresholds used to do so
         """
-        thresholds: typing.Dict[str, typing.List[metrics.Threshold]] = dict()
+        thresholds: typing.Dict[str, typing.List[metrics.Threshold]] = {}
         for threshold_definition in self._instructions.thresholds:
-            found_thresholds = threshold.get_thresholds(threshold_definition)
+            found_thresholds = threshold.get_thresholds(threshold_definition, input_catalog=self._catalog)
 
             for location, threshold_list in found_thresholds.items():
                 if location not in thresholds:
-                    thresholds[location] = list()
+                    thresholds[location] = []
                 thresholds[location].extend(threshold_list)
 
         return thresholds
@@ -531,10 +549,10 @@ class Evaluator:
             self._predicted_location_field
         ]
 
-        scores: typing.Dict[typing.Tuple[str, str], metrics.MetricResults] = dict()
+        scores: typing.Dict[typing.Tuple[str, str], metrics.MetricResults] = {}
 
         # TODO: Distribute each group to different processes - utilize dmod.core.common.collections.AccessCache
-        for identifiers, group in data_to_evaluate.groupby(by=groupby_columns):  # type: tuple, pandas.DataFrame
+        for identifiers, group in data_to_evaluate.groupby(by=groupby_columns):  # type: typing.Tuple[str, str], pandas.DataFrame
             observed_location, predicted_location = identifiers     # type: str, str
 
             # TODO: Save out group data for later reference
@@ -585,6 +603,12 @@ class Evaluator:
                     }
                     reason = "location_scores"
                     self._communicators.write(reason=reason, data=data)
+            else:
+                self._communicators.info(
+                    f"There were no thresholds for {identifiers} to evaluate against",
+                    verbosity=Verbosity.LOUD,
+                    publish=True
+                )
 
         self._communicators.info(
             "All locations have been evaluated",

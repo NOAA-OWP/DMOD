@@ -1,6 +1,8 @@
 import os.path
 import unittest
 
+from dmod.core.common.collections import catalog
+
 from ...evaluations import specification
 from ...evaluations import threshold
 from ...evaluations.threshold import disk
@@ -50,11 +52,11 @@ class TestJSONRetrieving(unittest.TestCase):
         self.__threshold_specification = TestJSONRetrieving.get_retriever_config()
 
     def test_direct_json(self):
-        retriever = disk.JSONThresholdRetriever(self.__threshold_specification)
+        retriever = disk.JSONThresholdRetriever(self.__threshold_specification, catalog.InputCatalog())
         self.run_assertions(retriever)
 
     def test_implicit_json(self):
-        retriever = threshold.get_threshold_retriever(self.__threshold_specification)
+        retriever = threshold.get_threshold_retriever(self.__threshold_specification, catalog.InputCatalog())
         self.run_assertions(retriever)
 
     def run_assertions(self, retriever: Retriever):

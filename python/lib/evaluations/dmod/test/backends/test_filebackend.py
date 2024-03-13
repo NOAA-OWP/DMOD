@@ -3,6 +3,8 @@ import os.path
 import unittest
 import json
 
+from dmod.core.common.collections import catalog
+
 from ...evaluations import backends
 from ...evaluations.backends import file as file_backend
 from ...evaluations import specification
@@ -70,7 +72,7 @@ class TestFileBackend(unittest.TestCase):
         self.__regex_definition = TestFileBackend.create_regex_definition()
 
     def test_single_loading(self):
-        direct_backend = file_backend.FileBackend(self.__direct_definition)
+        direct_backend = file_backend.FileBackend(self.__direct_definition, input_catalog=catalog.InputCatalog())
         self.run_assertions(
                 self,
                 direct_backend,
@@ -78,7 +80,7 @@ class TestFileBackend(unittest.TestCase):
         )
 
     def test_multi_loading(self):
-        multi_backend = file_backend.FileBackend(self.__regex_definition)
+        multi_backend = file_backend.FileBackend(self.__regex_definition, input_catalog=catalog.InputCatalog())
         self.run_assertions(
                 self,
                 multi_backend,
@@ -90,7 +92,7 @@ class TestFileBackend(unittest.TestCase):
         )
 
     def test_inferred_single_loading(self):
-        direct_backend = backends.get_backend(self.__direct_definition)
+        direct_backend = backends.get_backend(self.__direct_definition, input_catalog=catalog.InputCatalog())
         self.run_assertions(
                 self,
                 direct_backend,
@@ -98,7 +100,7 @@ class TestFileBackend(unittest.TestCase):
         )
 
     def test_inferred_multi_loading(self):
-        multi_backend = backends.get_backend(self.__regex_definition)
+        multi_backend = backends.get_backend(self.__regex_definition, input_catalog=catalog.InputCatalog())
         self.run_assertions(
                 self,
                 multi_backend,

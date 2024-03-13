@@ -1,7 +1,6 @@
 """
 Provides simple helper functions
 """
-import functools
 import logging
 import pathlib
 import shutil
@@ -23,8 +22,8 @@ except ImportError:
 
 from .types import TypeDefinition
 
-_CLASS_TYPE = typing.TypeVar('_CLASS_TYPE')
-"""A type that points directly to a class. The _CLASS_TYPE of `6`, for example, is `<class 'int'>`"""
+_CLASSTYPE = typing.TypeVar('_CLASSTYPE')
+"""A type that points directly to a class. The _CLASSTYPE of `6`, for example, is `<class 'int'>`"""
 
 
 _T = typing.TypeVar('_T')
@@ -35,20 +34,50 @@ _KT = typing.TypeVar('_KT')
 
 
 def get_mro_names(value) -> typing.List[str]:
-    if type(value) != type:
+    """
+    Get the names of all members of a value's MRO list
+
+    Args:
+        value: Any value that might have an MRO list
+
+    Returns:
+        The names of all entries in the value's mro list
+    """
+    if not isinstance(value, type):
         value = value.__class__
 
     if hasattr(value, "__mro__"):
-        return [entry.__name__ for entry in inspect.getmro(value)]
+        return [
+            entry.__name__
+            for entry in inspect.getmro(value)
+        ]
 
-    return list()
+    return []
 
 
 def is_integer(value) -> bool:
+    """
+    Checks if a value is some strict numerical representation of an integer
+
+    Args:
+        value: The value to check
+
+    Returns:
+        True if the value is an int or numpy integer
+    """
     return isinstance(value, (int, numpy.integer)) if numpy else isinstance(value, int)
 
 
 def is_float(value) -> bool:
+    """
+    Checks if a value is some strict numerical representation of a floating point number
+
+    Args:
+        value: The value to check
+
+    Returns:
+        True if the value is a float or numpy floating point object
+    """
     return isinstance(value, (float, numpy.floating)) if numpy else isinstance(value, float)
 
 
@@ -84,7 +113,8 @@ def get_iterable_type(iterable: typing.Iterable) -> typing.Optional[typing.Type]
             f"Cannot check if all types of a {iterable.__class__.__name__} are of the same type. "
             f"Generators are not supported."
         )
-    elif not is_iterable_type(iterable):
+
+    if not is_iterable_type(iterable):
         raise ValueError(
             f"'{get_current_function_name()}' cannot determine if a '{iterable.__class__.__name__}' "
             f"is of a uniform type. The object must be iterable and not a map or generator."
@@ -93,7 +123,7 @@ def get_iterable_type(iterable: typing.Iterable) -> typing.Optional[typing.Type]
     iterable_type = None
     iterable_is_integer = False
     iterable_is_float = False
-    valid_values = list()
+    valid_values = []
 
     for value in iterable:
         if iterable_type is None:
@@ -189,10 +219,24 @@ def get_primitive_sequence_type(sequence: typing.Sequence) -> typing.Optional[ty
     return types.pop() if len(types) == 1 else None
 
 
-def get_primitive_value_type(value) -> typing.Optional[str]:
-    for type_function, identifier in _PRIMITIVE_TYPE_IDENTIFIERS:
-        if type_function(value):
-            return identifier
+def get_primitive_value_type(value) -> typing.Optional[type]:
+    """
+    Get the practical type a value if it can be mapped to a primitive
+
+    A numpy integer does not inherit from an int, but it IS an int for all intents and purposes. Anywhere an int is
+    used, a numpy integer can be used and they are almost interchangeable. As a result, a numpy may as well be an int,
+    but an isinstance check will fail. This will find the matching primitive type for the value if there is one
+
+    Args:
+        value: The value to find a primitive for
+
+    Returns:
+        A primitive type if there is one that matches the given value
+    """
+    for is_current_primitive_type, primitive_type in _PRIMITIVE_TYPE_IDENTIFIERS:
+        if is_current_primitive_type(value):
+            return primitive_type
+
     return None
 
 
@@ -326,7 +370,7 @@ def get_current_function_name(parent_name: bool = None) -> str:
     return caller_info.function
 
 
-def contents_are_equivalent(first, second):
+def contents_are_equivalent(first_content, second_content):
     """
     Checks to see whether two objects match based on rules for collections
 
@@ -349,65 +393,103 @@ def contents_are_equivalent(first, second):
         [1, 2, 3, 4] and (1, 2, 3, 4) may both be a sequence of the same values, but they won't pass equivalence testing
 
     Args:
-        first: The first object to compare
-        second: The second object to compare
+        first_content: The first object to compare
+        second_content: The second object to compare
 
     Returns:
         Whether first and second are equivalent objects
     """
-    if first is None and second is None:
+    if first_content is None and second_content is None:
         return True
 
-    if (first is None) ^ (second is None):
+    if (first_content is None) ^ (second_content is None):
         return False
 
     # You can't check length if one isn't sized, so default to standard equivalence
-    if not isinstance(first, typing.Sized) or not isinstance(second, typing.Sized):
-        return first == second
+    if not isinstance(first_content, typing.Sized) or not isinstance(second_content, typing.Sized):
+        return first_content == second_content
 
     # They aren't equal if they have different sizes
-    if len(first) != len(second):
+    if len(first_content) != len(second_content):
         return False
 
     # Proper mapping equivalence can't be performed if one is a map and the other isn't. Fall back to standard
     # equivalence if only one is a map
-    if isinstance(first, typing.Mapping) ^ isinstance(second, typing.Mapping):
-        return first == second
+    if isinstance(first_content, typing.Mapping) ^ isinstance(second_content, typing.Mapping):
+        return first_content == second_content
 
     # If they aren't iterable, go ahead and perform a standard equivalence
-    if not isinstance(first, typing.Iterable) or not isinstance(second, typing.Iterable):
-        return first == second
+    if not isinstance(first_content, typing.Iterable) or not isinstance(second_content, typing.Iterable):
+        return first_content == second_content
 
     # If the first element is a set of bytes, normalize the values by decoding
-    if isinstance(first, bytes):
-        first = first.decode()
+    first_content = first_content.decode() if isinstance(first_content, bytes) else first_content
 
     # If the second element is a set of bytes, normalize the values by decoding
-    if isinstance(second, bytes):
-        second = second.decode()
+    second_content = second_content.decode() if isinstance(second_content, bytes) else second_content
 
     # If one is a string, perform a standard equivalence
-    if isinstance(first, str) or isinstance(second, str):
-        return first == second
-    elif isinstance(first, typing.Mapping) and isinstance(second, typing.Mapping):
-        for key_in_first, value_in_first in first.items():
-            if key_in_first not in second.keys():
+    if isinstance(first_content, str) or isinstance(second_content, str):
+        return first_content == second_content
+
+    if isinstance(first_content, typing.Mapping) and isinstance(second_content, typing.Mapping):
+        for key_in_first, value_in_first in first_content.items():
+            if key_in_first not in second_content.keys():
                 return False
-            elif value_in_first != second[key_in_first]:
-                return False
-        return True
-    elif isinstance(first, typing.Sequence) and isinstance(second, typing.Sequence):
-        for element_index in range(len(first)):
-            if first[element_index] != second[element_index]:
+
+            if value_in_first != second_content[key_in_first]:
                 return False
         return True
 
-    # Create a copy of the second collection so that matched values may be removed
-    second_copy = [element for element in second]
+    return sequences_are_equal(first_sequence=first_content, second_sequence=second_content)
 
-    # Loop through the first collection and remove anything in the second that matches.
-    # Fail if a value couldn't be removed
-    for element_in_first in first:
+
+def sequences_are_equal(first_sequence: typing.Iterable, second_sequence: typing.Iterable) -> bool:
+    """
+    Checks if two series of values are the same
+
+    If the collections are both sequences, order will be considered, otherwise not
+
+    Args:
+        first_sequence: The first series to compare
+        second_sequence: The second series to compare
+
+    Returns:
+        True if both collections are equivalent
+    """
+    if isinstance(first_sequence, typing.Sequence) and isinstance(second_sequence, typing.Sequence):
+        if len(first_sequence) != len(second_sequence):
+            return False
+
+        for element_index, _ in enumerate(first_sequence):
+            if first_sequence[element_index] != second_sequence[element_index]:
+                return False
+        return True
+    return iterables_are_equivalent(first_values=first_sequence, second_values=second_sequence)
+
+
+def iterables_are_equivalent(first_values: typing.Iterable, second_values: typing.Iterable) -> bool:
+    """
+    Checks if two iterable values have the same objects, disregarding order
+
+    Examples:
+        >>> iterables_are_equivalent([1, 2, 3, 4], [1, 2, 3, 4])
+        True
+        >>> iterables_are_equivalent([1, 2, 3, 4], [4, 3, 2, 1])
+        True
+        >>> iterables_are_equivalent([1, 2, 3, 4], [1, 2, 2, 3, 4])
+        False
+
+    Args:
+        first_values: The first series of values
+        second_values: The second series of values
+
+    Returns:
+        True if both iterables have the same contents
+    """
+    second_copy = list(second_values)
+
+    for element_in_first in first_values:
         found_value = False
         for element_in_second in second_copy:
             if element_in_first == element_in_second:
@@ -422,9 +504,9 @@ def contents_are_equivalent(first, second):
         return False
 
     # Repeat the above steps with the second collection to ensure that all possible edge cases are covered
-    first_copy = [element for element in first]
+    first_copy = list(first_values)
 
-    for element_in_second in second:
+    for element_in_second in second_values:
         found_value = False
         for element_in_first in first_copy:
             if element_in_first == element_in_second:
@@ -586,7 +668,7 @@ def truncate(number: typing.Union[numbers.Number, float], digits: int) -> typing
     return adjusted_value / adjuster
 
 
-def get_subclasses(base: typing.Type[_CLASS_TYPE]) -> typing.List[typing.Type[_CLASS_TYPE]]:
+def get_subclasses(base: typing.Type[_CLASSTYPE]) -> typing.List[typing.Type[_CLASSTYPE]]:
     """
     Gets a collection of all concrete subclasses of the given class in memory
 
@@ -621,8 +703,8 @@ def get_subclasses(base: typing.Type[_CLASS_TYPE]) -> typing.List[typing.Type[_C
 
 
 def on_each(
-    func: typing.Callable[[_CLASS_TYPE], typing.Any],
-    collection: typing.Iterable[_CLASS_TYPE]
+    func: typing.Callable[[_CLASSTYPE], typing.Any],
+    collection: typing.Iterable[_CLASSTYPE]
 ) -> typing.NoReturn:
     """
     Calls the passed in function on every item in the collection. The input collection is not mutated
@@ -654,7 +736,7 @@ def on_each(
         func(element)
 
 
-def flat(collection: typing.Iterable[typing.Iterable[_CLASS_TYPE]]) -> typing.Sequence[_CLASS_TYPE]:
+def flat(collection: typing.Iterable[typing.Iterable[_CLASSTYPE]]) -> typing.Sequence[_CLASSTYPE]:
     """
     Flatten a collection of collections
 
@@ -678,7 +760,7 @@ def flat(collection: typing.Iterable[typing.Iterable[_CLASS_TYPE]]) -> typing.Se
     Returns:
         A flattened representation of the given values
     """
-    flattened_list: typing.MutableSequence[_CLASS_TYPE] = list()
+    flattened_list: typing.MutableSequence[_CLASSTYPE] = []
 
     if isinstance(collection, typing.Mapping):
         for mapped_value in collection.values():
@@ -694,10 +776,10 @@ def flat(collection: typing.Iterable[typing.Iterable[_CLASS_TYPE]]) -> typing.Se
 
 
 def flatmap(
-    function: typing.Callable[[_CLASS_TYPE], _T],
+    function: typing.Callable[[_CLASSTYPE], _T],
     collection: typing.Union[
-        typing.Iterable[typing.Iterable[_CLASS_TYPE]],
-        typing.Mapping[_KT, typing.Iterable[_CLASS_TYPE]]
+        typing.Iterable[typing.Iterable[_CLASSTYPE]],
+        typing.Mapping[_KT, typing.Iterable[_CLASSTYPE]]
     ]
 ) -> typing.Sequence[_T]:
     """
@@ -721,9 +803,9 @@ def flatmap(
         A single collection of all mapped values
     """
     if isinstance(collection, typing.Mapping):
-        data_to_flatten: typing.Iterable[typing.Iterable[_CLASS_TYPE]] = collection.values()
+        data_to_flatten: typing.Iterable[typing.Iterable[_CLASSTYPE]] = collection.values()
     else:
-        data_to_flatten: typing.Iterable[typing.Iterable[_CLASS_TYPE]] = collection
+        data_to_flatten: typing.Iterable[typing.Iterable[_CLASSTYPE]] = collection
 
     # Flatten the data
     flattened_data = flat(data_to_flatten)
@@ -733,10 +815,10 @@ def flatmap(
 
 
 def find(
-    iterable: typing.Iterable[_CLASS_TYPE],
-    predicate: typing.Callable[[_CLASS_TYPE], bool],
-    default: _CLASS_TYPE = None
-) -> typing.Optional[_CLASS_TYPE]:
+    iterable: typing.Iterable[_CLASSTYPE],
+    predicate: typing.Callable[[_CLASSTYPE], bool],
+    default: _CLASSTYPE = None
+) -> typing.Optional[_CLASSTYPE]:
     """
     Find the first value in an iterable that complies with the give predicate
 
@@ -762,7 +844,7 @@ def find(
         ...     ExampleClass(27, "Found it", False)
         ... ]
         >>> find(example_collection, lambda entry: entry.value1 % 9 == 0 and not entry.value3)
-        [value1: 27, value2: Found it, value3: False]
+        value1: 27
 
     Args:
         iterable: The collection to search
@@ -778,7 +860,7 @@ def find(
     return next(filter(predicate, iterable), default)
 
 
-def first(values: typing.Iterable[_CLASS_TYPE]) -> typing.Optional[_CLASS_TYPE]:
+def first(values: typing.Iterable[_CLASSTYPE]) -> typing.Optional[_CLASSTYPE]:
     """
     Return the first item in an iterable object
 
@@ -794,8 +876,8 @@ def first(values: typing.Iterable[_CLASS_TYPE]) -> typing.Optional[_CLASS_TYPE]:
 
 
 def true_for_all(
-    collection: typing.Iterable[_CLASS_TYPE],
-    condition: typing.Callable[[_CLASS_TYPE], bool] = None
+    collection: typing.Iterable[_CLASSTYPE],
+    condition: typing.Callable[[_CLASSTYPE], bool] = None
 ) -> bool:
     """
     Checks to see if all items in the given collection match the given condition. Equivalent to `all(collection)`
@@ -810,16 +892,18 @@ def true_for_all(
     """
     if collection is None:
         raise ValueError("Cannot tell if all values meet the condition - none were passed")
-    elif isinstance(collection, typing.Generator):
+
+    if isinstance(collection, typing.Generator):
         raise ValueError(
             f"'{get_current_function_name()}' is not valid for '{collection.__name__}' objects since there is no"
             f" guarantee that the collection won't be modified"
         )
-    elif isinstance(collection, (str, bytes, typing.Mapping)):
+
+    if isinstance(collection, (str, bytes, typing.Mapping)):
         raise ValueError(f"The passed '{collection.__class__}' object is not a valid collection type")
 
     if condition is None:
-        def condition(value: _CLASS_TYPE) -> bool:
+        def condition(value: _CLASSTYPE) -> bool:
             return bool(value)
 
     for collection_value in collection:
@@ -935,11 +1019,11 @@ def order_dictionary(dictionary: typing.Mapping) -> dict:
     Returns:
         An reording of the dictionary from least complex to theoretically most complex values
     """
-    primitive_keys: typing.List[str] = list()
-    array_keys: typing.List[str] = list()
-    mapping_keys: typing.List[str] = list()
-    object_keys: typing.List[str] = list()
-    non_mro_keys: typing.List[str] = list()
+    primitive_keys: typing.List[str] = []
+    array_keys: typing.List[str] = []
+    mapping_keys: typing.List[str] = []
+    object_keys: typing.List[str] = []
+    non_mro_keys: typing.List[str] = []
 
     for key, value in dictionary.items():
         if isinstance(key, (str, bytes, bool, numbers.Number)) or value is None:
@@ -973,23 +1057,71 @@ def order_dictionary(dictionary: typing.Mapping) -> dict:
     return ordered_dictionary
 
 
-def truncate_numbers_in_dictionary(dictionary: dict, places: int, copy: bool = False) -> typing.Mapping:
+def truncate_numbers_in_dictionary(
+    dictionary: typing.MutableMapping,
+    places: int,
+    copy: bool = False
+) -> typing.MutableMapping:
+    """
+    Walks a mapping and replaces all floating point values with values truncated to the given number of
+    significant digits
+
+    Args:
+        dictionary: The dictionary to iterate through
+        places: The maximum decimal places to use for floating-point numbers
+        copy: Whether to create a whole new copy of the dictionary
+
+    Returns:
+        A dictionary where all floating point values have been truncated
+    """
     if places is None or places <= 0:
         return dictionary
 
-    dictionary = dictionary.copy() if copy else dictionary
+    dictionary = dict(dictionary.items()) if copy else dictionary
 
     for key, value in dictionary.items():
         if isinstance(value, numbers.Number) and "." in str(key):
             dictionary[key] = truncate(value, places)
-        elif isinstance(value, dict):
+        elif isinstance(value, typing.MutableMapping):
             dictionary[key] = truncate_numbers_in_dictionary(value, places, copy)
 
     return dictionary
 
 
 def to_json(obj, encoder: json.JSONEncoder = None, indent: int = 4, truncate_digits: int = None) -> str:
-    if indent is None or indent <= 0:
+    """
+    Convert an object into a regularly ordered JSON string. This ordering is more human-readable
+
+    Examples:
+        >>> to_json({"one": [1, 2, 3], "two": 2.0122311312412, "three": False})
+        '{
+            "three": false,
+            "two": 2.0122311312412,
+            "one": [1, 2, 3]
+        }'
+        >>> to_json({"one": [1, 2, 3], "two": 2.0122311312412, "three": False}, truncate_digits=2)
+        '{
+            "three": false,
+            "two": 2.01,
+            "one": [1, 2, 3]
+        }'
+        >>> to_json({"two": 2.0122311312412, "one": [1, 2, 3], "three": False}, truncate_digits=2)
+        '{
+            "three": false
+            "two": 2.01,
+            "one": [1, 2, 3]
+        }'
+
+    Args:
+        obj: The object to be converted to json
+        encoder: An optional encoder to use instead of the default JSONEncoder
+        indent: The number of spaces to indent after keys
+        truncate_digits: The number of digits to truncate off of floating point values if present or needed
+
+    Returns:
+        A regularly ordered json string
+    """
+    if indent is None or indent < 0:
         indent = 4
 
     first_layer: str = json.dumps(obj, cls=encoder, indent=indent)
@@ -1044,8 +1176,9 @@ def humanize_text(
         return text
 
     if exclude_phrases is None:
-        exclude_phrases = list()
-    elif isinstance(exclude_phrases, bytes):
+        exclude_phrases = []
+
+    if isinstance(exclude_phrases, bytes):
         exclude_phrases = exclude_phrases.decode()
 
     if isinstance(exclude_phrases, str):
@@ -1056,13 +1189,61 @@ def humanize_text(
 
     # Since '_' is often a replacement for whitespace separators, convert '_' to ' ' to offer a consistent look
     text = text.replace("_", " ")
-
     text = text.strip()
 
-    phrase_exclusion_patterns: typing.Dict[str, re.Pattern] = dict()
+    text = remove_phrases_from_text(text=text, phrases_to_exclude=exclude_phrases)
+
+    text = re.sub("  +", " ", text)
+    text = text.strip()
+
+    humanized_text: str = ""
+
+    for letter_index, current_character in enumerate(text):
+        previous_character = text[letter_index - 1] if letter_index > 0 else None
+        next_character = text[letter_index + 1] if letter_index < len(text) - 1 else None
+
+        humanized_text += convert_character_to_humanized_case(
+            current_character=current_character,
+            previous_character=previous_character,
+            next_character=next_character
+        )
+
+    humanized_text = remove_phrases_from_text(text=humanized_text, phrases_to_exclude=exclude_phrases)
+
+    # Remove any possible double spaces that were added as a result of string manipulation.
+    # If fixing "My removeThis Text" yielded "My Remove This Text", then yielded "My  Text",
+    # this replacement will result in "My Text"
+    humanized_text = re.sub("  +", " ", humanized_text)
+    humanized_text = humanized_text.strip()
+
+    return humanized_text
+
+
+def remove_phrases_from_text(
+    text: typing.Union[str, bytes],
+    phrases_to_exclude: typing.Sequence[str] = None
+) -> str:
+    """
+    Remove all passed phrases from a text string
+
+    Args:
+        text: Text to clean up
+        phrases_to_exclude: Phrases to remove from the text
+
+    Returns:
+        The cleaned up text
+    """
+    text = text.decode() if isinstance(text, bytes) else str(text)
+
+    if not phrases_to_exclude:
+        return text
+
+    extra_space_pattern = re.compile(r"\s\s+")
+
+    phrase_exclusion_patterns: typing.Dict[str, re.Pattern] = {}
 
     # Loop through excluded phrases and remove anything that isn't supposed to be there
-    for phrase in exclude_phrases or list():
+    for phrase in phrases_to_exclude or []:
         pattern = phrase_exclusion_patterns.get(phrase.lower())
 
         if not pattern:
@@ -1095,114 +1276,137 @@ def humanize_text(
         # like for "My ReRemove Thismove This Text" which will first become "My Remove This Text" then "My Text"
         # if the phrase to exclude was "Remove This"
         while pattern.search(text):
+            had_extra_spaces = extra_space_pattern.search(text)
             text = pattern.sub("", text)
 
-    text = re.sub("  +", " ", text)
+            while not had_extra_spaces and extra_space_pattern.search(text):
+                text = extra_space_pattern.sub(" ", text)
 
-    text = text.strip()
+    return text
 
-    # Start out by putting the capitalized first character into the container for the string
-    humanized_text: str = text[0].upper()
 
-    # Loop through all but the last letter index to find what character to add next.
-    # The range is to len(text) - 1 because index + 1 will be one of the most important values
-    for letter_index in range(len(text) - 1):
-        # Assign the current and next characters to make referencing cleared
-        current_character = text[letter_index]
-        next_character = text[letter_index + 1]
-        further_character = text[letter_index + 2] if letter_index + 2 < len(text) else None
+def convert_character_to_humanized_case(
+    current_character: str,
+    previous_character: str = None,
+    next_character: str = None
+) -> str:
+    """
+    Converts a character to the proper casing based on the previous and following letters
 
-        # If the current character is whitespace we can just add the next one as an upper case,
-        # marking a new phrase in the output text
-        if current_character.isspace():
-            humanized_text += next_character.upper()
-            continue
+    Examples:
+        >>> convert_character_to_humanized_case("W", "O", "o")
+        " W"
+        >>> convert_character_to_humanized_case("W", "N", "S")
+        "W"
+        >>> convert_character_to_humanized_case("H", None, "e")
+        "H"
+        >>> convert_character_to_humanized_case(" ", None, None)
+        " "
+        >>> convert_character_to_humanized_case(" ", "A", "l")
+        " "
+        >>> convert_character_to_humanized_case("c", " ", "1")
+        "C"
+        >>> convert_character_to_humanized_case("1", "d", "N")
+        " 1"
+        >>> convert_character_to_humanized_case("S", "a", "o")
+        " S"
+        >>> convert_character_to_humanized_case("i", None, "N")
+        "I"
 
-        # If the next character is whitespace we can just add whitespace. Special whitespace won't be considered
-        if next_character.isspace():
-            humanized_text += " "
-            continue
+    Args:
+        current_character: The character whose casing is to be converted
+        previous_character: The character that came previously within a larger string
+        next_character: The character that comes next within a larger string
 
-        # Store general information to be used in if clauses into more direct language to reduce cognitive complexity
-        current_character_is_uppercase = current_character.isupper()
-        current_character_is_lowercase = current_character.islower()
-        current_character_is_digit = current_character.isdigit()
-        current_character_is_letter = current_character_is_lowercase or current_character_is_uppercase
+    Returns:
+        The proper casing for the current character
+    """
 
-        next_character_is_uppercase = next_character.isupper()
-        next_character_is_lowercase = next_character.islower()
-        next_character_is_digit = next_character.isdigit()
-        next_character_is_letter = next_character_is_lowercase or next_character_is_uppercase
+    if previous_character is None:
+        return current_character.upper()
 
-        # Store general information to be used in if clauses into more direct language to reduce cognitive complexity
-        further_character_is_uppercase = further_character.isupper() if further_character else False
-        further_character_is_lowercase = further_character.islower() if further_character else False
-        further_character_is_whitespace = further_character.isspace() if further_character else False
-        further_character_is_digit = further_character.isdigit() if further_character else False
+    # If the current character is whitespace we can just add the next one as an upper case,
+    # marking a new phrase in the output text
+    if previous_character.isspace():
+        return current_character.upper()
 
-        if current_character_is_uppercase and next_character_is_uppercase and further_character_is_uppercase:
-            # Insert the next character as-is if a pattern like "DDI" is detected, resulting in "DD",
-            # which might result in "DDI" or "DD I"
-            humanized_text += next_character
-        elif not further_character and current_character_is_uppercase and next_character_is_uppercase:
-            # Insert the next character as-is if a pattern like "DD" is detected and there are no letters after the
-            # next, resulting in "DD"
-            humanized_text += next_character
-        elif further_character_is_lowercase and current_character_is_uppercase and next_character_is_uppercase:
-            # Insert whitespace and the next character as is if a pattern like "ERe" is detected, resulting in "E R",
-            # which will result in "E Re"
-            humanized_text += " "
-            humanized_text += next_character
-        elif further_character_is_digit and current_character_is_uppercase and next_character_is_uppercase:
-            # Insert the next character as-is if a pattern like "DB1", resulting in "DB", which will result in "DB 1"
-            humanized_text += next_character
-        elif further_character_is_whitespace and current_character_is_uppercase and next_character_is_uppercase:
-            # Insert the next character as-is if a pattern like "BB " is detected, which will maintain why might be an
-            # acronym
-            humanized_text += next_character
-        elif current_character_is_lowercase and next_character_is_uppercase:
-            # Insert whitespace and the next character if a pattern like "dB" is detected, resulting in "d B"
-            humanized_text += " "
-            humanized_text += next_character
-        elif current_character_is_letter and next_character_is_digit:
-            # Insert whitespace and the next character if a pattern like "s4" or "B8" is detected,
-            # resulting in "s 4" or "B 8"
-            humanized_text += " "
-            humanized_text += next_character
-        elif current_character_is_digit and next_character_is_letter:
-            # Insert whitespace and a capitalized next character if a pattern like "3s" or "8J" is detected,
-            # resulting in "3 S" or "8 J"
-            humanized_text += " "
-            humanized_text += next_character.upper()
-        else:
-            # Just add a lower cased version of the next character if a new phrase isn't detected
-            humanized_text += next_character.lower()
+    # If the next character is whitespace we can just add whitespace. Special whitespace won't be considered
+    if current_character.isspace():
+        return " "
 
-    # Loop through excluded phrases again and remove anything that isn't supposed to be there that might have
-    # been inserted through the text manipulation process. If a phrase to exclude was "Remove This" and the original
-    # text was "My removeThis Text", the humanization process will result in "My Remove This Text",
-    # which should be "My Text"
-    for phrase in exclude_phrases or list():
-        # New patterns don't have to be formed since they would have been formed above
-        pattern = phrase_exclusion_patterns.get(phrase.lower())
+    # Store general information to be used in if clauses into more direct language to reduce cognitive complexity
+    previous_character_is_uppercase = previous_character.isupper()
+    previous_character_is_lowercase = previous_character.islower()
+    previous_character_is_digit = previous_character.isdigit()
+    previous_character_is_letter = previous_character_is_lowercase or previous_character_is_uppercase
 
-        # Remove all possible instances of the pattern
-        # Loop to make sure that new instances that are created are also removed,
-        # like for "My ReRemove Thismove This Text" which will first become "My Remove This Text" then "My  Text"
-        # if the phrase to exclude was "Remove This"
-        while pattern.search(humanized_text):
-            humanized_text = pattern.sub("", humanized_text)
+    current_character_is_uppercase = current_character.isupper()
+    current_character_is_lowercase = current_character.islower()
+    current_character_is_digit = current_character.isdigit()
+    current_character_is_letter = current_character_is_lowercase or current_character_is_uppercase
 
-    # Remove any possible double spaces that were added as a result of string manipulation.
-    # If fixing "My removeThis Text" yielded "My Remove This Text", then yielded "My  Text",
-    # this replacement will result in "My Text"
-    humanized_text = re.sub("  +", " ", humanized_text)
-    humanized_text = humanized_text.strip()
+    # Store general information to be used in if clauses into more direct language to reduce cognitive complexity
+    next_character_is_uppercase = next_character.isupper() if next_character else False
+    next_character_is_lowercase = next_character.islower() if next_character else False
+    next_character_is_whitespace = next_character.isspace() if next_character else False
+    next_character_is_digit = next_character.isdigit() if next_character else False
 
-    return humanized_text
+    if previous_character_is_uppercase and current_character_is_uppercase and next_character_is_uppercase:
+        # Insert the next character as-is if a pattern like "DDI" is detected, resulting in "DD",
+        # which might result in "DDI" or "DD I"
+        return current_character
+
+    if not next_character and previous_character_is_uppercase and current_character_is_uppercase:
+        # Insert the next character as-is if a pattern like "DD" is detected and there are no letters after the
+        # next, resulting in "DD"
+        return current_character
+
+    if next_character_is_lowercase and previous_character_is_uppercase and current_character_is_uppercase:
+        # Insert whitespace and the next character as is if a pattern like "ERe" is detected, resulting in "E R",
+        # which will result in "E Re"
+        return " " + current_character
+
+    if next_character_is_digit and previous_character_is_uppercase and current_character_is_uppercase:
+        # Insert the next character as-is if a pattern like "DB1", resulting in "DB", which will result in "DB 1"
+        return current_character
+
+    if next_character_is_whitespace and previous_character_is_uppercase and current_character_is_uppercase:
+        # Insert the next character as-is if a pattern like "BB " is detected, which will maintain why might be an
+        # acronym
+        return current_character
+
+    if previous_character_is_lowercase and current_character_is_uppercase:
+        # Insert whitespace and the next character if a pattern like "dB" is detected, resulting in "d B"
+        return " " + current_character
+
+    if previous_character_is_letter and current_character_is_digit:
+        # Insert whitespace and the next character if a pattern like "s4" or "B8" is detected,
+        # resulting in "s 4" or "B 8"
+        return " " + current_character
+
+    if previous_character_is_digit and current_character_is_letter:
+        # Insert whitespace and a capitalized next character if a pattern like "3s" or "8J" is detected,
+        # resulting in "3 S" or "8 J"
+        return " " + current_character.upper()
+
+    # Just add a lower cased version of the next character if a new phrase isn't detected
+    return current_character.lower()
 
 
 def instanceof(obj: object, *object_type: type) -> bool:
+    """
+    Check if the given object is an instance of one of the given types. Works on most generic types
+
+    Args:
+        obj: The object to check
+        *object_type: The types to check
+
+    Returns:
+        True if the object is one of the given types
+    """
+    if not object_type:
+        return False
+
     try:
         return isinstance(obj, object_type)
     except:

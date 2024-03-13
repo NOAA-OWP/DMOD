@@ -7,7 +7,11 @@ __all__ = [
     if package_file != "__init__.py"
 ]
 
-from . import *
+from dmod.core.common.collections import catalog
+
+from .disk import CSVThresholdRetriever
+from .disk import RDBThresholdRetriever
+from .disk import JSONThresholdRetriever
 
 import typing
 
@@ -23,7 +27,10 @@ from .. import specification
 from .. import retrieval
 
 
-def get_threshold_retriever(threshold_definition: specification.ThresholdSpecification) -> retrieval.Retriever:
+def get_threshold_retriever(
+    threshold_definition: specification.ThresholdSpecification,
+    input_catalog: catalog.InputCatalog
+) -> retrieval.Retriever[specification.ThresholdSpecification]:
     threshold_format = threshold_definition.backend.format.lower()
 
     possible_retrievers = [
@@ -37,10 +44,13 @@ def get_threshold_retriever(threshold_definition: specification.ThresholdSpecifi
                   f"'{threshold_definition.backend.backend_type}'(s)"
         raise ValueError(message)
 
-    return possible_retrievers[0](threshold_definition)
+    return possible_retrievers[0](threshold_definition, input_catalog)
 
 
-def get_thresholds(threshold_definition: specification.ThresholdSpecification) -> typing.Dict[str, typing.Sequence[Threshold]]:
+def get_thresholds(
+    threshold_definition: specification.ThresholdSpecification,
+    input_catalog: catalog.InputCatalog
+) -> typing.Dict[str, typing.Sequence[Threshold]]:
     """
     Creates a dictionary mapping a location identifier (ThresholdSpecification.locations.pattern[-1]) to a series
     of Thresholds to be sent to the metrics library
@@ -48,10 +58,11 @@ def get_thresholds(threshold_definition: specification.ThresholdSpecification) -
     Args:
         threshold_definition:
             The definition of how all thresholds should work
+        input_catalog: A shared catalog of input data
     Returns:
         A dictionary mapping locations to their thresholds
     """
-    threshold_retriever = get_threshold_retriever(threshold_definition)
+    threshold_retriever = get_threshold_retriever(threshold_definition, input_catalog=input_catalog)
     threshold_data: pandas.DataFrame = threshold_retriever.retrieve()
 
     thresholds: typing.Dict[str, typing.List[Threshold]] = defaultdict(list)
@@ -59,7 +70,7 @@ def get_thresholds(threshold_definition: specification.ThresholdSpecification) -
     groupby_columns = ['name', threshold_definition.locations.pattern[-1]]
 
     for identifiers, group in threshold_data.groupby(by=groupby_columns, as_index=False):  # type: tuple, pandas.DataFrame
-        extra_kwargs = dict()
+        extra_kwargs = {}
 
         if threshold_definition.application_rules is None:
             extra_kwargs['observed_value_key'] = "observation"

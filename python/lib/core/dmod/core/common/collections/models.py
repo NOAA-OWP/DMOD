@@ -8,8 +8,8 @@ import typing
 import pydantic
 from pydantic.generics import GenericModel
 
-from .base_models import EventfulMap
-from .base_models import BaseEventfulSequence
+from .eventful_collections import BaseEventfulMap
+from .eventful_collections import BaseEventfulSequence
 
 from .constants import CollectionEvent
 from .constants import KeyType
@@ -17,18 +17,23 @@ from .constants import ValueType
 from .constants import EntryType
 
 
-HANDLER_MAP = typing.Dict[CollectionEvent, typing.List[typing.Callable]]
+HandlerMap = typing.Dict[CollectionEvent, typing.List[typing.Callable]]
+TaskList = typing.List[typing.Awaitable]
 
 
-class MapModel(GenericModel, EventfulMap[KeyType, ValueType], typing.Generic[KeyType, ValueType]):
+class MapModel(GenericModel, BaseEventfulMap[KeyType, ValueType], typing.Generic[KeyType, ValueType]):
     def get_handlers(self) -> typing.Dict[CollectionEvent, typing.MutableSequence[typing.Callable]]:
         return self._handlers
 
     def inner_map(self) -> typing.MutableMapping[KeyType, ValueType]:
         return self.__root__
 
+    def _get_leftover_tasks(self) -> TaskList:
+        return self._leftover_tasks
+
     __root__: typing.Dict[KeyType, ValueType]
-    _handlers: HANDLER_MAP = pydantic.PrivateAttr(default_factory=dict)
+    _handlers: HandlerMap = pydantic.PrivateAttr(default_factory=dict)
+    _leftover_tasks: TaskList = pydantic.PrivateAttr(default_factory=list)
 
 
 class SequenceModel(GenericModel, BaseEventfulSequence[EntryType], typing.Generic[EntryType]):
@@ -40,4 +45,4 @@ class SequenceModel(GenericModel, BaseEventfulSequence[EntryType], typing.Generi
         return self._handlers
 
     __root__: typing.List[EntryType] = pydantic.Field(default_factory=list)
-    _handlers: HANDLER_MAP = pydantic.PrivateAttr(default_factory=dict)
+    _handlers: HandlerMap = pydantic.PrivateAttr(default_factory=dict)

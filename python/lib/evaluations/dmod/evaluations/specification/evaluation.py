@@ -10,7 +10,7 @@ import pandas
 
 from pydantic import Field
 
-import dmod.metrics as metrics
+from dmod import metrics
 
 from dmod.core.common import find
 from dmod.core.common import truncate
@@ -56,18 +56,18 @@ class EvaluationSpecification(TemplatedSpecification):
             return False
         if not hasattr(other, "predictions"):
             return False
-        elif not hasattr(other, "crosswalks"):
+        if not hasattr(other, "crosswalks"):
             return False
-        elif not hasattr(other, "thresholds"):
+        if not hasattr(other, "thresholds"):
             return False
 
         if not contents_are_equivalent(Bag(self.observations), Bag(other.observations)):
             return False
-        elif not contents_are_equivalent(Bag(self.predictions), Bag(other.predictions)):
+        if not contents_are_equivalent(Bag(self.predictions), Bag(other.predictions)):
             return False
-        elif not contents_are_equivalent(Bag(self.crosswalks), Bag(other.crosswalks)):
+        if not contents_are_equivalent(Bag(self.crosswalks), Bag(other.crosswalks)):
             return False
-        elif not contents_are_equivalent(Bag(self.thresholds), Bag(other.thresholds)):
+        if not contents_are_equivalent(Bag(self.thresholds), Bag(other.thresholds)):
             return False
 
         return hasattr(other, "scheme") and self.scheme == other.scheme

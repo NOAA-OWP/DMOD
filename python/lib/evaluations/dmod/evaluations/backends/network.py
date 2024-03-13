@@ -7,13 +7,10 @@ import io
 
 import requests
 
-import dmod.core.common as common
+from dmod.core import common
 
 from . import backend
-from .. import util
 from .. import specification
-
-util.configure_logging()
 
 
 class RESTBackend(backend.Backend):

@@ -28,8 +28,8 @@ from .tasks import cancel_task
 from .tasks import cancel_tasks
 
 from .collections import Bag
-from .collections import AccessCache
-from .collections import CacheEntry
+from .collections import InputCatalog
+from .collections import CatalogEntry
 from .collections import MapModel
 from .collections import SequenceModel
 from .collections import CollectionEvent
@@ -39,7 +39,7 @@ from .protocols import DBAPICursor
 from .protocols import DBAPIColumnDescription
 
 from .types import CommonEnum
-from .types import TEXT_VALUE_COLLECTION
+from .types import TextValueCollection
 from .types import TextValue
 from .types import TextValues
 

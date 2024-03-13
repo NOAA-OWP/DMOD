@@ -1,7 +1,9 @@
+import typing
 from enum import Enum
 from pprint import pformat
 
 from typing import Any, Dict, Union
+
 
 # inspiration from https://github.com/pydantic/pydantic/issues/598
 class PydanticEnum(Enum):
@@ -82,3 +84,10 @@ class PydanticEnum(Enum):
             f"Invalid Enum field. Field {v!r} is not a member of {set(cls.__members__)}"
         )
         raise ValueError(error_message)
+
+    def __hash__(self) -> int:
+        return hash((
+            self.__class__.__name__,
+            self.name,
+            self.value if isinstance(self.value, typing.Hashable) else repr(self.value)
+        ))
