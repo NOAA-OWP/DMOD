@@ -341,7 +341,7 @@ class SimpleDataTransferAgent(DataTransferAgent):
             return DatasetManagementResponse(success=False, reason=reason, message=msg)
 
         try:
-            request, final_response_type = self._request_prep(dataset_name=dataset_name, item_name=item_name,
+            request, final_response_type = await self._request_prep(dataset_name=dataset_name, item_name=item_name,
                                                               action=ManagementAction.REQUEST_DATA)
         # TODO: (later) implement and use DmodAuthenticationFailure
         except DmodRuntimeError as e:
@@ -375,7 +375,7 @@ class SimpleDataTransferAgent(DataTransferAgent):
             return DatasetManagementResponse(success=False, reason="Dataset Upload File Not Found",
                                              message=f"File {source!s} does not exist")
         try:
-            message, final_response_type = self._request_prep(dataset_name=dataset_name, item_name=item_name,
+            message, final_response_type = await self._request_prep(dataset_name=dataset_name, item_name=item_name,
                                                               action=ManagementAction.ADD_DATA)
         # TODO: (later) implement and use DmodAuthenticationFailure
         except DmodRuntimeError as e:
