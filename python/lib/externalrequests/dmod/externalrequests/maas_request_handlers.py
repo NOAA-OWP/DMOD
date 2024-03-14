@@ -293,7 +293,7 @@ class DatasetRequestHandler(MaaSRequestHandler):
                 raise RuntimeError("Data series UUID for data receipt does not match expected.")
             service_response = self.service_client.async_make_request(data_response, possible_responses)
 
-    async def _handle_data_upload(self, upload_request: MaaSDatasetManagementMessage, client_websocket, service_websocket) -> MaaSDatasetManagementResponse:
+    async def _handle_data_upload(self, upload_request: MaaSDatasetManagementMessage, client_websocket) -> MaaSDatasetManagementResponse:
         series_uuid = None
         # This might be DataTransmitResponse, or it might be a management response message
         possible_responses = [MaaSDatasetManagementResponse, DataTransmitResponse]
