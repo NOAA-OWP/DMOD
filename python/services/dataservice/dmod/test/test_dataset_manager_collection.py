@@ -10,7 +10,7 @@ from dmod.core.dataset import Dataset, DatasetType
 from dmod.core.exception import DmodRuntimeError
 from dmod.dataservice.dataset_manager_collection import DatasetManagerCollection
 
-from .test_service_manager import MockDataset, MockDatasetManager
+from .test_required_data_checks_manager import MockDataset, MockDatasetManager
 
 
 class MockDatasetManagerSupportsMultipleTypes(MockDatasetManager):

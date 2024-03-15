@@ -4,14 +4,13 @@ import json
 import os
 
 from ..dataservice.dataset_manager_collection import DatasetManagerCollection
-from ..dataservice.service import ServiceManager
-from ..dataservice.service_settings import ServiceSettings
+from ..dataservice.dataset_inquery_util import DatasetInqueryUtil
+from ..dataservice.service import Count, RequiredDataChecksManager
 from dmod.communication.client import get_or_create_eventloop
 from dmod.core.dataset import DataCategory, DataDomain, Dataset, DatasetManager, DatasetType
 from dmod.scheduler.job import RequestedJob
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
-from socket import gethostname
 
 
 class MockDataset(Dataset):
@@ -59,31 +58,7 @@ class MockDatasetManager(DatasetManager):
         return {DatasetType.FILESYSTEM}
 
 
-class MockKnownDatasetsServiceManager(ServiceManager):
-    """
-    A mock extension of ::class:`ServiceManager`, with a mocked-up overrided of ::method:`get_known_datasets`.
-    """
-
-    def __init__(self, dataset_files: List[Path], *args, **kwargs):
-        datasets: Dict[str, Dataset] = dict()
-        for d_file in dataset_files:
-            with d_file.open("r") as open_file:
-                dataset: Dataset = MockDataset.factory_init_from_deserialized_json(json.load(open_file))
-                datasets[dataset.name] = dataset
-        dataset_manager_collection = DatasetManagerCollection()
-        dataset_manager_collection.add(MockDatasetManager(datasets=datasets))
-
-        # Should be able to get away with no job_util for what we are using this for
-        super().__init__(
-            job_util=None,
-            *args,
-            settings=ServiceSettings(),
-            dataset_manager_collection=dataset_manager_collection,
-            **kwargs
-        )
-
-
-class TestServiceManager(unittest.TestCase):
+class TestRequiredDataChecksManager(unittest.TestCase):
 
     @classmethod
     def find_git_root_dir(cls, path: Optional[Path] = None) -> str:
@@ -108,13 +83,10 @@ class TestServiceManager(unittest.TestCase):
         ValueError : If the rev of the obtained ::class:`git.Repo` couldn't be parsed
         IndexError: If an invalid reflog index is specified.
         """
-        if path is None:
-            path = Path('.')
-        git_repo = git.Repo(path, search_parent_directories=True)
-        return git_repo.git.rev_parse("--show-toplevel")
+        return git.Repo(__file__, search_parent_directories=True).working_dir
 
     def __init__(self, *args, **kwargs):
-        super(TestServiceManager, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._proj_root = None
         self._ssl_certs_dir = None
 
@@ -134,10 +106,23 @@ class TestServiceManager(unittest.TestCase):
         self.loop = get_or_create_eventloop()
 
         example_serial_datasets_dir = self.proj_root.joinpath('data').joinpath('serialized_dataset_examples')
-        dataset_files = [p for p in example_serial_datasets_dir.glob('*.json')]
 
-        self.manager = MockKnownDatasetsServiceManager(dataset_files=dataset_files, listen_host=gethostname(),
-                                                       port=33015, ssl_dir=self.ssl_certs_dir)
+        datasets: Dict[str, Dataset] = dict()
+        for d_file in example_serial_datasets_dir.glob('*.json'):
+            with d_file.open("r") as open_file:
+                dataset: Dataset = MockDataset.factory_init_from_deserialized_json(json.load(open_file))
+                datasets[dataset.name] = dataset
+        dataset_manager_collection = DatasetManagerCollection()
+        dataset_manager_collection.add(MockDatasetManager(datasets=datasets))
+
+        dataset_inquery_util = DatasetInqueryUtil(dataset_manager_collection=dataset_manager_collection)
+
+        self.manager = RequiredDataChecksManager(
+            job_util=None,
+            dataset_manager_collection=dataset_manager_collection,
+            count=Count(),
+            dataset_inquery_util=dataset_inquery_util,
+        )
 
         self.example_jobs = []
 
