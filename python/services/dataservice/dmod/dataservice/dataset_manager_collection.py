@@ -59,7 +59,7 @@ class DatasetManagerCollection:
         DmodRuntimeError
             If a manager for the same DatasetType already exists.
         DmodRuntimeError
-            If the provided manager manages datasets already in the collection.
+            If the manager to be added has a dataset with a name that duplicates the name of a known dataset from one of this instance's other managers.
         """
         # In this case, just return, as the manager is already added
         if manager.uuid in set(m.uuid for m in self._managers.values()):
