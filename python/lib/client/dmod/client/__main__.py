@@ -219,7 +219,7 @@ def _handle_data_service_action_args(parent_subparsers_container):
                                dest='continuous_restrictions', nargs='*', help=c_restrict_help_str.format(c_json_form))
     parser_create.add_argument('--discrete-restriction', type=lambda s: DiscreteRestriction(**json.loads(s)),
                                dest='discrete_restrictions', nargs='*', help=d_restrict_help_str.format(d_json_form))
-    parser_create.add_argument('--format', dest='dataset_format', choices=dataset_formats, type=DataFormat.get_for_name,
+    parser_create.add_argument('--format', dest='data_format', choices=dataset_formats, type=DataFormat.get_for_name,
                                metavar=f"{{{', '.join(f.name for f in dataset_formats)}}}", help='Specify dataset domain format.')
     parser_create.add_argument('--domain-json', dest='domain_file', type=Path, help='Deserialize the dataset domain from a file.')
     parser_create.add_argument('category', type=DataCategory.get_for_name, choices=dataset_categories,
