@@ -191,7 +191,6 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
                            retries=5,
                            start_period=to_nanoseconds(seconds=5))
 
-
 class ServiceManager(WebSocketInterface):
     """
     Primary service management class.
@@ -216,25 +215,14 @@ class ServiceManager(WebSocketInterface):
         self,
         job_util: JobUtil,
         *args,
-        settings: ServiceSettings,
         dataset_manager_collection: DatasetManagerCollection,
+        dataset_inquery_util: DatasetInqueryUtil,
         **kwargs
     ):
         super().__init__(*args, **kwargs)
         self._job_util = job_util
-        self._settings: ServiceSettings = settings
         self._managers: DatasetManagerCollection = dataset_manager_collection
-        """ Map of dataset class type (key), to service's dataset manager (value) for handling that dataset type. """
-        self._docker_s3fs_helper = None
-        self._data_derive_util: DataDeriveUtil = DataDeriveUtil(dataset_manager_collection=self._managers)
-        self._dataset_inquery_util: DatasetInqueryUtil = DatasetInqueryUtil(dataset_manager_collection=self._managers,
-                                                                            derive_util=self._data_derive_util)
-        self._marked_expired_datasets: Set[str] = set()
-        """ Names of expired datasets marked for deletion the next time through ::method:`manage_temp_datasets`. """
-        self._is_fulfilling_requirements: int = 0
-        """ Internal flag of whether any searches are being performed to fulfill requirements (to block purging). """
-        #self._dataset_users: Dict[UUID, DatasetUser] = dict()
-        #""" Dataset user records maintained in memory by the instance (e.g., when a job has a dataset provisioned). """
+        self._dataset_inquery_util: DatasetInqueryUtil = dataset_inquery_util
 
     async def _async_process_add_data(self, dataset_name: str, dest_item_name: str, message: DataTransmitMessage,
                                       manager: DatasetManager, is_temp: bool = False) -> Union[DataTransmitResponse,
@@ -414,56 +402,6 @@ class ServiceManager(WebSocketInterface):
         """
         return self._process_query(message)
 
-    def _create_output_datasets(self, job: Job):
-        """
-        Create output datasets and associated requirements for this job, based on its ::method:`Job.output_formats`.
-
-        Create empty output datasets and the associated ::class:`DataRequirement` instances for this job, corresponding
-        to the output dataset formats listed in the job's ::method:`Job.output_formats` property.  The values in this
-        property are iterated through by list index to be able to reuse the index value for dataset name, as noted
-        below.
-
-        Datasets will be named as ``job-<job_uuid>-output-<output_index>``, where ``<output_index>`` is the index of the
-        corresponding value in ::method:`Job.output_formats`.
-
-        Parameters
-        ----------
-        job : Job
-            The job for which to create output datasets.
-        """
-        for i in range(len(job.model_request.output_formats)):
-
-            id_restrict = DiscreteRestriction(variable=StandardDatasetIndex.ELEMENT_ID, values=[])
-
-            time_range = None
-            for data_domain in [req.domain for req in job.data_requirements if req.category == DataCategory.FORCING]:
-                time_restrictions = [r for k, r in data_domain.continuous_restrictions.items() if r.variable == 'Time']
-                if len(time_restrictions) > 0:
-                    time_range = time_restrictions[0]
-                    break
-
-            # TODO: (later) more intelligently determine type
-            mgr = self._managers.manager(DatasetType.OBJECT_STORE)
-            dataset = mgr.create(name='job-{}-output-{}'.format(job.job_id, i),
-                                 is_read_only=False,
-                                 category=DataCategory.OUTPUT,
-                                 domain=DataDomain(data_format=job.model_request.output_formats[i],
-                                                   continuous_restrictions=None if time_range is None else [time_range],
-                                                   discrete_restrictions=[id_restrict]))
-            # TODO: (later) in the future, whether the job is running via Docker needs to be checked
-            # TODO: also, whatever is done here needs to align with what is done within perform_checks_for_job, when
-            #  setting the fulfilled_access_at for the DataRequirement
-            is_job_run_in_docker = True
-            if is_job_run_in_docker:
-                output_access_at = dataset.docker_mount
-            else:
-                msg = "Could not determine proper access location for new output dataset of type {} by non-Docker job {}."
-                raise DmodRuntimeError(msg.format(dataset.__class__.__name__, job.job_id))
-            # Create a data requirement for the job, fulfilled by the new dataset
-            requirement = DataRequirement(domain=dataset.data_domain, is_input=False, category=DataCategory.OUTPUT,
-                                          fulfilled_by=dataset.name, fulfilled_access_at=output_access_at)
-            job.data_requirements.append(requirement)
-
     def _determine_dataset_type(self, message: DatasetManagementMessage) -> DatasetType:
         """
         Determine the right type of dataset for this situation.
@@ -481,18 +419,6 @@ class ServiceManager(WebSocketInterface):
         # TODO: figure out if this is actually still needed, and fix for filesystem type if so ...
         # TODO: (later) implement this correctly
         return DatasetType.OBJECT_STORE
-
-    def _get_ds_users(self) -> Dict[UUID, DatasetUser]:
-        """
-        Get dataset users from all associated managers of the service.
-
-        Returns
-        -------
-        Dict[UUID, DatasetUser]
-            Map of all ::class:`DatasetUser` from all associated managers of the service, keyed by the UUID of each.
-        """
-        return {uuid: mgr.get_dataset_user(uuid)
-                for _, mgr in self._managers.managers() for uuid in mgr.get_dataset_user_ids()}
 
     def _process_dataset_create(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
         """
@@ -650,96 +576,6 @@ class ServiceManager(WebSocketInterface):
             reason = 'Unsupported {} Query Type - {}'.format(DatasetQuery.__class__.__name__, query_type.name)
             return DatasetManagementResponse(action=message.management_action, success=False, reason=reason)
 
-    def _temp_dataset_mark_and_sweep(self):
-        """
-        Encapsulation of the required behavior for a single iteration through ::method:`manage_temp_datasets`.
-
-        Method scans for in use temporary datasets, updating the expire times of each.  It then deletes any expired
-        datasets marked for deletion already within the instance's private field.  Finally, it updates the instance's
-        private field for marked-for-deletion datasets with any that are now expired (and thus will be removed on the
-        next invocation).
-        """
-        # Get these upfront, since no meaningful changes can happen during the course of an iteration
-        temp_datasets = {ds_name: ds for ds_name, ds in self._managers.known_datasets().items() if ds.is_temporary}
-
-        # Account for any in-use temporary datasets by potentially unmarking and updating expire time
-        for ds in (ds for _, ds in temp_datasets.items() if ds.manager.get_user_ids_for_dataset(ds)):
-            if ds.name in self._marked_expired_datasets:
-                self._marked_expired_datasets.remove(ds.name)
-
-            assert ds.expires is not None
-            ds.extend_life(timedelta(days=1) if ds.expires < (datetime.now()+timedelta(days=1)) else timedelta(hours=1))
-
-        # Delete any datasets previously marked for deletion
-        for ds in (temp_datasets.pop(ds_name) for ds_name in self._marked_expired_datasets):
-            ds.manager.delete(dataset=ds)
-
-        # Mark any expired datasets for deletion on the next iteration
-        self._marked_expired_datasets.update(n for n, ds in temp_datasets.items() if ds.expires > datetime.now())
-
-    def _unlink_finished_jobs(self, ds_users: Dict[UUID, DatasetUser]) -> Set[UUID]:
-        """
-        Unlink dataset use for any provided job-based users for which the job is no longer active.
-
-        Unlink dataset use for any of the given dataset users that are specifically ::class`JobDatasetUser` and are
-        associated with a job that is not in the set of active jobs.
-
-        Parameters
-        ----------
-        ds_users: Dict[UUID, DatasetUser]
-            A mapping of applicable dataset user objects, mapped by uuid; for the subset of interest, which are
-            ::class`JobDatasetUser` instances, the key will also be the id of the associated job (as a ::class:`UUID`).
-
-        Returns
-        -------
-        Set[UUID]
-            Set of the UUIDs of all users associated with finished jobs for which unlinking was performed.
-        """
-        finished_job_users: Set[UUID] = set()
-        active_job_ids = {UUID(j.job_id) for j in self._job_util.get_all_active_jobs()}
-        for user in (u for uid, u in ds_users.items() if isinstance(u, JobDatasetUser) and uid not in active_job_ids):
-            for ds in (self._managers.known_datasets()[ds_name] for ds_name in user.datasets_and_managers):
-                user.unlink_to_dataset(ds)
-            finished_job_users.add(user.uuid)
-        return finished_job_users
-
-    def init_filesystem_dataset_manager(self, file_dataset_config_dir: Path):
-        logging.info("Initializing manager for {} type datasets".format(DatasetType.FILESYSTEM.name))
-        mgr = FilesystemDatasetManager(serialized_files_directory=file_dataset_config_dir)
-        logging.info("{} initialized with {} existing datasets".format(mgr.__class__.__name__, len(mgr.datasets)))
-        self._managers.add(mgr)
-        self._filesystem_data_mgr = mgr
-
-    def init_object_store_dataset_manager(self, obj_store_host: str, access_key: str, secret_key: str, port: int = 9000,
-                                          *args, **kwargs):
-        host_str = '{}:{}'.format(obj_store_host, port)
-        logging.info("Initializing object store dataset manager at {}".format(host_str))
-        mgr = ObjectStoreDatasetManager(obj_store_host_str=host_str, access_key=access_key, secret_key=secret_key)
-        logging.info("Object store dataset manager initialized with {} existing datasets".format(len(mgr.datasets)))
-        self._managers.add(mgr)
-        self._obj_store_data_mgr = mgr
-
-        self._obj_store_access_key = access_key
-        self._obj_store_secret_key = secret_key
-
-        s3fs_url_proto = self._settings.s3fs_url_protocol
-        s3fs_url_host = self._settings.s3fs_url_host
-        s3fs_url_port = self._settings.s3fs_url_port
-        if s3fs_url_host is not None:
-            s3fs_helper_url = '{}://{}:{}/'.format(s3fs_url_proto, s3fs_url_host, s3fs_url_port)
-        else:
-            s3fs_helper_url = None
-
-        self._docker_s3fs_helper = DockerS3FSPluginHelper(service_manager=self,
-                                                          obj_store_access=self._obj_store_access_key,
-                                                          obj_store_secret=self._obj_store_secret_key,
-                                                          docker_image_name=self._settings.s3fs_vol_image_name,
-                                                          docker_image_tag=self._settings.s3fs_vol_image_tag,
-                                                          docker_networks=[self._settings.s3fs_helper_network],
-                                                          docker_plugin_alias=self._settings.s3fs_plugin_alias,
-                                                          obj_store_url=s3fs_helper_url,
-                                                          *args, **kwargs)
-
     async def listener(self, websocket: WebSocketServerProtocol, path):
         """
         Process incoming messages over the websocket and respond appropriately.
@@ -831,7 +667,40 @@ class ServiceManager(WebSocketInterface):
         except Exception as e:
             logging.error("Encountered error: {}".format(str(e)))
 
-    async def manage_required_data_checks(self):
+
+
+class RequiredDataChecksManager:
+    """
+    Async task that periodically examines whether required data for jobs is available.
+    Start the task by calling ::method:`start`.
+
+    Parameters
+    ----------
+    job_util : JobUtil
+        Access and update jobs
+    dataset_manager_collection : DatasetManagerCollection
+        Facilitates creating and accessing Datasets
+    count : Count
+        Semaphore-like object for signaling task processing state
+    dataset_inquery_util : DatasetInqueryUtil
+        Facilitates dataset detail queries and searches
+    """
+    def __init__(
+        self,
+        job_util: JobUtil,
+        dataset_manager_collection: DatasetManagerCollection,
+        count: "Count",
+        dataset_inquery_util: DatasetInqueryUtil,
+    ):
+        self._job_util = job_util
+        self._managers = dataset_manager_collection
+        self._count = count
+        self._dataset_inquery_util: DatasetInqueryUtil = dataset_inquery_util
+
+    async def start(self) -> NoReturn:
+        await self._manage_required_data_checks()
+
+    async def _manage_required_data_checks(self):
         """
         Task method to periodically examine whether required data for jobs is available.
 
@@ -870,65 +739,56 @@ class ServiceManager(WebSocketInterface):
             self._job_util.unlock_active_jobs(lock_id)
             await asyncio.sleep(5)
 
-    async def manage_data_provision(self):
+    def _create_output_datasets(self, job: Job):
         """
-        Task method to periodically associate, un-associate, and (when needed) generate required datasets with/for jobs.
+        Create output datasets and associated requirements for this job, based on its ::method:`Job.output_formats`.
+
+        Create empty output datasets and the associated ::class:`DataRequirement` instances for this job, corresponding
+        to the output dataset formats listed in the job's ::method:`Job.output_formats` property.  The values in this
+        property are iterated through by list index to be able to reuse the index value for dataset name, as noted
+        below.
+
+        Datasets will be named as ``job-<job_uuid>-output-<output_index>``, where ``<output_index>`` is the index of the
+        corresponding value in ::method:`Job.output_formats`.
+
+        Parameters
+        ----------
+        job : Job
+            The job for which to create output datasets.
         """
-        logging.debug("Starting task loop for performing data provisioning for requested jobs.")
-        while True:
-            lock_id = str(uuid4())
-            while not self._job_util.lock_active_jobs(lock_id):
-                await asyncio.sleep(2)
+        # TODO: aaraney harden
+        for i in range(len(job.model_request.output_formats)):
 
-            # Get any previously existing dataset users linked to any of the managers
-            prior_users: Dict[UUID, DatasetUser] = self._get_ds_users()
+            id_restrict = DiscreteRestriction(variable=StandardDatasetIndex.ELEMENT_ID, values=[])
 
-            for job in [j for j in self._job_util.get_all_active_jobs() if j.status_step == JobExecStep.AWAITING_DATA]:
-                logging.debug("Managing provisioning for job {} that is awaiting data.".format(job.job_id))
-                try:
-                    # Block temp dataset purging and maintenance while we handle things here
-                    self._is_fulfilling_requirements += 1
-                    # Derive any datasets as required
-                    reqs_w_derived_datasets = await self._data_derive_util.derive_datasets(job)
-                    logging.info('Job {} had {} datasets derived.'.format(job.job_id, len(reqs_w_derived_datasets)))
+            time_range = None
+            for data_domain in [req.domain for req in job.data_requirements if req.category == DataCategory.FORCING]:
+                time_restrictions = [r for k, r in data_domain.continuous_restrictions.items() if r.variable == 'Time']
+                if len(time_restrictions) > 0:
+                    time_range = time_restrictions[0]
+                    break
 
-                    # Create or retrieve dataset user job wrapper instance and link associated, newly-derived datasets
-                    # It should be the case that pre-existing datasets were linked when found to be fulfilling
-                    known_ds = self._managers.known_datasets()
-                    job_uuid = UUID(job.job_id)
-                    job_ds_user = prior_users[job_uuid] if job_uuid in prior_users else JobDatasetUser(job_uuid)
-                    for ds in (known_ds[req.fulfilled_by] for req in reqs_w_derived_datasets if req.fulfilled_by):
-                        job_ds_user.link_to_dataset(ds)
-
-                    # Initialize dataset Docker volumes required for a job
-                    logging.debug('Initializing any required S3FS dataset volumes for {}'.format(job.job_id))
-                    self._docker_s3fs_helper.init_volumes(job=job)
-                except Exception as e:
-                    job.set_status_step(JobExecStep.DATA_FAILURE)
-                    self._job_util.save_job(job)
-                    continue
-                finally:
-                    self._is_fulfilling_requirements -= 1
-
-                job.set_status_step(JobExecStep.AWAITING_SCHEDULING)
-                self._job_util.save_job(job)
-
-            # Also, unlink usage for any previously existing, job-based users for which the job is no longer active ...
-            self._unlink_finished_jobs(ds_users=prior_users)
-
-            self._job_util.unlock_active_jobs(lock_id)
-            await asyncio.sleep(5)
-
-    async def manage_temp_datasets(self) -> NoReturn:
-        """
-        Async task for managing temporary datasets, including updating expire times and purging of expired datasets.
-        """
-        while True:
-            # Ensure that mark and sweep doesn't proceed while something is potentially to linking datasets
-            while self._is_fulfilling_requirements > 0:
-                await asyncio.sleep(10)
-            self._temp_dataset_mark_and_sweep()
-            await asyncio.sleep(3600)
+            # TODO: (later) more intelligently determine type
+            mgr = self._managers.manager(DatasetType.OBJECT_STORE)
+            dataset = mgr.create(name='job-{}-output-{}'.format(job.job_id, i),
+                                 is_read_only=False,
+                                 category=DataCategory.OUTPUT,
+                                 domain=DataDomain(data_format=job.model_request.output_formats[i],
+                                                   continuous_restrictions=None if time_range is None else [time_range],
+                                                   discrete_restrictions=[id_restrict]))
+            # TODO: (later) in the future, whether the job is running via Docker needs to be checked
+            # TODO: also, whatever is done here needs to align with what is done within perform_checks_for_job, when
+            #  setting the fulfilled_access_at for the DataRequirement
+            is_job_run_in_docker = True
+            if is_job_run_in_docker:
+                output_access_at = dataset.docker_mount
+            else:
+                msg = "Could not determine proper access location for new output dataset of type {} by non-Docker job {}."
+                raise DmodRuntimeError(msg.format(dataset.__class__.__name__, job.job_id))
+            # Create a data requirement for the job, fulfilled by the new dataset
+            requirement = DataRequirement(domain=dataset.data_domain, is_input=False, category=DataCategory.OUTPUT,
+                                          fulfilled_by=dataset.name, fulfilled_access_at=output_access_at)
+            job.data_requirements.append(requirement)
 
     async def perform_checks_for_job(self, job: Job) -> bool:
         """
@@ -957,12 +817,11 @@ class ServiceManager(WebSocketInterface):
         ::method:`can_be_fulfilled`
         """
         # TODO: (later) should we check whether any 'fulfilled_by' datasets exist, or handle this differently?
+        # Ensure here that we block mark-and-sweep routing for temporary datasets
+        self._count.acquire()
         try:
-            # Ensure here that we block mark-and-sweep routing for temporary datasets
-            self._is_fulfilling_requirements += 1
-
             # Create/lookup dataset user job wrapper instance for this job
-            existing_ds_users: Dict[UUID, DatasetUser] = self._get_ds_users()
+            existing_ds_users: Dict[UUID, DatasetUser] = _get_ds_users(self._managers)
             job_uuid = UUID(job.job_id)
             job_ds_user = existing_ds_users.get(job_uuid, JobDatasetUser(job_uuid))
 
@@ -992,4 +851,206 @@ class ServiceManager(WebSocketInterface):
             return False
         finally:
             # Unblock mark and sweep
-            self._is_fulfilling_requirements -= 1
+            self._count.release()
+
+class TempDatasetsManager:
+    """
+    Async task for managing temporary datasets, including updating expire times and purging of expired datasets.
+    Start the task by calling ::method:`start`.
+
+    Parameters
+    ----------
+    dataset_manager_collection : DatasetManagerCollection
+        Facilitates creating and accessing Datasets
+    count : Count
+        Used to synchronize when it is okay to remove temporary datasets
+    """
+
+    def __init__(self, dataset_manager_collection: DatasetManagerCollection, count: "Count"):
+        self._count = count
+        self._managers = dataset_manager_collection
+
+        self._marked_expired_datasets: Set[str] = set()
+        """ Names of expired datasets marked for deletion the next time through ::method:`manage_temp_datasets`. """
+
+    async def start(self) -> NoReturn:
+        await self._manage_temp_datasets()
+
+    async def _manage_temp_datasets(self) -> NoReturn:
+        """
+        Async task for managing temporary datasets, including updating expire times and purging of expired datasets.
+        """
+        while True:
+            # Ensure that mark and sweep doesn't proceed while something is potentially to linking datasets
+            while self._count.value > 0:
+                await asyncio.sleep(10)
+            self._temp_dataset_mark_and_sweep()
+            await asyncio.sleep(3600)
+
+    def _temp_dataset_mark_and_sweep(self):
+        """
+        Encapsulation of the required behavior for a single iteration through ::method:`manage_temp_datasets`.
+
+        Method scans for in use temporary datasets, updating the expire times of each.  It then deletes any expired
+        datasets marked for deletion already within the instance's private field.  Finally, it updates the instance's
+        private field for marked-for-deletion datasets with any that are now expired (and thus will be removed on the
+        next invocation).
+        """
+        # Get these upfront, since no meaningful changes can happen during the course of an iteration
+        temp_datasets = {ds_name: ds for ds_name, ds in self._managers.known_datasets().items() if ds.is_temporary}
+
+        # Account for any in-use temporary datasets by potentially unmarking and updating expire time
+        for ds in (ds for _, ds in temp_datasets.items() if ds.manager.get_user_ids_for_dataset(ds)):
+            if ds.name in self._marked_expired_datasets:
+                self._marked_expired_datasets.remove(ds.name)
+
+            assert ds.expires is not None
+            ds.extend_life(timedelta(days=1) if ds.expires < (datetime.now()+timedelta(days=1)) else timedelta(hours=1))
+
+        # Delete any datasets previously marked for deletion
+        for ds in (temp_datasets.pop(ds_name) for ds_name in self._marked_expired_datasets):
+            ds.manager.delete(dataset=ds)
+
+        # Mark any expired datasets for deletion on the next iteration
+        self._marked_expired_datasets.update(n for n, ds in temp_datasets.items() if ds.expires > datetime.now())
+
+class DataProvisionManager:
+    """
+    Task method to periodically associate, un-associate, and (when needed) generate required datasets with/for jobs.
+    Start the task by calling ::method:`start`.
+
+    Parameters
+    ----------
+    job_util : JobUtil
+        Access and update jobs
+    dataset_manager_collection : DatasetManagerCollection
+        Facilitates creating and accessing Datasets
+    docker_s3fs_helper : DockerS3FSPluginHelper
+        Facilitates initialize Docker volumes for jobs
+    data_derive_util : DataDeriveUtil
+        Facilitates deriving data and datasets
+    count : Count
+        Semaphore-like object for signaling task processing state
+    """
+    def __init__(
+        self,
+        job_util: JobUtil,
+        dataset_manager_collection: DatasetManagerCollection,
+        docker_s3fs_helper: DockerS3FSPluginHelper,
+        data_derive_util: DataDeriveUtil,
+        count: "Count",
+    ):
+        self._job_util = job_util
+        self._managers = dataset_manager_collection
+        self._docker_s3fs_helper = docker_s3fs_helper
+        self._count = count
+        self._data_derive_util: DataDeriveUtil = data_derive_util
+
+    async def start(self) -> NoReturn:
+        await self._manage_data_provision()
+
+    async def _manage_data_provision(self):
+        """
+        Task method to periodically associate, un-associate, and (when needed) generate required datasets with/for jobs.
+        """
+        logging.debug("Starting task loop for performing data provisioning for requested jobs.")
+        while True:
+            lock_id = str(uuid4())
+            while not self._job_util.lock_active_jobs(lock_id):
+                await asyncio.sleep(2)
+
+            # Get any previously existing dataset users linked to any of the managers
+            prior_users: Dict[UUID, DatasetUser] = _get_ds_users(self._managers)
+
+            for job in [j for j in self._job_util.get_all_active_jobs() if j.status_step == JobExecStep.AWAITING_DATA]:
+                logging.debug("Managing provisioning for job {} that is awaiting data.".format(job.job_id))
+                try:
+                    # Block temp dataset purging and maintenance while we handle things here
+                    self._count.acquire()
+                    # Derive any datasets as required
+                    reqs_w_derived_datasets = await self._data_derive_util.derive_datasets(job)
+                    logging.info('Job {} had {} datasets derived.'.format(job.job_id, len(reqs_w_derived_datasets)))
+
+                    # Create or retrieve dataset user job wrapper instance and link associated, newly-derived datasets
+                    # It should be the case that pre-existing datasets were linked when found to be fulfilling
+                    known_ds = self._managers.known_datasets()
+                    job_uuid = UUID(job.job_id)
+                    job_ds_user = prior_users[job_uuid] if job_uuid in prior_users else JobDatasetUser(job_uuid)
+                    for ds in (known_ds[req.fulfilled_by] for req in reqs_w_derived_datasets if req.fulfilled_by):
+                        job_ds_user.link_to_dataset(ds)
+
+                    # Initialize dataset Docker volumes required for a job
+                    logging.debug('Initializing any required S3FS dataset volumes for {}'.format(job.job_id))
+                    self._docker_s3fs_helper.init_volumes(job=job)
+                except Exception:
+                    job.set_status_step(JobExecStep.DATA_FAILURE)
+                    self._job_util.save_job(job)
+                    continue
+                finally:
+                    self._count.release()
+
+                job.set_status_step(JobExecStep.AWAITING_SCHEDULING)
+                self._job_util.save_job(job)
+
+            # Also, unlink usage for any previously existing, job-based users for which the job is no longer active ...
+            self._unlink_finished_jobs(ds_users=prior_users)
+
+            self._job_util.unlock_active_jobs(lock_id)
+            await asyncio.sleep(5)
+
+    def _unlink_finished_jobs(self, ds_users: Dict[UUID, DatasetUser]) -> Set[UUID]:
+        """
+        Unlink dataset use for any provided job-based users for which the job is no longer active.
+
+        Unlink dataset use for any of the given dataset users that are specifically ::class`JobDatasetUser` and are
+        associated with a job that is not in the set of active jobs.
+
+        Parameters
+        ----------
+        ds_users: Dict[UUID, DatasetUser]
+            A mapping of applicable dataset user objects, mapped by uuid; for the subset of interest, which are
+            ::class`JobDatasetUser` instances, the key will also be the id of the associated job (as a ::class:`UUID`).
+
+        Returns
+        -------
+        Set[UUID]
+            Set of the UUIDs of all users associated with finished jobs for which unlinking was performed.
+        """
+        finished_job_users: Set[UUID] = set()
+        active_job_ids = {UUID(j.job_id) for j in self._job_util.get_all_active_jobs()}
+        for user in (u for uid, u in ds_users.items() if isinstance(u, JobDatasetUser) and uid not in active_job_ids):
+            for ds in (self._managers.known_datasets()[ds_name] for ds_name in user.datasets_and_managers):
+                user.unlink_to_dataset(ds)
+            finished_job_users.add(user.uuid)
+        return finished_job_users
+
+def _get_ds_users(managers: DatasetManagerCollection) -> Dict[UUID, DatasetUser]:
+    """
+    Get dataset users from all associated managers of the service.
+
+    Returns
+    -------
+    Dict[UUID, DatasetUser]
+        Map of all ::class:`DatasetUser` from all associated managers of the service, keyed by the UUID of each.
+    """
+    return {uuid: mgr.get_dataset_user(uuid)
+            for _, mgr in managers.managers() for uuid in mgr.get_dataset_user_ids()}
+
+class Count:
+    """
+    Unbound Semaphore-like class for counting acquisitions and releases. Unlike a semaphore, `acquire()` nor `release()`
+    block. `acquire()` and `release()` increment and decrement an internal value respectively. The internal count can be
+    read via the `value` property.
+    """
+    def __init__(self, value: int = 0):
+        self._count = value
+
+    def acquire(self):
+        self._count += 1
+
+    def release(self):
+        self._count -= 1
+
+    @property
+    def value(self) -> int:
+        return self._count
