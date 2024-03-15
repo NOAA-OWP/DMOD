@@ -601,6 +601,7 @@ class ServiceManager(WebSocketInterface):
                     # TODO: need to refactor this to be cleaner
                     # Write data to temporary, partial item name, then after the last one, combine all the temps in this
                     # transmit series into a single file
+                    assert dataset_manager is not None, "Dataset manager should not be 'None' at this point"
                     partial_item_name = '{}.{}.{}'.format(transmit_series_uuid, dest_item_name, partial_indx)
                     response = await self._async_process_add_data(dataset_name=dest_dataset_name,
                                                                   dest_item_name=partial_item_name,
