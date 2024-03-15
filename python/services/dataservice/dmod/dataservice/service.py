@@ -556,15 +556,37 @@ class ServiceManager(WebSocketInterface):
             return DatasetManagementResponse(action=message.management_action, success=False, message=msg,
                                              reason="No Dataset Domain", dataset_name=message.dataset_name)
 
-        # Create the dataset
         dataset_type = self._determine_dataset_type(message)
-        dataset = self._all_data_managers[dataset_type].create(name=message.dataset_name, category=message.data_category,
-                                                               domain=message.data_domain, is_read_only=False)
-        # TODO: determine if there is an expectation to find data
-        # TODO:     if so, attempt to find data, setting pending response based on result
-        return DatasetManagementResponse(action=message.management_action, success=True, reason="Dataset Created",
-                                         data_id=str(dataset.uuid), dataset_name=dataset.name,
-                                         is_awaiting=message.is_pending_data)
+
+        # Create the dataset
+        try:
+            dataset = self._all_data_managers[dataset_type].create(name=message.dataset_name,
+                                                                   category=message.data_category,
+                                                                   domain=message.data_domain, is_read_only=False)
+            # TODO: determine if there is an expectation to find data
+            # TODO:     if so, attempt to find data, setting pending response based on result
+            return DatasetManagementResponse(action=message.management_action, success=True, reason="Dataset Created",
+                                             data_id=str(dataset.uuid), dataset_name=dataset.name,
+                                             is_awaiting=message.is_pending_data)
+        # Do something a little differently for this particular known special cases
+        except ValueError as e:
+            # TODO: (later) strictly speaking, this or something similar will probably applies to AWS S3 datasets later;
+            #   see https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
+            if str(e) == f"invalid bucket name {message.dataset_name}" and dataset_type == DatasetType.OBJECT_STORE:
+                return DatasetManagementResponse(action=message.management_action, success=False,
+                                                 reason=f"Unsupported Name For Backing Storage Type",
+                                                 dataset_name=message.dataset_name, is_awaiting=message.is_pending_data,
+                                                 message=f"Datasets of {dataset_type.name} type have additional name "
+                                                         f"restrictions; names can consist only of lowercase letters, "
+                                                         f"numbers, and hyphens (-)")
+            else:
+                return DatasetManagementResponse(action=message.management_action, success=False, message=str(e),
+                                                 reason=f"Encountered {e.__class__.__name__}",
+                                                 dataset_name=message.dataset_name, is_awaiting=message.is_pending_data)
+        except Exception as e:
+            return DatasetManagementResponse(action=message.management_action, success=False, message=str(e),
+                                             reason=f"Encountered {e.__class__.__name__}",
+                                             dataset_name=message.dataset_name, is_awaiting=message.is_pending_data)
 
     def _process_dataset_delete(self, message: DatasetManagementMessage) -> DatasetManagementResponse:
         """
@@ -659,8 +681,8 @@ class ServiceManager(WebSocketInterface):
             dataset_name = message.dataset_name
             list_of_files = self.get_known_datasets()[dataset_name].manager.list_files(dataset_name)
             return DatasetManagementResponse(action=message.management_action, success=True, dataset_name=dataset_name,
-                                             reason='Obtained {} Items List',
-                                             data={DatasetManagementResponse._DATA_KEY_QUERY_RESULTS: list_of_files})
+                                             reason=f'Obtained {dataset_name} Items List',
+                                             data={"query_results": {QueryType.LIST_FILES.name: list_of_files}})
             # TODO: (later) add support for messages with other query types also
         else:
             reason = 'Unsupported {} Query Type - {}'.format(DatasetQuery.__class__.__name__, query_type.name)
