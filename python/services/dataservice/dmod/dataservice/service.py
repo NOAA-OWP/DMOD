@@ -681,7 +681,7 @@ class RequiredDataChecksManager:
         Access and update jobs
     dataset_manager_collection : DatasetManagerCollection
         Facilitates creating and accessing Datasets
-    count : Count
+    tracker : ActiveOperationTracker
         Semaphore-like object for signaling task processing state
     dataset_inquery_util : DatasetInqueryUtil
         Facilitates dataset detail queries and searches
@@ -690,12 +690,12 @@ class RequiredDataChecksManager:
         self,
         job_util: JobUtil,
         dataset_manager_collection: DatasetManagerCollection,
-        count: "Count",
+        tracker: "ActiveOperationTracker",
         dataset_inquery_util: DatasetInqueryUtil,
     ):
         self._job_util = job_util
         self._managers = dataset_manager_collection
-        self._count = count
+        self._tracker = tracker
         self._dataset_inquery_util: DatasetInqueryUtil = dataset_inquery_util
 
     async def start(self) -> NoReturn:
@@ -819,7 +819,7 @@ class RequiredDataChecksManager:
         """
         # TODO: (later) should we check whether any 'fulfilled_by' datasets exist, or handle this differently?
         # Ensure here that we block mark-and-sweep routing for temporary datasets
-        self._count.acquire()
+        self._tracker.acquire()
         try:
             # Create/lookup dataset user job wrapper instance for this job
             existing_ds_users: Dict[UUID, DatasetUser] = _get_ds_users(self._managers)
@@ -852,7 +852,7 @@ class RequiredDataChecksManager:
             return False
         finally:
             # Unblock mark and sweep
-            self._count.release()
+            self._tracker.release()
 
 class TempDatasetsManager:
     """
@@ -863,12 +863,12 @@ class TempDatasetsManager:
     ----------
     dataset_manager_collection : DatasetManagerCollection
         Facilitates creating and accessing Datasets
-    count : Count
+    tracker : ActiveOperationTracker
         Used to synchronize when it is okay to remove temporary datasets
     """
 
-    def __init__(self, dataset_manager_collection: DatasetManagerCollection, count: "Count"):
-        self._count = count
+    def __init__(self, dataset_manager_collection: DatasetManagerCollection, tracker: "ActiveOperationTracker"):
+        self._tracker = tracker
         self._managers = dataset_manager_collection
 
         self._marked_expired_datasets: Set[str] = set()
@@ -883,7 +883,7 @@ class TempDatasetsManager:
         """
         while True:
             # Ensure that mark and sweep doesn't proceed while something is potentially to linking datasets
-            while self._count.value > 0:
+            while self._tracker.value > 0:
                 await asyncio.sleep(10)
             self._temp_dataset_mark_and_sweep()
             await asyncio.sleep(3600)
@@ -930,7 +930,7 @@ class DataProvisionManager:
         Facilitates initialize Docker volumes for jobs
     data_derive_util : DataDeriveUtil
         Facilitates deriving data and datasets
-    count : Count
+    tracker : ActiveOperationTracker
         Semaphore-like object for signaling task processing state
     """
     def __init__(
@@ -939,12 +939,12 @@ class DataProvisionManager:
         dataset_manager_collection: DatasetManagerCollection,
         docker_s3fs_helper: DockerS3FSPluginHelper,
         data_derive_util: DataDeriveUtil,
-        count: "Count",
+        tracker: "ActiveOperationTracker",
     ):
         self._job_util = job_util
         self._managers = dataset_manager_collection
         self._docker_s3fs_helper = docker_s3fs_helper
-        self._count = count
+        self._tracker = tracker
         self._data_derive_util: DataDeriveUtil = data_derive_util
 
     async def start(self) -> NoReturn:
@@ -967,7 +967,7 @@ class DataProvisionManager:
                 logging.debug("Managing provisioning for job {} that is awaiting data.".format(job.job_id))
                 try:
                     # Block temp dataset purging and maintenance while we handle things here
-                    self._count.acquire()
+                    self._tracker.acquire()
                     # Derive any datasets as required
                     reqs_w_derived_datasets = await self._data_derive_util.derive_datasets(job)
                     logging.info('Job {} had {} datasets derived.'.format(job.job_id, len(reqs_w_derived_datasets)))
@@ -988,7 +988,7 @@ class DataProvisionManager:
                     self._job_util.save_job(job)
                     continue
                 finally:
-                    self._count.release()
+                    self._tracker.release()
 
                 job.set_status_step(JobExecStep.AWAITING_SCHEDULING)
                 self._job_util.save_job(job)
@@ -1037,7 +1037,7 @@ def _get_ds_users(managers: DatasetManagerCollection) -> Dict[UUID, DatasetUser]
     return {uuid: mgr.get_dataset_user(uuid)
             for _, mgr in managers.managers() for uuid in mgr.get_dataset_user_ids()}
 
-class Count:
+class ActiveOperationTracker:
     """
     Unbound Semaphore-like class for counting acquisitions and releases. Unlike a semaphore, `acquire()` nor `release()`
     block. `acquire()` and `release()` increment and decrement an internal value respectively. The internal count can be
