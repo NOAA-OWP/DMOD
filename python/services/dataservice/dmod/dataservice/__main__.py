@@ -19,7 +19,7 @@ from .data_derive_util import DataDeriveUtil
 from .dataset_inquery_util import DatasetInqueryUtil
 from .dataset_manager_collection import DatasetManagerCollection
 from .service import (
-    Count,
+    ActiveOperationTracker,
     DataProvisionManager,
     RequiredDataChecksManager,
     ServiceManager,
@@ -97,22 +97,22 @@ def main():
 
 
     # count is used to signal when it is okay to remove temporary datasets
-    count = Count()
+    count = ActiveOperationTracker()
 
     # initialize background task objects
     required_data_checks_manager = RequiredDataChecksManager(
         job_util=job_util,
         dataset_manager_collection=dataset_manager_collection,
-        count=count,
+        tracker=count,
         dataset_inquery_util=dataset_inquery_util,
     )
     data_provision_manager = DataProvisionManager(job_util=job_util,
                                                   dataset_manager_collection=dataset_manager_collection,
                                                   docker_s3fs_helper=docker_s3fs_plugin_helper,
                                                   data_derive_util=data_derive_util,
-                                                  count=count,
+                                                  tracker=count,
                                                   )
-    temp_datasets_manager = TempDatasetsManager(dataset_manager_collection=dataset_manager_collection, count=count)
+    temp_datasets_manager = TempDatasetsManager(dataset_manager_collection=dataset_manager_collection, tracker=count)
 
     # Handles websocket communication and async task loop
     service_manager = ServiceManager(

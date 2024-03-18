@@ -5,7 +5,7 @@ import os
 
 from ..dataservice.dataset_manager_collection import DatasetManagerCollection
 from ..dataservice.dataset_inquery_util import DatasetInqueryUtil
-from ..dataservice.service import Count, RequiredDataChecksManager
+from ..dataservice.service import ActiveOperationTracker, RequiredDataChecksManager
 from dmod.communication.client import get_or_create_eventloop
 from dmod.core.dataset import DataCategory, DataDomain, Dataset, DatasetManager, DatasetType
 from dmod.scheduler.job import RequestedJob
@@ -120,7 +120,7 @@ class TestRequiredDataChecksManager(unittest.TestCase):
         self.manager = RequiredDataChecksManager(
             job_util=None,
             dataset_manager_collection=dataset_manager_collection,
-            count=Count(),
+            tracker=ActiveOperationTracker(),
             dataset_inquery_util=dataset_inquery_util,
         )
 
