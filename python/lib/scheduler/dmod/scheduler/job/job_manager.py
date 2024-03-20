@@ -109,7 +109,6 @@ class JobManager(JobUtil, ABC):
             A mapping of high, medium, and low priority queues filled with tuples having the additive inverse of a job's
             priority and the respective job object.
         """
-        pass
 
     @abstractmethod
     def create_job(self, request: DmodJobRequest, *args, **kwargs) -> Job:
@@ -137,7 +136,6 @@ class JobManager(JobUtil, ABC):
         Job
             The newly created job object.
         """
-        pass
 
     @abstractmethod
     def delete_job(self, job_id) -> bool:
@@ -154,14 +152,12 @@ class JobManager(JobUtil, ABC):
         bool
             ``True`` if a record was successfully deleted, otherwise ``False``.
         """
-        pass
 
     @abstractmethod
     async def manage_job_processing(self):
         """
         Monitor for created jobs and perform steps for job queueing, allocation of resources, and hand-off to scheduler.
         """
-        pass
 
     @abstractmethod
     def release_allocations(self, job_ref: Union[str, Job]) -> BasicResultIndicator:
@@ -184,7 +180,6 @@ class JobManager(JobUtil, ABC):
         BasicResultIndicator
             An indicator and details of whether resources were released.
         """
-        pass
 
     @abstractmethod
     def request_allocations(self, job: Job, require_awaiting_status: bool = True) -> bool:
@@ -211,7 +206,6 @@ class JobManager(JobUtil, ABC):
         bool
             Whether an allocation was successfully requested, received, and assigned to the job object.
         """
-        pass
 
     # TODO: (later) once pausing is supported, expand this to paused jobs
     @abstractmethod
@@ -230,7 +224,6 @@ class JobManager(JobUtil, ABC):
             Indicator and details of whether job was previously in ``STOPPED`` status step and is now in
             ``AWAITING_SCHEDULING`` step.
         """
-        pass
 
     @abstractmethod
     def request_scheduling(self, job: Job) -> bool:
@@ -247,7 +240,6 @@ class JobManager(JobUtil, ABC):
         bool
             Whether the job was scheduled.
         """
-        pass
 
     # TODO: (later) consider stopping/pausing from states other than RUNNING (probably requires tracking state history)
     @abstractmethod
@@ -265,7 +257,6 @@ class JobManager(JobUtil, ABC):
         BasicResultIndicator
             Indicator and details of whether the job was previously running and is now stopped.
         """
-        pass
 
 
 # TODO: properly account upstream for allocations for finished jobs (or any jobs being deleted) getting cleaned up,
@@ -316,6 +307,7 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
         low_priority_queue = []
         med_priority_queue = []
         high_priority_queue = []
+
         for eligible_job in jobs_eligible_for_allocate:
             # Bump by 10 if not updated for an hour
             if datetime.datetime.now() - eligible_job.last_updated >= datetime.timedelta(hours=1):
@@ -333,6 +325,7 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
                 heapq.heappush(med_priority_queue, (inverted_priority, eligible_job))
             else:
                 heapq.heappush(low_priority_queue, (inverted_priority, eligible_job))
+
         return {'high': high_priority_queue, 'medium': med_priority_queue, 'low': low_priority_queue}
 
     def __init__(self, resource_manager : ResourceManager, launcher: Launcher, redis_host: Optional[str] = None,
@@ -389,6 +382,7 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
                 # TODO: revisit this for JobCategory (remember right now this is the only way AWAITING_DATA_CHECK is entered, via default step)
                 job.status = JobStatus(phase=JobExecPhase.MODEL_EXEC)
                 self.save_job(job)
+
             # Skip jobs awaiting data check handled by the data service, or partitioning handled by partitioning service
             if job.status_step == JobExecStep.AWAITING_DATA_CHECK or job.status_step == JobExecStep.AWAITING_PARTITIONING:
                 continue
@@ -445,6 +439,7 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
         allocated_successfully = []
         not_allocated = []
         priorities_to_bump = []
+
         while len(jobs_priority_queue) > 0:
             # Remember, the job object itself is the second item in the popped tuple, since this is a min heap
             job = heapq.heappop(jobs_priority_queue)[1]
@@ -493,9 +488,11 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
             The newly created job object.
         """
         job_obj = RequestedJob.factory_init_from_request(job_request=request)
+
         # TODO: do some processing here or in the object init to build restrictions and constraints that make sense globally;
         #  i.e., make sure the requirements for forcings satisfy the necessary hydrofabric if the config doesn't include a specific subset explicitly
         uuid_param = kwargs.get('job_id', random_uuid())
+
         try:
             job_uuid = uuid_param if isinstance(uuid_param, UUID) else UUID(str(uuid_param))
         except:
@@ -508,7 +505,7 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
         self.save_job(job_obj)
         return job_obj
 
-    def delete_job(self, job_id) -> bool:
+    def delete_job(self, job_id, max_attempt_count: int = None) -> bool:
         """
         Delete the job record for the job with the given id value.
 
@@ -532,7 +529,11 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
         ValueError
             If no job exists with given job id.
         """
-        logging.debug("Deleting job {}".format(job_id))
+        if not isinstance(max_attempt_count, int) or max_attempt_count < 1:
+            max_attempt_count = 5
+
+        logging.debug(f"Deleting job {job_id}")
+
         # Retrieve the job and ensure any allocations are release
         job_key = self._get_job_key_for_id(job_id)
         job_obj = self.retrieve_job_by_redis_key(job_key)
@@ -540,23 +541,25 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
         # Ensure allocations are released
         self.release_allocations(job_id)
 
-        i = 0
-        while i < 5:
-            i += 1
+        most_recent_exception = None
+
+        for _ in range(max_attempt_count):
             with self.redis.pipeline() as pipeline:
                 if job_obj.status.is_active:
                     # Make sure not in active set
                     pipeline.srem(self._active_jobs_set_key, job_key)
                 pipeline.delete(job_key)
                 pipeline.execute()
+
                 # Try to do this, but don't fully fail just for this part
                 try:
                     job_obj.rsa_key_pair.delete_key_files()
-                except:
-                    # TODO: look at at least logging something if this happens; for now ...
-                    pass
-                return True
+                    return True
+                except BaseException as exception:
+                    most_recent_exception = exception                    
+        
         # If we get here, it means we failed the max allowed times, so bail
+        logging.error(f"The job with ID '{job_id}' could not be deleted", exc_info=most_recent_exception)
         return False
 
     # TODO: (later) once pausing is supported, expand this to paused jobs
@@ -648,8 +651,14 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
             # Get collection of "active" jobs
             active_jobs: List[RequestedJob] = self.get_all_active_jobs()
 
+            jobs_that_are_stopping = (
+                job
+                for job in active_jobs
+                if job.status_step == JobExecStep.STOPPING
+            )
+
             # Prioritize stopping and handle separately for clarity
-            for job in [j for j in active_jobs if j.status_step == JobExecStep.STOPPING]:
+            for job in jobs_that_are_stopping:
                 try:
                     # Should be the case that this blocks until stopping is done
                     self._launcher.stop_job(job=job)
@@ -659,12 +668,13 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
                     job.set_status_step(JobExecStep.FAILED)
                 self.save_job(job)
 
-            for j in active_jobs:
-                if j.status_step.is_error:
-                    logging.error("Requested job {} has failed due to {}".format(j.job_id, j.status_step.name))
-                if j.status_step.completes_phase:
-                    active_jobs.remove(j)
-                    self.save_job(j)
+            for job in active_jobs:
+                if job.status_step.is_error:
+                    logging.error("Requested job {} has failed due to {}".format(job.job_id, job.status_step.name))
+
+                if job.status_step.completes_phase:
+                    active_jobs.remove(job)
+                    self.save_job(job)
 
             # TODO: something must transition MODEL_EXEC_RUNNING Jobs to MODEL_EXEC_COMPLETED (probably Monitor class)
             # TODO: something must transition OUTPUT_EXEC_RUNNING Jobs to OUTPUT_EXEC_COMPLETED (probably Monitor class)
@@ -673,7 +683,6 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
             organized_lists = self._organize_active_jobs(active_jobs)
             jobs_eligible_for_allocate = organized_lists[0]
             jobs_to_release_resources = organized_lists[1]
-            jobs_completed_phase = organized_lists[2]
 
             for job_with_allocations_to_release in jobs_to_release_resources:
                 result = self.release_allocations(job_with_allocations_to_release.job_id)
@@ -681,13 +690,14 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
                     logging.error(f"Failure deallocating {job_with_allocations_to_release.job_id} due to "
                                   f"'{result.reason}' (message was: `{result.message}`)")
 
-            for job_transitioning_phases in jobs_completed_phase:
-                # TODO: figure out what to do here; e.g., start output service after model_exec is done
-                pass
+            # TODO: figure out what to do here; e.g., start output service after model_exec is done
+            #jobs_completed_phase = organized_lists[2]
+            #for job_transitioning_phases in jobs_completed_phase:
 
             # Build prioritized list/queue of allocation eligible Jobs
             priority_queues = self.build_prioritized_pending_allocation_queues(jobs_eligible_for_allocate)
             high_priority_queue = priority_queues['high']
+
             # Do this here to get size in case queue is altered below
             initial_high_priority_queue_size = len(high_priority_queue)
             low_priority_queue = priority_queues['low']
@@ -695,6 +705,7 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
 
             # Request allocations and get collection of jobs that were allocated, starting first with high priorities
             allocated_successfully = self._request_allocations_for_queue(high_priority_queue)
+
             # Only even process others if any and all high priority jobs get allocated
             if len(allocated_successfully) == initial_high_priority_queue_size:
                 allocated_successfully.extend(self._request_allocations_for_queue(med_priority_queue))
@@ -702,14 +713,22 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
 
             # TODO: have data management service handle the AWAITING_DATA step so it can transition to the AWAITING_SCHEDULING step
 
+            jobs_awaiting_scheduling = (
+                job
+                for job in active_jobs
+                if job.status_step == JobExecStep.AWAITING_SCHEDULING
+            )
+
             # For each Job that is at the AWAITING_SCHEDULING, save updated state and pass to scheduler
-            for job in [j for j in active_jobs if j.status_step == JobExecStep.AWAITING_SCHEDULING]:
+            for job in jobs_awaiting_scheduling:
                 scheduling_result: Tuple[bool, tuple] = self.request_scheduling(job)
                 if scheduling_result[0]:
                     job.status_step = JobExecStep.SCHEDULED
                 else:
                     job.status_step = JobExecStep.FAILED
-                    # TODO: probably log something about this, or raise exception
+
+                    # TODO: Consider raising an exception instead
+                    logging.error(f"The job '{job}' failed")
                 self.save_job(job)
 
             self.unlock_active_jobs(lock_id)
