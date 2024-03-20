@@ -505,7 +505,7 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
         self.save_job(job_obj)
         return job_obj
 
-    def delete_job(self, job_id, max_attempt_count: int = None) -> bool:
+    def delete_job(self, job_id, max_attempt_count: int = 5) -> bool:
         """
         Delete the job record for the job with the given id value.
 
