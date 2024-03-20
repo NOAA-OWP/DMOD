@@ -20,10 +20,10 @@ if TYPE_CHECKING:
     from .job import Job
 
 
-class DockerServiceParameters():
-    def __init__(self, image_tag: str = None, constraints: list = [], user: Optional[str] = None, hostname: str = None,
-                 labels: dict = {}, serv_name: str = None, mounts: list = [], env_vars: Optional[Dict[str, str]] = None,
-                 secrets: List[SecretReference] = [], cap_add: Optional[List[str]] = None):
+class DockerServiceParameters:
+    def __init__(self, image_tag: str = None, constraints: list = None, user: Optional[str] = None, hostname: str = None,
+                 labels: dict = None, serv_name: str = None, mounts: list = None, env_vars: Optional[Dict[str, str]] = None,
+                 secrets: List[SecretReference] = None, cap_add: Optional[List[str]] = None):
         """
         Parameters
         ----------
@@ -50,12 +50,12 @@ class DockerServiceParameters():
             client.services.create()
         """
         self.image_tag = image_tag
-        self.constraints = constraints
+        self.constraints = constraints or []
         self.hostname = hostname
-        self.labels = labels
+        self.labels = labels or {}
         self.serv_name = serv_name
-        self.mounts = mounts
-        self.secrets = secrets
+        self.mounts = mounts or []
+        self.secrets = secrets or []
         self.env_var_map = env_vars
         self.user = user
         self.capabilities_to_add = cap_add
@@ -72,7 +72,7 @@ class DockerServiceParameters():
         List[str]
             List of environment variables from ::attribute:`env_var_map` property, in the format ``KEY=value``.
         """
-        return ["{}={}".format(key, self.env_var_map[key]) for key in self.env_var_map]
+        return [f"{key}={self.env_var_map[key]}" for key in self.env_var_map]
 
 
 class SimpleDockerUtil:
@@ -101,8 +101,8 @@ class SimpleDockerUtil:
         try:
             # Check docker client state
             docker.from_env().ping()
-        except:
-            raise ConnectionError("Please check that the Docker Daemon is installed and running.")
+        except BaseException as exception:
+            raise ConnectionError("Please check that the Docker Daemon is installed and running.") from exception
 
     def get_secret_reference(self, secret_name: str):
         """
@@ -139,7 +139,9 @@ class SimpleDockerUtil:
 
 
 class Launcher(SimpleDockerUtil):
-
+    """
+    TODO: Add class docstring for Launcher
+    """
     def __init__(self, images_and_domains_yaml, docker_client=None, api_client=None, **kwargs):
         """ FIXME
         Parameters
@@ -160,8 +162,12 @@ class Launcher(SimpleDockerUtil):
         #FIXME parameterize network
         self.networks = ["mpi-net"]
 
-    def create_service(self, serviceParams: DockerServiceParameters, idx: int, docker_cmd_args: List[str]) \
-        -> DockerService:
+    def create_service(
+            self,
+            serviceParams: DockerServiceParameters,
+            idx: int,
+            docker_cmd_args: List[str]
+        ) -> DockerService:
         """
         Create new service with Healthcheck, host, and other info
 
@@ -181,7 +187,7 @@ class Launcher(SimpleDockerUtil):
         """
         # docker api
         client = self.docker_client
-        api_client = self.api_client
+        
         # service parameters
         networks = self.networks
         image = serviceParams.image_tag
@@ -246,24 +252,28 @@ class Launcher(SimpleDockerUtil):
         #TODO how important is it to inspect/log from the same api/client as launcher is using?
         api_client = docker.APIClient()
         client = docker.from_env()
+
         from inspect import stack
+
         inspect = api_client.inspect_service(id, insert_defaults=True)
         logging.info("Output from log_service in {}:".format(stack()[1].function))
-        # pp(inspect)
         logging.info("CreatedAt = {}".format(list(pn.find('CreatedAt', inspect))[0]))
+
         Labels = list(pn.find('Labels', inspect))[0]
         Labels = Labels['com.docker.stack.image']
         (_, Labels) = Labels.split('/')
         (_, HostNode) = ((list(pn.find('Constraints', inspect))[0])[0]).split('==')
         logging.info("HostNode = {}".format(HostNode))
         logging.info("\n")
+
         # test out some service functions
         serv_list = client.services.list(filters={'name':base_name})[0]
         service_id = serv_list.id
         logging.info("service_id: {}".format(service_id))
+
         service_name = serv_list.name
         logging.info("service_name: {}".format(service_name))
-        service_attrs = serv_list.attrs
+        
         # pp(service_attrs)
         logging.info("\n")
         api_client.close()
@@ -345,6 +355,8 @@ class Launcher(SimpleDockerUtil):
             msg = "Attempting to start {} job {} with more than allowed max of {} required {} datasets."
             raise RuntimeError(msg.format(job.model_request.__class__.__name__, job.job_id, max_count, category))
         elif None in dataset_names is None:
+            # TODO: `None in dataset_names is None` is barely valid and is a falsism - if `dataset_names` 
+            #   inplements `__contains__` the result of the `in` operation will either be True or False, never `None`
             msg = "Attempting to start {} job {} with unfulfilled {} data requirement."
             raise RuntimeError(msg.format(job.model_request.__class__.__name__, job.job_id, category))
         # If things look good, return the set of names we found after converting to a list
@@ -381,14 +393,14 @@ class Launcher(SimpleDockerUtil):
         # TODO (later): handle non-model-exec jobs in the future
         valid_event_types = {MessageEventType.MODEL_EXEC_REQUEST, MessageEventType.CALIBRATION_REQUEST}
         if job.model_request.event_type not in valid_event_types:
-            raise RuntimeError("Unsupported requested job event type {}; cannot generate Docker CMD arg values".format(
-                job.model_request.get_message_event_type()))
+            raise RuntimeError(
+                f"Unsupported requested job event type {job.model_request.get_message_event_type()}; cannot generate Docker CMD arg values"
+            )
 
         # TODO (later): have something more intelligent than class type to determine right entrypoint format and
         #  values, but for now assume/require a "standard" image
         if not (isinstance(job.model_request, NWMRequest) or isinstance(job.model_request, AbstractNgenRequest)):
-            raise RuntimeError("Unexpected request type {}: cannot build Docker CMD arg list".format(
-                job.model_request.__class__.__name__))
+            raise RuntimeError(f"Unexpected request type {job.model_request.__class__.__name__}: cannot build Docker CMD arg list")
 
         # For now at least, all image args sets will have these (i.e, node count, host string, and job id)
         docker_cmd_arg_map = {"--node-count": str(len(job.allocations)), "--host-string": self.build_host_list(job),
@@ -399,9 +411,10 @@ class Launcher(SimpleDockerUtil):
 
         # Finally, convert the args map to a list, with each "flag"/key immediately preceding its value
         args_as_list = []
-        for flag_key, param_val in docker_cmd_arg_map.values():
+        for flag_key, param_val in docker_cmd_arg_map.items():
             args_as_list.append(flag_key)
             args_as_list.append(param_val)
+
         return args_as_list
 
     def _generate_nextgen_job_docker_cmd_args(self, job: 'Job', worker_index: int) -> Dict[str, str]:
@@ -481,8 +494,9 @@ class Launcher(SimpleDockerUtil):
             if requirement.fulfilled_by is None:
                 msg = "Can't get object store arg strings and start job {} with unfulfilled data requirements"
                 raise RuntimeError(msg.format(str(job.job_id)))
+            
             if self._is_object_store_dataset(dataset_name=requirement.fulfilled_by):
-                name_list.append('{}:{}'.format(requirement.category.name.lower(), requirement.fulfilled_by))
+                name_list.append(f'{requirement.category.name.lower()}:{requirement.fulfilled_by}')
         return name_list
 
     def _is_object_store_dataset(self, dataset_name: str):
@@ -559,20 +573,24 @@ class Launcher(SimpleDockerUtil):
 
         try:
             model = yml_obj[name]
-        except KeyError:
-            raise(KeyError("image_and_domain.yaml has no model key {}".format(name)))
+        except KeyError as key_error:
+            raise KeyError(f"image_and_domain.yaml has no model key {name}") from key_error
+                  
         try:
             domain = model['domains'][domain]
-        except KeyError:
-            raise(KeyError("image_and_domain.yaml has no domain key {} for model {}".format(domain, name)))
+        except KeyError as key_error:
+            raise KeyError(f"image_and_domain.yaml has no domain key {domain} for model {name}") from key_error
+        
         try:
             run_dir = domain['run']
-        except KeyError:
-            raise(KeyError("image_and_domain.yaml has no 'run' key for domain {}, model {}".format(domain, name)))
+        except KeyError as key_error:
+            raise KeyError(f"image_and_domain.yaml has no 'run' key for domain {domain}, model {name}") from key_error
+        
         try:
             local_dir = domain['local']
-        except KeyError:
-            raise(KeyError("image_and_domain.yaml has no 'local' key for domain {}, model {}".format(domain, name)))
+        except KeyError as key_error:
+            raise KeyError(f"image_and_domain.yaml has no 'local' key for domain {domain}, model {name}") from key_error
+        
         try:
             # Keys in model['version'] may not be strings, but the version parameter will be, so convert
             version_key = None
@@ -581,25 +599,28 @@ class Launcher(SimpleDockerUtil):
                     version_key = v_key_literal
                     break
             image = model['version'][version_key]
-        except KeyError:
-            raise(KeyError("image_and_domain.yaml has no version key {}".format(version)))
+        except KeyError as key_error:
+            raise KeyError(f"image_and_domain.yaml has no version key {version}") from key_error
+        
         try:
             output = model['output']
-        except KeyError:
-            raise(KeyError("image_and_domain.yaml has no 'output' key for model {}".format(name)))
+        except KeyError as key_error:
+            raise KeyError(f"image_and_domain.yaml has no 'output' key for model {name}") from key_error
+        
         try:
             output_local = output['local']
-        except KeyError:
-            raise(KeyError("image_and_domain.yaml has no `local` key for output, model {}".format(name)))
+        except KeyError as key_error:
+            raise KeyError(f"image_and_domain.yaml has no `local` key for output, model {name}") from key_error
+        
         try:
             output_run = output['run']
-        except KeyError:
-            raise(KeyError("image_and_domain.yaml has no `run` key for output, model {}".format(name)))
+        except KeyError as key_error:
+            raise KeyError(f"image_and_domain.yaml has no `run` key for output, model {name}") from key_error
 
         #Configure local volume mounts based on domain and model lookup
 
-        input_mount = "{}:{}:rw".format(local_dir, run_dir)
-        output_mount = "{}:{}:rw".format(output_local, output_run)
+        input_mount = f"{local_dir}:{run_dir}:rw"
+        output_mount = f"{output_local}:{output_run}:rw"
 
         return image, [input_mount, output_mount]
 
@@ -653,8 +674,8 @@ class Launcher(SimpleDockerUtil):
         """
         model = job.model_request.get_model_name()
 
-        if len([a for a in job.allocations if a.cpu_count <= 0]):
-            msg = "Cannot start job {}; found allocation without positive CPU count"
+        if not any(a for a in job.allocations if a.cpu_count <= 0):
+            msg = f"Cannot start job {job}; found allocation without positive CPU count"
             logging.error(msg)
             return False, tuple(msg)
 
@@ -683,7 +704,7 @@ class Launcher(SimpleDockerUtil):
 
         for alloc_index in range(num_allocations):
             alloc = job.allocations[alloc_index]
-            constraints_str = "node.hostname == {}".format(alloc.hostname)
+            constraints_str = f"node.hostname == {alloc.hostname}"
             constraints = list(constraints_str.split("/"))
 
             pattern = '{}:/dmod/datasets/{}/{}:rw'
@@ -693,9 +714,10 @@ class Launcher(SimpleDockerUtil):
             # Introduce a way to inject data access directly via env config, to potentially bypass things for testing
             bind_mount_from_env = getenv('DMOD_JOB_WORKER_HOST_MOUNT')
             if bind_mount_from_env is not None:
-                mounts.append('{}:/dmod/datasets/from_env:rw'.format(bind_mount_from_env))
+                mounts.append(f'{bind_mount_from_env}:/dmod/datasets/from_env:rw')
 
-            logging.info("Hostname: {}".format(alloc.hostname))
+            logging.info(f"Hostname: {alloc.hostname}")
+
             #FIXME important that all label values are strings, otherwise docker service create hangs
             labels_tmp = {"Hostname": alloc.hostname, "cpus_alloc": str(alloc.cpu_count)}
             labels.update(labels_tmp)
@@ -706,14 +728,17 @@ class Launcher(SimpleDockerUtil):
             service_params = DockerServiceParameters(image_tag=image_tag, constraints=constraints, labels=labels,
                                                      hostname=job.allocation_service_names[alloc_index],
                                                      serv_name=serv_name, mounts=mounts, secrets=secrets)
+            
             if model == 'ngen':
                 # For ngen jobs (at least for the moment), the container initially needs root as the user for sshd
                 service_params.user = 'root'
                 # Also adding this for ngen
                 service_params.capabilities_to_add = ['SYS_ADMIN']
+
             #TODO check for proper service creation, return False if doesn't work
             service = self.create_service(serviceParams=service_params, idx=alloc_index,
                                           docker_cmd_args=self._generate_docker_cmd_args(job, alloc_index))
+            
             service_per_allocation.append(service)
 
         logging.info("\n")
