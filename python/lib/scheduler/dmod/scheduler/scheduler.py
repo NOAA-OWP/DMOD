@@ -674,10 +674,18 @@ class Launcher(SimpleDockerUtil):
         """
         model = job.model_request.get_model_name()
 
-        if not any(a for a in job.allocations if a.cpu_count <= 0):
-            msg = f"Cannot start job {job}; found allocation without positive CPU count"
-            logging.error(msg)
-            return False, tuple(msg)
+        # All allocated nodes must have at least 1 cpu. Find all that don't, report them, and mark this as a failure
+        underallocated_nodes = [
+            allocation
+            for allocation in job.allocations
+            if not allocation.cpu_count > 0
+        ]
+
+        if underallocated_nodes:
+            node_descriptions = ", ".join(f"Node {node.node_id}: {node.cpu_count} CPUs" for node in underallocated_nodes)
+            message = f"Cannot start job {job}; all allocations must have at least one core but the following didn't: {node_descriptions}"
+            logging.error(message)
+            return False, (message,)
 
         image_tag = self.determine_image_for_job(job)
 
