@@ -77,7 +77,8 @@ class TestEventFunctionGroup(unittest.IsolatedAsyncioTestCase):
         return ASYNC_METHOD_RESULT
 
     async def test_eventfunctiongroup(self):
-        self.assertRaises(
+        with self.assertRaises(ValueError):
+          EventFunctionGroup(EXPECTED_PARAMETERS, self.async_method, invalid_function, self.invalid_method)
             ValueError,
             EventFunctionGroup,
             EXPECTED_PARAMETERS,
