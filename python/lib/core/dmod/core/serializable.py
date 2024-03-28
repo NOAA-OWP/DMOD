@@ -366,6 +366,17 @@ class ResultIndicator(Serializable, ABC):
     reason: str = Field(description="A very short, high-level summary of the result.")
     message: str = Field("", description="An optional, more detailed explanation of the result, which by default is an empty string.")
 
+    def __bool__(self) -> bool:
+        """
+        Implementation of truth value testing for instances, which directly depends on the value of ``success``.
+
+        Returns
+        -------
+        bool
+            The current value of the instance's ::attribute:`success` attribute.
+        """
+        return self.success
+
 
 class BasicResultIndicator(ResultIndicator):
     """
