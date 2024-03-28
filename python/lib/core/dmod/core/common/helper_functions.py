@@ -221,7 +221,7 @@ def get_primitive_sequence_type(sequence: typing.Sequence) -> typing.Optional[ty
 
 def get_primitive_value_type(value) -> typing.Optional[type]:
     """
-    Get the practical type a value if it can be mapped to a primitive
+    Get the python primitive analog type for a value if it exists.
 
     A numpy integer does not inherit from an int, but it IS an int for all intents and purposes. Anywhere an int is
     used, a numpy integer can be used and they are almost interchangeable. As a result, a numpy may as well be an int,
