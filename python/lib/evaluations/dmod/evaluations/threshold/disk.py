@@ -1,4 +1,7 @@
-#!/usr/bin/env python3
+"""
+Defines threshold retrievers for formats that generally originate from disk
+"""
+import abc
 import io
 import typing
 import os
@@ -6,6 +9,7 @@ import re
 import inspect
 
 import pandas
+# TODO: Use jmespath instead
 import jsonpath_ng as jsonpath
 
 from jsonpath_ng.ext import parse as create_expression
@@ -15,11 +19,10 @@ from .. import util
 from .. import retrieval
 
 
-def get_datasource(threshold_specification: specification.ThresholdSpecification) -> retrieval.Retriever:
-    return __FORMAT_MAPPING[threshold_specification.backend.format](threshold_specification)
-
-
-class JSONThresholdRetriever(retrieval.Retriever):
+class ThresholdRetriever(retrieval.Retriever[specification.ThresholdSpecification], abc.ABC):
+    """
+    A retriever that loads threshold data
+    """
     @classmethod
     def get_purpose(cls) -> str:
         """
@@ -28,21 +31,35 @@ class JSONThresholdRetriever(retrieval.Retriever):
         """
         return "thresholds"
 
+
+class JSONThresholdRetriever(ThresholdRetriever):
+    """
+    Retriever that loads thresholds from a json document
+    """
     @classmethod
     def get_format(cls) -> str:
+        """
+        The format that this retriever reads
+        """
         return 'json'
 
-    @property
-    def definition(self) -> specification.ThresholdSpecification:
-        return self._definition
-
     def retrieve(self, *args, **kwargs) -> pandas.DataFrame:
+        """
+        Loads thresholds from a json document
+
+        Args:
+            *args:
+            **kwargs:
+
+        Returns:
+            A dataframe containing the loaded thresholds
+        """
         documents = {
             source: util.data_to_dictionary(self.backend.read(source))
             for source in self.backend.sources
         }
 
-        frames = dict()
+        frames = {}
 
         search_path = ".".join(self.definition.origin)
         base_expression = create_expression(search_path)
@@ -50,13 +67,14 @@ class JSONThresholdRetriever(retrieval.Retriever):
         location_key = self.definition.locations.pattern[-1]
 
         values = {
-            "value": list(),
-            "name": list(),
-            "weight": list(),
-            "unit": list(),
-            location_key: list()
+            "value": [],
+            "name": [],
+            "weight": [],
+            "unit": [],
+            location_key: []
         }
 
+        # TODO: See if this loop can be extracted into its own function
         for document_name, document in documents.items():  # type: str, dict
             base = base_expression.find(document)
 
@@ -73,6 +91,7 @@ class JSONThresholdRetriever(retrieval.Retriever):
                 if not location_name:
                     location_name = os.path.splitext(os.path.basename(document_name))[0]
 
+            # TODO: See if this loop can be extracted into its own funciton
             for branch_entry in base:  # type: jsonpath.DatumInContext
                 branch = str(branch_entry.full_path)
                 for threshold in self.definition.definitions:  # type: specification.ThresholdDefinition
@@ -111,24 +130,12 @@ class JSONThresholdRetriever(retrieval.Retriever):
 
             frames[document_name] = frame
 
-        combined_frame = pandas.concat([frame for frame in frames.values()])
+        combined_frame = pandas.concat(list(frames.values()))
 
         return combined_frame
 
 
-class FrameThresholdRetriever(retrieval.Retriever):
-    @classmethod
-    def get_purpose(cls) -> str:
-        """
-        Returns:
-            What type of data this retriever is supposed to get
-        """
-        return "thresholds"
-
-    @property
-    def definition(self) -> specification.ThresholdSpecification:
-        return self._definition
-
+class CSVThresholdRetriever(ThresholdRetriever):
     @classmethod
     def get_format(cls) -> str:
         return "csv"
@@ -149,7 +156,7 @@ class FrameThresholdRetriever(retrieval.Retriever):
 
         if self.definition.locations.from_field == 'column':
             if 'dtype' not in provided_parameters:
-                provided_parameters['dtype'] = dict()
+                provided_parameters['dtype'] = {}
 
             provided_parameters['dtype'][self.definition.locations.pattern[-1]] = str
 
@@ -248,7 +255,7 @@ class FrameThresholdRetriever(retrieval.Retriever):
         return combined_table
 
 
-class RDBThresholdRetriever(FrameThresholdRetriever):
+class RDBThresholdRetriever(CSVThresholdRetriever):
     @classmethod
     def get_format(cls) -> str:
         return "rdb"
@@ -266,10 +273,8 @@ class RDBThresholdRetriever(FrameThresholdRetriever):
             float if column_type[-1] == 'n' else str
             for column_type in column_types
         ]
-        dtype = {
-            column_name: column_type
-            for column_name, column_type in zip(column_names, column_types)
-        }
+        dtype = dict(zip(column_names, column_types))
+
         threshold_buffer = io.StringIO()
         threshold_buffer.writelines(lines)
         threshold_buffer.seek(0)
@@ -308,10 +313,3 @@ class RDBThresholdRetriever(FrameThresholdRetriever):
                 frame[threshold_name] = frame[threshold_name].astype(float)
 
         return frame
-
-
-__FORMAT_MAPPING: typing.Dict[str, typing.Type[retrieval.Retriever]] = {
-    "json": JSONThresholdRetriever,
-    "csv": FrameThresholdRetriever,
-    'rdb': RDBThresholdRetriever
-}

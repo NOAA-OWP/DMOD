@@ -15,13 +15,12 @@ from deprecated import deprecated
 
 import pandas
 
-import dmod.core.common as common
+from dmod.core import common
+from dmod.core.common.collections import catalog
 
 from . import backend
 from .. import util
 from .. import specification
-
-util.configure_logging()
 
 
 RE_PATTERN = re.compile(r"(\{.+\}|\[.+\]|\(.+\)|(?<!\\)\.|\{|\}|\]|\[|\(|\)|\+|\*|\\[a-zA-Z]|\?)+")
@@ -34,8 +33,8 @@ class FileBackend(backend.Backend):
     def get_backend_type(cls) -> str:
         return "file"
 
-    def __init__(self, definition: specification.BackendSpecification, cache_limit: int = None):
-        super().__init__(definition, cache_limit)
+    def __init__(self, definition: specification.BackendSpecification, input_catalog: catalog.InputCatalog):
+        super().__init__(definition, cache=input_catalog)
         self._sources = util.get_matching_paths(self.address)
 
     def read(self, identifier: str, store_data: bool = None) -> bytes:
@@ -52,9 +51,8 @@ class FileBackend(backend.Backend):
         if identifier not in self._sources:
             raise ValueError(f"'{identifier}' is not available within this backend")
 
-        if identifier in self._raw_data:
-            self._update_access_time(identifier)
-            return self._raw_data[identifier][1]
+        if identifier in self.cache:
+            return self.cache[identifier]
 
         with open(identifier, 'rb') as data_file:
             byte_data = data_file.read()
@@ -79,9 +77,8 @@ class FileBackend(backend.Backend):
         if identifier not in self._sources:
             raise ValueError(f"'{identifier}' is not available within this backend")
 
-        if identifier in self._raw_data:
-            raw_data = self._raw_data[identifier][1]
-            self._update_access_time(identifier)
+        if identifier in self.cache:
+            raw_data = self.cache[identifier]
         else:
             with open(identifier, 'rb') as data_file:
                 raw_data = data_file.read()

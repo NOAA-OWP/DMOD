@@ -1,7 +1,9 @@
+import typing
 from enum import Enum
 from pprint import pformat
 
 from typing import Any, Dict, Union
+
 
 # inspiration from https://github.com/pydantic/pydantic/issues/598
 class PydanticEnum(Enum):

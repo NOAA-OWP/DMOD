@@ -7,13 +7,10 @@ import io
 
 import requests
 
-import dmod.core.common as common
+from dmod.core import common
 
 from . import backend
-from .. import util
 from .. import specification
-
-util.configure_logging()
 
 
 class RESTBackend(backend.Backend):
@@ -105,9 +102,8 @@ class RESTBackend(backend.Backend):
         Returns:
             Raw byte data from the request
         """
-        if identifier in self._raw_data:
-            self._update_access_time(identifier)
-            return self._raw_data[identifier][1]
+        if identifier in self.cache:
+            return self.cache[identifier]
 
         request_arguments = dict(
             url=self.request_url,

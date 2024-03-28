@@ -1,15 +1,24 @@
 import abc
+import typing
 
 import pandas
+
+from dmod.core.common.collections import catalog
 
 from . import specification
 from . import backends
 
 
-class Retriever(abc.ABC):
-    def __init__(self, definition):
+LoaderTypeT = typing.TypeVar('LoaderTypeT', bound=specification.LoaderSpecification, covariant=True)
+
+
+class Retriever(abc.ABC, typing.Generic[LoaderTypeT]):
+    """
+    Base for classes used to interpret a definition and use a backend to load data
+    """
+    def __init__(self, definition: LoaderTypeT, input_catalog: catalog.InputCatalog):
         self._definition = definition
-        self._backend = backends.get_backend(definition.backend)
+        self._backend = backends.get_backend(definition.backend, input_catalog=input_catalog)
 
     @classmethod
     @abc.abstractmethod
@@ -18,16 +27,14 @@ class Retriever(abc.ABC):
         Returns:
             What type of data this retriever is supposed to get
         """
-        ...
 
     @property
-    @abc.abstractmethod
-    def definition(self):
+    def definition(self) -> LoaderTypeT:
         """
         Returns:
             The specification for this retriever
         """
-        ...
+        return self._definition
 
     @property
     def backend(self) -> backends.Backend:
@@ -45,7 +52,6 @@ class Retriever(abc.ABC):
         Returns:
             A dataframe containing all configured information
         """
-        ...
 
     @classmethod
     @abc.abstractmethod
@@ -54,5 +60,3 @@ class Retriever(abc.ABC):
         Returns:
             The name of the format that this retriever retrieves
         """
-        ...
-

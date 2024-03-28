@@ -2,6 +2,8 @@ import typing
 import os.path
 import unittest
 
+from dmod.core.common.collections import catalog
+
 from ...evaluations import crosswalk
 from ...evaluations import specification
 
@@ -60,7 +62,7 @@ class TestFileCrosswalk(unittest.TestCase):
             test.assertFalse(search_results.empty)
 
     def test_inferred_json_crosswalk(self):
-        retriever = crosswalk.get_crosswalk(self.json_specification)
+        retriever = crosswalk.get_crosswalk(self.json_specification, catalog.InputCatalog())
         self.make_assertions(
                 self,
                 retriever,
@@ -81,7 +83,7 @@ class TestFileCrosswalk(unittest.TestCase):
         )
 
     def test_explicit_json_crosswalk(self):
-        retriever = crosswalk.disk.JSONCrosswalkRetriever(self.json_specification)
+        retriever = crosswalk.disk.JSONCrosswalkRetriever(self.json_specification, catalog.InputCatalog())
         self.make_assertions(
                 self,
                 retriever,

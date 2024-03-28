@@ -35,13 +35,11 @@ class MetricSpecification(TemplatedSpecification):
     """
     The definition for what metric should be used and how important it should be
     """
-    weight: typing.Union[float] = Field(description="A relative rating of the significance of this metric")
     name: typing.Literal[metrics.metric.get_all_metrics()] = Field
     weight: typing.Union[float, None] = Field(
         default=1,
         description="A relative rating of the significance of this metric"
     )
-    name: METRIC_NAME = Field(description="The name of the metric to use")
 
     def __eq__(self, other: MetricSpecification) -> bool:
         if not super().__eq__(other):

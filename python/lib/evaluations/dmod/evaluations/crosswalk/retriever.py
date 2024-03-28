@@ -1,7 +1,7 @@
 import typing
 import abc
 
-import pandas
+from dmod.core.common.collections import catalog
 
 from .. import specification
 from .. import backends
@@ -27,8 +27,8 @@ class CrosswalkRetriever(retrieval.Retriever, abc.ABC):
     def get_type(cls) -> str:
         ...
 
-    def __init__(self, definition: specification.CrosswalkSpecification):
-        super().__init__(definition)
+    def __init__(self, definition: specification.CrosswalkSpecification, input_catalog: catalog.InputCatalog):
+        super().__init__(definition, input_catalog=input_catalog)
 
     @property
     def definition(self) -> specification.CrosswalkSpecification:

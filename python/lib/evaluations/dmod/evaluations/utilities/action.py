@@ -17,7 +17,7 @@ Consider:
     >>> class ExampleConditions(ActionConditions):
     >>>     @classmethod
     >>>     def from_values(cls, data, *args, **kwargs):
-    >>>         return cls(data.get("a") == 5, data.get("c") == 12)
+    >>>         return cls(data.get("a",) == 5, data.get("c",) == 12)
     >>>     def __init__(self, a_is_5: bool = False, c_is_12: bool = False):
     >>>         self.a_is_5 = a_is_5
     >>>         self.c_is_12 = c_is_12

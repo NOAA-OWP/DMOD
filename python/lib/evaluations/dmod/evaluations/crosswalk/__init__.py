@@ -1,26 +1,28 @@
-#!/usr/bin/env python3
 import os
 
 
 __all__ = [
     os.path.splitext(package_file)[0]
     for package_file in os.listdir(os.path.dirname(__file__))
-    if package_file != "__init__.py"
-       and package_file != 'retriever.py'
+    if package_file not in ("__init__.py", 'retriever.py')
 ]
-
-from . import *
 
 import pandas
 
 import dmod.core.common as common
+from dmod.core.common.collections import catalog
 
 from .. import specification
+
+from . import *
 
 from .retriever import CrosswalkRetriever
 
 
-def get_crosswalk(definition: specification.CrosswalkSpecification) -> CrosswalkRetriever:
+def get_crosswalk(
+    definition: specification.CrosswalkSpecification,
+    input_catalog: catalog.InputCatalog
+) -> CrosswalkRetriever:
     possible_crosswalks = [
         cls for cls in common.get_subclasses(CrosswalkRetriever)
         if cls.get_type().lower() == definition.backend.backend_type.lower()
@@ -33,9 +35,9 @@ def get_crosswalk(definition: specification.CrosswalkSpecification) -> Crosswalk
                 f"supported type of crosswalk source."
         )
 
-    return possible_crosswalks[0](definition)
+    return possible_crosswalks[0](definition, input_catalog=input_catalog)
 
 
-def get_data(definition: specification.CrosswalkSpecification) -> pandas.DataFrame:
-    crosswalk_retriever = get_crosswalk(definition)
+def get_data(definition: specification.CrosswalkSpecification, input_catalog: catalog.InputCatalog) -> pandas.DataFrame:
+    crosswalk_retriever = get_crosswalk(definition, input_catalog=input_catalog)
     return crosswalk_retriever.retrieve()
