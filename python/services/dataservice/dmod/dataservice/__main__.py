@@ -23,7 +23,7 @@ from .service import (
     DataProvisionManager,
     RequiredDataChecksManager,
     ServiceManager,
-    TempDatasetsManager,
+    TempDataTaskManager,
     DockerS3FSPluginHelper,
 )
 from .service_settings import ServiceSettings
@@ -103,16 +103,16 @@ def main():
     required_data_checks_manager = RequiredDataChecksManager(
         job_util=job_util,
         dataset_manager_collection=dataset_manager_collection,
-        tracker=count,
+        checks_underway_tracker=count,
         dataset_inquery_util=dataset_inquery_util,
     )
     data_provision_manager = DataProvisionManager(job_util=job_util,
                                                   dataset_manager_collection=dataset_manager_collection,
                                                   docker_s3fs_helper=docker_s3fs_plugin_helper,
                                                   data_derive_util=data_derive_util,
-                                                  tracker=count,
+                                                  provision_underway_tracker=count,
                                                   )
-    temp_datasets_manager = TempDatasetsManager(dataset_manager_collection=dataset_manager_collection, tracker=count)
+    temp_datasets_manager = TempDataTaskManager(dataset_manager_collection=dataset_manager_collection, safe_to_exec_tracker=count)
 
     # Handles websocket communication and async task loop
     service_manager = ServiceManager(

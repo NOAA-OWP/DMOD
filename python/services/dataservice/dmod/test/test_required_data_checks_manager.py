@@ -120,7 +120,7 @@ class TestRequiredDataChecksManager(unittest.TestCase):
         self.manager = RequiredDataChecksManager(
             job_util=None,
             dataset_manager_collection=dataset_manager_collection,
-            tracker=ActiveOperationTracker(),
+            checks_underway_tracker=ActiveOperationTracker(),
             dataset_inquery_util=dataset_inquery_util,
         )
 
