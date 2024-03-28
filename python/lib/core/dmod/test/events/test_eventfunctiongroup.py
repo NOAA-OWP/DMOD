@@ -54,11 +54,11 @@ EXPECTED_PARAMETERS: typing.Sequence[EventFunctionParameter] = [
 ]
 
 
-async def async_test_function(event: Event, arg1: int, arg2: int = 9, *args, **kwargs):
+async def async_example_function(event: Event, arg1: int, arg2: int = 9, *args, **kwargs):
     return ASYNC_TEST_FUNCTION_RESULT
 
 
-def test_function(event: Event, arg1: int, arg2: int = 9, *args, **kwargs):
+def example_function(event: Event, arg1: int, arg2: int = 9, *args, **kwargs):
     return TEST_FUNCTION_RESULT
 
 
@@ -78,29 +78,27 @@ class TestEventFunctionGroup(unittest.IsolatedAsyncioTestCase):
 
     async def test_eventfunctiongroup(self):
         with self.assertRaises(ValueError):
-          EventFunctionGroup(EXPECTED_PARAMETERS, self.async_method, invalid_function, self.invalid_method)
-            ValueError,
-            EventFunctionGroup,
-            EXPECTED_PARAMETERS,
-            self.async_method,
-            invalid_function,
-            self.invalid_method
-        )
+            EventFunctionGroup(
+                EXPECTED_PARAMETERS,
+                self.async_method,
+                invalid_function,
+                self.invalid_method
+            )
 
         predefined_group = EventFunctionGroup(
             EXPECTED_PARAMETERS,
             self.async_method,
             self.method,
-            async_test_function,
-            test_function
+            async_example_function,
+            example_function
         )
 
         self.assertFalse(predefined_group.signature_matches(self.invalid_method))
         self.assertFalse(predefined_group.signature_matches(self.invalid_method))
         self.assertTrue(predefined_group.signature_matches(self.method))
         self.assertTrue(predefined_group.signature_matches(self.async_method))
-        self.assertTrue(predefined_group.signature_matches(async_test_function))
-        self.assertTrue(predefined_group.signature_matches(test_function))
+        self.assertTrue(predefined_group.signature_matches(async_example_function))
+        self.assertTrue(predefined_group.signature_matches(example_function))
 
         built_group = EventFunctionGroup(EXPECTED_PARAMETERS)
 
@@ -108,8 +106,8 @@ class TestEventFunctionGroup(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(built_group.signature_matches(self.invalid_method))
         self.assertTrue(built_group.signature_matches(self.method))
         self.assertTrue(built_group.signature_matches(self.async_method))
-        self.assertTrue(built_group.signature_matches(async_test_function))
-        self.assertTrue(built_group.signature_matches(test_function))
+        self.assertTrue(built_group.signature_matches(async_example_function))
+        self.assertTrue(built_group.signature_matches(example_function))
 
         invalid_functions = list()
 
@@ -119,10 +117,10 @@ class TestEventFunctionGroup(unittest.IsolatedAsyncioTestCase):
         built_group.add_function(self.method, invalid_functions)
         self.assertEqual(len(invalid_functions), 0)
 
-        built_group.add_function(async_test_function, invalid_functions)
+        built_group.add_function(async_example_function, invalid_functions)
         self.assertEqual(len(invalid_functions), 0)
 
-        built_group.add_function(test_function, invalid_functions)
+        built_group.add_function(example_function, invalid_functions)
         self.assertEqual(len(invalid_functions), 0)
 
         built_group.add_function(invalid_function, invalid_functions)

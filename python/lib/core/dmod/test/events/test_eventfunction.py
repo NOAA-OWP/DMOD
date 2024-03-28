@@ -22,11 +22,11 @@ ASYNC_METHOD_RESULT = 8
 METHOD_RESULT = 2
 
 
-async def async_test_function(event: Event, arg1: int, arg2: int, *args, **kwargs):
+async def async_example_function(event: Event, arg1: int, arg2: int, *args, **kwargs):
     return ASYNC_TEST_FUNCTION_RESULT
 
 
-def test_function(event: Event, arg1: int, arg2: int, *args, **kwargs):
+def example_function(event: Event, arg1: int, arg2: int, *args, **kwargs):
     return TEST_FUNCTION_RESULT
 
 
@@ -38,8 +38,8 @@ class TestEventFunction(unittest.IsolatedAsyncioTestCase):
         return METHOD_RESULT
 
     async def test_eventfunction(self):
-        async_test_eventfunction = EventFunction(async_test_function)
-        test_eventfunction = EventFunction(test_function)
+        async_test_eventfunction = EventFunction(async_example_function)
+        test_eventfunction = EventFunction(example_function)
         async_method_eventfunction = EventFunction(self.async_method)
         method_eventfunction = EventFunction(self.method)
 

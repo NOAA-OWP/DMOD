@@ -22,12 +22,15 @@ except ImportError:
 
 from .types import TypeDefinition
 
-_CLASSTYPE = typing.TypeVar('_CLASSTYPE')
+_CLASSTYPE = typing.TypeVar('_CLASSTYPE', bound=type)
 """A type that points directly to a class. The _CLASSTYPE of `6`, for example, is `<class 'int'>`"""
 
 
 _T = typing.TypeVar('_T')
-"""A type used in conjunction with `_CLASS_TYPE`"""
+"""A general type - used to mark type consistency"""
+
+_OT = typing.TypeVar("_OT")
+"""Another general type that differs from _T"""
 
 _KT = typing.TypeVar('_KT')
 """A type used as a key for a map"""
@@ -668,7 +671,7 @@ def truncate(number: typing.Union[numbers.Number, float], digits: int) -> typing
     return adjusted_value / adjuster
 
 
-def get_subclasses(base: typing.Type[_CLASSTYPE]) -> typing.List[typing.Type[_CLASSTYPE]]:
+def get_subclasses(base: _CLASSTYPE) -> typing.List[_CLASSTYPE]:
     """
     Gets a collection of all concrete subclasses of the given class in memory
 
@@ -703,8 +706,8 @@ def get_subclasses(base: typing.Type[_CLASSTYPE]) -> typing.List[typing.Type[_CL
 
 
 def on_each(
-    func: typing.Callable[[_CLASSTYPE], typing.Any],
-    collection: typing.Iterable[_CLASSTYPE]
+    func: typing.Callable[[_T], typing.Any],
+    collection: typing.Iterable[_T]
 ) -> typing.NoReturn:
     """
     Calls the passed in function on every item in the collection. The input collection is not mutated
@@ -736,7 +739,7 @@ def on_each(
         func(element)
 
 
-def flat(collection: typing.Iterable[typing.Iterable[_CLASSTYPE]]) -> typing.Sequence[_CLASSTYPE]:
+def flat(collection: typing.Iterable[typing.Iterable[_T]]) -> typing.Sequence[_T]:
     """
     Flatten a collection of collections
 
@@ -760,7 +763,7 @@ def flat(collection: typing.Iterable[typing.Iterable[_CLASSTYPE]]) -> typing.Seq
     Returns:
         A flattened representation of the given values
     """
-    flattened_list: typing.MutableSequence[_CLASSTYPE] = []
+    flattened_list: typing.MutableSequence[_T] = []
 
     if isinstance(collection, typing.Mapping):
         for mapped_value in collection.values():
@@ -776,12 +779,12 @@ def flat(collection: typing.Iterable[typing.Iterable[_CLASSTYPE]]) -> typing.Seq
 
 
 def flatmap(
-    function: typing.Callable[[_CLASSTYPE], _T],
+    function: typing.Callable[[_T], _OT],
     collection: typing.Union[
-        typing.Iterable[typing.Iterable[_CLASSTYPE]],
-        typing.Mapping[_KT, typing.Iterable[_CLASSTYPE]]
+        typing.Iterable[typing.Iterable[_T]],
+        typing.Mapping[_KT, typing.Iterable[_T]]
     ]
-) -> typing.Sequence[_T]:
+) -> typing.Sequence[_OT]:
     """
     Call a mapping function on each element of either a collection of collections or a map of collections
 
@@ -803,9 +806,9 @@ def flatmap(
         A single collection of all mapped values
     """
     if isinstance(collection, typing.Mapping):
-        data_to_flatten: typing.Iterable[typing.Iterable[_CLASSTYPE]] = collection.values()
+        data_to_flatten: typing.Iterable[typing.Iterable[_T]] = collection.values()
     else:
-        data_to_flatten: typing.Iterable[typing.Iterable[_CLASSTYPE]] = collection
+        data_to_flatten: typing.Iterable[typing.Iterable[_T]] = collection
 
     # Flatten the data
     flattened_data = flat(data_to_flatten)
@@ -815,10 +818,10 @@ def flatmap(
 
 
 def find(
-    iterable: typing.Iterable[_CLASSTYPE],
-    predicate: typing.Callable[[_CLASSTYPE], bool],
-    default: _CLASSTYPE = None
-) -> typing.Optional[_CLASSTYPE]:
+    iterable: typing.Iterable[_T],
+    predicate: typing.Callable[[_T], bool],
+    default: _T = None
+) -> typing.Optional[_T]:
     """
     Find the first value in an iterable that complies with the give predicate
 
@@ -860,7 +863,7 @@ def find(
     return next(filter(predicate, iterable), default)
 
 
-def first(values: typing.Iterable[_CLASSTYPE]) -> typing.Optional[_CLASSTYPE]:
+def first(values: typing.Iterable[_T]) -> typing.Optional[_T]:
     """
     Return the first item in an iterable object
 
@@ -876,8 +879,8 @@ def first(values: typing.Iterable[_CLASSTYPE]) -> typing.Optional[_CLASSTYPE]:
 
 
 def true_for_all(
-    collection: typing.Iterable[_CLASSTYPE],
-    condition: typing.Callable[[_CLASSTYPE], bool] = None
+    collection: typing.Iterable[_T],
+    condition: typing.Callable[[_T], bool] = None
 ) -> bool:
     """
     Checks to see if all items in the given collection match the given condition. Equivalent to `all(collection)`
@@ -903,7 +906,7 @@ def true_for_all(
         raise ValueError(f"The passed '{collection.__class__}' object is not a valid collection type")
 
     if condition is None:
-        def condition(value: _CLASSTYPE) -> bool:
+        def condition(value: _T) -> bool:
             return bool(value)
 
     for collection_value in collection:
@@ -1080,7 +1083,7 @@ def truncate_numbers_in_dictionary(
     dictionary = dict(dictionary.items()) if copy else dictionary
 
     for key, value in dictionary.items():
-        if isinstance(value, numbers.Number) and "." in str(key):
+        if isinstance(value, numbers.Number) and "." in str(value):
             dictionary[key] = truncate(value, places)
         elif isinstance(value, typing.MutableMapping):
             dictionary[key] = truncate_numbers_in_dictionary(value, places, copy)

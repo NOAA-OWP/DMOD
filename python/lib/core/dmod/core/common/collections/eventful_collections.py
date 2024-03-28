@@ -26,7 +26,7 @@ class BaseEventfulMap(abc.ABC, typing.MutableMapping[_KT, _VT], typing.Generic[_
     Base class for a map that has event handlers for basic actions
     """
     @classmethod
-    def instantiate_cache(cls) -> typing.MutableMapping[_KT, _VT]:
+    def _create_default_map(cls) -> typing.MutableMapping[_KT, _VT]:
         """
         Create the wrapped structure for this map
 
@@ -223,7 +223,7 @@ class EventfulMap(BaseEventfulMap[_KT, _VT], typing.Generic[_KT, _VT]):
         self.__handlers: typing.Dict[CollectionEvent, typing.List[typing.Callable]] = {}
         """The handlers for individual events"""
 
-        self.__contents: typing.Dict[_KT, _VT] = self.instantiate_cache()
+        self.__contents: typing.Dict[_KT, _VT] = self._create_default_map()
         """The items contained within the map"""
 
         self.__leftover_tasks: typing.List[typing.Awaitable[_KT]] = []

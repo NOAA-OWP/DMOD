@@ -7,7 +7,9 @@ __pycache__/
 /venv/
 /*_venv/
 /venv_*/
+/.venv/
 .env
+
 docker/main/base/ssh/
 python/gui/db.sqlite3
 dist/
