@@ -11,10 +11,10 @@ from pydantic.generics import GenericModel
 from .eventful_collections import BaseEventfulMap
 from .eventful_collections import BaseEventfulSequence
 
-from .constants import CollectionEvent
-from .constants import KeyType
-from .constants import ValueType
-from .constants import EntryType
+from .event_types import CollectionEvent
+from .event_types import KeyType
+from .event_types import ValueType
+from .event_types import EntryType
 
 
 HandlerMap = typing.Dict[CollectionEvent, typing.List[typing.Callable]]

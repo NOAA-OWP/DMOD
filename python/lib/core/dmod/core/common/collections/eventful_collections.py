@@ -9,9 +9,9 @@ import abc
 
 from typing_extensions import Self
 
-from .constants import CollectionEvent
-from .constants import MapHandler
-from .constants import SequenceHandler
+from .event_types import CollectionEvent
+from .event_types import MapHandler
+from .event_types import SequenceHandler
 
 _T = typing.TypeVar("_T")
 _KT = typing.TypeVar("_KT", bound=typing.Hashable, covariant=True)

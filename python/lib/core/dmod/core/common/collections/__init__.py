@@ -9,4 +9,4 @@ from .catalog import InputCatalog
 from .models import MapModel
 from .models import SequenceModel
 
-from .constants import CollectionEvent
+from .event_types import CollectionEvent
