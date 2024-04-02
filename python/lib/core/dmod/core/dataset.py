@@ -198,6 +198,19 @@ class Dataset(Serializable):
             and cond_eq(self.uuid, other.uuid)
         )
 
+    def __hash__(self):
+        members = [
+            self.__class__.__name__,
+            self.name,
+            self.category.name,
+            str(hash(self.data_domain)),
+            self.access_location,
+            str(self.is_read_only),
+            str(hash(self.created_on)),
+        ]
+        description = ",".join(members)
+        return hash(description)
+
     @property
     def manager(self) -> Optional[DatasetManager]:
         """
@@ -241,19 +254,6 @@ class Dataset(Serializable):
 
         self._manager = value
         self.manager_uuid = value.uuid
-
-    def __hash__(self):
-        members = [
-            self.__class__.__name__,
-            self.name,
-            self.category.name,
-            str(hash(self.data_domain)),
-            self.access_location,
-            str(self.is_read_only),
-            str(hash(self.created_on)),
-        ]
-        description = ",".join(members)
-        return hash(description)
 
     def _set_expires(self, new_expires: datetime):
         """
