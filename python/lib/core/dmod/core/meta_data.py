@@ -935,6 +935,9 @@ class DataDomain(Serializable):
         return DataDomain(data_format=d1.data_format, continuous_restrictions=new_c_rests,
                           discrete_restrictions=new_d_rests)
 
+    def __eq__(self, other):
+        return isinstance(other, DataDomain) and self.__hash__() == other.__hash__()
+
     def __hash__(self) -> int:
         custom_fields = [] if self.custom_data_fields is None else sorted(self.custom_data_fields.items())
         return hash((self.data_format.name,
