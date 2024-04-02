@@ -345,7 +345,6 @@ class GeoPackageHydrofabric(Hydrofabric):
         GeoPackageHydrofabric
             A new instance of this type.
         """
-        # TODO: see if fiona dependency can be removed
         # pyogrio's function returns an ndarry of ndarrays, with inner layer info array containing layer name and type
         # We only need a list of layer names, though
         layer_names = [layer_info[0] for layer_info in pyogrio.list_layers(geopackage_file)]

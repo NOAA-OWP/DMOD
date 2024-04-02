@@ -23,7 +23,6 @@ setup(
     install_requires=[
         "numpy>=1.20.1",
         "pandas",
-        "fiona",
         "geopandas",
         "dmod-communication>=0.4.2",
         "dmod-core>=0.13.1",
