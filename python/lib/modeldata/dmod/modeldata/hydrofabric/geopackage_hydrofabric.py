@@ -1,4 +1,4 @@
-import fiona
+import pyogrio
 import geopandas as gpd
 import hashlib
 from pandas.util import hash_pandas_object
@@ -316,7 +316,7 @@ class GeoPackageHydrofabric(Hydrofabric):
     #_FLOWPATHS_TO_NEX_COL = 'toid'
 
     _DIVIDES_LAYER_NAME = 'divides'
-    _DIVIDES_CAT_ID_COL = 'id'
+    _DIVIDES_CAT_ID_COL = 'divide_id'
     _DIVIDES_TO_NEX_COL = 'toid'
 
     _NEXUS_LAYER_NAME = 'nexus'
@@ -324,14 +324,17 @@ class GeoPackageHydrofabric(Hydrofabric):
     _NEXUS_TO_CAT_COL = 'toid'
 
     @classmethod
-    def from_file(cls, geopackage_file: Union[str, Path], vpu: Optional[int] = None, is_conus: bool = False) -> 'GeoPackageHydrofabric':
+    def from_file(cls, geopackage_file: Union[str, Path, bytes], vpu: Optional[int] = None, is_conus: bool = False) -> 'GeoPackageHydrofabric':
         """
-        Initialize a new instance from a GeoPackage file.
+        Initialize a new instance from a GeoPackage file or contents of such a file (as ``bytes``).
+
+        Note that while a warning may appear because of implementation details in ``pyogrio``, this should work
+        perfectly well if passed raw bytes from a file.
 
         Parameters
         ----------
-        geopackage_file: Union[str, Path]
-            The source file for data from which to instantiate.
+        geopackage_file: Union[str, Path, bytes]
+            The source file for data, or raw data from such a file, from which to instantiate.
         vpu: Optional[int]
             The VPU of the hydrofabric to create, if it is known (defaults to ``None``).
         is_conus: bool
@@ -342,7 +345,10 @@ class GeoPackageHydrofabric(Hydrofabric):
         GeoPackageHydrofabric
             A new instance of this type.
         """
-        layer_names = fiona.listlayers(geopackage_file)
+        # TODO: see if fiona dependency can be removed
+        # pyogrio's function returns an ndarry of ndarrays, with inner layer info array containing layer name and type
+        # We only need a list of layer names, though
+        layer_names = [layer_info[0] for layer_info in pyogrio.list_layers(geopackage_file)]
         return cls(layer_names=layer_names,
                    layer_dataframes={ln: gpd.read_file(geopackage_file, layer=ln, engine="pyogrio") for ln in layer_names},
                    vpu=vpu,
