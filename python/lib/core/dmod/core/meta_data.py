@@ -877,6 +877,64 @@ class DataDomain(Serializable):
                           continuous_restrictions=None if len(continuous) == 0 else continuous,
                           discrete_restrictions=None if len(discrete) == 0 else discrete)
 
+    @classmethod
+    def merge_domains(cls, d1: 'DataDomain', d2: 'DataDomain') -> 'DataDomain':
+        """
+        Merge the two domains into a new combined domain.
+
+        Parameters
+        ----------
+        d1: DataDomain
+            The first domain.
+        d2: DataDomain
+            The second domain.
+
+        Returns
+        -------
+        DataDomain
+            The new merged domain.
+
+        Raises
+        ------
+        ValueError
+            If the formats or constraints of the two domains do not permit them to be merged
+
+        Notes
+        -----
+        For any two domains ``d1`` and ``d2`` that can successfully be merged, and the derived domain ``d3`` equal to
+        ``merge_domains(d1, d2)``,  then it should always be true that ``substract_domains(d3, d2) == d1``.
+
+        See Also
+        --------
+        subtract_domains
+        """
+        # TODO: (later) consider exceptions to format rule and perhaps other behavior, like for composites
+        if d1.data_format != d2.data_format:
+            raise DmodRuntimeError(f"Can't merge {d2.data_format.name} format domain into one of {d1.data_format.name}")
+
+        # New continuous; taken directly from domain 1 if not present or equal in domain 2; otherwise, by extending
+        new_c_rests = {idx: (d1_rest
+                             if idx not in d2.continuous_restrictions or d1_rest == d2.continuous_restrictions[idx]
+                             else
+                             d1_rest.extend(d2.continuous_restrictions[idx]))
+                       for idx, d1_rest in d1.continuous_restrictions.items()}
+
+        # Any other indices in d2, just move them over
+        for idx in (i for i in d2.continuous_restrictions if i not in new_c_rests):
+            new_c_rests[idx] = d2.continuous_restrictions[idx]
+
+        # And now similarly for discrete
+        new_d_rests = {idx: (d1_rest
+                             if idx not in d2.discrete_restrictions or d1_rest == d2.discrete_restrictions[idx]
+                             else
+                             d1_rest.extend(d2.discrete_restrictions[idx]))
+                       for idx, d1_rest in d1.discrete_restrictions.items()}
+        for idx in (i for i in d2.discrete_restrictions if i not in new_d_rests):
+            new_d_rests[idx] = d2.discrete_restrictions[idx]
+
+        return DataDomain(data_format=d1.data_format, continuous_restrictions=new_c_rests,
+                          discrete_restrictions=new_d_rests)
+
     def __hash__(self) -> int:
         custom_fields = [] if self.custom_data_fields is None else sorted(self.custom_data_fields.items())
         return hash((self.data_format.name,
