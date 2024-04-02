@@ -529,8 +529,6 @@ class DatasetManager(ABC):
         self._errors = []
         """ A property attribute to hold errors encountered during operations. """
 
-    # TODO: implement functions and routines for scrubbing temporary datasets as needed
-
     @abstractmethod
     def add_data(self, dataset_name: str, dest: str, data: Optional[Union[bytes, Reader]] = None, source: Optional[str] = None,
                  is_temp: bool = False, **kwargs) -> bool:
@@ -848,7 +846,7 @@ class DatasetManager(ABC):
         if dataset.manager is None and self.uuid == dataset.manager_uuid:
             dataset.set_manager(self)
 
-        return
+        return dataset.manager_uuid == self.uuid
 
     def link_user(self, user: DatasetUser, dataset: Dataset) -> bool:
         """
