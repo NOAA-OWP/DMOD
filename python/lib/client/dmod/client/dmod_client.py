@@ -2,12 +2,16 @@ import json
 
 from dmod.communication import AuthClient, TransportLayerClient, WebSocketClient
 from dmod.core.common import get_subclasses
+from dmod.core.exception import DmodRuntimeError
 from dmod.core.serializable import BasicResultIndicator, ResultIndicator
-from dmod.core.meta_data import DataDomain
+from dmod.core.meta_data import DataDomain, DiscreteRestriction, StandardDatasetIndex
 from .request_clients import DataServiceClient, JobClient
 from .client_config import ClientConfig
 from pathlib import Path
-from typing import Type
+from typing import List, Optional, Type, Union
+
+from functools import reduce
+from dmod.core.dataset import DataCollectionDomainDetector, UniversalItemDomainDetector
 
 
 def determine_transport_client_type(protocol: str,
@@ -46,6 +50,45 @@ def determine_transport_client_type(protocol: str,
         if subtype.get_endpoint_protocol_str(True) == protocol or subtype.get_endpoint_protocol_str(False) == protocol:
             return subtype
     raise RuntimeError(f"No subclass of `{TransportLayerClient.__name__}` found supporting protocol '{protocol}'")
+
+
+def run_domain_detection(paths: Union[Path, List[Path]], data_id: Optional[str] = None) -> DataDomain:
+    """
+    Run domain detection.
+
+    Parameters
+    ----------
+    paths: Union[Path, List[Path]]
+        One or more paths to files or directories.
+    data_id: Optional[str]
+        Hypothetical data_id for a dataset containing this data and having the returned domain, useful in situations
+        where data_id is itself an index of the domain against which constraints are compared.
+
+    Returns
+    -------
+    DataDomain
+        The detected domain.
+
+    Raises
+    ------
+    DmodRuntimeError
+        If detection is unsuccessful.
+    """
+    def _detect(p: Path):
+        if p.is_dir():
+            return DataCollectionDomainDetector(data_collection=p, collection_name=data_id).detect()
+        else:
+            return UniversalItemDomainDetector(item=p).detect()
+
+    if isinstance(paths, Path):
+        return _detect(paths)
+    else:
+        domain = reduce(DataDomain.merge_domains, (_detect(path) for path in paths))
+        # It's possible that for many different individual file paths, data_id won't get set, so ...
+        idx = StandardDatasetIndex.DATA_ID
+        if data_id is not None and idx in domain.data_format.indices_to_fields().keys() and idx not in domain.discrete_restrictions:
+            domain.discrete_restrictions[idx] = DiscreteRestriction(variable=idx, values=[data_id])
+        return domain
 
 
 class DmodClient:
@@ -115,11 +158,12 @@ class DmodClient:
                 raise ValueError(f"Could not deserialize JSON in 'domain_file' `{domain_file!s}` to domain object")
             else:
                 return domain
-        else:
-            try:
-                return DataDomain(**kwargs)
-            except Exception as e:
-                raise RuntimeError(f"Could not inflate keyword params to object due to {e.__class__.__name__} - {e!s}")
+        try:
+            return DataDomain(**kwargs)
+        except Exception:
+            pass
+        return run_domain_detection(paths=kwargs.get('upload_paths'), data_id=kwargs.get('name'))
+
 
     def _get_transport_client(self, **kwargs) -> TransportLayerClient:
         # TODO: later add support for multiplexing capabilities and spawning wrapper clients
@@ -152,6 +196,8 @@ class DmodClient:
                 except TypeError as e:
                     return BasicResultIndicator(success=False, reason="No Dataset Domain Provided",
                                                 message=f"Invalid type provided for 'domain' param: {e!s} ")
+                except DmodRuntimeError as e:
+                    return BasicResultIndicator(success=False, reason="Domain Detection Failed", message=f"{e!s}")
                 except (ValueError, RuntimeError) as e:
                     return BasicResultIndicator(success=False, reason="No Dataset Domain Provided", message=f"{e!s}")
                 return await self.data_service_client.create_dataset(domain=domain, **kwargs)
