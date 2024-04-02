@@ -591,7 +591,22 @@ class DiscreteRestriction(Serializable):
 
 class DataDomain(Serializable):
     """
-    A domain for a dataset, with domain-defining values contained by one or more discrete and/or continuous components.
+    A domain for some collection of data, with defining values contained by discrete and/or continuous components.
+
+    A definition for the domain of some kind of collection of data.  The collection may be something more concrete, like
+    a ::class:`Dataset` instance, or more abstract, like forcing data sufficient to run a requested model execution.
+
+    The definition consists of details on the structure and content of the data within the collection.  Structure is
+    represented by a ::class:`DataFormat` attribute, and contents are represented by collections of
+    ::class:`ContinuousRestriction` and ::class:`DiscreteRestriction` objects.
+
+    While a domain may have any number of continuous or discrete restrictions individually, combined it must have at
+    least one, or validation will fail.
+
+    There is a notion of whether a domain "contains" certain described data.  This described data can be a simple
+    description of some data index and values it, fundamentally the definition of ::class:`ContinuousRestriction` and
+    ::class:`DiscreteRestriction` objects.  The described data can also be more complex, like another fully defined
+    domain.  A function is provided by the type for performing such tests.
     """
     data_format: DataFormat = Field(
     description="The format for the data in this domain, which contains details like the indices and other data fields."
@@ -662,12 +677,17 @@ class DataDomain(Serializable):
 
     @root_validator()
     def validate_sufficient_restrictions(cls, values):
+        data_format = values.get("data_format")
+        if data_format == DataFormat.EMPTY or data_format == DataFormat.GENERIC:
+            return values
         continuous_restrictions = values.get("continuous_restrictions", {})
         discrete_restrictions = values.get("discrete_restrictions", {})
-        if len(continuous_restrictions) + len(discrete_restrictions) == 0:
-            msg = "Cannot create {} without at least one finite continuous or discrete restriction"
-            raise RuntimeError(msg.format(cls.__name__))
-        return values
+        if len(continuous_restrictions) + len(discrete_restrictions) > 0:
+            return values
+        raise RuntimeError(f"Cannot create {cls.__name__} without at least one finite continuous or discrete "
+                           f"restriction, except when data format is {DataFormat.GENERIC.name} or "
+                           f"{DataFormat.EMPTY.name} (provided value was: "
+                           f"{'None' if data_format is None else data_format.name})")
 
     @classmethod
     def factory_init_from_restriction_collections(cls, data_format: DataFormat, **kwargs) -> 'DataDomain':
@@ -874,6 +894,7 @@ class DataDomain(Serializable):
 
         serial[data_fields_key] = custom_data_fields
         return serial
+
 
 
 class DataCategory(PydanticEnum):
