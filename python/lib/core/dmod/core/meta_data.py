@@ -3,6 +3,7 @@ from datetime import datetime
 from .enum import PydanticEnum
 from .serializable import Serializable
 from .common.helper_functions import get_subclasses
+from .exception import DmodRuntimeError
 from typing import Any, Dict, List, Optional, Set, Type, Union
 from typing_extensions import Self
 from collections.abc import Iterable
@@ -476,6 +477,45 @@ class ContinuousRestriction(Serializable):
 
         return json_copy
 
+    def _compatible_with(self, other: 'ContinuousRestriction') -> bool:
+        """
+        Whether this is compatible with another instance regarding checks for contains, extension, or subtraction.
+
+        Parameters
+        ----------
+        other: ContinuousRestriction
+
+        Returns
+        -------
+        bool
+            Whether this is compatible with another instance regarding checks for contains, extension, or subtraction.
+        """
+        return isinstance(other, ContinuousRestriction) and self.variable == other.variable
+
+    def can_extend_with(self, other: 'ContinuousRestriction') -> bool:
+        """
+        Whether another restriction could combine with and extend this one.
+
+        Parameters
+        ----------
+        other: ContinuousRestriction
+            Another restriction.
+
+        Returns
+        -------
+        bool
+            Whether another restriction could combine with and extend this one.
+        """
+        if not self._compatible_with(other):
+            return False
+        elif other.begin < self.begin:
+            return self.begin <= other.end
+        elif other.begin == self.begin:
+            return self.end < other.end
+        # Implies self.begin < other.begin
+        else:
+            return other.begin <= self.end
+
     def contains(self, other: 'ContinuousRestriction') -> bool:
         """
         Whether this object contains all the values of the given object and the two are of the same index.
@@ -491,12 +531,34 @@ class ContinuousRestriction(Serializable):
         bool
             Whether this object contains all the values of the given object and the two are of the same index.
         """
-        if not isinstance(other, ContinuousRestriction):
-            return False
-        elif self.variable != other.variable:
-            return False
-        else:
-           return self.begin <= other.begin and self.end >= other.end
+        return self._compatible_with(other) and self.begin <= other.begin and self.end >= other.end
+
+    def extend(self, other: 'ContinuousRestriction') -> 'ContinuousRestriction':
+        """
+        Produce another instance made by extending this instance with the other, assuming compatibility.
+
+        Parameters
+        ----------
+        other: ContinuousRestriction
+
+        Returns
+        -------
+        ContinuousRestriction
+            A new instance representing the combined restriction defined by this and the other instance.
+
+        Raises
+        ------
+        DmodRuntimeError
+            Raised if the two instances are not compatible as testable via :method:`can_extend`
+
+        See Also
+        --------
+        can_extend
+        """
+        if not self.can_extend_with(other):
+            raise DmodRuntimeError(f"Attempting to extend incompatible {self.__class__.__name__} objects")
+        return self.__class__(variable=self.variable, begin=min(self.begin, other.begin), end=max(self.end, other.end),
+                              datetime_pattern=self.datetime_pattern, subclass=self.subclass)
 
 
 class DiscreteRestriction(Serializable):
@@ -534,6 +596,37 @@ class DiscreteRestriction(Serializable):
     def __hash__(self) -> int:
         return hash((self.variable.name, *self.values))
 
+    def _compatible_with(self, other: 'DiscreteRestriction') -> bool:
+        """
+        Whether this is compatible with another instance regarding checks for contains, extension, or subtraction.
+
+        Parameters
+        ----------
+        other: DiscreteRestriction
+
+        Returns
+        -------
+        bool
+            Whether this is compatible with another instance regarding checks for contains, extension, or subtraction.
+        """
+        return isinstance(other, DiscreteRestriction) and self.variable == other.variable
+
+    def can_extend_with(self, other: 'DiscreteRestriction') -> bool:
+        """
+        Whether another restriction could combine with and extend this one.
+
+        Parameters
+        ----------
+        other: DiscreteRestriction
+            Another restriction.
+
+        Returns
+        -------
+        bool
+            Whether another restriction could combine with and extend this one.
+        """
+        return self._compatible_with(other) and not self.contains(other)
+
     def contains(self, other: 'DiscreteRestriction') -> bool:
         """
         Whether this object contains all the values of the given object and the two are of the same index.
@@ -554,9 +647,7 @@ class DiscreteRestriction(Serializable):
         -------
         ::attribute:`is_all_possible_values`
         """
-        if not isinstance(other, DiscreteRestriction):
-            return False
-        elif self.variable != other.variable:
+        if not self._compatible_with(other):
             return False
         elif self.is_all_possible_values:
             return True
@@ -566,6 +657,35 @@ class DiscreteRestriction(Serializable):
                 if v not in value_set:
                     return False
         return True
+
+    def extend(self, other: 'DiscreteRestriction') -> 'DiscreteRestriction':
+        """
+        Produce another instance made by extending this instance with the other, assuming compatibility.
+
+        Parameters
+        ----------
+        other: DiscreteRestriction
+            Another restriction object.
+
+        Returns
+        -------
+        DiscreteRestriction
+            A new instance representing the combined restriction defined by this and the other instance.
+
+        Raises
+        ------
+        DmodRuntimeError
+            Raised if the two instances are not compatible as testable via :method:`can_extend`
+
+        See Also
+        --------
+        can_extend
+        """
+        if not self.can_extend_with(other):
+            raise DmodRuntimeError(f"Attempting to extend incompatible {self.__class__.__name__} objects")
+        if other.is_all_possible_values:
+            return DiscreteRestriction(**other.dict())
+        return DiscreteRestriction(variable=self.variable, values=self.values + other.values)
 
     @property
     def is_all_possible_values(self) -> bool:
