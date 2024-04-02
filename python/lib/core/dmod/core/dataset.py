@@ -624,6 +624,115 @@ class ItemDataDomainDetector(AbstractDomainDetector, ABC):
             raise ValueError(f"{self.__class__.__name__} can't initialize with a directory path as its data item")
 
 
+class UniversalItemDomainDetector(ItemDataDomainDetector):
+    """
+    General type of detector that works with all supported formats by trying all registered, format-specific subtypes.
+    """
+
+    def detect(self, **kwargs) -> DataDomain:
+        """
+        Detect and return the data domain.
+
+        Detect a domain by calling the analogous method of an instance of some or all registered subclasses of
+        :class:`ItemDataDomainDetector`.  Selection of the right subclass to use for this is based on brute-force
+        trials - i.e., a subclass is selected, an instance is created, the ``detect`` method is called, and we assess
+        what happens - along with an early exit mechanism for explicit format suggestions.
+
+        Subclasses are tried in groups according to their registered ``data_format``.  The order of groups may be
+        controlled by providing one or more format "suggestions", which will be tried first in the order provided. Also,
+        one or more excluded formats can be optionally provided. Iteration order of subclasses within a group is based
+        on registration ``name`` by default, but a sorting key function can be provided to control this also.
+
+        If/when a subclass instance's ``detect`` call returns a domain, no other subclasses for that format group are
+        tried, but this function only returns that domain value immediately if the associated format was a provided
+        suggestion.  Otherwise, iteration continues to the next group.  This is important, because if more than one
+        class can detect a domain, there is an implicit ambiguity in the domain, and a :class:`DmodRuntimeError` is
+        raised.
+
+        Parameters
+        ----------
+        kwargs
+            Optional kwargs applicable to the subtype, which may enhance or add to the domain detection and generation
+            capabilities, but which should not be required to produce a valid domain.
+
+        Keyword Args
+        ------------
+        excluded_formats: Union[DataFormat, Set[DataFormat]]
+            Optional individual or set of :class:`DataFormat` to be excluded from testing; a :class:`ValueError` is
+            raised if a format appears in both this and ``suggested_formats``.
+        suggested_formats: Union[DataFormat, List[DataFormat]]
+            An optional :class:`DataFormat` or list of :class:`DataFormat` values to try first, with any successes
+            being immediately returned; a :class:`ValueError` is raised if a format appears more than once across both
+            this and ``excluded_formats``.
+        sort_key:
+            Optional function of one argument (the subclass type) used to extract a comparison key from each registered
+            subclasses when attempting to determine the order in which to try them (within the context of those
+            associated with the particular data format being tried); if not provided, the order is based on each
+            subclass's registration ``name``.
+
+        Returns
+        -------
+        DataDomain
+            The detected domain.
+
+        Raises
+        ------
+        ValueError
+            Raised if a :class:`DataFormat` appears multiple times across both ``excluded_formats`` and
+            ``suggested_formats``; i.e., if any data format value is duplicated in the hypothetical list produced by
+            ``list(kwargs.get('excluded_formats', [])) + list(kwargs.get('suggested_formats', []))``.
+        DmodRuntimeError
+            If it was not possible to properly detect the domain.
+        """
+        def try_detection(d_format: DataFormat, subtype_ordered_list_func) -> Optional[DataDomain]:
+            # Note that subtype_ordered_list_func is based on `sorted_key` (if given) but it's not the same thing
+            possible_types = subtype_ordered_list_func(self.get_types_for_format(data_format=d_format))
+            for subclass_type in subtype_ordered_list_func(self.get_types_for_format(data_format=d_format)):
+                try:
+                    return subclass_type(item=self._item, item_name=self._item_name).detect()
+                except:
+                    pass
+            return None
+
+        excluded = kwargs.get('excluded_formats', set())
+        if isinstance(excluded, DataFormat):
+            excluded = {excluded}
+        suggested = kwargs.get('suggested_formats', list())
+        if isinstance(suggested, DataFormat):
+            suggested = [suggested]
+        if not excluded.isdisjoint(suggested):
+            raise ValueError(f"Can't include data format in both exclusions and suggestions for domain detection.")
+        if len(suggested) != len(set(suggested)):
+            raise ValueError(f"Can't include data format multiple times in ordered suggestions for domain detection.")
+
+        remaining_formats = {df for df in DataFormat if df not in excluded}
+
+        # Build an ordering function, either using provided sort key or just based on registration name
+        if 'sort_key' in kwargs:
+            order_func = lambda subs: sorted([subclass for name, subclass in subs.items()], key=kwargs['sort_key'])
+        else:
+            order_func = lambda subs: [subs[name] for name in sorted(subs.keys())]
+
+        # Try suggestions first, returning immediately if any are successful
+        for data_format in suggested:
+            remaining_formats.remove(data_format)
+            result = try_detection(d_format=data_format, subtype_ordered_list_func=order_func)
+            if result is not None:
+                return result
+
+        # Now we get to others
+        main_trials = (try_detection(d_format=df, subtype_ordered_list_func=order_func) for df in remaining_formats)
+        main_results = [t for t in main_trials if t is not None]
+        if len(main_results) == 0:
+            raise DmodRuntimeError("No domain could be detected for item.")
+        elif len(main_results) == 1:
+            return main_results[0]
+        # Multiple results mean there's a problem (also, they can't be equal because they will have different formats)
+        else:
+            raise DmodRuntimeError(f"Multiple conflicting domain detected for item in the following formats: "
+                                   f"{','.join([d.data_format.name for d in main_results])}")
+
+
 class DatasetManager(ABC):
     """
     Abstract representation of manager of ::class:`Dataset` instances.
