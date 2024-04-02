@@ -3,13 +3,20 @@ import sys
 import datetime
 import json
 from dmod.core.execution import AllocationParadigm
+from dmod.core.exception import DmodRuntimeError
 from . import name as package_name
-from .dmod_client import ClientConfig, DmodClient
+from .dmod_client import ClientConfig, DmodClient, run_domain_detection
 from dmod.communication.client import get_or_create_eventloop
-from dmod.core.meta_data import ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction, \
-    TimeRange
+from dmod.core.meta_data import (ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction,
+                                 TimeRange)
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type
+
+try:
+    import dmod.modeldata.data.item_domain_detector as detectors
+    _DOMAIN_DETECTORS_IMPORTED = True
+except ModuleNotFoundError:
+    _DOMAIN_DETECTORS_IMPORTED = False
 
 
 DEFAULT_CLIENT_CONFIG_BASENAME = '.dmod_client_config.json'
@@ -230,6 +237,10 @@ def _handle_data_service_action_args(parent_subparsers_container):
     parser_delete = action_subparsers.add_parser('delete', description="Delete a specified (entire) dataset.")
     parser_delete.add_argument('name', help='Specify the name of the dataset to delete.')
 
+    # Nested parser for the 'domain' action, with required argument for path to the data to detect over
+    parser_domain = action_subparsers.add_parser('domain', description="Detect DataDomain for local data for a dataset.")
+    parser_domain.add_argument('path', type=Path, help="Specify a data file or path containing several data files.")
+
     # Nested parser for the 'upload' action, with required args for dataset name and files to upload
     parser_upload = action_subparsers.add_parser('upload', description="Upload local files to a dataset.")
     parser_upload.add_argument('--data-root', dest='data_root', type=Path,
@@ -354,19 +365,28 @@ def find_client_config(basenames: Optional[List[str]] = None, dirs: Optional[Lis
 
 
 def execute_dataset_command(args, client: DmodClient):
-    async_loop = get_or_create_eventloop()
-    try:
-        result = async_loop.run_until_complete(client.data_service_action(**(vars(args))))
-        print(result)
-    except ValueError as e:
-        print(str(e))
-        sys.exit(1)
-    except NotImplementedError as e:
-        print(str(e))
-        sys.exit(1)
-    except Exception as e:
-        print("ERROR: Encountered {} - {}".format(e.__class__.__name__, str(e)))
-        sys.exit(1)
+    if args.action == 'domain':
+        try:
+            print({"success": True, "domain": f"{run_domain_detection(paths=args.path).to_json()}"})
+        except DmodRuntimeError as e:
+            print({"success": False, "reason": f"{e.__class__.__name__}", "message": f"{e!s}"})
+        except Exception as e:
+            print(f"ERROR - Encountered {e.__class__.__name__} detecting domain: {e!s}")
+            sys.exit(1)
+    else:
+        async_loop = get_or_create_eventloop()
+        try:
+            result = async_loop.run_until_complete(client.data_service_action(**(vars(args))))
+            print(result)
+        except ValueError as e:
+            print(str(e))
+            sys.exit(1)
+        except NotImplementedError as e:
+            print(str(e))
+            sys.exit(1)
+        except Exception as e:
+            print("ERROR: Encountered {} - {}".format(e.__class__.__name__, str(e)))
+            sys.exit(1)
 
 
 def execute_config_command(parsed_args, client: DmodClient):
