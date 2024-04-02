@@ -42,6 +42,10 @@ class StandardDatasetIndex(str, PydanticEnum):
     """ Index for the name of a data file within a dataset. """
     COMPOSITE_SOURCE_ID = (9, str, "COMPOSITE_SOURCE_ID")
     """ Index for DATA_ID values of source dataset(s) when dataset is composite format and derives from others. """
+    HYDROFABRIC_VERSION = (10, str, "HYDROFABRIC_VERSION")
+    """ Version string for version of the hydrofabric to use (e.g., 2.0.1). """
+    HYDROFABRIC_REGION = (11, str, "HYDROFABRIC_REGION")
+    """ Region string (e.g., conus, vpu01) for the applicable region of the hydrofabric. """
 
     def __new__(cls, index: int, ty: type, name: str):
         o = str.__new__(cls, name)
@@ -90,8 +94,8 @@ class DataFormat(PydanticEnum):
     index that can be used to distinguish the collections, so that the right data can be identified.
     """
     AORC_CSV = (0,
-                {StandardDatasetIndex.CATCHMENT_ID: None, StandardDatasetIndex.TIME: ""},
-                {"": datetime, "APCP_surface": float, "DLWRF_surface": float, "DSWRF_surface": float,
+                {StandardDatasetIndex.CATCHMENT_ID: None, StandardDatasetIndex.TIME: "Time"},
+                {"Time": datetime, "APCP_surface": float, "DLWRF_surface": float, "DSWRF_surface": float,
                  "PRES_surface": float, "SPFH_2maboveground": float, "TMP_2maboveground": float,
                  "UGRD_10maboveground": float, "VGRD_10maboveground": float, "precip_rate": float},
                 True
@@ -183,6 +187,38 @@ class DataFormat(PydanticEnum):
 
     T_ROUTE_CONFIG = (13, {StandardDatasetIndex.DATA_ID: None, StandardDatasetIndex.HYDROFABRIC_ID: None}, None, False)
     """ Format for t-route application configuration. """
+
+    NGEN_GEOPACKAGE_HYDROFABRIC_V2 = (14,
+                                      {StandardDatasetIndex.CATCHMENT_ID: "divide_id",
+                                       StandardDatasetIndex.HYDROFABRIC_ID: None,
+                                       StandardDatasetIndex.HYDROFABRIC_REGION: None,
+                                       StandardDatasetIndex.HYDROFABRIC_VERSION: None},
+                                      {"fid": int, "divide_id": str, "geom": Any, "toid": str, "type": str,
+                                       "ds_id": float, "areasqkm": float, "id": str, "lengthkm": float,
+                                       "tot_drainage_areasqkm": float, "has_flowline": bool},
+                                      )
+    """ GeoPackage hydrofabric format v2 used by NextGen (id is catchment id). """
+
+    EMPTY = (15, {}, None, False)
+    """
+    "Format" for an empty dataset that, having no data (yet), doesn't have (or need) an applicable defined structure.
+    
+    The intent of this is for simplicity when creating dataset.  This format represents a type of dataset that doesn't,
+    and importantly, **cannot** yet truly have a more specific format that matches its contents.  A key implication is
+    an expectation is that the domain of the dataset (including the format) **must** be changed as soon as any data is
+    added to the dataset.
+    """
+
+    GENERIC = (16, {}, None, False)
+    """ 
+    Format without any indications or restrictions on the defined structure of contained data. 
+    
+    This value is very much like ``EMPTY`` except that it is applicable to non-empty datasets.  It represents absolutely
+    nothing about the structure of any contents, and thus that absolutely anything can be contained or added.  In
+    practice, the main intended difference from ``EMPTY`` is that datasets in this format will not be required to update
+    their data domain at the time new data is added (while not applicable to ``EMPTY``, the same is true when any data
+    is removed).
+    """
 
     @classmethod
     def can_format_fulfill(cls, needed: 'DataFormat', alternate: 'DataFormat') -> bool:
