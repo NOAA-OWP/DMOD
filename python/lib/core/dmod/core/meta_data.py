@@ -361,7 +361,9 @@ class ContinuousRestriction(Serializable):
 
     variable: StandardDatasetIndex
     begin: datetime
+    """ An inclusive beginning value. """
     end: datetime
+    """ An exclusive end value. """
     datetime_pattern: Optional[str]
     subclass: str = None
     """
@@ -475,9 +477,6 @@ class ContinuousRestriction(Serializable):
 
         return json_copy
 
-    def __hash__(self) -> int:
-        return hash((self.variable.name, self.begin, self.end))
-
     def contains(self, other: 'ContinuousRestriction') -> bool:
         """
         Whether this object contains all the values of the given object and the two are of the same index.
@@ -527,6 +526,11 @@ class DiscreteRestriction(Serializable):
             self.values = list(OrderedDict.fromkeys(self.values))
         if allow_reorder:
             self.values.sort()
+
+    def __eq__(self, other):
+        if not isinstance(other, DiscreteRestriction):
+            return False
+        return self.variable == other.variable and sorted(self.values) == sorted(other.values)
 
     def __hash__(self) -> int:
         return hash((self.variable.name, *self.values))
