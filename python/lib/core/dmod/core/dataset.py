@@ -13,6 +13,7 @@ from typing import Any, Callable, ClassVar, Dict, FrozenSet, List, Optional, Set
 from pydantic import Field, validator, PrivateAttr
 from pydantic.fields import ModelField
 from uuid import UUID, uuid4
+from functools import reduce
 
 from .common.reader import Reader, ReadSeeker
 
@@ -488,6 +489,7 @@ class DatasetUser(ABC):
 
 
 DataItem = TypeVar('DataItem', bound=Union[bytes, ReadSeeker, Path])
+DataCollection = TypeVar('DataCollection', bound=Union[Dataset, Dict[str, Union[bytes, ReadSeeker]], Path])
 
 
 class AbstractDomainDetector(ABC):
@@ -813,6 +815,246 @@ class UniversalItemDomainDetector(ItemDataDomainDetector):
 
 # Register the universal tracker type
 ItemDataDomainDetectorRegistry.get_instance().register(UniversalItemDomainDetector)
+
+
+class DataCollectionDomainDetector(AbstractDomainDetector):
+    """
+    Domain detector that operates on a grouped collection of data items rather than just one item.
+
+    Simple, generalized detector that can detect the aggregate domain for a collection of many data items.  These items
+    can be given as a dictionary (item names mapped to data items), a :class:`Dataset` (with a valid
+    :class:`DatasetManager` set), or a :class:`Path` to a directory containing data files.
+    """
+
+    # TODO: (later) add mechanism for more intelligent hinting at what kinds of detectors to use
+    def __init__(self, data_collection: DataCollection, collection_name: Optional[str] = None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._data_collection: DataCollection = data_collection
+        """ Collection of data items, analogous to a :class:`Dataset`, if not a dataset outright. """
+        self._collection_name: Optional[str] = collection_name
+        """
+        Optional name for collection, which is important when domains involve a ``data_id`` restriction.
+        
+        Note that **IFF** the data collection is a :class:`Dataset` object **AND** the passed ``collection_name`` param
+        is ``None``, then this attribute will be set to the ``name`` attribute of the dataset collection itself.
+        """
+        if collection_name is None and isinstance(data_collection, Dataset):
+            self._collection_name = data_collection.name
+
+        if isinstance(self._data_collection, Path) and not self._data_collection.is_dir():
+            raise ValueError(f"{self.__class__.__name__} initialized with a path require this path to be a directory.")
+        if isinstance(self._data_collection, Dataset) and self._data_collection.manager is None:
+            raise ValueError(f"Dataset used to initialize {self.__class__.__name__} must have manager set.")
+
+    def detect(self, **kwargs) -> DataDomain:
+        """
+        Detect and return the data domain.
+
+        Parameters
+        ----------
+        kwargs
+            Optional kwargs applicable to the subtype, which may enhance or add to the domain detection and generation
+            capabilities, but which should not be required to produce a valid domain.
+
+        Notes
+        -----
+        Detection is performed by merging individual item domains detected using :class:`UniversalItemDomainDetector`
+        instances.  This type does not influence the details of how individual domains detections are performed by
+        :class:`UniversalItemDomainDetector` objects.  The subsequent merging is performed by reducing the
+        individual item domains using :method:`DataDomain.merge_domains`. The order of the items processed when reducing
+        is based on the order of results of a call to :method:`get_item_names`.
+
+        Returns
+        -------
+        DataDomain
+            The detected domain.
+
+        Raises
+        ------
+        DmodRuntimeError
+            If it was not possible to properly detect the domain.
+        """
+        domain = reduce(DataDomain.merge_domains,
+                        {UniversalItemDomainDetector(item=self.get_item(i), item_name=i).detect() for i in
+                         self.get_item_names()})
+        # If this domain has a format with a self-reference to dataset id, and we have a name, then set that restriction
+        if StandardDatasetIndex.DATA_ID in domain.data_format.indices_to_fields().keys() and self._collection_name:
+            domain.discrete_restrictions[StandardDatasetIndex.DATA_ID] = DiscreteRestriction(
+                variable=StandardDatasetIndex.DATA_ID, values=[self._collection_name])
+        return domain
+
+    def get_item_names(self) -> Set[str]:
+        """
+        Get the names of data items in the collection.
+
+        Returns
+        -------
+        Set[str]
+            Names of data items in the collection.
+        """
+        if isinstance(self._data_collection, dict):
+            return set(self._data_collection.keys())
+        elif isinstance(self._data_collection, Path):
+            return set(str(p) for p in self._data_collection.glob("**/*"))
+        elif isinstance(self._data_collection, Dataset) and self._data_collection.manager is not None:
+            return set(self._data_collection.manager.list_files(self._data_collection.name))
+        else:
+            raise DmodRuntimeError(f"{self.__class__.__name__} received unexpected collection type "
+                                   f"{self._data_collection.__class__.__name__}")
+
+    def get_item(self, item_name: str) -> DataItem:
+        """
+        Get the item with the given name from the instance's data collection.
+
+        Parameters
+        ----------
+        item_name: str
+            The name of the item of interest.
+
+        Returns
+        -------
+        DataItem
+            The item with the given name from the instance's data collection.
+        """
+        if isinstance(self._data_collection, dict):
+            return self._data_collection[item_name]
+        elif isinstance(self._data_collection, Path):
+            return self._data_collection.joinpath(item_name)
+        else:
+            return self._data_collection.manager.get_data(dataset_name=self._data_collection.name, item_name=item_name)
+
+
+# class DataCollectionDomainDetector(AbstractDomainDetector, ABC):
+#     """
+#     Complex :class:`DataDomain` detector for a collection of data items.
+#
+#     Collections can be dictionaries of individual ``bytes`` or :class:`RepeatableReader` objects keyed by an item
+#     name/id, a directory path, or :class:`Dataset` objects.
+#
+#     A subclass may optionally register with this type if the subclass itself is given a ``format_type`` keyword argument
+#     containing a :class:`DataFormat` value.  A ``name`` keyword argument may also optionally be provided; by default,
+#     the class's name is used.  E.g.:
+#
+#     ```
+#     class DataCollectionDomainDetectorSubtype(DataCollectionDomainDetector, format_type=DataFormat.AORC_CSV):
+#     ```
+#
+#     This will register the subclass as a type that can detect domains for data having that format.  This type provides
+#     a class method :method:`get_types_for_format` for accessing the collection of registered subclasses for a format.
+#
+#     Additionally, when registering with a data format, subclasses can also provide an ``extension_hints`` keyword
+#     argument (note this will be ignored if ``format_type`` is not also provided). This should be a set of string values.
+#     It records for the registered subclass a non-exclusive association with one or more file extensions, which can be
+#     used to help find the right subclass when dealing with a particular collection of data items. E.g.:
+#
+#     ```
+#     class CsvDatasetDetector(DataCollectionDomainDetector, format_type=DataFormat.AORC_CSV, extension_hints={"csv"}):
+#     ```
+#     """
+#
+#     _all_subclasses: Dict[Type['ItemDataDomainDetector'], str] = dict()
+#     """ All known subclasses, keyed to its name identifier (which defaults to the class's name). """
+#     _file_extension_hints: Dict[str, Set[Tuple[DataFormat, str]]] = dict()
+#     """
+#     Collection of hints associating file extensions with registered subclasses that are more likely to be able to work
+#     with such file extensions; the file extension substring are keys, and values are encodings to access hinted-at
+#     subclasses the :attribute:`_subclasses` attribute.
+#     """
+#     _detector_registry: Dict[DataFormat, Dict[str, Type['DataCollectionDomainDetector']]] = {f: dict() for f in DataFormat}
+#     """
+#     Registered subclasses in the form of an outer dictionary mapping supported format to inner dictionaries, mapping
+#     subclass name to subclass.
+#     """
+#     _subclass_extensions: Dict[Type['ItemDataDomainDetector'], Set[str]] = dict()
+#     """ A collection to reverse the file extensions for a particular subclass. """
+#     _subclass_formats: Dict[Type['ItemDataDomainDetector'], DataFormat] = dict()
+#     """ A collection to reverse the format for a particular subclass. """
+#
+#     @classmethod
+#     def get_data_format(cls) -> Optional[DataFormat]:
+#         return cls._subclass_formats.get(cls)
+#
+#     @classmethod
+#     def get_file_extensions(cls) -> Optional[Set[str]]:
+#         return cls._subclass_extensions.get(cls)
+#
+#     @classmethod
+#     def get_types_for_format(cls, data_format: DataFormat) -> Dict[str, Type['DataCollectionDomainDetector']]:
+#         """
+#         Return subclass type registered as capable of detecting domains for data with the given data format.
+#
+#         Parameters
+#         ----------
+#         data_format: DataFormat
+#             The data format of interest.
+#
+#         Returns
+#         -------
+#         Dict[str,Type['ItemDataDomainDetector']]
+#             Dictionary (keyed by class name) of registered subclasses capable of detecting domains for data with the
+#             given data format.
+#         """
+#         return cls._detector_registry.get(data_format, dict())
+#
+#     def __init_subclass__(cls, format_type: Optional[DataFormat] = None, name: Optional[str] = None,
+#                           extension_hints: Optional[Set[str]] = None, **kwargs):
+#         super().__init_subclass__(**kwargs)
+#         cls._subclass_formats[cls] = format_type
+#         cls._all_subclasses[cls] = cls.__name__ if name is None else name
+#         if format_type is not None:
+#             if name is None:
+#                 name = cls.__name__
+#             cls._detector_registry[format_type][name] = cls
+#             if extension_hints is not None:
+#                 for extension in extension_hints:
+#                     if extension not in cls._file_extension_hints:
+#                         cls._file_extension_hints[extension] = set()
+#                     cls._file_extension_hints[extension].add((format_type, name))
+#                 cls._subclass_extensions[cls] = extension_hints
+#
+#     def __init__(self, data_collection: DataCollection, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         self.data: DataCollection = data_collection
+#         if isinstance(self.data, Path) and not self.data.is_dir():
+#             raise ValueError(f"{self.__class__.__name__} must initialize with a directory path as its data collection")
+#
+#
+# # TODO: decide whether detection works if not all files are part of it (or if this is type-specific or parameterized)
+# class AorcCsvForcingsDomainDetector(DataCollectionDomainDetector, format_type=DataFormat.AORC_CSV,
+#                                     extension_hints={"csv"}):
+#     """
+#     Detect domains for collections of data items representing AORC forcings in CSV form.
+#
+#     Detect domains AORC forcings in CSV form for formal :class:`Dataset` instances or collections of items that provide
+#     data that could compose the items of such a dataset.
+#     """
+#
+#     def detect(self, **kwargs) -> DataDomain:
+#         # TODO: make sure this accounts for the extra serialization file present in object store datasets and ignores it
+#         # TODO: look through all files
+#         # TODO: look for catchment at part of file names
+#         # TODO: make sure only csv files
+#         # TODO: check a few files for time steps and to make sure consistent
+#         # TODO: if dealing with files, make sure all file are roughly consistent in size (unless we can load rows quickly to check this)
+#         pass
+#
+#
+# class NextGenNetCdfForcingsDomainDetector(DataCollectionDomainDetector, format_type=DataFormat.NETCDF_FORCING_CANONICAL,
+#                                           extension_hints={"nc", "nc4"}):
+#     """
+#     Detect domains for collections of data items representing forcings in the canonical NetCDF form for NextGen.
+#
+#     Detect domains for a "collection" of forcings data in the canonical NextGen NetCDF format.  Here, "collection" means
+#     a single item/file, as the canonical form for NextGen organizes data per-catchment, per-time-step, all within a
+#     single file.
+#     """
+#
+#     def detect(self, **kwargs) -> DataDomain:
+#         # TODO: make sure this accounts for the extra serialization file present in object store datasets and ignores it
+#         # TODO: expect one file or directory with one file
+#         # TODO:
+#         # TODO: make sure only nc or nc4 file (if files)
+#         pass
 
 
 class DatasetManager(ABC):
