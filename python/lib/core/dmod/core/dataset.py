@@ -8,12 +8,13 @@ from datetime import datetime, timedelta
 
 from .serializable import Serializable, ResultIndicator
 from .enum import PydanticEnum
-from typing import Any, Callable, ClassVar, Dict, FrozenSet, List, Optional, Set, Tuple, Type, Union
+from pathlib import Path
+from typing import Any, Callable, ClassVar, Dict, FrozenSet, List, Optional, Set, Tuple, Type, TypeVar, Union
 from pydantic import Field, validator, PrivateAttr
 from pydantic.fields import ModelField
 from uuid import UUID, uuid4
 
-from .common.reader import Reader
+from .common.reader import Reader, RepeatableReader
 
 
 class DatasetType(PydanticEnum):
@@ -484,6 +485,143 @@ class DatasetUser(ABC):
             Whether an established usage link was successfully released.
         """
         return dataset.manager is not None and dataset.manager.unlink_user(user=self, dataset=dataset)
+
+
+DataItem = TypeVar('DataItem', bound=Union[bytes, RepeatableReader, Path])
+
+
+class AbstractDomainDetector(ABC):
+    """ Abstraction for something that will automatically detect a :class:`DataDomain` for some data. """
+
+    def __init__(self, *args, **kwargs):
+        self._data_domain: Optional[DataDomain] = None
+
+    @abstractmethod
+    def detect(self, **kwargs) -> DataDomain:
+        """
+        Detect and return the data domain.
+
+        Parameters
+        ----------
+        kwargs
+            Optional kwargs applicable to the subtype, which may enhance or add to the domain detection and generation
+            capabilities, but which should not be required to produce a valid domain.
+
+        Returns
+        -------
+        DataDomain
+            The detected domain.
+
+        Raises
+        ------
+        DmodRuntimeError
+            If it was not possible to properly detect the domain.
+        """
+        pass
+
+    @property
+    def data_domain(self) -> DataDomain:
+        """
+        The domain detected by the instance, lazily initialized via :method:`detect` if needed.
+
+        Returns
+        -------
+        DataDomain
+            The domain detected by the instance.
+        """
+        if self._data_domain is None:
+            self._data_domain = self.detect()
+        return self._data_domain
+
+    def reset(self):
+        """
+        Reset domain property so the next call to :method:`data_domain` calls and sets via :method:`detect` again.
+        """
+        self._data_domain = None
+
+
+class ItemDataDomainDetector(AbstractDomainDetector, ABC):
+    """
+    Type that can examine a data item and detect its individual :class:`DataDomain`.
+
+    Abstraction for detecting the  of a single data item.  Here, a data item specifically means either
+    :class:`bytes` object with raw data, a :class:`RepeatableReader` object that can read data multiple times, or a
+    :class:`Path` object pointing to a file (not a directory).
+
+    Base type provides a class method :method:`get_type_for_format` that allows for getting an appropriate subtype for
+    detecting in the contexts of a specific :class:`DataFormat`, assuming one exists.
+
+    A subclass may optionally register with this type if the subclass itself is given a ``format_type`` keyword argument
+    containing a :class:`DataFormat` value.  A ``name`` keyword argument may also optionally be provided; by default,
+    the class's name is used.  E.g.:
+
+    ```
+    class DomainDetectorSubtype(ItemDataDomainDetector, format_type=DataFormat.AORC_CSV):
+    ```
+
+    This will register the subclass as a type that can detect domains for data having that format.  This type provides
+    a class method :method:`get_types_for_format` for accessing the collection of registered subclasses for a format.
+    """
+
+    _all_subclasses: Dict[Type['ItemDataDomainDetector'], str] = dict()
+    """ All known subclasses, keyed to its name identifier (which defaults to the class's name). """
+    _detector_registry: Dict[DataFormat, Dict[str, Type['ItemDataDomainDetector']]] = {f: dict() for f in DataFormat}
+    """ 
+    Registered subclasses in the form of an outer dictionary mapping supported format to inner dictionaries, mapping 
+    subclass name to subclass.
+    """
+    _subclass_formats: Dict[Type['ItemDataDomainDetector'], DataFormat] = dict()
+    """ A collection to reverse the format for a particulr subclass. """
+
+    @classmethod
+    def get_data_format(cls) -> Optional[DataFormat]:
+        """
+        Get the registered data format for this subclass of :class:`ItemDataDomainDetector`, if it is registered.
+
+        Returns
+        -------
+        Optional[DataFormat]
+            The :class:`DataFormat` of this subclass, if it registered one; otherwise ``None``.
+        """
+        return cls._subclass_formats.get(cls)
+
+    @classmethod
+    def get_types_for_format(cls, data_format: DataFormat) -> Dict[str, Type['ItemDataDomainDetector']]:
+        """
+        Return subclass type registered as capable of detecting domains for data with the given data format.
+
+        Parameters
+        ----------
+        data_format: DataFormat
+            The data format of interest.
+
+        Returns
+        -------
+        Dict[str,Type['ItemDataDomainDetector']]
+            Dictionary (keyed by class name) of registered subclasses capable of detecting domains for data with the
+            given data format.
+        """
+        return cls._detector_registry.get(data_format, dict())
+
+    def __init_subclass__(cls, format_type: Optional[DataFormat] = None, name: Optional[str] = None, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls._subclass_formats[cls] = format_type
+        cls._all_subclasses[cls] = cls.__name__ if name is None else name
+        if format_type is not None:
+            cls._detector_registry[format_type][cls.__name__ if name is None else name] = cls
+
+    def __init__(self, item: DataItem, item_name: Optional[str] = None, decode_format: str = 'utf-8', *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._item: DataItem = item
+        """ The data item for which to detect a domain. """
+        self._is_item_file = isinstance(self._item, Path)
+        """ Private flag of whether data item is a :class:`Path` object (that points to a file, per other checks). """
+        self._item_name = self._item.name if self._is_item_file else item_name
+        """ Name for the item; in some situations, contains important constraint metadata (e.g. catchment name). """
+        self._decode_format = decode_format
+        """ A decoder format sometimes used when reading data item in order to get metadata. """
+        if self._is_item_file and self._item.is_dir():
+            raise ValueError(f"{self.__class__.__name__} can't initialize with a directory path as its data item")
 
 
 class DatasetManager(ABC):
