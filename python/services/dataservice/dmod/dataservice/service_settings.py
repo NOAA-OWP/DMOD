@@ -95,7 +95,7 @@ For more in-depth information, see these resources:
 - https://docs.docker.com/compose/environment-variables/env-file/#syntax
 - https://github.com/theskumar/python-dotenv?tab=readme-ov-file#file-format
 
-A secret's filename must be the name of a configuration variable.
+A secret's filename must match the name of a configuration variable (case insensitive).
 The value of the secret are the contents of the file.
 
 Configuration Source Priority:
