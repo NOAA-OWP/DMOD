@@ -14,7 +14,7 @@ from pydantic import Field, validator, PrivateAttr
 from pydantic.fields import ModelField
 from uuid import UUID, uuid4
 
-from .common.reader import Reader, RepeatableReader
+from .common.reader import Reader, ReadSeeker
 
 
 class DatasetType(PydanticEnum):
@@ -487,7 +487,7 @@ class DatasetUser(ABC):
         return dataset.manager is not None and dataset.manager.unlink_user(user=self, dataset=dataset)
 
 
-DataItem = TypeVar('DataItem', bound=Union[bytes, RepeatableReader, Path])
+DataItem = TypeVar('DataItem', bound=Union[bytes, ReadSeeker, Path])
 
 
 class AbstractDomainDetector(ABC):
