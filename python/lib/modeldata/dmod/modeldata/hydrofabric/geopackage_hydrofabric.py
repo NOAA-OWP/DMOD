@@ -447,8 +447,8 @@ class GeoPackageHydrofabric(Hydrofabric):
             # Value[1]: callable no arg function, returning collection of ids for records/rows to include in subset
         subset_query_setups: Dict[str, Tuple[str, Callable[[], Iterable[str]]]] = {
             'flowpaths': ('realized_catchment', lambda: subset.catchment_ids),
-            'divides': ('id', lambda: subset.catchment_ids),
-            'nexus': ('id', lambda: subset.nexus_ids),
+            'divides': (self._DIVIDES_CAT_ID_COL, lambda: subset.catchment_ids),
+            'nexus': (self._NEXUS_NEX_ID_COL, lambda: subset.nexus_ids),
             'flowpath_attributes': ('id', lambda: new_dfs['flowpaths']['id']),
             'flowpath_edge_list': ('id', lambda: new_dfs['flowpaths']['id']),
             'crosswalk': ('id', lambda: new_dfs['flowpaths']['id']),
