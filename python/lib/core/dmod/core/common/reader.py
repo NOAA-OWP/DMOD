@@ -10,14 +10,11 @@ class Reader(Protocol):
 
 @runtime_checkable
 class Seeker(Protocol):
-    def seek(self, offset: int, whence: int = SEEK_SET):
-        """ Change the position to the given offset. """
+    def seek(self, offset: int, whence: int = SEEK_SET) -> int:
+        """ Change the position to the given offset, returning the absolute position. """
 
 
-class RepeatableReader(Reader):
+class ReadSeeker(Reader, Seeker):
     """
-    Extension of ::class:`Reader` that provides a reset mechanism that allows its data can be read multiple times.
+    A :class:`Reader` capable of changing the position from which it is reading.
     """
-
-    def reset(self):
-        """ Reset such that ::method:`read` returns to the start of the data this instance reads. """
