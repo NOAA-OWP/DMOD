@@ -21,12 +21,12 @@ services:
           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_1:-node.role==manager}
           - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
     secrets:
-      - myredis_pass
+      - redis_pass
     environment:
       - LISTEN_PORT=${DOCKER_SCHEDULER_CONTAINER_PORT:-3013}
       - SERVICE_PACKAGE_NAME=${PYTHON_PACKAGE_NAME_SCHEDULER_SERVICE:?}
       - SERVICE_SSL_DIR=/ssl/scheduler-service
-      - DOCKER_SECRET_REDIS_PASS=myredis_pass
+      - DOCKER_SECRET_REDIS_PASS=redis_pass
       - REDIS_HOST=${DOCKER_REDIS_SERVICE_ALIAS:-myredis}
       # Way to configure 1 extra mount for workers via env, as '<DMOD_JOB_WORKER_HOST_MOUNT>:/dmod/datasets/from_env:rw'
       - DMOD_JOB_WORKER_HOST_MOUNT=${DMOD_JOB_WORKER_HOST_MOUNT:-}
@@ -55,10 +55,10 @@ services:
           - ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT_1:-node.role==manager}
           - ${DOCKER_MPIMASTER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
     secrets:
-      - myredis_pass
+      - redis_pass
     environment:
       # Used by the entrypoint.sh script
-      - DOCKER_SECRET_REDIS_PASS=myredis_pass
+      - DOCKER_SECRET_REDIS_PASS=redis_pass
   request-service:
     image: ${DOCKER_INTERNAL_REGISTRY:?}/nwm-request-service
     networks:
@@ -74,12 +74,12 @@ services:
           - ${DOCKER_REQUESTS_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
       replicas: 1
     secrets:
-      - myredis_pass
+      - redis_pass
     environment:
       - REDIS_HOST=${DOCKER_REDIS_SERVICE_ALIAS:-redis}
       #- REDIS_PORT=
       #- REDIS_USER=
-      - DOCKER_SECRET_REDIS_PASS=myredis_pass
+      - DOCKER_SECRET_REDIS_PASS=redis_pass
       - LISTEN_PORT=${DOCKER_REQUESTS_CONTAINER_PORT:-3012}
       - SERVICE_PACKAGE_NAME=${PYTHON_PACKAGE_NAME_REQUEST_SERVICE:?}
       - SERVICE_SSL_DIR=/ssl/request-service
@@ -129,7 +129,7 @@ services:
 #          - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_1:-node.role==manager}
 #          - ${DOCKER_SCHEDULER_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
 #    secrets:
-#      - myredis_pass
+#      - redis_pass
 #    environment:
 #      - LISTEN_PORT=${DOCKER_SUBSET_CONTAINER_PORT:-5000}
 #      - SERVICE_PACKAGE_NAME=${PYTHON_PACKAGE_NAME_SUBSET_SERVICE:?}
@@ -156,26 +156,34 @@ services:
     secrets:
       - object_store_exec_user_name
       - object_store_exec_user_passwd
-      - myredis_pass
+      - redis_pass
     environment:
       - SERVICE_PACKAGE_NAME=${PYTHON_PACKAGE_NAME_DATA_SERVICE:-dmod.dataservice}
-      - LISTEN_PORT=${DOCKER_DATASERVICE_CONTAINER_PORT:-3015}
-      - SERVICE_SSL_DIR=/ssl/data-service
-      - USER_SECRET_NAME=object_store_exec_user_name
-      - PASSWD_SECRET_NAME=object_store_exec_user_passwd
+      - PORT=${DOCKER_DATASERVICE_CONTAINER_PORT:-3015}
+      - CERT_PATH=/ssl/data-service/certificate.pem
+      - KEY_PATH=/ssl/data-service/privkey.pem
+      - SSL_DIR=/ssl/data-service
       - OBJECT_STORE_HOST=${DMOD_DATA_SERVICE_OBJ_STORE_HOST:-minio-proxy}
-      #- REDIS_PORT=
-      #- REDIS_USER=
       - REDIS_HOST=${DOCKER_REDIS_SERVICE_ALIAS:-myredis}
-      - DOCKER_SECRET_REDIS_PASS=myredis_pass
-      - DMOD_FILESYSTEM_DATASET_CONFIG_DIR=${DMOD_FILESYSTEM_DATASET_CONFIG_DIR:-}
-      - PYCHARM_REMOTE_DEBUG_ACTIVE=${PYCHARM_REMOTE_DEBUG_DATA_SERVICE_ACTIVE:-false}
-      - PYCHARM_REMOTE_DEBUG_SERVER_HOST=${PYCHARM_REMOTE_DEBUG_SERVER_HOST:-host.docker.internal}
-      - PYCHARM_REMOTE_DEBUG_SERVER_PORT=${PYCHARM_REMOTE_DEBUG_SERVER_PORT_DATA_SERVICE:-55871}
-      #- PYCHARM_REMOTE_DEBUG_VERSION=${PYCHARM_REMOTE_DEBUG_VERSION:-}
-      # This typically needs to be commented out; intended for development use (see related 'volume' config below)
-      #- UPDATED_PACKAGES_DIR=${UPDATED_PACKAGES_CONTAINER_DIR:?Updated packages directory not set, make sure this should be active}
+      # computed or optional variables. optional vars have associated default value
+      # - S3FS_URL_PROTOCOL='http'
+      # - S3FS_URL_HOST
+      # - S3FS_URL_PORT=9000
+      # - S3FS_VOL_IMAGE_NAME='127.0.0.1:5000/s3fs-volume-helper'
+      # - S3FS_VOL_IMAGE_TAG='latest'
+      # - S3FS_PLUGIN_ALIAS='s3fs'
+      # - S3FS_HELPER_NETWORK='host'
+      # - HOST # computed with `hostname`
+      # - REDIS_PORT=6379
+      # - OBJECT_STORE_PORT=9000
+      # debugging configuration
+      - PYCHARM_DEBUG=false
+      # - PYCHARM_REMOTE_DEBUG_EGG='/pydevd-pycharm.egg'
+      # - REMOTE_DEBUG_HOST=${PYCHARM_REMOTE_DEBUG_SERVER_HOST:-host.docker.internal}
+      # - REMOTE_DEBUG_PORT=${PYCHARM_REMOTE_DEBUG_SERVER_PORT_DATA_SERVICE:-55871}
       #- VENV_DIR=${DOCKER_REQUESTS_CONTAINER_VENV_DIR:-}
+      # debugging flags
+      #- UPDATED_PACKAGES_DIR=${UPDATED_PACKAGES_CONTAINER_DIR:?Updated packages directory not set, make sure this should be active}
     working_dir: /code
     ports:
       - "${DOCKER_DATASERVICE_HOST_PORT:-3015}:${DOCKER_DATASERVICE_CONTAINER_PORT:-3015}"
@@ -193,7 +201,7 @@ services:
     ports:
       - "${DOCKER_PARTITIONER_SERVICE_CONTAINER_PORT:-3014}:${DOCKER_PARTITIONER_SERVICE_CONTAINER_PORT:-3014}"
     secrets:
-      - myredis_pass
+      - redis_pass
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${DMOD_SSL_DIR:?}:/ssl
@@ -218,7 +226,7 @@ services:
                "--data-service-host", "data-service",
                "--data-service-port", "${DOCKER_DATASERVICE_CONTAINER_PORT:-3015}",
                "--data-service-ssl-dir", "${DOCKER_DATASERVICE_CONTAINER_SERVICE_SSL_DIR:-/ssl/dataservice}",
-               "--redis-pass-secret-name", "myredis_pass"]
+               "--redis-pass-secret-name", "redis_pass"]
 networks:
     mpi-net:
         external: true
@@ -239,8 +247,8 @@ volumes:
     external: true
 
 secrets:
-  myredis_pass:
-    file: ${DOCKER_REDIS_SECRET_FILE:?Variable DOCKER_REDIS_SECRET_FILE unset in env; no path to myredis password Docker secret file}
+  redis_pass:
+    file: ${DOCKER_REDIS_SECRET_FILE:?Variable DOCKER_REDIS_SECRET_FILE unset in env; no path to redis password Docker secret file}
   # Have to create these here from the same backing files, since the stack prefix causes issue with sharing secrets
   # across stacks
   object_store_exec_user_passwd:
