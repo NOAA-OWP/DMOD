@@ -1,5 +1,5 @@
 from dmod.core.meta_data import DataDomain, DataFormat, DiscreteRestriction, StandardDatasetIndex, TimeRange
-from dmod.core.common.reader import RepeatableReader
+from dmod.core.common.reader import ReadSeeker
 from dmod.core.exception import DmodRuntimeError
 from dmod.core.dataset import ItemDataDomainDetector
 from pandas import read_csv as pandas_read_csv
@@ -140,9 +140,9 @@ class GeoPackageHydrofabricDomainDetector(ItemDataDomainDetector, format_type=Da
             If it was not possible to properly detect the domain.
         """
         # TODO: (later) probably isn't necessary to treat separately, but don't have a good way to test yet
-        if isinstance(self._item, RepeatableReader):
+        if isinstance(self._item, ReadSeeker):
             gpkg_data = self._item.read()
-            self._item.reset()
+            self._item.seek(0)
         else:
             gpkg_data = self._item
 
