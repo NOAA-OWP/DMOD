@@ -493,9 +493,6 @@ DataItem = TypeVar('DataItem', bound=Union[bytes, ReadSeeker, Path])
 class AbstractDomainDetector(ABC):
     """ Abstraction for something that will automatically detect a :class:`DataDomain` for some data. """
 
-    def __init__(self, *args, **kwargs):
-        self._data_domain: Optional[DataDomain] = None
-
     @abstractmethod
     def detect(self, **kwargs) -> DataDomain:
         """
@@ -518,26 +515,6 @@ class AbstractDomainDetector(ABC):
             If it was not possible to properly detect the domain.
         """
         pass
-
-    @property
-    def data_domain(self) -> DataDomain:
-        """
-        The domain detected by the instance, lazily initialized via :method:`detect` if needed.
-
-        Returns
-        -------
-        DataDomain
-            The domain detected by the instance.
-        """
-        if self._data_domain is None:
-            self._data_domain = self.detect()
-        return self._data_domain
-
-    def reset(self):
-        """
-        Reset domain property so the next call to :method:`data_domain` calls and sets via :method:`detect` again.
-        """
-        self._data_domain = None
 
 
 class ItemDataDomainDetector(AbstractDomainDetector, ABC):
