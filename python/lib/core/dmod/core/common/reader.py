@@ -14,7 +14,8 @@ class Seeker(Protocol):
         """ Change the position to the given offset, returning the absolute position. """
 
 
-class ReadSeeker(Reader, Seeker):
+@runtime_checkable
+class ReadSeeker(Reader, Seeker, Protocol):
     """
     A :class:`Reader` capable of changing the position from which it is reading.
     """
