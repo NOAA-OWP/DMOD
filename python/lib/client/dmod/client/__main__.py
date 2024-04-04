@@ -379,10 +379,7 @@ def execute_dataset_command(args, client: DmodClient):
         try:
             result = async_loop.run_until_complete(client.data_service_action(**(vars(args))))
             print(result)
-        except ValueError as e:
-            print(str(e))
-            sys.exit(1)
-        except NotImplementedError as e:
+        except (ValueError, NotImplementedError) as e:
             print(str(e))
             sys.exit(1)
         except Exception as e:
