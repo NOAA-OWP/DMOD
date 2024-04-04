@@ -367,7 +367,8 @@ def find_client_config(basenames: Optional[List[str]] = None, dirs: Optional[Lis
 def execute_dataset_command(args, client: DmodClient):
     if args.action == 'domain':
         try:
-            print({"success": True, "domain": f"{run_domain_detection(paths=args.path).to_json()}"})
+            domain = run_domain_detection(paths=args.path)
+            print({"success": True, "domain": f"{domain.to_json()}"})
         except DmodRuntimeError as e:
             print({"success": False, "reason": f"{e.__class__.__name__}", "message": f"{e!s}"})
         except Exception as e:
