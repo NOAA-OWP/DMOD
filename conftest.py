@@ -19,6 +19,77 @@ REPO_ROOT = Path(__file__).parent.resolve()
 # this is needed for `pytest` discovery reasons specific to `dmod`'s package structure
 sys.path.insert(0, str(REPO_ROOT))
 
+# Project Level pytest fixtures
+# these fixtures are available to any test in the repository
+
+@pytest.fixture(scope="session")
+def repo_root() -> Path:
+    """
+    Returns absolute path to repository's root directory.
+    Only functional with `pytest` style tests.
+    Use `repo_root_unittest` to add similar functionality to `unittest.TestCase` tests.
+    """
+    return REPO_ROOT
+
+@pytest.fixture(scope="session")
+def test_data_dir(request: pytest.FixtureRequest) -> Path:
+    """
+    Returns absolute path to repository's root data directory. 
+    Only functional with `pytest` style tests. 
+    Use `test_data_dir_unittest` to add similar functionality to `unittest.TestCase` tests.
+    """
+    if request.cls is not None:
+        request.cls.__test_data_dir = REPO_ROOT / "data"
+    return REPO_ROOT / "data"
+
+# fixture variants designated for use with `unittest.TestCase`
+# NOTE: fixture `scope` must be "class" to use with `unittest.TestCase` tests
+
+@pytest.fixture(scope="class")
+def repo_root_unittest(request: pytest.FixtureRequest, repo_root: Path) -> Path:
+    """
+    Sets `._repo_root` property on class to the absolute path to repository's root directory.
+    Returns absolute path to repository's root directory if `pytest` style test.
+    Functional with both `unittest.TestCase` and `pytest` style tests.
+
+    Example:
+        import unittest
+        import pytest
+
+        @pytest.mark.usefixtures("repo_root_unittest")
+        class TestFoo(unittest.TestCase):
+            def test_foo(self):
+                # do something with repo root
+                (self._repo_root / "LICENSE").read_text()
+    """
+    assert request.cls is not None
+    request.cls._repo_root = repo_root
+    return repo_root
+
+@pytest.fixture(scope="class")
+def repo_data_dir_unittest(request: pytest.FixtureRequest, repo_data_dir: Path) -> Path:
+    """
+    Sets `._repo_data_dir` property on class to the absolute path to repository's root data directory.
+    Returns absolute path to repository's root data directory if `pytest` style test.
+    Functional with both `unittest.TestCase` and `pytest` style tests.
+
+    Example:
+        import unittest
+        import pytest
+
+        @pytest.mark.usefixtures("repo_data_dir_unittest")
+        class TestFoo(unittest.TestCase):
+            def test_foo(self):
+                # do something with data dir
+                (self._repo_data_dir / "example_image_and_domain.yaml").read_text()
+    """
+    assert request.cls is not None
+    request.cls._repo_data_dir = repo_data_dir
+    return repo_data_dir
+
+# Pytest CLI customization
+# Includes logic for setting environment variables and running integration tests
+
 integration_testing: bool = False
 modules: Set[Path] = set()
 active: Set[Path] = set()
