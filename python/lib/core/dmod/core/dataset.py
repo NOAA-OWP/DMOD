@@ -878,7 +878,9 @@ class DataCollectionDomainDetector(AbstractDomainDetector):
         # If this domain has a format with a self-reference to dataset id, and we have a name, then set that restriction
         if StandardDatasetIndex.DATA_ID in domain.data_format.indices_to_fields().keys() and self._collection_name:
             domain.discrete_restrictions[StandardDatasetIndex.DATA_ID] = DiscreteRestriction(
-                variable=StandardDatasetIndex.DATA_ID, values=[self._collection_name])
+                variable=StandardDatasetIndex.DATA_ID,
+                values=[self._collection_name]
+            )
         return domain
 
     def get_item_names(self) -> Set[str]:
