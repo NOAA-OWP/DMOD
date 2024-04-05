@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 
 from .enum import PydanticEnum
@@ -53,7 +55,7 @@ class StandardDatasetIndex(str, PydanticEnum):
         return o
 
     @classmethod
-    def get_for_name(cls, name_str: str) -> 'StandardDatasetIndex':
+    def get_for_name(cls, name_str: str) -> StandardDatasetIndex:
         cleaned_up_str = name_str.strip().upper()
         for value in cls:
             if value.name.upper() == cleaned_up_str:
@@ -221,7 +223,7 @@ class DataFormat(PydanticEnum):
     """
 
     @classmethod
-    def can_format_fulfill(cls, needed: 'DataFormat', alternate: 'DataFormat') -> bool:
+    def can_format_fulfill(cls, needed: DataFormat, alternate: DataFormat) -> bool:
         """
         Test whether data in an alternate format is capable of satisfying requirements of some other format.
 
@@ -267,7 +269,7 @@ class DataFormat(PydanticEnum):
         return False
 
     @classmethod
-    def get_for_name(cls, name_str: str) -> Optional['DataFormat']:
+    def get_for_name(cls, name_str: str) -> Optional[DataFormat]:
         cleaned_up_str = name_str.strip().upper()
         for value in cls:
             if value.name.upper() == cleaned_up_str:
@@ -470,14 +472,14 @@ class ContinuousRestriction(Serializable):
             end_time = datetime.strptime(truncated_json_obj['end'], format_str)
             if isinstance(begin_time, datetime) and isinstance(end_time, datetime):
                 json_copy['datetime_pattern'] = format_str
-                json_copy['subclass'] = 'TimeRange'
+                json_copy['subclass'] = TimeRange
         except:
             if 'subclass' not in json_copy:
                 json_copy['subclass'] = cls.__name__
 
         return json_copy
 
-    def _compatible_with(self, other: 'ContinuousRestriction') -> bool:
+    def _compatible_with(self, other: ContinuousRestriction) -> bool:
         """
         Whether this is compatible with another instance regarding checks for contains, extension, or subtraction.
 
@@ -492,7 +494,7 @@ class ContinuousRestriction(Serializable):
         """
         return isinstance(other, ContinuousRestriction) and self.variable == other.variable
 
-    def can_extend_with(self, other: 'ContinuousRestriction') -> bool:
+    def can_extend_with(self, other: ContinuousRestriction) -> bool:
         """
         Whether another restriction could combine with and extend this one.
 
@@ -516,7 +518,7 @@ class ContinuousRestriction(Serializable):
         else:
             return other.begin <= self.end
 
-    def contains(self, other: 'ContinuousRestriction') -> bool:
+    def contains(self, other: ContinuousRestriction) -> bool:
         """
         Whether this object contains all the values of the given object and the two are of the same index.
 
@@ -533,7 +535,7 @@ class ContinuousRestriction(Serializable):
         """
         return self._compatible_with(other) and self.begin <= other.begin and self.end >= other.end
 
-    def extend(self, other: 'ContinuousRestriction') -> 'ContinuousRestriction':
+    def extend(self, other: ContinuousRestriction) -> ContinuousRestriction:
         """
         Produce another instance made by extending this instance with the other, assuming compatibility.
 
@@ -596,7 +598,7 @@ class DiscreteRestriction(Serializable):
     def __hash__(self) -> int:
         return hash((self.variable.name, *self.values))
 
-    def _compatible_with(self, other: 'DiscreteRestriction') -> bool:
+    def _compatible_with(self, other: DiscreteRestriction) -> bool:
         """
         Whether this is compatible with another instance regarding checks for contains, extension, or subtraction.
 
@@ -611,7 +613,7 @@ class DiscreteRestriction(Serializable):
         """
         return isinstance(other, DiscreteRestriction) and self.variable == other.variable
 
-    def can_extend_with(self, other: 'DiscreteRestriction') -> bool:
+    def can_extend_with(self, other: DiscreteRestriction) -> bool:
         """
         Whether another restriction could combine with and extend this one.
 
@@ -627,7 +629,7 @@ class DiscreteRestriction(Serializable):
         """
         return self._compatible_with(other) and not self.contains(other)
 
-    def contains(self, other: 'DiscreteRestriction') -> bool:
+    def contains(self, other: DiscreteRestriction) -> bool:
         """
         Whether this object contains all the values of the given object and the two are of the same index.
 
@@ -658,7 +660,7 @@ class DiscreteRestriction(Serializable):
                     return False
         return True
 
-    def extend(self, other: 'DiscreteRestriction') -> 'DiscreteRestriction':
+    def extend(self, other: DiscreteRestriction) -> DiscreteRestriction:
         """
         Produce another instance made by extending this instance with the other, assuming compatibility.
 
@@ -809,7 +811,7 @@ class DataDomain(Serializable):
                            f"{'None' if data_format is None else data_format.name})")
 
     @classmethod
-    def factory_init_from_restriction_collections(cls, data_format: DataFormat, **kwargs) -> 'DataDomain':
+    def factory_init_from_restriction_collections(cls, data_format: DataFormat, **kwargs) -> DataDomain:
         """
         Create and return a data domain object of the given format and keyword args containing restriction properties.
 
@@ -878,7 +880,7 @@ class DataDomain(Serializable):
                           discrete_restrictions=None if len(discrete) == 0 else discrete)
 
     @classmethod
-    def merge_domains(cls, d1: 'DataDomain', d2: 'DataDomain') -> 'DataDomain':
+    def merge_domains(cls, d1: DataDomain, d2: DataDomain) -> DataDomain:
         """
         Merge the two domains into a new combined domain.
 
@@ -954,13 +956,13 @@ class DataDomain(Serializable):
         idx = discrete_restriction.variable
         return idx in self.discrete_restrictions and self.discrete_restrictions[idx].contains(discrete_restriction)
 
-    def contains(self, other: Union[ContinuousRestriction, DiscreteRestriction, 'DataDomain']) -> bool:
+    def contains(self, other: Union[ContinuousRestriction, DiscreteRestriction, DataDomain]) -> bool:
         """
         Whether this domain contains the given domain or collection of domain index values.
 
         Parameters
         ----------
-        other : Union[ContinuousRestriction, DiscreteRestriction, 'DataDomain']
+        other : Union[ContinuousRestriction, DiscreteRestriction, DataDomain]
             Another domain, or a group of continuous or discrete values for particular domain index.
 
         Returns
@@ -1088,7 +1090,7 @@ class DataCategory(PydanticEnum):
     OUTPUT = 4
 
     @classmethod
-    def get_for_name(cls, name_str: str) -> Optional['DataCategory']:
+    def get_for_name(cls, name_str: str) -> Optional[DataCategory]:
         cleaned_up_str = name_str.strip().upper()
         for value in cls:
             if value.name.upper() == cleaned_up_str:
@@ -1103,7 +1105,7 @@ class TimeRange(ContinuousRestriction):
     variable: StandardDatasetIndex = Field(StandardDatasetIndex.TIME.name, const=True)
 
     @classmethod
-    def parse_from_string(cls, as_string: str, dt_format: Optional[str] = None, dt_str_length: int = 19) -> 'TimeRange':
+    def parse_from_string(cls, as_string: str, dt_format: Optional[str] = None, dt_str_length: int = 19) -> TimeRange:
         """
         Parse a colloquial string representation of a time range to an object.
 
