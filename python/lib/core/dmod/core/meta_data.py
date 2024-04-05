@@ -494,9 +494,12 @@ class ContinuousRestriction(Serializable):
         """
         return isinstance(other, ContinuousRestriction) and self.variable == other.variable
 
-    def can_extend_with(self, other: ContinuousRestriction) -> bool:
+    def can_expand_with(self, other: ContinuousRestriction) -> bool:
         """
-        Whether another restriction could combine with and extend this one.
+        Whether another restriction is expansion-compatible with this one.
+
+        Whether another restriction is expansion-compatible with this one.  To be compatible, they must involve the same
+        variable and this instance must have a range that overlaps with but is not contained by the range of the other.
 
         Parameters
         ----------
@@ -506,7 +509,7 @@ class ContinuousRestriction(Serializable):
         Returns
         -------
         bool
-            Whether another restriction could combine with and extend this one.
+            Whether another restriction is expansion-compatible with this one.
         """
         if not self._compatible_with(other):
             return False
@@ -535,9 +538,9 @@ class ContinuousRestriction(Serializable):
         """
         return self._compatible_with(other) and self.begin <= other.begin and self.end >= other.end
 
-    def extend(self, other: ContinuousRestriction) -> ContinuousRestriction:
+    def expand(self, other: ContinuousRestriction) -> ContinuousRestriction:
         """
-        Produce another instance made by extending this instance with the other, assuming compatibility.
+        Produce another instance made by combining this instance with the other, assuming they are compatible.
 
         Parameters
         ----------
@@ -551,13 +554,13 @@ class ContinuousRestriction(Serializable):
         Raises
         ------
         DmodRuntimeError
-            Raised if the two instances are not compatible as testable via :method:`can_extend`
+            Raised if the two instances are not expansion compatible as testable via :method:`can_expand_with`
 
         See Also
         --------
-        can_extend
+        can_expand_with
         """
-        if not self.can_extend_with(other):
+        if not self.can_expand_with(other):
             raise DmodRuntimeError(f"Attempting to extend incompatible {self.__class__.__name__} objects")
         return self.__class__(variable=self.variable, begin=min(self.begin, other.begin), end=max(self.end, other.end),
                               datetime_pattern=self.datetime_pattern, subclass=self.subclass)
@@ -613,9 +616,12 @@ class DiscreteRestriction(Serializable):
         """
         return isinstance(other, DiscreteRestriction) and self.variable == other.variable
 
-    def can_extend_with(self, other: DiscreteRestriction) -> bool:
+    def can_expand_with(self, other: DiscreteRestriction) -> bool:
         """
-        Whether another restriction could combine with and extend this one.
+        Whether another restriction is expansion-compatible with this one.
+
+        Whether another restriction is expansion-compatible with this one.  To be compatible, they must involve the same
+        variable and this instance must not contain the other, according to :method:`contains`.
 
         Parameters
         ----------
@@ -625,7 +631,11 @@ class DiscreteRestriction(Serializable):
         Returns
         -------
         bool
-            Whether another restriction could combine with and extend this one.
+            Whether another restriction is expansion-compatible with this one.
+
+        See Also
+        --------
+        contains
         """
         return self._compatible_with(other) and not self.contains(other)
 
@@ -660,9 +670,9 @@ class DiscreteRestriction(Serializable):
                     return False
         return True
 
-    def extend(self, other: DiscreteRestriction) -> DiscreteRestriction:
+    def expand(self, other: DiscreteRestriction) -> DiscreteRestriction:
         """
-        Produce another instance made by extending this instance with the other, assuming compatibility.
+        Produce another instance made by combining this instance with the other, assuming they are compatible.
 
         Parameters
         ----------
@@ -677,13 +687,13 @@ class DiscreteRestriction(Serializable):
         Raises
         ------
         DmodRuntimeError
-            Raised if the two instances are not compatible as testable via :method:`can_extend`
+            Raised if the two instances are not expansion-compatible as testable via :method:`can_expand_with`
 
         See Also
         --------
-        can_extend
+        can_expand_with
         """
-        if not self.can_extend_with(other):
+        if not self.can_expand_with(other):
             raise DmodRuntimeError(f"Attempting to extend incompatible {self.__class__.__name__} objects")
         if other.is_all_possible_values:
             return DiscreteRestriction(**other.dict())
@@ -918,7 +928,7 @@ class DataDomain(Serializable):
         new_c_rests = {idx: (d1_rest
                              if idx not in d2.continuous_restrictions or d1_rest == d2.continuous_restrictions[idx]
                              else
-                             d1_rest.extend(d2.continuous_restrictions[idx]))
+                             d1_rest.expand(d2.continuous_restrictions[idx]))
                        for idx, d1_rest in d1.continuous_restrictions.items()}
 
         # Any other indices in d2, just move them over
@@ -929,7 +939,7 @@ class DataDomain(Serializable):
         new_d_rests = {idx: (d1_rest
                              if idx not in d2.discrete_restrictions or d1_rest == d2.discrete_restrictions[idx]
                              else
-                             d1_rest.extend(d2.discrete_restrictions[idx]))
+                             d1_rest.expand(d2.discrete_restrictions[idx]))
                        for idx, d1_rest in d1.discrete_restrictions.items()}
         for idx in (i for i in d2.discrete_restrictions if i not in new_d_rests):
             new_d_rests[idx] = d2.discrete_restrictions[idx]
@@ -1076,7 +1086,6 @@ class DataDomain(Serializable):
 
         serial[data_fields_key] = custom_data_fields
         return serial
-
 
 
 class DataCategory(PydanticEnum):
