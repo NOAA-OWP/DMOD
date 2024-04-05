@@ -39,9 +39,7 @@ class AorcCsvFileDomainDetector(ItemDataDomainDetector, format_type=DataFormat.A
         self._num_time_steps = None
 
     def _get_catchment_id(self) -> str:
-        # TODO: test
-        pattern = re.compile('^.*(cat)[_-](\d+)\D.*$')
-        matches = pattern.match(self._item_name)
+        matches = re.match('^.*(cat)[_-](\d+)\D.*$', self._item_name)
         if matches:
             return f"{matches.group(1)}-{matches.group(2)}"
         else:
