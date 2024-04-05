@@ -200,17 +200,15 @@ class Dataset(Serializable):
         )
 
     def __hash__(self):
-        members = [
-            self.__class__.__name__,
-            self.name,
-            self.category.name,
-            str(hash(self.data_domain)),
+        return hash((
             self.access_location,
-            str(self.is_read_only),
-            str(hash(self.created_on)),
-        ]
-        description = ",".join(members)
-        return hash(description)
+            self.category,
+            self.created_on,
+            self.data_domain,
+            self.dataset_type,
+            self.is_read_only,
+            self.name
+        ))
 
     @property
     def manager(self) -> Optional[DatasetManager]:
