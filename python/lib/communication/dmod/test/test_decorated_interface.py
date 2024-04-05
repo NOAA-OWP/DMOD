@@ -13,8 +13,10 @@ from ..communication.websocket_interface import NoOpHandler
 from pathlib import Path
 from socket import gethostname
 import websockets
+import pytest
 
 
+@pytest.mark.usefixtures("repo_root_unittest")
 class WebSocketInterfaceTestBase(unittest.TestCase):
 
     _current_dir = Path(__file__).resolve().parent
@@ -91,21 +93,7 @@ class WebSocketInterfaceTestBase(unittest.TestCase):
         Path
             The sought project root directory if it can be found, or ``None``
         """
-        count_test_files = len(file_names) if isinstance(file_names, list) else 0
-        count_test_files += len(dir_names) if isinstance(dir_names, list) else 0
-        if count_test_files == 0:
-            raise RuntimeError("_find_proj_root() must be given at least one expected file/dir in project root")
-        levels = 0
-        if descendant.is_dir() and self._dir_contains(descendant, file_names) and self._dir_contains(descendant, dir_names, True):
-            return descendant
-        for d in descendant.parents:
-            if max_levels < 1 or levels < max_levels:
-                levels += 1
-            else:
-                break
-            if self._dir_contains(d, file_names) and self._dir_contains(d, dir_names, True):
-                return d
-        return None
+        return self._repo_root
 
     def setUp(self):
         test_dir_name = os.getenv('TEST_SSL_CERT_DIR')
