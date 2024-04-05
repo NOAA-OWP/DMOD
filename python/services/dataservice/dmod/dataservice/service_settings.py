@@ -1,8 +1,17 @@
+import sys
 from pathlib import Path
 from socket import gethostname
-from typing import Optional, Type
+from typing import Optional, List, Type, TypeVar
+from functools import lru_cache
 
-from pydantic import BaseSettings, ConstrainedInt, DirectoryPath, Field, FilePath
+from pydantic import (
+    BaseSettings,
+    ConstrainedInt,
+    DirectoryPath,
+    Field,
+    FilePath,
+    ValidationError,
+)
 
 
 class Port(ConstrainedInt):
@@ -177,6 +186,33 @@ class DebugSettings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         secrets_dir = "/run/secrets"
+
+
+@lru_cache
+def service_settings() -> ServiceSettings:
+    return _handle_settings(ServiceSettings)
+
+
+@lru_cache
+def debug_settings() -> DebugSettings:
+    return _handle_settings(DebugSettings)
+
+
+_T = TypeVar("_T", bound=BaseSettings)
+
+
+def _handle_settings(cls: Type[_T], **kwargs) -> _T:
+    try:
+        return cls(**kwargs)
+    except ValidationError as e:
+        usage: List[str] = []
+        for err in e.errors():
+            field_name: str = err["loc"][0]
+            msg = f"{field_usage(ServiceSettings, field_name)}\nError: {err['msg']}\n"
+            usage.append(msg)
+        error_msg = "\n".join(usage)
+        print(f"Service configuration failure: {error_msg}", file=sys.stderr)
+        sys.exit(1)
 
 
 def field_usage(cls: Type[BaseSettings], field_name: str) -> str:
