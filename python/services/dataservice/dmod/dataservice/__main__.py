@@ -1,8 +1,5 @@
 import logging
 import sys
-import typing
-
-import pydantic
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,11 +22,11 @@ from .service import (
     ServiceManager,
     TempDataTaskManager,
 )
-from .service_settings import DebugSettings, ServiceSettings, field_usage
+from .service_settings import ServiceSettings, debug_settings, service_settings
 
 
 def main():
-    settings = _handle_service_settings()
+    settings = service_settings()
 
     if settings.pycharm_debug:
         _setup_remote_debugging()
@@ -110,16 +107,8 @@ def main():
     service_manager.run()
 
 
-def _handle_service_settings() -> ServiceSettings:
-    return _handle_settings(ServiceSettings)
-
-
-def _handle_debug_settings() -> DebugSettings:
-    return _handle_settings(DebugSettings)
-
-
 def _setup_remote_debugging():
-    settings = _handle_debug_settings()
+    settings = debug_settings()
     logging.info("Preparing remote debugging connection for data service.")
     if not settings.pycharm_remote_debug_egg.exists():
         print(
@@ -148,23 +137,6 @@ def _setup_remote_debugging():
             ),
             file=sys.stderr,
         )
-
-
-_T = typing.TypeVar("_T", bound=pydantic.BaseSettings)
-
-
-def _handle_settings(cls: typing.Type[_T], **kwargs) -> _T:
-    try:
-        return cls(**kwargs)
-    except pydantic.ValidationError as e:
-        usage: typing.List[str] = []
-        for err in e.errors():
-            field_name: str = err["loc"][0]
-            msg = f"{field_usage(ServiceSettings, field_name)}\nError: {err['msg']}\n"
-            usage.append(msg)
-        error_msg = "\n".join(usage)
-        print(f"Service configuration failure: {error_msg}", file=sys.stderr)
-        sys.exit(1)
 
 
 def _init_object_store_dataset_manager(
