@@ -9,7 +9,7 @@ from .dmod_client import ClientConfig, DmodClient, run_domain_detection
 from dmod.communication.client import get_or_create_eventloop
 from dmod.core.meta_data import (ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction,
                                  TimeRange)
-from dmod.core.dataset import ItemDataDomainDetectorRegistry
+from dmod.core.data_domain_detectors import ItemDataDomainDetectorRegistry
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type
 
