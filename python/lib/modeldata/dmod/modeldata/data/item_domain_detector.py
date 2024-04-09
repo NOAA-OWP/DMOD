@@ -1,7 +1,7 @@
 from dmod.core.meta_data import DataDomain, DataFormat, DiscreteRestriction, StandardDatasetIndex, TimeRange
 from dmod.core.common.reader import ReadSeeker
 from dmod.core.exception import DmodRuntimeError
-from dmod.core.dataset import ItemDataDomainDetector
+from dmod.core.data_domain_detectors import ItemDataDomainDetector
 from pandas import read_csv as pandas_read_csv
 
 from typing import Optional
