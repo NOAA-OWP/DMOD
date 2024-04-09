@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import List, Optional, Type, Union
 
 from functools import reduce
-from dmod.core.dataset import DataCollectionDomainDetector, UniversalItemDomainDetector
+from dmod.core.data_domain_detectors import UniversalItemDomainDetector, DataCollectionDomainDetector
 
 
 def determine_transport_client_type(protocol: str,
