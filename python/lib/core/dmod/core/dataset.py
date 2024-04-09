@@ -556,6 +556,17 @@ class ItemDataDomainDetectorRegistry:
         """
         return (entry if isinstance(entry, str) else entry.get_registration_name()) in self._detectors
 
+    def get_all_names(self) -> List[str]:
+        """
+        Get registration names for all registered subclasses.
+
+        Returns
+        -------
+        List[str]
+            Registration names for all registered subclasses.
+        """
+        return list(self._detectors.keys())
+
     def get_for_format(self, data_format: DataFormat) -> List[Type[ItemDataDomainDetector]]:
         """
         Get a list (sorted by registration name) of the detector subclasses associated with the given format.
