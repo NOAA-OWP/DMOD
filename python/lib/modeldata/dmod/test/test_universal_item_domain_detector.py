@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime
 
 from dmod.core.meta_data import DataFormat, StandardDatasetIndex
-from dmod.core.dataset import ItemDataDomainDetector, UniversalItemDomainDetector
+from dmod.core.dataset import ItemDataDomainDetectorRegistry, UniversalItemDomainDetector
 
 from ..modeldata.data.item_domain_detector import AorcCsvFileDomainDetector, GeoPackageHydrofabricDomainDetector
 from . import find_git_root_dir
@@ -11,6 +11,9 @@ from . import find_git_root_dir
 class TestUniversalItemDomainDetector(unittest.TestCase):
 
     def setUp(self):
+        self.registry = ItemDataDomainDetectorRegistry.get_instance()
+        self.registry.register(AorcCsvFileDomainDetector)
+        self.registry.register(GeoPackageHydrofabricDomainDetector)
         self.detector_subclass = UniversalItemDomainDetector
 
         # Setup example 0
@@ -25,23 +28,21 @@ class TestUniversalItemDomainDetector(unittest.TestCase):
         self.example_data[1] = find_git_root_dir().joinpath("data/example_hydrofabric_2/hydrofabric.gpkg")
         self.example_cat_ids[1] = sorted(['cat-8', 'cat-5', 'cat-9', 'cat-6', 'cat-7', 'cat-10', 'cat-11'])
 
+    def test_get_data_format_0_a(self):
+        """ Test that we get ``None`` for the data format for this subclass type. """
+        self.assertIsNone(self.detector_subclass.get_data_format())
+
     def test_registration_0_a(self):
-        """ Test ``__init_subclass__`` registration doesn't add this type to superclass's registered collection. """
-        ex_idx = 0
-        registered_subtypes = ItemDataDomainDetector.get_types_for_format(self.expected_data_format[ex_idx])
-        self.assertNotIn(self.detector_subclass, {val for _, val in registered_subtypes.items()})
+        """ Test registration adds this type to superclass's registered collection. """
+        self.assertTrue(self.registry.is_registered(self.detector_subclass))
 
     def test_registration_0_b(self):
-        """ Test ``__init_subclass__`` registration adds first imported type to superclass's registered collection. """
-        ex_idx = 0
-        registered_subtypes = ItemDataDomainDetector.get_types_for_format(self.expected_data_format[ex_idx])
-        self.assertIn(AorcCsvFileDomainDetector, {val for _, val in registered_subtypes.items()})
+        """ Test registration adds first imported type to superclass's registered collection. """
+        self.assertTrue(self.registry.is_registered(AorcCsvFileDomainDetector))
 
     def test_registration_1_b(self):
-        """ Test ``__init_subclass__`` registration adds second imported type to superclass's registered collection. """
-        ex_idx = 1
-        registered_subtypes = ItemDataDomainDetector.get_types_for_format(self.expected_data_format[ex_idx])
-        self.assertIn(GeoPackageHydrofabricDomainDetector, {val for _, val in registered_subtypes.items()})
+        """ Test registration adds second imported type to superclass's registered collection. """
+        self.assertTrue(self.registry.is_registered(GeoPackageHydrofabricDomainDetector))
 
     def test_detect_0_a(self):
         """ Test that detect returns a domain with the right data format. """
