@@ -887,15 +887,23 @@ class DataCollectionDomainDetector(AbstractDomainDetector):
         """
         Get the names of data items in the collection.
 
+        Get the individual item names of the items in the data collection for this instance.  Each returned name can be
+        used to retrieve the unique corresponding item via :method:`get_item`.  For file items in particular, this means
+        the names will be the string representation of each file's path relative to the collection directory.
+
         Returns
         -------
         Set[str]
             Names of data items in the collection.
+
+        See Also
+        --------
+        get_item
         """
         if isinstance(self._data_collection, dict):
             return set(self._data_collection.keys())
         elif isinstance(self._data_collection, Path):
-            return set(str(p) for p in self._data_collection.glob("**/*"))
+            return set(str(p.relative_to(self._data_collection)) for p in self._data_collection.glob("**/*"))
         elif isinstance(self._data_collection, Dataset) and self._data_collection.manager is not None:
             return set(self._data_collection.manager.list_files(self._data_collection.name))
         else:
