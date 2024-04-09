@@ -4,20 +4,17 @@ import datetime
 import json
 from dmod.core.execution import AllocationParadigm
 from dmod.core.exception import DmodRuntimeError
-from . import name as package_name
+from . import name as package_name, register_modeldata_domain_detectors
 from .dmod_client import ClientConfig, DmodClient, run_domain_detection
 from dmod.communication.client import get_or_create_eventloop
 from dmod.core.meta_data import (ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction,
                                  TimeRange)
+from dmod.core.dataset import ItemDataDomainDetectorRegistry
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type
 
-try:
-    import dmod.modeldata.data.item_domain_detector as detectors
-    _DOMAIN_DETECTORS_IMPORTED = True
-except ModuleNotFoundError:
-    _DOMAIN_DETECTORS_IMPORTED = False
 
+_DOMAIN_DETECTORS_IMPORTED = register_modeldata_domain_detectors()
 
 DEFAULT_CLIENT_CONFIG_BASENAME = '.dmod_client_config.json'
 
@@ -238,8 +235,17 @@ def _handle_data_service_action_args(parent_subparsers_container):
     parser_delete.add_argument('name', help='Specify the name of the dataset to delete.')
 
     # Nested parser for the 'domain' action, with required argument for path to the data to detect over
-    parser_domain = action_subparsers.add_parser('domain', description="Detect DataDomain for local data for a dataset.")
-    parser_domain.add_argument('path', type=Path, help="Specify a data file or path containing several data files.")
+    parser_domain = action_subparsers.add_parser('domain', description="Ops related to DataDomains and detection.")
+    domain_command_subparsers = parser_domain.add_subparsers(dest="domain_command")
+    detect_domain_parser = domain_command_subparsers.add_parser('detect',
+                                                                description="Detect DataDomain for local data for a dataset.")
+    detect_domain_parser.add_argument('path', type=Path,
+                                      help="Specify a data file or path containing several data files.")
+
+    show_detectors = domain_command_subparsers.add_parser('list_detectors',
+                                                          description="List the domain detector subclasses that are available.")
+    show_detectors.add_argument("--class-name", dest="use_detector_class_names", action='store_true',
+                                help="Force output of class names instead of registration name.")
 
     # Nested parser for the 'upload' action, with required args for dataset name and files to upload
     parser_upload = action_subparsers.add_parser('upload', description="Upload local files to a dataset.")
@@ -333,6 +339,26 @@ def _handle_args():
     return parser.parse_args()
 
 
+def _run_domain_command(args):
+    if args.domain_command == 'detect':
+        try:
+            domain = run_domain_detection(paths=args.path)
+            print({"success": True, "domain": f"{domain.to_json()}"})
+        except DmodRuntimeError as e:
+            print({"success": False, "reason": f"{e.__class__.__name__}", "message": f"{e!s}"})
+        except Exception as e:
+            print(f"ERROR - Encountered {e.__class__.__name__} detecting domain: {e!s}")
+            exit(1)
+    elif args.domain_command == "list_detectors":
+        registry = ItemDataDomainDetectorRegistry.get_instance()
+        all_names = sorted(registry.get_all_names())
+        if args.use_detector_class_names:
+            all_names = sorted([registry.get_for_name(n).__name__ for n in all_names ])
+        print({"success": True, "detector_names": all_names})
+    else:
+        raise NotImplementedError(f"Unrecognized domain command '{args.domain_command!s}'")
+
+
 def find_client_config(basenames: Optional[List[str]] = None, dirs: Optional[List[Path]] = None) -> Optional[Path]:
     """
     Search locations for the client config of given basenames, falling back to defaults, and returning path if found.
@@ -366,14 +392,7 @@ def find_client_config(basenames: Optional[List[str]] = None, dirs: Optional[Lis
 
 def execute_dataset_command(args, client: DmodClient):
     if args.action == 'domain':
-        try:
-            domain = run_domain_detection(paths=args.path)
-            print({"success": True, "domain": f"{domain.to_json()}"})
-        except DmodRuntimeError as e:
-            print({"success": False, "reason": f"{e.__class__.__name__}", "message": f"{e!s}"})
-        except Exception as e:
-            print(f"ERROR - Encountered {e.__class__.__name__} detecting domain: {e!s}")
-            sys.exit(1)
+        _run_domain_command(args)
     else:
         async_loop = get_or_create_eventloop()
         try:
