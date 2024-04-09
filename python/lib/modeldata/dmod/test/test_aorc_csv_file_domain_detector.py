@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime
 
 from dmod.core.meta_data import DataFormat, StandardDatasetIndex
-from dmod.core.dataset import ItemDataDomainDetectorRegistry
+from dmod.core.data_domain_detectors import ItemDataDomainDetectorRegistry
 from ..modeldata.data.item_domain_detector import AorcCsvFileDomainDetector
 from . import find_git_root_dir
 
