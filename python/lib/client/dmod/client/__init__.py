@@ -1,6 +1,6 @@
 name = 'client'
 
-from dmod.core.dataset import ItemDataDomainDetectorRegistry
+from dmod.core.data_domain_detectors import ItemDataDomainDetectorRegistry
 
 
 def register_modeldata_domain_detectors() -> bool:
