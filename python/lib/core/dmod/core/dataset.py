@@ -517,55 +517,48 @@ class AbstractDomainDetector(ABC):
         pass
 
 
-class ItemDataDomainDetector(AbstractDomainDetector, ABC):
-    """
-    Type that can examine a data item and detect its individual :class:`DataDomain`.
+class ItemDataDomainDetectorRegistry:
+    """ A singleton registry in which to track the subtypes of :class`ItemDataDomainDetector`. """
 
-    Abstraction for detecting the  of a single data item.  Here, a data item specifically means either
-    :class:`bytes` object with raw data, a :class:`RepeatableReader` object that can read data multiple times, or a
-    :class:`Path` object pointing to a file (not a directory).
-
-    Base type provides a class method :method:`get_type_for_format` that allows for getting an appropriate subtype for
-    detecting in the contexts of a specific :class:`DataFormat`, assuming one exists.
-
-    A subclass may optionally register with this type if the subclass itself is given a ``format_type`` keyword argument
-    containing a :class:`DataFormat` value.  A ``name`` keyword argument may also optionally be provided; by default,
-    the class's name is used.  E.g.:
-
-    ```
-    class DomainDetectorSubtype(ItemDataDomainDetector, format_type=DataFormat.AORC_CSV):
-    ```
-
-    This will register the subclass as a type that can detect domains for data having that format.  This type provides
-    a class method :method:`get_types_for_format` for accessing the collection of registered subclasses for a format.
-    """
-
-    _all_subclasses: Dict[Type['ItemDataDomainDetector'], str] = dict()
-    """ All known subclasses, keyed to its name identifier (which defaults to the class's name). """
-    _detector_registry: Dict[DataFormat, Dict[str, Type['ItemDataDomainDetector']]] = {f: dict() for f in DataFormat}
-    """ 
-    Registered subclasses in the form of an outer dictionary mapping supported format to inner dictionaries, mapping 
-    subclass name to subclass.
-    """
-    _subclass_formats: Dict[Type['ItemDataDomainDetector'], DataFormat] = dict()
-    """ A collection to reverse the format for a particulr subclass. """
+    _instance = None
 
     @classmethod
-    def get_data_format(cls) -> Optional[DataFormat]:
+    def get_instance(cls) -> ItemDataDomainDetectorRegistry:
+        """ Get the singleton registry instance. """
+        if cls._instance is None:
+            cls._instance = ItemDataDomainDetectorRegistry()
+        return cls._instance
+
+    def __init__(self):
+        if self._instance is not None:
+            raise RuntimeError(f"Attempting to create second {self.__class__.__name__} instance!")
+        self._detectors: Dict[str, Type[ItemDataDomainDetector]] = dict()
+        """ All registered subclasses, keyed by name. """
+        self._formats_to_detectors: Dict[DataFormat, Set[str]] = {f: set() for f in DataFormat}
+        """ 
+        Collection of :class:`DataFormat` enum values mapped to sets containing the names of the registered subclasses
+        that are associated with that particular format.
         """
-        Get the registered data format for this subclass of :class:`ItemDataDomainDetector`, if it is registered.
+
+    def is_registered(self, entry: Union[str, Type[ItemDataDomainDetector]]) -> bool:
+        """
+        Whether this is a registered subclass or the registered name of one.
+
+        Parameters
+        ----------
+        entry: Union[str, Type[ItemDataDomainDetector]]
+            The potential registration name or subclass type.
 
         Returns
         -------
-        Optional[DataFormat]
-            The :class:`DataFormat` of this subclass, if it registered one; otherwise ``None``.
+        bool
+            Whether this is a registered subclass or the registered name of one.
         """
-        return cls._subclass_formats.get(cls)
+        return (entry if isinstance(entry, str) else entry.get_registration_name()) in self._detectors
 
-    @classmethod
-    def get_types_for_format(cls, data_format: DataFormat) -> Dict[str, Type['ItemDataDomainDetector']]:
+    def get_for_format(self, data_format: DataFormat) -> List[Type[ItemDataDomainDetector]]:
         """
-        Return subclass type registered as capable of detecting domains for data with the given data format.
+        Get a list (sorted by registration name) of the detector subclasses associated with the given format.
 
         Parameters
         ----------
@@ -574,18 +567,131 @@ class ItemDataDomainDetector(AbstractDomainDetector, ABC):
 
         Returns
         -------
-        Dict[str,Type['ItemDataDomainDetector']]
-            Dictionary (keyed by class name) of registered subclasses capable of detecting domains for data with the
-            given data format.
+        List[Type[ItemDataDomainDetector]]
+            The sorted detector subclasses associated with the given format.
         """
-        return cls._detector_registry.get(data_format, dict())
+        return [self._detectors[name] for name in sorted(self._formats_to_detectors[data_format])]
 
-    def __init_subclass__(cls, format_type: Optional[DataFormat] = None, name: Optional[str] = None, **kwargs):
-        super().__init_subclass__(**kwargs)
-        cls._subclass_formats[cls] = format_type
-        cls._all_subclasses[cls] = cls.__name__ if name is None else name
-        if format_type is not None:
-            cls._detector_registry[format_type][cls.__name__ if name is None else name] = cls
+    def get_for_name(self, name: str) -> Type[ItemDataDomainDetector]:
+        """
+        Get the registered subclass for the given registration name.
+
+        Parameters
+        ----------
+        name: str
+            The subclass registration name.
+
+        Returns
+        -------
+        Type[ItemDataDomainDetector]
+            The registered subclass for the given registration name.
+
+        Raises
+        ------
+        KeyError
+            Raised if this is not a valid, recognized registration name.
+        """
+        return self._detectors[name]
+
+    def register(self, subclass: Type[ItemDataDomainDetector]):
+        """
+        Register the given subclass of :class:`ItemDataDomainDetector`.
+
+        Parameters
+        ----------
+        subclass: Type[ItemDataDomainDetector]
+            A subclass of :class:`ItemDataDomainDetector`.
+
+        Notes
+        -----
+        If an already-registered subclass is passed in another call to this method, nothing will happen.  The instance's
+        state will not change, nor will an error be thrown, and the method will quietly return.
+
+        Raises
+        ------
+        DmodRuntimeError
+            If the registration name is already in use for a different subclass.
+        """
+        name = subclass.get_registration_name()
+        if name not in self._detectors:
+            self._detectors[name] = subclass
+            if subclass.get_data_format() is not None:
+                self._formats_to_detectors[subclass.get_data_format()].add(name)
+        elif self._detectors[name] != subclass:
+            raise DmodRuntimeError(f"{self.__class__.__name__} failed to register subclass '{subclass.__name__}' with "
+                                   f"registration name '{name}' that is already in use")
+
+    def unregister(self, subclass: Type[ItemDataDomainDetector]):
+        """
+        Unregister the given subclass of :class:`ItemDataDomainDetector`.
+
+        Parameters
+        ----------
+        subclass
+
+        Raises
+        -------
+        DmodRuntimeError
+            If the given subclass was not already registered.
+        """
+        name = subclass.get_registration_name()
+        if name not in self._detectors:
+            raise DmodRuntimeError(f"{self.__class__.__name__} can't unregister unknown name '{name}'")
+        subclass = self._detectors.pop(name)
+        self._formats_to_detectors[subclass.get_data_format()].remove(name)
+
+
+class ItemDataDomainDetector(AbstractDomainDetector, ABC):
+    """
+    Type that can examine a data item and detect its individual :class:`DataDomain`.
+
+    Abstraction for detecting the of a single data item.  Here, a data item specifically means either :class:`bytes`
+    object with raw data, a :class:`ReadSeeker` object that can read data multiple times, or a :class:`Path` object
+    pointing to a file (not a directory).
+
+    This class provides two class functions important for use with the :class:`ItemDataDomainDetectorRegistry` singleton
+    object: :method:`get_data_format` and :method:`get_registration_name`.  Subclasses must be implemented to set
+    backing class variables if they want to change the default behavior.
+
+    The :method:`get_data_format` class method helps the registry (and other users) identify the :class:`DataFormat` for
+    which a subclass can determine domains.  It is optional, though, and the default is ``None``.
+
+    The :method:`get_registration_name` method provides a unique registration name, primarily intended for use with the
+    registry.  If the backing class attribute is not explicitly set, it will default to the name of the subclass.
+
+    Note that subtypes must explicitly be registered with the :class:`ItemDataDomainDetectorRegistry` singleton.
+    """
+
+    _data_format: Optional[DataFormat] = None
+    """ The associated :class:`DataFormat` of this subclass. """
+    _registration_name: Optional[str] = None
+    """ The registration name identifier for this subclass; it will be replaced with class name if ``None``. """
+
+    @classmethod
+    def get_data_format(cls) -> Optional[DataFormat]:
+        """
+        Get the associated data format for this subclass of :class:`ItemDataDomainDetector`, if it has one.
+
+        Returns
+        -------
+        Optional[DataFormat]
+            The associated :class:`DataFormat` of this subclass, if it has one; otherwise ``None``.
+        """
+        return cls._data_format
+
+    @classmethod
+    def get_registration_name(cls) -> str:
+        """
+        Get the registration name for this subclass.
+
+        If the backing private class attribute is set to ``None``, this method will return the subclass's ``__name__``.
+
+        Returns
+        -------
+        str
+            The registration name for this subclass.
+        """
+        return cls._registration_name if cls._registration_name else cls.__name__
 
     def __init__(self, item: DataItem, item_name: Optional[str] = None, decode_format: str = 'utf-8', *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -615,10 +721,11 @@ class UniversalItemDomainDetector(ItemDataDomainDetector):
         trials - i.e., a subclass is selected, an instance is created, the ``detect`` method is called, and we assess
         what happens - along with an early exit mechanism for explicit format suggestions.
 
-        Subclasses are tried in groups according to their registered ``data_format``.  The order of groups may be
+        Subclasses are tried in groups according to their associated :class:`DataFormat`.  The order of groups may be
         controlled by providing one or more format "suggestions", which will be tried first in the order provided. Also,
         one or more excluded formats can be optionally provided. Iteration order of subclasses within a group is based
-        on registration ``name`` by default, but a sorting key function can be provided to control this also.
+        on registration name by default - i.e., the value from :method:`ItemDataDomainDetector.get_registration_name`
+        for each subclass - but a sorting key function can be provided to control this also.
 
         If/when a subclass instance's ``detect`` call returns a domain, no other subclasses for that format group are
         tried, but this function only returns that domain value immediately if the associated format was a provided
@@ -661,10 +768,11 @@ class UniversalItemDomainDetector(ItemDataDomainDetector):
         DmodRuntimeError
             If it was not possible to properly detect the domain.
         """
-        def try_detection(d_format: DataFormat, subtype_ordered_list_func) -> Optional[DataDomain]:
-            # Note that subtype_ordered_list_func is based on `sorted_key` (if given) but it's not the same thing
-            possible_types = subtype_ordered_list_func(self.get_types_for_format(data_format=d_format))
-            for subclass_type in subtype_ordered_list_func(self.get_types_for_format(data_format=d_format)):
+        def try_detection(d_format: DataFormat) -> Optional[DataDomain]:
+            subclasses = ItemDataDomainDetectorRegistry.get_instance().get_for_format(d_format)
+            if 'sort_key' in kwargs:
+                subclasses = sorted(subclasses, key=kwargs['sort_key'])
+            for subclass_type in subclasses:
                 try:
                     return subclass_type(item=self._item, item_name=self._item_name).detect()
                 except:
@@ -684,21 +792,15 @@ class UniversalItemDomainDetector(ItemDataDomainDetector):
 
         remaining_formats = {df for df in DataFormat if df not in excluded}
 
-        # Build an ordering function, either using provided sort key or just based on registration name
-        if 'sort_key' in kwargs:
-            order_func = lambda subs: sorted([subclass for name, subclass in subs.items()], key=kwargs['sort_key'])
-        else:
-            order_func = lambda subs: [subs[name] for name in sorted(subs.keys())]
-
         # Try suggestions first, returning immediately if any are successful
         for data_format in suggested:
             remaining_formats.remove(data_format)
-            result = try_detection(d_format=data_format, subtype_ordered_list_func=order_func)
+            result = try_detection(d_format=data_format)
             if result is not None:
                 return result
 
         # Now we get to others
-        main_trials = (try_detection(d_format=df, subtype_ordered_list_func=order_func) for df in remaining_formats)
+        main_trials = (try_detection(d_format=df) for df in remaining_formats)
         main_results = [t for t in main_trials if t is not None]
         if len(main_results) == 0:
             raise DmodRuntimeError("No domain could be detected for item.")
@@ -708,6 +810,10 @@ class UniversalItemDomainDetector(ItemDataDomainDetector):
         else:
             raise DmodRuntimeError(f"Multiple conflicting domain detected for item in the following formats: "
                                    f"{','.join([d.data_format.name for d in main_results])}")
+
+
+# Register the universal tracker type
+ItemDataDomainDetectorRegistry.get_instance().register(UniversalItemDomainDetector)
 
 
 class DatasetManager(ABC):
