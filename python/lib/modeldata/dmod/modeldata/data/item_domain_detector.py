@@ -18,7 +18,7 @@ except ModuleNotFoundError:
     __NGEN_CONFIG_INSTALLED = False
 
 
-class AorcCsvFileDomainDetector(ItemDataDomainDetector, format_type=DataFormat.AORC_CSV):
+class AorcCsvFileDomainDetector(ItemDataDomainDetector):
     """
     Subclass for detecting domains of NextGen regridded per-catchment AORC forcing CSV files.
 
@@ -29,6 +29,7 @@ class AorcCsvFileDomainDetector(ItemDataDomainDetector, format_type=DataFormat.A
     """
 
     _csv_header: str = "Time,RAINRATE,Q2D,T2D,U2D,V2D,LWDOWN,SWDOWN,PSFC"
+    _data_format = DataFormat.AORC_CSV
     _datetime_format: str = "%Y-%m-%d %H:%M:%S"
 
     def __init__(self, *args, **kwargs):
@@ -88,7 +89,9 @@ class AorcCsvFileDomainDetector(ItemDataDomainDetector, format_type=DataFormat.A
 # TODO: might need to expand things in the future ... there are other geopackage formats (e.g., older NextGen
 #  hydrofabric versions that used "id" instead of "divide_id") and maybe we need to account for that in detectors (and
 #  in formats)
-class GeoPackageHydrofabricDomainDetector(ItemDataDomainDetector, format_type=DataFormat.NGEN_GEOPACKAGE_HYDROFABRIC_V2):
+class GeoPackageHydrofabricDomainDetector(ItemDataDomainDetector):
+
+    _data_format = DataFormat.NGEN_GEOPACKAGE_HYDROFABRIC_V2
 
     def _is_region_string_for_conus(self, region_str: Optional[str]) -> bool:
         """
@@ -188,7 +191,10 @@ class GeoPackageHydrofabricDomainDetector(ItemDataDomainDetector, format_type=Da
 if __NGEN_CONFIG_INSTALLED:
     import json
 
-    class RealizationConfigDomainDetector(ItemDataDomainDetector, format_type=DataFormat.NGEN_REALIZATION_CONFIG):
+    class RealizationConfigDomainDetector(ItemDataDomainDetector):
+
+        _data_format = DataFormat.NGEN_REALIZATION_CONFIG
+
         def detect(self, **kwargs) -> DataDomain:
             try:
                 real_obj = ngen.config.realization.NgenRealization(**json.load(self._item))
