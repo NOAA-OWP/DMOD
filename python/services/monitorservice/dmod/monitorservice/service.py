@@ -459,7 +459,7 @@ class WebSocketMonitorService(MonitorService, WebSocketInterface):
         """
         return self._websockets_by_connection[connection_id]
 
-    async def listener(self, websocket: WebSocketServerProtocol, path):
+    async def listener(self, websocket: WebSocketServerProtocol):
         """
         Handle a connection to a party that wants to receive updates about jobs as changes are monitored, sending update
         messages back over the maintained websocket as appropriate.
@@ -475,7 +475,6 @@ class WebSocketMonitorService(MonitorService, WebSocketInterface):
         Parameters
         ----------
         websocket
-        path
         """
         connection_id = None
         try:

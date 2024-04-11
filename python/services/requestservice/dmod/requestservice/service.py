@@ -172,7 +172,7 @@ class RequestService(WebSocketSessionsInterface):
     def session_manager(self):
         return self._session_manager
 
-    async def listener(self, websocket: WebSocketServerProtocol, path):
+    async def listener(self, websocket: WebSocketServerProtocol):
         """
         Async function listening for incoming information on websocket.
         """
@@ -193,7 +193,7 @@ class RequestService(WebSocketSessionsInterface):
                     response = await self._evaluation_service_handler.handle_request(
                         request=req_message,
                         socket=websocket,
-                        path=path
+                        path=websocket.path
                     )
                     logging.debug('************************* Handled request response: {}'.format(str(response)))
                     await websocket.send(str(response))

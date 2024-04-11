@@ -312,7 +312,7 @@ class SchedulerHandler(WebSocketInterface):
         return JobControlResponse(action=JobControlAction.STOP, job_id=job_id, success=False,
                                   reason="Timeout Wait For Stop", message=f"Timeout of {timedelta!s} reached.")
 
-    async def listener(self, websocket: WebSocketServerProtocol, path):
+    async def listener(self, websocket: WebSocketServerProtocol):
         """
         Process incoming messages, for things like ::class:`Job` requests or updates, via a listened-for websocket,
         kicking off the appropriate actions and sending the appropriate response or responses back via the websocket.

@@ -407,7 +407,7 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
         """
         return self._hydrofabrics_root_dir
 
-    async def listener(self, websocket: WebSocketServerProtocol, path):
+    async def listener(self, websocket: WebSocketServerProtocol):
         """
         Listen for and process partitioning requests.
 
@@ -415,8 +415,6 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
         ----------
         websocket : WebSocketServerProtocol
             Websocket over which the request was sent and response should be sent.
-
-        path
 
         Returns
         -------
