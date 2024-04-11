@@ -609,7 +609,7 @@ def run_all_django_tests(django_paths: typing.Sequence[Path]) -> typing.Sequence
         result_data.append(output)
     # If multiple paths are found, run as many as possible in parallel
     elif len(django_paths) > 1:
-        with multiprocessing.Pool(os.cpu_count()) as worker_pool:
+        with multiprocessing.Pool(min(os.cpu_count(), len(django_paths))) as worker_pool:
             outputs = worker_pool.map(run_django_test, django_paths)
 
         for output in outputs:
