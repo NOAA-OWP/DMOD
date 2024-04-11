@@ -180,6 +180,9 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
             self._listen_host,
             self._port,
             ssl=self.ssl_context,
+            # per the `websockets` docs, for legacy reasons, this timeout is 4-5x the actual value.
+            # in practice it is more like 2x
+            close_timeout=5
         )
         self._requested_tasks = []
         self._scheduled_tasks = []
