@@ -16,6 +16,9 @@ class DatasetManagerCollection:
         default_factory=dict, init=False
     )
 
+    def __hash__(self) -> int:
+        return id(self)
+
     def manager(self, dataset_type: DatasetType) -> DatasetManager:
         """
         Return the manager for the given dataset type.
