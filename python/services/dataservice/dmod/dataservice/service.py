@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Dict, List, NoReturn, Optional, Set, Tuple, Type, TypeVar, Union
 from uuid import UUID, uuid4
 from websockets import WebSocketServerProtocol
+from fastapi.websockets import WebSocket
 from .dataset_inquery_util import DatasetInqueryUtil
 from .data_derive_util import DataDeriveUtil
 from .dataset_user_impl import JobDatasetUser
@@ -191,7 +192,8 @@ class DockerS3FSPluginHelper(SimpleDockerUtil):
                            retries=5,
                            start_period=to_nanoseconds(seconds=5))
 
-class ServiceManager(WebSocketInterface):
+
+class ServiceManager:
     """
     Primary service management class.
     """
@@ -214,12 +216,9 @@ class ServiceManager(WebSocketInterface):
     def __init__(
         self,
         job_util: JobUtil,
-        *args,
         dataset_manager_collection: DatasetManagerCollection,
         dataset_inquery_util: DatasetInqueryUtil,
-        **kwargs
     ):
-        super().__init__(*args, **kwargs)
         self._job_util = job_util
         self._managers: DatasetManagerCollection = dataset_manager_collection
         self._dataset_inquery_util: DatasetInqueryUtil = dataset_inquery_util
@@ -265,7 +264,7 @@ class ServiceManager(WebSocketInterface):
             return DatasetManagementResponse(action=ManagementAction.ADD_DATA, success=False,
                                              dataset_name=dataset_name, reason="Failure Adding Data To Dataset")
 
-    async def _async_process_data_request(self, message: DatasetManagementMessage, websocket) -> DatasetManagementResponse:
+    async def _async_process_data_request(self, message: DatasetManagementMessage, websocket: WebSocket) -> DatasetManagementResponse:
         """
         Process and respond to a ::class:`ManagementAction` ``REQUEST_DATA`` dataset management message.
 
@@ -299,8 +298,8 @@ class ServiceManager(WebSocketInterface):
         if chunking_keys is None:
             raw_data = manager.get_data(dataset_name=message.dataset_name, item_name=message.data_location)
             transmit = DataTransmitMessage(data=raw_data, series_uuid=uuid4(), is_last=True)
-            await websocket.send(str(transmit))
-            response = DataTransmitResponse.factory_init_from_deserialized_json(json.loads(await websocket.recv()))
+            await websocket.send_json(transmit.to_dict())
+            response = DataTransmitResponse.factory_init_from_deserialized_json(await websocket.receive_json())
         else:
             offset = 0
             actual_length = chunk_size
@@ -310,9 +309,8 @@ class ServiceManager(WebSocketInterface):
                 offset += chunk_size
                 actual_length = len(raw_data)
                 transmit = DataTransmitMessage(data=raw_data, series_uuid=uuid4(), is_last=True)
-                await websocket.send(str(transmit))
-                raw_response = await websocket.recv()
-                json_response = json.loads(raw_response)
+                await websocket.send_json(transmit.to_dict())
+                json_response = await websocket.receive_json()
                 response = DataTransmitResponse.factory_init_from_deserialized_json(json_response)
                 if not response.success:
                     break
@@ -576,10 +574,12 @@ class ServiceManager(WebSocketInterface):
             reason = 'Unsupported {} Query Type - {}'.format(DatasetQuery.__class__.__name__, query_type.name)
             return DatasetManagementResponse(action=message.management_action, success=False, reason=reason)
 
-    async def listener(self, websocket: WebSocketServerProtocol):
+    async def listener(self, websocket: WebSocket):
         """
         Process incoming messages over the websocket and respond appropriately.
         """
+        # wait for websocket handshake. this must be done
+        await websocket.accept()
         try:
             # We may need to lazily load a dataset manager
             dataset_manager = None
@@ -587,8 +587,7 @@ class ServiceManager(WebSocketInterface):
             dest_item_name = None
             transmit_series_uuid = None
             partial_indx = 0
-            async for raw_message in websocket:
-                data = json.loads(raw_message)
+            async for data in websocket.iter_json():
                 if transmit_series_uuid is None:
                     inbound_message: DatasetManagementMessage = DatasetManagementMessage.factory_init_from_deserialized_json(data)
                 else:
@@ -655,19 +654,29 @@ class ServiceManager(WebSocketInterface):
                     msg = "Unsupported data management message action {}".format(inbound_message.management_action)
                     response = DatasetManagementResponse(action=inbound_message.management_action, success=False,
                                                          reason="Unsupported Action", message=msg)
-                await websocket.send(str(response))
-
-        # TODO: handle logging
-        # TODO: handle exceptions appropriately
+                await websocket.send_json(response.to_dict())
+        # TODO: look into moving error handling to a middleware
+        except json.JSONDecodeError as e:
+            response = DatasetManagementResponse(action=ManagementAction.UNKNOWN, success=False,
+                                                 reason="Invalid encoding", message="Invalid json encoding")
+            # TODO: write custom `ws.iter_json` method that allows pulling out the data that could not be deserialized
+            logging.info(f"Received invalid json")
+            await websocket.send_json(response.to_dict())
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+         # TODO: handle logging
+         # TODO: handle exceptions appropriately
         except TypeError as te:
             logging.error("Problem with object types when processing received message", te)
+        # TODO: provide a way to catch this. improve handling / logging
         #except websockets.exceptions.ConnectionClosed:
         #    logging.info("Connection Closed at Consumer")
         except asyncio.CancelledError:
             logging.error("Cancelling listener task")
         except Exception as e:
             logging.error("Encountered error: {}".format(str(e)))
-
+        finally:
+            # SAFETY: this is idempotent
+            await websocket.close()
 
 
 class RequiredDataChecksManager:
