@@ -223,7 +223,7 @@ class TestOutput:
     Metadata read from all messages resulting from a Django unit test
     """
 
-    def __init__(self, path: str, stdout: str, stderr: str, runtime: float):
+    def __init__(self, path: str, stdout: str, stderr: str, runtime: float, status_code: int):
         """
         Constructor
 
@@ -244,6 +244,11 @@ class TestOutput:
         """
         The data written to stderr during the process of running the tests.
         This will hold the bulk of the data of interest
+        """
+
+        self.status_code = status_code
+        """
+        Process status code
         """
 
         self.messages: typing.List[TestMessage] = []
@@ -481,7 +486,7 @@ class TestOutput:
         """
         Whether the test failed
         """
-        return self.count != 0
+        return self.status_code != 0
 
     def __str__(self):
         return f"{self.path}: {'Failed' if self.failed else 'Passed'} {self.test_count} Tests"
@@ -579,7 +584,8 @@ def run_django_test(path: typing.Union[Path, str]) -> TestOutput:
         path=path,
         stdout=stdout.decode(),
         stderr=stderr.decode(),
-        runtime=duration.total_seconds()
+        runtime=duration.total_seconds(),
+        status_code=process.returncode,
     )
 
     return output
@@ -683,7 +689,7 @@ def main() -> int:
     Will run the tests for all detected django servers and print their output.
 
     Returns:
-        The number of errors or failures resulting from tests
+        > 0 if any tests failed.
     """
     arguments = Arguments()
 
@@ -704,7 +710,7 @@ def main() -> int:
             verbose=arguments.verbose
         )
 
-        code += sum(test_result.count for test_result in test_results)
+        code += sum([test_result.failed for test_result in test_results])
 
     return code
 
