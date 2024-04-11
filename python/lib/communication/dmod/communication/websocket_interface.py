@@ -282,7 +282,7 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
         asyncio.create_task(self.shutdown())
 
     @abstractmethod
-    def listener(self, websocket: WebSocketServerProtocol, path):
+    def listener(self, websocket: WebSocketServerProtocol):
         """
         Abstract method to be overridden by subclasses to define the behaviour
         of the server's listener.
@@ -492,7 +492,7 @@ class NoOpHandler(WebSocketInterface):
         """
         return asyncio.new_event_loop()
 
-    async def listener(self, websocket: WebSocketServerProtocol, path):
+    async def listener(self, websocket: WebSocketServerProtocol):
         print("NoOp Listener")
         await websocket.send("")
 
@@ -518,7 +518,7 @@ class EchoHandler(WebSocketInterface):
         """
         return cls._PARSEABLE_REQUEST_TYPES
 
-    async def listener(self, websocket: WebSocketServerProtocol, path):
+    async def listener(self, websocket: WebSocketServerProtocol):
         received_data = await websocket.recv()
         print("Echo Listener")
         await websocket.send(received_data)

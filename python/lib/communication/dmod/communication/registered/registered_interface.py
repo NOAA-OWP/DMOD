@@ -297,13 +297,12 @@ class RegisteredWebSocketInterface(WebSocketInterface, abc.ABC):
                 return message
         return InvalidMessage(content=message_data)
 
-    async def listener(self, websocket: WebSocketServerProtocol, path):
+    async def listener(self, websocket: WebSocketServerProtocol):
         """
         Listens to the given websocket and routes messages to the desired handlers
 
         Args:
             websocket: The socket to communicate through
-            path: The path to the socket entry point on the server
         """
         client_ip = websocket.remote_address[0]
 
@@ -365,7 +364,7 @@ class RegisteredWebSocketInterface(WebSocketInterface, abc.ABC):
                     response = await handler.handle_request(
                         request=request_message,
                         source=websocket,
-                        path=path,
+                        path=websocket.path,
                         client_ip=client_ip,
                         **keyword_arguments
                     )
