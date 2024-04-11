@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import typing
 from abc import ABC, abstractmethod
 from .meta_data import ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction, \
     StandardDatasetIndex, TimeRange
@@ -10,7 +9,7 @@ from datetime import datetime, timedelta
 from .serializable import Serializable, ResultIndicator
 from .enum import PydanticEnum
 from typing import Any, Callable, ClassVar, Dict, FrozenSet, List, Optional, Set, Tuple, Type, Union
-from pydantic import Field, validator, root_validator, PrivateAttr
+from pydantic import Field, validator, PrivateAttr
 from pydantic.fields import ModelField
 from uuid import UUID, uuid4
 

@@ -2,7 +2,6 @@
 Provides common type aliases
 """
 import typing
-import asyncio
 
 from websockets import WebSocketCommonProtocol
 

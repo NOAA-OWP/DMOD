@@ -6,8 +6,6 @@ import json
 
 from websockets import WebSocketCommonProtocol
 
-from dmod.core import decorators
-
 
 class RepeatMixin:
     """

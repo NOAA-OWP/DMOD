@@ -1,8 +1,6 @@
 import typing
 import abc
 
-import pandas
-
 from .. import specification
 from .. import backends
 from .. import retrieval

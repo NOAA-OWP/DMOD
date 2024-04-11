@@ -1,5 +1,4 @@
 from .message import AbstractInitRequest, MessageEventType, Response
-from numbers import Number
 from typing import ClassVar, Dict, Optional, Type, Union
 from pydantic import Field, root_validator
 

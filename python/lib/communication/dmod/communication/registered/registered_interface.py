@@ -3,7 +3,6 @@ import abc
 import logging
 import json
 import inspect
-import functools
 import asyncio
 
 import websockets
@@ -15,7 +14,6 @@ from ..websocket_interface import WebSocketInterface
 from ..websocket_interface import AbstractInitRequest
 from ..request_handler import AbstractRequestHandler
 from ..message import Message
-from ..message import Response
 from ..message import InvalidMessageResponse
 from ..message import InvalidMessage
 from ..message import ErrorResponse

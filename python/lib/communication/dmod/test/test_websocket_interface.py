@@ -1,8 +1,6 @@
 import asyncio
 import hashlib
-import json
 import os
-import signal
 import ssl
 import sys
 import unittest
@@ -13,7 +11,6 @@ from ..communication.dataset_management_message import MaaSDatasetManagementMess
 from ..communication.websocket_interface import NoOpHandler
 from pathlib import Path
 from socket import gethostname
-import websockets
 
 
 class WebSocketInterfaceTestBase(unittest.TestCase):

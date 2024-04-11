@@ -2,7 +2,6 @@ import abc
 
 import pandas
 
-from . import specification
 from . import backends
 
 

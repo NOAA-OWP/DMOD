@@ -1,7 +1,6 @@
 """
 Provides the implementation of a class that can handle communication to and from the evaluation service
 """
-import os
 import typing
 
 from .duplex import DuplexRequestHandler

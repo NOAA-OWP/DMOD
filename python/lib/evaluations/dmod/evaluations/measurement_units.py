@@ -1,7 +1,6 @@
 import typing
 import numbers
 import pint.registry
-from pint.facets.plain import PlainQuantity
 
 _T = typing.TypeVar("_T")
 

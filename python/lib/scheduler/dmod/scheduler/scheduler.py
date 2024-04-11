@@ -7,7 +7,7 @@ from dmod.core.exception import DmodRuntimeError
 from dmod.core.meta_data import DataCategory, DataFormat
 from os import getenv
 import docker
-from docker.types import Mount, SecretReference
+from docker.types import SecretReference
 from docker.models.services import Service as DockerService
 import yaml
 from typing import Dict, List, Optional, TYPE_CHECKING, Tuple

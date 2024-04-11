@@ -2,8 +2,6 @@ import argparse
 import flask
 import json
 from dmod.modeldata.datarequest import DataRequestHandler, DataRequestReader
-from pathlib import Path
-from typing import Optional
 from . import name as package_name
 
 app = flask.Flask(__name__)

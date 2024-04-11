@@ -1,7 +1,6 @@
 """
 Defines formalized Threshold objects that serve as functions for subsetting data
 """
-import numbers
 import typing
 
 from math import inf as infinity

@@ -7,7 +7,7 @@ from dmod.scheduler.job import Job, JobStatus
 from dmod.communication import MetadataPurpose, MetadataMessage, MetadataResponse, UpdateMessage, UpdateMessageResponse,\
     WebSocketInterface
 from dmod.monitor import Monitor
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple
 import json
 import logging
 import uuid
