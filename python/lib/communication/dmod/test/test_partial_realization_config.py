@@ -1,4 +1,3 @@
-import json
 from git import Repo
 import unittest
 from ..communication.maas_request.ngen.partial_realization_config import PartialRealizationConfig

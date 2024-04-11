@@ -38,7 +38,7 @@ _T = typing.TypeVar("_T")
 _V = typing.TypeVar("_V")
 
 
-def configure_logging() -> typing.NoReturn:
+def configure_logging() -> None:
     """
     Forms a very basic logger
     """

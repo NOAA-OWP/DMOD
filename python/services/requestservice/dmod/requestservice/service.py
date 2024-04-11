@@ -12,8 +12,8 @@ from websockets import WebSocketServerProtocol
 
 from dmod.access import DummyAuthUtil, RedisBackendSessionManager
 from dmod.communication import AbstractInitRequest, InvalidMessageResponse, MessageEventType, NGENRequest, NWMRequest, \
-    NgenCalibrationRequest, PartitionRequest, WebSocketSessionsInterface, SessionInitMessage, SchedulerClient, \
-    UnsupportedMessageTypeResponse, WebSocketClient
+    NgenCalibrationRequest, PartitionRequest, WebSocketSessionsInterface, SessionInitMessage, \
+    UnsupportedMessageTypeResponse
 from dmod.communication.dataset_management_message import MaaSDatasetManagementMessage
 from dmod.communication.maas_request.job_message import JobControlRequest, JobInfoRequest, JobListRequest
 from dmod.externalrequests import AuthHandler, DatasetRequestHandler, ModelExecRequestHandler, \

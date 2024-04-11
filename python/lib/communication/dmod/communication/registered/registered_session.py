@@ -12,8 +12,6 @@ from websockets import WebSocketServerProtocol
 
 from dmod.core import decorators
 
-from ..request_handler import AbstractRequestHandler
-
 from ..session import Session
 from ..session import SessionManager
 from ..session import SessionInitMessage

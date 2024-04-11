@@ -2,7 +2,6 @@
 Provides an action to end operations in a duplex handler
 """
 import typing
-import abc
 import json
 
 from websockets import WebSocketCommonProtocol
@@ -13,7 +12,6 @@ from dmod.communication import FieldedActionMessage
 
 from dmod.core.decorators import initializer
 
-from ..handler import BaseDuplexHandler
 from ..exceptions import OperationComplete
 
 

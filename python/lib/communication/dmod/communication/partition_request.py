@@ -1,5 +1,5 @@
 from uuid import uuid4
-from pydantic import Field, Extra
+from pydantic import Field
 from typing import ClassVar, Dict, Optional, Type, Union
 from dmod.core.serializable import Serializable
 from .message import AbstractInitRequest, MessageEventType, Response

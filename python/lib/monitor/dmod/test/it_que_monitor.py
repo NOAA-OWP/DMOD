@@ -1,5 +1,4 @@
 import unittest
-from ..monitor import que_monitor as qm
 
 
 # TODO: rework testing here with two mock subtypes (separate for Docker and Redis testing)

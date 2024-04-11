@@ -3,7 +3,6 @@ import typing
 import string
 import abc
 import re
-import json
 
 from collections import defaultdict
 from collections import abc as abstract_collections

@@ -1,4 +1,3 @@
-import io
 import os
 
 __all__ = [
@@ -13,7 +12,6 @@ from . import *
 import typing
 import inspect
 import pathlib
-import zipfile
 
 from . import writer
 

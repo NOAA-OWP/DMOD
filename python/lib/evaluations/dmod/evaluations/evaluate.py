@@ -10,7 +10,6 @@ import dmod.metrics as metrics
 
 import dmod.core.common as common
 
-from . import util
 from . import specification
 from . import crosswalk
 from . import data_retriever

@@ -3,7 +3,6 @@ import flask
 import json
 from dmod.modeldata import SubsetDefinition, SubsetHandler
 from pathlib import Path
-from typing import Optional
 from .cli import Cli
 from . import name as package_name
 

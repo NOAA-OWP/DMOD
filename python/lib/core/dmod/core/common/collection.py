@@ -12,7 +12,6 @@ import pydantic
 from pydantic import PrivateAttr
 from pydantic.generics import GenericModel
 
-from collections.abc import Collection
 from typing import Iterator
 
 _T = typing.TypeVar("_T")

@@ -1,7 +1,6 @@
 """
 Provides simple helper functions
 """
-import functools
 import logging
 import pathlib
 import shutil

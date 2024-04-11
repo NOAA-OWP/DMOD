@@ -6,7 +6,6 @@ import re
 import inspect
 
 import pandas
-import jsonpath_ng as jsonpath
 
 from jsonpath_ng.ext import parse as create_expression
 
