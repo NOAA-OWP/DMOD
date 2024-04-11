@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Optional
 
 from .enum import PydanticEnum
@@ -5,7 +7,7 @@ from .enum import PydanticEnum
 
 class AllocationParadigm(PydanticEnum):
     """
-    Representation of the ways compute assets may be combined to fulfill a total required asset amount for a task.
+    The general strategies used when assembling and allocating compute assets from different resources.
 
     The values are as follows:
         FILL_NODES  - obtain allocations of assets by proceeding through resources in some order, getting either the max
@@ -23,23 +25,26 @@ class AllocationParadigm(PydanticEnum):
     SINGLE_NODE = 2
 
     @classmethod
-    def get_default_selection(cls) -> 'AllocationParadigm':
+    def get_default_selection(cls) -> AllocationParadigm:
         """
         Get the default fallback value select to use in various situation, which is ``ROUND_ROBIN``.
 
         Returns
         -------
-        The ``ROUND_ROBIN`` value.
+        AllocationParadigm
+            The ``ROUND_ROBIN`` value.
         """
         # Must hard code something, since get_from_name potentially has a nested call back to this
         #return cls.SINGLE_NODE
         return cls.ROUND_ROBIN
 
     @classmethod
-    def get_from_name(cls, name: Optional[str], strict: bool = False):
+    def get_from_name(cls, name: Optional[str], strict: bool = False) -> Optional[AllocationParadigm]:
         """
+        Get the value for the given name string, potentially falling back to the default if the arg doesn't match.
+
         Get the appropriate value corresponding to the given string value name (trimming whitespace), falling back to
-        the default from ::method:`get_default_selection` if an unrecognized or ``None`` value is received.
+        the default from :method:`get_default_selection` if an unrecognized or ``None`` value is received.
 
         Parameters
         ----------
@@ -52,8 +57,9 @@ class AllocationParadigm(PydanticEnum):
 
         Returns
         -------
-        The desired enum value, or ``None`` if in strict mode and the ``name`` param does not correspond to an expected
-        value.
+        Optional[AllocationParadigm]
+            The associated enum value, when the ``name`` arg matches; otherwise, either the default value when
+            ``strict`` is ``False``, or ``None`` when ``strict`` is ``True``.
         """
         if name is None or not isinstance(name, str):
             return None if strict else cls.get_default_selection()
