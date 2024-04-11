@@ -40,7 +40,7 @@ class AbstractProcessingAssetPool(Serializable, ABC):
     not impose restrictions on whether these values may change over time.
 
     Objects of this type can also be converted to and from serialized dictionaries, with deserialization done using the
-    ::method:`factory_init_from_dict` class method, and serialization using the ::method:`to_dict` method.
+    :method:`factory_init_from_dict` class method, and serialization using the :method:`to_dict` method.
     """
 
     cpu_count: int
@@ -52,10 +52,10 @@ class AbstractProcessingAssetPool(Serializable, ABC):
     def factory_init_from_dict(cls, init_dict: Dict[str, Any],
                                ignore_extra_keys: bool = False) -> Self:
         """
-        Initialize a new object from the given dictionary, raising a ::class:`ValueError` if there are missing expected
+        Initialize a new object from the given dictionary, raising a :class:`ValueError` if there are missing expected
         keys or there are extra keys when the method is not set to ignore them.
 
-        The dictionary should include the same string keys used in the implementation of ::method:`to_dict`.  Values
+        The dictionary should include the same string keys used in the implementation of :method:`to_dict`.  Values
         should also typically be similar, though additional value types may be supported where appropriate.  In
         particular, conversions of string values to integer init params (or other numeric types) is likely to be common,
         but other value conversions may be supported also.
@@ -65,7 +65,7 @@ class AbstractProcessingAssetPool(Serializable, ABC):
         determined according to the rules of iterating through dictionaries, with the first applicable key/value being
         used.
 
-        If there are any additional, unexpected keys, they will trigger a ::class:`ValueError` unless the
+        If there are any additional, unexpected keys, they will trigger a :class:`ValueError` unless the
         ``ignore_extra_keys`` is set to ``True``.  It is ``False`` by default.
 
         Parameters
@@ -80,7 +80,7 @@ class AbstractProcessingAssetPool(Serializable, ABC):
         Returns
         -------
         SingleHostProcessingAssetPool
-            A newly initialized ::class:`AbstractProcessingResource` object.
+            A newly initialized :class:`AbstractProcessingResource` object.
 
         Raises
         ------
@@ -124,12 +124,10 @@ class AbstractProcessingAssetPool(Serializable, ABC):
 
 class SingleHostProcessingAssetPool(AbstractProcessingAssetPool, ABC):
     """
-    An extension of ::class:`AbstractProcessingAssetPool` where the represented assets all exist on a single logical
-    host.
+    Extension of :class:`AbstractProcessingAssetPool` where the represented assets all exist on a single logical host.
 
-    , and they will have resource/node
-    identifiers and hostnames for the host on which the resources exists, which should not be modified after object
-    creation.
+    Abstraction for compute asset pool existing entirely on a single host.  Instances should not have their hostname or
+    pool id changed after creation.
     """
 
     hostname: str
@@ -137,7 +135,10 @@ class SingleHostProcessingAssetPool(AbstractProcessingAssetPool, ABC):
 
 class Resource(SingleHostProcessingAssetPool):
     """
-    Representation of a resource from which processing assets can be allocated.
+    Representation of a pool of compute assets on a single host, where these assets can be allocated for jobs/tasks.
+
+    Concrete implementation of :class:`SingleHostProcessingAssetPool` that serves as a source for allocating compute
+    assets for use in jobs/tasks.
 
     E.g.:
             {
@@ -151,10 +152,10 @@ class Resource(SingleHostProcessingAssetPool):
                 'Total Memory: 33548128256
             }
 
-    The ::attribute:`resource_id` property is expected to be unique within the domain of ::class:`Resource` objects.
+    The :attribute:`resource_id` property is expected to be unique within the domain of :class:`Resource` objects.
 
-    In addition to the ::attribute:`cpu_count` and ::attribute:`memory` properties, which represent available values for
-    the resource, resources also maintain ::attribute:`total_cpu_count` and ::attribute:`total_memory` properties.
+    In addition to the :attribute:`cpu_count` and :attribute:`memory` properties, which represent available values for
+    the resource, resources also maintain :attribute:`total_cpu_count` and :attribute:`total_memory` properties.
     These are initially set to the available values if no explicit values are set at initialization.  In general, these
     are expected to never change for a resource.
     """
@@ -163,22 +164,22 @@ class Resource(SingleHostProcessingAssetPool):
     """
     The availability of the resource.
 
-    Note that the property setter accepts both string and ::class:`ResourceAvailability` values.  For a string, the
-    argument is converted to a ::class:`ResourceAvailability` value using ::method:`get_resource_enum_value`.
+    Note that the property setter accepts both string and :class:`ResourceAvailability` values.  For a string, the
+    argument is converted to a :class:`ResourceAvailability` value using :method:`get_resource_enum_value`.
 
-    However, if the conversion of a string with ::method:`get_resource_enum_value` returns ``None``, the setter
-    sets ::attribute:`availability` to the ``UNKNOWN`` enum value, rather than ``None``.  This is more applicable
-    and allows the getter to always return an actual ::class:`ResourceAvailability` instance.
+    However, if the conversion of a string with :method:`get_resource_enum_value` returns ``None``, the setter
+    sets :attribute:`availability` to the ``UNKNOWN`` enum value, rather than ``None``.  This is more applicable
+    and allows the getter to always return an actual :class:`ResourceAvailability` instance.
     """
 
     state: ResourceState = Field(description="The readiness state of the resource.")
     """
-    Note that the property setter accepts both string and ::class:`ResourceState` values.  For a string, the
-    argument is converted to a ::class:`ResourceState` value using ::method:`get_resource_enum_value`.
+    Note that the property setter accepts both string and :class:`ResourceState` values.  For a string, the
+    argument is converted to a :class:`ResourceState` value using :method:`get_resource_enum_value`.
 
-    However, if the conversion of a string with ::method:`get_resource_enum_value` returns ``None``, the setter sets
-    ::attribute:`state` to the ``UNKNOWN`` enum value, rather than ``None``.  This is more applicable and allows the
-    getter to always return an actual ::class:`ResourceState` instance.
+    However, if the conversion of a string with :method:`get_resource_enum_value` returns ``None``, the setter sets
+    :attribute:`state` to the ``UNKNOWN`` enum value, rather than ``None``.  This is more applicable and allows the
+    getter to always return an actual :class:`ResourceState` instance.
     """
 
     total_cpus: Optional[int] = Field(description="The total number of CPUs known to be on this resource.")
@@ -249,7 +250,7 @@ class Resource(SingleHostProcessingAssetPool):
     @classmethod
     def generate_unique_id(cls, resource_id: str, separator: str):
         """
-        For an arbitrary resource id string, generate the appropriate derived value for ::attribute:`unique_id`, which
+        For an arbitrary resource id string, generate the appropriate derived value for :attribute:`unique_id`, which
         can be used for things such as Redis keys.
 
         Parameters
@@ -286,7 +287,7 @@ class Resource(SingleHostProcessingAssetPool):
         corresponds to a value if it matches the value's ``name`` in a case-insensitive comparison, and with any
         trailing and leading whitespace trimmed.
 
-        Only the enums used within the ::class:`Resource` class are supported.
+        Only the enums used within the :class:`Resource` class are supported.
 
         If there is no match within the domain of the provided enum type, the method will return ``None``.
 
@@ -373,9 +374,9 @@ class Resource(SingleHostProcessingAssetPool):
         """
         Get whether it is possible to allocate something from this resource.
 
-        For this to be ``True``, ::attribute:`availability` must be ``ACTIVE`` of ::class:`ResourceAvailability,
-        ::attribute:`state` must be ``READY`` of ::class:`ResourceState`, and both ::attribute:`cpu_count` and
-        ::attribute:`memory` must be greater than ``0``.
+        For this to be ``True``, :attribute:`availability` must be ``ACTIVE`` of :class:`ResourceAvailability,
+        :attribute:`state` must be ``READY`` of :class:`ResourceState`, and both :attribute:`cpu_count` and
+        :attribute:`memory` must be greater than ``0``.
 
         Returns
         -------
