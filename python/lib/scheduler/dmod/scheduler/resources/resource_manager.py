@@ -2,6 +2,7 @@
 import logging
 from typing import Iterable, Optional, Union, List
 from abc import ABC, abstractmethod
+from dmod.core.execution import AllocationAssetGrouping
 from .resource import Resource
 from .resource_allocation import ResourceAllocation
 
@@ -153,14 +154,27 @@ class ResourceManager(ABC):
         if not (isinstance(memory, int) and memory > 0):
             raise(ValueError("memory must be an integer > 0"))
 
-    def allocate_single_node(self, cpus: int, memory: int) -> List[Optional[ResourceAllocation]]:
+    # TODO: (later) consider encapsulating the notion of an AllocationRequest or something like that, especially if more
+    #  things like AllocationAssetGrouping are added (e.g., for required ratio - or not - of memory to CPU)
+    def allocate_single_node(self, cpus: int, memory: int,
+                             asset_grouping: AllocationAssetGrouping = AllocationAssetGrouping.BUNDLE) -> List[
+        Optional[ResourceAllocation]]:
         """
-        Check available resources to allocate job request to single-cpu allocations on a single node.
+        Generate and return allocations as needed on a single node, according to the ``SINGLE_NODE`` paradigm.
+
+        When there is some available :class:`Resource` node that has sufficient assets, return one or more
+        :class:`ResourceAllocation` objects associated with that node such that the requested amounts of assets are
+        fulfilled.
+
+        For a ``BUNDLED`` :class:`AllocationAssetGrouping`, a single allocation is returned containing all the assets.
+        For ``SILO``, several allocations are returned, each with a single CPU and an even share of the total requested
+        memory.
 
         Parameters
         ----------
             cpus: Total number of CPUs requested
             memory: Amount of memory required in bytes
+            asset_grouping: The way compute assets from a single node are grouped into allocations.
 
         Returns
         -------
@@ -170,82 +184,115 @@ class ResourceManager(ABC):
         #Fit the entire allocation on a single resource
         self.validate_allocation_parameters(cpus, memory)
 
-        for res in self.get_useable_resources():
-            if res.cpu_count >= cpus and res.memory >= memory:
-                allocations = []
-                mem = int(memory / cpus)
-                for i in range(cpus):
-                    alloc = self.allocate_resource(resource_id=res.resource_id, requested_cpus=1, requested_memory=mem)
-                    if alloc is None:
-                        allocations = None
-                        break
-                    else:
-                        allocations.append(alloc)
-                if allocations is not None:
-                    return allocations
-        return [None]
+        resource_nodes = [r for r in self.get_useable_resources() if r.cpu_count >= cpus and r.memory >= memory]
+        if len(resource_nodes) == 0:
+            return [None]
 
-    def allocate_fill_nodes(self, cpus: int, memory: int) -> List[Optional[ResourceAllocation]]:
+        node = resource_nodes[0]
+
+        if asset_grouping == AllocationAssetGrouping.BUNDLE:
+            return [self.allocate_resource(resource_id=node.resource_id, requested_cpus=cpus, requested_memory=memory)]
+
+        allocations = []
+        mem = int(memory / cpus)
+        for i in range(cpus):
+            alloc = self.allocate_resource(resource_id=node.resource_id, requested_cpus=1, requested_memory=mem)
+            # If any individual allocation failed because assets ran out ...
+            if alloc is None:
+                # ... release anything that was allocated, and then bail
+                self.release_resources(allocations)
+                return [None]
+            else:
+                allocations.append(alloc)
+        return allocations
+
+    def allocate_fill_nodes(self, cpus: int, memory: int,
+                            asset_grouping: AllocationAssetGrouping = AllocationAssetGrouping.BUNDLE) -> List[
+        Optional[ResourceAllocation]]:
         """
-        Allocate job request to single-cpu allocations on one or more nodes, filling nodes before moving to next.
+        Generate allocations of the requested assets on one or more nodes, using all of a nodes before moving to next.
 
-        Allocate job request to single-cpu allocations on one or more nodes, claiming all available, required resources
-        from the current node before beginning to get resources from the next.
+        Generate allocations on one or more nodes to fulfill the requested assets.  For the current node, claim all
+        available, compute assets before, up to the remaining amount requested, before beginning to get resources
+        from the next node.
+
+        For a ``BUNDLED`` :class:`AllocationAssetGrouping`, a single allocation is returned per :class:`Resource` node
+        containing all the assets allocated from that node. For ``SILO``, several per-node allocations are returned,
+        each with a single CPU and a roughly even share of the total requested memory.
 
         Parameters
         ----------
             cpus: Total number of CPUs requested
             memory: Amount of memory required in bytes
+            asset_grouping: The way compute assets from a single node are grouped into allocations
 
         Returns
         -------
-        [ResourceAlloction]
-            List of one or more ResourceAllocation if allocation successful, otherwise, [None]
+        [ResourceAllocation]
+            List of one or more :class:`ResourceAllocation` if allocation successful, otherwise, [None]
         """
         self.validate_allocation_parameters(cpus, memory)
-        #TODO fill_nodes really should allocate on a MEM per CPU basis???
+        # TODO: (later) consider another exec config enum that encapsulates the relationship between memory and cpu;
+        #  e.g., sometimes memory should be the same amount per CPU, but other times maybe we want more memory on a box
         allocations = []
-        per_alloc_mem = int(memory / cpus)
 
+        def request_alloc(node_resource_id):
+            requested_cpus = cpus if asset_grouping == AllocationAssetGrouping.BUNDLE else 1
+            requested_memory = memory if asset_grouping == AllocationAssetGrouping.BUNDLE else int(memory / cpus)
+            return self.allocate_resource(node_resource_id, requested_cpus, requested_memory, partial=True)
+
+        # TODO: (later) this doesn't do a good job of accounting for the ratio of CPU to memory, though we'd also have
+        #  to assume what the user wanted
         for res in self.get_useable_resources(): #i in range(len(resources)):
             # Greedily allocate a (potentially) partial allocation on this resource
-            alloc = self.allocate_resource(resource_id=res.resource_id, requested_cpus=1,
-                                           requested_memory=per_alloc_mem, partial=True)
+            alloc = request_alloc(node_resource_id=res.resource_id)
             # Whenever the allocation was (partially) successful
-            while alloc is not None and cpus > 0:
-                # Append, then do it again
-                allocations.append(alloc)
-                cpus -= 1
-                alloc = self.allocate_resource(resource_id=res.resource_id, requested_cpus=1,
-                                               requested_memory=per_alloc_mem, partial=True)
-                # TODO what about memory?  If mem_per_node, don't change it
-            # TODO think about mem per process type allocation
-            # Here (back in outer loop), if we have all needed allocations, break (otherwise, continue to next resource)
-            if cpus < 1:
-                break
+            while isinstance(alloc, ResourceAllocation) and cpus - alloc.cpu_count > 0:
+                # Disregard and release a partial allocation that provides below a min threshold, then move to next node
+                if alloc.cpu_count == 0 or alloc.memory == 0:
+                    self.release_resources([alloc])
+                    alloc = None
+                # Otherwise, append this allocation, update our outstanding quantities, and then allocate again
+                else:
+                    allocations.append(alloc)
+                    cpus -= alloc.cpu_count
+                    memory -= alloc.memory
+                    alloc = request_alloc(node_resource_id=res.resource_id)
+            # Here (back in outer loop), if we have all needed allocations, return (otherwise continue to next resource)
+            # TODO: (later) account for whether we actually got enough memory better here
+            if cpus == 0:
+                return allocations
 
-        # If not enough resources found, roll back and release the acquired allocations
-        if cpus > 0:
-            self.release_resources(allocations)
-            allocations = [None]
-        # Otherwise, return the allocations
-        return allocations
+        # If there weren't enough resources and assets, roll back and release the acquired allocations
+        # TODO: (later) similarly, account for whether we actually got enough memory better here
+        self.release_resources(allocations)
+        return [None]
 
-    def allocate_round_robin(self, cpus: int, memory: int) -> List[Optional[ResourceAllocation]]:
+    def allocate_round_robin(self, cpus: int, memory: int,
+                             asset_grouping: AllocationAssetGrouping = AllocationAssetGrouping.BUNDLE) -> List[
+        Optional[ResourceAllocation]]:
         """
-            Check available resources on host nodes and allocate in round robin manner even the request
-            can fit in a single node.
+            Generate allocations of the requested assets evenly across all active, ready resource nodes.
 
-            TODO this is a balanced round robin algorithm, assuming an even distribution is possible across all resources,
-            with up to num_node-1 remainders to fill in.  This is not the most generic "round robin" in which we allocate
+            Generate even, balanced allocations of the requested assets across all nodes that are active and ready.
+            Importantly, this is slightly different not just those within
+
+            This is a balanced round robin algorithm, assuming an even distribution is possible across all resources,
+            with up to num_node-1 remainders to fill in.
+            Note that this is not the most generic "round robin" in which we allocate
             cpus one after the other across all available resources and don't try to balance.
             i.e. a request for 10 cpus with an available resource view of [4, 2, 4] would fail to allocate with this
-            algorithm, because it assumes an availablity of [4, 3, 3]
+            algorithm, because it assumes an availability of [4, 3, 3]
+
+            For a ``BUNDLED`` :class:`AllocationAssetGrouping`, a single allocation is returned per :class:`Resource`
+            node containing all the assets allocated from that node. For ``SILO``, several per-node allocations are
+            returned, each with a single CPU and a roughly even share of the total requested memory.
 
             Parameters
             ----------
                 cpus: Total number of CPUs requested
                 memory: Amount of memory required in bytes
+                asset_grouping: The way compute assets from a single node are grouped into allocations
 
             Returns
             -------
@@ -253,43 +300,43 @@ class ResourceManager(ABC):
                 List of one or more ResourceAllocation if allocation successful, otherwise, [None]
         """
         #TODO consider scaling memory per cpu
-        #Find the number of cpus to allocate to each node
         self.validate_allocation_parameters(cpus, memory)
-        resources = list(self.get_useable_resources())
-        per_alloc_mem = int(memory / cpus)
+        # Get all active and ready nodes, regardless of whether they are "allocateable" (i.e., not full)
+        resource_nodes = {r.resource_id: r for r in self.get_resources() if r.is_active() and r.is_ready()}
 
-        num_node = len(resources)
-        if num_node == 0:
+        # Calculate in advance the exact amounts of CPUs and memory per node for the necessary balance
+        # This is slightly different from simply an even share due to discrete amounts and remainders
+        cpus_per_node, memory_per_node = dict(), dict()
+        num_nodes = len(resource_nodes)
+        cpu_share, mem_share = int(cpus / num_nodes), int(memory / num_nodes)
+        cpu_remainder, mem_remainder = cpus - cpu_share, memory - mem_share
+
+        for node_id, node in resource_nodes.items():
+            # We must plan to request at least the per-node amounts on each node
+            if node.cpu_count < cpu_share or node.memory < memory:
+                return [None]
+            cpus_per_node[node_id] = cpu_share
+            memory_per_node[node_id] = mem_share
+            # But we also need to try to pick up a share of the remainders if we can
+            if node.cpu_count > cpu_share and cpu_remainder > 0:
+                cpus_per_node[node_id] += 1
+                cpu_remainder -= 1
+            if node.memory > mem_share and mem_remainder > 0:
+                memory_per_node[node_id] += 1
+                mem_remainder -= 1
+
+        # We must also make sure that all of each remainder was picked up
+        if cpu_remainder > 0 or mem_remainder > 0:
             return [None]
 
         allocations = []
-
-        # Keep track of when we have exhausted resources and can no longer allocate from them
-        resource_is_exhausted = []
-        for r in resources:
-            resource_is_exhausted.append(False)
-
-        #
-        resource_index = 0
-        while not all(resource_is_exhausted) and cpus > 0:
-            # If the resource for this iteration is not known to be exhausted, try to allocate from it
-            if not resource_is_exhausted[resource_index]:
-                # Assuming this resource isn't already known to be exhausted, try to allocate
-                alloc = self.allocate_resource(resource_id=resources[resource_index].resource_id, requested_cpus=1,
-                                               requested_memory=per_alloc_mem, partial=True)
-                # If we can't actually allocate from it, mark this resource as being exhausted
-                if alloc is None:
-                    resource_is_exhausted[resource_index] = True
-                # Whenever allocation was (partially) successful, add the allocation and decrement the cpus remaining
-                else:
-                    allocations.append(alloc)
-                    cpus -= 1
-            # Regardless, always move to the next resource (index) for next loop iteration
-            resource_index = (resource_index + 1) % len(resources)
-
-        # If this occurs, all resources were exhausted before everything could be fulfilled, so rollback and release
-        if cpus > 0:
-            self.release_resources(allocations)
-            allocations = [None]
-
+        for node_id in resource_nodes:
+            alloc_count = 1 if asset_grouping == AllocationAssetGrouping.BUNDLE else cpus_per_node[node_id]
+            for i in range(alloc_count):
+                alloc = self.allocate_resource(resource_id=node_id,
+                                               requested_cpus=int(cpus_per_node[node_id] / alloc_count),
+                                               requested_memory=int(memory_per_node[node_id] / alloc_count))
+                if not isinstance(alloc, ResourceAllocation):
+                    self.release_resources(allocations)
+                    return [None]
         return allocations
