@@ -383,8 +383,46 @@ class Resource(SingleHostProcessingAssetPool):
         bool
             Whether it is possible to allocate something from this resource.
         """
-        return self.availability == ResourceAvailability.ACTIVE and self.state == ResourceState.READY \
-            and self.cpu_count > 0 and self.memory > 0
+        return self.is_active() and self.is_ready() and not self.is_exhausted()
+
+    def is_active(self) -> bool:
+        """
+        Whether the resource node modeled by the instance is active and available.
+
+        Returns
+        -------
+        bool
+            Whether the instance has ``ACTIVE`` :class:`ResourceAvailability`.
+        """
+        return self.availability == ResourceAvailability.ACTIVE
+
+    def is_exhausted(self) -> bool:
+        """
+        Whether the resource node modeled by the instance has no remaining assets of a distinct asset type.
+
+        Whether the node cannot allocate assets any further, because it has allocated all its available assets in one or
+        more of the fundamental asset types modeled by :class:`Resource`:  currently, CPU and memory.
+
+        Returns
+        -------
+        bool
+            Whether the resource node modeled by the instance has no remaining assets of a distinct asset type.
+        """
+        return self.cpu_count == 0 or self.memory == 0
+
+    def is_ready(self) -> bool:
+        """
+        Whether the resource node modeled by instance is ready for asset allocation, independent of remaining assets.
+
+        Whether the resource node modeled by instance is in a state that makes it ready to allocate assets.  Note that
+        this is separate from whether there are any remaining free assets for the node to allocate.
+
+        Returns
+        -------
+        bool
+            Whether the instance is in a ``READY`` :class:`ResourceState`.
+        """
+        return self.state == ResourceState.READY
 
     def release(self, cpu_count: int, memory: int):
         """
