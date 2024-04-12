@@ -4,6 +4,7 @@ Provide utilities to import and export templates
 from __future__ import annotations
 
 import os
+import sys
 import sqlite3
 import sys
 import typing
@@ -170,7 +171,7 @@ def export_database(
         manager.export_to_database(table_name=template_table, database_connection=path, exists_ok=override)
     except sqlite3.OperationalError as sql_error:
         print(f"Could not manipulate the database: {sql_error}", file=sys.stderr)
-        exit(255)
+        sys.exit(255)
     except:
         raise
     else:
@@ -326,7 +327,7 @@ def get_author() -> typing.Optional[User]:
 
         if not create_user:
             print("Cannot import templates - a valid user must be provided to import", file=sys.stderr)
-            exit(255)
+            sys.exit(255)
 
     password = getpass(f"Password for the '{username}'{os.linesep}>>> ")
 
@@ -367,7 +368,7 @@ def import_templates(data_format: _DATA_FORMAT_TYPE, path: pathlib.Path, author:
 
     if author is None:
         print(f"Cannot import templates - cannot validate user")
-        exit(255)
+        sys.exit(255)
 
     template_manager = create_manager(data_format=data_format, path=path, *args, **kwargs)
     import_results = templates.import_templates(author=author, manager=template_manager)
@@ -455,7 +456,7 @@ class Command(BaseCommand):
             print(f"Cannot import data without a path", file=sys.stderr)
             print()
             self.print_help(get_application_name(), get_command_name())
-            exit(1)
+            sys.exit(1)
 
         if path is None:
             path = get_default_export_path(data_format=data_format)

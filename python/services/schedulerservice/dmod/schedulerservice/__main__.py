@@ -1,4 +1,5 @@
 import argparse
+import sys
 import yaml
 from os import getenv
 from pathlib import Path
@@ -136,11 +137,10 @@ def main():
     if args.pycharm_debug:
         if args.remote_debug_egg_path == '':
             print('Error: set to debug with Pycharm, but no path to remote debugger egg file provided')
-            exit(1)
+            sys.exit(1)
         if not Path(args.remote_debug_egg_path).exists():
             print('Error: no file at given path to remote debugger egg file "{}"'.format(args.remote_debug_egg_path))
-            exit(1)
-        import sys
+            sys.exit(1)
         sys.path.append(args.remote_debug_egg_path)
         import pydevd_pycharm
         try:

@@ -1,4 +1,5 @@
 import argparse
+import sys
 import flask
 import json
 from dmod.modeldata.datarequest import DataRequestHandler, DataRequestReader
@@ -62,7 +63,7 @@ def main():
     result = True
 
     if not result:
-        exit(1)
+        sys.exit(1)
 
 
 if __name__ == '__main__':

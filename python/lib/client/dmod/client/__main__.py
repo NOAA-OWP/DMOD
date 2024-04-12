@@ -1,4 +1,5 @@
 import argparse
+import sys
 import datetime
 import json
 from dmod.core.execution import AllocationParadigm
@@ -359,13 +360,13 @@ def execute_dataset_command(args, client: DmodClient):
         print(result)
     except ValueError as e:
         print(str(e))
-        exit(1)
+        sys.exit(1)
     except NotImplementedError as e:
         print(str(e))
-        exit(1)
+        sys.exit(1)
     except Exception as e:
         print("ERROR: Encountered {} - {}".format(e.__class__.__name__, str(e)))
-        exit(1)
+        sys.exit(1)
 
 
 def execute_config_command(parsed_args, client: DmodClient):
@@ -384,13 +385,13 @@ def execute_job_command(args, client: DmodClient):
         print(result)
     except ValueError as e:
         print(str(e))
-        exit(1)
+        sys.exit(1)
     except NotImplementedError as e:
         print(str(e))
-        exit(1)
+        sys.exit(1)
     except Exception as e:
         print("ERROR: Encountered {} - {}".format(e.__class__.__name__, str(e)))
-        exit(1)
+        sys.exit(1)
 
 
 def execute_workflow_command(args, client: DmodClient):
@@ -400,10 +401,10 @@ def execute_workflow_command(args, client: DmodClient):
         print(result)
     except ValueError as e:
         print(str(e))
-        exit(1)
+        sys.exit(1)
     except Exception as e:
         print(f"Encounted {e.__class__.__name__}: {str(e)}")
-        exit(1)
+        sys.exit(1)
 
 # TODO: (later) add something to TransportLayerClient to check if it supports multiplexing
 
@@ -439,7 +440,7 @@ def main():
     client_config_path = find_client_config() if args.client_config is None else Path(args.client_config)
     if client_config_path is None:
         print("ERROR: Could not find any suitable DMOD CLI client configuration file")
-        exit(1)
+        sys.exit(1)
 
     try:
 
@@ -448,7 +449,7 @@ def main():
             _load_debugger_and_settrace(debug_cfg=client_config.pycharm_debug_config)
         elif args.remote_debug:
             print("ERROR: received arg to activate remote debugging, but client config lacks debugging parameters.")
-            exit(1)
+            sys.exit(1)
 
         client = DmodClient(client_config=client_config, bypass_request_service=args.bypass_reqsrv)
 
@@ -465,7 +466,7 @@ def main():
 
     except Exception as error:
         print(f"ERROR: {error!s}")
-        exit(1)
+        sys.exit(1)
 
 
 if __name__ == '__main__':
