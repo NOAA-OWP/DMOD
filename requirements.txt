@@ -5,7 +5,7 @@ docker
 django-generate
 jsonschema
 redis
-websockets
+websockets>=10.1
 Faker
 flake8
 autopep8
