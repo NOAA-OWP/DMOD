@@ -23,7 +23,7 @@ except:
         "Please install a compatible version if updated diagrams are needed.",
         file=sys.stderr
     )
-    exit(255)
+    sys.exit(255)
 
 
 DIAGRAM_DIRECTORY = "./images"
@@ -103,7 +103,7 @@ def main():
     for message in failures:
         print(message, file=sys.stderr)
 
-    exit(len(failures))
+    sys.exit(len(failures))
 
 if __name__ == "__main__":
     main()

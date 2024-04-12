@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import typing
 import os
+import sys
 import multiprocessing
 import json
 import signal
@@ -14,7 +15,7 @@ import worker
 
 def signal_handler(signum, frame):
     service.error("Received external signal. Now exiting.")
-    exit(1)
+    sys.exit(1)
 
 
 class Arguments(object):
@@ -158,7 +159,7 @@ def run_job(
         service.info(f"Evaluation for {launch_parameters['evaluation_id']} has been launched.")
     elif purpose in ("close", "kill", "terminate"):
         service.info("Exit message received. Closing the runner.")
-        exit(0)
+        sys.exit(0)
     else:
         service.debug(
             f"runner => The purpose was not to launch or terminate. Only launching is handled through this. {os.linesep}"

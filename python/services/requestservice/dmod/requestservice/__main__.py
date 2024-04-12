@@ -1,4 +1,5 @@
 import argparse
+import sys
 from . import name as package_name
 from . import RequestService
 from pathlib import Path
@@ -119,11 +120,10 @@ def main():
     if args.pycharm_debug:
         if args.remote_debug_egg_path == '':
             print('Error: set to debug with Pycharm, but no path to remote debugger egg file provided')
-            exit(1)
+            sys.exit(1)
         if not Path(args.remote_debug_egg_path).exists():
             print('Error: no file at given path to remote debugger egg file "{}"'.format(args.remote_debug_egg_path))
-            exit(1)
-        import sys
+            sys.exit(1)
         sys.path.append(args.remote_debug_egg_path)
         import pydevd_pycharm
         try:
@@ -136,13 +136,13 @@ def main():
     # Sanity check any provided path arguments
     if args.ssl_dir is not None and not _sanity_check_path_arg(args.ssl_dir, is_directory=True):
         print('Error: provided SSL directory arg ' + args.ssl_dir + ' does not exist or is not valid')
-        exit(1)
+        sys.exit(1)
     if args.cert_path is not None and not _sanity_check_path_arg(args.cert_path):
         print('Error: provided SSL certificate arg ' + args.cert_path + ' does not exist or is not valid')
-        exit(1)
+        sys.exit(1)
     if args.key_path is not None and not _sanity_check_path_arg(args.key_path):
         print('Error: provided SSL private key arg ' + args.key_path + ' does not exist or is not valid')
-        exit(1)
+        sys.exit(1)
 
     # Init request handler
     handler = RequestService(listen_host=args.host,
