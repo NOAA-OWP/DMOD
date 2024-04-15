@@ -175,8 +175,7 @@ class ItemDataDomainDetector(AbstractDomainDetector, ABC):
         """
         return cls._data_format
 
-    def __init__(self, item: DataItem, item_name: Optional[str] = None, decode_format: str = 'utf-8', *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, item: DataItem, item_name: Optional[str] = None, decode_format: str = 'utf-8'):
         self._item: DataItem = item
         """ The data item for which to detect a domain. """
         self._is_item_file = isinstance(self._item, Path)
