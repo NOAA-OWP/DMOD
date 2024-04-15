@@ -244,8 +244,6 @@ def _handle_data_service_action_args(parent_subparsers_container):
 
     show_detectors = domain_command_subparsers.add_parser('list_detectors',
                                                           description="List the domain detector subclasses that are available.")
-    show_detectors.add_argument("--class-name", dest="use_detector_class_names", action='store_true',
-                                help="Force output of class names instead of registration name.")
 
     # Nested parser for the 'upload' action, with required args for dataset name and files to upload
     parser_upload = action_subparsers.add_parser('upload', description="Upload local files to a dataset.")
@@ -351,9 +349,7 @@ def _run_domain_command(args):
             exit(1)
     elif args.domain_command == "list_detectors":
         registry = ItemDataDomainDetectorRegistry.get_instance()
-        all_names = sorted(registry.get_all_names())
-        if args.use_detector_class_names:
-            all_names = sorted([registry.get_for_name(n).__name__ for n in all_names ])
+        all_names = [d.__name__ for d in registry.get_all_subclasses(do_sorted=True)]
         print({"success": True, "detector_names": all_names})
     else:
         raise NotImplementedError(f"Unrecognized domain command '{args.domain_command!s}'")
