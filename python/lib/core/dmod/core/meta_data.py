@@ -925,27 +925,33 @@ class DataDomain(Serializable):
             raise DmodRuntimeError(f"Can't merge {d2.data_format.name} format domain into one of {d1.data_format.name}")
 
         # New continuous; taken directly from domain 1 if not present or equal in domain 2; otherwise, by extending
-        new_c_rests = {idx: (d1_rest
-                             if idx not in d2.continuous_restrictions or d1_rest == d2.continuous_restrictions[idx]
-                             else
-                             d1_rest.expand(d2.continuous_restrictions[idx]))
-                       for idx, d1_rest in d1.continuous_restrictions.items()}
+        new_c_restricts: Dict[StandardDatasetIndex, ContinuousRestriction] = {
+            std_ds_idx: (
+                d1_restrict
+                if std_ds_idx not in d2.continuous_restrictions or d1_restrict == d2.continuous_restrictions[std_ds_idx]
+                else d1_restrict.expand(d2.continuous_restrictions[std_ds_idx])
+            )
+            for std_ds_idx, d1_restrict in d1.continuous_restrictions.items()}
 
         # Any other indices in d2, just move them over
-        for idx in (i for i in d2.continuous_restrictions if i not in new_c_rests):
-            new_c_rests[idx] = d2.continuous_restrictions[idx]
+        for std_ds_idx in (i for i in d2.continuous_restrictions if i not in new_c_restricts):
+            new_c_restricts[std_ds_idx] = d2.continuous_restrictions[std_ds_idx]
 
         # And now similarly for discrete
-        new_d_rests = {idx: (d1_rest
-                             if idx not in d2.discrete_restrictions or d1_rest == d2.discrete_restrictions[idx]
-                             else
-                             d1_rest.expand(d2.discrete_restrictions[idx]))
-                       for idx, d1_rest in d1.discrete_restrictions.items()}
-        for idx in (i for i in d2.discrete_restrictions if i not in new_d_rests):
-            new_d_rests[idx] = d2.discrete_restrictions[idx]
+        new_d_restricts: Dict[StandardDatasetIndex, DiscreteRestriction] = {
+            std_ds_idx: (
+                d1_restrict
+                if std_ds_idx not in d2.discrete_restrictions or d1_restrict == d2.discrete_restrictions[std_ds_idx]
+                else d1_restrict.expand(d2.discrete_restrictions[std_ds_idx])
+            )
+            for std_ds_idx, d1_restrict in d1.discrete_restrictions.items()}
 
-        return DataDomain(data_format=d1.data_format, continuous_restrictions=new_c_rests,
-                          discrete_restrictions=new_d_rests)
+        for std_ds_idx in (i for i in d2.discrete_restrictions if i not in new_d_restricts):
+            new_d_restricts[std_ds_idx] = d2.discrete_restrictions[std_ds_idx]
+
+        return DataDomain(data_format=d1.data_format,
+                          continuous_restrictions=new_c_restricts,
+                          discrete_restrictions=new_d_restricts)
 
     def __eq__(self, other):
         return isinstance(other, DataDomain) and self.__hash__() == other.__hash__()
