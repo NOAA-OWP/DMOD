@@ -47,6 +47,9 @@ A regular expression describing how to find the number of tests that were run
 (the text will look something like 'Found 43 tests', but we're only interested in that '43')
 """
 
+MAX_ERROR_LINES = 10
+"""The maximum number of lines to include in an error stack trace"""
+
 
 class Arguments(object):
     """
@@ -166,7 +169,7 @@ class Arguments(object):
                 "--quiet, --verbose, and --list are all mutually exclusive. Only call with one.",
                 file=sys.stderr
             )
-            sys.exit(-1)
+            sys.exit(255)
 
 
 class TestMessage:
@@ -174,7 +177,7 @@ class TestMessage:
     Specifies the components of an encountered message from a test
     """
 
-    def __init__(self, status: str, content: str, description: str = None):
+    def __init__(self, status: str, content: typing.Union[str, typing.List[str]], description: str = None):
         """
         Constructor
 
@@ -202,7 +205,19 @@ class TestMessage:
         The line describing where the message originated and why
         This will look like: 'ERROR: whatever.whatever.whatever'
         """
-        self.content = content
+
+        if isinstance(content, str):
+            self.content = content
+        elif len(content) > MAX_ERROR_LINES:
+            truncated_count = len(content) - MAX_ERROR_LINES
+            content = content[MAX_ERROR_LINES * -1:]
+            content.insert(0, "  ...")
+            content.insert(0, f"  ( {truncated_count} lines hidden )")
+            content.insert(0, "  ...")
+            self.content = os.linesep.join(content)
+        else:
+            self.content = os.linesep.join(content)
+
         self.description = description
 
     def __str__(self):
@@ -296,7 +311,7 @@ class TestOutput:
         extract metadata
         """
         # Each line to parse
-        message_lines: typing.Sequence[str] = self.stderr.splitlines()
+        message_lines: typing.List[str] = self.stderr.splitlines()
 
         # Whether we are currently parsing a message
         in_message: bool = False
@@ -365,9 +380,17 @@ class TestOutput:
         # If it's detected that we're still parsing and have reached the end of the document, we want to attach
         # what we have as a new message
         if current_content and in_message:
-            current_content = current_content.strip()
             message = TestMessage(status=current_status, content=current_content, description=current_description)
             self.messages.append(message)
+
+        if self.failed and not self.messages:
+            self.messages.append(
+                TestMessage(
+                    status="Error",
+                    description=f"Django test could not run in {self.path}",
+                    content=message_lines
+                )
+            )
 
     def print(self, verbose: bool = None, quiet: bool = None):
         """
@@ -383,8 +406,8 @@ class TestOutput:
                 "Output cannot be both quiet and verbose; choose either '--quiet' or '--verbose', but not both",
                 file=sys.stderr
             )
-            # Exit with a code of -1 to indicate that this was an application error, not a test error or failure
-            sys.exit(-1)
+            # Exit with a code of 255 to indicate that this was an application error, not a test error or failure
+            sys.exit(255)
 
         # We know we're not in verbose mode if it wasn't stated, so set it as False in order to be explicit
         if verbose is None:
@@ -517,6 +540,7 @@ def find_django_applications(root: Path) -> typing.List[Path]:
         # A __pycache__ file or directory is a 'compiled' artifact that we want to ignore
         if "__pycache__" in path.parts:
             continue
+
         # Anything starting with '.' is considered 'hidden', so we need to skip that
         if path.name.startswith("."):
             continue
@@ -710,7 +734,7 @@ def main() -> int:
             verbose=arguments.verbose
         )
 
-        code += sum([test_result.failed for test_result in test_results])
+        code += sum(test_result.failed for test_result in test_results)
 
     return code
 
