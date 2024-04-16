@@ -922,7 +922,7 @@ class DataDomain(Serializable):
         """
         # TODO: (later) consider exceptions to format rule and perhaps other behavior, like for composites
         if d1.data_format != d2.data_format:
-            raise DmodRuntimeError(f"Can't merge {d2.data_format.name} format domain into one of {d1.data_format.name}")
+            raise ValueError(f"Can't merge {d2.data_format.name} format domain into one of {d1.data_format.name}")
 
         # New continuous; taken directly from domain 1 if not present or equal in domain 2; otherwise, by extending
         new_c_restricts: Dict[StandardDatasetIndex, ContinuousRestriction] = {
