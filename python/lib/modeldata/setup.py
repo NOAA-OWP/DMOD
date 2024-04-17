@@ -24,6 +24,7 @@ setup(
         "numpy>=1.20.1",
         "pandas",
         "geopandas",
+        "ngen-config@git+https://github.com/noaa-owp/ngen-cal@master#egg=ngen-config&subdirectory=python/ngen_conf",
         "dmod-communication>=0.4.2",
         "dmod-core>=0.15.1",
         "minio",
