@@ -4,17 +4,15 @@ import datetime
 import json
 from dmod.core.execution import AllocationParadigm
 from dmod.core.exception import DmodRuntimeError
-from . import name as package_name, register_modeldata_domain_detectors
+from . import name as package_name
 from .dmod_client import ClientConfig, DmodClient, run_domain_detection
+from .domain_detectors import ClientUniversalItemDomainDetector
 from dmod.communication.client import get_or_create_eventloop
 from dmod.core.meta_data import (ContinuousRestriction, DataCategory, DataDomain, DataFormat, DiscreteRestriction,
                                  TimeRange)
-from dmod.core.data_domain_detectors import ItemDataDomainDetectorRegistry
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, List, Optional
 
-
-_DOMAIN_DETECTORS_IMPORTED = register_modeldata_domain_detectors()
 
 DEFAULT_CLIENT_CONFIG_BASENAME = '.dmod_client_config.json'
 
@@ -348,8 +346,7 @@ def _run_domain_command(args):
             print(f"ERROR - Encountered {e.__class__.__name__} detecting domain: {e!s}")
             exit(1)
     elif args.domain_command == "list_detectors":
-        registry = ItemDataDomainDetectorRegistry.get_instance()
-        all_names = [d.__name__ for d in registry.get_all_subclasses(do_sorted=True)]
+        all_names = [d.__name__ for d in ClientUniversalItemDomainDetector.get_default_detectors()]
         print({"success": True, "detector_names": all_names})
     else:
         raise NotImplementedError(f"Unrecognized domain command '{args.domain_command!s}'")

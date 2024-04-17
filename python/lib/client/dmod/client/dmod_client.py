@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import List, Optional, Type, Union
 
 from functools import reduce
-from dmod.core.data_domain_detectors import UniversalItemDomainDetector, DataCollectionDomainDetector
+from .domain_detectors import ClientDataCollectionDomainDetector, ClientUniversalItemDomainDetector
 
 
 def determine_transport_client_type(protocol: str,
@@ -76,9 +76,9 @@ def run_domain_detection(paths: Union[Path, List[Path]], data_id: Optional[str] 
     """
     def _detect(p: Path):
         if p.is_dir():
-            return DataCollectionDomainDetector(data_collection=p, collection_name=data_id).detect()
+            return ClientDataCollectionDomainDetector(data_collection=p, collection_name=data_id).detect()
         else:
-            return UniversalItemDomainDetector(item=p).detect()
+            return ClientUniversalItemDomainDetector(item=p).detect()
 
     if isinstance(paths, Path):
         return _detect(paths)
