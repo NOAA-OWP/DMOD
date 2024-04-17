@@ -2,7 +2,6 @@ import unittest
 from datetime import datetime
 
 from dmod.core.meta_data import DataFormat, StandardDatasetIndex
-from dmod.core.data_domain_detectors import ItemDataDomainDetectorRegistry
 from ..modeldata.data.item_domain_detector import AorcCsvFileDomainDetector
 from . import find_git_root_dir
 
@@ -12,8 +11,6 @@ class TestAorcCsvFileDomainDetector(unittest.TestCase):
     def setUp(self):
         self.detector_subclass = AorcCsvFileDomainDetector
         self.expected_data_format = DataFormat.AORC_CSV
-        self.registry = ItemDataDomainDetectorRegistry.get_instance()
-        self.registry.register(self.detector_subclass)
 
         # Setup example 0
         self.example_data = {0: find_git_root_dir().joinpath("data/example_forcing_aorc_csv/cat-12.csv")}
@@ -24,10 +21,6 @@ class TestAorcCsvFileDomainDetector(unittest.TestCase):
     def test_get_data_format_0_a(self):
         """ Test that we get the correct data format for this subclass type. """
         self.assertEqual(self.expected_data_format, self.detector_subclass.get_data_format())
-
-    def test_registration_0_a(self):
-        """ Test that registration added this type to superclass's registered collection. """
-        self.assertTrue(self.registry.is_registered(self.detector_subclass))
 
     def test_detect_0_a(self):
         """ Test that detect returns a domain with the right data format. """

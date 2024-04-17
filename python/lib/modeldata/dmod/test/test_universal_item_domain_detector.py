@@ -2,19 +2,25 @@ import unittest
 from datetime import datetime
 
 from dmod.core.meta_data import DataFormat, StandardDatasetIndex
-from dmod.core.data_domain_detectors import ItemDataDomainDetectorRegistry, UniversalItemDomainDetector
+from dmod.core.data_domain_detectors import AbstractUniversalItemDomainDetector
 
 from ..modeldata.data.item_domain_detector import AorcCsvFileDomainDetector, GeoPackageHydrofabricDomainDetector
 from . import find_git_root_dir
 
 
+class UniversalDetectorTestImpl(AbstractUniversalItemDomainDetector):
+
+    def __init__(self, **kwargs):
+        detector_types = {AorcCsvFileDomainDetector, GeoPackageHydrofabricDomainDetector}
+        kwargs['detector_types'] = detector_types
+        super().__init__(**kwargs)
+
+
 class TestUniversalItemDomainDetector(unittest.TestCase):
 
     def setUp(self):
-        self.registry = ItemDataDomainDetectorRegistry.get_instance()
-        self.registry.register(AorcCsvFileDomainDetector)
-        self.registry.register(GeoPackageHydrofabricDomainDetector)
-        self.detector_subclass = UniversalItemDomainDetector
+
+        self.detector_subclass = UniversalDetectorTestImpl
 
         # Setup example 0
         self.expected_data_format = {0: DataFormat.AORC_CSV}
@@ -27,22 +33,6 @@ class TestUniversalItemDomainDetector(unittest.TestCase):
         self.expected_data_format[1] = DataFormat.NGEN_GEOPACKAGE_HYDROFABRIC_V2
         self.example_data[1] = find_git_root_dir().joinpath("data/example_hydrofabric_2/hydrofabric.gpkg")
         self.example_cat_ids[1] = sorted(['cat-8', 'cat-5', 'cat-9', 'cat-6', 'cat-7', 'cat-10', 'cat-11'])
-
-    def test_get_data_format_0_a(self):
-        """ Test that we get ``None`` for the data format for this subclass type. """
-        self.assertIsNone(self.detector_subclass.get_data_format())
-
-    def test_registration_0_a(self):
-        """ Test registration adds this type to superclass's registered collection. """
-        self.assertTrue(self.registry.is_registered(self.detector_subclass))
-
-    def test_registration_0_b(self):
-        """ Test registration adds first imported type to superclass's registered collection. """
-        self.assertTrue(self.registry.is_registered(AorcCsvFileDomainDetector))
-
-    def test_registration_1_b(self):
-        """ Test registration adds second imported type to superclass's registered collection. """
-        self.assertTrue(self.registry.is_registered(GeoPackageHydrofabricDomainDetector))
 
     def test_detect_0_a(self):
         """ Test that detect returns a domain with the right data format. """
