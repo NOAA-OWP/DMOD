@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from functools import reduce
 from pathlib import Path
-from typing import TypeVar, Union, Dict, Type, Set, List, Optional
+from typing import Any, Callable, Generic, TypeVar, Union, Dict, Iterable, Type, Set, List, Optional
 
 from .common.reader import ReadSeeker
 from .dataset import Dataset
@@ -41,109 +41,6 @@ class AbstractDomainDetector(ABC):
         pass
 
 
-class ItemDataDomainDetectorRegistry:
-    """ A singleton registry in which to track the subtypes of :class`ItemDataDomainDetector`. """
-
-    _instance = None
-
-    @classmethod
-    def get_instance(cls) -> ItemDataDomainDetectorRegistry:
-        """ Get the singleton registry instance. """
-        if cls._instance is None:
-            cls._instance = ItemDataDomainDetectorRegistry()
-        return cls._instance
-
-    def __init__(self):
-        if self._instance is not None:
-            raise RuntimeError(f"Attempting to create second {self.__class__.__name__} instance!")
-        self._detectors: Set[Type[ItemDataDomainDetector]] = set()
-        """ All registered subclasses, keyed by name. """
-
-    def is_registered(self, entry: Type[ItemDataDomainDetector]) -> bool:
-        """
-        Whether this is a registered subclass.
-
-        Parameters
-        ----------
-        entry: Union[str, Type[ItemDataDomainDetector]]
-            The potentially registered subclass type.
-
-        Returns
-        -------
-        bool
-            Whether this is a registered subclass.
-        """
-        return entry in self._detectors
-
-    def get_all_subclasses(self, do_sorted: bool = False) -> List[Type[ItemDataDomainDetector]]:
-        """
-        Get a list of all registered :class:`ItemDataDomainDetector` subclasses.
-
-        Parameters
-        ----------
-        do_sorted: bool
-            Whether to sort the returned list, using class name as the sort key (``False`` by default).
-
-        Returns
-        -------
-        List[Type[ItemDataDomainDetector]]
-            A (potentially sorted by class name) list of all registered :class:`ItemDataDomainDetector` subclasses.
-        """
-        if do_sorted:
-            return sorted([d for d in self._detectors], key=lambda detector_subclass: detector_subclass.__name__)
-        return [d for d in self._detectors]
-
-    def get_for_format(self, data_format: DataFormat) -> List[Type[ItemDataDomainDetector]]:
-        """
-        Get a sorted (by subclass name) list of the detector subclasses associated with the given format.
-
-        Parameters
-        ----------
-        data_format: DataFormat
-            The data format of interest.
-
-        Returns
-        -------
-        List[Type[ItemDataDomainDetector]]
-            The sorted detector subclasses associated with the given format.
-        """
-        subclasses = [dt for dt in self._detectors if dt.get_data_format() == data_format]
-        return sorted(subclasses, key=lambda detector_subclass: detector_subclass.__name__)
-
-    def register(self, subclass: Type[ItemDataDomainDetector]):
-        """
-        Register the given subclass of :class:`ItemDataDomainDetector`.
-
-        Parameters
-        ----------
-        subclass: Type[ItemDataDomainDetector]
-            A subclass of :class:`ItemDataDomainDetector`.
-
-        Notes
-        -----
-        If an already-registered subclass is passed in another call to this method, nothing will happen.  The instance's
-        state will not change, nor will an error be thrown, and the method will quietly return.
-        """
-        self._detectors.add(subclass)
-
-    def unregister(self, subclass: Type[ItemDataDomainDetector]):
-        """
-        Unregister the given subclass of :class:`ItemDataDomainDetector`.
-
-        Parameters
-        ----------
-        subclass
-
-        Raises
-        -------
-        DmodRuntimeError
-            If the given subclass was not already registered.
-        """
-        if subclass not in self._detectors:
-            raise DmodRuntimeError(f"{self.__class__.__name__} can't unregister unknown subclass '{subclass.__name__}'")
-        self._detectors.remove(subclass)
-
-
 class ItemDataDomainDetector(AbstractDomainDetector, ABC):
     """
     Type that can examine a data item and detect its individual :class:`DataDomain`.
@@ -176,6 +73,18 @@ class ItemDataDomainDetector(AbstractDomainDetector, ABC):
         return cls._data_format
 
     def __init__(self, item: DataItem, item_name: Optional[str] = None, decode_format: str = 'utf-8'):
+        """
+        Initialize an instance.
+
+        Parameters
+        ----------
+        item: DataItem
+            The data item for which a domain will be detected.
+        item_name: Optional[str]
+            The name for the item, which includes important domain metadata in some situations.
+        decode_format: str
+            The decoder format when decoding byte strings (``utf-8`` by default).
+        """
         self._item: DataItem = item
         """ The data item for which to detect a domain. """
         self._is_item_file = isinstance(self._item, Path)
@@ -188,41 +97,127 @@ class ItemDataDomainDetector(AbstractDomainDetector, ABC):
             raise ValueError(f"{self.__class__.__name__} can't initialize with a directory path as its data item")
 
 
-class UniversalItemDomainDetector(ItemDataDomainDetector):
+class AbstractUniversalItemDomainDetector(ItemDataDomainDetector, ABC):
     """
-    A special type of detector that works with all supported formats by trying all registered, format-specific subtypes.
+    Abstraction for detector that works with many formats by trying to detect using provided format-specific subtypes.
 
-    A specialized implementation of :class:`ItemDataDomainDetector` that is registered to the ``GENERIC``
-    :class:`DataFormat`.  It is implemented to be capable of detecting the domain regardless of the actual format of the
-    data.  It accomplishes this by using the registered subclasses associated with all the non-``GENERIC`` formats, and
-    trying to detect a domain using each of those types.
+    A specialized implementation of :class:`ItemDataDomainDetector` that is potentially capable of detecting the data
+    domain of data items in multiple data formats.  It accomplishes this by leveraging a collection of known
+    :class:`ItemDataDomainDetector` subclasses provided during initialization, and trying to detect an item's domain
+    using each of those types.
+
+    Only "vanilla" init params inherent to the init of :class:`ItemDataDomainDetector` directly are provided to
+    subclasses when creating new instances: ``item``, ``item_name``, and ``decode_format``.  As such, a subclass that
+    needs additional params provided explicitly should not be associated, and will result in exceptions when
+    :method:`detect` is called.  Class that need more advanced behavior with respect to the init params of subclass
+    instances may override :method:`_try_detection`.
     """
 
     _data_format: DataFormat = DataFormat.GENERIC
     """ The associated :class:`DataFormat` of this subclass. """
 
+    def __init__(self,
+                 detector_types: Iterable[Type[ItemDataDomainDetector]],
+                 short_on_success: bool = False,
+                 type_sort_func: Optional[Callable[[Type[ItemDataDomainDetector]], Any]] = None,
+                 **kwargs):
+        """
+        Initialize an instance.
+
+        Parameters
+        ----------
+        detector_types: Iterable[Type[ItemDataDomainDetector]]
+            The :class:`ItemDataDomainDetector` subclasses that this instance will try to defer to when detecting.
+        short_on_success: bool
+            Indication of whether :method:`detect` should short circuit and return the 1st successful detection, rather
+            than try all subclasses and risk multiple detections, and thus an error condition (default: ``False``).
+        type_sort_func: Optional[Callable[[Type[ItemDataDomainDetector]], Any]]
+            Optional function necessary for calls to usage of the built-in ``sorted`` function to sort detector
+            subclasses during various instance operations, and serving as the ``key`` argument to ``sorted``; note that
+            sorting is performed in such places IFF this is validly set, as the subclass themselves - i.e., the
+            :class:`type` objects - do not implement `<`.
+        kwargs
+
+        Keyword Args
+        ------------
+        item: DataItem
+            The data item for which a domain will be detected.
+        item_name: Optional[str]
+            The name for the item, which includes important domain metadata in some situations.
+        decode_format: str
+            The decoder format when decoding byte strings (``utf-8`` by default).
+        """
+        super().__init__(**kwargs)
+        self._detector_types: Set[Type[ItemDataDomainDetector]] = set(detector_types)
+        if len(self._detector_types) == 0:
+            raise ValueError(f"{self.__class__.__name__} received empty collection of detector subclasses during init")
+        self._short_on_success: bool = short_on_success
+        self._type_sort_func: Optional[Callable[[Type[ItemDataDomainDetector]], Any]] = type_sort_func
+
+    def _try_detection(self, detector_type: Type[ItemDataDomainDetector]) -> Optional[DataDomain]:
+        """
+        Initialize an instance of the given detector subclass and attempt domain detection using it.
+
+        Initialize an instance of the given detector subclass, using only "vanilla" init params inherent of
+        :class:`ItemDataDomainDetector`: ``item``, ``item_name``, and ``decode_format``.  Then call that instance's
+        :method:`ItemDataDomainDetector.detect` method, passing no extra keyword args.  If ``detect`` succeeds, return
+        the resulting :class:`DataDomain`, but if it fails, catch the raised exception and return ``None``.
+
+        Parameters
+        ----------
+        detector_type: Type[ItemDataDomainDetector]
+            The subclass of :class:`ItemDataDomainDetector` to use for detection.
+
+        Returns
+        -------
+        Optional[DataDomain]
+            The domain, if it could be detected by the sub-instance; otherwise ``None``.
+
+        Raises
+        ------
+        TypeError
+            Raised if an associated subclass type requires additional init params beyond ``item``, ``item_name``, and
+            ``decode_format``.
+        """
+        detector = detector_type(item=self._item, item_name=self._item_name, decode_format=self._decode_format)
+        try:
+            return detector.detect()
+        except:
+            return None
+
+    @property
+    def covered_formats(self) -> Set[DataFormat]:
+        """
+        Get the data formats for which there is at least one associated, known subclass of detector.
+
+        Returns
+        -------
+        Set[DataFormat]
+            The data formats for which there is at least one associated, known subclass of detector.
+        """
+        return {detector.get_data_format() for detector in self._detector_types if
+                detector.get_data_format() != DataFormat.GENERIC and detector.get_data_format() != DataFormat.EMPTY}
+
     def detect(self, **kwargs) -> DataDomain:
         """
         Detect and return the data domain.
 
-        Detect a domain by calling the analogous method of an instance of registered subclasses of
-        :class:`ItemDataDomainDetector` (excluding those with ``GENERIC`` or ``EMPTY`` :class:`DataFormat`).  Selection
-        of the right subclass to use for this is based on brute-force trials - i.e., a subclass is selected, an instance
-        is created, the ``detect`` method is called, and we assess what happens - along with an early exit mechanism for
-        explicit format suggestions.
+        Detect a domain by calling the analogous method of one or more instance of the known subclasses of
+        :class:`ItemDataDomainDetector` provided during instance initialization. Selection of the right subclass to use
+        for this is based on brute-force trials - i.e., a subclass is selected, an instance is created, the ``detect``
+        method is called, and we assess what happens.
 
-        Subclasses are tried in groups according to their associated :class:`DataFormat`.  The order of groups may be
-        controlled by providing one or more format "suggestions", which will be tried first in the order provided. Also,
-        one or more excluded formats can be optionally provided. The ``GENERIC`` and ``EMPTY`` formats are always
-        treated as excluded. Iteration order of subclasses within a group is based on registration name by default -
-        i.e., the value from :method:`ItemDataDomainDetector.get_registration_name` for each subclass - but a sorting
-        key function can be provided to control this also.
+        Only "vanilla" init params inherent to the init of :class:`ItemDataDomainDetector` directly are provided to
+        subclasses when creating new instances: ``item``, ``item_name``, and ``decode_format``.
 
-        If/when a subclass instance's ``detect`` call returns a domain, no other subclasses for that format group are
-        tried, but this function only returns that domain value immediately if the associated format was a provided
-        suggestion.  Otherwise, iteration continues to the next group.  This is important, because if more than one
-        class can detect a domain, there is an implicit ambiguity in the domain, and a :class:`DmodRuntimeError` is
-        raised.
+        The ``type_sort_func`` init parameter is used to control the order of subclasses trials.  If it was
+        ``None``, then the order is arbitrary.  If not, this method calls the built-in ``sorted()`` function to sort the
+        subclasses and passes the value of the aforementioned init param to ``sorted`` as the latter's ``key`` param.
+
+        Another instance init param - ``short_on_success`` also has significant impact on this method.  When ``True``,
+        this method will return the first successfully detected :class:`DataDomain`.  If ``False``, a trial will occur
+        for all the associate detector subclasses.  In this case, if there are multiple, distinct domain values,  a
+        :class:`DmodRuntimeError` is raised.
 
         Parameters
         ----------
@@ -252,76 +247,103 @@ class UniversalItemDomainDetector(ItemDataDomainDetector):
 
         Raises
         ------
-        ValueError
-            Raised if a :class:`DataFormat` appears multiple times across both ``excluded_formats`` and
-            ``suggested_formats``; i.e., if any data format value is duplicated in the hypothetical list produced by
-            ``list(kwargs.get('excluded_formats', [])) + list(kwargs.get('suggested_formats', []))``.
+        TypeError
+            Raised if an associated subclass type requires additional init params beyond what this instance provides in
+            the implementation of :method:`_try_detection`.
         DmodRuntimeError
-            If it was not possible to properly detect the domain.
+            If it was not possible to properly detect a single valid domain.
+
+        See Also
+        --------
+        _try_detection
         """
-        def try_detection(d_format: DataFormat) -> Optional[DataDomain]:
-            subclasses = ItemDataDomainDetectorRegistry.get_instance().get_for_format(d_format)
-            if 'sort_key' in kwargs:
-                subclasses = sorted(subclasses, key=kwargs['sort_key'])
-            for subclass_type in subclasses:
-                try:
-                    return subclass_type(item=self._item, item_name=self._item_name).detect()
-                except:
-                    pass
-            return None
-
-        excluded = kwargs.get('excluded_formats', set())
-        if isinstance(excluded, DataFormat):
-            excluded = {excluded}
-        # Always exclude these two
-        excluded.add(DataFormat.GENERIC)
-        excluded.add(DataFormat.EMPTY)
-        suggested = kwargs.get('suggested_formats', list())
-        if isinstance(suggested, DataFormat):
-            suggested = [suggested]
-        if not excluded.isdisjoint(suggested):
-            raise ValueError(f"Can't include data format in both exclusions and suggestions for domain detection.")
-        if len(suggested) != len(set(suggested)):
-            raise ValueError(f"Can't include data format multiple times in ordered suggestions for domain detection.")
-
-        remaining_formats = {df for df in DataFormat if df not in excluded}
-
-        # Try suggestions first, returning immediately if any are successful
-        for data_format in suggested:
-            remaining_formats.remove(data_format)
-            result = try_detection(d_format=data_format)
-            if result is not None:
-                return result
-
-        # Now we get to others
-        main_trials = (try_detection(d_format=df) for df in remaining_formats)
-        main_results = [t for t in main_trials if t is not None]
-        if len(main_results) == 0:
-            raise DmodRuntimeError("No domain could be detected for item.")
-        elif len(main_results) == 1:
-            return main_results[0]
-        # Multiple results mean there's a problem (also, they can't be equal because they will have different formats)
+        if self._type_sort_func is None:
+            detector_subclasses = self._detector_types
         else:
-            raise DmodRuntimeError(f"Multiple conflicting domain detected for item in the following formats: "
-                                   f"{','.join([d.data_format.name for d in main_results])}")
+            detector_subclasses = sorted(self._detector_types, key=self._type_sort_func)
+
+        if self._short_on_success:
+            for detector_type in detector_subclasses:
+                result = self._try_detection(detector_type=detector_type)
+                if isinstance(result, DataDomain):
+                    return result
+            raise DmodRuntimeError("No domain could be detected for item.")
+
+        results = {subclass: self._try_detection(detector_type=subclass) for subclass in detector_subclasses}
+        successes = {subclass: result for subclass, result in results.items() if isinstance(result, DataDomain)}
+
+        # Obviously raise if we don't detect anything ...
+        if len(successes) == 0:
+            raise DmodRuntimeError("No domain could be detected for item.")
+        # ... and return if only one subclass could successfully detect a domain
+        elif len(successes) == 1:
+            return next(iter(successes.values()))
+        # Also, if multiple detector subclasses succeeded, but all resulting DataDomain objects are equal, this is fine
+        elif len(set(successes.values())) == 1:
+            return next(iter(successes.values()))
+        # But multiple different DataDomain results mean there's ambiguity, and thus is a problem
+        else:
+            raise DmodRuntimeError(f"Multiple distinct domains detected for item by the following detector subclasses: "
+                                   f"{','.join([s.__name__ for s in successes])}")
+
+    def get_detectors(self, data_format: Optional[DataFormat] = None) -> List[Type[ItemDataDomainDetector]]:
+        """
+        Get associated :class:`ItemDataDomainDetector` subclasses, potentially sorted and/or filtered by data format.
+
+        Parameters
+        ----------
+        data_format: Optional[DataFormat]
+            Optional data format, used for filtering the returned subclasses.
+
+        Returns
+        -------
+        List[Type[ItemDataDomainDetector]]
+            A list of :class:`ItemDataDomainDetector` subclasses, potentially sorted and/or filtered.
+        """
+        if data_format is None:
+            results = [d for d in self._detector_types]
+        else:
+            results = [d for d in self._detector_types if d.get_data_format() == data_format]
+        if self._type_sort_func is not None:
+            return sorted(results, key=self._type_sort_func)
+        return results
+
+    def is_associated(self, subclass: Type[ItemDataDomainDetector]) -> bool:
+        """
+        Whether this detector subclass is associated with this instance.
+
+        Parameters
+        ----------
+        subclass: Union[str, Type[ItemDataDomainDetector]]
+            The potentially registered subclass type.
+
+        Returns
+        -------
+        bool
+            Whether this is an associated subclass.
+        """
+        return subclass in self._detector_types
 
 
-# Register the universal tracker type
-ItemDataDomainDetectorRegistry.get_instance().register(UniversalItemDomainDetector)
+U = TypeVar("U", bound=AbstractUniversalItemDomainDetector)
 
 
-class DataCollectionDomainDetector(AbstractDomainDetector):
+class AbstractDataCollectionDomainDetector(AbstractDomainDetector, Generic[U], ABC):
     """
-    Domain detector that operates on a grouped collection of data items rather than just one item.
+    Abstract domain detector that operates on a grouped collection of data items rather than just one item.
 
-    Simple, generalized detector that can detect the aggregate domain for a collection of many data items.  These items
-    can be given as a dictionary (item names mapped to data items), a :class:`Dataset` (with a valid
+    Simple abstraction for generalized detector that can detect the aggregate domain for a collection of many data
+    items.  These items can be given as a dictionary (item names mapped to data items), a :class:`Dataset` (with a valid
     :class:`DatasetManager` set), or a :class:`Path` to a directory containing data files.
+
+    Instances detect the domain for a collection of data by using generic :class:`U` instances (bound to
+    :class:`AbstractUniversalItemDomainDetector`) to detect the domain of individual items within the data collection,
+    and then merging the domains together. Concrete implementations must specify the generic :class:`U` type and the
+    :method:`get_item_detectors` method.
     """
 
     # TODO: (later) add mechanism for more intelligent hinting at what kinds of detectors to use
-    def __init__(self, data_collection: DataCollection, collection_name: Optional[str] = None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, data_collection: DataCollection, collection_name: Optional[str] = None):
         self._data_collection: DataCollection = data_collection
         """ Collection of data items, analogous to a :class:`Dataset`, if not a dataset outright. """
         self._collection_name: Optional[str] = collection_name
@@ -351,11 +373,11 @@ class DataCollectionDomainDetector(AbstractDomainDetector):
 
         Notes
         -----
-        Detection is performed by merging individual item domains detected using :class:`UniversalItemDomainDetector`
-        instances.  This type does not influence the details of how individual domains detections are performed by
-        :class:`UniversalItemDomainDetector` objects.  The subsequent merging is performed by reducing the
-        individual item domains using :method:`DataDomain.merge_domains`. The order of the items processed when reducing
-        is based on the order of results of a call to :method:`get_item_names`.
+        Detection is performed by merging individual item domains detected using :class:`U` instances.  This type does
+        not influence the details of how individual domains detections are performed by :class:`U` objects.  The
+        subsequent merging is performed by reducing individual item domains using :method:`DataDomain.merge_domains`.
+        The order of the items processed when reducing is based on the order of results of a call to
+        :method:`get_item_detectors`.
 
         Returns
         -------
@@ -367,9 +389,7 @@ class DataCollectionDomainDetector(AbstractDomainDetector):
         DmodRuntimeError
             If it was not possible to properly detect the domain.
         """
-        domain = reduce(DataDomain.merge_domains,
-                        {UniversalItemDomainDetector(item=self.get_item(i), item_name=i).detect() for i in
-                         self.get_item_names()})
+        domain = reduce(DataDomain.merge_domains, [det.detect() for _, det in self.get_item_detectors().items()])
         # If this domain has a format with a self-reference to dataset id, and we have a name, then set that restriction
         if StandardDatasetIndex.DATA_ID in domain.data_format.indices_to_fields().keys() and self._collection_name:
             domain.discrete_restrictions[StandardDatasetIndex.DATA_ID] = DiscreteRestriction(
@@ -377,6 +397,18 @@ class DataCollectionDomainDetector(AbstractDomainDetector):
                 values=[self._collection_name]
             )
         return domain
+
+    @abstractmethod
+    def get_item_detectors(self) -> Dict[str, U]:
+        """
+        Get initialized detection objects, keyed by item names, for items within this instance's data collection.
+
+        Returns
+        -------
+        Dict[str, U]
+            Dictionary of per-item initialize detection objects, keyed by item name.
+        """
+        pass
 
     def get_item_names(self) -> Set[str]:
         """

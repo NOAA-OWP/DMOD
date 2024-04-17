@@ -1,7 +1,6 @@
 import unittest
 
 from dmod.core.meta_data import DataFormat, StandardDatasetIndex
-from dmod.core.data_domain_detectors import ItemDataDomainDetectorRegistry
 from ..modeldata.data.item_domain_detector import GeoPackageHydrofabricDomainDetector
 
 from . import find_git_root_dir
@@ -12,8 +11,6 @@ class TestGeoPackageHydrofabricDomainDetector(unittest.TestCase):
     def setUp(self):
         self.detector_subclass = GeoPackageHydrofabricDomainDetector
         self.expected_data_format = DataFormat.NGEN_GEOPACKAGE_HYDROFABRIC_V2
-        self.registry = ItemDataDomainDetectorRegistry.get_instance()
-        self.registry.register(self.detector_subclass)
         self.hyfab_ver = "2.0.1"
 
         # Setup example 0
@@ -25,10 +22,6 @@ class TestGeoPackageHydrofabricDomainDetector(unittest.TestCase):
     def test_get_data_format_0_a(self):
         """ Test that we get the correct data format for this subclass type. """
         self.assertEqual(self.detector_subclass.get_data_format(), self.expected_data_format)
-
-    def test_registration_0_a(self):
-        """ Test that registration added this type to superclass's registered collection. """
-        self.assertTrue(self.registry.is_registered(self.detector_subclass))
 
     def test_detect_0_a(self):
         """ Test that detect returns a domain with the right data format. """
