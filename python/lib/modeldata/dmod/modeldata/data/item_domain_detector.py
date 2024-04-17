@@ -1,21 +1,17 @@
+import json
+import re
+
 from dmod.core.meta_data import DataDomain, DataFormat, DiscreteRestriction, StandardDatasetIndex, TimeRange
 from dmod.core.common.reader import ReadSeeker
 from dmod.core.exception import DmodRuntimeError
 from dmod.core.data_domain_detectors import ItemDataDomainDetector
 from pandas import read_csv as pandas_read_csv
+import ngen.config.realization
 
 from typing import Optional
 from io import StringIO
-import re
 
 from ..hydrofabric.geopackage_hydrofabric import GeoPackageHydrofabric
-
-# Try to do this if ngen-config package is available
-try:
-    import ngen.config.realization
-    __NGEN_CONFIG_INSTALLED = True
-except ModuleNotFoundError:
-    __NGEN_CONFIG_INSTALLED = False
 
 
 class AorcCsvFileDomainDetector(ItemDataDomainDetector):
@@ -188,24 +184,21 @@ class GeoPackageHydrofabricDomainDetector(ItemDataDomainDetector):
                                    f"domain for data item: {e!s}")
 
 
-if __NGEN_CONFIG_INSTALLED:
-    import json
+class RealizationConfigDomainDetector(ItemDataDomainDetector):
 
-    class RealizationConfigDomainDetector(ItemDataDomainDetector):
+    _data_format = DataFormat.NGEN_REALIZATION_CONFIG
 
-        _data_format = DataFormat.NGEN_REALIZATION_CONFIG
+    def detect(self, **kwargs) -> DataDomain:
+        try:
+            real_obj = ngen.config.realization.NgenRealization(**json.load(self._item))
+        except Exception as e:
+            raise DmodRuntimeError(f"{self.__class__.__name__} failed detect due to {e.__class__.__name__}: {e!s}")
 
-        def detect(self, **kwargs) -> DataDomain:
-            try:
-                real_obj = ngen.config.realization.NgenRealization(**json.load(self._item))
-            except Exception as e:
-                raise DmodRuntimeError(f"{self.__class__.__name__} failed detect due to {e.__class__.__name__}: {e!s}")
-
-            # When there is a global config, make catchment restriction values empty list to indicate "all"
-            has_global_config = real_obj.global_config is not None and real_obj.global_config.formulations
-            cat_restrict = DiscreteRestriction(variable=StandardDatasetIndex.CATCHMENT_ID,
-                                               values=[] if has_global_config else sorted(real_obj.catchments.keys()))
-            time_range = TimeRange(begin=real_obj.time.start_time, end=real_obj.time.end_time)
-            # An individual file won't have a data id (i.e., data_id only applies to a Dataset or collection)
-            return DataDomain(data_format=self.get_data_format(), continuous_restrictions=[time_range],
-                              discrete_restrictions=[cat_restrict])
+        # When there is a global config, make catchment restriction values empty list to indicate "all"
+        has_global_config = real_obj.global_config is not None and real_obj.global_config.formulations
+        cat_restrict = DiscreteRestriction(variable=StandardDatasetIndex.CATCHMENT_ID,
+                                           values=[] if has_global_config else sorted(real_obj.catchments.keys()))
+        time_range = TimeRange(begin=real_obj.time.start_time, end=real_obj.time.end_time)
+        # An individual file won't have a data id (i.e., data_id only applies to a Dataset or collection)
+        return DataDomain(data_format=self.get_data_format(), continuous_restrictions=[time_range],
+                          discrete_restrictions=[cat_restrict])
