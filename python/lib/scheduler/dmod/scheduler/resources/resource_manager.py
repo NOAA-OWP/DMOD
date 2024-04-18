@@ -267,6 +267,7 @@ class ResourceManager(ABC):
                     break
                 # Otherwise, append this allocation, update our outstanding quantities, and then allocate again
                 else:
+                    assert cpus >= alloc.cpu_count, f"Expected at most {cpus_left!s} cpus, got {alloc.cpu_count}"
                     allocations.append(alloc)
                     cpus_left -= alloc.cpu_count
                     mem_left -= alloc.memory
