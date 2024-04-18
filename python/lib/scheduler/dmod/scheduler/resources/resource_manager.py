@@ -254,7 +254,7 @@ class ResourceManager(ABC):
             # Greedily allocate a (potentially) partial allocation on this resource
             alloc = request_alloc(node_resource_id=res.resource_id)
             # Whenever the allocation was (partially) successful
-            while isinstance(alloc, ResourceAllocation) and cpus - alloc.cpu_count > 0:
+            while isinstance(alloc, ResourceAllocation) and cpus - alloc.cpu_count >= 0:
                 # Disregard and release a partial allocation that provides below a min threshold, then move to next node
                 if alloc.cpu_count == 0 or alloc.memory == 0:
                     self.release_resources([alloc])
