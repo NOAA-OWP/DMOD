@@ -202,7 +202,12 @@ class ResourceManager(ABC):
             # If any individual allocation failed because assets ran out ...
             if alloc is None:
                 # ... release anything that was allocated, and then bail
-                self.release_resources(allocations)
+                logging.warning(f"Unable to allocate {cpus!s} CPUs and {memory!s} memory from selected resource "
+                                f"{node.hostname}, even though earlier it appeared to have sufficient compute assets")
+                if len(allocations) > 0:
+                    logging.warning(f"Releasing incomplete group of {len(allocations)!s} allocations from "
+                                    f"{node.hostname}")
+                    self.release_resources(allocations)
                 return [None]
             else:
                 allocations.append(alloc)
