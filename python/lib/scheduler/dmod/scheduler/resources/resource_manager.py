@@ -184,11 +184,13 @@ class ResourceManager(ABC):
         #Fit the entire allocation on a single resource
         self.validate_allocation_parameters(cpus, memory)
 
-        resource_nodes = [r for r in self.get_useable_resources() if r.cpu_count >= cpus and r.memory >= memory]
-        if len(resource_nodes) == 0:
+        node = None
+        for resource_node in self.get_useable_resources():
+            if resource_node.cpu_count >= cpus and resource_node.memory >= memory:
+                node = resource_node
+                break
+        if node is None:
             return [None]
-
-        node = resource_nodes[0]
 
         if asset_grouping == AllocationAssetGrouping.BUNDLE:
             return [self.allocate_resource(resource_id=node.resource_id, requested_cpus=cpus, requested_memory=memory)]
