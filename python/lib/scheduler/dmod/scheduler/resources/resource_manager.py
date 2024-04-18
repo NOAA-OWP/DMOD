@@ -277,6 +277,7 @@ class ResourceManager(ABC):
                     mem_left -= alloc.memory
             # Here (back in outer loop), if we have all needed allocations, return (otherwise continue to next resource)
             # TODO: (later) account for whether we actually got enough memory better here
+            assert cpus_left >= 0, f"Remaining CPUs to allocated should not be a negative number (was {cpus_left!s})"
             if cpus_left == 0:
                 return allocations
 
