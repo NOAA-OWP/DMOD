@@ -44,7 +44,7 @@ jobs:
           . dmod_venv/bin/activate
           pip install --upgrade pip
           deactivate 
-          ./scripts/update_package.sh --venv dmod_venv --no-service-packages --dependencies
+          ./scripts/update_package.sh --venv dmod_venv --dependencies
 
       - name: Cache Package Checksums
         id: cache-packages-md5
