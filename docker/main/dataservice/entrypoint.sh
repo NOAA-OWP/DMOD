@@ -23,4 +23,4 @@ if [ -d ${UPDATED_PACKAGES_DIR:=/updated_packages} ]; then
     fi
 fi
 
-python -m ${SERVICE_PACKAGE_NAME:?}
+python -m uvicorn dmod.dataservice.rest_service:app --host "${HOST:?HOST not set}"--port "${PORT:?PORT not set}" --ssl-keyfile="${KEY_PATH?:KEY_PATH not set}" --ssl-certfile="${CERT_PATH:?CERT_PATH not set}"

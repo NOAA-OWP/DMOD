@@ -184,6 +184,8 @@ services:
       #- VENV_DIR=${DOCKER_REQUESTS_CONTAINER_VENV_DIR:-}
       # debugging flags
       #- UPDATED_PACKAGES_DIR=${UPDATED_PACKAGES_CONTAINER_DIR:?Updated packages directory not set, make sure this should be active}
+    # uncomment to override entry point; intended for development use ONLY
+    # entrypoint: ["python", "-m", "uvicorn", "dmod.dataservice.rest_service:app", "--port=8080", "--host=0.0.0.0"]
     working_dir: /code
     ports:
       - "${DOCKER_DATASERVICE_HOST_PORT:-3015}:${DOCKER_DATASERVICE_CONTAINER_PORT:-3015}"
