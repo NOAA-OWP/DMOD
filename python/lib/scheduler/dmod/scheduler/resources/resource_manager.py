@@ -242,32 +242,37 @@ class ResourceManager(ABC):
         # TODO: (later) consider another exec config enum that encapsulates the relationship between memory and cpu;
         #  e.g., sometimes memory should be the same amount per CPU, but other times maybe we want more memory on a box
         allocations = []
+        cpus_left = cpus
+        mem_left = memory
 
-        def request_alloc(node_resource_id):
-            requested_cpus = cpus if asset_grouping == AllocationAssetGrouping.BUNDLE else 1
-            requested_memory = memory if asset_grouping == AllocationAssetGrouping.BUNDLE else int(memory / cpus)
+        def request_alloc(node_resource_id, cpus_need, mem_need):
+            requested_cpus = cpus_need if asset_grouping == AllocationAssetGrouping.BUNDLE else 1
+            requested_memory = mem_need if asset_grouping == AllocationAssetGrouping.BUNDLE else mem_need // cpus_need
             return self.allocate_resource(node_resource_id, requested_cpus, requested_memory, partial=True)
 
         # TODO: (later) this doesn't do a good job of accounting for the ratio of CPU to memory, though we'd also have
         #  to assume what the user wanted
         for res in self.get_useable_resources(): #i in range(len(resources)):
-            # Greedily allocate a (potentially) partial allocation on this resource
-            alloc = request_alloc(node_resource_id=res.resource_id)
-            # Whenever the allocation was (partially) successful
-            while isinstance(alloc, ResourceAllocation) and cpus - alloc.cpu_count >= 0:
+            while cpus_left >= 0:
+                # Greedily allocate a (potentially) partial allocation on this resource
+                alloc = request_alloc(node_resource_id=res.resource_id, cpus_need=cpus_left, mem_need=mem_left)
+                if alloc is None:
+                    # Did not have sufficient resources or failed allocation
+                    # Break out of inner while loop
+                    break
                 # Disregard and release a partial allocation that provides below a min threshold, then move to next node
-                if alloc.cpu_count == 0 or alloc.memory == 0:
+                elif alloc.cpu_count == 0 or alloc.memory == 0:
                     self.release_resources([alloc])
-                    alloc = None
+                    # break out of inner while loop
+                    break
                 # Otherwise, append this allocation, update our outstanding quantities, and then allocate again
                 else:
                     allocations.append(alloc)
-                    cpus -= alloc.cpu_count
-                    memory -= alloc.memory
-                    alloc = request_alloc(node_resource_id=res.resource_id)
+                    cpus_left -= alloc.cpu_count
+                    mem_left -= alloc.memory
             # Here (back in outer loop), if we have all needed allocations, return (otherwise continue to next resource)
             # TODO: (later) account for whether we actually got enough memory better here
-            if cpus == 0:
+            if cpus_left == 0:
                 return allocations
 
         # If there weren't enough resources and assets, roll back and release the acquired allocations
