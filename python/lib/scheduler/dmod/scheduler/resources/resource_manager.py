@@ -326,7 +326,7 @@ class ResourceManager(ABC):
         # This is slightly different from simply an even share due to discrete amounts and remainders
         cpus_per_node, memory_per_node = dict(), dict()
         num_nodes = len(resource_nodes)
-        cpu_share, mem_share = int(cpus / num_nodes), int(memory / num_nodes)
+        cpu_share, mem_share = cpus // num_nodes, memory // num_nodes
         cpu_remainder, mem_remainder = cpus - cpu_share, memory - mem_share
 
         for node_id, node in resource_nodes.items():
@@ -352,8 +352,8 @@ class ResourceManager(ABC):
             alloc_count = 1 if asset_grouping == AllocationAssetGrouping.BUNDLE else cpus_per_node[node_id]
             for i in range(alloc_count):
                 alloc = self.allocate_resource(resource_id=node_id,
-                                               requested_cpus=int(cpus_per_node[node_id] / alloc_count),
-                                               requested_memory=int(memory_per_node[node_id] / alloc_count))
+                                               requested_cpus=cpus_per_node[node_id] // alloc_count,
+                                               requested_memory=memory_per_node[node_id] // alloc_count)
                 if not isinstance(alloc, ResourceAllocation):
                     self.release_resources(allocations)
                     return [None]
