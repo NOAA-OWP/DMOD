@@ -184,34 +184,38 @@ class ResourceManager(ABC):
         #Fit the entire allocation on a single resource
         self.validate_allocation_parameters(cpus, memory)
 
-        node = None
-        for resource_node in self.get_useable_resources():
-            if resource_node.cpu_count >= cpus and resource_node.memory >= memory:
-                node = resource_node
-                break
-        if node is None:
-            return [None]
+        for node in self.get_useable_resources():
+            if node.cpu_count < cpus or node.memory < memory:
+                continue
+            if asset_grouping == AllocationAssetGrouping.BUNDLE:
+                alloc = self.allocate_resource(node.resource_id, cpus, memory)
+                if alloc is None:
+                    continue
+                else:
+                    return [alloc]
+            allocations = []
+            mem = memory // cpus
+            for _ in range(cpus):
+                alloc = self.allocate_resource(resource_id=node.resource_id, requested_cpus=1, requested_memory=mem)
+                # If any individual allocation failed because assets ran out ...
+                if alloc is None:
+                    logging.warning(f"Unable to allocate {cpus!s} CPUs and {memory!s} memory from selected resource "
+                                    f"{node.hostname}, even though it appeared to have sufficient compute assets")
+                    # ... release anything that was allocated, and then bail on using this resource node
+                    if len(allocations) > 0:
+                        logging.warning(f"Releasing incomplete group of {len(allocations)!s} allocations from "
+                                        f"{node.hostname}")
+                        self.release_resources(allocations)
+                    # And break out of inner loop
+                    break
+                else:
+                    allocations.append(alloc)
+            # If the 1-cpu-per loop worked for each iteration, then we can return (otherwise, next iter in nodes loop)
+            if len(allocations) == cpus:
+                return allocations
 
-        if asset_grouping == AllocationAssetGrouping.BUNDLE:
-            return [self.allocate_resource(resource_id=node.resource_id, requested_cpus=cpus, requested_memory=memory)]
-
-        allocations = []
-        mem = int(memory / cpus)
-        for i in range(cpus):
-            alloc = self.allocate_resource(resource_id=node.resource_id, requested_cpus=1, requested_memory=mem)
-            # If any individual allocation failed because assets ran out ...
-            if alloc is None:
-                # ... release anything that was allocated, and then bail
-                logging.warning(f"Unable to allocate {cpus!s} CPUs and {memory!s} memory from selected resource "
-                                f"{node.hostname}, even though earlier it appeared to have sufficient compute assets")
-                if len(allocations) > 0:
-                    logging.warning(f"Releasing incomplete group of {len(allocations)!s} allocations from "
-                                    f"{node.hostname}")
-                    self.release_resources(allocations)
-                return [None]
-            else:
-                allocations.append(alloc)
-        return allocations
+        # If we iterate through all the resource nodes and haven't returned ...
+        return [None]
 
     def allocate_fill_nodes(self, cpus: int, memory: int,
                             asset_grouping: AllocationAssetGrouping = AllocationAssetGrouping.BUNDLE) -> List[
