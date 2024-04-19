@@ -30,7 +30,7 @@ channels-redis
 Pint
 django_rq
 requests
-Django
+Django~=4.2
 scipy
 xarray
 python-dateutil
