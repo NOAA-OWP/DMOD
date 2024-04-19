@@ -270,7 +270,7 @@ class AbstractUniversalItemDomainDetector(ItemDataDomainDetector, ABC):
             raise DmodRuntimeError("No domain could be detected for item.")
 
         results = {subclass: self._try_detection(detector_type=subclass) for subclass in detector_subclasses}
-        successes = {subclass: result for subclass, result in results.items() if isinstance(result, DataDomain)}
+        successes = {sub.__name__: result for sub, result in results.items() if isinstance(result, DataDomain)}
 
         # Obviously raise if we don't detect anything ...
         if len(successes) == 0:
@@ -283,8 +283,7 @@ class AbstractUniversalItemDomainDetector(ItemDataDomainDetector, ABC):
             return next(iter(successes.values()))
         # But multiple different DataDomain results mean there's ambiguity, and thus is a problem
         else:
-            raise DmodRuntimeError(f"Multiple distinct domains detected for item by the following detector subclasses: "
-                                   f"{','.join([s.__name__ for s in successes])}")
+            raise DmodRuntimeError(f"Multiple distinct domains detected for item by different detectors: {successes!s}")
 
     def get_detectors(self, data_format: Optional[DataFormat] = None) -> List[Type[ItemDataDomainDetector]]:
         """
