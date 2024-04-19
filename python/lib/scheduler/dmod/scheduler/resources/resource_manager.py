@@ -326,8 +326,8 @@ class ResourceManager(ABC):
         # This is slightly different from simply an even share due to discrete amounts and remainders
         cpus_per_node, memory_per_node = dict(), dict()
         num_nodes = len(resource_nodes)
-        cpu_share, mem_share = cpus // num_nodes, memory // num_nodes
-        cpu_remainder, mem_remainder = cpus % num_nodes, memory % num_nodes
+        cpu_share, cpu_remainder = divmod(cpus, num_nodes)
+        mem_share, mem_remainder = divmod(memory, num_nodes)
 
         for node_id, node in resource_nodes.items():
             # We must plan to request at least the per-node amounts on each node
