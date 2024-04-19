@@ -1,4 +1,5 @@
 import json
+import logging
 
 from dmod.communication import AuthClient, TransportLayerClient, WebSocketClient
 from dmod.core.common import get_subclasses
@@ -161,7 +162,7 @@ class DmodClient:
         try:
             return DataDomain(**kwargs)
         except Exception:
-            pass
+            logging.debug(f"No {DataDomain.__name__} provided; trying auto detection (params were {kwargs!s}")
         return run_domain_detection(paths=kwargs.get('upload_paths'), data_id=kwargs.get('name'))
 
 
