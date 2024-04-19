@@ -1,8 +1,8 @@
 attrs
 certifi
 chardet
-Django~=3.0
-gunicorn
+Django~=4.2
+gunicorn>=22.0
 idna
 jsonschema==3.0.2
 pyrsistent==0.15.4
