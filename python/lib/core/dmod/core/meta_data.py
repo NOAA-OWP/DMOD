@@ -97,9 +97,8 @@ class DataFormat(PydanticEnum):
     """
     AORC_CSV = (0,
                 {StandardDatasetIndex.CATCHMENT_ID: None, StandardDatasetIndex.TIME: "Time"},
-                {"Time": datetime, "APCP_surface": float, "DLWRF_surface": float, "DSWRF_surface": float,
-                 "PRES_surface": float, "SPFH_2maboveground": float, "TMP_2maboveground": float,
-                 "UGRD_10maboveground": float, "VGRD_10maboveground": float, "precip_rate": float},
+                {"Time": datetime, "RAINRATE": float, "Q2D": float, "T2D": float, "U2D": float, "V2D": float,
+                 "LWDOWN": float, "SWDOWN": float, "PSFC": float},
                 True
                 )
     """ The CSV data format the Nextgen framework originally used during its early development. """
