@@ -1,14 +1,22 @@
 import json
+import pandas as pd
+import geopandas as gpd
+import io
 from dmod.communication import AbstractNgenRequest, NgenCalibrationRequest
 from dmod.communication.maas_request.ngen.partial_realization_config import PartialRealizationConfig
-from dmod.core.dataset import Dataset, DatasetManager, DatasetType, InitialDataAdder
+from dmod.core.dataset import Dataset, DatasetManager, InitialDataAdder
 from dmod.core.exception import DmodRuntimeError
 from dmod.core.meta_data import DataCategory, DataFormat, DataRequirement, StandardDatasetIndex
+from dmod.modeldata.data import BmiInitConfigAutoGenerator
 from dmod.scheduler.job import Job
+from ngen.init_config.serializer import (IniSerializer, JsonSerializer, NamelistSerializer, TomlSerializer,
+                                         YamlSerializer)
 from ngen.config.configurations import Forcing, Time
 from ngen.config.realization import NgenRealization, Realization
+from ngen.config_gen.file_writer import _get_file_extension
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from pydantic import BaseModel
+from typing import Dict, List, Optional, Set, Union
 
 from .dataset_manager_collection import DatasetManagerCollection
 
@@ -480,3 +488,77 @@ class CompositeConfigDataAdder(FromPartialRealizationConfigAdder):
                 msg = "Failed to find source datasets and managers initializing {} ({}: {})"
                 raise DmodRuntimeError(msg.format(self.__class__.__name__, e.__class__.__name__, str(e)))
         return self._source_datasets
+
+
+class DataServiceBmiInitConfigGenerator(BmiInitConfigAutoGenerator):
+    """
+    Convenience extension of :class:`BmiInitConfigAutoGenerator` that can accept base data as :class:`Dataset` objects.
+    """
+
+    def __init__(self,
+                 hydrofabric_dataset: Dataset,
+                 hydrofabric_geopackage_file_name: str,
+                 hydrofabric_model_attributes_file_name: str,
+                 realization_config_dataset: Dataset,
+                 realization_cfg_file_name: str,
+                 catchment_subset: Optional[Set[str]] = None):
+        def load_from_dataset(ds: Dataset, item_name: str) -> bytes:
+            return ds.manager.get_data(dataset_name=ds.name, item_name=item_name)
+
+        realization: NgenRealization = NgenRealization.parse_raw(
+            load_from_dataset(ds=realization_config_dataset, item_name=realization_cfg_file_name))
+
+        hf: gpd.GeoDataFrame = gpd.read_file(
+            io.BytesIO(load_from_dataset(ds=hydrofabric_dataset, item_name=hydrofabric_geopackage_file_name)),
+            layer="divides")
+
+        attrs_data: pd.DataFrame = pd.read_parquet(
+            io.BytesIO(load_from_dataset(ds=hydrofabric_dataset, item_name=hydrofabric_model_attributes_file_name)))
+
+        super().__init__(ngen_realization=realization,
+                         hydrofabric_data=hf,
+                         hydrofabric_model_attributes=attrs_data,
+                         catchment_subset=catchment_subset)
+
+
+class BmiAutoGenerationAdder(InitialDataAdder):
+
+    def __init__(self, dataset_name: str, dataset_manager: DatasetManager, bmi_generator: BmiInitConfigAutoGenerator,
+                 **kwargs):
+        super().__init__(dataset_name=dataset_name, dataset_manager=dataset_manager, **kwargs)
+        self._bmi_generator: BmiInitConfigAutoGenerator = bmi_generator
+
+        # TODO: get Noah OWP Modular params data/files/dir
+
+    @classmethod
+    def _serialize(cls, config_model: BaseModel) -> bytes:
+        if isinstance(config_model, IniSerializer):
+            return config_model.to_ini_str().encode()
+        elif isinstance(config_model, JsonSerializer):
+            return config_model.to_json_str().encode()
+        elif isinstance(config_model, NamelistSerializer):
+            return config_model.to_namelist_str().encode()
+        elif isinstance(config_model, TomlSerializer):
+            return config_model.to_toml_str().encode()
+        elif isinstance(config_model, YamlSerializer):
+            return config_model.to_yaml_str().encode()
+        elif isinstance(config_model, BaseModel):
+            return config_model.json().encode()
+
+        raise RuntimeError(f"{cls.__name__} can't serialize config model of type '{config_model.__class__.__name__}'")
+
+    def add_initial_data(self):
+        """
+        Generate the BMI init configs and add to the dataset as the initial data.
+
+        Raises
+        -------
+        DmodRuntimeError
+            Raised when initial data could not be assembled and/or added successfully to the dataset.
+        """
+        for cat_id, config in self._bmi_generator.generate_configs():
+            item = f"{config.__class__.__name__}_{cat_id}.{_get_file_extension(config)}"
+            data = self._serialize(config)
+            # TODO: (later) see if we can take advantage of threading somehow here for the IO
+            if not self._dataset_manager.add_data(dataset_name=self._dataset_name, dest=item, data=data):
+                raise DmodRuntimeError(f"{self.__class__.__name__} failed to add generated BMI init config {item}")
