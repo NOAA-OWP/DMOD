@@ -4,7 +4,7 @@ import re
 from dmod.core.meta_data import DataDomain, DataFormat, DiscreteRestriction, StandardDatasetIndex, TimeRange
 from dmod.core.common.reader import ReadSeeker
 from dmod.core.exception import DmodRuntimeError
-from dmod.core.data_domain_detectors import ItemDataDomainDetector
+from dmod.core.data_domain_detectors import DataItem, ItemDataDomainDetector
 from pandas import read_csv as pandas_read_csv
 import ngen.config.realization
 
@@ -28,11 +28,23 @@ class AorcCsvFileDomainDetector(ItemDataDomainDetector):
     _data_format = DataFormat.AORC_CSV
     _datetime_format: str = "%Y-%m-%d %H:%M:%S"
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, item: DataItem, item_name: Optional[str] = None, decode_format: str = 'utf-8'):
+        """
+        Initialize an instance.
+
+        Parameters
+        ----------
+        item: DataItem
+            The data item for which a domain will be detected.
+        item_name: Optional[str]
+            The name for the item, which includes important domain metadata in some situations.
+        decode_format: str
+            The decoder format when decoding byte strings (``utf-8`` by default).
+        """
         if self._item_name is None:
             raise DmodRuntimeError(f"{self.__class__.__name__} must be passed an item name on init unless item is file")
 
+        super().__init__(item=item, item_name=item_name, decode_format=decode_format)
         self._num_time_steps = None
 
     def _get_catchment_id(self) -> str:
