@@ -1,15 +1,17 @@
 import logging
-
+import re
 
 from .dataset_manager_collection import DatasetManagerCollection
-from .initial_data_adder_impl import CompositeConfigDataAdder, FromPartialRealizationConfigAdder
+from .initial_data_adder_impl import (BmiAutoGenerationAdder, CompositeConfigDataAdder,
+                                      DataServiceBmiInitConfigGenerator, FromPartialRealizationConfigAdder)
 from dmod.communication import AbstractNgenRequest
 from dmod.communication.maas_request.ngen.partial_realization_config import PartialRealizationConfig
-from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement, StandardDatasetIndex
+from dmod.core.meta_data import (DataCategory, DataDomain, DataFormat, DataRequirement, DiscreteRestriction,
+                                 StandardDatasetIndex)
 from dmod.core.exception import DmodRuntimeError
 from dmod.core.dataset import Dataset, DatasetType
 from dmod.scheduler.job import Job, JobExecStep
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 
 class DataDeriveUtil:
@@ -24,6 +26,96 @@ class DataDeriveUtil:
     The type provides functions for both actually deriving a new ::class:`Dataset` and for testing whether it is
     possible to derive a new ::class:`Dataset` to satisfy a supplied ::class:`DataRequirement`.
     """
+
+    @staticmethod
+    def find_hydrofabric_files(dataset: Dataset) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Find the hydrofabric geopackage and model attributes data files for a geopackage hydrofabric datasets.
+
+        The main hydrofabric geopackage file should be the only file with a ".gpkg" extension.
+
+        The model attribute file will be named `<region/vpu>_model_attributes.parquet`, `model_attributes.parquet`, or
+        `<region/vpu>.parquet`, where `<region/vpu>` is something like `conus` or `nextgen_01`.
+
+        Parameters
+        ----------
+        dataset: Dataset
+            The hydrofabric dataset.
+
+        Returns
+        -------
+        Tuple[Optional[str], Optional[str]]
+            The name of the geopackage file and the attributes file, if each can be found.
+
+        See Also
+        --------
+        _can_derive_bmi_configs
+        _derive_bmi_init_config_dataset
+        """
+        if dataset.data_format != DataFormat.NGEN_GEOPACKAGE_HYDROFABRIC_V2:
+            return None, None
+        if dataset.manager is None:
+            return None, None
+
+        # Survey for the geopackage file and any parquet files (the attributes file will be one of the latter)
+        parquet_files = []
+        gpkg_file = None
+        for item in dataset.manager.list_files(dataset.name):
+            if item[-5:].lower() == ".gpkg":
+                gpkg_file = item
+            # If we have a parquet file ...
+            elif item[-8:].lower() == ".parquet":
+                parquet_files.append(item)
+
+        # If we didn't find the geopackage file, something is up here, so don't proceed further
+        if gpkg_file is None:
+            logging.warning(f"Failed to find geopackage file searching for attributes file in dataset {dataset.name}")
+            return None, None
+
+        # Figure out the region, which we'll need to determine what the model attributes file name is
+        vpu_match = re.match(".*(nextgen_\d+).gpkg", gpkg_file.lower())
+        if vpu_match:
+            region = vpu_match.groups()[0]
+        elif re.match(".*conus.*", gpkg_file.lower()):
+            region = "conus"
+        else:
+            logging.warning(f"Failed to parse region from hydrofabric file {gpkg_file} of dataset {dataset.name}")
+            return gpkg_file, None
+
+        for item in parquet_files:
+            if region == "conus" and (item == "conus_model_attributes.parquet" or item == "model_attributes.parquet"):
+                return gpkg_file, item
+            elif item == f"{region}.parquet":
+                return gpkg_file, item
+        return gpkg_file, None
+
+    @staticmethod
+    def get_fulfilling_dataset_name(job: Job, data_format: DataFormat) -> Optional[str]:
+        """
+        Get the name of the dataset fulfilling the requirement for this job with the given format.
+
+        Get the name of the dataset fulfilling this job's data requirement that is associated with the supplied data
+        format, if the job has exactly one such requirement.
+
+        This function is useful for getting hydrofabric or realization config datasets, which are sometimes needed when
+        deriving datasets of other types.
+
+        Parameters
+        ----------
+        job: Job
+            The job of interest.
+        data_format: DataFormat
+            The data format of the dataset of interest.
+
+        Returns
+        -------
+        Optional[str]
+            The name of the hydrofabric dataset fulfilling the related data requirement for this job, or ``None``.
+        """
+        hf_req = [r for r in job.data_requirements if r.domain.data_format == data_format]
+        assert len(hf_req) != 0, f"Can't extract dataset name from job {job.job_id!s} with no {data_format.name} requirements"
+        assert len(hf_req) == 1, f"Can't extract dataset name from job {job.job_id!s} with multiple {data_format.name} requirements"
+        return hf_req[0].fulfilled_by if len(hf_req) == 1 else None
 
     def __init__(self, dataset_manager_collection: DatasetManagerCollection):
         self._managers: DatasetManagerCollection = dataset_manager_collection
@@ -58,6 +150,94 @@ class DataDeriveUtil:
         requirement.fulfilled_access_at = self._determine_access_location(dataset, job)
         #################################################################################
         requirement.fulfilled_by = dataset.name
+
+    def _can_derive_bmi_configs(self, requirement: DataRequirement, job: Job) -> bool:
+        """
+        Determine whether a ``BMI_CONFIG`` :class:`DataFormat` dataset can be derived to fulfill this job requirement.
+
+        Parameters
+        ----------
+        requirement: DataRequirement
+            The requirement in question, for which a generated BMI init config dataset is needed.
+        job: Job
+            The job to which ``requirement`` belongs, which also is associated with other requirements and datasets that
+            must be available for BMI init config generation.
+
+        Notes
+        -----
+        See the :class:`DataServiceBmiInitConfigGenerator` and :class:`BmiInitConfigAutoGenerator` classes for what is
+        necessary to derive/generate BMI init configs.
+
+        Returns
+        -------
+        bool
+            Whether a ``BMI_CONFIG`` :class:`DataFormat` dataset can be derived to fulfill the job requirement.
+        """
+        if requirement.category != DataCategory.CONFIG:
+            return False
+        elif requirement.domain.data_format != DataFormat.BMI_CONFIG:
+            return False
+        # Make sure we have a hydrofabric dataset, and that it is geopackage format
+        hf_ds = self._managers.known_datasets().get(
+            self.get_fulfilling_dataset_name(job=job, data_format=DataFormat.NGEN_GEOPACKAGE_HYDROFABRIC_V2))
+        if not isinstance(hf_ds, Dataset) or hf_ds.data_format != DataFormat.NGEN_GEOPACKAGE_HYDROFABRIC_V2:
+            return False
+        # Also ensure there are a valid hydrofabric data and attributes file in the dataset for use with generation
+        hf_gpkg_file, attributes_file = self.find_hydrofabric_files(dataset=hf_ds)
+        if hf_gpkg_file is None or attributes_file is None:
+            return False
+        # Finally, make sure we have a realization config dataset
+        real_cfg_ds = self._managers.known_datasets().get(
+            self.get_fulfilling_dataset_name(job=job, data_format=DataFormat.NGEN_REALIZATION_CONFIG))
+        if not isinstance(real_cfg_ds, Dataset) or real_cfg_ds.data_format != DataFormat.NGEN_REALIZATION_CONFIG:
+            return False
+        # TODO: (later) expand domain of realization dataset to include the set of used BMI module names to compare with
+        #  what is currently supported for auto-generation
+        # TODO: (later) also check to make sure that there aren't explicitly declared catchments in the realization
+        #  config not covered by the hydrofabric (though this is a problem that perhaps should be caught elsewhere)
+        # If we weren't missing anything required ...
+        return True
+
+    def _derive_bmi_init_config_dataset(self, requirement: DataRequirement, job: Job):
+        """
+        Derive and apply a new BMI init config dataset for this requirement.
+
+        Parameters
+        ----------
+        requirement: DataRequirement
+            The requirement needing the new dataset in order to be fulfilled.
+        job: Job
+            The job possessing the requirement.
+        """
+        # Also construct a name for the dataset we are generating, based on the job
+        ds_name = "job-{}-bmi-init-config".format(job.job_id)
+
+        # TODO: (later) more intelligently determine type
+        ds_type = DatasetType.OBJECT_STORE
+        ds_mgr = self._managers.manager(ds_type)
+
+        hf_ds_name = self.get_fulfilling_dataset_name(job=job, data_format=DataFormat.NGEN_GEOPACKAGE_HYDROFABRIC_V2)
+        hydrofabric_ds = self._managers.known_datasets()[hf_ds_name]
+        real_cfg_ds_name = self.get_fulfilling_dataset_name(job=job, data_format=DataFormat.NGEN_REALIZATION_CONFIG)
+        realization_cfg_ds = self._managers.known_datasets()[real_cfg_ds_name]
+
+        hf_gpkg_file, attributes_file = self.find_hydrofabric_files(dataset=hydrofabric_ds)
+
+        generator = DataServiceBmiInitConfigGenerator(hydrofabric_dataset=hydrofabric_ds,
+                                                      hydrofabric_geopackage_file_name=hf_gpkg_file,
+                                                      hydrofabric_model_attributes_file_name=attributes_file,
+                                                      realization_config_dataset=realization_cfg_ds,
+                                                      realization_cfg_file_name="realization_config.json")
+
+        data_adder = BmiAutoGenerationAdder(dataset_name=ds_name, dataset_manager=ds_mgr, bmi_generator=generator)
+
+        domain = DataDomain(data_format=DataFormat.BMI_CONFIG,
+                            discrete_restrictions=[DiscreteRestriction(variable=StandardDatasetIndex.DATA_ID,
+                                                                       values=[ds_name])])
+
+        dataset: Dataset = ds_mgr.create_temporary(name=ds_name, category=DataCategory.CONFIG, domain=domain,
+                                                   is_read_only=False, initial_data=data_adder)
+        self._apply_dataset_to_requirement(dataset=dataset, requirement=requirement, job=job)
 
     async def _derive_composite_job_config(self, requirement: DataRequirement, job: Job):
         """
@@ -220,7 +400,7 @@ class DataDeriveUtil:
         if job is not None and self.can_derive_realization_from_formulations(requirement=requirement, job=job):
             return True
         else:
-            return False
+            return job is not None and self._can_derive_bmi_configs(requirement=requirement, job=job)
 
     def can_derive_realization_from_formulations(self, requirement: DataRequirement, job: Job) -> bool:
         """
@@ -261,9 +441,11 @@ class DataDeriveUtil:
         Derive any datasets as required for the given job awaiting its data.
 
         Job is expected to be in the ``AWAITING_DATA`` status step.  If it is not, no datasets are derived, exception
-        is thrown.
+        is thrown.  This implies that the job has proceeded through the service's checks in the ``AWAITING_DATA_CHECK``
+        step.  This means that all the job's data requirements hav been determined to be "fulfillable," and thus any
+        requirements that are still set to ``None`` must be "derivable" according to :method:`can_dataset_be_derived`.
 
-        If in the right status, but initially any unfulfilled requirements of the job cannot have a dataset successfully
+        If in the right status, but any initially unfulfilled requirements of the job cannot have a dataset successfully
         derived, a ::class:`DmodRuntimeError` is raised.
 
         Parameters
@@ -281,6 +463,12 @@ class DataDeriveUtil:
         DmodRuntimeError
             Raised if the job has the wrong status, or if the job with the correct status has an initially unfulfilled
             requirement for which a satisfactory dataset can not be derived by this function.
+
+        See Also
+        --------
+        DatasetInqueryUtil.can_be_fulfilled
+        async_can_dataset_be_derived
+        can_dataset_be_derived
         """
         # Only do something if the job has the right status
         if job.status_step != JobExecStep.AWAITING_DATA:
@@ -297,11 +485,17 @@ class DataDeriveUtil:
         for req in (r for r in job.data_requirements if r.fulfilled_by is None):
             # **********************************************************************************************************
             # *** TODO: if/when deriving forcing datasets is supported, make sure this is done before config datasets
-            # *** TODO: when generating BMI datasets is supported, make sure it's done before realization configs
             # **********************************************************************************************************
+            # TODO: figure out reason for previous todo comment, "when generating BMI datasets is supported, make sure
+            #  it's done before realization configs," which isn't actually possible since generating BMI configs
+            #  REQUIRES a realization config
             # Derive realization config datasets from formulations in message body when necessary
             if req.category == DataCategory.CONFIG and req.domain.data_format == DataFormat.NGEN_REALIZATION_CONFIG:
                 self._derive_realization_config_from_formulations(requirement=req, job=job)
+                results.append(req)
+            # Derive BMI init configs from hydrofabric data and realization config
+            elif req.category == DataCategory.CONFIG and req.domain.data_format == DataFormat.BMI_CONFIG:
+                self._derive_bmi_init_config_dataset(requirement=req, job=job)
                 results.append(req)
             # Derive composite dataset with all config details need for executing job
             elif req.category == DataCategory.CONFIG and req.domain.data_format == DataFormat.NGEN_JOB_COMPOSITE_CONFIG:
