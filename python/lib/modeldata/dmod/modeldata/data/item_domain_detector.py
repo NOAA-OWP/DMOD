@@ -137,22 +137,15 @@ class GeoPackageHydrofabricDomainDetector(ItemDataDomainDetector):
         else:
             gpkg_data = self._item
 
-        if isinstance(kwargs.get('region'), str):
-            raw_str = kwargs['region'].strip().lower()
-            if raw_str == 'conus':
-                vpu = None
-                conus = True
-            else:
-                conus = False
-                pattern = re.compile('(vpu)([-_]?)(\d+)')
-                matches = pattern.match(raw_str)
-                vpu = int(matches.groups()[-1]) if matches else None
-        else:
-            vpu = None
-            conus = False
+        region = kwargs['region'].strip() if isinstance(kwargs.get('region'), str) else None
+
         # TODO: (later) at some point, account for model attributes data being present or not, and whether its valid
         try:
-            hydrofabric = GeoPackageHydrofabric.from_file(geopackage_file=gpkg_data, vpu=vpu, is_conus=conus)
+            factory_params = {"geopackage_file": gpkg_data}
+            if region.lower() == "conus":
+                factory_params["is_conus"] = True
+            # TODO: (later) once GeoPackageHydrofabric for "vpu" to not just be int, account for that here
+            hydrofabric = GeoPackageHydrofabric.from_file(**factory_params)
             d_restricts = [
                 # Define range of catchment ids for catchment ids
                 DiscreteRestriction(variable=StandardDatasetIndex.CATCHMENT_ID,
@@ -162,12 +155,15 @@ class GeoPackageHydrofabricDomainDetector(ItemDataDomainDetector):
             # If included, also append region restriction
             # TODO: (later) implement this part later
             # TODO: (later) consider whether conus should literally also include all the individual VPUs, plus "CONUS"
-            if hydrofabric.is_conus:
+            if region is not None:
+                if hydrofabric.is_conus and region.lower() != "conus":
+                    raise DmodRuntimeError(f"Determined hydrofabric to be CONUS, but got different region {region}")
+                d_restricts.append(DiscreteRestriction(variable=StandardDatasetIndex.HYDROFABRIC_REGION,
+                                                       values=[region]))
+            elif hydrofabric.is_conus:
                 d_restricts.append(DiscreteRestriction(variable=StandardDatasetIndex.HYDROFABRIC_REGION,
                                                        values=["CONUS"]))
-            elif vpu is not None:
-                d_restricts.append(DiscreteRestriction(variable=StandardDatasetIndex.HYDROFABRIC_REGION,
-                                                       values=[f"VPU{vpu:02d}"]))
+
             if 'version' in kwargs:
                 d_restricts.append(DiscreteRestriction(variable=StandardDatasetIndex.HYDROFABRIC_VERSION,
                                                        values=[kwargs['version']]))
