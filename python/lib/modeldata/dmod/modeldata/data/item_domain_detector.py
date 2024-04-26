@@ -41,10 +41,9 @@ class AorcCsvFileDomainDetector(ItemDataDomainDetector):
         decode_format: str
             The decoder format when decoding byte strings (``utf-8`` by default).
         """
+        super().__init__(item=item, item_name=item_name, decode_format=decode_format)
         if self._item_name is None:
             raise DmodRuntimeError(f"{self.__class__.__name__} must be passed an item name on init unless item is file")
-
-        super().__init__(item=item, item_name=item_name, decode_format=decode_format)
         self._num_time_steps = None
 
     def _get_catchment_id(self) -> str:
@@ -84,7 +83,7 @@ class AorcCsvFileDomainDetector(ItemDataDomainDetector):
         data = StringIO(self._item.decode(self._decode_format)) if isinstance(self._item, bytes) else self._item
         dt_index = self.get_data_format().indices_to_fields()[StandardDatasetIndex.TIME]
         # TODO: (later) perhaps do a little more about the header checking
-        df = pandas_read_csv(data, parse_dates=[0])
+        df = pandas_read_csv(data, parse_dates=[dt_index])
         self._num_time_steps = df.shape[0]
         date_range = TimeRange(begin=df.iloc[0][dt_index].to_pydatetime(), end=df.iloc[-1][dt_index].to_pydatetime())
         return DataDomain(data_format=self.get_data_format(), continuous_restrictions=[date_range],
