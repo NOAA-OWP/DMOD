@@ -1,3 +1,4 @@
 from .catchment_data import CatchmentData
 from .data_subset import AbstractDataSubset
 from .forcing_data_handler import ForcingDataHandler
+from .bmi_init_config_auto_generator import BmiInitConfigAutoGenerator

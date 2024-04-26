@@ -31,6 +31,7 @@ setup(
         "aiohttp~=3.8",
         "shapely>=2.0.0",
         "hypy@git+https://github.com/noaa-owp/hypy@master#egg=hypy&subdirectory=python",
+        'ngen-config-gen@git+https://github.com/noaa-owp/ngen-cal@master#egg=ngen-config&subdirectory=python/ngen_config_gen',
         "gitpython",
         "pydantic>=1.10.8,~=1.10",
         "pyogrio",
