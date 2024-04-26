@@ -65,6 +65,18 @@ class BmiInitConfigAutoGenerator:
             return [formulation.params.model_name]
         return list(modules)
 
+    @classmethod
+    def get_supported_module_names(cls) -> List[str]:
+        """
+        Get a list of the supported BMI module configuration names for which this type can generate an init config.
+
+        Returns
+        -------
+        List[str]
+            List of the supported BMI module configuration names for which this type can generate an init config.
+        """
+        return [k for k in cls._module_to_model_map]
+
     def __init__(self,
                  ngen_realization: NgenRealization,
                  hydrofabric_data: gpd.GeoDataFrame,
