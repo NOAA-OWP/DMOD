@@ -24,7 +24,6 @@ class AorcCsvFileDomainDetector(ItemDataDomainDetector):
     name.
     """
 
-    _csv_header: str = "Time,RAINRATE,Q2D,T2D,U2D,V2D,LWDOWN,SWDOWN,PSFC"
     _data_format = DataFormat.AORC_CSV
     _datetime_format: str = "%Y-%m-%d %H:%M:%S"
 
@@ -82,8 +81,11 @@ class AorcCsvFileDomainDetector(ItemDataDomainDetector):
         cat_restriction = self._get_cat_restriction()
         data = StringIO(self._item.decode(self._decode_format)) if isinstance(self._item, bytes) else self._item
         dt_index = self.get_data_format().indices_to_fields()[StandardDatasetIndex.TIME]
-        # TODO: (later) perhaps do a little more about the header checking
         df = pandas_read_csv(data, parse_dates=[dt_index])
+        if {col.lower() for col in df.columns} != {field.lower() for field in self.get_data_format().data_fields}:
+            raise DmodRuntimeError(f"{self.__class__.__name__} could not detect; unexpected columns "
+                                   f"{df.columns.values!s} in data for format {self.get_data_format().name} (expected "
+                                   f"{[k for k in self.get_data_format().data_fields]})")
         self._num_time_steps = df.shape[0]
         date_range = TimeRange(begin=df.iloc[0][dt_index].to_pydatetime(), end=df.iloc[-1][dt_index].to_pydatetime())
         return DataDomain(data_format=self.get_data_format(), continuous_restrictions=[date_range],
@@ -167,7 +169,7 @@ class GeoPackageHydrofabricDomainDetector(ItemDataDomainDetector):
         else:
             vpu = None
             conus = False
-
+        # TODO: (later) at some point, account for model attributes data being present or not, and whether its valid
         try:
             hydrofabric = GeoPackageHydrofabric.from_file(geopackage_file=gpkg_data, vpu=vpu, is_conus=conus)
             d_restricts = [
