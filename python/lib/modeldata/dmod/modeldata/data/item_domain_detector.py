@@ -102,25 +102,6 @@ class GeoPackageHydrofabricDomainDetector(ItemDataDomainDetector):
 
     _data_format = DataFormat.NGEN_GEOPACKAGE_HYDROFABRIC_V2
 
-    def _is_region_string_for_conus(self, region_str: Optional[str]) -> bool:
-        """
-        Whether this is a region string signifies CONUS.
-
-        Parameters
-        ----------
-        region_str: Optional[str]
-            A region string, or ``None``.
-
-        Returns
-        -------
-        bool
-            Whether there was a region string provided that indicates CONUS.
-        """
-        if not isinstance(region_str, str):
-            return False
-        else:
-            return region_str.strip().lower() == 'conus'
-
     def detect(self, **kwargs) -> DataDomain:
         """
         Detect and return the data domain.
