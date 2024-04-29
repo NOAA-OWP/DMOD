@@ -142,7 +142,7 @@ class GeoPackageHydrofabricDomainDetector(ItemDataDomainDetector):
         # TODO: (later) at some point, account for model attributes data being present or not, and whether its valid
         try:
             factory_params = {"geopackage_file": gpkg_data}
-            if region.lower() == "conus":
+            if region and region.lower() == "conus":
                 factory_params["is_conus"] = True
             # TODO: (later) once GeoPackageHydrofabric for "vpu" to not just be int, account for that here
             hydrofabric = GeoPackageHydrofabric.from_file(**factory_params)

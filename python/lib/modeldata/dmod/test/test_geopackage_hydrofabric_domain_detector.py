@@ -15,7 +15,7 @@ class TestGeoPackageHydrofabricDomainDetector(unittest.TestCase):
 
         # Setup example 0
         self.example_data = {0: find_git_root_dir().joinpath("data/example_hydrofabric_2/hydrofabric.gpkg")}
-        self.example_vpu = {0: "vpu-9"}
+        self.example_vpu = {0: "VPU09"}
         self.example_restriction_vpu = {0: "VPU09"}
         self.example_cat_ids = {0: sorted(['cat-8', 'cat-5', 'cat-9', 'cat-6', 'cat-7', 'cat-10', 'cat-11'])}
 
