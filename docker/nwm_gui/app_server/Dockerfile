@@ -40,11 +40,36 @@ RUN pip install --no-cache-dir --upgrade --find-links=/DIST ${comms_package_name
 
 # Copy selected portions of the project into the working directory (/usr/maas_portal)
 COPY ./python/gui/manage.py ./
+COPY ./docker/nwm_gui/app_server/entrypoint.sh ./
+COPY ./docker/nwm_gui/app_server/client_debug_helper.py ./
+
+# Copy all of the packages that need to be added in volatility order (measured in number of commits)
+# In python, this may be determined by:
+#   import os
+#   import subprocess
+#   from collections import Counter
+#   from pathlib import Path
+#
+#   commits_per_package = Counter()
+#   commands = {directory: f"git rev-list --count --all {directory.stem}" for directory in Path(".").iterdir() if directory.is_dir()}
+#   for package_name, command in commands.items():
+#       process_results = subprocess.run(command, shell=True, text=True, capture_output=True)
+#       commits_per_package[package_name] = int(process_results.stdout)
+#
+#   copy_commands = os.linesep.join(
+#       f"COPY ./python/gui/{directory} ./{directory}"
+#       for directory, _ in sorted(commits_per_package.items(), key=lambda pair: pair[1]) 
+#   )
+#
+#   print(copy_commands)
+COPY ./python/gui/consumers ./consumers
+COPY ./python/gui/views ./views
+COPY ./python/gui/templates ./templates
+COPY ./python/gui/utilities ./utilities
+COPY ./python/gui/forwarding ./forwarding
 COPY ./python/gui/static ./static
 COPY ./python/gui/maas_experiment ./maas_experiment
 COPY ./python/gui/MaaS ./MaaS
-COPY ./docker/nwm_gui/app_server/entrypoint.sh ./
-COPY ./docker/nwm_gui/app_server/client_debug_helper.py ./
 
 ARG PYCHARM_REMOTE_DEBUG_HOST
 ARG PYCHARM_REMOTE_DEBUG_PORT
