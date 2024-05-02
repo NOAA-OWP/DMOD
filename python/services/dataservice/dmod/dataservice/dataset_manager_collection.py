@@ -12,6 +12,7 @@ class DatasetManagerCollection:
     For each DatasetType, there must be only one DatasetManager.
     A given DatasetManager instance may be associated with multiple DatasetTypes.
     """
+    # TODO: consider how `__eq__` should be implemented (#598)
     _managers: Dict[DatasetType, DatasetManager] = dataclasses.field(
         default_factory=dict, init=False
     )
