@@ -331,7 +331,7 @@ class ResourceManager(ABC):
 
         for node_id, node in resource_nodes.items():
             # We must plan to request at least the per-node amounts on each node
-            if node.cpu_count < cpu_share or node.memory < memory:
+            if node.cpu_count < cpu_share or node.memory < mem_share:
                 return [None]
             cpus_per_node[node_id] = cpu_share
             memory_per_node[node_id] = mem_share
