@@ -325,13 +325,18 @@ class ResourceManager(ABC):
         # Calculate in advance the exact amounts of CPUs and memory per node for the necessary balance
         # This is slightly different from simply an even share due to discrete amounts and remainders
         cpus_per_node, memory_per_node = dict(), dict()
-        num_nodes = len(resource_nodes)
+        num_nodes = min(cpus, len(resource_nodes))
         cpu_share, cpu_remainder = divmod(cpus, num_nodes)
         mem_share, mem_remainder = divmod(memory, num_nodes)
 
         for node_id, node in resource_nodes.items():
-            # We must plan to request at least the per-node amounts on each node
-            if node.cpu_count < cpu_share or node.memory < mem_share:
+            # Early stopping for cases when we have more physical nodes than the requested number of CPUs
+            if sum(cpus_per_node.values()) == cpus:
+                break
+            # Each node must have at least per-node shares, UNLESS cpus < number of nodes (then not all nodes are used)
+            if cpus < len(resource_nodes) and (node.cpu_count < cpu_share or node.memory < mem_share):
+                continue
+            elif node.cpu_count < cpu_share or node.memory < mem_share:
                 return [None]
             cpus_per_node[node_id] = cpu_share
             memory_per_node[node_id] = mem_share
@@ -343,12 +348,12 @@ class ResourceManager(ABC):
                 memory_per_node[node_id] += 1
                 mem_remainder -= 1
 
-        # We must also make sure that all of each remainder was picked up
-        if cpu_remainder > 0 or mem_remainder > 0:
+        # Sanity check that everything adds up to the required amounts
+        if sum(cpus_per_node.values()) != cpus or sum(memory_per_node.values()) != memory:
             return [None]
 
         allocations = []
-        for node_id in resource_nodes:
+        for node_id in cpus_per_node.keys():
             alloc_count = 1 if asset_grouping == AllocationAssetGrouping.BUNDLE else cpus_per_node[node_id]
             for i in range(alloc_count):
                 alloc = self.allocate_resource(resource_id=node_id,
