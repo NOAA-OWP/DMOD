@@ -1,4 +1,5 @@
 import unittest
+import tempfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from ..scheduler.rsa_key_pair import RsaKeyPair
@@ -9,7 +10,8 @@ class TestRsaKeyPair(unittest.TestCase):
 
     def setUp(self) -> None:
         self.rsa_key_pairs: Dict[int, RsaKeyPair] = dict()
-        self.rsa_key_pairs[1] = RsaKeyPair(directory='.', name='id_rsa_1')
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.rsa_key_pairs[1] = RsaKeyPair(directory=self.tempdir.name, name='id_rsa_1')
 
         self.serial_rsa_key_pairs: Dict[int, dict] = dict()
         self.serial_rsa_key_pairs[1] = self.rsa_key_pairs[1].to_dict()
@@ -18,6 +20,7 @@ class TestRsaKeyPair(unittest.TestCase):
     def tearDown(self) -> None:
         self.rsa_key_pairs[1].private_key_file.unlink(missing_ok=True)
         self.rsa_key_pairs[1].public_key_file.unlink(missing_ok=True)
+        self.tempdir.cleanup()
 
     def test_generate_key_pair_1_a(self):
         """
