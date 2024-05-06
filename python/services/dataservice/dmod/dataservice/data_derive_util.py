@@ -117,8 +117,10 @@ class DataDeriveUtil:
         assert len(hf_req) == 1, f"Can't extract dataset name from job {job.job_id!s} with multiple {data_format.name} requirements"
         return hf_req[0].fulfilled_by if len(hf_req) == 1 else None
 
-    def __init__(self, dataset_manager_collection: DatasetManagerCollection):
+    def __init__(self, dataset_manager_collection: DatasetManagerCollection, noah_owp_params_dir: Optional[str] = None):
         self._managers: DatasetManagerCollection = dataset_manager_collection
+        # TODO: (later) this might eventually need to be in a specialized dataset
+        self._noah_owp_params_dir: Optional[str] = noah_owp_params_dir
 
     def _apply_dataset_to_requirement(self, dataset: Dataset, requirement: DataRequirement, job: Job):
         """
@@ -227,7 +229,8 @@ class DataDeriveUtil:
                                                       hydrofabric_geopackage_file_name=hf_gpkg_file,
                                                       hydrofabric_model_attributes_file_name=attributes_file,
                                                       realization_config_dataset=realization_cfg_ds,
-                                                      realization_cfg_file_name="realization_config.json")
+                                                      realization_cfg_file_name="realization_config.json",
+                                                      noah_owp_params_dir=self._noah_owp_params_dir)
 
         data_adder = BmiAutoGenerationAdder(dataset_name=ds_name, dataset_manager=ds_mgr, bmi_generator=generator)
 

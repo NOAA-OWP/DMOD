@@ -43,7 +43,8 @@ def main():
     # Datasets creation and access go through this object
     dataset_manager_collection = DatasetManagerCollection()
     data_derive_util = DataDeriveUtil(
-        dataset_manager_collection=dataset_manager_collection
+        dataset_manager_collection=dataset_manager_collection,
+        noah_owp_params_dir=settings.worker_noah_owp_parameters_dir
     )
     dataset_inquery_util = DatasetInqueryUtil(
         dataset_manager_collection=dataset_manager_collection,
