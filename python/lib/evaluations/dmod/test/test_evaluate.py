@@ -2,6 +2,7 @@ import unittest
 import os
 import json
 import typing
+import pathlib
 
 from datetime import datetime
 
@@ -525,8 +526,17 @@ class TestEvaluate(unittest.TestCase):
         return specification.EvaluationSpecification.create(raw_config)
 
     def setUp(self) -> None:
+        self._oldwd = os.getcwd()
+        # From repo root, this would be: `python/lib/evaluations`
+        evaluations = pathlib.Path(__file__).parent.parent.parent
+        # Testing data contains relative path dependencies.
+        # Change working directory so paths are resolved (see #602).
+        os.chdir(evaluations)
         self.__cfs_to_cms_specification = self.get_cfs_to_cms_specification()
         self.__cfs_to_cfs_specification = self.get_cfs_to_cfs_specification()
+
+    def tearDown(self) -> None:
+        os.chdir(self._oldwd)
 
     def test_load_cfs_to_cfs(self):
         cfs_to_cfs_evaluator = evaluate.Evaluator(self.__cfs_to_cfs_specification)
