@@ -23,13 +23,13 @@ urlpatterns = [
     re_path(r'clean$', views.Clean.as_view(), name="Clean"),
     re_path(f'output/(?P<evaluation_name>{CHANNEL_NAME_PATTERN})/?$', views.helpers.GetOutput.as_view(), name="Output"),
     re_path('geometry/?$', views.GetGeometryDatasets.as_view(), name="GeometryList"),
-    re_path(f"geometry/(?P<dataset_id>\d+)/?$", views.GetGeometry.as_view(), name="GetGeometry"),
+    re_path("geometry/(?P<dataset_id>\d+)/?$", views.GetGeometry.as_view(), name="GetGeometry"),
     re_path(
         f"geometry/(?P<dataset_id>\d+)/(?P<geometry_name>{SAFE_STRING_NAME})/?$",
         views.GetGeometry.as_view(),
         name="GetGeometryByName"
     ),
-    re_path(f"metrics/?$", views.Metrics.as_view(), name="Metrics"),
+    re_path("metrics/?$", views.Metrics.as_view(), name="Metrics"),
     re_path(views.GetLibraryOptions.route(), views.GetLibraryOptions.as_view(), name="LibraryOptions"),
     re_path(views.GetLibrary.route(), views.GetLibrary.as_view(), name="GetLibrary"),
     re_path(r"library/select/?$", views.LibrarySelector.as_view(), name="SelectLibrary"),

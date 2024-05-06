@@ -102,7 +102,7 @@ class AssociatedField(TemplatedSpecification):
     def validate_self(self) -> typing.Sequence[str]:
         messages = list()
         if self.name is None or self.name == '':
-            messages.append(f"An index is missing a proper name")
+            messages.append("An index is missing a proper name")
 
         return messages
 

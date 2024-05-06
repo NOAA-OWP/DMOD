@@ -202,7 +202,7 @@ class BaseRequest(BaseModel, abc.ABC, typing.Generic[RESPONSE_TYPE, ACTION]):
             status_code = HTTPStatus.INTERNAL_SERVER_ERROR
 
         if not message:
-            raise ValueError(f"An error message is required in order to create an error response")
+            raise ValueError("An error message is required in order to create an error response")
 
         if status < Status.ERROR:
             raise ValueError(f"Errors cannot have a status less than '{Status.ERROR}' - received '{status}'")

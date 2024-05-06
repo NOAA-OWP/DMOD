@@ -439,12 +439,12 @@ def to_date_or_time(
             if has_hour:
                 datetime_string += f"T{str(adjusted_possible_date['hour']).zfill(2)}"
             else:
-                datetime_string += f"T00"
+                datetime_string += "T00"
 
             if has_minute:
                 datetime_string += f":{str(adjusted_possible_date['minute']).zfill(2)}"
             else:
-                datetime_string += f":00"
+                datetime_string += ":00"
 
             timezone_details = adjusted_possible_date.get('timezone') or adjusted_possible_date.get('tz')
             time_zone = None

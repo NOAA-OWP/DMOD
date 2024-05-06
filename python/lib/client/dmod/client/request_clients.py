@@ -419,14 +419,14 @@ class SimpleDataTransferAgent(DataTransferAgent):
 
     async def download_dataset_item(self, dataset_name: str, item_name: str, dest: Path) -> DatasetManagementResponse:
         if dest.exists():
-            reason = f'Destination File Exists'
+            reason = 'Destination File Exists'
             msg = f'{self.__class__.__name__} could not download dataset item to existing path {str(dest)}'
             return DatasetManagementResponse(success=False, reason=reason, message=msg)
 
         try:
             dest.parent.mkdir(parents=True, exist_ok=True)
         except:
-            reason = f'Unable to Create Parent Directory'
+            reason = 'Unable to Create Parent Directory'
             msg = f'{self.__class__.__name__} could not create parent directory for downloading item to {str(dest)}'
             return DatasetManagementResponse(success=False, reason=reason, message=msg)
 
@@ -452,7 +452,7 @@ class SimpleDataTransferAgent(DataTransferAgent):
             final_response_json = json.loads(final_data)
         except Exception as e:
             msg = f"{self.__class__.__name__} failed with {e.__class__.__name__} parsing `{final_data}` to JSON)"
-            return final_response_type(success=False, reason=f"JSON Parse Failure On Final Response", message=msg)
+            return final_response_type(success=False, reason="JSON Parse Failure On Final Response", message=msg)
 
         final_response = final_response_type.factory_init_from_deserialized_json(final_response_json)
         if final_response is None:

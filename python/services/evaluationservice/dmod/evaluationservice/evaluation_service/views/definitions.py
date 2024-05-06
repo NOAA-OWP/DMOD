@@ -122,7 +122,7 @@ class SaveDefinition(MessageView[definitions.SaveDefinitionRequest, definitions.
         user: User = self.request.user
 
         if user.is_anonymous:
-            raise PermissionDenied(f"You must be authenticated to edit this evaluation definition")
+            raise PermissionDenied("You must be authenticated to edit this evaluation definition")
 
         definitions_matching_id = EvaluationDefinitionCommunicator.filter(pk=message.definition_id)
         definitions_matching_user_and_name = EvaluationDefinitionCommunicator.filter(
@@ -134,7 +134,7 @@ class SaveDefinition(MessageView[definitions.SaveDefinitionRequest, definitions.
             record: EvaluationDefinition = definitions_matching_id[0]
 
             if user != record.owner and not user.is_superuser:
-                raise PermissionDenied(f"You cannot edit definitions that you do not own.")
+                raise PermissionDenied("You cannot edit definitions that you do not own.")
 
             record.title = message.title
             record.author = message.author if user.is_superuser else user.username

@@ -686,8 +686,8 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
             )
         elif source.closed:
             raise ValueError(
-                f"The websocket connection to the server passed to `listen_to_messages` is not unusable; "
-                f"it is not open."
+                "The websocket connection to the server passed to `listen_to_messages` is not unusable; "
+                "it is not open."
             )
 
         # Make sure that the target is a websocket protocol and open so that messages may be correctly transmitted
@@ -704,8 +704,8 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
             )
         elif target.closed:
             raise ValueError(
-                f"The websocket connection to the target passed to `listen_to_messages` is not usable; "
-                f"it is not open."
+                "The websocket connection to the target passed to `listen_to_messages` is not usable; "
+                "it is not open."
             )
 
         response_data = ResponseData()
@@ -743,12 +743,12 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
             reason = "Client-server communication is no longer being listened to"
         except websockets.ConnectionClosedOK:
             # This is fine; the connection just closed
-            message = f"Websocket connection closed"
+            message = "Websocket connection closed"
             reason = InitRequestResponseReason.ACCEPTED.name
             success = True
         except asyncio.CancelledError:
             # This is fine; the connection just closed
-            message = f"Operation cancelled"
+            message = "Operation cancelled"
             reason = InitRequestResponseReason.ACCEPTED.name
             success = True
         except websockets.ConnectionClosedError as error:
@@ -1058,7 +1058,7 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
             response = self._get_response_class()(
                 success=True,
                 reason=InitRequestResponseReason.ACCEPTED.name,
-                message=f"Websocket connection closed",
+                message="Websocket connection closed",
                 data={
                     "closed_at": datetime.now().astimezone().strftime("%Y-%m-%d %I:%M %p %Z")
                 }

@@ -187,7 +187,7 @@ class NetcdfWriter(writer.OutputWriter):
 
     def write(self, evaluation_results: specification.EvaluationResults, buffer: typing.IO = None, **kwargs):
         if self.destination is None and buffer is None:
-            raise ValueError(f"A buffer must be passed in if no destination is declared")
+            raise ValueError("A buffer must be passed in if no destination is declared")
 
         converted_output = self._to_xarray(evaluation_results)
         responsible_for_buffer = buffer is None

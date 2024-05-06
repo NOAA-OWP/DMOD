@@ -175,7 +175,7 @@ class JSONWriter(OutputWriter):
             **kwargs
     ):
         if self.destination is None and buffer is None:
-            raise ValueError(f"A buffer must be passed in if no destination is declared")
+            raise ValueError("A buffer must be passed in if no destination is declared")
 
         data_to_write: typing.Dict[str, typing.Hashable] = self._results_to_dictionary(
                 evaluation_results,

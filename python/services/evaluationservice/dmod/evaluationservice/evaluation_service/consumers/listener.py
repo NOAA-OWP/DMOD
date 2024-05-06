@@ -164,7 +164,7 @@ def make_message(
             try:
                 data = json.loads(data)
             except Exception as loads_exception:
-                logger.error(f"Could not deserialize data", loads_exception)
+                logger.error("Could not deserialize data", loads_exception)
     elif isinstance(data, str):
         data = {
             "message": data

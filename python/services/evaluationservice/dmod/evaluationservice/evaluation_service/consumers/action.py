@@ -871,7 +871,7 @@ export class {cls.get_client_name()} {{
                     argument_type = f"{{{'String' if parameter_type == 'text' else parameter_type.title()}"
                     if not required:
                         argument_type += "?"
-                    argument_type += f"}}"
+                    argument_type += "}}"
                     documentation_lines.append(
                         f"@param {{{'String' if parameter_type == 'text' else parameter_type.title()}}} "
                         f"{parameter_name}"
@@ -894,8 +894,8 @@ export class {cls.get_client_name()} {{
                 for parameter_name in parameters:
                     parameter = f'                "{parameter_name}": {parameter_name},'
                     payload_lines.append(parameter)
-            payload_lines.append(f'                "request_id": requestID,')
-            payload_lines.append(f'                ...optionalParameters')
+            payload_lines.append('                "request_id": requestID,')
+            payload_lines.append('                ...optionalParameters')
             payload_lines.append('            }')
             payload_lines.append("        }")
 

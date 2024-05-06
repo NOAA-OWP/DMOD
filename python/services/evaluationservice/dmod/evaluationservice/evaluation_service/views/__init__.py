@@ -63,7 +63,7 @@ class ViewPath:
         elif not path:
             raise ValueError(f"The '{name or view.__name__}' view path cannot be created - the path is missing")
         elif not view:
-            raise ValueError(f"The view at '' cannot be created - it is missing a view type")
+            raise ValueError("The view at '' cannot be created - it is missing a view type")
 
         self.view = view
         self.path = path

@@ -128,7 +128,7 @@ class TestThresholdDefinitionConstruction(ConstructionTest, unittest.TestCase):
         elif isinstance(parameters, specification.ThresholdDefinition):
             test.assertEqual(definition, parameters)
         else:
-            raise TypeError(f"The passed parameters are not valid")
+            raise TypeError("The passed parameters are not valid")
 
 
 

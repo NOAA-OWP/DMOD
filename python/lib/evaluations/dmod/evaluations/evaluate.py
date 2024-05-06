@@ -122,10 +122,10 @@ class Evaluator:
             observed_value_field_is_mismatched &= observed_value_field != value_field
 
             if observed_xaxis_is_mismatched:
-                error_messages.append(f"Cannot collect observation data - the xaxis definition is not uniform")
+                error_messages.append("Cannot collect observation data - the xaxis definition is not uniform")
 
             if observed_value_field_is_mismatched:
-                error_messages.append(f"Cannot collect observation data - value label definitions are not uniform")
+                error_messages.append("Cannot collect observation data - value label definitions are not uniform")
 
             if observed_xaxis_is_mismatched or observed_value_field_is_mismatched:
                 break
@@ -148,10 +148,10 @@ class Evaluator:
             predicted_value_field_is_mismatched &= predicted_value_field != value_field
 
             if predicted_xaxis_is_mismatched:
-                error_messages.append(f"Cannot collect prediction data - the xaxis definition is not uniform")
+                error_messages.append("Cannot collect prediction data - the xaxis definition is not uniform")
 
             if predicted_value_field_is_mismatched:
-                error_messages.append(f"Cannot collect prediction data - value label definitions are not uniform")
+                error_messages.append("Cannot collect prediction data - value label definitions are not uniform")
 
             if predicted_xaxis_is_mismatched or predicted_value_field_is_mismatched:
                 break

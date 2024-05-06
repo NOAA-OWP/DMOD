@@ -56,7 +56,7 @@ class GetLibrary(View):
         elif not language:
             return HttpResponseBadRequest("A library language was not provided")
         elif not client:
-            return HttpResponseBadRequest(f"A client class was not provided")
+            return HttpResponseBadRequest("A client class was not provided")
         elif not SUPPORTED_LANGUAGES.is_supported(language=language):
             return HttpResponseBadRequest(f"'{language}' is not a supported library language")
 

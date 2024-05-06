@@ -9,7 +9,7 @@ class MissingSessionException(Exception):
     """
     def __init__(self, message: str = None):
         if message is None:
-            message = f"A session has not been initialized for this websocket"
+            message = "A session has not been initialized for this websocket"
         super().__init__(message)
 
 
