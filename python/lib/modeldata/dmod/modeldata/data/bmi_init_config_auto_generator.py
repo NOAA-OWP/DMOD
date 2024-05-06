@@ -333,7 +333,7 @@ class BmiInitConfigAutoGenerator:
                  ngen_realization: NgenRealization,
                  hydrofabric_data: gpd.GeoDataFrame,
                  hydrofabric_model_attributes: pd.DataFrame,
-                 noah_owp_params_dir: Optional[Path] = None,
+                 noah_owp_params_dir: Optional[Union[str, Path]] = None,
                  catchment_subset: Optional[Set[str]] = None,
                  other_builder_hook_types: Optional[Dict[str, partial]] = None):
         """
@@ -347,7 +347,7 @@ class BmiInitConfigAutoGenerator:
             The main hydrofabric data (i.e., the ``divides`` layer), as a dataframe.
         hydrofabric_model_attributes: pd.DataFrame
             The hydrofabric model attributes data, as a dataframe.
-        noah_owp_params_dir: Path, optional
+        noah_owp_params_dir: Union[str, Path], optional
             The directory containing the params data files for NoahOWP init configs, if NoahOWP init configs should be
             generated.
         catchment_subset: Set[str], optional
@@ -366,7 +366,7 @@ class BmiInitConfigAutoGenerator:
         if noah_owp_params_dir is not None:
             noah_owp = partial(
                 NoahOWPBuilder,
-                parameter_dir=noah_owp_params_dir,
+                parameter_dir=noah_owp_params_dir if isinstance(noah_owp_params_dir, Path) else Path(noah_owp_params_dir),
                 start_time=ngen_realization.time.start_time,
                 end_time=ngen_realization.time.end_time,
             )

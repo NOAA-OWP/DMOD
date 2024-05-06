@@ -501,6 +501,7 @@ class DataServiceBmiInitConfigGenerator(BmiInitConfigAutoGenerator):
                  hydrofabric_model_attributes_file_name: str,
                  realization_config_dataset: Dataset,
                  realization_cfg_file_name: str,
+                 noah_owp_params_dir: Optional[Union[str, Path]] = None,
                  catchment_subset: Optional[Set[str]] = None):
         def load_from_dataset(ds: Dataset, item_name: str) -> bytes:
             return ds.manager.get_data(dataset_name=ds.name, item_name=item_name)
