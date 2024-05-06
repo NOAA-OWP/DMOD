@@ -518,6 +518,7 @@ class DataServiceBmiInitConfigGenerator(BmiInitConfigAutoGenerator):
         super().__init__(ngen_realization=realization,
                          hydrofabric_data=hf,
                          hydrofabric_model_attributes=attrs_data,
+                         noah_owp_params_dir=noah_owp_params_dir,
                          catchment_subset=catchment_subset)
 
 
@@ -527,8 +528,6 @@ class BmiAutoGenerationAdder(InitialDataAdder):
                  **kwargs):
         super().__init__(dataset_name=dataset_name, dataset_manager=dataset_manager, **kwargs)
         self._bmi_generator: BmiInitConfigAutoGenerator = bmi_generator
-
-        # TODO: get Noah OWP Modular params data/files/dir
 
     @classmethod
     def _serialize(cls, config_model: BaseModel) -> bytes:
