@@ -88,7 +88,7 @@ def main():
             print(f"Wrote a diagram for '{full_name}' to '{real_path.resolve()}'")
 
     if classes_to_diagram is not None:
-        diagram_for_all_path = f"all-from-dmod.evaluations.specification"
+        diagram_for_all_path = "all-from-dmod.evaluations.specification"
         output_path = os.path.join(DIAGRAM_DIRECTORY, f"{diagram_for_all_path}.png")
 
         try:

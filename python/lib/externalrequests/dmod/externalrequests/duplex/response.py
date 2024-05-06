@@ -130,7 +130,7 @@ class ResponseData(typing.MutableMapping):
         if count is None:
             count = 1
         elif count < 0:
-            raise ValueError(f"A negative value would decrease the message count, but only increasing is allowed.")
+            raise ValueError("A negative value would decrease the message count, but only increasing is allowed.")
 
         self.message_count += count
 

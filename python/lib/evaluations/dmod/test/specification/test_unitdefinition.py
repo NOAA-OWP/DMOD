@@ -83,7 +83,7 @@ class TestUnitDefinitionConstruction(ConstructionTest, unittest.TestCase):
 
             test.assertEqual(definition.field, parameters.get("field"))
         else:
-            raise TypeError(f"The given parameters are not a valid definition for a unit")
+            raise TypeError("The given parameters are not a valid definition for a unit")
 
 
 if __name__ == '__main__':

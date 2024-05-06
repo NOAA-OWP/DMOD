@@ -460,7 +460,7 @@ class ServiceManager:
             #   see https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
             if str(e) == f"invalid bucket name {message.dataset_name}" and dataset_type == DatasetType.OBJECT_STORE:
                 return DatasetManagementResponse(action=message.management_action, success=False,
-                                                 reason=f"Unsupported Name For Backing Storage Type",
+                                                 reason="Unsupported Name For Backing Storage Type",
                                                  dataset_name=message.dataset_name, is_awaiting=message.is_pending_data,
                                                  message=f"Datasets of {dataset_type.name} type have additional name "
                                                          f"restrictions; names can consist only of lowercase letters, "
@@ -660,7 +660,7 @@ class ServiceManager:
             response = DatasetManagementResponse(action=ManagementAction.UNKNOWN, success=False,
                                                  reason="Invalid encoding", message="Invalid json encoding")
             # TODO: write custom `ws.iter_json` method that allows pulling out the data that could not be deserialized
-            logging.info(f"Received invalid json")
+            logging.info("Received invalid json")
             await websocket.send_json(response.to_dict())
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
          # TODO: handle logging

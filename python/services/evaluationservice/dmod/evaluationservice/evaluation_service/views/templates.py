@@ -239,18 +239,18 @@ class SaveTemplate(MessageView[templates.SaveTemplateRequest, templates.SaveTemp
             if isinstance(message.template, str):
                 json.loads(message.template)
         except:
-            raise ValidationError(f"Cannot save template - it is not valid JSON")
+            raise ValidationError("Cannot save template - it is not valid JSON")
 
         user: User = self.request.user
 
         if user.is_anonymous:
-            raise PermissionDenied(f"You must be authenticated to edit this specification template")
+            raise PermissionDenied("You must be authenticated to edit this specification template")
 
         if message.template_id and SpecificationTemplateCommunicator.filter(pk=message.template_id):
             record: SpecificationTemplate = SpecificationTemplateCommunicator.filter(pk=message.template_id)[0]
 
             if record.author != user and not user.is_superuser:
-                raise PermissionDenied(f"You cannot edit specifications that you do not own")
+                raise PermissionDenied("You cannot edit specifications that you do not own")
 
             record.template_configuration = message.template
             record.template_description = message.description

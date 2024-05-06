@@ -23,8 +23,8 @@ def server_message_handler(action: str = None, message_type = None):
     def set_server_handler_attributes(function: typing.Callable):
         if not inspect.iscoroutinefunction(function):
             raise ValueError(
-                f"A synchronous function was flagged as a message handler; only asynchronous functions "
-                f"(marked as `async`) may be considered as message handlers."
+                "A synchronous function was flagged as a message handler; only asynchronous functions "
+                "(marked as `async`) may be considered as message handlers."
             )
 
         if not hasattr(function, SERVER_MESSAGE_HANDLER_ATTRIBUTE):
@@ -55,8 +55,8 @@ def client_message_handler(action: str = None, message_type = None):
     def set_client_handler_attributes(function: typing.Callable):
         if not inspect.iscoroutinefunction(function):
             raise ValueError(
-                f"A synchronous function was flagged as a message handler; only asynchronous functions "
-                f"(marked as `async`) may be considered as message handlers."
+                "A synchronous function was flagged as a message handler; only asynchronous functions "
+                "(marked as `async`) may be considered as message handlers."
             )
 
         if not hasattr(function, CLIENT_MESSAGE_HANDLER_ATTRIBUTE):
@@ -85,8 +85,8 @@ def producer_message_handler(function: typing.Callable):
     """
     if not inspect.iscoroutinefunction(function):
         raise ValueError(
-            f"An synchronous function was flagged as a message handler; only asynchronous functions "
-            f"(marked as `async`) may be considered as message producers."
+            "An synchronous function was flagged as a message handler; only asynchronous functions "
+            "(marked as `async`) may be considered as message producers."
         )
 
     if not hasattr(function, PRODUCER_MESSAGE_HANDLER_ATTRIBUTE):

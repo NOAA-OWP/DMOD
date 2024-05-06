@@ -44,7 +44,7 @@ class MasterRequest(BaseModel):
         action = values.get("action")
 
         if not action:
-            raise ValueError(f"An action must be sent within the given message")
+            raise ValueError("An action must be sent within the given message")
 
         if DefinitionAction.get(action) is None and TemplateAction.get(action) is None:
             raise ValueError(f"'{str(action)}' is not a valid action.")

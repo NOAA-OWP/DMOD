@@ -367,7 +367,7 @@ def import_templates(data_format: _DATA_FORMAT_TYPE, path: pathlib.Path, author:
         author = get_author()
 
     if author is None:
-        print(f"Cannot import templates - cannot validate user")
+        print("Cannot import templates - cannot validate user")
         sys.exit(255)
 
     template_manager = create_manager(data_format=data_format, path=path, *args, **kwargs)
@@ -453,7 +453,7 @@ class Command(BaseCommand):
         """
         if path is None and action == "import":
             print()
-            print(f"Cannot import data without a path", file=sys.stderr)
+            print("Cannot import data without a path", file=sys.stderr)
             print()
             self.print_help(get_application_name(), get_command_name())
             sys.exit(1)
