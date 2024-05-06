@@ -62,6 +62,9 @@ class ServiceSettings(BaseSettings):
     redis_pass: str = "noaaOwp"
     """Set the password value for making Redis connections"""
 
+    worker_noah_owp_parameters_dir: str = "/dmod/bmi_module_data/noah_owp/parameters"
+    """ The 'parameters' directory param for NoahOWP BMI init config generation, from the context of job workers. """
+
     pycharm_debug: bool = False
     """Activate Pycharm remote debugging support"""
 
