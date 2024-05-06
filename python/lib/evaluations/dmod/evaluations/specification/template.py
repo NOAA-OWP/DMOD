@@ -896,7 +896,7 @@ class FileTemplateManager(TemplateManager):
                 raise FileNotFoundError(f"No manifest was found at {manifest_path}")
 
             return cls(path=manifest_path, *args, **kwargs)
-        except BaseException as exception:
+        except BaseException:
             if directory_created:
                 shutil.rmtree(output_path, ignore_errors=True)
             raise

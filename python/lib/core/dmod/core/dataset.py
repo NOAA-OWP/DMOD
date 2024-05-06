@@ -1084,7 +1084,7 @@ class DatasetManager(ABC):
         """
         try:
             return self._dataset_users[uuid]
-        except KeyError as e:
+        except KeyError:
             raise ValueError(f"Manager {self.uuid!s} does not have linked dataset user {uuid!s}.")
 
     def get_dataset_user_ids(self) -> FrozenSet[UUID]:

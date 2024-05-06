@@ -90,7 +90,7 @@ class DockerSecretsUtil(ABC):
         # TODO: unit test (or integration test)
         try:
             self.docker_client.secrets.create(name=name, data=data)
-        except KeyError as e:
+        except KeyError:
             pass
         secret = self.docker_client.secrets.get(name)
         return SecretReference(secret_id=secret.id, secret_name=secret.name)

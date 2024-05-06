@@ -268,7 +268,7 @@ class AuthClient:
                 return True
             else:
                 return False
-        except Exception as e:
+        except Exception:
             return False
 
     def _prepare_auth_request_payload(self) -> dict:
@@ -470,7 +470,7 @@ class CachedAuthClient(AuthClient):
                     self._session_secret = secret
                     self._session_created = created
                     self._is_new_session = False
-            except Exception as e:
+            except Exception:
                 pass
             # Return opposite of whether session properties are now set correctly (that would mean don't need a session)
             return not all([self._session_id, self._session_secret, self._session_created])

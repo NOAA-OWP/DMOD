@@ -1020,7 +1020,7 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
                     fs=tasks,
                     return_when=asyncio.FIRST_COMPLETED
                 )
-            except BaseException as exception:
+            except BaseException:
                 try:
                     await source.send("Error occurred; Cancelling tasks...")
                 except BaseException as notification_exception:

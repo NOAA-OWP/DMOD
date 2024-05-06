@@ -83,7 +83,7 @@ class WebSocketInterface(AsyncServiceInterface, ABC):
         try:
             if self._loop.is_running():
                 self._loop.run_until_complete(self.shutdown())
-        except Exception as e:
+        except Exception:
             pass
 
     def __init__(

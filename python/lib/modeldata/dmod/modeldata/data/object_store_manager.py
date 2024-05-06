@@ -287,7 +287,7 @@ class ObjectStoreDatasetManager(DatasetManager):
         try:
             self._client.compose_object(bucket_name=dataset_name, object_name=item_name, sources=combined_list)
             return True
-        except Exception as e:
+        except Exception:
             return False
 
     # TODO: adjust signature to give "is_read_only" a default of False

@@ -64,7 +64,7 @@ class ModelExecRequestHandler(MaaSRequestHandler):
         """
         try:
             model_name = exec_request.model_name
-        except Exception as e:
+        except Exception:
             model_name = '(n/a; was this a ModelExecRequest instance?)'
 
         if model_name == NGENRequest.model_name:
