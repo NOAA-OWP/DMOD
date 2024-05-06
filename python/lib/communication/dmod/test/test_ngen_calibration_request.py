@@ -223,7 +223,7 @@ class TestNgenCalibrationRequest(unittest.TestCase):
         json_val = self.request_jsons[ex_idx]
         try:
             obj = NgenCalibrationRequest(**json_val)
-        except Exception as e:
+        except Exception:
             r = 1
 
         self.assertRaises(ValueError, NgenCalibrationRequest, **json_val)

@@ -315,7 +315,7 @@ class RegisteredWebSocketInterface(WebSocketInterface, abc.ABC):
                 # to a halt. Catch the error, inform the caller, and continue to attempt to handle messages
                 try:
                     data = json.loads(message)
-                except json.decoder.JSONDecodeError as decoder_error:
+                except json.decoder.JSONDecodeError:
                     error_message = "Could not deserialize message: "
 
                     if len(message) < 400:

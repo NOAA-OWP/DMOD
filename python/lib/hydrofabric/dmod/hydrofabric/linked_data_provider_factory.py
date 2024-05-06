@@ -15,4 +15,4 @@ class LinkedDataProviderFactory:
             uri = f"{p.as_uri()}?mode=ro"
             connection = sqlite3.connect(uri, uri=True)
             return GPKGLinkedDataProvider(connection=connection)
-        raise NotImplemented
+        raise NotImplementedError

@@ -585,7 +585,7 @@ class SshKeyDockerSecretsUtil(DecoratingSshKeyUtil, DockerSecretsUtil):
         for key_pair in self.get_registered_keys():
             try:
                 service = self.docker_client.services.get(key_pair.name)
-            except NotFound as e:
+            except NotFound:
                 self.release_ssh_key_and_secrets(lookup_obj=key_pair, assume_service_removed=True)
 
     def release_ssh_key_and_secrets(self,
