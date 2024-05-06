@@ -881,6 +881,7 @@ RUN echo "export PATH=${PATH}" >> /etc/profile \
     && if [ -f /var/run/nologin ]; then rm /var/run/nologin ; fi ;
 USER ${USER}
 
+COPY --chown=${USER} noah_owp_parameters /dmod/bmi_module_data/noah_owp/parameters/
 COPY --chown=${USER} ngen_entrypoint.sh ${WORKDIR}/entrypoint.sh
 COPY --chown=${USER} funcs.sh ${WORKDIR}
 
