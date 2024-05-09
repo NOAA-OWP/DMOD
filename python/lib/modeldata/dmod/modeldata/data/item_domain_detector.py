@@ -27,7 +27,7 @@ class AorcCsvFileDomainDetector(ItemDataDomainDetector):
     _data_format = DataFormat.AORC_CSV
     _datetime_format: str = "%Y-%m-%d %H:%M:%S"
 
-    def __init__(self, item: DataItem, item_name: Optional[str] = None, decode_format: str = 'utf-8'):
+    def __init__(self, *, item: DataItem, item_name: Optional[str] = None, decode_format: str = 'utf-8'):
         """
         Initialize an instance.
 
