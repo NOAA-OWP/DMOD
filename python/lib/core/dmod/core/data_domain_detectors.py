@@ -330,7 +330,7 @@ class AbstractDataCollectionDomainDetector(AbstractDomainDetector, Generic[U], A
     """
 
     # TODO: (later) add mechanism for more intelligent hinting at what kinds of detectors to use
-    def __init__(self, data_collection: DataCollection, collection_name: Optional[str] = None):
+    def __init__(self, *, data_collection: DataCollection, collection_name: Optional[str] = None):
         self._data_collection: DataCollection = data_collection
         """ Collection of data items, analogous to a :class:`Dataset`, if not a dataset outright. """
         self._collection_name: Optional[str] = collection_name
