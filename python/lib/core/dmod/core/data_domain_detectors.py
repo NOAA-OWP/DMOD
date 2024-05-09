@@ -117,6 +117,9 @@ class AbstractUniversalItemDomainDetector(ItemDataDomainDetector, ABC):
 
     def __init__(self,
                  *,
+                 item: DataItem,
+                 item_name: Optional[str] = None,
+                 decode_format: str = 'utf-8',
                  detector_types: Iterable[Type[ItemDataDomainDetector]],
                  short_on_success: bool = False,
                  type_sort_func: Optional[Callable[[Type[ItemDataDomainDetector]], Any]] = None,
@@ -126,6 +129,12 @@ class AbstractUniversalItemDomainDetector(ItemDataDomainDetector, ABC):
 
         Parameters
         ----------
+        item: DataItem
+            The data item for which a domain will be detected.
+        item_name: Optional[str]
+            The name for the item, which includes important domain metadata in some situations.
+        decode_format: str
+            The decoder format when decoding byte strings (``utf-8`` by default).
         detector_types: Iterable[Type[ItemDataDomainDetector]]
             The :class:`ItemDataDomainDetector` subclasses that this instance will try to defer to when detecting.
         short_on_success: bool
@@ -137,17 +146,8 @@ class AbstractUniversalItemDomainDetector(ItemDataDomainDetector, ABC):
             sorting is performed in such places IFF this is validly set, as the subclass themselves - i.e., the
             :class:`type` objects - do not implement `<`.
         kwargs
-
-        Keyword Args
-        ------------
-        item: DataItem
-            The data item for which a domain will be detected.
-        item_name: Optional[str]
-            The name for the item, which includes important domain metadata in some situations.
-        decode_format: str
-            The decoder format when decoding byte strings (``utf-8`` by default).
         """
-        super().__init__(**kwargs)
+        super().__init__(item=item, item_name=item_name, decode_format=decode_format)
         self._detector_types: Set[Type[ItemDataDomainDetector]] = set(detector_types)
         if len(self._detector_types) == 0:
             raise ValueError(f"{self.__class__.__name__} received empty collection of detector subclasses during init")
