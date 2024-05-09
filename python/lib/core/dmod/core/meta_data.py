@@ -836,6 +836,9 @@ class DiscreteRestriction(Serializable):
         """
         if not self.can_have_subtracted(subtrahend):
             raise ValueError(f"Can't subtract given {subtrahend.__class__.__name__}")
+        if self.is_all_possible_values or subtrahend.is_all_possible_values:
+            raise ValueError(f"Can't subtract given when dealing with restriction having all values in a context")
+
         new_restrict = DiscreteRestriction(**self.dict())
         for val in (v for v in new_restrict.values if v in subtrahend.values):
             new_restrict.values.remove(val)
@@ -1017,7 +1020,11 @@ class DataDomain(Serializable):
     @classmethod
     def subtract_domains(cls, minuend: DataDomain, subtrahend: DataDomain) -> DataDomain:
         """
-        Subtract part of a defined data domain, producing a domain that is "smaller."
+        Subtract part of a defined data domain along a single dimension, producing a domain that is "smaller."
+
+        Subtraction the subtrahend from the minuend along one dimension - i.e., one constraint variable.  Constraints
+        only in one of the domains are ignored, as are constraints that are exactly equal across the two domains (the
+        subtraction operation should make the result smaller in one dimension, not remove that dimension from it).
 
         Parameters
         ----------
@@ -1058,6 +1065,8 @@ class DataDomain(Serializable):
 
         if not cont_rest_diffs and not discr_rest_diffs:
             raise ValueError(f"Nothing in domain {subtrahend!s} needs to be subtracted from {minuend!s}")
+        elif len(cont_rest_diffs) + len(discr_rest_diffs) > 1:
+            raise ValueError(f"Can't subtract across more than one dimension at a time.")
 
         # Make a copy, and we'll remove things from it
         new_dom = DataDomain(**minuend.to_dict())
@@ -1072,7 +1081,19 @@ class DataDomain(Serializable):
     @classmethod
     def merge_domains(cls, d1: DataDomain, d2: DataDomain) -> DataDomain:
         """
-        Merge the two domains into a new combined domain.
+        Merge two domains into a new combined domain, combining values along a single restriction variable dimension.
+
+        Merge the values of two compatible domain objects into a combined domain object.  In order to be compatible,
+        the two domains must be of the same :class:`DataFormat` and have at most one different restriction value. Unlike
+        subtraction, this includes restrictions only present on one of the two domains.
+
+        Also unlike subtraction, strictly speaking, domains are merge-compatible if they are equal or if one contains
+        the other; i.e., these cases are valid for the function.  However, the function will not have any side effects
+        in those situations.
+
+        Related to the above, the returned domain will be a new :class:`DataDomain` object, with two exceptions:
+            - if one domain already fully contains the other, then the original, containing domain object is returned
+            - if the domains are equal, then `d1` is returned
 
         Parameters
         ----------
@@ -1084,54 +1105,65 @@ class DataDomain(Serializable):
         Returns
         -------
         DataDomain
-            The new merged domain.
+            The resulting domain from the merge operation.
 
         Raises
         ------
         ValueError
-            If the formats or constraints of the two domains do not permit them to be merged
-
-        Notes
-        -----
-        For any two domains ``d1`` and ``d2`` that can successfully be merged, and the derived domain ``d3`` equal to
-        ``merge_domains(d1, d2)``,  then it should always be true that ``substract_domains(d3, d2) == d1``.
+            If the formats or restriction constraints of the two domains do not permit them to be merged.
 
         See Also
         --------
         subtract_domains
         """
-        # TODO: (later) consider exceptions to format rule and perhaps other behavior, like for composites
+        # TODO: (later) consider exceptions to format rule (here and in subtracting) and perhaps other behavior, like for composites
         if d1.data_format != d2.data_format:
             raise ValueError(f"Can't merge {d2.data_format.name} format domain into one of {d1.data_format.name}")
 
-        # New continuous; taken directly from domain 1 if not present or equal in domain 2; otherwise, by extending
-        new_c_restricts: Dict[StandardDatasetIndex, ContinuousRestriction] = {
-            std_ds_idx: (
-                d1_restrict
-                if std_ds_idx not in d2.continuous_restrictions or d1_restrict == d2.continuous_restrictions[std_ds_idx]
-                else d1_restrict.expand(d2.continuous_restrictions[std_ds_idx])
-            )
-            for std_ds_idx, d1_restrict in d1.continuous_restrictions.items()}
+        if d1 == d2:
+            return d1
+        elif d1.contains(d2):
+            return d1
+        elif d2.contains(d1):
+            return d2
 
-        # Any other indices in d2, just move them over
-        for std_ds_idx in (i for i in d2.continuous_restrictions if i not in new_c_restricts):
-            new_c_restricts[std_ds_idx] = d2.continuous_restrictions[std_ds_idx]
+        def merge_diff(d1_restricts: Dict[StandardDatasetIndex, R], d2_restricts: Dict[StandardDatasetIndex, R]
+                       ) -> Optional[R]:
+            all_indices = set(d1_restricts.keys()).union(d2_restricts.keys())
+            only_in_1 = {idx for idx in d1_restricts if idx not in d2_restricts}
+            only_in_2 = {idx for idx in d2_restricts if idx not in d1_restricts}
+            in_both = {idx for idx in all_indices if idx not in only_in_1 and idx not in only_in_2}
+            unequal = {idx for idx in in_both if d1_restricts[idx] != d2_restricts[idx]}
+            if len(only_in_1) + len(only_in_2) + len(unequal) == 0:
+                return None
+            if len(only_in_1) + len(only_in_2) + len(unequal) > 1:
+                raise ValueError(f"Can't support multiple different restrictions (even of one type) when merging")
+            if only_in_1:
+                value = d1_restricts[only_in_1.pop()]
+                return value.__class__(**value.dict())
+            if only_in_2:
+                value = d2_restricts[only_in_2.pop()]
+                return value.__class__(**value.dict())
+            idx = unequal.pop()
+            try:
+                return d1_restricts[idx].expand(d2_restricts[idx])
+            except Exception as e:
+                raise ValueError(f"Failure merging restriction for domain due to {e.__class__.__name__}: {e!s}")
 
-        # And now similarly for discrete
-        new_d_restricts: Dict[StandardDatasetIndex, DiscreteRestriction] = {
-            std_ds_idx: (
-                d1_restrict
-                if std_ds_idx not in d2.discrete_restrictions or d1_restrict == d2.discrete_restrictions[std_ds_idx]
-                else d1_restrict.expand(d2.discrete_restrictions[std_ds_idx])
-            )
-            for std_ds_idx, d1_restrict in d1.discrete_restrictions.items()}
+        cont_restrict_diff = merge_diff(d1.continuous_restrictions, d2.continuous_restrictions)
+        discr_restrict_diff = merge_diff(d1.discrete_restrictions, d2.discrete_restrictions)
+        new_domain = DataDomain(**d1.dict())
 
-        for std_ds_idx in (i for i in d2.discrete_restrictions if i not in new_d_restricts):
-            new_d_restricts[std_ds_idx] = d2.discrete_restrictions[std_ds_idx]
+        if cont_restrict_diff and discr_restrict_diff:
+            raise ValueError(f"Can't merge {d1!s} and {d2!s} with continuous and discrete restriction differences")
+        elif not cont_restrict_diff and not discr_restrict_diff:
+            raise AssertionError(f"Should not reach this condition with no different restriction in merging domains")
+        elif cont_restrict_diff:
+            new_domain.continuous_restrictions[cont_restrict_diff.variable] = cont_restrict_diff
+        else:
+            new_domain.discrete_restrictions[discr_restrict_diff.variable] = discr_restrict_diff
 
-        return DataDomain(data_format=d1.data_format,
-                          continuous_restrictions=new_c_restricts,
-                          discrete_restrictions=new_d_restricts)
+        return new_domain
 
     def __eq__(self, other):
         return isinstance(other, DataDomain) and hash(self) == hash(other)
