@@ -207,7 +207,7 @@ class AbstractUniversalItemDomainDetector(ItemDataDomainDetector, ABC):
         return {detector.get_data_format() for detector in self._detector_types if
                 detector.get_data_format() != DataFormat.GENERIC and detector.get_data_format() != DataFormat.EMPTY}
 
-    def detect(self, **kwargs) -> DataDomain:
+    def detect(self, **_) -> DataDomain:
         """
         Detect and return the data domain.
 
@@ -227,27 +227,6 @@ class AbstractUniversalItemDomainDetector(ItemDataDomainDetector, ABC):
         this method will return the first successfully detected :class:`DataDomain`.  If ``False``, a trial will occur
         for all the associate detector subclasses.  In this case, if there are multiple, distinct domain values,  a
         :class:`DmodRuntimeError` is raised.
-
-        Parameters
-        ----------
-        kwargs
-            Optional kwargs applicable to the subtype, which may enhance or add to the domain detection and generation
-            capabilities, but which should not be required to produce a valid domain.
-
-        Keyword Args
-        ------------
-        excluded_formats: Union[DataFormat, Set[DataFormat]]
-            Optional individual or set of :class:`DataFormat` to be excluded from testing; a :class:`ValueError` is
-            raised if a format appears in both this and ``suggested_formats``.
-        suggested_formats: Union[DataFormat, List[DataFormat]]
-            An optional :class:`DataFormat` or list of :class:`DataFormat` values to try first, with any successes
-            being immediately returned; a :class:`ValueError` is raised if a format appears more than once across both
-            this and ``excluded_formats``.
-        sort_key:
-            Optional function of one argument (the subclass type) used to extract a comparison key from each registered
-            subclasses when attempting to determine the order in which to try them (within the context of those
-            associated with the particular data format being tried); if not provided, the order is based on each
-            subclass's registration ``name``.
 
         Returns
         -------
