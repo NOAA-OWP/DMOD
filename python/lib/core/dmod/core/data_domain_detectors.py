@@ -331,6 +331,11 @@ class AbstractDataCollectionDomainDetector(AbstractDomainDetector, Generic[U], A
 
     # TODO: (later) add mechanism for more intelligent hinting at what kinds of detectors to use
     def __init__(self, *, data_collection: DataCollection, collection_name: Optional[str] = None):
+        if isinstance(data_collection, Path) and not data_collection.is_dir():
+            raise ValueError(f"{self.__class__.__name__} initialized with a path require this path to be a directory.")
+        if isinstance(data_collection, Dataset) and data_collection.manager is None:
+            raise ValueError(f"Dataset used to initialize {self.__class__.__name__} must have manager set.")
+
         self._data_collection: DataCollection = data_collection
         """ Collection of data items, analogous to a :class:`Dataset`, if not a dataset outright. """
         self._collection_name: Optional[str] = collection_name
@@ -342,11 +347,6 @@ class AbstractDataCollectionDomainDetector(AbstractDomainDetector, Generic[U], A
         """
         if collection_name is None and isinstance(data_collection, Dataset):
             self._collection_name = data_collection.name
-
-        if isinstance(self._data_collection, Path) and not self._data_collection.is_dir():
-            raise ValueError(f"{self.__class__.__name__} initialized with a path require this path to be a directory.")
-        if isinstance(self._data_collection, Dataset) and self._data_collection.manager is None:
-            raise ValueError(f"Dataset used to initialize {self.__class__.__name__} must have manager set.")
 
     def detect(self, **kwargs) -> DataDomain:
         """
