@@ -1,10 +1,12 @@
 import json
 import logging
 
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Set, Union, Any, Tuple
 
-from dmod.core.dataset import Dataset, DatasetManager, DatasetType
+from dmod.core.common.reader import Reader
+from dmod.core.dataset import Dataset, DatasetManager, DatasetType, InitialDataAdder
 from dmod.core.exception import DmodRuntimeError
 from dmod.core.meta_data import DataCategory, DataDomain
 
@@ -84,8 +86,8 @@ class FilesystemDatasetManager(DatasetManager):
                     msg = "{} could not reload a dataset from {} due to {} ({})"
                     logging.warning(msg.format(self.__class__.__name__, str(file), e.__class__.__name__, str(e)))
 
-    def add_data(self, dataset_name: str, dest: str, data: Optional[bytes] = None, source: Optional[str] = None,
-                 is_temp: bool = False, **kwargs) -> bool:
+    def add_data(self, dataset_name: str, dest: str, domain: DataDomain, data: Optional[Union[bytes, Reader]] = None,
+                 source: Optional[str] = None, is_temp: bool = False, **kwargs) -> bool:
         """
         Add raw data or data from one or more files to this dataset.
 
@@ -97,6 +99,8 @@ class FilesystemDatasetManager(DatasetManager):
             A path-like string that provides information on the location within the dataset where the data should be
             added when either adding byte string data from ``data`` or when adding from a single file specified in
             ``source`` (ignored when adding from files within a ``source`` directory).
+        domain : DataDomain
+            The defined domain for the data being added.
         data : Optional[bytes]
             Optional encoded byte string containing data to be inserted into the data set; either this or ``source``
             must be provided.
@@ -122,7 +126,7 @@ class FilesystemDatasetManager(DatasetManager):
         raise NotImplementedError(msg.format(self.__class__.__name__))
 
     def create(self, name: str, category: DataCategory, domain: DataDomain, is_read_only: bool,
-               initial_data: Optional[str] = None) -> Dataset:
+               initial_data: Optional[InitialDataAdder] = None, expires_on: Optional[datetime] = None) -> Dataset:
         msg = "Creating datasets managed by {} type not currently supported"
         raise NotImplementedError(msg.format(self.__class__.__name__))
 
@@ -138,6 +142,27 @@ class FilesystemDatasetManager(DatasetManager):
     def delete(self, dataset: Dataset, **kwargs) -> bool:
         msg = "Deleting datasets managed by {} type not currently supported"
         raise NotImplementedError(msg.format(self.__class__.__name__))
+
+    def delete_data(self, dataset_name: str, removed_domain: DataDomain, **kwargs) -> bool:
+        """
+        Delete data in some format from the dataset.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The dataset from which to delete data.
+        removed_domain : DataDomain
+            The portion of the dataset's domain corresponding to the deleted data, which should be subtracted from the
+            dataset's domain.
+        kwargs
+            Implementation-specific params for referencing what data should be deleted and how.
+
+        Returns
+        -------
+        bool
+            Whether the data was deleted successfully.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not currently support deleting data.")
 
     def get_data(self, dataset_name: str, item_name: str, **kwargs) -> Union[bytes, Any]:
         msg = "Getting data from datasets managed by {} type not currently supported"
