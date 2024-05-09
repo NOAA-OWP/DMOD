@@ -72,7 +72,7 @@ class ItemDataDomainDetector(AbstractDomainDetector, ABC):
         """
         return cls._data_format
 
-    def __init__(self, item: DataItem, item_name: Optional[str] = None, decode_format: str = 'utf-8'):
+    def __init__(self, *, item: DataItem, item_name: Optional[str] = None, decode_format: str = 'utf-8'):
         """
         Initialize an instance.
 
@@ -116,6 +116,7 @@ class AbstractUniversalItemDomainDetector(ItemDataDomainDetector, ABC):
     """ The associated :class:`DataFormat` of this subclass. """
 
     def __init__(self,
+                 *,
                  detector_types: Iterable[Type[ItemDataDomainDetector]],
                  short_on_success: bool = False,
                  type_sort_func: Optional[Callable[[Type[ItemDataDomainDetector]], Any]] = None,
