@@ -348,15 +348,9 @@ class AbstractDataCollectionDomainDetector(AbstractDomainDetector, Generic[U], A
         if collection_name is None and isinstance(data_collection, Dataset):
             self._collection_name = data_collection.name
 
-    def detect(self, **kwargs) -> DataDomain:
+    def detect(self, **_) -> DataDomain:
         """
         Detect and return the data domain.
-
-        Parameters
-        ----------
-        kwargs
-            Optional kwargs applicable to the subtype, which may enhance or add to the domain detection and generation
-            capabilities, but which should not be required to produce a valid domain.
 
         Notes
         -----
