@@ -85,16 +85,15 @@ class ItemDataDomainDetector(AbstractDomainDetector, ABC):
         decode_format: str
             The decoder format when decoding byte strings (``utf-8`` by default).
         """
+        is_item_file = isinstance(item, Path)
+        if is_item_file and item.is_dir():
+            raise ValueError(f"{self.__class__.__name__} can't initialize with a directory path as its data item")
         self._item: DataItem = item
         """ The data item for which to detect a domain. """
-        self._is_item_file = isinstance(self._item, Path)
-        """ Private flag of whether data item is a :class:`Path` object (that points to a file, per other checks). """
-        self._item_name = self._item.name if self._is_item_file else item_name
+        self._item_name = self._item.name if is_item_file else item_name
         """ Name for the item; in some situations, contains important constraint metadata (e.g. catchment name). """
         self._decode_format = decode_format
         """ A decoder format sometimes used when reading data item in order to get metadata. """
-        if self._is_item_file and self._item.is_dir():
-            raise ValueError(f"{self.__class__.__name__} can't initialize with a directory path as its data item")
 
 
 class AbstractUniversalItemDomainDetector(ItemDataDomainDetector, ABC):
