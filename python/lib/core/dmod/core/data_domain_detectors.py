@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from functools import reduce
 from pathlib import Path
@@ -182,7 +183,15 @@ class AbstractUniversalItemDomainDetector(ItemDataDomainDetector, ABC):
         detector = detector_type(item=self._item, item_name=self._item_name, decode_format=self._decode_format)
         try:
             return detector.detect()
-        except:
+        except Exception as e:
+            logging.debug("%(this_class)s could not detect domain of %(item_type)s item '%(item_name)s' using "
+                          "%(detector_name)s due to %(exception_type)s: %(exception_msg)s",
+                          dict(this_class=self.__class__.__name__,
+                               item_type=self._item.__class__.__name__,
+                               item_name=self._item_name if self._item_name else 'n/a',
+                               detector_name=detector_type.__name__,
+                               exception_type=e.__class__.__name__,
+                               exception_msg=str(e)))
             return None
 
     @property
