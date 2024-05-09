@@ -6,7 +6,7 @@ from .enum import PydanticEnum
 from .serializable import Serializable
 from .common.helper_functions import get_subclasses
 from .exception import DmodRuntimeError
-from typing import Any, Dict, List, Optional, Set, Type, Union
+from typing import Any, Dict, Generic, List, Optional, Set, Tuple, Type, TypeVar, Union
 from typing_extensions import Self
 from collections.abc import Iterable
 from collections import OrderedDict
@@ -520,9 +520,48 @@ class ContinuousRestriction(Serializable):
         else:
             return other.begin <= self.end
 
+    def can_have_subtracted(self, subtrahend: ContinuousRestriction) -> bool:
+        """
+        Whether another restriction is subtraction-compatible with this one.
+
+        Whether another restriction is expansion-compatible with this one.  To be compatible, the subtrahend must have
+        the same variable, be fully contained by this instance, and have either the same :attribute:`begin` or the same
+        :attribute:`end` value, but not both.
+
+        Parameters
+        ----------
+        subtrahend: ContinuousRestriction
+            The restriction to potentially be subtracted from this instance.
+
+        Returns
+        -------
+        bool
+            Whether this subtrahend is compatible with subtraction from this instance.
+
+        Notes
+        -----
+        Equal restrictions cannot be subtracted.  Subtraction must return a restriction, but a restriction with no range
+        is undefined.  Also, the domain subtraction operation treats equal restrictions as things that should not be
+        changed.
+
+        In practice this makes sense. Subtract a CSV forcing file for one catchment away from a dataset, and that
+        file's individual data domain will be for the time range of the dataset and it's single catchment.  So,
+        subtracting the data domain of the file from the data domain of the dataset should subtract that one catchment
+        from the dataset's domain, but it shouldn't delete (or in any way alter) the time range.
+
+        See Also
+        --------
+        contains
+        subtract
+        """
+        return (self._compatible_with(subtrahend)
+                and self.contains(subtrahend)
+                and (self.begin == subtrahend.begin or self.end == subtrahend.end)
+                and not (self.begin == subtrahend.begin and self.end == subtrahend.end))
+
     def contains(self, other: ContinuousRestriction) -> bool:
         """
-        Whether this object contains all the values of the given object and the two are of the same index.
+        Whether this object contains all the values of the given object and the two are of the same variable index.
 
         For this type, equal begin or end values are considered contained.
 
@@ -533,7 +572,7 @@ class ContinuousRestriction(Serializable):
         Returns
         -------
         bool
-            Whether this object contains all the values of the given object and the two are of the same index.
+            Whether this object contains all the values of the given object and the two are of the same variable index.
         """
         return self._compatible_with(other) and self.begin <= other.begin and self.end >= other.end
 
@@ -564,6 +603,31 @@ class ContinuousRestriction(Serializable):
         return self.__class__(variable=self.variable, begin=min(self.begin, other.begin), end=max(self.end, other.end),
                               datetime_pattern=self.datetime_pattern, subclass=self.subclass)
 
+    def subtract(self, subtrahend: ContinuousRestriction) -> ContinuousRestriction:
+        """
+        Produce another instance made by subtracting the given restriction from this one, assuming they are compatible.
+
+        Parameters
+        ----------
+        subtrahend
+
+        Returns
+        -------
+        ContinuousRestriction
+            A new instance representing the result of subtraction.
+
+        See Also
+        --------
+        can_have_subtracted
+        """
+        if not self.can_have_subtracted(subtrahend):
+            raise ValueError(f"Can't subtract given {subtrahend.__class__.__name__}")
+        new_restrict = ContinuousRestriction(**self.dict())
+        if subtrahend.begin == self.begin:
+            new_restrict.begin = subtrahend.end
+        else:
+            new_restrict.end = subtrahend.begin
+        return new_restrict
 
 class DiscreteRestriction(Serializable):
     """
@@ -637,6 +701,41 @@ class DiscreteRestriction(Serializable):
         contains
         """
         return self._compatible_with(other) and not self.contains(other)
+
+    def can_have_subtracted(self, subtrahend: DiscreteRestriction) -> bool:
+        """
+        Whether another restriction is subtraction-compatible with this one.
+
+        Whether another restriction is expansion-compatible with this one.  To be compatible, the subtrahend must have
+        the same variable and be fully contained by this instance, but not equal to it.
+
+        Parameters
+        ----------
+        subtrahend: DiscreteRestriction
+            The restriction to potentially be subtracted from this instance.
+
+        Returns
+        -------
+        bool
+            Whether this subtrahend is compatible with subtraction from this instance.
+
+        Notes
+        -----
+        Equal restrictions cannot be subtracted.  A restriction without any explicit values (i.e., with all subtracted)
+        has a different implied meaning: "all" within some context).  This is not the desired behavior for subtraction.
+
+        Also, the domain subtraction operation treats equal restrictions as things that should not be changed.  In
+        practice this makes sense. Subtract a NetCDF forcing file with data for one hour away from a dataset, and that
+        file's individual data domain will be for all catchments for the dataset and that single hour of time.
+        So, subtracting the data domain of the file from the data domain of the dataset should subtract that one hour
+        (assuming it doesn't split the time range in two) from the dataset's domain, but it shouldn't delete the
+        catchments.
+
+        See Also
+        --------
+        contains
+        """
+        return self._compatible_with(subtrahend) and self.contains(subtrahend) and not self == subtrahend
 
     def contains(self, other: DiscreteRestriction) -> bool:
         """
@@ -717,6 +816,33 @@ class DiscreteRestriction(Serializable):
         ::method:`contains`
         """
         return self.values is not None and len(self.values) == 0
+
+    def subtract(self, subtrahend: DiscreteRestriction) -> DiscreteRestriction:
+        """
+        Produce another instance made by subtracting the given restriction from this one, assuming they are compatible.
+
+        Parameters
+        ----------
+        subtrahend
+
+        Returns
+        -------
+        DiscreteRestriction
+            A new instance representing the result of subtraction.
+
+        See Also
+        --------
+        can_have_subtracted
+        """
+        if not self.can_have_subtracted(subtrahend):
+            raise ValueError(f"Can't subtract given {subtrahend.__class__.__name__}")
+        new_restrict = DiscreteRestriction(**self.dict())
+        for val in (v for v in new_restrict.values if v in subtrahend.values):
+            new_restrict.values.remove(val)
+        return new_restrict
+
+
+R = TypeVar("R", bound=Union[ContinuousRestriction, DiscreteRestriction])
 
 
 class DataDomain(Serializable):
@@ -887,6 +1013,61 @@ class DataDomain(Serializable):
         return DataDomain(data_format=data_format,
                           continuous_restrictions=None if len(continuous) == 0 else continuous,
                           discrete_restrictions=None if len(discrete) == 0 else discrete)
+
+    @classmethod
+    def subtract_domains(cls, minuend: DataDomain, subtrahend: DataDomain) -> DataDomain:
+        """
+        Subtract part of a defined data domain, producing a domain that is "smaller."
+
+        Parameters
+        ----------
+        minuend: DataDomain
+            The original, larger domain to be subtracted from.
+        subtrahend: DataDomain
+            The portion to be subtracted from the minuend.
+
+        Raises
+        ------
+        ValueError
+            If the formats or restriction constraints of the two domains do not support a subtraction to be performed.
+
+        Returns
+        -------
+        DataDomain
+            The new, updated domain value, as a new object.
+        """
+        # TODO: (later) consider exceptions to format rule (here and in merging) and perhaps other behavior, like for composites
+        if minuend.data_format != subtrahend.data_format:
+            raise ValueError(f"Can't subtract {subtrahend.data_format.name} domain from {minuend.data_format.name} one")
+
+        def get_subtractables(r_minuend: Dict[StandardDatasetIndex, R],
+                              r_subtrahend: Dict[StandardDatasetIndex, R]
+                              ) -> Set[StandardDatasetIndex]:
+            indices_in_both = {idx for idx in r_minuend if idx in r_subtrahend}
+            indices_unequal = {idx for idx in indices_in_both if r_minuend[idx] != r_subtrahend[idx]}
+            can_subtract = {idx for idx in indices_in_both if r_minuend[idx].can_have_subtracted(r_subtrahend[idx])}
+            cannot_subtract = indices_unequal - can_subtract
+
+            if cannot_subtract:
+                raise ValueError(f"Can't subtract incompatible constraint values for "
+                                 f"{[idx.name for idx in cannot_subtract]!s}")
+            return can_subtract
+
+        cont_rest_diffs = get_subtractables(minuend.continuous_restrictions, subtrahend.continuous_restrictions)
+        discr_rest_diffs = get_subtractables(minuend.discrete_restrictions, subtrahend.discrete_restrictions)
+
+        if not cont_rest_diffs and not discr_rest_diffs:
+            raise ValueError(f"Nothing in domain {subtrahend!s} needs to be subtracted from {minuend!s}")
+
+        # Make a copy, and we'll remove things from it
+        new_dom = DataDomain(**minuend.to_dict())
+
+        for std_idx in cont_rest_diffs:
+            new_dom.continuous_restrictions[std_idx].subtract(subtrahend.continuous_restrictions[std_idx])
+        for std_idx in discr_rest_diffs:
+            new_dom.discrete_restrictions[std_idx].subtract(subtrahend.discrete_restrictions[std_idx])
+
+        return new_dom
 
     @classmethod
     def merge_domains(cls, d1: DataDomain, d2: DataDomain) -> DataDomain:
