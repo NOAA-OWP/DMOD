@@ -527,8 +527,8 @@ class DatasetManager(ABC):
         """ A property attribute to hold errors encountered during operations. """
 
     @abstractmethod
-    def add_data(self, dataset_name: str, dest: str, data: Optional[Union[bytes, Reader]] = None, source: Optional[str] = None,
-                 is_temp: bool = False, **kwargs) -> bool:
+    def add_data(self, dataset_name: str, dest: str, domain: DataDomain, data: Optional[Union[bytes, Reader]] = None,
+                 source: Optional[str] = None, is_temp: bool = False, **kwargs) -> bool:
         """
         Add data in some format to the dataset.
 
@@ -542,6 +542,8 @@ class DatasetManager(ABC):
         dest : str
             A path-like string specifying a location within the dataset (e.g., file, object, sub-URL) where the data
             should be added.
+        domain : DataDomain
+            The defined domain for the data being added.
         data : Optional[Union[bytes, Reader]]
             Optional encoded byte string _or_ object with read() method returning bytes containing data to be inserted
             into the data set; either this or ``source`` must be provided.
@@ -648,7 +650,7 @@ class DatasetManager(ABC):
 
     # TODO: add back as abstract, then implement properly in subtypes
     #@abstractmethod
-    def delete_data(self, dataset_name: str, **kwargs) -> bool:
+    def delete_data(self, dataset_name: str, removed_domain: DataDomain, **kwargs) -> bool:
         """
         Delete data in some format from the dataset.
 
@@ -656,6 +658,9 @@ class DatasetManager(ABC):
         ----------
         dataset_name : str
             The dataset from which to delete data.
+        removed_domain : DataDomain
+            The portion of the dataset's domain corresponding to the deleted data, which should be subtracted from the
+            dataset's domain.
         kwargs
             Implementation-specific params for referencing what data should be deleted and how.
 

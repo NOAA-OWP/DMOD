@@ -174,8 +174,8 @@ class ObjectStoreDatasetManager(DatasetManager):
             self.persist_serialized(bucket_name)
 
     # TODO: update to also make adjustments to the domain appropriately when data changes (deleting data also)
-    def add_data(self, dataset_name: str, dest: str, data: Optional[Union[bytes, Reader]] = None, source: Optional[str] = None,
-                 is_temp: bool = False, **kwargs) -> bool:
+    def add_data(self, dataset_name: str, dest: str, domain: DataDomain, data: Optional[Union[bytes, Reader]] = None,
+                 source: Optional[str] = None, is_temp: bool = False, **kwargs) -> bool:
         """
         Add raw data or data from one or more files to the object store for the given dataset.
 
@@ -216,6 +216,8 @@ class ObjectStoreDatasetManager(DatasetManager):
             A path-like string that provides information on the location within the dataset where the data should be
             added when either adding byte string data from ``data`` or when adding from a single file specified in
             ``source`` (ignored when adding from files within a ``source`` directory).
+        domain : DataDomain
+            The defined domain for the data being added.
         data : Optional[Union[bytes, Reader]]
             Optional encoded byte string _or_ object with read() method returning bytes containing data to be inserted
             into the data set; either this or ``source`` must be provided.
@@ -244,7 +246,15 @@ class ObjectStoreDatasetManager(DatasetManager):
         """
         if dataset_name not in self.datasets:
             return False
-        elif data is not None:
+
+        # Make sure we can updated the data domain as expected
+        try:
+            updated_domain = DataDomain.merge_domains(self.datasets[dataset_name].data_domain, domain)
+        except:
+            # TODO: (later) log and/or return result indicator explaining why there was a failure
+            return False
+
+        if data is not None:
             if is_temp:
                 retention = minio.retention.Retention(mode=minio.retention.GOVERNANCE,
                                                       retain_until_date=datetime.now() + timedelta(hours=1))
@@ -254,13 +264,18 @@ class ObjectStoreDatasetManager(DatasetManager):
                 # Use AWS S3 default part size of 5MiB
                 # https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html
                 part_size = 5 * 1024 * 1024
-                result = self._client.put_object(bucket_name=dataset_name, data=data, length=-1, part_size=part_size, object_name=dest,
-                retention=retention)
+                result = self._client.put_object(bucket_name=dataset_name, data=data, length=-1, part_size=part_size,
+                                                 object_name=dest, retention=retention)
             else:
                 result = self._client.put_object(bucket_name=dataset_name, data=io.BytesIO(data), length=len(data),
-                                                object_name=dest, retention=retention)
+                                                 object_name=dest, retention=retention)
             # TODO: do something more intelligent than this for determining success
-            return result.bucket_name == dataset_name
+            if result.bucket_name != dataset_name:
+                return False
+            else:
+                self.datasets[dataset_name].data_domain = updated_domain
+                self.persist_serialized(dataset_name)
+                return True
         elif is_temp:
             raise NotImplementedError("Function add_data() does not support ``is_temp`` except when suppying raw data.")
         elif source is None or len(source) == 0:
@@ -276,12 +291,18 @@ class ObjectStoreDatasetManager(DatasetManager):
         elif src_path.is_dir():
             bucket_root = kwargs.get('bucket_root', src_path)
             self._push_files(bucket_name=dataset_name, dir_path=src_path, bucket_root=bucket_root)
-            # TODO: probably need something better than just always returning True if this gets executed
+            self.datasets[dataset_name].data_domain = updated_domain
+            self.persist_serialized(dataset_name)
             return True
         else:
             result = self._push_file(bucket_name=dataset_name, file=src_path, dest=dest)
             # TODO: test
-            return isinstance(result.object_name, str)
+            if isinstance(result.object_name, str):
+                self.datasets[dataset_name].data_domain = updated_domain
+                self.persist_serialized(dataset_name)
+                return True
+            else:
+                return False
 
     def combine_partials_into_composite(self, dataset_name: str, item_name: str, combined_list: List[str]) -> bool:
         try:
@@ -404,14 +425,16 @@ class ObjectStoreDatasetManager(DatasetManager):
         else:
             return False
 
-    # TODO: update to also make adjustments to the domain appropriately when data changes (deleting data also)
-    def delete_data(self, dataset_name: str, **kwargs) -> bool:
+    def delete_data(self, dataset_name: str, removed_domain: DataDomain, **kwargs) -> bool:
         """
         
         Parameters
         ----------
         dataset_name : str
             The name of the dataset.
+        removed_domain : DataDomain
+            The portion of the dataset's domain corresponding to the deleted data, which should be subtracted from the
+            dataset's domain.
         kwargs
             Keyword args (see below).
         
@@ -427,6 +450,7 @@ class ObjectStoreDatasetManager(DatasetManager):
         bool
             Whether the delete was successful.
         """
+        # TODO: (later) account for automated domain rechecking
         item_names = kwargs.get('item_names', kwargs.get('file_names', None))
         if item_names is None:
             return False
@@ -434,8 +458,17 @@ class ObjectStoreDatasetManager(DatasetManager):
         elif 0 < len([fn for fn in item_names if fn not in self.list_files(dataset_name)]):
             return False
 
+        # Account for the removed domain param
+        try:
+            updated_domain = DataDomain.subtract_domains(self.datasets[dataset_name].data_domain, removed_domain)
+        except:
+            # TODO: (later) log and/or return result indicator explaining why there was a failure
+            return False
+
         errors = self._client.remove_objects(bucket_name=dataset_name,
                                              delete_object_list=[DeleteObject(fn) for fn in item_names])
+        self.datasets[dataset_name].data_domain = updated_domain
+        self.persist_serialized(dataset_name)
         error_list = []
         for error in errors:
             # TODO: later on, probably need to log this somewhere
