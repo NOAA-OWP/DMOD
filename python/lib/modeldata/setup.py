@@ -26,7 +26,7 @@ setup(
         "geopandas",
         "ngen-config@git+https://github.com/noaa-owp/ngen-cal@master#egg=ngen-config&subdirectory=python/ngen_conf",
         "dmod-communication>=0.4.2",
-        "dmod-core>=0.15.2",
+        "dmod-core>=0.16.0",
         "minio",
         "aiohttp~=3.8",
         "shapely>=2.0.0",
