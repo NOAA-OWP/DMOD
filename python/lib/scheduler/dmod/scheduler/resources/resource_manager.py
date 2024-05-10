@@ -362,4 +362,5 @@ class ResourceManager(ABC):
                 if not isinstance(alloc, ResourceAllocation):
                     self.release_resources(allocations)
                     return [None]
+                allocations.append(alloc)
         return allocations
