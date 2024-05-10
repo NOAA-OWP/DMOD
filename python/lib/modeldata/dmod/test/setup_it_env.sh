@@ -22,6 +22,13 @@ do_setup()
     if [ $(./scripts/control_stack.sh object_store check) = 'false' ]; then
         touch .bring_down_obj_store
         ./scripts/control_stack.sh object_store deploy
+        for srv in $(docker stack services object_store --format "{{.Name}}"); do
+            echo "Waiting for ${srv} service to fully start ..."
+            while [ $(docker service ls --format "{{.Name}}: {{.Mode}} online:{{.Replicas}}" | grep ${srv} | grep -v online:0 | wc -l) -lt 1 ]; do
+                docker service ls --format "{{.Name}}: {{.Mode}} online:{{.Replicas}}" | grep ${srv}
+                sleep 3
+            done
+        done
     fi
 }
 
