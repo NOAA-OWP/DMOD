@@ -22,7 +22,7 @@ setup(
     license='',
     include_package_data=True,
     #install_requires=['websockets', 'jsonschema'],vi
-    install_requires=['dmod-core>=0.15.2', 'websockets>=8.1', 'pydantic>=1.10.8,~=1.10', 'dmod-communication>=0.17.0',
-                      'dmod-externalrequests>=0.6.0', 'dmod-modeldata>=0.11.1'],
+    install_requires=['dmod-core>=0.16.0', 'websockets>=8.1', 'pydantic>=1.10.8,~=1.10', 'dmod-communication>=0.17.0',
+                      'dmod-externalrequests>=0.6.0', 'dmod-modeldata>=0.12.0'],
     packages=find_namespace_packages(include=['dmod.*'], exclude=['dmod.test'])
 )
