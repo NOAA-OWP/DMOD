@@ -178,7 +178,7 @@ class RealizationConfigDomainDetector(ItemDataDomainDetector):
 
     _data_format = DataFormat.NGEN_REALIZATION_CONFIG
 
-    def detect(self, **kwargs) -> DataDomain:
+    def detect(self, **_) -> DataDomain:
         try:
             real_obj = ngen.config.realization.NgenRealization(**json.load(self._item))
         except Exception as e:
