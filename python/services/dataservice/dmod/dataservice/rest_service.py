@@ -65,8 +65,8 @@ async def lifespan(app: FastAPI):
     object_store_dataset_manager = _init_object_store_dataset_manager(
         obj_store_host=settings.object_store_host,
         port=settings.object_store_port,
-        access_key=settings.object_store_username,
-        secret_key=settings.object_store_passwd,
+        access_key=settings.object_store_exec_user_name,
+        secret_key=settings.object_store_exec_user_passwd,
     )
     dataset_manager_collection.add(object_store_dataset_manager)
 
@@ -77,8 +77,8 @@ async def lifespan(app: FastAPI):
 
     docker_s3fs_plugin_helper = _init_docker_s3fs_plugin_helper(
         dataset_manager_collection=dataset_manager_collection,
-        access_key=settings.object_store_username,
-        secret_key=settings.object_store_passwd,
+        access_key=settings.object_store_exec_user_name,
+        secret_key=settings.object_store_exec_user_passwd,
         settings=settings,
     )
 
