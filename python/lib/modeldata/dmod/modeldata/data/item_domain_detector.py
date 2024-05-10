@@ -9,7 +9,7 @@ from pandas import read_csv as pandas_read_csv
 import ngen.config.realization
 
 from typing import Optional
-from io import StringIO
+from io import BytesIO
 
 from ..hydrofabric.geopackage_hydrofabric import GeoPackageHydrofabric
 
@@ -79,7 +79,7 @@ class AorcCsvFileDomainDetector(ItemDataDomainDetector):
 
         # Do this early to fail here rather than try to load the dataframe
         cat_restriction = self._get_cat_restriction()
-        data = StringIO(self._item.decode(self._decode_format)) if isinstance(self._item, bytes) else self._item
+        data = BytesIO(self._item) if isinstance(self._item, bytes) else self._item
         dt_index = self.get_data_format().indices_to_fields()[StandardDatasetIndex.TIME]
         df = pandas_read_csv(data, parse_dates=[dt_index])
         if {col.lower() for col in df.columns} != {field.lower() for field in self.get_data_format().data_fields}:
