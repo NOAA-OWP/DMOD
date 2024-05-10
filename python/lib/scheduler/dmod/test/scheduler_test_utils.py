@@ -1,5 +1,5 @@
-from dmod.scheduler.job import RequestedJob
-from dmod.scheduler.resources import Resource, ResourceAllocation, ResourceManager
+from ..scheduler.job import RequestedJob
+from ..scheduler.resources import Resource, ResourceAllocation, ResourceManager
 from dmod.communication import NWMRequest, NGENRequest, SchedulerRequestMessage
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement, DiscreteRestriction
 from uuid import uuid4
