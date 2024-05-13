@@ -953,7 +953,7 @@ class DataDomain(Serializable):
                           discrete_restrictions=new_d_restricts)
 
     def __eq__(self, other):
-        return isinstance(other, DataDomain) and self.__hash__() == other.__hash__()
+        return isinstance(other, DataDomain) and hash(self) == hash(other)
 
     def __hash__(self) -> int:
         custom_fields = [] if self.custom_data_fields is None else sorted(self.custom_data_fields.items())
