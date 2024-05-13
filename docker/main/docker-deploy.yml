@@ -165,6 +165,7 @@ services:
       - SSL_DIR=/ssl/data-service
       - OBJECT_STORE_HOST=${DMOD_DATA_SERVICE_OBJ_STORE_HOST:-minio-proxy}
       - REDIS_HOST=${DOCKER_REDIS_SERVICE_ALIAS:-myredis}
+      - HOST=${DOCKER_DATA_SERVICE_LISTEN_HOST:-0.0.0.0}
       # computed or optional variables. optional vars have associated default value
       # - S3FS_URL_PROTOCOL='http'
       # - S3FS_URL_HOST
@@ -173,7 +174,6 @@ services:
       # - S3FS_VOL_IMAGE_TAG='latest'
       # - S3FS_PLUGIN_ALIAS='s3fs'
       # - S3FS_HELPER_NETWORK='host'
-      # - HOST # computed with `hostname`
       # - REDIS_PORT=6379
       # - OBJECT_STORE_PORT=9000
       # debugging configuration
