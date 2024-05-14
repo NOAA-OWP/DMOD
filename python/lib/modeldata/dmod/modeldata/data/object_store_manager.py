@@ -1,5 +1,6 @@
 import io
 import json
+import logging
 
 import minio.retention
 
@@ -250,8 +251,10 @@ class ObjectStoreDatasetManager(DatasetManager):
         # Make sure we can updated the data domain as expected
         try:
             updated_domain = DataDomain.merge_domains(self.datasets[dataset_name].data_domain, domain)
-        except:
-            # TODO: (later) log and/or return result indicator explaining why there was a failure
+        except Exception as e:
+            # TODO: (later) return result indicator explaining why there was a failure
+            logging.debug(f"Failed to add data to {dataset_name} after {e.__class__.__name__} ({e!s}); couldn't merge "
+                          f"new domain component {domain!s} into {self.datasets[dataset_name].data_domain!s}")
             return False
 
         if data is not None:
