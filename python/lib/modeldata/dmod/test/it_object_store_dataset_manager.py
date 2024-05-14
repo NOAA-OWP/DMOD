@@ -3,6 +3,7 @@ import json
 import os
 import unittest
 from ..modeldata.data.object_store_manager import Dataset, DatasetType, ObjectStoreDatasetManager
+from ..modeldata.data.item_domain_detector import AorcCsvFileDomainDetector
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DiscreteRestriction, TimeRange
 from pathlib import Path
 from typing import Optional, Set
@@ -86,11 +87,10 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
 
         # '%Y-%m-%d %H:%M:%S'
         time_range_1 = TimeRange.factory_init_from_deserialized_json(
-            {'begin': '2022-01-01 00:00:00',
-             'end': '2022-02-01 00:00:00',
+            {'begin': '2016-01-01 00:00:00',
+             'end': '2016-01-31 23:00:00',
              'variable': 'TIME',
-             'subclass': 'TimeRange',
-             'datetime_pattern': TimeRange.get_datetime_str_format()})
+             'subclass': 'TimeRange'})
         domain_1 = DataDomain(data_format=DataFormat.AORC_CSV, continuous_restrictions=[time_range_1],
                               discrete_restrictions=[DiscreteRestriction("catchment_id", ['cat-1', 'cat-2', 'cat-3'])])
         # Remember that this is not example serialized JSON, but a dict that gets expanded into parameters passed to
@@ -109,18 +109,22 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
         """ Test that a simple data add creates a new object as expected. """
         ex_num = 1
         dataset_name = self.examples[ex_num]['name']
-        dest_object_name = 'data_file'
+        file_to_add = Path(self.find_git_root_dir()).joinpath('data/example_forcing_aorc_csv/cat-12.csv')
+        #expected_name = 'cat-12.csv'
+        dest_object_name = 'cat-12.csv'
+        detector = AorcCsvFileDomainDetector(item=file_to_add)
 
         self.assertFalse(self.minio_client.bucket_exists(dataset_name))
         self.manager.create(**self.examples[ex_num])
+
         does_exist = self.minio_client.bucket_exists(dataset_name)
         if does_exist:
             self._datasets_to_cleanup.add(dataset_name)
 
         self.assertNotIn(dest_object_name, self.manager.list_files(dataset_name))
 
-        original_data = "File data contents"
-        result = self.manager.add_data(dataset_name=dataset_name, dest=dest_object_name, data=original_data.encode())
+        result = self.manager.add_data(dataset_name=dataset_name, dest=dest_object_name, data=file_to_add.read_bytes(),
+                                       domain=detector.detect())
 
         self.assertTrue(result)
         self.assertIn(dest_object_name, self.manager.list_files(dataset_name))
@@ -129,7 +133,10 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
         """ Test that a simple data add of raw data works correctly. """
         ex_num = 1
         dataset_name = self.examples[ex_num]['name']
-        dest_object_name = 'data_file'
+        file_to_add = Path(self.find_git_root_dir()).joinpath('data/example_forcing_aorc_csv/cat-12.csv')
+        #expected_name = 'cat-12.csv'
+        dest_object_name = 'cat-12.csv'
+        detector = AorcCsvFileDomainDetector(item=file_to_add)
 
         self.assertFalse(self.minio_client.bucket_exists(dataset_name))
         self.manager.create(**self.examples[ex_num])
@@ -137,19 +144,20 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
         if does_exist:
             self._datasets_to_cleanup.add(dataset_name)
 
-        original_data = "File data contents"
-        self.manager.add_data(dataset_name=dataset_name, dest=dest_object_name, data=original_data.encode())
+        original_data = file_to_add.read_bytes()
+        self.manager.add_data(dataset_name=dataset_name, dest=dest_object_name, data=original_data,
+                              domain=detector.detect())
         raw_read_data = self.manager.get_data(dataset_name, item_name=dest_object_name)
-        read_data = raw_read_data.decode()
 
-        self.assertEqual(original_data, read_data)
+        self.assertEqual(original_data, raw_read_data)
 
     def test_add_data_1_c(self):
         """ Test that a data add of a file works correctly with specified dest. """
         ex_num = 1
         dataset_name = self.examples[ex_num]['name']
-        file_to_add = Path(self.find_git_root_dir()).joinpath('doc/GIT_USAGE.md')
-        expected_name = 'GIT_USAGE.md'
+        file_to_add = Path(self.find_git_root_dir()).joinpath('data/example_forcing_aorc_csv/cat-12.csv')
+        expected_name = 'cat-12.csv'
+        detector = AorcCsvFileDomainDetector(item=file_to_add)
 
         self.assertTrue(file_to_add.is_file())
         expected_data = file_to_add.read_bytes()
@@ -160,7 +168,8 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
         if does_exist:
             self._datasets_to_cleanup.add(dataset_name)
 
-        self.manager.add_data(dataset_name=dataset_name, dest=expected_name, source=str(file_to_add))
+        self.manager.add_data(dataset_name=dataset_name, dest=expected_name, source=str(file_to_add),
+                              domain=detector.detect())
         raw_read_data = self.manager.get_data(dataset_name, item_name=expected_name)
 
         self.assertEqual(expected_data, raw_read_data)
@@ -169,16 +178,23 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
         """ Test that a data add of a directory of files works correctly with implied bucket root. """
         ex_num = 1
         dataset_name = self.examples[ex_num]['name']
-        dir_to_add = Path(self.find_git_root_dir()).joinpath('doc')
-
+        dir_to_add = Path(self.find_git_root_dir()).joinpath('data/example_forcing_aorc_csv')
         # Note that if the project's doc dir is altered in certain ways, this may have to be manually updated
         self.assertTrue(dir_to_add.is_dir())
-        one_files_name = 'GIT_USAGE.md'
-        one_file = dir_to_add.joinpath(one_files_name)
-        one_files_expected_data = one_file.read_bytes()
-        num_uploaded_files = sum([len(files) for _, _, files in os.walk(dir_to_add)])
+
+        domain = None
+        one_file = None
+        uploaded_file_count = 0
+        for f in dir_to_add.iterdir():
+            uploaded_file_count += 1
+            if one_file is None:
+                one_file = f
+            detector = AorcCsvFileDomainDetector(item=f)
+            domain = detector.detect() if domain is None else DataDomain.merge_domains(domain, detector.detect())
+
+        one_file_expected_data = one_file.read_bytes()
         # This is actually one more, because of the serialized dataset state file
-        expected_num_files = num_uploaded_files + 1
+        expected_num_files = uploaded_file_count + 1
 
         self.assertFalse(self.minio_client.bucket_exists(dataset_name))
         self.manager.create(**self.examples[ex_num])
@@ -186,14 +202,14 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
         if does_exist:
             self._datasets_to_cleanup.add(dataset_name)
 
-        self.manager.add_data(dataset_name=dataset_name, dest='', source=str(dir_to_add))
+        self.manager.add_data(dataset_name=dataset_name, dest='', source=str(dir_to_add), domain=domain)
         actual_num_files = len(self.manager.list_files(dataset_name))
 
         self.assertEqual(expected_num_files, actual_num_files)
 
-        raw_read_data = self.manager.get_data(dataset_name, item_name=one_files_name)
+        raw_read_data = self.manager.get_data(dataset_name, item_name=one_file.name)
 
-        self.assertEqual(one_files_expected_data, raw_read_data)
+        self.assertEqual(one_file_expected_data, raw_read_data)
 
     def test_create_1_a(self):
         """
