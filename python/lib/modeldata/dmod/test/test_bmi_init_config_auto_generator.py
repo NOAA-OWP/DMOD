@@ -2,7 +2,7 @@ import unittest
 import pandas as pd
 import geopandas as gpd
 
-from functools import cache
+from functools import lru_cache
 from pathlib import Path
 from ..modeldata.data.bmi_init_config_auto_generator import BmiInitConfigAutoGenerator, NgenRealization
 from typing import Dict
@@ -10,17 +10,17 @@ from ngen.init_config.serializer_deserializer import (IniSerializerDeserializer,
                                                       NamelistSerializerDeserializer, YamlSerializerDeserializer)
 
 
-@cache
+@lru_cache(maxsize=None)
 def deserialize_ngen_realization(cfg_file: Path) -> NgenRealization:
     return NgenRealization.parse_file(cfg_file)
 
 
-@cache
+@lru_cache(maxsize=None)
 def open_hydrofabric_divides_data(gpkg_file: Path) -> gpd.GeoDataFrame:
     return gpd.read_file(gpkg_file, layer="divides")
 
 
-@cache
+@lru_cache(maxsize=None)
 def open_model_attrs_data(hf_parquet_file: Path) -> pd.DataFrame:
     return pd.read_parquet(hf_parquet_file)
 
