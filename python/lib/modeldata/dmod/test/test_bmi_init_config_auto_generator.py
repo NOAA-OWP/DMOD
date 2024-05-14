@@ -84,8 +84,7 @@ class TestBmiInitConfigAutoGenerator(unittest.TestCase):
         configs = []
         cat_id, config = next(gen_pyobj)
         configs.append(config)
-        while True:
-            cid, config = next(gen_pyobj)
+        for cid, config in gen_pyobj:
             if cid == cat_id:
                 configs.append(config)
             else:
