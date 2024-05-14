@@ -837,7 +837,7 @@ class DiscreteRestriction(Serializable):
         if not self.can_have_subtracted(subtrahend):
             raise ValueError(f"Can't subtract given {subtrahend.__class__.__name__}")
         if self.is_all_possible_values or subtrahend.is_all_possible_values:
-            raise ValueError(f"Can't subtract given when dealing with restriction having all values in a context")
+            raise ValueError("Can't subtract unbound restriction")
 
         new_restrict = DiscreteRestriction(**self.dict())
         for val in (v for v in new_restrict.values if v in subtrahend.values):
