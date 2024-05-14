@@ -62,6 +62,7 @@ class DataDeriveUtil:
         gpkg_file = None
         for item in dataset.manager.list_files(dataset.name):
             if item[-5:].lower() == ".gpkg":
+                assert gpkg_file is None
                 gpkg_file = item
             # If we have a parquet file ...
             elif item[-8:].lower() == ".parquet":
