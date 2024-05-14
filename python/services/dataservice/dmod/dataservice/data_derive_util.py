@@ -77,7 +77,7 @@ class DataDeriveUtil:
         vpu_match = re.match(".*(nextgen_\d+).gpkg", gpkg_file.lower())
         if vpu_match:
             region = vpu_match.groups()[0]
-        elif re.match(".*conus.*", gpkg_file.lower()):
+        elif "conus" in gpkg_file.lower():
             region = "conus"
         else:
             logging.warning(f"Failed to parse region from hydrofabric file {gpkg_file} of dataset {dataset.name}")
