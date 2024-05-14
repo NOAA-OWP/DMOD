@@ -2,11 +2,27 @@ import unittest
 import pandas as pd
 import geopandas as gpd
 
+from functools import cache
 from pathlib import Path
 from ..modeldata.data.bmi_init_config_auto_generator import BmiInitConfigAutoGenerator, NgenRealization
 from typing import Dict
 from ngen.init_config.serializer_deserializer import (IniSerializerDeserializer, JsonSerializerDeserializer,
                                                       NamelistSerializerDeserializer, YamlSerializerDeserializer)
+
+
+@cache
+def deserialize_ngen_realization(cfg_file: Path) -> NgenRealization:
+    return NgenRealization.parse_file(cfg_file)
+
+
+@cache
+def open_hydrofabric_divides_data(gpkg_file: Path) -> gpd.GeoDataFrame:
+    return gpd.read_file(gpkg_file, layer="divides")
+
+
+@cache
+def open_model_attrs_data(hf_parquet_file: Path) -> pd.DataFrame:
+    return pd.read_parquet(hf_parquet_file)
 
 
 @unittest.skip
@@ -44,9 +60,9 @@ class TestBmiInitConfigAutoGenerator(unittest.TestCase):
 
         self.output_dirs[0] = hf_model_data.parent.joinpath(f"{self.__class__.__name__}_out_0")
         self._prep_output_dir(self.output_dirs[0])
-        self.generators[0] = BmiInitConfigAutoGenerator(ngen_realization=NgenRealization.parse_file(real_cfg_file),
-                                                        hydrofabric_data=gpd.read_file(hf_gpkg, layer="divides"),
-                                                        hydrofabric_model_attributes=pd.read_parquet(hf_model_data),
+        self.generators[0] = BmiInitConfigAutoGenerator(ngen_realization=deserialize_ngen_realization(real_cfg_file),
+                                                        hydrofabric_data=open_hydrofabric_divides_data(hf_gpkg),
+                                                        hydrofabric_model_attributes=open_model_attrs_data(hf_model_data),
                                                         noah_owp_params_dir=noah_params_dir)
 
     # TODO: (later) reactivate these after finding a way to do this well automatically
