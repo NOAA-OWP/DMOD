@@ -66,6 +66,7 @@ def _create_ngen_based_exec_parser(subcommand_container: Any, parser_name: str,
     new_parser.add_argument('hydrofabric_uid', help='Unique identifier of required hydrofabric')
     new_parser.add_argument('config_data_id', help='Identifier of composite config dataset with required configs')
     new_parser.add_argument('cpu_count', type=int, help='Provide the desired number of processes for the execution')
+    new_parser.add_argument('memory', type=int, help='Provide the desired amount of memory (bytes) for the execution')
 
     return new_parser
 
