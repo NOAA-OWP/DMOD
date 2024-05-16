@@ -15,6 +15,8 @@ class DmodJobRequest(AbstractInitRequest, ABC):
 
     _DEFAULT_CPU_COUNT: ClassVar[int] = 1
     """ The default number of CPUs to assume are being requested for the job, when not explicitly provided. """
+    _DEFAULT_MEMORY: ClassVar[int] = 500_000
+    """ The default amount of memory for the request, when not explicitly provided. """
 
     # job type discriminator field. enables constructing correct subclass based on `job_type` field
     # value.
@@ -23,6 +25,7 @@ class DmodJobRequest(AbstractInitRequest, ABC):
     job_type: str = Field("", description="The name for the type of job being requested.")
 
     cpu_count: int = Field(_DEFAULT_CPU_COUNT, gt=0, description="The number of processors requested for this job.")
+    memory: int = Field(_DEFAULT_MEMORY, gt=0, description="The total amount of memory (bytes) requested for this job.")
     allocation_paradigm: AllocationParadigm = Field(
         default_factory=AllocationParadigm.get_default_selection,
         description="The allocation paradigm desired for use when allocating resources for this request."

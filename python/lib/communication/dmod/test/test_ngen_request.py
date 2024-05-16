@@ -27,10 +27,11 @@ class TestNGENRequest(unittest.TestCase):
         # Example 0
         time_range = create_time_range('2022-01-01 00:00:00', '2022-03-01 00:00:00')
         cpu_count_ex_0 = 4
+        memory_ex_0 = 1_000_000
         self.request_cpu_counts.append(cpu_count_ex_0)
         self.time_ranges.append(time_range)
         self.request_strings.append(
-            '{"allocation_paradigm": "SINGLE_NODE", "cpu_count": ' + str(cpu_count_ex_0) + ', "job_type": "ngen", '
+            '{"allocation_paradigm": "SINGLE_NODE", "cpu_count": ' + str(cpu_count_ex_0) + ', "job_type": "ngen", "memory": ' + str(memory_ex_0) + ', '
             '"request_body": '
                 '{"bmi_config_data_id": "02468", "composite_config_data_id": "composite02468", "hydrofabric_data_id": '
                 '"9876543210", "hydrofabric_uid": "0123456789", "partition_config_data_id": "part1234", '
@@ -40,6 +41,7 @@ class TestNGENRequest(unittest.TestCase):
             'allocation_paradigm': 'SINGLE_NODE',
             'cpu_count': cpu_count_ex_0,
             'job_type': 'ngen',
+            'memory': memory_ex_0,
             'request_body': {
                 'time_range': time_range.to_dict(),
                 'hydrofabric_data_id': '9876543210',
@@ -62,11 +64,13 @@ class TestNGENRequest(unittest.TestCase):
                 'realization_config_data_id': '02468'},
                 session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
                 cpu_count=cpu_count_ex_0,
+                memory=memory_ex_0,
                 allocation_paradigm='SINGLE_NODE'))
 
         # Example 1 - like example 0, but with the object initialized with specific catchment subset
         time_range = create_time_range('2022-01-01 00:00:00', '2022-04-01 00:00:00')
         cpu_count_ex_1 = 2
+        memory_ex_1 = 2_500_000
         self.request_cpu_counts.append(cpu_count_ex_1)
         cat_ids_list = ['cat-1', 'cat-2', 'cat-3']
         cat_ids_str = '["{}", "{}", "{}"]'.format(*cat_ids_list)
@@ -74,7 +78,7 @@ class TestNGENRequest(unittest.TestCase):
         #cat_ids_list = []
         self.time_ranges.append(time_range)
         self.request_strings.append(
-            '{"allocation_paradigm": "ROUND_ROBIN", "cpu_count": ' + str(cpu_count_ex_1) + ', "job_type": "ngen", '
+            '{"allocation_paradigm": "ROUND_ROBIN", "cpu_count": ' + str(cpu_count_ex_1) + ', "job_type": "ngen", "memory": ' + str(memory_ex_1) + ', '
             '"request_body": '
                 '{"bmi_config_data_id": "02468", "catchments": ' + cat_ids_str + ', '
                 '"composite_config_data_id": "composite02468", "hydrofabric_data_id": "9876543210", '
@@ -85,6 +89,7 @@ class TestNGENRequest(unittest.TestCase):
             'allocation_paradigm': 'ROUND_ROBIN',
             'cpu_count': cpu_count_ex_1,
             'job_type': 'ngen',
+            'memory': memory_ex_1,
             'request_body': {
                 'time_range': time_range.to_dict(),
                 'hydrofabric_data_id': '9876543210',
@@ -101,6 +106,7 @@ class TestNGENRequest(unittest.TestCase):
             NGENRequest(
                 session_secret='f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
                 cpu_count=cpu_count_ex_1,
+                memory=memory_ex_1,
                 allocation_paradigm='ROUND_ROBIN',
                 request_body={
                 'time_range': time_range,
