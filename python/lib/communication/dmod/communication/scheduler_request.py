@@ -63,7 +63,10 @@ class SchedulerRequestMessage(AbstractInitRequest):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        if self.memory is None:
+        if self.memory is None and self.model_request.memory is not None:
+            self.memory = self.model_request.memory
+            self._memory_unset = False
+        elif self.memory is None:
             self._memory_unset = True
             self.memory = self._default_memory
         else:
