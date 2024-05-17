@@ -48,6 +48,10 @@ init_ngen_executable_paths
 
 # Move to the output dataset mounted directory
 cd ${OUTPUT_DATASET_DIR:?Output dataset directory not defined}
+#Needed for routing
+if [ ! -e /dmod/dataset/experiment_output ]; then
+    ln -s $(pwd) /dmod/dataset/experiment_output
+fi
 
 # We can allow worker index to not be supplied when executing serially
 if [ "${WORKER_INDEX:-0}" = "0" ]; then
