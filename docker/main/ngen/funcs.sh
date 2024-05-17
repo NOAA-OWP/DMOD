@@ -92,15 +92,24 @@ exec_main_worker_ngen_run()
 
     # Execute the model on the linked data
     echo "$(print_date) Executing mpirun command for ngen on ${MPI_NODE_COUNT} workers"
-    ${MPI_RUN:?} -f "${MPI_HOSTS_FILE}" -n ${MPI_NODE_COUNT} \
-        ${NGEN_EXECUTABLE:?} ${HYDROFABRIC_DATASET_DIR}/catchment_data.geojson "" \
-                ${HYDROFABRIC_DATASET_DIR}/nexus_data.geojson "" \
-                ${CONFIG_DATASET_DIR}/realization_config.json \
-                ${PARTITION_DATASET_DIR}/partition_config.json \
-                --subdivided-hydrofabric
-
-    #Capture the return value to use as service exit code
-    NGEN_RETURN=$?
+    if [ -e ${HYDROFABRIC_DATASET_DIR}/catchment_data.geojson ]; then
+        ${MPI_RUN:?} -f "${MPI_HOSTS_FILE}" -n ${MPI_NODE_COUNT} \
+            ${NGEN_EXECUTABLE:?} ${HYDROFABRIC_DATASET_DIR}/catchment_data.geojson "" \
+                    ${HYDROFABRIC_DATASET_DIR}/nexus_data.geojson "" \
+                    ${CONFIG_DATASET_DIR}/realization_config.json \
+                    ${PARTITION_DATASET_DIR}/partition_config.json \
+                    --subdivided-hydrofabric
+        #Capture the return value to use as service exit code
+        NGEN_RETURN=$?
+    else
+        _GPKG_FILE="$(ls ${HYDROFABRIC_DATASET_DIR}/*.gpkg)"
+        ${MPI_RUN:?} -f "${MPI_HOSTS_FILE}" -n ${MPI_NODE_COUNT} \
+            ${NGEN_EXECUTABLE:?} ${_GPKG_FILE} "" ${_GPKG_FILE} "" \
+                    ${CONFIG_DATASET_DIR}/realization_config.json \
+                    ${PARTITION_DATASET_DIR}/partition_config.json
+        #Capture the return value to use as service exit code
+        NGEN_RETURN=$?
+    fi
 
     echo "$(print_date) ngen mpirun command finished with return value: ${NGEN_RETURN}"
 
@@ -114,12 +123,17 @@ exec_serial_ngen_run()
 
     # Execute the model on the linked data
     echo "$(print_date) Executing serial build of ngen"
-    ${NGEN_SERIAL_EXECUTABLE:?} ${HYDROFABRIC_DATASET_DIR}/catchment_data.geojson "" \
-        ${HYDROFABRIC_DATASET_DIR}/nexus_data.geojson "" \
-        ${CONFIG_DATASET_DIR}/realization_config.json
+    if [ -e ${HYDROFABRIC_DATASET_DIR}/catchment_data.geojson ]; then
+        ${NGEN_SERIAL_EXECUTABLE:?} ${HYDROFABRIC_DATASET_DIR}/catchment_data.geojson "" \
+            ${HYDROFABRIC_DATASET_DIR}/nexus_data.geojson "" \
+            ${CONFIG_DATASET_DIR}/realization_config.json
 
-    #Capture the return value to use as service exit code
-    NGEN_RETURN=$?
+        #Capture the return value to use as service exit code
+        NGEN_RETURN=$?
+    else
+        _GPKG_FILE="$(ls ${HYDROFABRIC_DATASET_DIR}/*.gpkg)"
+        ${NGEN_SERIAL_EXECUTABLE:?} ${_GPKG_FILE} "" ${_GPKG_FILE} "" ${CONFIG_DATASET_DIR}/realization_config.json
+    fi
 
     echo "$(print_date) serial ngen command finished with return value: ${NGEN_RETURN}"
 
