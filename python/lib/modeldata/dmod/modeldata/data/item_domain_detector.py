@@ -180,7 +180,7 @@ class RealizationConfigDomainDetector(ItemDataDomainDetector):
 
     def detect(self, **_) -> DataDomain:
         try:
-            real_obj = ngen.config.realization.NgenRealization(**json.load(self._item))
+            real_obj = ngen.config.realization.NgenRealization(**json.load(self._item.open()))
         except Exception as e:
             raise DmodRuntimeError(f"{self.__class__.__name__} failed detect due to {e.__class__.__name__}: {e!s}")
 
