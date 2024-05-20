@@ -15,7 +15,12 @@ fi
 
 # TODO: provide args to optionally parameterize JOBS_CPU_COUNT (while still sanity checking against nproc)
 if [ -z "${JOBS_CPU_COUNT:-}" ]; then
-    _TOTAL_CPU=$(nproc)
+    # `nproc` is not natively supported on mac
+    if [ $(uname -s) = 'Darwin' ]; then
+        _TOTAL_CPU=$(sysctl -n hw.ncpu)
+    else
+        _TOTAL_CPU=$(nproc)
+    fi
     if [ ${_TOTAL_CPU} -lt 2 ]; then
         JOBS_CPU_COUNT=1
     elif [ ${_TOTAL_CPU} -lt 8 ]; then
