@@ -48,11 +48,13 @@ def _create_ngen_based_exec_parser(subcommand_container: Any, parser_name: str,
     new_parser = subcommand_container.add_parser(parser_name)
     new_parser.add_argument('--partition-config-data-id', dest='partition_cfg_data_id', default=None,
                             help='Provide data_id for desired partition config dataset.')
+    paradigms = [p for p in AllocationParadigm]
     new_parser.add_argument('--allocation-paradigm',
                             dest='allocation_paradigm',
                             type=AllocationParadigm.get_from_name,
-                            choices=[val.name.lower() for val in AllocationParadigm],
+                            choices=paradigms,
                             default=default_alloc_paradigm,
+                            metavar=f"{{{', '.join(p.name.lower() for p in paradigms)}",
                             help='Specify job resource allocation paradigm to use.')
     new_parser.add_argument('--catchment-ids', dest='catchments', nargs='+', help='Specify catchment subset.')
     new_parser.add_argument('--forcings-data-id', dest='forcings_data_id', help='Specify catchment subset.')
@@ -64,7 +66,7 @@ def _create_ngen_based_exec_parser(subcommand_container: Any, parser_name: str,
                             help='Model time range ({} to {})'.format(print_date_format, print_date_format))
     new_parser.add_argument('hydrofabric_data_id', help='Identifier of dataset of required hydrofabric')
     new_parser.add_argument('hydrofabric_uid', help='Unique identifier of required hydrofabric')
-    new_parser.add_argument('config_data_id', help='Identifier of composite config dataset with required configs')
+    new_parser.add_argument('composite_config_data_id', help='Identifier of composite config dataset with required configs')
     new_parser.add_argument('cpu_count', type=int, help='Provide the desired number of processes for the execution')
     new_parser.add_argument('memory', type=int, help='Provide the desired amount of memory (bytes) for the execution')
 
@@ -104,7 +106,7 @@ def _handle_exec_command_args(parent_subparsers_container):
     command_parser = parent_subparsers_container.add_parser('exec')
 
     # Subparser under the exec command's parser for handling the different job workflows that might be started
-    workflow_subparsers = command_parser.add_subparsers(dest='workflow_starter')
+    workflow_subparsers = command_parser.add_subparsers(dest='workflow')
     workflow_subparsers.required = True
 
     # Add some parsers to deserialize a request from a JSON string, or ...
