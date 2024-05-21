@@ -160,7 +160,7 @@ class SchedulerRequestResponse(Response):
 
     data: Union[SchedulerRequestResponseBody, Dict[None, None], None]
 
-    def __init__(self, job_id: Optional[int] = None, output_data_id: Optional[str] = None, data: dict = None, **kwargs):
+    def __init__(self, job_id: Optional[str] = None, output_data_id: Optional[str] = None, data: dict = None, **kwargs):
         # TODO: how to handle if kwargs has success=True, but job_id value (as param or in data) implies success=False
 
         # Create an empty data if not supplied a dict, but only if there is a job_id or output_data_id to insert

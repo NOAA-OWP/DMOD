@@ -9,7 +9,7 @@ UNSUCCESSFUL_JOB = -1
 
 
 class SchedulerRequestResponseBody(Serializable):
-    job_id: int = UNSUCCESSFUL_JOB
+    job_id: str = str(UNSUCCESSFUL_JOB)
     output_data_id: Optional[str]
 
     def __eq__(self, other: object):
