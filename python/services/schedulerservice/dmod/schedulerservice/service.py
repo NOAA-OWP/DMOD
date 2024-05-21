@@ -88,7 +88,7 @@ class SchedulerHandler(WebSocketInterface):
 
     # TODO: perhaps add this functionality below to the actual abstract interface
     @classmethod
-    def _get_parseable_request_funcs(cls) -> Dict[_REQ_C, Callable[[_REQ_T, WebSocketServerProtocol], Awaitable[None]]]:
+    def _get_parseable_request_funcs(cls, instance) -> Dict[_REQ_C, Callable[[_REQ_T, WebSocketServerProtocol], Awaitable[None]]]:
         """
         Get the collection of handled :class:`AbstractInitRequest` subtypes mapped to handler funcs.
 
@@ -107,15 +107,15 @@ class SchedulerHandler(WebSocketInterface):
         """
         # TODO: add something for reconnecting to monitor progress of job after being disconnected
         return {
-            JobControlRequest: cls._handle_job_control_request,
-            JobInfoRequest: cls._handle_job_info_request,
-            JobListRequest: cls._handle_job_list_request,
-            SchedulerRequestMessage: cls._handle_scheduler_request,
-            UpdateMessage: cls._handle_update_message
+            SchedulerRequestMessage: instance._handle_scheduler_request,
+            JobControlRequest: instance._handle_job_control_request,
+            JobInfoRequest: instance._handle_job_info_request,
+            JobListRequest: instance._handle_job_list_request,
+            UpdateMessage: instance._handle_update_message
         }
 
     @classmethod
-    def get_parseable_request_types(cls) -> List[Type[AbstractInitRequest]]:
+    def get_parseable_request_types(cls, instance) -> List[Type[AbstractInitRequest]]:
         """
         Get the ::class:`AbstractInitRequest` subtypes this type supports parsing when handling incoming messages.
 
@@ -128,7 +128,7 @@ class SchedulerHandler(WebSocketInterface):
         --------
         get_parseable_request_funcs
         """
-        return sorted(k for k in cls._get_parseable_request_funcs())
+        return sorted(k for k in cls._get_parseable_request_funcs(instance))
 
     def __init__(self, job_mgr: JobManager, *args, **kwargs):
         """
@@ -155,15 +155,26 @@ class SchedulerHandler(WebSocketInterface):
         await websocket.send(str(response))
 
     async def _handle_job_info_request(self, message: JobInfoRequest, websocket: WebSocketServerProtocol):
-        # Get current persisted copy of Job object
-        job = self._job_manager.retrieve_job(message.job_id)
-        response = JobInfoResponse(job_id=message.job_id, status_only=message.status_only,
-                                   data=job.status.to_dict() if message.status_only else job.to_dict())
+        try:
+            # Get current persisted copy of Job object
+            job = self._job_manager.retrieve_job(message.job_id)
+            response = JobInfoResponse(success=True, reason="Job Details Retrieved", job_id=message.job_id,
+                                       status_only=message.status_only,
+                                       data=job.status.to_dict() if message.status_only else job.to_dict())
+        except Exception as e:
+            response = JobListResponse(success=False, reason=f"Encountered {e.__class__.__name__}",
+                                       status_only=message.status_only,
+                                       message=f"Error when attempting to get job state details: {e!s}")
         await websocket.send(str(response))
 
     async def _handle_job_list_request(self, message: JobListRequest, websocket: WebSocketServerProtocol):
-        response = JobListResponse(only_active=message.only_active,
-                                   data=self._job_manager.get_job_ids(message.only_active))
+        try:
+            response = JobListResponse(success=True, reason="List Retrieved", only_active=message.only_active,
+                                       job_list=self._job_manager.get_job_ids(message.only_active))
+        except Exception as e:
+            response = JobListResponse(success=False, reason=f"Encountered {e.__class__.__name__}",
+                                       only_active=message.only_active,
+                                       message=f"Error when attempting to get list of jobs: {e!s}")
         await websocket.send(str(response))
 
     async def _handle_scheduler_request(self, message: SchedulerRequestMessage, websocket: WebSocketServerProtocol):
@@ -183,7 +194,7 @@ class SchedulerHandler(WebSocketInterface):
         job = self._job_manager.create_job(request=message)
 
         # Send request processed message back through
-        response = SchedulerRequestResponse(success=True, reason='Job Request Processed', data={'job_id': job.job_id})
+        response = SchedulerRequestResponse(job_id=job.job_id, success=True, reason='Job Request Processed', data={'job_id': job.job_id})
         await websocket.send(str(response))
 
         loop_iterations = 0
@@ -331,7 +342,7 @@ class SchedulerHandler(WebSocketInterface):
 
             found_type = None
             # Deserialize the message to the appropriate type if possible
-            for init_message_class_type in self._get_parseable_request_funcs():
+            for init_message_class_type in self._get_parseable_request_funcs(self):
                 message = init_message_class_type.factory_init_from_deserialized_json(data)
                 # If successfully deserialized to something non-None, break here and process the message
                 if message is not None:
@@ -345,10 +356,10 @@ class SchedulerHandler(WebSocketInterface):
                 raise TypeError(msg)
 
             # Once message type is found and instance is deserialized handle appropriately
-            await self._get_parseable_request_funcs()[found_type](message, websocket)
+            await self._get_parseable_request_funcs(self)[found_type](message, websocket)
 
         except TypeError as te:
-            logging.error("Problem with object types when processing received message", te)
+            logging.error("Problem with object types when processing received message: %s", str(te))
         except websockets.exceptions.ConnectionClosed:
             logging.info("Connection Closed at Consumer")
         except asyncio.CancelledError:
