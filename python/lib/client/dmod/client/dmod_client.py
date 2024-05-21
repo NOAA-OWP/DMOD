@@ -270,7 +270,7 @@ class DmodClient:
         else:
             raise ValueError(f"Unsupported job execution workflow {workflow}")
         
-    async def job_command(self, command: str, **kwargs) -> ResultIndicator:
+    async def job_command(self, job_command: str, **kwargs) -> ResultIndicator:
         """
         Submit a request that performs a particular job command.
 
@@ -283,7 +283,7 @@ class DmodClient:
 
         Parameters
         ----------
-        command : str
+        job_command : str
             A string indicating the particular job command to run.
         kwargs
             Other required/optional parameters as needed/desired for the particular job command to be run.
@@ -294,20 +294,20 @@ class DmodClient:
             An indicator of the results of attempting to run the command.
         """
         try:
-            if command == 'info':
+            if job_command == 'info':
                 return await self.job_client.request_job_info(**kwargs)
-            elif command == 'list':
+            elif job_command == 'list':
                 return await self.job_client.request_jobs_list(**kwargs)
-            elif command == 'release':
+            elif job_command == 'release':
                 return await self.job_client.request_job_release(**kwargs)
-            elif command == 'status':
+            elif job_command == 'status':
                 return await self.job_client.request_job_status(**kwargs)
-            elif command == 'stop':
+            elif job_command == 'stop':
                 return await self.job_client.request_job_stop(**kwargs)
             else:
-                raise ValueError(f"Unsupported job command to {self.__class__.__name__}: {command}")
+                raise ValueError(f"Unsupported job command to {self.__class__.__name__}: {job_command}")
         except NotImplementedError:
-            raise NotImplementedError(f"Supported command {command} not yet implemented by {self.__class__.__name__}")
+            raise NotImplementedError(f"Supported command {job_command} not yet implemented by {self.__class__.__name__}")
 
     def print_config(self):
         print(self.client_config.json(by_alias=True, exclude_none=True, indent=2))
