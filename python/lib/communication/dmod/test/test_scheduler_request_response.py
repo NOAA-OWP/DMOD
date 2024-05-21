@@ -12,10 +12,10 @@ class TestSchedulerRequestResponse(unittest.TestCase):
         self.tested_serializeable_type = SchedulerRequestResponse
 
         # Example 0
-        self.request_strings.append('{"data": {"job_id": 42}, "message": "", "reason": "Job Scheduled", "success": true}')
-        self.request_jsons.append({"success": True, "reason": "Job Scheduled", "message": "", "data": {"job_id": 42}})
+        self.request_strings.append('{"data": {"job_id": "42"}, "message": "", "reason": "Job Scheduled", "success": true}')
+        self.request_jsons.append({"success": True, "reason": "Job Scheduled", "message": "", "data": {"job_id": "42"}})
         self.request_objs.append(
-            SchedulerRequestResponse(success=True, reason="Job Scheduled", message="", data={"job_id": 42}))
+            SchedulerRequestResponse(success=True, reason="Job Scheduled", message="", data={"job_id": "42"}))
 
     def test_factory_init_from_deserialized_json_0_a(self):
         """
@@ -31,7 +31,7 @@ class TestSchedulerRequestResponse(unittest.TestCase):
         Assert the value of job_id is as expected for the pre-created example object at the 0th index.
         """
         example_index = 0
-        expected_job_id = 42
+        expected_job_id = '42'
         self.assertEqual(expected_job_id, self.request_objs[example_index].job_id)
 
     def test_job_id_0_b(self):
@@ -39,7 +39,7 @@ class TestSchedulerRequestResponse(unittest.TestCase):
         Assert the value of job_id is as expected for the object deserialized from the example JSON at the 0th index.
         """
         example_index = 0
-        expected_job_id = 42
+        expected_job_id = '42'
         obj = SchedulerRequestResponse.factory_init_from_deserialized_json(self.request_jsons[example_index])
         self.assertEqual(expected_job_id, obj.job_id)
 
