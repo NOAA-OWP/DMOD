@@ -23,10 +23,10 @@ init_script_mpi_vars()
 
 init_ngen_executable_paths()
 {
-    NGEN_SERIAL_EXECUTABLE="/ngen/ngen/cmake_build_serial/ngen"
-    NGEN_PARALLEL_EXECUTABLE="/ngen/ngen/cmake_build_parallel/ngen"
+    NGEN_SERIAL_EXECUTABLE="/dmod/bin/ngen-serial"
+    NGEN_PARALLEL_EXECUTABLE="/dmod/bin/ngen-parallel"
     # This will be symlinked to the parallel one currently
-    NGEN_EXECUTABLE="/ngen/ngen/cmake_build/ngen"
+    NGEN_EXECUTABLE="/dmod/bin/ngen"
 }
 
 check_for_dataset_dir()
@@ -154,11 +154,11 @@ ngen_sanity_checks_and_derived_init()
     # Run some sanity checks
     # Use complement of valid range like this in a few places to catch non-integer values
     if ! [ "${MPI_NODE_COUNT:-1}" -gt 0 ] 2>/dev/null; then
-        echo "Error: invalid value '${MPI_NODE_COUNT}' given for MPI node count" > 2>&1
+        >&2 echo "Error: invalid value '${MPI_NODE_COUNT}' given for MPI node count"
         exit 1
     fi
     if ! [ "${WORKER_INDEX:-0}" -ge 0 ] 2>/dev/null; then
-        echo "Error: invalid value '${WORKER_INDEX}' given for MPI worker index/rank" > 2>&1
+        >&2 echo "Error: invalid value '${WORKER_INDEX}' given for MPI worker index/rank"
         exit 1
     fi
 
@@ -166,15 +166,15 @@ ngen_sanity_checks_and_derived_init()
     if [ -n "${MPI_NODE_COUNT:-}" ] || [ -n "${MPI_HOST_STRING:-}" ] || [ -n "${WORKER_INDEX:-}" ]; then
         #  ... and as such, they all must be present
         if [ -z "${MPI_HOST_STRING:-}" ]; then
-            echo "Error: MPI host string not provided for job that will utilize MPI" > 2>&1
+            >&2 echo "Error: MPI host string not provided for job that will utilize MPI"
             exit 1
         fi
         if [ -z "${MPI_NODE_COUNT:-}" ]; then
-            echo "Error: MPI node count not provided for job that will utilize MPI" > 2>&1
+            >&2 echo "Error: MPI node count not provided for job that will utilize MPI"
             exit 1
         fi
         if [ -z "${WORKER_INDEX:-}" ]; then
-            echo "Error: MPI worker index not provided for job that will utilize MPI" > 2>&1
+            >&2 echo "Error: MPI worker index not provided for job that will utilize MPI"
             exit 1
         fi
         # Also, require a partitioning config for any MPI job
