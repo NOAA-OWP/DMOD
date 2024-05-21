@@ -664,6 +664,10 @@ RUN if [ "${NGEN_WITH_PYTHON}" == "ON" ]; then \
     fi
 USER ${USER}
 
+ENV VIRTUAL_ENV=/dmod/venv
+RUN python3 -m venv $VIRTUAL_ENV && pip3 install numpy
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
 RUN cd ${BOOST_ROOT} \
     && tar -xf boost_tarball.blob --strip 1 \
     && rm boost_tarball.blob \
@@ -843,7 +847,11 @@ RUN cd ${BOOST_ROOT} \
     && chmod +x ${WORKDIR}/entrypoint.sh
 
 WORKDIR ${WORKDIR}
-ENV PATH=${WORKDIR}:${WORKDIR}/bin:$PATH
+ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib:/usr/local/lib64:/dmod/shared_libs
+# This next value is eventually needed for the t-route build ...
+# ... make sure it stays in sync with configure step for netcdf above
+ENV NETCDFINC=/usr/include
+ENV PATH=/dmod/bin:${WORKDIR}:${WORKDIR}/bin:$PATH:/usr/lib64/mpich/bin
 ENV NGEN_PART_EXECUTABLE="${PARTITIONER_EXECUTABLE}"
 ENTRYPOINT ["entrypoint.sh"]
 
@@ -862,6 +870,13 @@ ARG WORKDIR
 ENV WORKDIR=${WORKDIR}
 ENV HYDRA_HOST_FILE=/etc/opt/hosts
 ENV PATH=${WORKDIR}:${WORKDIR}/bin:/dmod/bin:${PATH}:/usr/lib64/mpich/bin
+
+ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib:/usr/local/lib64:/dmod/shared_libs
+# This next value is eventually needed for the t-route build ...
+# ... make sure it stays in sync with configure step for netcdf above
+ENV NETCDFINC=/usr/include
+ENV VIRTUAL_ENV=/dmod/venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 #RUN cd ./ngen && mkdir ${WORKDIR}/bin && cp cmake_build/ngen ${WORKDIR}/bin && cp -r data ${WORKDIR}/data \
 #    && cd $WORKDIR && rm -rf ngen boost
