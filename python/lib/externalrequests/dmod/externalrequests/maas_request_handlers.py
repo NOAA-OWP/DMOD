@@ -433,15 +433,14 @@ class ExistingJobRequestHandler(MaaSRequestHandler):
         session, is_authorized, reason, msg = await self.get_authorized_session(request)
         # Generate this regardless as a way to determine what our response type is, but ...
         response_if_not_auth = self._generate_request_response(request=request, success=is_authorized,
-                                                               reason=reason.name, message=msg)
+                                                               reason=reason.name if reason else '',
+                                                               message=msg if msg else '')
         # ... only use this directly if we fail to be authorized
         if not is_authorized:
             return response_if_not_auth
         else:
-            async with self.service_client as scheduler_client:
-                # ... use as just an indicator of the right type otherwise
-                return await scheduler_client.async_make_request(message=request,
-                                                                 response_type=response_if_not_auth.__class__)
+            return await self.service_client.async_make_request(message=request,
+                                                                response_type=response_if_not_auth.__class__)
 
     @property
     def service_client(self) -> RequestClient:
