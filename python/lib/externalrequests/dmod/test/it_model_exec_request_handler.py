@@ -45,7 +45,7 @@ class DummySchedulerClient(RequestClient):
         """
         next_id = self._next_job_id
         self._next_job_id += 1
-        return next_id
+        return str(next_id)
 
     @property
     def last_job_id(self):
@@ -57,7 +57,7 @@ class DummySchedulerClient(RequestClient):
         -------
         int or None
         """
-        return None if self._next_job_id == self._first_job_id else self._next_job_id - 1
+        return None if self._next_job_id == self._first_job_id else str(self._next_job_id - 1)
 
     async def async_make_request(self, message: SchedulerRequestMessage) -> SchedulerRequestResponse:
         """
@@ -401,7 +401,7 @@ class IntegrationTestNWMRequestHandler(unittest.TestCase):
         self.handler._scheduler_client = dummy_scheduler_client
 
         response = asyncio.run(self.handler.handle_request(request=request), debug=True)
-        self.assertEqual(response.job_id, -1)
+        self.assertEqual(response.job_id, str(-1))
 
     def test_handle_request_3_d(self):
         """

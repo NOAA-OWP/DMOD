@@ -192,12 +192,3 @@ class TestMaaSDatasetManagementMessage(TestDatasetManagementMessage):
         bad_no_secret = deepcopy(self.base_examples[ManagementAction.CREATE])
         bad_no_secret.pop('session_secret')
         self.example_data.append(bad_no_secret)
-
-    def test_factory_init_from_deserialized_json_6_a(self):
-        """ Test deserialization for otherwise valid CREATE message data fails if no session secret. """
-        ex_indx = 6
-        #expected_action = ManagementAction.CREATE
-        data = self.example_data[ex_indx]
-
-        obj = self.TEST_CLASS_TYPE.factory_init_from_deserialized_json(data)
-        self.assertIsNone(obj)

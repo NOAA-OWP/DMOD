@@ -113,7 +113,7 @@ class TestNWMRequestResponse(unittest.TestCase):
         the expected dictionary value for ``data``, with the ``job_id`` element having the correct value.
         """
         obj = NWMRequestResponse.factory_init_from_deserialized_json(self.response_jsons[2])
-        self.assertEqual(obj.data['job_id'], 42)
+        self.assertEqual(obj.data['job_id'], '42')
 
     def test_factory_init_from_deserialized_json_2_h(self):
         """
