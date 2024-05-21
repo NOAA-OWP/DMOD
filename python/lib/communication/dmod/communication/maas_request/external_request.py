@@ -7,7 +7,7 @@ class ExternalRequest(AbstractInitRequest, ABC):
     """
     The base class underlying all types of externally-initiated (and, therefore, authenticated) MaaS system requests.
     """
-    session_secret: str
+    session_secret: str = ''
 
     @classmethod
     @abstractmethod
