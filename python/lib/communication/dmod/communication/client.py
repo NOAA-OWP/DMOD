@@ -284,7 +284,7 @@ class AuthClient:
         # TODO: Fix this to not be ... fixed ...
         return {'username': 'someone', 'user_secret': 'something'}
 
-    async def apply_auth(self, external_request: ExternalRequest) -> bool:
+    async def apply_auth(self, external_request: ExternalRequest, raise_on_fail: bool = False) -> bool:
         """
         Apply appropriate authentication details to this request object, acquiring them first if needed.
 
@@ -292,6 +292,8 @@ class AuthClient:
         ----------
         external_request : ExternalRequest
             A request that needs the appropriate session secret applied.
+        raise_on_fail : bool
+            Whether to raise a runtime error if unable to acquire a session, which by default is set to ``False``.
 
         Returns
         ----------
@@ -301,6 +303,10 @@ class AuthClient:
         if await self._async_acquire_session():
             external_request.session_secret = self._session_secret
             return True
+        elif raise_on_fail:
+            raise DmodRuntimeError(f"{self.__class__.__name__} was unable to acquire session for "
+                                   f"{external_request.__class__.__name__} (current secret value is "
+                                   f"{self._session_secret!s}")
         else:
             return False
 
