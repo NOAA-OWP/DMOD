@@ -403,6 +403,8 @@ class DataDeriveUtil:
         # Account for partial configs included in request that enable building realization config on the fly
         if job is not None and self.can_derive_realization_from_formulations(requirement=requirement, job=job):
             return True
+        elif job is not None and requirement.domain.data_format == DataFormat.NGEN_PARTITION_CONFIG:
+            return True
         else:
             return job is not None and self._can_derive_bmi_configs(requirement=requirement, job=job)
 
