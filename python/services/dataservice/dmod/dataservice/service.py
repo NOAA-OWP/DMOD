@@ -562,6 +562,9 @@ class ServiceManager:
         -------
         ::method:`_async_process_query`
         """
+        if message.dataset_name and message.dataset_name not in self._managers.known_datasets():
+            return DatasetManagementResponse(action=message.management_action, success=False,
+                                             reason="Dataset Not Found", dataset_name=message.dataset_name)
         query_type = message.query.query_type
         if query_type == QueryType.LIST_FILES:
             dataset_name = message.dataset_name
@@ -569,6 +572,11 @@ class ServiceManager:
             return DatasetManagementResponse(action=message.management_action, success=True, dataset_name=dataset_name,
                                              reason=f'Obtained {dataset_name} Items List',
                                              data={"query_results": {QueryType.LIST_FILES.name: list_of_files}})
+        elif query_type == QueryType.GET_STATE:
+            return DatasetManagementResponse(action=message.management_action, success=True,
+                                             dataset_name=message.dataset_name,
+                                             reason=f'Obtained {message.dataset_name} State',
+                                             data={"dataset_state": self._managers.known_datasets()[message.dataset_name]})
             # TODO: (later) add support for messages with other query types also
         else:
             reason = 'Unsupported {} Query Type - {}'.format(DatasetQuery.__class__.__name__, query_type.name)
