@@ -1,5 +1,6 @@
 from .message import AbstractInitRequest, MessageEventType, Response
 from dmod.core.serializable import Serializable
+from dmod.core.dataset import Dataset
 from .maas_request import ExternalRequest, ExternalRequestResponse
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement
 from dmod.core.enum import PydanticEnum
@@ -16,6 +17,7 @@ class QueryType(PydanticEnum):
     GET_VALUES = 6
     GET_MIN_VALUE = 7
     GET_MAX_VALUE = 8
+    GET_STATE = 9
 
     @classmethod
     def get_for_name(cls, name_str: str) -> 'QueryType':
@@ -274,6 +276,7 @@ class DatasetManagementResponseBody(Serializable):
     item_name: Optional[str]
     # TODO: in the future, tighten the type restrictions of this field
     query_results: Optional[Dict[str, Any]]
+    dataset_state: Optional[Dataset]
     is_awaiting: bool = False
 
 
