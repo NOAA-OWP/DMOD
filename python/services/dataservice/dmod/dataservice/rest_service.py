@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -26,7 +27,7 @@ from ._version import __version__ as version
 from .errors import Error as Errors
 from .exceptions import ErrorResponseException
 from .models import Error
-from .service_settings import service_settings
+from .service_settings import debug_settings, service_settings
 
 app = FastAPI(
     title="DMOD Data Service",
@@ -53,6 +54,12 @@ async def lifespan(app: FastAPI):
     # little long, but crucially does not require jumping to several different files to
     # understand what is going on.
     settings = service_settings()
+
+    if settings.pycharm_debug:
+        logging.info("Setting up remote debugging.")
+        _setup_remote_debugging()
+    else:
+        logging.info("Skipping data service remote debugging setup.")
 
     # Initialize objects that will be injected and shared by service subsystems
     # Initialize a job util via the default factory, which requires some Redis params
@@ -219,6 +226,36 @@ def _service_manager(
         dataset_inquery_util=inquery,
     )
 
+def _setup_remote_debugging():
+    settings = debug_settings()
+    logging.info("Preparing remote debugging connection for data service.")
+    if not settings.pycharm_remote_debug_egg.exists():
+        print(
+            f'Error: no file at given path to remote debugger egg file "{settings.pycharm_remote_debug_egg!s}"',
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    sys.path.append(str(settings.pycharm_remote_debug_egg))
+    import pydevd_pycharm
+
+    try:
+        pydevd_pycharm.settrace(
+            settings.remote_debug_host,
+            port=settings.remote_debug_port,
+            stdoutToServer=True,
+            stderrToServer=True,
+        )
+    except Exception as error:
+        msg = "Warning: could not set debugging trace to {} on {} due to {} - {}"
+        print(
+            msg.format(
+                settings.remote_debug_host,
+                settings.remote_debug_port,
+                error.__class__.__name__,
+                str(error),
+            ),
+            file=sys.stderr,
+        )
 
 @app.websocket("/")
 async def websocket_handler(
