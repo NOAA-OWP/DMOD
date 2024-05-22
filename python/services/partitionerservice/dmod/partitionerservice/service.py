@@ -9,9 +9,11 @@ from websockets import WebSocketServerProtocol
 from docker.errors import ContainerError
 from dmod.communication import AbstractInitRequest, DatasetManagementMessage, DatasetManagementResponse, \
     InvalidMessageResponse, PartitionRequest, PartitionResponse, ManagementAction, WebSocketInterface
+from dmod.communication.dataset_management_message import DatasetQuery, QueryType
 from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement, DiscreteRestriction, \
     StandardDatasetIndex
 from dmod.core.exception import DmodRuntimeError
+from dmod.core.dataset import Dataset
 from dmod.externalrequests.maas_request_handlers import DataServiceClient
 from dmod.modeldata.hydrofabric import HydrofabricFilesManager
 from dmod.scheduler import SimpleDockerUtil
@@ -98,13 +100,14 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
         Tuple[Optional[str], Optional[str]]
             The new dataset's name and 'data_id' respectively, with ``None`` for both if creation failed.
         """
+        # TODO: probably won't work ... needs domain
         dataset_name = 'partition-config-{}'.format(str(uuid4()))
         request = DatasetManagementMessage(action=ManagementAction.CREATE, dataset_name=dataset_name,
                                            category=DataCategory.CONFIG)
         response: DatasetManagementResponse = await self._data_client.async_make_request(request)
         return (dataset_name, response.data_id) if response.success else (None, None)
 
-    async def _async_find_hydrofabric_dataset_name(self, data_id: str, uid: str) -> Optional[str]:
+    async def _async_find_hydrofabric_dataset_name(self, data_id: str, uid: str) -> Tuple[Optional[str], Optional[DataFormat], Optional[str]]:
         """
         Query the data service for the name of the required hydrofabric dataset that fulfill the implied restrictions.
 
@@ -119,17 +122,43 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
 
         Returns
         -------
-        Optional[str]
-            The name of the hydrofabric dataset satisfying these restrictions, or ``None`` if one could not be found.
+        Tuple[Optional[str], Optional[DataFormat], Optional[str]]
+            Tuple containing:
+                - name of hydrofabric dataset satisfying these restrictions, or ``None`` if one could not be found
+                - the data format of hydrofabric dataset, or ``None`` if a dataset could not be found
+                - the name of the geopackage file, if a ``NGEN_GEOPACKAGE_HYDROFABRIC_V2`` dataset, or ``None`` if 
+                  either a dataset could not be found **OR** the dataset is ``NGEN_GEOJSON_HYDROFABRIC``
         """
         # TODO: (later) need a way to select (or prioritize) data format from the partitioning request
-        restrictions = [DiscreteRestriction(variable='data_id', values=[data_id]),
-                        DiscreteRestriction(variable='uid', values=[uid])]
+        restrictions = [DiscreteRestriction(variable=StandardDatasetIndex.DATA_ID, values=[data_id]),
+                        DiscreteRestriction(variable=StandardDatasetIndex.HYDROFABRIC_ID, values=[uid])]
+
+        domain = DataDomain(data_format=DataFormat.NGEN_GEOPACKAGE_HYDROFABRIC_V2, discrete_restrictions=restrictions)
+        data_request = DatasetManagementMessage(action=ManagementAction.SEARCH, category=DataCategory.HYDROFABRIC,
+                                                domain=domain)
+        response: DatasetManagementResponse = await self._data_client.async_make_request(data_request)
+
+        if response.success:
+            list_request = DatasetManagementMessage(action=ManagementAction.QUERY, dataset_name=response.dataset_name,
+                                               query=DatasetQuery(query_type=QueryType.LIST_FILES))
+            list_response = await self._data_client.async_make_request(list_request)
+            gpkg_name = None
+            for item in list_response.query_results.get('files', []) if response.success else []:
+                if item[-5:].lower() == ".gpkg":
+                    gpkg_name = item
+                    break                   
+            return response.dataset_name, DataFormat.NGEN_GEOPACKAGE_HYDROFABRIC_V2, gpkg_name
+
+        # Otherwise, try geojson too, just to be safe
         domain = DataDomain(data_format=DataFormat.NGEN_GEOJSON_HYDROFABRIC, discrete_restrictions=restrictions)
         data_request = DatasetManagementMessage(action=ManagementAction.SEARCH, category=DataCategory.HYDROFABRIC,
                                                 domain=domain)
         response: DatasetManagementResponse = await self._data_client.async_make_request(data_request)
-        return response.dataset_name if response.success else None
+
+        if response.success:
+            return response.dataset_name, DataFormat.NGEN_GEOJSON_HYDROFABRIC, None
+        else:
+            return None, None, None
 
     async def _async_process_request(self, request: PartitionRequest) -> PartitionResponse:
         """
@@ -153,15 +182,19 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
         """
         try:
 
-            hydrofabric_dataset_name = await self._async_find_hydrofabric_dataset_name(request.hydrofabric_data_id,
-                                                                                       request.hydrofabric_uid)
+            hydrofabric_dataset_name, hf_data_format, file_name = await self._async_find_hydrofabric_dataset_name(
+                request.hydrofabric_data_id, request.hydrofabric_uid)
             if not isinstance(hydrofabric_dataset_name, str):
                 return PartitionResponse(success=False, reason='Could Not Find Hydrofabric Dataset')
 
             # TODO: (later) perhaps look at examining these and adapting to what's in the dataset (or request); for now,
             #  just use whatever the defaults are used when "None" is passed in
-            catchment_file_name = None
-            nexus_file_name = None
+            if hf_data_format == DataFormat.NGEN_GEOPACKAGE_HYDROFABRIC_V2 and file_name:
+                catchment_file_name = file_name
+                nexus_file_name = file_name
+            else:
+                catchment_file_name = None
+                nexus_file_name = None
 
             # Create a new dataset that is empty for the partitioning config
             partition_dataset_name, partition_dataset_data_id = await self._async_create_new_partitioning_dataset()
@@ -361,8 +394,8 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
         hy_data_id, hy_uid = self._find_required_hydrofabric_details(job)
         if hy_data_id is None or hy_uid is None:
             raise DmodRuntimeError(err_msg.format("Cannot get hydrofabric dataset details"))
-        hydrofabric_dataset_name = await self._async_find_hydrofabric_dataset_name(hy_data_id, hy_uid)
-        if hydrofabric_dataset_name is None:
+        hydrofabric_ds_name, hf_format, gpkg_file = await self._async_find_hydrofabric_dataset_name(hy_data_id, hy_uid)
+        if hydrofabric_ds_name is None:
             raise DmodRuntimeError(err_msg.format("Cannot find hydrofabric dataset name"))
 
         # Create a new partitioning dataset, and get back the name and data_id
@@ -371,9 +404,12 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
             raise DmodRuntimeError(err_msg.format("Cannot create new partition config dataset"))
 
         # Run the partitioning execution container
+        # TODO: (later) doesn't account for whether we are dealing with gpkg or geojson
         result, logs = self._execute_partitioner_container(num_partitions=job.cpu_count,
-                                                           hydrofabric_dataset_name=hydrofabric_dataset_name,
-                                                           partition_dataset_name=part_dataset_name)
+                                                           hydrofabric_dataset_name=hydrofabric_ds_name,
+                                                           partition_dataset_name=part_dataset_name,
+                                                           catchment_file_name=gpkg_file,
+                                                           nexus_file_name=gpkg_file)
         if result:
             logging.info("Partition config dataset generation for {} was successful".format(job.job_id))
             # If good, save the partition dataset data_id as a data requirement for the job.
@@ -450,32 +486,36 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
             while not self._job_util.lock_active_jobs(lock_id):
                 await asyncio.sleep(2)
 
-            for job in [j for j in self._job_util.get_all_active_jobs() if
-                        j.status_step == JobExecStep.AWAITING_PARTITIONING]:
+            for job in [j for j in self._job_util.get_all_active_jobs() if j.status_step == JobExecStep.AWAITING_PARTITIONING]:
+                partition_requirements = [r for r in job.data_requirements if
+                                          r.domain.data_format == DataFormat.NGEN_PARTITION_CONFIG]
+                assert len(partition_requirements) <= 1
 
                 if job.cpu_count == 1:
-                    logging.warning("No need to partition job {} with only 1 CPU allocated".format(job.job_id))
-                    job.status_step = JobExecStep.AWAITING_ALLOCATION
-                    continue
+                    logging.info("No need to partition job {} with only 1 CPU allocated".format(job.job_id))
+                    job.set_status_step(JobExecStep.AWAITING_ALLOCATION)
+                elif len(partition_requirements) == 1 and partition_requirements[0].fulfilled_by:
+                    logging.info(f"No need to partition job {job.job_id} with partition config already fulfilled by "
+                                 f"dataset {partition_requirements[0].fulfilled_by}")
+                    job.set_status_step(JobExecStep.AWAITING_ALLOCATION)
+                else:
+                    logging.info("Processing partitioning for active job {}".format(job.job_id))
+                    try:
+                        # TODO: test the actual partitioning process also
+                        if await self._generate_partition_config_dataset(job):
+                            job.set_status_step(JobExecStep.AWAITING_ALLOCATION)
+                        else:
+                            job.set_status_step(JobExecStep.PARTITIONING_FAILED)
+                    except Exception as e:
+                        logging.error(f"Partition generation for {job.job_id} failed ({e.__class__.__name__}) - {e!s}")
+                        job.set_status_step(JobExecStep.PARTITIONING_FAILED)
 
-                logging.info("Processing partitioning for active job {}".format(job.job_id))
-                try:
-                    # See if there is already an existing dataset to use for this
-                    part_dataset_search_result = await self._find_partition_dataset(job)
-                    # If either one was found, or we can create a new partition config dataset, move to allocations
-                    if part_dataset_search_result.success or (await self._generate_partition_config_dataset(job)):
-                        job.status_step = JobExecStep.AWAITING_ALLOCATION
-                    else:
-                        job.status_step = JobExecStep.PARTITIONING_FAILED
-                except Exception as e:
-                    logging.error("Partition dataset generation for {} failed due to error - {}".format(job.job_id, e))
-                    job.status_step = JobExecStep.PARTITIONING_FAILED
                 # Protect service task against problems with an individual save attempt
                 try:
                     self._job_util.save_job(job)
-                except:
-                    # TODO: (later) logging would be good, and perhaps maybe retries
-                    pass
+                except Exception as e:
+                    logging.error(f"Partition service actions were successful for job {job.job_id}, but service could "
+                                  f"not save updated job state due to {e.__class__.__name__}: {e!s}")
             self._job_util.unlock_active_jobs(lock_id)
             await asyncio.sleep(5)
 
