@@ -247,7 +247,7 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
                 ),
             ]
             hydro_domain = DataDomain(
-                data_format=DataFormat.NGEN_GEOJSON_HYDROFABRIC,
+                data_format=DataFormat.NGEN_GEOPACKAGE_HYDROFABRIC_V2,
                 discrete_restrictions=hydro_restrictions,
             )
             self._hydrofabric_data_requirement = DataRequirement(
