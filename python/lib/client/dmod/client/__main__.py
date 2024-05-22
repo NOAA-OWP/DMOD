@@ -260,6 +260,10 @@ def _handle_data_service_action_args(parent_subparsers_container):
     parser_download.add_argument('dataset_name', help='Specify the name of the desired dataset.')
     parser_download.add_argument('dest_dir', type=Path, help='Specify local destination directory to save to.')
 
+    # Nested parser for the 'state' action
+    parser_list = action_subparsers.add_parser('state', description="Get dataset state.")
+    parser_list.add_argument('dataset_name', help='Specify the dataset name')
+
     # Nested parser for the 'list_datasets' action
     parser_list = action_subparsers.add_parser('list', description="List available datasets.")
     parser_list.add_argument('--category', dest='category', choices=dataset_categories, type=DataCategory.get_for_name,
@@ -294,6 +298,8 @@ def _handle_jobs_command_args(parent_subparsers_container):
 
     # Nested parser for the 'info' action
     parser_job_info = job_command_subparsers.add_parser('info')
+    parser_job_info.add_argument('--status-only', dest="status_only", action='store_true',
+                                 help='Only include job exec status, not full state')
     parser_job_info.add_argument('job_id', help='The id of the job for which to retrieve job state info')
 
     # Nested parser for the 'release' action
