@@ -76,19 +76,20 @@ class JobInfoResponse(Response):
 
     job_id: str = Field(description="The identifier of the job of interest.")
     status_only: bool = Field(False, description="Whether only 'status' attribute of job is returned (when success).")
+    job_state: Optional[dict]
 
-    @validator("data")
-    def _validate_data(cls, value: Optional[dict], values: dict) -> dict:
+    @validator("job_state")
+    def _validate_job_state(cls, value: Optional[dict], values: dict, field, **kwargs) -> dict:
         """
-        Validate the :attr:`data` attribute, in particular in the context of whether the response indicates success.
+        Validate :attr:`job_state` attribute, in particular in the context of whether the response indicates success.
 
-        Validate the value of the :attr:`data` attribute.  For successful responses, this should be a dictionary object
-        with at least one key. For failure responses, the attribute should be set to ``None``.
+        Validate the value of the :attr:`job_state` attribute.  For successful responses, this should be a dictionary
+        object with at least one key. For failure responses, the attribute should be set to ``None``.
 
         Parameters
         ----------
         value: Optional[dict]
-            The :attr:`data` value.
+            The :attr:`job_state` value.
         values: dict
             Previous attribute values for the instance.
 
@@ -101,21 +102,21 @@ class JobInfoResponse(Response):
         ------
         ValueError
             If either:
-                1. the response indicates success and the :attr:`data` `value` is ``None``
-                2. the response indicates success and the :attr:`data` `value` is has length of ``0``
-                3. the response indicates failure and the :attr:`data` `value` is not ``None``
+                1. the response indicates success and the :attr:`job_state` `value` is ``None``
+                2. the response indicates success and the :attr:`job_state` `value` is has length of ``0``
+                3. the response indicates failure and the :attr:`job_state` `value` is not ``None``
         TypeError
-            If the response indicates success and the :attr:`data` `value` is not a :class:`dict` object.
+            If the response indicates success and the :attr:`job_state` `value` is not a :class:`dict` object.
         """
         if values['success']:
             if value is None:
-                raise ValueError(f"{cls.__name__} 'data' field must not be 'None' when successful.")
+                raise ValueError(f"{cls.__name__} 'job_state' field must not be 'None' when successful.")
             elif not isinstance(value, dict):
-                raise TypeError(f"{cls.__name__} 'data' field should be dictionary but was {value.__class__.__name__}")
+                raise TypeError(f"{cls.__name__} 'job_state' field should be dictionary but was {value.__class__.__name__}")
             elif len(value) == 0:
-                raise ValueError(f"{cls.__name__} 'data' field must not be empty when successful.")
+                raise ValueError(f"{cls.__name__} 'job_state' field must not be empty when successful.")
         elif value is not None:
-            raise ValueError(f"{cls.__name__} 'data' field must be 'None' when not successful.")
+            raise ValueError(f"{cls.__name__} 'job_state' field must be 'None' when not successful.")
 
         return value
 
@@ -144,19 +145,20 @@ class JobListResponse(Response):
     """ The type of :class:`AbstractInitRequest` for which this type is the response. """
 
     only_active: bool = Field(False, description="Whether only the ids of active jobs were returned.")
+    job_list: Optional[List[str]]
 
-    @validator("data")
-    def _validate_data(cls, value: Optional[List[str]], values: dict) -> List[str]:
+    @validator("job_list")
+    def _validate_job_list(cls, value: Optional[List[str]], values: dict) -> List[str]:
         """
-        Validate the :attr:`data` attribute, in particular in the context of whether the response indicates success.
+        Validate the :attr:`job_list` attribute, in particular in the context of whether the response indicates success.
 
-        Validate the value of the :attr:`data` attribute.  For successful responses, this should be a list of strings,
-        though the list may be empty.  For failure responses, the attribute should be set to ``None``.
+        Validate the value of the :attr:`job_list` attribute.  For successful responses, this should be a list of
+        strings, though the list may be empty.  For failure responses, the attribute should be set to ``None``.
 
         Parameters
         ----------
         value: Optional[List[str]]
-            The ``data`` value.
+            The ``job_list`` value.
         values: dict
             Previous attribute values for the instance.
 
@@ -169,21 +171,21 @@ class JobListResponse(Response):
         ------
         ValueError
             If either:
-                1. the response indicates success and the :attr:`data` `value` is ``None``
-                2. the response indicates success and the :attr:`data` `value` has a non-string
-                3. the response indicates failure and the :attr:`data` `value` is not ``None``
+                1. the response indicates success and the :attr:`job_list` `value` is ``None``
+                2. the response indicates success and the :attr:`job_list` `value` has a non-string
+                3. the response indicates failure and the :attr:`job_list` `value` is not ``None``
         TypeError
-            If the response indicates success and the :attr:`data` `value` is not a :class:`list` object.
+            If the response indicates success and the :attr:`job_list` `value` is not a :class:`list` object.
         """
         if values['success']:
             if value is None:
-                raise ValueError(f"{cls.__name__} 'data' field must not be 'None' when successful.")
+                raise ValueError(f"{cls.__name__} 'job_list' field must not be 'None' when successful ({value!s}).")
             elif not isinstance(value, list):
-                raise TypeError(f"{cls.__name__} 'data' field must be list but was {value.__class__.__name__}")
+                raise TypeError(f"{cls.__name__} 'job_list' field must be list but was {value.__class__.__name__} ({value!s})")
             elif len(value) > 0 and not all(isinstance(n, str) for n in value):
-                raise ValueError(f"{cls.__name__} 'data' field was not list of all strings elements.")
+                raise ValueError(f"{cls.__name__} 'job_list' field was not list of all strings elements ({value!s}).")
 
         elif value is not None:
-            raise ValueError(f"{cls.__name__} 'data' field must be 'None' when not successful.")
+            raise ValueError(f"{cls.__name__} 'job_list' field must be 'None' when not successful ({value!s}).")
 
         return value
