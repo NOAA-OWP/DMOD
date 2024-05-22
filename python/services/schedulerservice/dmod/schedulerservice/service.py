@@ -158,12 +158,15 @@ class SchedulerHandler(WebSocketInterface):
         try:
             # Get current persisted copy of Job object
             job = self._job_manager.retrieve_job(message.job_id)
+            if message.status_only:
+                job_state = job.status.to_dict()
+            else:
+                job_state = job.to_dict()
             response = JobInfoResponse(success=True, reason="Job Details Retrieved", job_id=message.job_id,
-                                       status_only=message.status_only,
-                                       data=job.status.to_dict() if message.status_only else job.to_dict())
+                                       status_only=message.status_only, job_state=job_state)
         except Exception as e:
-            response = JobListResponse(success=False, reason=f"Encountered {e.__class__.__name__}",
-                                       status_only=message.status_only,
+            response = JobInfoResponse(success=False, reason=f"Encountered {e.__class__.__name__}",
+                                       job_id=message.job_id, status_only=message.status_only,
                                        message=f"Error when attempting to get job state details: {e!s}")
         await websocket.send(str(response))
 
