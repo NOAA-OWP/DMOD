@@ -771,6 +771,27 @@ class DataServiceClient:
         except DmodRuntimeError as e:
             raise DmodRuntimeError(f"DMOD error when getting dataset item: {str(e)}")
 
+    async def get_dataset_state(self, dataset_name: str, **kwargs) -> DatasetManagementResponse:
+        """
+        Get dataset state.
+
+        Parameters
+        ----------
+        dataset_name : str
+            The name/id of the dataset of interest.
+
+        Returns
+        -------
+        DatasetManagementResponse
+            A response containing the dataset state.
+        """
+        request = DatasetManagementMessage(action=ManagementAction.QUERY, dataset_name=dataset_name,
+                                           query=DatasetQuery(query_type=QueryType.GET_STATE))
+        try:
+            return await self._process_request(request=request)
+        except DmodRuntimeError as e:
+            raise DmodRuntimeError(f"DMOD error when getting dataset state: {str(e)}")
+
     async def list_datasets(self, category: Optional[DataCategory] = None, **kwargs) -> List[str]:
         """
         Convenience method to list datasets, optionally filtering to a specific category.
