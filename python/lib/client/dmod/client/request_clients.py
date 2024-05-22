@@ -135,7 +135,7 @@ class JobClient:
         else:
             return indicator.data
 
-    async def request_job_info(self, job_id: str, *args, **kwargs) -> JobInfoResponse:
+    async def request_job_info(self, job_id: str, status_only: bool = False, *args, **kwargs) -> JobInfoResponse:
         """
         Request the full state of the provided job, formatted as a JSON dictionary.
 
@@ -143,6 +143,8 @@ class JobClient:
         ----------
         job_id : str
             The id of the job in question.
+        status_only : bool
+            Whether to only include status info in response, not entire job state.
         args
             (Unused) variable positional args.
         kwargs
@@ -154,7 +156,7 @@ class JobClient:
             An indicator of success of the request that, when successful, contains the full state of the provided job,
             formatted as a JSON dictionary, in the ``data`` attribute.
         """
-        return await self._job_info_request(job_id=job_id, status_only=False)
+        return await self._job_info_request(job_id=job_id, status_only=status_only)
 
     async def request_job_release(self, job_id: str, *args, **kwargs) -> JobControlResponse:
         """
