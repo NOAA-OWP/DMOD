@@ -392,7 +392,7 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
             # Note that this code should be safe as is as long as the job itself still has the previous allocation saved
             # in situations when it needs to use the same allocation as before
             if job.status_step == JobExecStep.STOPPED:
-                job.status_step = JobExecStep.AWAITING_ALLOCATION
+                job.set_status_step(JobExecStep.AWAITING_ALLOCATION)
                 # TODO: calculate impact on priority
                 self.save_job(job)
 
@@ -408,7 +408,7 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
                 else:
                     # TODO: confirm the allocation is still valid (saving it without checking will make it so, which
                     #  could lead to inconsistencies)
-                    job.status_step = JobExecStep.AWAITING_DATA
+                    job.set_status_step(JobExecStep.AWAITING_DATA)
                     self.save_job(job)
 
             if job.should_release_resources:
