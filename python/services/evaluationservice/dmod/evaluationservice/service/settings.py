@@ -33,6 +33,7 @@ ALLOWED_HOSTS = ["*"]
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'channels',
     'django.forms',
     'evaluation_service.apps.EvaluationServiceConfig',
