@@ -1055,15 +1055,6 @@ async function renderDefinitions(event, socket) {
 
         row.appendChild(descriptionCell);
 
-        let lastModifiedCell = document.createElement("td");
-        lastModifiedCell.id = `${definition.identifier}-last_modified`;
-        lastModifiedCell.classList.add("last_modified-cell");
-        lastModifiedCell.classList.add("search-cell");
-        lastModifiedCell.textContent = definition.last_modified.trim();
-        lastModifiedCell.setAttribute("identifier", definition.identifier);
-
-        row.appendChild(lastModifiedCell);
-
         searchTableBody.appendChild(row);
     }
 
