@@ -166,7 +166,7 @@ class Arguments(object):
                 "--quiet, --verbose, and --list are all mutually exclusive. Only call with one.",
                 file=sys.stderr
             )
-            exit(-1)
+            sys.exit(-1)
 
 
 class TestMessage:
@@ -246,7 +246,7 @@ class TestOutput:
         This will hold the bulk of the data of interest
         """
 
-        self.messages: typing.List[TestMessage] = list()
+        self.messages: typing.List[TestMessage] = []
         """Messages encountered when interpreting stderr"""
 
         self.runtime: float = runtime
@@ -278,7 +278,7 @@ class TestOutput:
             print(description, file=sys.stderr)
             error_message = TestMessage(
                 status=self.path,
-                content=self.stdout,
+                content=f"{self.stdout}\n\n{self.stderr}",
                 description=description
             )
             self.messages.append(error_message)
@@ -379,7 +379,7 @@ class TestOutput:
                 file=sys.stderr
             )
             # Exit with a code of -1 to indicate that this was an application error, not a test error or failure
-            exit(-1)
+            sys.exit(-1)
 
         # We know we're not in verbose mode if it wasn't stated, so set it as False in order to be explicit
         if verbose is None:
@@ -500,7 +500,7 @@ def find_django_applications(root: Path) -> typing.List[Path]:
     Returns:
         A list of all found testable Django applications
     """
-    application_paths = list()
+    application_paths = []
 
     # Indicates if the current root directory might be able to be interpreted
     # as a testable Django application
@@ -513,11 +513,12 @@ def find_django_applications(root: Path) -> typing.List[Path]:
         if "__pycache__" in path.parts:
             continue
         # Anything starting with '.' is considered 'hidden', so we need to skip that
-        elif path.name.startswith("."):
+        if path.name.startswith("."):
             continue
+
         # If a file named 'manage.py' is found, we might need to check if we're in
         # a Django application
-        elif path.is_file() and path.name == "manage.py":
+        if path.is_file() and path.name == "manage.py":
             has_manage = True
         # If the path is a directory, we need to dive deeper to see if a child directory is an application
         elif path.is_dir():
@@ -594,7 +595,7 @@ def run_all_django_tests(django_paths: typing.Sequence[Path]) -> typing.Sequence
     Returns:
         A collection of test results from every identified Django application
     """
-    result_data: typing.List[TestOutput] = list()
+    result_data: typing.List[TestOutput] = []
 
     # If only one path is found, run that naturally
     if len(django_paths) == 1:
@@ -703,7 +704,7 @@ def main() -> int:
             verbose=arguments.verbose
         )
 
-        code += sum([test_result.count for test_result in test_results])
+        code += sum(test_result.count for test_result in test_results)
 
     return code
 
@@ -711,4 +712,4 @@ def main() -> int:
 if __name__ == "__main__":
     # Test all available Django applications and return the number of failed tests
     error_count = main()
-    exit(error_count)
+    sys.exit(error_count)
