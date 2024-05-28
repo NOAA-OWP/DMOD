@@ -23,10 +23,12 @@ hydrotools.nwis-client
 numpy
 scikit-learn
 minio
+minio
 uri
 aiohttp~=3.8
 channels
 channels-redis
+daphne
 Pint
 django_rq
 requests
