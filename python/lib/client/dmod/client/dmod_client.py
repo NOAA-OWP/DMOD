@@ -9,7 +9,7 @@ from dmod.core.meta_data import DataDomain, DiscreteRestriction, StandardDataset
 from .request_clients import DataServiceClient, JobClient
 from .client_config import ClientConfig
 from pathlib import Path
-from typing import List, Optional, Type, Union
+from typing import List, Literal, Optional, Type, Union
 
 from functools import reduce
 from .domain_detectors import ClientDataCollectionDomainDetector, ClientUniversalItemDomainDetector
@@ -174,7 +174,11 @@ class DmodClient:
     def client_config(self) -> ClientConfig:
         return self._client_config
 
-    async def data_service_action(self, action: str, **kwargs) -> ResultIndicator:
+    async def data_service_action(
+        self,
+        action: Literal["create", "delete", "upload", "download", "list", "items", "state"],
+        **kwargs,
+    ) -> ResultIndicator:
         """
         Perform a supported data service action.
 
