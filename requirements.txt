@@ -23,7 +23,6 @@ hydrotools.nwis-client
 numpy
 scikit-learn
 minio
-minio
 uri
 aiohttp~=3.8
 channels
