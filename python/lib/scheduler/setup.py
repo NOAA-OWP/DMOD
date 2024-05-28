@@ -20,8 +20,8 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=['docker', 'Faker', 'dmod-communication>=0.17.0', 'dmod-modeldata>=0.7.1', 'dmod-redis>=0.1.0',
-                      'requests<=2.31.0', 'dmod-core>=0.15.0', 'cryptography', 'uri', 'pyyaml', 'pydantic>=1.10.8,~=1.10'],
+    install_requires=['docker>=7.1.0', 'Faker', 'dmod-communication>=0.17.0', 'dmod-modeldata>=0.7.1', 'dmod-redis>=0.1.0',
+                      'dmod-core>=0.15.0', 'cryptography', 'uri', 'pyyaml', 'pydantic>=1.10.8,~=1.10'],
     packages=find_namespace_packages(exclude=['dmod.test', 'src'])
 )
 
