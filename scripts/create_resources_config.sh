@@ -52,7 +52,12 @@ while [ ${#} -gt 0 ]; do
     shift
 done
 
-if [ -e ${SCHEDULER_RESOURCE_DIR}/resources.yaml ]; then
+if [ ! -e ${SCHEDULER_RESOURCE_DIR:?Scheduler resources directory not configured in environment} ]; then
+    mkdir -p ${SCHEDULER_RESOURCE_DIR}
+elif [ ! -d ${SCHEDULER_RESOURCE_DIR} ]; then
+    >&2 echo "Error: existing non-directory at configured path for scheduler resource directory '${SCHEDULER_RESOURCE_DIR}'!"
+    exit 1
+elif [ -e ${SCHEDULER_RESOURCE_DIR}/resources.yaml ]; then
     >&2 echo "Error: file '${SCHEDULER_RESOURCE_DIR}/resources.yaml' already exists!"
     exit 1
 fi
