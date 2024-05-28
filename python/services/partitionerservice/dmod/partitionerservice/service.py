@@ -486,7 +486,8 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
             while not self._job_util.lock_active_jobs(lock_id):
                 await asyncio.sleep(2)
 
-            for job in [j for j in self._job_util.get_all_active_jobs() if j.status_step == JobExecStep.AWAITING_PARTITIONING]:
+            for job in (j for j in self._job_util.get_all_active_jobs() if
+                        j.status_step == JobExecStep.AWAITING_PARTITIONING):
                 partition_requirements = [r for r in job.data_requirements if
                                           r.domain.data_format == DataFormat.NGEN_PARTITION_CONFIG]
                 assert len(partition_requirements) <= 1
