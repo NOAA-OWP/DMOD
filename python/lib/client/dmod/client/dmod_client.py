@@ -226,10 +226,17 @@ class DmodClient:
     @property
     def data_service_client(self) -> DataServiceClient:
         if self._data_service_client is None:
+            # NOTE: request service is bypassed if data service config has been specified and is active
             if self.client_config.data_service is not None and self.client_config.data_service.active:
                 t_client_type = determine_transport_client_type(self.client_config.data_service.endpoint_protocol)
                 t_client = t_client_type(**self.client_config.data_service.dict())
-                self._data_service_client = DataServiceClient(t_client, self._auth_client)
+                # use http client where applicable when bypassing request service
+                import aiohttp
+                host = self.client_config.data_service.endpoint_host
+                port = self.client_config.data_service.endpoint_port
+                proto = "http" if t_client.ssl_context is None else "https"
+                http_client = aiohttp.ClientSession(f"{proto}://{host}:{port}")
+                self._data_service_client = DataServiceClient(t_client, self._auth_client, http_client=http_client)
             else:
                 self._data_service_client = DataServiceClient(self._get_transport_client(), self._auth_client)
         return self._data_service_client
