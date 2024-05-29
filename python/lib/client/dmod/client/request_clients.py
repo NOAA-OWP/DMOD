@@ -1,4 +1,7 @@
 from abc import ABC, abstractmethod
+import aiohttp
+import mimetypes
+import ssl
 from dmod.communication import (AuthClient, InvalidMessageResponse, ManagementAction, NGENRequest, NGENRequestResponse,
                                 NgenCalibrationRequest, NgenCalibrationResponse, TransportLayerClient)
 from dmod.communication.client import ConnectionContextClient
@@ -351,6 +354,58 @@ class DataTransferAgent(ABC):
         pass
 
 
+class HttpDataTransferAgent(DataTransferAgent):
+    def __init__(self, http_client: aiohttp.ClientSession, ssl_context: Optional[ssl.SSLContext] = None):
+        self.http_client = http_client
+        self.ssl_context = ssl_context
+
+    async def download_dataset_item(self, dataset_name: str, item_name: str, dest: Path):
+        raise NotImplemented
+
+    async def upload_dataset_item(
+        self, dataset_name: str, item_name: str, source: Path
+    ) -> DatasetManagementResponse:
+        if not source.is_file():
+            return DatasetManagementResponse(
+                success=False,
+                reason="Dataset Upload File Not Found",
+                message=f"File {source!s} does not exist",
+            )
+
+        content_type, _ = mimetypes.guess_type(source)
+        form_data = aiohttp.FormData()
+        with source.open() as fp:
+            form_data.add_field(
+                "obj",
+                fp,
+                filename=item_name,
+                content_type=content_type,
+            )
+            response = await self.http_client.post(
+            "/add_object",
+            data=form_data,
+            params={
+                "dataset_name": dataset_name,
+                "object_name": item_name,
+            },
+            ssl=self.ssl_context,
+        )
+        if not response.ok:
+            return DatasetManagementResponse(
+                success=False,
+                reason="Dataset Item Upload Failed",
+                message=f"Status Code: {response.status}",
+            )
+
+        return DatasetManagementResponse(success=True, message="Dataset Item Upload Successful", reason="Success")
+
+    @property
+    def uses_auth(self) -> bool:
+        # NOTE: At this point in time, the dataset service's rest endpoints do
+        # not support auth
+        return False
+
+
 class SimpleDataTransferAgent(DataTransferAgent):
 
     def __init__(self, transport_client: TransportLayerClient, auth_client: Optional[AuthClient] = None, *args, **kwargs):
@@ -559,10 +614,18 @@ class DataServiceClient:
         else:
             return response.data.datasets
 
-    def __init__(self, transport_client: TransportLayerClient, auth_client: Optional[AuthClient] = None, *args, **kwargs):
+    def __init__(
+        self,
+        transport_client: TransportLayerClient,
+        auth_client: Optional[AuthClient] = None,
+        *args,
+        http_client: Optional[aiohttp.ClientSession] = None,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self._transport_client: TransportLayerClient = transport_client
         self._auth_client: Optional[AuthClient] = auth_client
+        self._http_client: Optional[aiohttp.ClientSession] = http_client
 
     async def _process_request(self, request: DatasetManagementMessage) -> DatasetManagementResponse:
         """
@@ -918,7 +981,11 @@ class DataServiceClient:
             An indicator of whether uploading was successful
         """
         # TODO: see if we can perhaps have multiple agents and thread pool if multiplexing is available
-        tx_agent = SimpleDataTransferAgent(transport_client=self._transport_client, auth_client=self._auth_client)
+        # NOTE: prefer http client if available
+        if self._http_client is not None:
+            tx_agent = HttpDataTransferAgent(http_client=self._http_client, ssl_context=self._transport_client.ssl_context)
+        else:
+            tx_agent = SimpleDataTransferAgent(transport_client=self._transport_client, auth_client=self._auth_client)
         if isinstance(paths, Path):
             paths = [paths]
 
