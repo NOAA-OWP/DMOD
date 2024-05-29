@@ -176,6 +176,18 @@ class TransportLayerClient(ABC):
         """
         pass
 
+    @property
+    def ssl_context(self) -> Optional[ssl.SSLContext]:
+        """
+        Client ssl context, if present.
+
+        Returns
+        -------
+        Optional[ssl.SSLContext]
+            Configured ssl context
+        """
+        return self._client_ssl_context
+
 
 class AuthClient:
     """
