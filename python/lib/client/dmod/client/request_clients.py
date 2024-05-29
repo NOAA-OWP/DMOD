@@ -792,7 +792,7 @@ class DataServiceClient:
         try:
             return await self._process_request(request=request)
         except DmodRuntimeError as e:
-            raise DmodRuntimeError(f"DMOD error when getting dataset state: {str(e)}")
+            raise DmodRuntimeError(f"DMOD error when getting dataset state: {str(e)}") from e
 
     async def list_datasets(self, category: Optional[DataCategory] = None, **kwargs) -> List[str]:
         """
