@@ -38,7 +38,7 @@ services:
     #depends_on:
     #  - myredis
   myredis:
-    image: redis
+    image: redis:7.2
     ports:
       - "6379:6379"
     networks:
