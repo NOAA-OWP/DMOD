@@ -1,0 +1,4 @@
+This project was originally inspired in part by [WALKOFF](https://github.com/nsacyber/WALKOFF).
+
+This project utilizes the Cloud Native Water Resource Modeling Hydrofabric dataset, developed by Lynker and available
+at https://www.lynker-spatial.com/.  See https://lynker-spatial.s3.amazonaws.com/copyright.html for its licensing.
