@@ -172,6 +172,6 @@ See the [CONTRIBUTING](CONTRIBUTING.md) document for details.
 
 ----
 
-## Credits and references
+## Credits, references, and notices
 
-Inspired by [WALKOFF](https://github.com/nsacyber/WALKOFF)
+See [NOTICE](NOTICE) file.
