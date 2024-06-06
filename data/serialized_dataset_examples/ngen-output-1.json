@@ -5,7 +5,7 @@
    "type" : "OBJECT_STORE",
    "data_domain" : {
       "continuous" : [],
-      "data_format" : "NGEN_OUTPUT",
+      "data_format" : "NGEN_CSV_OUTPUT",
       "discrete" : [
          {
             "values" : [
