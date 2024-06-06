@@ -4,44 +4,47 @@
 while [ ${#} -gt 0 ]; do
     case "${1}" in
         --config-dataset)
-            CONFIG_DATASET_NAME="${2:?}"
+            declare -x CONFIG_DATASET_NAME="${2:?}"
             shift
             ;;
         --host-string)
-            MPI_HOST_STRING="${2:?}"
+            declare -x MPI_HOST_STRING="${2:?}"
             shift
             ;;
         --hydrofabric-dataset)
-            HYDROFABRIC_DATASET_NAME="${2:?}"
+            declare -x HYDROFABRIC_DATASET_NAME="${2:?}"
             shift
             ;;
         --job-id)
-            JOB_ID="${2:?}"
+            declare -x JOB_ID="${2:?}"
             shift
             ;;
         --node-count)
-            MPI_NODE_COUNT="${2:?}"
+            declare -x MPI_NODE_COUNT="${2:?}"
             shift
             ;;
         --output-dataset)
-            OUTPUT_DATASET_NAME="${2:?}"
+            declare -x OUTPUT_DATASET_NAME="${2:?}"
             shift
             ;;
         --partition-dataset)
-            PARTITION_DATASET_NAME="${2:?}"
+            declare -x PARTITION_DATASET_NAME="${2:?}"
             shift
             ;;
         --worker-index)
-            WORKER_INDEX="${2:?}"
+            declare -x WORKER_INDEX="${2:?}"
             shift
             ;;
         --calibration-config-file)
-            CALIBRATION_CONFIG_BASENAME="${2:?}"
+            declare -x CALIBRATION_CONFIG_BASENAME="${2:?}"
             shift
             ;;
     esac
     shift
 done
+
+# TODO: (later) in both ngen and ngen-cal entrypoints, add controls for whether this is temp dir or output dataset dir
+declare -x JOB_OUTPUT_WRITE_DIR="/tmp/job_output"
 
 # Get some universally applicable functions and constants
 source ./funcs.sh
@@ -50,8 +53,16 @@ ngen_sanity_checks_and_derived_init
 init_script_mpi_vars
 init_ngen_executable_paths
 
-# Move to the output dataset mounted directory
-cd ${OUTPUT_DATASET_DIR:?Output dataset directory not defined}
+# Move to the output write directory
+# TODO: (later) in both ngen and ngen-cal entrypoints, control whether this is needed, based on if write dir is output dataset dir
+#cd ${OUTPUT_DATASET_DIR:?Output dataset directory not defined}
+mkdir ${JOB_OUTPUT_WRITE_DIR:?}
+chown ${MPI_USER}:${MPI_USER} ${JOB_OUTPUT_WRITE_DIR}
+cd ${JOB_OUTPUT_WRITE_DIR}
+#Needed for routing
+if [ ! -e /dmod/datasets/linked_job_output ]; then
+    ln -s ${JOB_OUTPUT_WRITE_DIR} /dmod/datasets/linked_job_output
+fi
 
 start_calibration() {
     # Start ngen calibration
@@ -61,23 +72,30 @@ start_calibration() {
         echo "$(print_date) Starting ngen calibration with serial ngen execution"
     fi
 
-    # Find and use copy of config in output dataset
+    # Find calibration config, then copy to output dataset and use that
     if [ -n "${CALIBRATION_CONFIG_BASENAME:-}" ]; then
-        CALIBRATION_CONFIG_FILE=$(find ${OUTPUT_DATASET_DIR:?} -type f -name "${CALIBRATION_CONFIG_BASENAME}" -maxdepth 1 | head -1)
+        #CALIBRATION_CONFIG_FILE=$(find ${OUTPUT_DATASET_DIR:?} -type f -name "${CALIBRATION_CONFIG_BASENAME}" -maxdepth 1 | head -1)
+        _ORIG_CAL_CONFIG_FILE=$(find ${CONFIG_DATASET_DIR:?} -type f -name "${CALIBRATION_CONFIG_BASENAME}" -maxdepth 1 | head -1)
     else
-        CALIBRATION_CONFIG_FILE=$(find ${OUTPUT_DATASET_DIR:?} -type f -iname "*.yaml" -o -iname "*.yml" -maxdepth 1 | head -1)
+        #CALIBRATION_CONFIG_FILE=$(find ${OUTPUT_DATASET_DIR:?} -type f -iname "*.yaml" -o -iname "*.yml" -maxdepth 1 | head -1)
+        _ORIG_CAL_CONFIG_FILE=$(find ${CONFIG_DATASET_DIR:?} -type f -iname "*.yaml" -o -iname "*.yml" -maxdepth 1 | head -1)
     fi
-
-    if [ -z "${CALIBRATION_CONFIG_FILE}" ]; then
+    if [ -z "${_ORIG_CAL_CONFIG_FILE}" ]; then
         echo "Error: NGEN calibration yaml file not found" 2>&1
         exit 1
     fi
+    cp -a ${_ORIG_CAL_CONFIG_FILE:?} ${OUTPUT_DATASET_DIR:?}/.
+    CALIBRATION_CONFIG_FILE="${OUTPUT_DATASET_DIR:?}/$(basename ${_ORIG_CAL_CONFIG_FILE})"
+
     python3 -m ngen.cal "${CALIBRATION_CONFIG_FILE}"
 
     #Capture the return value to use as service exit code
     NGEN_RETURN=$?
 
     echo "$(print_date) ngen calibration finished with return value: ${NGEN_RETURN}"
+
+    # TODO: (later) make sure outputs are handled properly, and that eventually we support toggling whether written to
+    # TODO:     output dataset dir directly or somewhere else
 
     # Exit with the model's exit code
     return ${NGEN_RETURN}
@@ -89,11 +107,16 @@ if [ "${WORKER_INDEX:-0}" = "0" ]; then
         # This will only have an effect when running with multiple MPI nodes, so its safe to have even in serial exec
         trap close_remote_workers EXIT
         # Have "main" (potentially only) worker copy config files to output dataset for record keeping
-        # TODO: perform copy of configs to output dataset outside of image (in service) for better performance
-        cp -a ${CONFIG_DATASET_DIR:?Config dataset directory not defined}/. ${OUTPUT_DATASET_DIR:?}
+        # TODO: (later) in ngen and ngen-cal entrypoints, consider adding controls for whether this is done or a simpler
+        # TODO:     'cp' call, based on whether we write directly to output dataset dir or some other output write dir
+        # Do a dry run first to sanity check directory and fail if needed before backgrounding process
+        tar_and_copy --dry-run --compress ${CONFIG_DATASET_DIR:?Config dataset directory not defined} config_dataset.tgz ${OUTPUT_DATASET_DIR:?}
+        # Then actually run the archive and copy function in the background
+        tar_and_copy --compress ${CONFIG_DATASET_DIR:?} config_dataset.tgz ${OUTPUT_DATASET_DIR:?} &
+        _CONFIG_COPY_PROC=$!
+        # If there is partitioning, which implies multi-processing job ...
         if [ -n "${PARTITION_DATASET_DIR:-}" ]; then
             # Include partition config dataset too if appropriate
-            # TODO: perform copy of configs to output dataset outside of image (in service) for better performance
             cp -a ${PARTITION_DATASET_DIR}/. ${OUTPUT_DATASET_DIR:?}
         fi
 
