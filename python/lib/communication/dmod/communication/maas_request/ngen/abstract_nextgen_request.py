@@ -311,7 +311,7 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
         List[DataFormat]
             List of the formats of each required output dataset for the requested job.
         """
-        return [DataFormat.NGEN_OUTPUT]
+        return [DataFormat.ARCHIVED_NGEN_CSV_OUTPUT]
 
     @property
     def partition_cfg_data_id(self) -> Optional[str]:

@@ -118,11 +118,11 @@ class DataFormat(PydanticEnum):
                            True
                            )
     """ The default format for "raw" AORC forcing data. """
-    NGEN_OUTPUT = (3,
-                   {StandardDatasetIndex.CATCHMENT_ID: None, StandardDatasetIndex.TIME: None, StandardDatasetIndex.DATA_ID: None},
-                   None,
-                   True)
-    """ Representation of the format for Nextgen output, with unknown/unspecified configuration of output fields. """
+    NGEN_CSV_OUTPUT = (3,
+                       {StandardDatasetIndex.CATCHMENT_ID: None, StandardDatasetIndex.TIME: None, StandardDatasetIndex.DATA_ID: None},
+                       None,
+                       True)
+    """ Format for output of ngen when written as CSV, with unknown/unspecified configuration of output fields. """
     NGEN_REALIZATION_CONFIG = (
         4, {StandardDatasetIndex.CATCHMENT_ID: None, StandardDatasetIndex.TIME: None, StandardDatasetIndex.DATA_ID: None}, None, True)
     """ Representation of the format of realization configs, which covers catchments (id) has a time period (time). """
@@ -221,15 +221,28 @@ class DataFormat(PydanticEnum):
     is removed).
     """
 
+    ARCHIVED_NGEN_CSV_OUTPUT = (17,
+                       {StandardDatasetIndex.CATCHMENT_ID: None, StandardDatasetIndex.TIME: None, StandardDatasetIndex.DATA_ID: None},
+                       None,
+                       True)
+    """ Format for output of ngen, similar to ``NGEN_CSV_OUTPUT``, but with all output archived to single tar file. """
+
+    NGEN_NETCDF_OUTPUT = (18,
+                          {StandardDatasetIndex.CATCHMENT_ID: None, StandardDatasetIndex.TIME: None,
+                           StandardDatasetIndex.DATA_ID: None},
+                          None,
+                          True)
+    """ Format for output of ngen when written to single NetCDF file, with dynamically configured output fields. """
+
     @classmethod
     def can_format_fulfill(cls, needed: DataFormat, alternate: DataFormat) -> bool:
         """
-        Test whether data in an alternate format is capable of satisfying requirements of some other format.
+        Test whether a dataset and contained data in some format can satisfy requirements of a different format.
 
-        This function indicates whether data in one format (the alternate format) is compatible with requirements
-        specified using a different format (the needed format).  It is an indication of whether data is **potentially**
-        capable of satisfying a requirement - even if the data formats of the two are not the same - due to the two
-        formats being sufficiently similar.
+        This function indicates whether a hypothetical dataset and its data, having some particular format (the
+        alternate format) is compatible with hypothical requirements specified using a different format (the needed
+        format).  It is an indication of whether a dataset and its data are **potentially** capable of satisfying a
+        requirement, even with a different format, due to the two formats being sufficiently similar.
 
         For example, the NextGen framework can support forcings in either CSV or NetCDF formats, represented as
         ``AORC_CSV`` and ``NETCDF_FORCING_CANONICAL`` respectively.  A job to execute NextGen would include a forcing
@@ -264,7 +277,12 @@ class DataFormat(PydanticEnum):
         compatible_forcing_formats = {cls.AORC_CSV, cls.NETCDF_FORCING_CANONICAL, cls.NETCDF_AORC_DEFAULT}
         if needed in compatible_forcing_formats and alternate in compatible_forcing_formats:
             return True
-        # Anything else, they are compatible
+
+        ngen_csv_output_formats = {cls.ARCHIVED_NGEN_CSV_OUTPUT, cls.NGEN_CSV_OUTPUT}
+        if needed in ngen_csv_output_formats and alternate in ngen_csv_output_formats:
+            return True
+
+        # Anything else, they are not compatible
         return False
 
     @classmethod

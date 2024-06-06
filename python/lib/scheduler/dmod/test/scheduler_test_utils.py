@@ -83,7 +83,7 @@ def mock_job(model: str = 'nwm', cpus: int = 4, mem: int = 500000, strategy: str
         request_json['model'] = _ngen_model
         dataset_name = 'test_output_dataset_1'
         model_request = NGENRequest.factory_init_from_deserialized_json(request_json)
-        data_domain = DataDomain(data_format=DataFormat.NGEN_OUTPUT,
+        data_domain = DataDomain(data_format=DataFormat.NGEN_CSV_OUTPUT,
                                  discrete_restrictions=[DiscreteRestriction(variable='id', values=[])])
         output_requirement = DataRequirement(domain=data_domain, is_input=False, category=DataCategory.OUTPUT,
                                              fulfilled_by=dataset_name)
