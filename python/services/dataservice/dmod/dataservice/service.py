@@ -7,7 +7,7 @@ from docker.types import Healthcheck, RestartPolicy, ServiceMode
 from dmod.communication import DatasetManagementMessage, DatasetManagementResponse, ManagementAction, WebSocketInterface
 from dmod.communication.dataset_management_message import DatasetQuery, QueryType
 from dmod.communication.data_transmit_message import DataTransmitMessage, DataTransmitResponse
-from dmod.core.meta_data import DataCategory, DataDomain, DataRequirement, DiscreteRestriction, \
+from dmod.core.meta_data import DataCategory, DataDomain, DataFormat, DataRequirement, DiscreteRestriction, \
     StandardDatasetIndex
 from dmod.core.dataset import Dataset, DatasetManager, DatasetUser, DatasetType
 from dmod.core.serializable import BasicResultIndicator
@@ -787,11 +787,18 @@ class RequiredDataChecksManager:
                     break
 
             # TODO: (later) more intelligently determine type
-            mgr = self._managers.manager(DatasetType.OBJECT_STORE)
+            dataset_type = DatasetType.OBJECT_STORE
+            mgr = self._managers.manager(dataset_type)
+
+            data_format = job.model_request.output_formats[i]
+            # If we are writing to an object store, lots of CSV files will kill us, so switch to archived variant
+            if dataset_type == DatasetType.OBJECT_STORE and data_format == DataFormat.NGEN_CSV_OUTPUT:
+                data_format = DataFormat.ARCHIVED_NGEN_CSV_OUTPUT
+
             dataset = mgr.create(name='job-{}-output-{}'.format(job.job_id, i),
                                  is_read_only=False,
                                  category=DataCategory.OUTPUT,
-                                 domain=DataDomain(data_format=job.model_request.output_formats[i],
+                                 domain=DataDomain(data_format=data_format,
                                                    continuous_restrictions=None if time_range is None else [time_range],
                                                    discrete_restrictions=[id_restrict]))
             # TODO: (later) in the future, whether the job is running via Docker needs to be checked
