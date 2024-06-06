@@ -39,6 +39,9 @@ while [ ${#} -gt 0 ]; do
     shift
 done
 
+# TODO: (later) in both ngen and ngen-cal entrypoints, add controls for whether this is temp dir or output dataset dir
+declare -x JOB_OUTPUT_WRITE_DIR="/tmp/job_output"
+
 # Get some universally applicable functions and constants
 source /ngen/funcs.sh
 
@@ -46,11 +49,15 @@ ngen_sanity_checks_and_derived_init
 init_script_mpi_vars
 init_ngen_executable_paths
 
-# Move to the output dataset mounted directory
-cd ${OUTPUT_DATASET_DIR:?Output dataset directory not defined}
+# Move to the output write directory
+# TODO: (later) in both ngen and ngen-cal entrypoints, control whether this is needed, based on if write dir is output dataset dir
+#cd ${OUTPUT_DATASET_DIR:?Output dataset directory not defined}
+mkdir ${JOB_OUTPUT_WRITE_DIR:?}
+chown ${MPI_USER}:${MPI_USER} ${JOB_OUTPUT_WRITE_DIR}
+cd ${JOB_OUTPUT_WRITE_DIR}
 #Needed for routing
 if [ ! -e /dmod/datasets/linked_job_output ]; then
-    ln -s $(pwd) /dmod/datasets/linked_job_output
+    ln -s ${JOB_OUTPUT_WRITE_DIR} /dmod/datasets/linked_job_output
 fi
 
 # We can allow worker index to not be supplied when executing serially
@@ -59,15 +66,47 @@ if [ "${WORKER_INDEX:-0}" = "0" ]; then
         # This will only have an effect when running with multiple MPI nodes, so its safe to have even in serial exec
         trap close_remote_workers EXIT
         # Have "main" (potentially only) worker copy config files to output dataset for record keeping
-        # TODO: perform copy of configs to output dataset outside of image (in service) for better performance
-        cp -a ${CONFIG_DATASET_DIR:?Config dataset directory not defined}/. ${OUTPUT_DATASET_DIR:?}
+        # TODO: (later) in ngen and ngen-cal entrypoints, consider adding controls for whether this is done or a simpler
+        # TODO:     'cp' call, based on whether we write directly to output dataset dir or some other output write dir
+        # Do a dry run first to sanity check directory and fail if needed before backgrounding process
+        tar_and_copy --dry-run --compress ${CONFIG_DATASET_DIR:?Config dataset directory not defined} config_dataset.tgz ${OUTPUT_DATASET_DIR:?}
+        # Then actually run the archive and copy function in the background
+        tar_and_copy --compress ${CONFIG_DATASET_DIR:?} config_dataset.tgz ${OUTPUT_DATASET_DIR:?} &
+        _CONFIG_COPY_PROC=$!
+        # If there is partitioning, which implies multi-processing job ...
         if [ -n "${PARTITION_DATASET_DIR:-}" ]; then
-            # Include partition config dataset too if appropriate
-            # TODO: perform copy of configs to output dataset outside of image (in service) for better performance
+            # Include partition config dataset too if appropriate, though for simplicity, just copy directly
             cp -a ${PARTITION_DATASET_DIR}/. ${OUTPUT_DATASET_DIR:?}
+            # Then run execution
             exec_main_worker_ngen_run
+
+            # TODO: (later) in ngen and ngen-cal entrypoints, add controls for whether this is done base on whether we
+            # TODO:     are writing directly to output dataset dir or some other output write dir; this will be
+            # TODO:     important once netcdf output works
+            # Then gather output from all worker hosts
+            gather_output
+            # Then wait at this point (if necessary) for our background config copy to avoid taxing things
+            echo "$(print_date) Waiting for compression and copying of configuration files to output dataset"
+            wait ${_CONFIG_COPY_PROC}
+            echo "$(print_date) Compression/copying of config data to output dataset complete"
+            echo "$(print_date) Copying results to output dataset"
+            move_output_to_dataset ${JOB_OUTPUT_WRITE_DIR} ${OUTPUT_DATASET_DIR:?}
+            echo "$(print_date) Results copied to output dataset"
+        # Otherwise, we just have a serial job ...
         else
+            # Execute it first
             exec_serial_ngen_run
+
+            # TODO: (later) in ngen and ngen-cal entrypoints, add controls for whether this is done base on whether we
+            # TODO:     are writing directly to output dataset dir or some other output write dir; this will be
+            # TODO:     important once netcdf output works
+            echo "$(print_date) Waiting for compression and copying of configuration files to output dataset"
+            wait ${_CONFIG_COPY_PROC}
+            echo "$(print_date) Compression/copying of config data to output dataset complete"
+
+            echo "$(print_date) Copying results to output dataset"
+            move_output_to_dataset ${JOB_OUTPUT_WRITE_DIR} ${OUTPUT_DATASET_DIR:?}
+            echo "$(print_date) Results copied to output dataset"
         fi
     else
         # Start SSHD on the main worker if have an MPI job
