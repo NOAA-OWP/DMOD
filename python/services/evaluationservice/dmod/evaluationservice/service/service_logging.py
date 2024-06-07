@@ -51,60 +51,71 @@ class ConfiguredLogger:
     def __init__(self, logger_name: str = None):
         self._logger_name = logger_name or DEFAULT_LOGGER_NAME
 
-    def info(self, message: MESSAGE):
+    def info(self, msg: MESSAGE):
         """
         Forwards the module level `info` function
 
         Args:
-            message: An exception, string, or dict to log as basic information text
+            msg: An exception, string, or dict to log as basic information text
         """
-        info(message=message, logger_name=self._logger_name)
+        info(message=msg, logger_name=self._logger_name)
 
-    def warn(self, message: MESSAGE):
+    def warn(self, msg: MESSAGE):
         """
         Forwards the module level `warn` function
 
         See Also: ``service.logging.warn``
 
         Args:
-            message: An exception, string, or dict to log as basic warning text
+            msg: An exception, string, or dict to log as basic warning text
         """
-        warn(message=message, logger_name=self._logger_name)
+        warning(message=msg, logger_name=self._logger_name)
 
-    def error(self, message: MESSAGE, exception: Exception = None):
+    def warning(self, msg: MESSAGE):
+        """
+        Forwards the module level `warn` function
+
+        See Also: ``service.logging.warn``
+
+        Args:
+            msg: An exception, string, or dict to log as basic warning text
+        """
+        warning(message=msg, logger_name=self._logger_name)
+
+    def error(self, msg: MESSAGE, exc_info: Exception = None):
         """
         Forwards the module level `error` function
 
         See Also: ``service.logging.error``
 
         Args:
-            message: An exception, string, or dict to log as basic error text
-            exception: An optional exception from the cause of the error
+            msg: An exception, string, or dict to log as basic error text
+            exc_info: An optional exception from the cause of the error
         """
-        error(message=message, exception=exception, logger_name=self._logger_name)
+        error(message=msg, exception=exc_info, logger_name=self._logger_name)
 
-    def debug(self, message: MESSAGE):
+    def debug(self, msg: MESSAGE):
         """
         Forwards the module level `debug` function
 
         See Also: ``service.logging.debug``
 
         Args:
-            message: An exception, string, or dict to log as basic debugging text
+            msg: An exception, string, or dict to log as basic debugging text
         """
-        debug(message=message, logger_name=self._logger_name)
+        debug(message=msg, logger_name=self._logger_name)
 
-    def log(self, message: MESSAGE, level: int = None):
+    def log(self, msg: MESSAGE, level: int = None):
         """
         Forwards the module level `log` function
 
         See Also: ``service.logging.log``
 
         Args:
-            message: An exception, string, or dict to log as basic logging text
+            msg: An exception, string, or dict to log as basic logging text
             level: The level that a message should be logged as
         """
-        log(message=message, logger_name=self._logger_name, level=level)
+        log(message=msg, logger_name=self._logger_name, level=level)
 
 
 def make_message_serializable(
@@ -192,7 +203,7 @@ def available_logging_handlers() -> typing.Mapping[str, typing.Type[logging.Hand
                and 'Null' not in handler.__name__
         ]
 
-    mapped_handlers: typing.Dict[str, typing.Type[logging.Handler]] = dict()
+    mapped_handlers: typing.Dict[str, typing.Type[logging.Handler]] = {}
 
     for found_handler in get_handlers():
         mapped_handlers[f"{found_handler.__module__}.{found_handler.__name__}"] = found_handler
@@ -228,7 +239,8 @@ def get_log_level() -> str:
 
     if current_log_level is not None and current_log_level.upper() in valid_log_levels():
         return current_log_level.upper()
-    elif current_log_level is not None:
+
+    if current_log_level is not None:
         fallback_level = 'DEBUG' if application_values.in_debug_mode() else 'INFO'
         print(f"{current_log_level.upper()} is not a valid logging level. Defaulting to {fallback_level}")
         return fallback_level
@@ -536,7 +548,7 @@ def configure_logging():
             try_count += 1
             try:
                 logging.config.dictConfig(logging_configuration)
-                logging.info("Default logging has been configured.")
+                logging.info(f"Default logging has been configured in Process #{os.getpid()}.")
                 break
             except BaseException as exception:
                 logging.error(str(exception))
@@ -634,6 +646,17 @@ def info(message: MESSAGE, logger_name: str = None):
 
 
 def warn(message: MESSAGE, logger_name: str = None):
+    """
+    Logs a `WARNING` message to a log
+
+    Args:
+        message: The message to log
+        logger_name: The name of the logger to use. The default is used if none is passed
+    """
+    log(message, logger_name, level=logging.WARNING)
+
+
+def warning(message: MESSAGE, logger_name: str = None):
     """
     Logs a `WARNING` message to a log
 

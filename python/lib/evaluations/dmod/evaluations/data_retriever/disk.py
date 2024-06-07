@@ -272,7 +272,6 @@ class FrameDataRetriever(retrieval.Retriever):
 
         return combined_table
 
-
 __FORMAT_MAPPING = {
     "json": JSONDataRetriever,
     "csv": FrameDataRetriever

@@ -1,4 +1,6 @@
-#!/usr/bin/env python3
+"""
+Defines a custom communicator for sending evaluation updates through redis
+"""
 import typing
 import os
 import json
@@ -11,16 +13,16 @@ import redis
 
 import dmod.metrics.communication as communication
 from dmod.core.common import to_json
+from dmod.core.context import DMODObjectManager
+
+import service
+from service import application_values
 
 from . import common
 from .message import make_message_serializable
 
-import service
 
-from service import application_values
-
-
-MESSAGE_HANDLERS = typing.Union[communication.MESSAGE_HANDLER, typing.Sequence[communication.MESSAGE_HANDLER]]
+MessageHandlers = typing.Union[communication.MessageHandler, typing.Sequence[communication.MessageHandler]]
 
 
 def make_key(*args) -> str:
@@ -35,7 +37,7 @@ def make_key(*args) -> str:
     Returns:
 
     """
-    parts = list()
+    parts = []
 
     for arg in args:
         if arg:
@@ -357,7 +359,13 @@ class RedisCommunicator(communication.Communicator):
             publish: Whether to write the message to the channel
         """
         if exception:
-            formatted_exception = traceback.format_exc()
+            formatted_exception = os.linesep.join(
+                traceback.format_exception(
+                    type(exception),
+                    exception,
+                    exception.__traceback__
+                )
+            )
             service.error(formatted_exception)
         else:
             service.error(message)
@@ -373,6 +381,10 @@ class RedisCommunicator(communication.Communicator):
 
         if publish:
             self.write(reason="error", data={"error": message})
+
+        # Call every event handler for the 'error' event
+        for handler in self._handlers.get("error", []):
+            handler(message)
 
     def info(self, message: str, verbosity: communication.Verbosity = None, publish: bool = None):
         """
@@ -432,11 +444,11 @@ class RedisCommunicator(communication.Communicator):
         Returns:
             A list of issues with this communicator as constructed
         """
-        messages = list()
+        messages = []
 
         return messages
 
-    def write(self, reason: communication.REASON_TO_WRITE, data: dict):
+    def write(self, reason: communication.ReasonToWrite, data: dict):
         """
         Writes data to the communicator's channel
 
@@ -469,7 +481,6 @@ class RedisCommunicator(communication.Communicator):
                 handler(message)
         except:
             # Leave room for a breakpoint
-            pass
             raise
 
     def read(self) -> typing.Any:
@@ -513,8 +524,8 @@ class RedisCommunicator(communication.Communicator):
         port: int = None,
         password: str = None,
         timeout: float = None,
-        on_receive: MESSAGE_HANDLERS = None,
-        handlers: typing.Dict[str, MESSAGE_HANDLERS] = None,
+        on_receive: MessageHandlers = None,
+        handlers: typing.Dict[str, MessageHandlers] = None,
         include_timestamp: bool = None,
         timestamp_format: str = None,
         **kwargs
@@ -576,3 +587,6 @@ class RedisCommunicator(communication.Communicator):
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__}: {self.channel}"
+
+
+DMODObjectManager.register_class(RedisCommunicator)

@@ -15,7 +15,7 @@ from rest_framework.views import APIView
 
 import redis
 
-import service.logging as logging
+import service.service_logging as logging
 import utilities
 
 

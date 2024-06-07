@@ -1,8 +1,11 @@
-from .logging import debug
-from .logging import info
-from .logging import error
-from .logging import warn
-from .logging import ConfiguredLogger
+"""
+The core of the DMOD Evaluation Service
+"""
+from .service_logging import debug
+from .service_logging import info
+from .service_logging import error
+from .service_logging import warn
+from .service_logging import ConfiguredLogger
 
 from .application_values import APPLICATION_NAME
 from .application_values import COMMON_DATETIME_FORMAT

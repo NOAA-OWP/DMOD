@@ -72,7 +72,7 @@ class NetcdfWriter(writer.OutputWriter):
 
     def _to_xarray(self, evaluation_results: specification.EvaluationResults) -> xarray.Dataset:
         result_frames = evaluation_results.to_frames()
-        combined_frames = pandas.concat([frame for frame in result_frames.values()])
+        combined_frames = pandas.concat(frame for frame in result_frames.values())
 
         del result_frames
 
@@ -80,8 +80,11 @@ class NetcdfWriter(writer.OutputWriter):
         threshold_data = combined_frames[['threshold_name', 'threshold_weight']].drop_duplicates()
 
         coordinates = {
-            "location_index": numpy.array([index for index in range(len(location_data))], dtype=numpy.uint32),
-            "threshold_index": numpy.array([index for index in range(len(threshold_data.threshold_name))], dtype=numpy.uint8)
+            "location_index": numpy.array(list(index for index in range(len(location_data))), dtype=numpy.uint32),
+            "threshold_index": numpy.array(
+                list(index for index in range(len(threshold_data.threshold_name))),
+                dtype=numpy.uint8
+            )
         }
 
         data_variables = {
@@ -132,10 +135,10 @@ class NetcdfWriter(writer.OutputWriter):
                 scaled_result_attributes
             )
 
-            location_indices = dict()
-            threshold_indices = dict()
+            location_indices = {}
+            threshold_indices = {}
 
-            for row_index_value, row in metric_frame.iterrows():
+            for _, row in metric_frame.iterrows():
                 observed_location = row.observed_location
                 predicted_location = row.predicted_location
                 threshold_name = row.threshold_name
