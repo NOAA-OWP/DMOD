@@ -30,7 +30,7 @@ from service.application_values import START_DELAY
 from service.application_values import OUTPUT_VERBOSITY
 from service.application_values import EVALUATION_QUEUE_NAME
 
-from service import logging as common_logging
+from service import service_logging as common_logging
 from evaluation_service import models
 
 from evaluation_service.specification import SpecificationTemplateManager
@@ -563,7 +563,7 @@ class LaunchConsumer(AsyncWebsocketConsumer, ActionDescriber):
             deserialized_message = message
 
         request_id = get_request_id(deserialized_message, request_id)
-            
+
         while is_message_wrapper(deserialized_message):
             # This is only considered a message wrapper if it is a dict; linters may think this could be a string,
             # but it will always be a dict here
@@ -711,12 +711,12 @@ class LaunchConsumer(AsyncWebsocketConsumer, ActionDescriber):
                 if missing_parameters:
                     message = f"{str(self)}: '{action}' cannot be performed; " \
                               f"the following required parameters are missing: {', '.join(missing_parameters)}"
-                    SOCKET_LOGGER.error(message=message)
-                    await self.send_error(event='receive', message=message, request_id=request_id)
+                    SOCKET_LOGGER.error(msg=message)
+                    await self.send_error(event='receive', message=message, request_id=kwargs.get(REQUEST_ID_KEY))
                     return
         except Exception as exception:
-            await self.send_error(message=exception, event="receive", request_id=request_id)
-            SOCKET_LOGGER.error(message=exception)
+            await self.send_error(message=exception, event="receive")
+            SOCKET_LOGGER.error(msg=exception)
             return
 
         try:
@@ -726,7 +726,7 @@ class LaunchConsumer(AsyncWebsocketConsumer, ActionDescriber):
                 result = await result
         except Exception as exception:
             await self.send_error(message=exception, event=action)
-            SOCKET_LOGGER.error(message=exception)
+            SOCKET_LOGGER.error(msg=exception)
 
     @required_parameters(evaluation_name=REQUIRED_PARAMETER_TYPES.text, instructions=REQUIRED_PARAMETER_TYPES.text)
     async def launch(self, payload: typing.Dict[str, typing.Any] = None):
@@ -743,8 +743,8 @@ class LaunchConsumer(AsyncWebsocketConsumer, ActionDescriber):
         except Exception as exception:
             message = f"Could not launch job; a redis channel named '{evaluation_name}' could not be connected to."
             SOCKET_LOGGER.error(
-                message=f"{str(self)}: Could not launch job; the redis channel could not be connected to.",
-                exception=exception
+                msg=f"{str(self)}: Could not launch job; the redis channel could not be connected to.",
+                exc_info=exception
             )
             await self.send_error(event="launch", message=message, request_id=payload.get(REQUEST_ID_KEY))
 
@@ -780,8 +780,8 @@ class LaunchConsumer(AsyncWebsocketConsumer, ActionDescriber):
                 await self.tell_channel(event="launch", data=f"{str(self)}: Job Launched")
             except Exception as error:
                 SOCKET_LOGGER.error(
-                    message=f"{str(self)}: The job named {self.channel_name} could not be launched",
-                    exception=error
+                    msg=f"{str(self)}: The job named {self.channel_name} could not be launched",
+                    exc_info=error
                 )
                 await self.send_error(error, event="launch", request_id=payload.get(REQUEST_ID_KEY))
 
@@ -1027,7 +1027,7 @@ class LaunchConsumer(AsyncWebsocketConsumer, ActionDescriber):
             # Send result information detailing what was saved and whether it was created
             await self.send_message(response_data, event="save", request_id=payload.get(REQUEST_ID_KEY))
         except Exception as error:
-            SOCKET_LOGGER.error(message=error)
+            SOCKET_LOGGER.error(msg=error)
             await self.send_error(error, event="save")
 
     async def tell_channel(self, event: str = None, data=None, log_data: bool = False):
@@ -1146,7 +1146,7 @@ class LaunchConsumer(AsyncWebsocketConsumer, ActionDescriber):
                 self.publisher_and_subscriber.unsubscribe()
             SOCKET_LOGGER.debug(f"{str(self)}: Redis Channel disconnected")
         except Exception as e:
-            SOCKET_LOGGER.error(message=f"{str(self)}: Could not unsubscribe from redis channel", exception=e)
+            SOCKET_LOGGER.error(msg=f"{str(self)}: Could not unsubscribe from redis channel", exc_info=e)
 
         try:
             if self.redis_connection:

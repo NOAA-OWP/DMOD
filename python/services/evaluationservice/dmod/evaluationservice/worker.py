@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+"""
+Performs an evaluation based on a set of command line arguments
+"""
 import os
 import typing
 import json
@@ -8,7 +11,9 @@ from argparse import ArgumentParser
 
 from dmod.metrics import Verbosity
 
+from dmod.metrics import CommunicatorGroup
 from dmod.evaluations.evaluate import Evaluator
+from dmod.metrics.communication import StandardCommunicator
 
 import service
 import utilities
@@ -16,8 +21,13 @@ import writing
 
 from service.application_values import COMMON_DATETIME_FORMAT
 
+DEFAULT_OUTPUT_FORMAT = "netcdf"
 
-class Arguments(object):
+
+class Arguments:
+    """
+    Command line arguments bearing all the information needed to run an evaluation
+    """
     def __init__(self, *args):
         self.__instructions: typing.Optional[str] = None
         self.__evaluation_name: typing.Optional[str] = None
@@ -28,6 +38,7 @@ class Arguments(object):
         self.__verbosity: typing.Optional[Verbosity] = None
         self.__start_delay: int = 0
         self.__format: typing.Optional[str] = None
+        self.__write_to_stdout: bool = False
         self.__parse_command_line(*args)
 
     @property
@@ -65,6 +76,10 @@ class Arguments(object):
     @property
     def format(self):
         return self.__format
+
+    @property
+    def write_to_stdout(self) -> bool:
+        return self.__write_to_stdout
 
     def __parse_command_line(self, *args):
         parser = ArgumentParser("Launches the worker script that starts and tracks an evaluation")
@@ -125,7 +140,16 @@ class Arguments(object):
         parser.add_argument(
             "--format",
             help="The format that output should be written as",
+            default=DEFAULT_OUTPUT_FORMAT,
             dest="format"
+        )
+
+        parser.add_argument(
+            "--stdout",
+            dest="to_stdout",
+            action="store_true",
+            default=False,
+            help="Print messages to stdout alongside other communicators"
         )
 
         # Parse the list of args if one is passed instead of args passed to the script
@@ -151,10 +175,36 @@ class Arguments(object):
         self.__verbosity = Verbosity[verbosity]
         self.__start_delay = int(parameters.delay) if parameters.delay else 0
         self.__format = parameters.format
+        self.__write_to_stdout = parameters.to_stdout
 
 
-def evaluate(evaluation_id: str, definition_json: str, arguments: Arguments = None) -> dict:
-    evaluation_id = evaluation_id.replace(" ", "_")
+def evaluate(
+    evaluation_id: str,
+    definition_json: str,
+    arguments: Arguments = None,
+    communicators: CommunicatorGroup = None
+) -> dict:
+    """
+    Run an evaluation
+
+    Args:
+        evaluation_id: The ID that the evaluation will be referred to
+        definition_json: The definition of what to do in JSON string form
+        arguments: Command line arguments
+        communicators: A collection of communicator objects used to broadcast messages
+
+    Returns:
+        A dictionary of evaluation results
+    """
+    service.debug(f"Preparing to run the evaluation named '{evaluation_id}' in the worker")
+
+    if " " in evaluation_id:
+        raise ValueError("The evaluation id must not contain spaces")
+
+    write_results = {
+        "success": False,
+        "evaluation_id": evaluation_id
+    }
 
     redis_host = arguments.redis_host if arguments else None
     redis_port = arguments.redis_port if arguments else None
@@ -167,65 +217,71 @@ def evaluate(evaluation_id: str, definition_json: str, arguments: Arguments = No
         verbosity = Verbosity[os.environ.get("EVALUATION_VERBOSITY", "NORMAL").upper()]
 
     should_publish = verbosity >= Verbosity.NORMAL
+    write_to_stdout = arguments is not None and arguments.write_to_stdout
 
+    service.debug("Giving the system time to be ready to run the evaluation")
     sleep(delay_seconds)
 
-    communicators = utilities.get_communicators(
-        communicator_id=evaluation_id,
-        verbosity=verbosity,
-        host=redis_host,
-        port=redis_port,
-        password=redis_password,
-        include_timestamp=False
-    )
-
-    error_key = utilities.key_separator().join([utilities.redis_prefix(), evaluation_id, "ERRORS"])
-    message_key = utilities.key_separator().join([utilities.redis_prefix(), evaluation_id, "MESSAGES"])
-
-    communicators.update(
-        created_at=utilities.now().strftime(COMMON_DATETIME_FORMAT),
-        failed=False,
-        complete=False,
-        error_key=error_key,
-        message_key=message_key
-    )
+    if communicators is None:
+        communicators = utilities.get_communicators(
+            communicator_id=evaluation_id,
+            verbosity=verbosity,
+            host=redis_host,
+            port=redis_port,
+            password=redis_password,
+            include_timestamp=False
+        )
 
     try:
-        definition = json.loads(definition_json)
-    except Exception as exception:
-        message = "The evaluation instructions could not be loaded"
-        communicators.error(message, exception, publish=should_publish)
-        communicators.error(definition_json, None, publish=should_publish)
-        communicators.update(failed=True)
-        communicators.sunset(60*3)
-        raise exception
+        if write_to_stdout:
+            communicators.attach(communicator=StandardCommunicator(communicator_id="standard-communicator"))
 
-    write_results = {
-        "success": False
-    }
+        error_key = utilities.key_separator().join([utilities.redis_prefix(), evaluation_id, "ERRORS"])
+        message_key = utilities.key_separator().join([utilities.redis_prefix(), evaluation_id, "MESSAGES"])
 
-    try:
-        evaluator = Evaluator(definition, communicators=communicators, verbosity=verbosity)
-        communicators.info(f"starting {evaluation_id}", publish=should_publish)
-        results = evaluator.evaluate()
-        communicators.info("Result: {:.2f}%".format(results.grade), publish=should_publish)
-        communicators.info(f"{evaluation_id} complete; now writing results")
-        write_results = writing.write(evaluation_id=evaluation_id, results=results, output_format=arguments.format)
-        communicators.info(f"Data from {evaluation_id} was written.")
+        communicators.update(
+            created_at=utilities.now().strftime(COMMON_DATETIME_FORMAT),
+            failed=False,
+            complete=False,
+            error_key=error_key,
+            message_key=message_key
+        )
+
+        try:
+            definition = json.loads(definition_json)
+            service.info(f"Loaded the definition for the evaluation named '{evaluation_id}")
+        except Exception as exception:
+            message = "The evaluation instructions could not be loaded"
+            communicators.error(message, exception, publish=should_publish)
+            communicators.error(definition_json, None, publish=should_publish)
+            communicators.update(failed=True)
+            communicators.sunset(60*3)
+            raise exception
+
+        try:
+            evaluator = Evaluator(definition, communicators=communicators, verbosity=verbosity)
+            communicators.info(f"starting {evaluation_id}", publish=should_publish)
+            results = evaluator.evaluate()
+            communicators.info(f"Result: {results.grade:.2f}%", publish=should_publish)
+            communicators.info(f"{evaluation_id} complete; now writing results")
+            write_results = writing.write(evaluation_id=evaluation_id, results=results, output_format=arguments.format)
+            communicators.info(f"Data from {evaluation_id} was written.")
+        except Exception as e:
+            communicators.error(f"{e.__class__.__name__}: {e}", e, publish=should_publish)
+            communicators.update(failed=True)
+            communicators.sunset(60*3)
+        finally:
+            communicators.update(complete=True)
+            communicators.info(f"{evaluation_id} is complete", publish=should_publish)
     except Exception as e:
-        communicators.error(f"{e.__class__.__name__}: {e}", e, publish=should_publish)
-        communicators.update(failed=True)
-        communicators.sunset(60*3)
-    finally:
-        communicators.update(complete=True)
-        communicators.info(f"{evaluation_id} is complete", publish=should_publish)
+        service.error(f"An error occurred that prevented the proper execution of an evaluation: {e}")
 
     return write_results
 
 
 def main(arguments: Arguments = None):
     """
-    Define your initial application code here
+    Runs an evaluation based on passed command line arguments
     """
     if arguments is None:
         arguments = Arguments()
@@ -239,11 +295,15 @@ def main(arguments: Arguments = None):
     if arguments.evaluation_name:
         name = arguments.evaluation_name
     else:
-        name = ""
+        name = "Evaluation_at"
 
     name += f"_{utilities.now().strftime('%Y-%m-%d_%H%M')}"
     name = name.replace(" ", "_")
-    evaluate(name, instructions, arguments)
+
+    try:
+        evaluate(name, instructions, arguments)
+    except Exception as e:
+        service.error(e)
 
 
 # Run the following if the script was run directly

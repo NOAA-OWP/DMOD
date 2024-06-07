@@ -1,3 +1,5 @@
+from __future__ import annotations
+import sys
 import typing
 import os
 import abc
@@ -7,38 +9,183 @@ import enum
 import logging
 import traceback
 
+from datetime import datetime
+from pprint import pprint
 from collections import abc as abstract_collections
 
 MESSAGE = typing.Union[bytes, str, typing.Dict[str, typing.Any], typing.Sequence, bool, int, float]
-MESSAGE_HANDLER = typing.Callable[[MESSAGE], typing.NoReturn]
-REASON_TO_WRITE = typing.Union[str, typing.Dict[str, typing.Any]]
+MessageHandler = typing.Callable[[MESSAGE], typing.NoReturn]
+ReasonToWrite = typing.Union[str, typing.Dict[str, typing.Any]]
 
 
-class Verbosity(enum.IntEnum):
+class Verbosity(enum.Enum):
     """
     An enumeration detailing the density of information that may be transmitted, not to logs,
     but through things like streams and communicators
     """
-    QUIET = enum.auto()
+    QUIET = "QUIET"
     """Emit very little information"""
 
-    NORMAL = enum.auto()
+    NORMAL = "NORMAL"
     """Emit a baseline amount of information"""
 
-    LOUD = enum.auto()
+    LOUD = "LOUD"
     """Emit a lot of detailed (often diagnostic) information"""
 
-    ALL = enum.auto()
+    ALL = "ALL"
     """Emit everything, including raw data"""
 
+    @classmethod
+    def get_by_name(cls, name: str) -> Verbosity:
+        if name:
+            for member in cls:  # type: Verbosity
+                if member.name.lower() == name.lower():
+                    return member
+        raise KeyError(f'Could not find a value named "{name}" in {cls.__name__}')
 
-class Communicator(abc.ABC):
+    @classmethod
+    def get_by_index(cls, index: typing.Union[int, float]) -> Verbosity:
+        if isinstance(index, float):
+            index = int(float)
+
+        index_mapping = dict(enumerate(cls))
+
+        if index in index_mapping:
+            return index_mapping[index]
+
+        raise ValueError(f'There is no {cls.__name__} with an index of "{index}"')
+
+    @classmethod
+    def get(cls, value: typing.Union[int, float, str, Verbosity]) -> Verbosity:
+        if isinstance(value, Verbosity):
+            return value
+
+        if isinstance(value, (float, int)):
+            return cls.get_by_index(value)
+
+        if isinstance(value, str):
+            return cls.get_by_name(value)
+
+        raise ValueError(f'"{value} ({type(value)}" cannot be interpretted as a {cls.__name__} object')
+
+    @property
+    def index(self) -> int:
+        mapping: typing.Dict[Verbosity, int] = {
+            value: index
+            for index, value in enumerate(self.__class__)
+        }
+
+        return mapping.get(self, -1)
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+
+        if isinstance(other, Verbosity):
+            return self.value == other.value
+
+        if isinstance(other, str):
+            return self.value.lower() == other.lower()
+
+        if isinstance(other, (int, float)):
+            return self.index == other
+
+        return False
+
+    def __gt__(self, other):
+        if isinstance(other, Verbosity):
+            return self.index > other.index
+
+        if isinstance(other, str):
+            return self.index > self.__class__.get_by_name(other).index
+
+        if isinstance(other, (int, float)):
+            return self.index > other
+
+        return ValueError(f"Cannot compare {self.__class__.__name__} to {other}")
+
+    def __lt__(self, other):
+        if isinstance(other, Verbosity):
+            return self.index < other.index
+
+        if isinstance(other, str):
+            return self.index < self.__class__.get_by_name(other).index
+
+        if isinstance(other, (int, float)):
+            return self.index < other
+
+        return ValueError(f"Cannot compare {self.__class__.__name__} to {other}")
+
+    def __le__(self, other):
+        return self < other or self == other
+
+    def __ge__(self, other):
+        return self > other or self == other
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __hash__(self):
+        return hash(self.value)
+
+
+@typing.runtime_checkable
+class CommunicationProtocol(typing.Protocol):
+    """
+    A protocol setting the expectations for what methods are used for a mechanism used for communicating with
+    multiple processes
+    """
+    def error(self, message: str, exception: Exception = None, verbosity: Verbosity = None, publish: bool = None):
+        pass
+
+    def info(self, message: str, verbosity: Verbosity = None, publish: bool = None):
+        pass
+
+    def read_errors(self) -> typing.Iterable[str]:
+        pass
+
+    def read_info(self) -> typing.Iterable[str]:
+        pass
+
+    def write(self, reason: ReasonToWrite, data: dict):
+        pass
+
+    def read(self) -> typing.Any:
+        pass
+
+    def update(self, **kwargs):
+        pass
+
+    def sunset(self, seconds: float = None):
+        pass
+
+    @property
+    def communicator_id(self) -> str:
+        ...
+
+    @property
+    def verbosity(self) -> Verbosity:
+        """
+        Returns:
+            How verbose this communicator is
+        """
+        ...
+
+
+class Communicator(abc.ABC, CommunicationProtocol):
+    """
+    The base class for a tool that may be used to broadcast messages across multiple processes and services in
+    the style of a logger
+
+    For example, writing to an implementation of a Communicator might fan out a single message to multiple machines,
+    each with their own processes and handlers
+    """
     def __init__(
         self,
         communicator_id: str,
         verbosity: Verbosity = None,
-        on_receive: typing.Union[MESSAGE_HANDLER, typing.Sequence[MESSAGE_HANDLER]] = None,
-        handlers: typing.Dict[str, typing.Union[MESSAGE_HANDLER, typing.Sequence[MESSAGE_HANDLER]]] = None,
+        on_receive: typing.Union[MessageHandler, typing.Sequence[MessageHandler]] = None,
+        handlers: typing.Dict[str, typing.Union[MessageHandler, typing.Sequence[MessageHandler]]] = None,
         **kwargs
     ):
         self.__communicator_id = communicator_id
@@ -66,7 +213,7 @@ class Communicator(abc.ABC):
     def _register_handler(
         self,
         event_name: str,
-        handlers: typing.Union[MESSAGE_HANDLER, typing.Sequence[MESSAGE_HANDLER]]
+        handlers: typing.Union[MessageHandler, typing.Sequence[MessageHandler]]
     ):
         """
         Register event handlers
@@ -119,7 +266,7 @@ class Communicator(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def write(self, reason: REASON_TO_WRITE, data: dict):
+    def write(self, reason: ReasonToWrite, data: dict):
         pass
 
     @abc.abstractmethod
@@ -147,20 +294,131 @@ class Communicator(abc.ABC):
         return self._verbosity
 
 
+CommunicatorImplementation = typing.TypeVar('CommunicatorImplementation', bound=Communicator, covariant=True)
+
+
+class StandardCommunicator(Communicator):
+    """
+    A very basic communicator that operates on stdout, stderr, and stdin
+    """
+    def __init__(self, *args, include_timestamp: bool = True, read_message: str = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__errors: typing.List[str] = []
+        self.__info: typing.List[str] = []
+        self.__include_timestamp = bool(include_timestamp)
+        self.__properties: typing.Dict[str, typing.Any] = {}
+        self.__read_message = read_message if isinstance(read_message, str) else ""
+
+    def error(self, message: str, exception: Exception = None, verbosity: Verbosity = None, publish: bool = None):
+        if verbosity and self._verbosity < verbosity:
+            return
+
+        if exception and exception.__traceback__:
+            formatted_exception = os.linesep.join(
+                traceback.format_exception(
+                    type(exception),
+                    exception,
+                    exception.__traceback__
+                )
+            )
+            print(formatted_exception, file=sys.stderr)
+        elif exception:
+            message += f" ERROR: {exception}"
+
+        if self.__include_timestamp:
+            timestamp = datetime.now().astimezone().strftime("%Y%m%d %H:%M%z")
+            message = f"[{timestamp}] {message}"
+
+        print(message, file=sys.stderr)
+
+        if publish:
+            self.write(reason="error", data={"error": message})
+
+        # Call every event handler for the 'error' event
+        for handler in self._handlers.get("error", []):
+            handler(message)
+
+    def info(self, message: str, verbosity: Verbosity = None, publish: bool = None):
+        if self.__include_timestamp:
+            timestamp = datetime.now().astimezone().strftime("%Y%m%d %H:%M%z")
+            message = f"[{timestamp}] {message}"
+
+        print(message)
+
+        if publish:
+            self.write(reason="info", data={"info": message})
+
+        # Call every event handler for the 'info' event
+        for handler in self._handlers.get("info", []):
+            handler(message)
+
+    def read_errors(self) -> typing.Iterable[str]:
+        return (message for message in self.__errors)
+
+    def read_info(self) -> typing.Iterable[str]:
+        return (message for message in self.__info)
+
+    def _validate(self) -> typing.Sequence[str]:
+        return []
+
+    def write(self, reason: ReasonToWrite, data: dict):
+        """
+        Writes data to the communicator's channel
+
+        Takes the form of:
+
+        {
+            "event": reason,
+            "time": YYYY-mm-dd HH:MMz,
+            "data": json string
+        }
+
+        Args:
+            reason: The reason for data being written to the channel
+            data: The data to write to the channel; will be converted to a string
+        """
+        message = {
+            "event": reason,
+            "time": datetime.now().astimezone().strftime("%Y%m%d %H:%M%z"),
+            "data": data
+        }
+
+        pprint(message, indent=4)
+
+        try:
+            for handler in self._handlers.get('write', []):
+                handler(message)
+        except:
+            # Leave room for a breakpoint
+            raise
+
+    def read(self) -> typing.Any:
+        return input(self.__read_message)
+
+    def update(self, **kwargs):
+        self.__properties.update(kwargs)
+
+    def __getitem__(self, item):
+        return self.__properties[item]
+
+    def sunset(self, seconds: float = None):
+        print(f"Sunsetting data is not supported by the {self.__class__.__name__}")
+
+
 class CommunicatorGroup(abstract_collections.Mapping):
     """
     A collection of Communicators clustered for group operations
     """
-    def __getitem__(self, key: str) -> Communicator:
+    def __getitem__(self, key: str) -> CommunicationProtocol:
         return self.__communicators[key]
 
     def __len__(self) -> int:
         return len(self.__communicators)
 
-    def __iter__(self) -> typing.Iterator[Communicator]:
+    def __iter__(self) -> typing.Iterator[CommunicationProtocol]:
         return iter(self.__communicators.values())
 
-    def __contains__(self, key: typing.Union[str, Communicator]) -> bool:
+    def __contains__(self, key: typing.Union[str, CommunicationProtocol]) -> bool:
         if isinstance(key, Communicator):
             return key in self.__communicators.values()
 
@@ -169,9 +427,9 @@ class CommunicatorGroup(abstract_collections.Mapping):
     def __init__(
         self,
         communicators: typing.Union[
-            Communicator,
-            typing.Iterable[Communicator],
-            typing.Mapping[str, Communicator]
+            CommunicationProtocol,
+            typing.Iterable[CommunicationProtocol],
+            typing.Mapping[str, CommunicationProtocol]
         ] = None
     ):
         """
@@ -181,28 +439,25 @@ class CommunicatorGroup(abstract_collections.Mapping):
             communicators: Communicators to be used by the collection
         """
         if isinstance(communicators, typing.Mapping):
-            self.__communicators: typing.Dict[str, Communicator] = {
-                key: value
-                for key, value in communicators.items()
-            }
+            self.__communicators: typing.Dict[str, CommunicationProtocol] = dict(communicators.items())
         elif isinstance(communicators, typing.Sequence):
-            self.__communicators: typing.Dict[str, Communicator] = {
+            self.__communicators: typing.Dict[str, CommunicationProtocol] = {
                 communicator.communicator_id: communicator
                 for communicator in communicators
             }
-        elif isinstance(communicators, Communicator):
+        elif isinstance(communicators, CommunicationProtocol):
             self.__communicators = {
                 communicators.communicator_id: communicators
             }
         else:
-            self.__communicators: typing.Dict[str, Communicator] = dict()
+            self.__communicators: typing.Dict[str, CommunicationProtocol] = {}
 
     def attach(
         self,
         communicator: typing.Union[
-            Communicator,
-            typing.Sequence[Communicator],
-            typing.Mapping[typing.Any, Communicator]
+            CommunicationProtocol,
+            typing.Sequence[CommunicationProtocol],
+            typing.Mapping[typing.Any, CommunicationProtocol]
         ]
     ) -> int:
         """
@@ -215,19 +470,16 @@ class CommunicatorGroup(abstract_collections.Mapping):
             The number of communicators now in the collection
         """
         if isinstance(communicator, typing.Mapping):
-            self.__communicators: typing.Dict[str, Communicator] = {
-                key: value
-                for key, value in communicator.items()
-            }
+            self.__communicators: typing.Dict[str, CommunicationProtocol] = dict(communicator.items())
         elif isinstance(communicator, typing.Sequence):
             self.__communicators.update({
                 communicator.communicator_id: communicator
                 for communicator in communicator
             })
-        elif isinstance(communicator, Communicator):
+        elif isinstance(communicator, CommunicationProtocol):
             self.__communicators[communicator.communicator_id] = communicator
         else:
-            self.__communicators: typing.Dict[str, Communicator] = dict()
+            self.__communicators: typing.Dict[str, CommunicationProtocol] = {}
 
         return len(self.__communicators)
 
@@ -267,7 +519,7 @@ class CommunicatorGroup(abstract_collections.Mapping):
         for communicator in self.__communicators.values():
             communicator.info(message=message, verbosity=verbosity, publish=publish)
 
-    def write(self, reason: REASON_TO_WRITE, data: dict, verbosity: Verbosity = None):
+    def write(self, reason: ReasonToWrite, data: dict, verbosity: Verbosity = None):
         """
         Write to all communicators
 
@@ -331,7 +583,7 @@ class CommunicatorGroup(abstract_collections.Mapping):
 
         if communicator_ids:
             for communicator_id in communicator_ids:
-                errors.union({error for error in self.__communicators[communicator_id].read_errors()})
+                errors.union(set(self.__communicators[communicator_id].read_errors()))
         else:
             for communicator in self.__communicators.values():
                 errors.union(communicator.read_errors())
@@ -359,7 +611,7 @@ class CommunicatorGroup(abstract_collections.Mapping):
                 if key in communicator_ids
             ]
             for communicator in communicators:
-                information.union({message for message in communicator.read_info()})
+                information.union(set(communicator.read_info()))
         else:
             for communicator in self.__communicators.values():
                 information.union(communicator.read_info())
@@ -384,7 +636,9 @@ class CommunicatorGroup(abstract_collections.Mapping):
             True if there is a communicator that expects all data
         """
         return bool([
-            communicator for communicator in self.__communicators.values() if communicator.verbosity == Verbosity.ALL
+            communicator
+            for communicator in self.__communicators.values()
+            if communicator.verbosity == Verbosity.ALL
         ])
 
     def __str__(self):
