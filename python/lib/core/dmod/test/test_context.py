@@ -6,7 +6,6 @@ from __future__ import annotations
 import abc
 import dataclasses
 import inspect
-import logging
 import os
 import sys
 import typing
@@ -179,6 +178,7 @@ class TestStepResult(typing.Generic[T]):
     step_name: str
     value: T
     expected_result: typing.Union[T, None] = dataclasses.field(default=SENTINEL)
+    expect_exception: bool = dataclasses.field(default=False)
     ignore_result: bool = dataclasses.field(default=True)
 
     @property
@@ -192,6 +192,9 @@ class TestStepResult(typing.Generic[T]):
             expectation = self.expected_result
 
         if isinstance(self.value, BaseException) and not isinstance(expectation, BaseException):
+            return self.expect_exception
+
+        if self.expect_exception and not isinstance(self.value, BaseException):
             return False
 
         if self.ignore_result and isinstance(expectation, Sentinel):
@@ -271,11 +274,13 @@ class TestStep(PassableFunction[T, TestStepResult[T]]):
     """
     test_name: typing.Optional[str] = dataclasses.field(default=None)
     expected_result: typing.Union[T, PassableFunction, Sentinel] = dataclasses.field(default=SENTINEL)
+    expect_exception: typing.Optional[bool] = dataclasses.field(default=False)
 
     def __init__(
         self,
         test_name: str = None,
         expected_result: typing.Union[T, PassableFunction, Sentinel] = SENTINEL,
+        expect_exception: bool = False,
         *args,
         **kwargs
     ):
@@ -285,6 +290,7 @@ class TestStep(PassableFunction[T, TestStepResult[T]]):
 
         self.test_name = test_name
         self.expected_result = expected_result
+        self.expect_exception = expect_exception
 
     def copy(self) -> TestStep[T]:
         """
@@ -296,7 +302,8 @@ class TestStep(PassableFunction[T, TestStepResult[T]]):
             function=self.function,
             args=self.args,
             kwargs=self.kwargs,
-            expected_result=self.expected_result
+            expected_result=self.expected_result,
+            expect_exception=self.expect_exception
         )
 
     def handle_result(self, result: T) -> TestStepResult[T]:
@@ -304,7 +311,8 @@ class TestStep(PassableFunction[T, TestStepResult[T]]):
             test_name=self.test_name,
             step_name=self.operation_name,
             value=result,
-            expected_result=self.expected_result
+            expected_result=self.expected_result,
+            expect_exception=self.expect_exception
         )
 
 
@@ -378,7 +386,11 @@ class TestSteps:
 
             if isinstance(step_result, BaseException):
                 failed_step = self.__steps[step_number - 1]
-                message = f"#{step_number} '{failed_step.operation_name}' failed - Encountered Exception '{step_result}'"
+                message = (f"#{step_number} '{failed_step.operation_name}' failed - "
+                           f"Encountered Exception '{step_result}'")
+            elif isinstance(step_result, TestStepResult) and step_result.expect_exception:
+                message = (f"#{step_number})'{step_result.step_name}' failed - "
+                           f"expected an exception but resulted in '{step_result.value}'")
             elif isinstance(step_result, TestStepResult):
                 message = (f"#{step_number})'{step_result.step_name}' failed - expected '{step_result.expected_result}' "
                            f"but resulted in '{step_result.value}'")
@@ -750,6 +762,29 @@ def is_member(obj: type, name: str) -> typing.Literal[True]:
     return True
 
 
+def is_not_member(obj: type, name: str) -> typing.Literal[True]:
+    """
+    Assert that there is NOT a member by a given name within a given object
+
+    Args:
+        obj: An object to inspect
+        name: The name of the member to look for
+
+    Returns:
+        True if the check passed
+
+    Raises:
+        AssertionError if the member exists
+    """
+    members = [name for name, _ in inspect.getmembers(obj)]
+    assert name not in members, f"{obj} has the unexpected member named {name}"
+    return True
+
+
+def proxy_is_disconnected(proxy: multiprocessing.context.BaseContext):
+    pass
+
+
 def evaluate_member(obj: typing.Any, member_name: typing.Union[str, typing.Sequence[str]], *args, **kwargs) -> typing.Any:
     """
     Perform an operation or investigate an item belonging to an object with the given arguments
@@ -842,6 +877,18 @@ def climb_member_chain(
             obj = obj.fget(owner)
 
     return owner, obj
+
+
+def create_shared_object_out_of_scope(
+    manager: context.DMODObjectManager,
+    class_name: str,
+    scope: typing.Optional[str],
+    *args,
+    **kwargs
+) -> T:
+    if scope:
+        return manager.create_and_track_object(class_name, scope, *args, **kwargs)
+    return manager.create_object(class_name, *args, **kwargs)
 
 
 class TestObjectManager(unittest.TestCase):
@@ -1044,9 +1091,27 @@ class TestObjectManager(unittest.TestCase):
             "class_identifier"
         ]
 
-        with context.DMODObjectManager() as object_manager:
+        with context.DMODObjectManager(scope_creator=context.DMODObjectManagerScope) as object_manager:
             unshared_class_one: SharedClassOne = SharedClassOne(9)
-            shared_class_one: SharedClassOne = object_manager.create_object("SharedClassOne", 9)
+
+            shared_class_one: SharedClassOne = object_manager.create_object(
+                SharedClassOne.__name__,
+                one_a=9
+            )
+
+            monitored_out_of_scope_class_one: SharedClassOne = create_shared_object_out_of_scope(
+                manager=object_manager,
+                class_name=SharedClassOne.__name__,
+                scope="test_shared_class_one",
+                one_a=9
+            )
+
+            unmonitored_out_of_scope_class_one: SharedClassOne = create_shared_object_out_of_scope(
+                manager=object_manager,
+                class_name=SharedClassOne.__name__,
+                scope=None,
+                one_a=9
+            )
 
             steps = [
                 TestStep(
@@ -1062,6 +1127,24 @@ class TestObjectManager(unittest.TestCase):
                     operation_name=f"Shared Class One Instance has '{member_name}'",
                     function=is_member,
                     args=(shared_class_one, member_name),
+                    expected_result=True
+                )
+                for member_name in expected_class_one_members
+            )
+            steps.extend(
+                TestStep(
+                    operation_name=f"Monitored out of Scope Shared Class One Instance has '{member_name}'",
+                    function=is_member,
+                    args=(monitored_out_of_scope_class_one, member_name),
+                    expected_result=True
+                )
+                for member_name in expected_class_one_members
+            )
+            steps.extend(
+                TestStep(
+                    operation_name=f"Unmonitored out of Scope Shared Class One Instance has '{member_name}'",
+                    function=is_member,
+                    args=(unmonitored_out_of_scope_class_one, member_name),
                     expected_result=True
                 )
                 for member_name in expected_class_one_members
@@ -1096,9 +1179,33 @@ class TestObjectManager(unittest.TestCase):
                     expected_result=9
                 ),
                 TestStep(
-                    operation_name="'a' for Unshared Class One is 9",
+                    operation_name="'a' for Unshared Instance is 9",
                     function=evaluate_member,
                     args=(unshared_class_one, 'a'),
+                    expected_result=9
+                ),
+                TestStep(
+                    operation_name="'get_a()' for Monitored Out of Scope Instance is 9",
+                    function=evaluate_member,
+                    args=(monitored_out_of_scope_class_one, 'get_a'),
+                    expected_result=9
+                ),
+                TestStep(
+                    operation_name="'a' for Monitored Out of Scope Instance is 9",
+                    function=evaluate_member,
+                    args=(monitored_out_of_scope_class_one, 'a'),
+                    expected_result=9
+                ),
+                TestStep(
+                    operation_name="'get_a()' for Unmonitored Out of Scope Instance is 9",
+                    function=evaluate_member,
+                    args=(unmonitored_out_of_scope_class_one, 'get_a'),
+                    expected_result=9
+                ),
+                TestStep(
+                    operation_name="'a' for Unmonitored Out of Scope Instance is 9",
+                    function=evaluate_member,
+                    args=(unmonitored_out_of_scope_class_one, 'a'),
                     expected_result=9
                 ),
                 TestStep(
@@ -1268,19 +1375,20 @@ class TestObjectManager(unittest.TestCase):
         ]
         """The list of all members expected to be on all instances or proxies of SharedClassTwo"""
 
-        with context.DMODObjectManager() as object_manager:
+        with context.DMODObjectManager(scope_creator=context.DMODObjectManagerScope) as object_manager:
             control_class_one = SharedClassOne(6)
             """An instance of SharedClassOne expected to serve as a concrete starting point"""
 
-            shared_class_two = object_manager.create_object(
+            shared_class_two: SharedClassTwo = object_manager.create_and_track_object(
                 "SharedClassTwo",
+                "test_shared_class_two",
                 "one",
                 {"two": 2},
                 [3, 4, 5],
                 SharedClassOne(control_class_one.a)
             )
 
-            fully_shared_class_two = object_manager.create_object(
+            fully_shared_class_two: SharedClassTwo = object_manager.create_object(
                 "SharedClassTwo",
                 "one",
                 {"two": 2},

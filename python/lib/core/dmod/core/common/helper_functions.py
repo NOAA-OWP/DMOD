@@ -2,6 +2,7 @@
 Provides simple helper functions
 """
 import logging
+import os
 import pathlib
 import shutil
 import typing
@@ -41,6 +42,34 @@ def get_mro_names(value) -> typing.List[str]:
         return [entry.__name__ for entry in inspect.getmro(value)]
 
     return list()
+
+
+def format_stack_trace(first_frame_index: int = 1) -> str:
+    """
+    Forms a string outlining the current stack trace, outside the scope of an error
+
+    Args:
+        first_frame_index: The index of the first frame in the stack trace to start formatting. 0 is THIS function,
+            1 is the caller, 2 is the caller of the caller, and so forth
+    """
+    initial_whitespace_pattern = re.compile(r"^\s+")
+    ending_newline_pattern = re.compile(r"\n+$")
+
+    traces: typing.Iterable[inspect.FrameInfo] = reversed(inspect.stack()[first_frame_index:])
+
+    lines: typing.List[str] = []
+
+    for trace in traces:
+        lines.append(
+            f"  file '{trace.filename}', line {trace.lineno}, {trace.function}"
+        )
+
+        if trace.code_context:
+            code = trace.code_context[0]
+            code = initial_whitespace_pattern.sub("    ", code)
+            code = ending_newline_pattern.sub('', code)
+            lines.append(code)
+    return os.linesep.join(lines)
 
 
 def is_integer(value) -> bool:

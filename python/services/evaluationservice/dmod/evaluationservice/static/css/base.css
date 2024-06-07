@@ -29,3 +29,7 @@ body {
     padding: 20px;
     margin: 20px;
 }
+
+:root {
+    --error-glow: 0 0 5px 5px red;
+}

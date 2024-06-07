@@ -15,7 +15,7 @@ from pathlib import Path
 # Import application specific values rather than defining them here so that they may be accessed outside of
 # the server
 from .application_values import *
-from .logging import *
+from .service_logging import *
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -33,7 +33,7 @@ ALLOWED_HOSTS = ["*"]
 # Application definition
 
 INSTALLED_APPS = [
-    'daphne',
+    "daphne",
     'channels',
     'django.forms',
     'evaluation_service.apps.EvaluationServiceConfig',
