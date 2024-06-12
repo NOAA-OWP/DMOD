@@ -69,9 +69,9 @@ if [ "${WORKER_INDEX:-0}" = "0" ]; then
         # TODO: (later) in ngen and ngen-cal entrypoints, consider adding controls for whether this is done or a simpler
         # TODO:     'cp' call, based on whether we write directly to output dataset dir or some other output write dir
         # Do a dry run first to sanity check directory and fail if needed before backgrounding process
-        tar_and_copy --dry-run --compress ${CONFIG_DATASET_DIR:?Config dataset directory not defined} config_dataset.tgz ${OUTPUT_DATASET_DIR:?}
+        py_funcs tar_and_copy --dry-run --compress ${CONFIG_DATASET_DIR:?Config dataset directory not defined} config_dataset.tgz ${OUTPUT_DATASET_DIR:?}
         # Then actually run the archive and copy function in the background
-        tar_and_copy --compress ${CONFIG_DATASET_DIR:?} config_dataset.tgz ${OUTPUT_DATASET_DIR:?} &
+        py_funcs tar_and_copy --compress ${CONFIG_DATASET_DIR:?} config_dataset.tgz ${OUTPUT_DATASET_DIR:?} &
         _CONFIG_COPY_PROC=$!
         # If there is partitioning, which implies multi-processing job ...
         if [ -n "${PARTITION_DATASET_DIR:-}" ]; then
@@ -84,13 +84,13 @@ if [ "${WORKER_INDEX:-0}" = "0" ]; then
             # TODO:     are writing directly to output dataset dir or some other output write dir; this will be
             # TODO:     important once netcdf output works
             # Then gather output from all worker hosts
-            gather_output
+            py_funcs gather_output ${MPI_HOST_STRING:?} ${JOB_OUTPUT_WRITE_DIR:?}
             # Then wait at this point (if necessary) for our background config copy to avoid taxing things
             echo "$(print_date) Waiting for compression and copying of configuration files to output dataset"
             wait ${_CONFIG_COPY_PROC}
             echo "$(print_date) Compression/copying of config data to output dataset complete"
             echo "$(print_date) Copying results to output dataset"
-            move_output_to_dataset ${JOB_OUTPUT_WRITE_DIR} ${OUTPUT_DATASET_DIR:?}
+            py_funcs move_job_output --job_id ${JOB_ID:?} ${JOB_OUTPUT_WRITE_DIR} to_directory ${OUTPUT_DATASET_DIR:?}
             echo "$(print_date) Results copied to output dataset"
         # Otherwise, we just have a serial job ...
         else
@@ -105,7 +105,7 @@ if [ "${WORKER_INDEX:-0}" = "0" ]; then
             echo "$(print_date) Compression/copying of config data to output dataset complete"
 
             echo "$(print_date) Copying results to output dataset"
-            move_output_to_dataset ${JOB_OUTPUT_WRITE_DIR} ${OUTPUT_DATASET_DIR:?}
+            py_funcs move_job_output --job_id ${JOB_ID:?} ${JOB_OUTPUT_WRITE_DIR} to_directory ${OUTPUT_DATASET_DIR:?}
             echo "$(print_date) Results copied to output dataset"
         fi
     else
