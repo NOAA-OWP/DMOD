@@ -6,7 +6,6 @@ import os
 import shutil
 import tarfile
 
-from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 from subprocess import Popen
@@ -133,7 +132,7 @@ def gather_output(mpi_host_names: List[str], output_write_dir: Path):
     from socket import gethostname
     local_hostname = gethostname()
 
-    scp_subs = OrderedDict()
+    scp_subs = dict()
 
     for host in (h for h in mpi_host_names if h != local_hostname):
         scp_subs[host] = Popen(f"scp -q -r {host}:${output_write_dir!s}/ ${output_write_dir!s}/.")
