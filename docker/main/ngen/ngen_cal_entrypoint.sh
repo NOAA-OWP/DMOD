@@ -110,9 +110,9 @@ if [ "${WORKER_INDEX:-0}" = "0" ]; then
         # TODO: (later) in ngen and ngen-cal entrypoints, consider adding controls for whether this is done or a simpler
         # TODO:     'cp' call, based on whether we write directly to output dataset dir or some other output write dir
         # Do a dry run first to sanity check directory and fail if needed before backgrounding process
-        tar_and_copy --dry-run --compress ${CONFIG_DATASET_DIR:?Config dataset directory not defined} config_dataset.tgz ${OUTPUT_DATASET_DIR:?}
+        py_funcs tar_and_copy --dry-run --compress ${CONFIG_DATASET_DIR:?Config dataset directory not defined} config_dataset.tgz ${OUTPUT_DATASET_DIR:?}
         # Then actually run the archive and copy function in the background
-        tar_and_copy --compress ${CONFIG_DATASET_DIR:?} config_dataset.tgz ${OUTPUT_DATASET_DIR:?} &
+        py_funcs tar_and_copy --compress ${CONFIG_DATASET_DIR:?} config_dataset.tgz ${OUTPUT_DATASET_DIR:?} &
         _CONFIG_COPY_PROC=$!
         # If there is partitioning, which implies multi-processing job ...
         if [ -n "${PARTITION_DATASET_DIR:-}" ]; then
