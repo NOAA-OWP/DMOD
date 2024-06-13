@@ -138,10 +138,11 @@ def gather_output(mpi_host_names: List[str], output_write_dir: Path):
     for host in (h for h in mpi_host_names if h != local_hostname):
         scp_subs[host] = Popen(f"scp -q -r {host}:${output_write_dir!s}/ ${output_write_dir!s}/.")
 
-    for host in scp_subs:
-        return_code = scp_subs[host].wait()
-        if return_code != 0:
-            raise RuntimeError(f"{get_date_str()} gather_output failed for {host} w/ return code {return_code!s}!")
+    for host, process in scp_subs.items():
+        _, error_in_bytes = process.communicate()
+        if process.returncode != 0:
+            raise RuntimeError(f"{get_date_str()} gather_output failed for '{host}' (code={process.returncode}): \n"
+                               f"{error_in_bytes.decode()}")
 
 
 def get_date_str() -> str:
