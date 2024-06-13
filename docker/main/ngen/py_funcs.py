@@ -74,7 +74,8 @@ def _parse_args() -> argparse.Namespace:
     argparse.Namespace
         The parsed arguments namespace object.
     """
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter, prog='py_funcs')
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter, prog='py_funcs',
+                                     description="Run one of several Docker image entrypoint Python helper functions.")
     parser.add_argument('--log-level', '-L', dest='log_level',
                         default=os.environ.get("DEFAULT_LOG_LEVEL", "INFO").upper(),
                         choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"], help='Optionally specify log level.')
