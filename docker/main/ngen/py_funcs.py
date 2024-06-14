@@ -7,9 +7,17 @@ import shutil
 import tarfile
 
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from subprocess import Popen
 from typing import Dict, List, Literal, Optional
+
+
+class ArchiveStrategy(Enum):
+    """ Settings for whether something that may/can archive files should, should not, or should decide for itself. """
+    FORCE = "force"
+    DISALLOW = "disallow"
+    DYNAMIC = "dynamic"
 
 
 def _apply_logging(log_level: Literal["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]):
@@ -53,11 +61,10 @@ def _parse_for_move_job_output(parent_subparsers_container):
     desc = "Move output data files produced by a job to another location, typically to put them into a DMOD dataset."
     helper_cmd_parser = parent_subparsers_container.add_parser('move_job_output', description=desc)
     helper_cmd_parser.add_argument('--job_id', '--job-id', dest='job_id', help='Optionally specify job id.')
-    helper_cmd_parser.add_argument('--archive-files', dest='do_archiving', choices=["true", "false"],
-                                   type=lambda s: True if s.lower == "true" else False, default=None,
-                                   help='Force archiving before moving job output.')
+    helper_cmd_parser.add_argument("--archiving", dest="archiving", default=ArchiveStrategy.DYNAMIC,
+                                   type=ArchiveStrategy, help="Set whether job output should be archived before moving")
     helper_cmd_parser.add_argument('output_directory', type=Path,
-                                   help='Source directory containing output files to be placed within the dataset.')
+                                   help='Source directory containing output files to be moved.')
 
     cmd_subparsers = helper_cmd_parser.add_subparsers(dest='move_action', help="Specify the type of move action.")
     cmd_subparsers.required = True
@@ -155,7 +162,7 @@ def get_date_str() -> str:
     return datetime.now().strftime('%Y-%m-%d,%H:%M:%S')
 
 
-def move_job_output(output_directory: Path, move_action: str, do_archiving: Optional[bool] = None,
+def move_job_output(output_directory: Path, move_action: str, archiving: ArchiveStrategy = ArchiveStrategy.DYNAMIC,
                     job_id: Optional[str] = None, **kwargs):
     """
     Move output data files from a job from their initial directory to somewhere, depending on the CLI-given move action.
@@ -167,8 +174,13 @@ def move_job_output(output_directory: Path, move_action: str, do_archiving: Opti
     Parameters
     ----------
     output_directory
+        Source directory containing output files to be moved.
     move_action
-    do_archiving
+        The type of move action to be performed.
+    archiving
+        Strategy controlling whether job output should be archived before moving.
+    job_id
+        Optional job id, used as part of archive name when applicable.
     kwargs
         Other keyword args from the CLI specific to the particular move action to be performed.
 
@@ -177,9 +189,8 @@ def move_job_output(output_directory: Path, move_action: str, do_archiving: Opti
         raise ValueError(
             f"{get_date_str()} Can't move job output from non-directory path {output_directory!s} to output dataset")
 
-
     # If this was not set, dynamically determine what it should be
-    if do_archiving is None:
+    if archiving == ArchiveStrategy.DYNAMIC:
         # For now, just do this if the output data contains more than 100 individual files
         out_dir_files = [f for f in output_directory.glob("**/*")]
         out_dir_file_count = len(out_dir_files)
@@ -189,7 +200,8 @@ def move_job_output(output_directory: Path, move_action: str, do_archiving: Opti
         logging.debug(f"List of files in {output_directory!s} (max first {max_displayed!s}): \n    {displayed}")
         do_archiving = out_dir_file_count > 100
     else:
-        logging.debug(f"Archiving parameter was set to {do_archiving!s}")
+        logging.debug(f"Archiving parameter was set to {archiving.name}")
+        do_archiving = archiving == ArchiveStrategy.FORCE
 
     assert do_archiving is not None
 
