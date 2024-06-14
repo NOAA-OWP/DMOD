@@ -303,7 +303,7 @@ def main():
     elif args.command == 'move_job_output':
         move_job_output(**(vars(args)))
     else:
-        raise ValueError("Unsupported command {}".format(args.command))
+        raise RuntimeError(f"Command arg '{args.command}' doesn't match a command supported by module's main function")
 
 
 if __name__ == '__main__':
