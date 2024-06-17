@@ -32,13 +32,13 @@ def get_redis_connection(
         A connection to a redis instance
     """
     construction_arguments = {
-        key: value
-        for key, value in kwargs.items()
+        "host": host or application_values.REDIS_HOST,
+        "port": port or application_values.REDIS_PORT,
+        **kwargs
     }
 
-    construction_arguments['host'] = host or application_values.REDIS_HOST
-    construction_arguments['port'] = port or application_values.REDIS_PORT
-    construction_arguments['password'] = password or application_values.REDIS_PASSWORD
+    if password or application_values.REDIS_PASSWORD:
+        construction_arguments["password"] = password or application_values.REDIS_PASSWORD
 
     if db or application_values.REDIS_DB:
         construction_arguments['db'] = db or application_values.REDIS_DB

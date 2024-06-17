@@ -22,7 +22,9 @@ class Arguments(object):
     def __init__(self, *args):
         self.__host: typing.Optional[str] = None
         self.__port: typing.Optional[str] = None
+        self.__username: typing.Optional[str] = None
         self.__password: typing.Optional[str] = None
+        self.__db: int = 0
         self.__channel: typing.Optional[str] = None
         self.__limit: typing.Optional[int] = None
         self.__parse_command_line(*args)
@@ -36,8 +38,16 @@ class Arguments(object):
         return self.__port
 
     @property
+    def username(self) -> typing.Optional[str]:
+        return self.__username
+
+    @property
     def password(self) -> typing.Optional[str]:
         return self.__password
+
+    @property
+    def db(self) -> int:
+        return self.__db
 
     @property
     def channel(self) -> typing.Optional[str]:
@@ -51,20 +61,41 @@ class Arguments(object):
         parser = ArgumentParser("Starts a series of processes that will listen and launch evaluations")
 
         # Add options
-        parser.add_argument('--redis-host',
-                            help='Set the host value for making Redis connections',
-                            dest='redis_host',
-                            default=None)
 
-        parser.add_argument('--redis-pass',
-                            help='Set the password value for making Redis connections',
-                            dest='redis_pass',
-                            default=None)
+        parser.add_argument(
+            '--redis-host',
+            help='Set the host value for making Redis connections',
+            dest='redis_host',
+            default=None
+        )
 
-        parser.add_argument('--redis-port',
-                            help='Set the port value for making Redis connections',
-                            dest='redis_port',
-                            default=None)
+        parser.add_argument(
+            '--redis-port',
+            help='Set the port value for making Redis connections',
+            dest='redis_port',
+            default=None
+        )
+
+        parser.add_argument(
+            '--redis-username',
+            help='Set the username for making Redis connections',
+            dest='redis_username',
+            default=None
+        )
+
+        parser.add_argument(
+            '--redis-pass',
+            help='Set the password value for making Redis connections',
+            dest='redis_pass',
+            default=None
+        )
+
+        parser.add_argument(
+            '--redis-db',
+            help='Set the database value for making Redis connections',
+            dest='redis_db',
+            default=None
+        )
 
         parser.add_argument(
             "--limit",
@@ -86,9 +117,11 @@ class Arguments(object):
             parameters = parser.parse_args()
 
         # Assign parsed parameters to member variables
-        self.__host = parameters.redis_host or service.RQ_HOST
-        self.__port = parameters.redis_port or service.RQ_PORT
-        self.__password = parameters.redis_pass or service.REDIS_PASSWORD
+        self.__host = parameters.redis_host or service.RUNNER_HOST
+        self.__port = parameters.redis_port or service.RUNNER_PORT
+        self.__username = parameters.redis_username or service.RUNNER_USERNAME
+        self.__password = parameters.redis_pass or service.RUNNER_PASSWORD
+        self.__db = parameters.redis_db or service.RUNNER_DB
         self.__channel = parameters.channel or service.EVALUATION_QUEUE_NAME
         self.__limit = parameters.limit or int(float(os.environ.get("MAXIMUM_RUNNING_JOBS", os.cpu_count())))
 
@@ -171,7 +204,9 @@ def listen(
     channel: str,
     host: str = None,
     port: typing.Union[str, int] = None,
+    username: str = None,
     password: str = None,
+    db: int = 0,
     job_limit: int = None
 ):
     signal.signal(signal.SIGINT, signal_handler)
@@ -191,7 +226,9 @@ def listen(
             connection = utilities.get_redis_connection(
                 host=host,
                 port=port,
-                password=password
+                password=password,
+                username=username,
+                db=db
             )
             listener = connection.pubsub()
             listener.subscribe(channel)
@@ -211,7 +248,9 @@ def main():
         channel=arguments.channel,
         host=arguments.host,
         port=arguments.port,
+        username=arguments.username,
         password=arguments.password,
+        db=arguments.db,
         job_limit=arguments.limit
     )
 
