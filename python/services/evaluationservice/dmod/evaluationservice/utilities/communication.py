@@ -122,23 +122,92 @@ def unchecked_lifespan() -> int:
     return int(timedelta(hours=18).total_seconds())
 
 
-def get_redis_connection(host: str = None, port: int = None, password: str = None, **kwargs) -> redis.Redis:
+def get_redis_connection(
+    host: str = None,
+    port: int = None,
+    username: str = None,
+    password: str = None,
+    db: int = None
+) -> redis.Redis:
     """
     Forms a connection to a redis instance. If fields are not supplied, values fall back to environment configuration
 
     Args:
         host: The optional host to connect to
         port: The optional port to connect to
+        username: The optional username to connect to
         password: The optional password to use when connecting to the instance
-        **kwargs:
+        db: The optional database to connect to
 
     Returns:
         A connection to a redis instance
     """
     return redis.Redis(
-        host=host or application_values.RQ_HOST,
-        port=port or application_values.RQ_PORT,
-        password=password or application_values.REDIS_PASSWORD
+        host=host or application_values.REDIS_HOST,
+        port=port or application_values.REDIS_PORT,
+        username=username or application_values.REDIS_USERNAME,
+        password=password or application_values.REDIS_PASSWORD,
+        db=db or application_values.REDIS_DB,
+    )
+
+
+def get_runner_connection(
+    host: str = None,
+    port: int = None,
+    db: str = None,
+    password: str = None,
+    username: str = None
+) -> redis.Redis:
+    """
+    Forms a connection to a redis instance to the runner. If fields are not supplied,
+    values fall back to environment configuration
+
+    Args:
+        host: The optional host to connect to
+        port: The optional port to connect to
+        username: The optional username to connect to
+        password: The optional password to use when connecting to the instance
+        db: The optional database to connect to
+
+    Returns:
+        A connection to a redis instance
+    """
+    return redis.Redis(
+        host=host or application_values.REDIS_HOST,
+        port=port or application_values.REDIS_PORT,
+        username=username or application_values.REDIS_USERNAME,
+        password=password or application_values.REDIS_PASSWORD,
+        db=db or application_values.REDIS_DB,
+    )
+
+
+def get_channel_connection(
+    host: str = None,
+    port: int = None,
+    db: str = None,
+    password: str = None,
+    username: str = None
+) -> redis.Redis:
+    """
+    Forms a connection to a redis instance that serves channel information. If fields are not supplied,
+    values fall back to environment configuration
+
+    Args:
+        host: The optional host to connect to
+        port: The optional port to connect to
+        username: The optional username to connect to
+        password: The optional password to use when connecting to the instance
+        db: The optional database to connect to
+
+    Returns:
+        A connection to a redis instance
+    """
+    return redis.Redis(
+        host=host or application_values.CHANNEL_HOST,
+        port=port or application_values.CHANNEL_PORT,
+        username=username or application_values.CHANNEL_USERNAME,
+        password=password or application_values.CHANNEL_PASSWORD,
+        db=db or application_values.CHANNEL_DB,
     )
 
 

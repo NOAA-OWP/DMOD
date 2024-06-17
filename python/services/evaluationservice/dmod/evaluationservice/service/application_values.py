@@ -38,7 +38,7 @@ def in_debug_mode() -> bool:
     return str(debug_value).lower() in ("yes", "y", "1", 'true', 'on', 'debug')
 
 
-def get_redis_password() -> typing.Optional[str]:
+def get_redis_password(password_path_variable: str = None, password_variable_name: str = None) -> typing.Optional[str]:
     """
     Attempts to find a password to the core redis instance, first by checking for a secrets file, then by checking
     an environment variable.
@@ -49,7 +49,10 @@ def get_redis_password() -> typing.Optional[str]:
     Returns:
         The optional password to the core redis service
     """
-    password_filename = os.environ.get("REDIS_PASSWORD_FILE", "/run/secrets/myredis_pass")
+    if password_path_variable is None:
+        password_path_variable = "REDIS_PASSWORD_FILE"
+
+    password_filename = os.environ.get(password_path_variable, "/run/secrets/myredis_pass")
 
     # If a password file has been identified, try to get a password from that
     if os.path.exists(password_filename):
@@ -63,8 +66,11 @@ def get_redis_password() -> typing.Optional[str]:
             # Data couldn't be read? Move on to attempting to read it from the environment variable
             pass
 
+    if not password_variable_name:
+        password_variable_name = "REDIS_PASS"
+
     # Fall back to env if no secrets file, further falling back to default if no env value
-    return os.environ.get('REDIS_PASS')
+    return os.environ.get(password_variable_name)
 
 
 def get_full_localtimezone():
@@ -177,14 +183,28 @@ REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.environ.get("REDIS_PORT")) if "REDIS_PORT" in os.environ else 6379
 """The port of the core redis service"""
 
+REDIS_USERNAME = os.environ.get("REDIS_USER", None)
+"""The name of the user for the default redis connection"""
+
 REDIS_PASSWORD = get_redis_password()
 """The password to the cored redis service"""
 
-RQ_HOST = os.environ.get("RQ_HOST", REDIS_HOST)
+RUNNER_HOST = os.environ.get("RUNNER_HOST", REDIS_HOST)
 """The host of the redis service used for launching jobs"""
 
-RQ_PORT = int(os.environ.get("RQ_PORT")) if "RQ_PORT" in os.environ else REDIS_PORT
+REDIS_DB: typing.Final[int] = int(os.environ.get("REDIS_DB", 0))
+
+RUNNER_PORT = int(os.environ.get("RUNNER_PORT")) if "RUNNER_PORT" in os.environ else REDIS_PORT
 """The port of the redis service used for launching jobs"""
+
+RUNNER_USERNAME = os.environ.get("RUNNER_USERNAME", REDIS_USERNAME)
+
+RUNNER_PASSWORD = get_redis_password(
+    password_path_variable="RUNNER_PASSWORD_FILE",
+    password_variable_name="RUNNER_PASSWORD"
+) or REDIS_PASSWORD
+
+RUNNER_DB: typing.Final[int] = int(os.environ.get("RUNNER_DB", REDIS_DB))
 
 CHANNEL_HOST = os.environ.get("CHANNEL_HOST", REDIS_HOST)
 """The host of the redis service used for communicating job information"""
@@ -192,20 +212,29 @@ CHANNEL_HOST = os.environ.get("CHANNEL_HOST", REDIS_HOST)
 CHANNEL_PORT = int(os.environ.get("CHANNEL_PORT")) if "CHANNEL_PORT" in os.environ else REDIS_PORT
 """The port of the redis service used for communicating job information"""
 
+CHANNEL_USERNAME = os.environ.get("CHANNEL_USERNAME", REDIS_USERNAME)
+
+CHANNEL_PASSWORD = get_redis_password(
+    password_path_variable="CHANNEL_PASSWORD_FILE",
+    password_variable_name="CHANNEL_PASSWORD"
+) or REDIS_PASSWORD
+
+CHANNEL_DB = int(os.environ.get("CHANNEL_DB", REDIS_DB))
+
 CHANNEL_NAME_PATTERN = r'[\w\-_\.]+'
 """The pattern that redis channel names may follow"""
 
 RQ_QUEUES = {
     'default': {
-        'HOST': RQ_HOST,
-        'PORT': RQ_PORT,
+        'HOST': RUNNER_HOST,
+        'PORT': RUNNER_PORT,
         'PASSWORD': os.environ.get("RQ_PASSWORD") or REDIS_PASSWORD,
         'DB': 0,
         'DEFAULT_TIMEOUT': 99999,
     },
     EVALUATION_QUEUE_NAME: {
-        'HOST': RQ_HOST,
-        "PORT": RQ_PORT,
+        'HOST': RUNNER_HOST,
+        "PORT": RUNNER_PORT,
         "PASSWORD": os.environ.get("RQ_PASSWORD") or REDIS_PASSWORD,
         "DB": 0,
         "DEFAULT_TIMEOUT": 99999
