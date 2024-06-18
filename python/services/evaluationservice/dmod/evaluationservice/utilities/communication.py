@@ -173,11 +173,11 @@ def get_runner_connection(
         A connection to a redis instance
     """
     return redis.Redis(
-        host=host or application_values.REDIS_HOST,
-        port=port or application_values.REDIS_PORT,
-        username=username or application_values.REDIS_USERNAME,
-        password=password or application_values.REDIS_PASSWORD,
-        db=db or application_values.REDIS_DB,
+        host=host or application_values.RUNNER_HOST,
+        port=port or application_values.RUNNER_PORT,
+        username=username or application_values.RUNNER_USERNAME,
+        password=password or application_values.RUNNER_PASSWORD,
+        db=db or application_values.RUNNER_DB,
     )
 
 

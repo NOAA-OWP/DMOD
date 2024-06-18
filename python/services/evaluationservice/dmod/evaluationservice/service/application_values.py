@@ -46,13 +46,17 @@ def get_redis_password(password_path_variable: str = None, password_variable_nam
     The optional environment variables that control this are `REDIS_PASSWORD_FILE` for the secret or `REDIS_PASS`
     for the password on its own.
 
+    Args:
+        password_path_variable: The path to the secrets file for the password.
+        password_variable_name: The name of the environment variable for the password.
+
     Returns:
         The optional password to the core redis service
     """
-    if password_path_variable is None:
-        password_path_variable = "REDIS_PASSWORD_FILE"
-
-    password_filename = os.environ.get(password_path_variable, "/run/secrets/myredis_pass")
+    password_filename = os.environ.get(
+        password_path_variable or "REDIS_PASSWORD_FILE",
+        "/run/secrets/myredis_pass"
+    )
 
     # If a password file has been identified, try to get a password from that
     if os.path.exists(password_filename):
@@ -66,11 +70,8 @@ def get_redis_password(password_path_variable: str = None, password_variable_nam
             # Data couldn't be read? Move on to attempting to read it from the environment variable
             pass
 
-    if not password_variable_name:
-        password_variable_name = "REDIS_PASS"
-
     # Fall back to env if no secrets file, further falling back to default if no env value
-    return os.environ.get(password_variable_name)
+    return os.environ.get(password_variable_name or "REDIS_PASS")
 
 
 def get_full_localtimezone():
