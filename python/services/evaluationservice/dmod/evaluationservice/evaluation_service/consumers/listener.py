@@ -464,6 +464,8 @@ async def enqueue_job(launch_parameters: typing.Dict[str, typing.Any]):
             json.dumps(launch_parameters)
         )
 
+        # `publish` returns an item that can be awaitable or just about anything else. In case the returned value is
+        # an awaitable, wait for it until all contained async operations are complete
         while inspect.isawaitable(publication_response):
             publication_response = await publication_response
 
@@ -504,19 +506,42 @@ class LaunchConsumer(AsyncWebsocketConsumer, ActionDescriber):
         request_id: typing.Optional[str] = None
 
         def is_message_wrapper(possible_wrapper) -> bool:
-            return isinstance(possible_wrapper, dict) \
+            """
+            Determines if a value might contain event data
+
+            Args:
+                possible_wrapper: A value that might contain event data
+
+            Returns:
+                True if an event definition and its payload may be read from the given object
+            """
+            return isinstance(possible_wrapper, typing.Mapping) \
                    and not possible_wrapper.get("event") \
                    and "data" in possible_wrapper
 
-        def get_request_id(container: typing.Union[typing.Dict[str, typing.Any], str, bytes]) -> typing.Optional[str]:
+        def get_request_id(
+            container: typing.Union[typing.Dict[str, typing.Any], str, bytes],
+            previous_value: str = None
+        ) -> typing.Optional[str]:
+            """
+            Inspect a given container to get a possible definition for a `request_id` - default to the previous value
+            if not found
+
+            Args:
+                container: The value that may contain a request_id
+                previous_value: The previous value of a request_id
+
+            Returns:
+                The most current appropriate value for a request_id
+            """
             if isinstance(container, typing.Mapping) and "request_id" in container:
-                new_request_id = container["request_id"] or request_id
+                new_request_id = container["request_id"] or previous_value
 
                 if isinstance(new_request_id, bytes):
                     new_request_id = new_request_id.decode()
 
                 return new_request_id
-            return request_id
+            return previous_value
 
         request_id = get_request_id(message)
 
@@ -524,7 +549,7 @@ class LaunchConsumer(AsyncWebsocketConsumer, ActionDescriber):
         # If that's the case, use its data member instead
         while is_message_wrapper(message):
             message: typing.Dict[str, typing.Any] = message['data']
-            request_id: typing.Optional[str] = get_request_id(message)
+            request_id = get_request_id(message, request_id)
 
         # If it looks like the passed message might be a string or bytes representation of a dict, attempt to
         # convert it to a dict
@@ -537,13 +562,14 @@ class LaunchConsumer(AsyncWebsocketConsumer, ActionDescriber):
         else:
             deserialized_message = message
 
-        request_id = get_request_id(deserialized_message)
+        request_id = get_request_id(deserialized_message, request_id)
             
         while is_message_wrapper(deserialized_message):
             # This is only considered a message wrapper if it is a dict; linters may think this could be a string,
             # but it will always be a dict here
             deserialized_message = deserialized_message['data']
-            request_id = get_request_id(deserialized_message)
+            request_id = get_request_id(deserialized_message, request_id)
+
         # The caller requires this function to be synchronous, whereas `send_message` is async;
         # we're stuck using async_to_sync here as a result
         async_send = async_to_sync(self.send_message)
