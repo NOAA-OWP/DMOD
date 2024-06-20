@@ -17,7 +17,7 @@ setup(
     author_email='',
     url='',
     license='',
-    install_requires=['dmod-core>=0.16.0', 'dmod-communication>=0.14.0', 'dmod-scheduler>=0.12.2',
+    install_requires=['dmod-core>=0.17.0', 'dmod-communication>=0.20.0', 'dmod-scheduler>=0.12.2',
                       'dmod-modeldata>=0.12.0', 'redis', "pydantic[dotenv]>=1.10.8,~=1.10", "fastapi", "uvicorn[standard]",
                       'ngen-config@git+https://github.com/noaa-owp/ngen-cal@master#egg=ngen-config&subdirectory=python/ngen_conf',
                       'ngen-cal@git+https://github.com/noaa-owp/ngen-cal@master#egg=ngen-config&subdirectory=python/ngen_cal'],

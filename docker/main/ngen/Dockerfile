@@ -899,6 +899,7 @@ USER ${USER}
 COPY --chown=${USER} noah_owp_parameters /dmod/bmi_module_data/noah_owp/parameters/
 COPY --chown=${USER} ngen_entrypoint.sh ${WORKDIR}/entrypoint.sh
 COPY --chown=${USER} funcs.sh ${WORKDIR}
+COPY --chown=${USER} --chmod=744 py_funcs.py /dmod/bin/py_funcs
 
 ENV HYDRA_PROXY_RETRY_COUNT=5
 

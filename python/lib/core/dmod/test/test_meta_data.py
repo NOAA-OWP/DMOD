@@ -191,7 +191,7 @@ class TestDataDomain(unittest.TestCase):
         expected_serialized_data_fields = {"a": "int", "b": "float", "c": "bool", "d": "str", "e": "Any"}
         data = {
             # NOTE: NGEN_OUTPUT data_fields = None.
-            "data_format": "NGEN_OUTPUT",
+            "data_format": "NGEN_CSV_OUTPUT",
             "continuous": {},
             "discrete": {StandardDatasetIndex.DATA_ID: {"variable": "DATA_ID", "values": ["0"]}},
         }
