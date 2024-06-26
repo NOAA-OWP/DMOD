@@ -266,11 +266,11 @@ class _OccurrenceTracker(typing.Generic[_T]):
             The number of occurrences still being tracked
         """
         cutoff: datetime = datetime.now() - self.__duration
-        self.__occurences = sorted([
+        self.__occurences = [
             occurrence
             for occurrence in self.__occurences
             if occurrence > cutoff
-        ])
+        ]
         return len(self.__occurences)
 
     @property
@@ -296,6 +296,13 @@ class TimedOccurrenceWatcher:
     """
     Keeps track of the amount of occurrences of items within a range of time
     """
+    MINIMUM_TRACKING_SECONDS: typing.Final[float] = 0.1
+    """
+    The lowest number of seconds to watch for multiple occurrences. Only acting when multiple occurrences are tracked 
+    in under 100ms would create a scenario where the watcher will most likely never trigger an action, rendering 
+    this the wrong tool for the job.
+    """
+
     @staticmethod
     def default_key_function(obj: object) -> type:
         """
@@ -313,7 +320,7 @@ class TimedOccurrenceWatcher:
         if not isinstance(duration, timedelta):
             raise ValueError(f"Cannot create a {self.__class__.__name__} - {duration} is not a timedelta object")
 
-        if duration.total_seconds() < 0.1:
+        if duration.total_seconds() < self.MINIMUM_TRACKING_SECONDS:
             raise ValueError(
                 f"Cannot create a {self.__class__.__name__} - the duration is too short ({duration.total_seconds()}s)"
             )
@@ -394,7 +401,6 @@ class TimedOccurrenceWatcher:
 
     def __repr__(self):
         return self.__str__()
-
 
 
 class EventfulMap(abc.ABC, typing.MutableMapping[_KT, _VT], typing.Generic[_KT, _VT]):

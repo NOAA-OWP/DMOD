@@ -136,7 +136,7 @@ Traceback (most recent call last):
 KeyError: '3067171c0'
 ```
 
-This sort of error occurs when the an instantiated object has fallen out of scope _before_ another process has had 
+This sort of error occurs when an instantiated object has fallen out of scope _before_ another process has had 
 a chance to use it. The Server (in this case the `dmod.core.context.DMODObjectServer`) that the manager (in this case 
 the `dmod.core.context.DMODObjectManager`) keeps track of objects via reference counters. When a proxy is created, the 
 real object is created on the instantiated server and its reference count increases. When the created proxy leaves 

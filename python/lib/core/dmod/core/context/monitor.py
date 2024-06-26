@@ -3,6 +3,7 @@ Provides a mechanism for tracking the execution of processes and their consumpti
 """
 from __future__ import annotations
 
+import enum
 import os
 import typing
 import threading
@@ -15,37 +16,77 @@ from time import sleep
 
 from .base import T
 from .base import ObjectManagerScope
+from ..common.helper_functions import is_float_string
 from ..common.protocols import LoggerProtocol
-from ..common.protocols import JobResultProtocol
-from ..common.protocols import JobLauncherProtocol
+from ..common.helper_functions import parse_duration
 
-Seconds = float
+Seconds = typing.Union[float, int]
+"""Alias to indicate that the value is supposed to be seconds represented by a floating point number"""
 
-SHORT_TIMEOUT_THRESHOLD = timedelta(seconds=10).seconds
+SHORT_TIMEOUT_THRESHOLD: typing.Final[Seconds] = timedelta(seconds=10).seconds
+"""The amount of time considered dangerously short for the monitor timeout in seconds"""
+
+
+SECONDS_TO_WAIT_ON_KILL: typing.Final[Seconds] = 15
+"""The number of seconds to wait for threads to terminate when the monitor is killed"""
+
+
+def get_default_monitor_timeout() -> Seconds:
+    """
+    Determine how long the FutureMonitor should wait for an update before it decides that it has been abandoned
+
+    Returns:
+        The number of seconds a FutureMonitor should wait if not told otherwise
+    """
+    configured_monitor_timeout = os.environ.get("FUTURE_MONITOR_TIMEOUT")
+
+    if configured_monitor_timeout:
+        configured_monitor_timeout = configured_monitor_timeout.strip()
+
+        if is_float_string(configured_monitor_timeout):
+            return float(configured_monitor_timeout)
+
+        monitor_timeout = parse_duration(configured_monitor_timeout)
+        if monitor_timeout.total_seconds() < 1:
+            raise ValueError(
+                "The 'FUTURE_MONITOR_TIMEOUT' environment variable is invalid. "
+                f"It must be at least 1 second but {monitor_timeout.total_seconds()} seconds was given."
+            )
+
+        return monitor_timeout.total_seconds()
+
+    # Default to 4 minutes if not configured. Five minutes should be long enough to detect a lack of writing,
+    # but short enough that the monitor doesn't live for too long
+    return timedelta(minutes=4).total_seconds()
+
+
+DEFAULT_MONITOR_TIMEOUT: typing.Final[Seconds] = get_default_monitor_timeout()
+"""The default amount of time to wait for an update within a future monitor in seconds"""
+
+
+class MonitorSignal(enum.Enum):
+    """
+    Signals that a monitor may receive to alter its behavior outside the scope of a message
+    """
+    STOP = enum.auto()
+    """Indicates that the monitor should stop"""
+    PING = enum.auto()
+    """Indicates that the timer used to find something to check should be reset"""
+    KILL = enum.auto()
+    """Indicates that the monitor and the processes it monitors should be forcefully killed immediately"""
+
+    @classmethod
+    def values(cls) -> typing.List[MonitorSignal]:
+        """
+        All MonitorSignal values in a representation that makes it easy to check for membership without errors
+        """
+        return list(cls)
 
 
 class FutureMonitor:
     """
     Iterates over future objects to see when it is ok to end the extended scope for shared values
     """
-    _STOP_SIGNAL: typing.Final[object] = object()
-    """
-    Symbol used to indicate that the monitor should stop
-    """
-
-    _PING_SIGNAL: typing.Final[object] = object()
-    """
-    Symbol used to indicate that the timer used to find something to check should be reset
-    """
-
-    _KILL_SIGNAL: typing.Final[object] = object()
-    """
-    Symbol used to indicate that the monitor and the processes it monitors should be killed immediately
-    """
-
-    _DEFAULT_TIMEOUT: float = timedelta(minutes=4).total_seconds()
-    """The number of seconds to wait for a new element to monitor"""
-
     _DEFAULT_POLL_INTERVAL: float = 1.0
     """The number of seconds to wait before polling for the internal queue"""
 
@@ -60,18 +101,18 @@ class FutureMonitor:
         self,
         callback: typing.Callable[[T], typing.Any] = None,
         on_error: typing.Callable[[BaseException], typing.Any] = None,
-        timeout: typing.Union[float, timedelta] = None,
+        timeout: typing.Union[Seconds, timedelta] = None,
         poll_interval: typing.Union[float, timedelta] = None,
         logger: LoggerProtocol = None
     ):
         if not timeout:
-            timeout = self._DEFAULT_TIMEOUT
+            timeout = DEFAULT_MONITOR_TIMEOUT
         elif isinstance(timeout, timedelta):
             timeout = timeout.total_seconds()
 
-        self._queue: queue.Queue[JobResultProtocol[T]] = queue.Queue()
+        self._queue: queue.Queue[futures.Future] = queue.Queue()
         self.__size: int = 0
-        self.__scopes: typing.List[typing.Tuple[ObjectManagerScope, JobResultProtocol]] = []
+        self.__scopes: typing.List[typing.Tuple[ObjectManagerScope, futures.Future]] = []
         """A list of scopes and the task that marks them as complete"""
 
         self._callback = callback
@@ -162,27 +203,28 @@ class FutureMonitor:
                         monitoring_succeeded = False
                         break
 
-                    future_result: typing.Union[JobResultProtocol, object] = self._queue.get(
+                    future_result: typing.Union[futures.Future, object] = self._queue.get(
                         timeout=self._timeout
                     )
                     self.__size -= 1
 
-                if future_result in (self._PING_SIGNAL, self._KILL_SIGNAL, self._STOP_SIGNAL):
-                    if future_result == self._KILL_SIGNAL:
+                if future_result in MonitorSignal.values():
+                    if future_result == MonitorSignal.KILL:
                         monitoring_succeeded = False
                         self.__killed = True
                         break
 
-                    if future_result == self._STOP_SIGNAL:
+                    if future_result == MonitorSignal.STOP:
                         self.__stopping = True
+
                     continue
 
                 # This is just junk if it isn't a job result, so acknowledge it and move to the next item
-                if not isinstance(future_result, JobResultProtocol):
+                if not isinstance(future_result, futures.Future):
                     self.logger.error(
                         f"Found an invalid value in a {self.class_name}:"
-                        f"{future_result} must be either a future or {self.class_name}._PING_SIGNAL, "
-                        f"{self.class_name}._STOP_SIGNAL, or {self.class_name}._KILL_SIGNAL, "
+                        f"{future_result} must be either a future or one of "
+                        f"{', '.join(str(value) for value in MonitorSignal)}, "
                         f"but received a {type(future_result)}"
                     )
                     continue
@@ -239,7 +281,7 @@ class FutureMonitor:
         self.__cleanup()
         return monitoring_succeeded
 
-    def find_scope(self, future_result: JobResultProtocol) -> typing.Optional[ObjectManagerScope]:
+    def find_scope(self, future_result: futures.Future) -> typing.Optional[ObjectManagerScope]:
         """
         Find the scope that belongs with the given output
 
@@ -256,7 +298,7 @@ class FutureMonitor:
 
         return None
 
-    def end_scope(self, future_result: JobResultProtocol):
+    def end_scope(self, future_result: futures.Future):
         """
         Remove the reference to the scope and set it up for destruction
 
@@ -302,7 +344,7 @@ class FutureMonitor:
 
         if self.__thread.is_alive():
             self.__stopping = True
-            self.add(None, self._STOP_SIGNAL)
+            self.add(None, MonitorSignal.STOP)
 
         self.__thread.join()
         old_thread = self.__thread
@@ -326,9 +368,9 @@ class FutureMonitor:
 
         if self.__thread.is_alive():
             if not isinstance(wait_seconds, (float, int)):
-                wait_seconds = 15
+                wait_seconds = SECONDS_TO_WAIT_ON_KILL
 
-            self.add(None, self._KILL_SIGNAL)
+            self.add(None, MonitorSignal.KILL)
             self.logger.error(
                 f"Killing {self.class_name} #{id(self)}. Waiting {wait_seconds} seconds for the thread to stop"
             )
@@ -341,7 +383,7 @@ class FutureMonitor:
             f"{self.class_name} #{id(self)} has been killed."
         )
 
-    def add(self, scope: typing.Optional[ObjectManagerScope], value: typing.Union[JobResultProtocol[T], object]):
+    def add(self, scope: typing.Optional[ObjectManagerScope], value: typing.Union[futures.Future, object]):
         """
         Add a process result to monitor
 
@@ -373,7 +415,7 @@ class FutureMonitor:
             while not self._queue.empty():
                 try:
                     entry = self._queue.get()
-                    if isinstance(entry, JobResultProtocol) and entry.running():
+                    if isinstance(entry, futures.Future) and entry.running():
                         entry.cancel()
                 except queue.Empty:
                     pass

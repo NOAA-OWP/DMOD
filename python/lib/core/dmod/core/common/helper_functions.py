@@ -15,6 +15,7 @@ import random
 import string
 
 from collections import OrderedDict
+from datetime import timedelta
 
 try:
     import numpy
@@ -72,12 +73,122 @@ def format_stack_trace(first_frame_index: int = 1) -> str:
     return os.linesep.join(lines)
 
 
+def parse_duration(time_delta: str) -> timedelta:
+    """
+    Parses what is supposed to be an ISO 8601 duration string
+
+    Args:
+        time_delta:
+
+    Returns:
+        A timedelta object representing the duration string
+    """
+    duration_pattern: re.Pattern = re.compile(
+        r"(?<=P)"
+        r"((?P<years>\d+)Y)?"
+        r"((?P<months>\d+)M)?"
+        r"((?P<days>\d+)D)?"
+        r"("
+            r"T"
+            r"((?P<hours>\d+)H)?"
+            r"((?P<minutes>\d+)M)?"
+            r"((?P<seconds>\d+)S)?"
+        r")?"
+    )
+    """
+    The regex for the ISO 8601 duration string
+    See https://www.digi.com/resources/documentation/digidocs/90001488-13/reference/r_iso_8601_duration_format.htm
+    """
+
+    if isinstance(time_delta, bytes):
+        time_delta = time_delta.decode()
+    elif isinstance(time_delta, timedelta):
+        return time_delta
+    elif not isinstance(time_delta, str):
+        raise TypeError(f"Cannot parse a duration from '{time_delta}' ({type(time_delta)})")
+
+    time_delta = time_delta.strip().upper()
+
+    match: typing.Optional[re.Match] = duration_pattern.search(time_delta)
+
+    if not match:
+        raise ValueError(f"The string '{time_delta}' is not a valid duration string")
+
+    found_parameters: typing.Dict[str, str] = duration_pattern.search(time_delta.upper()).groupdict()
+
+    if 'years' in found_parameters or 'months' in found_parameters:
+        raise ValueError(
+            f"Cannot form a time duration out of '{time_delta}' - "
+            f"durations may only be expressed in terms of days at the longest"
+        )
+
+    return timedelta(
+        days=int(found_parameters.get("days", 0)),
+        hours=int(found_parameters.get("hours", 0)),
+        minutes=int(found_parameters.get("minutes", 0)),
+        seconds=int(found_parameters.get("seconds", 0)),
+    )
+
+
 def is_integer(value) -> bool:
     return isinstance(value, (int, numpy.integer)) if numpy else isinstance(value, int)
 
 
 def is_float(value) -> bool:
     return isinstance(value, (float, numpy.floating)) if numpy else isinstance(value, float)
+
+
+def is_float_string(value: str) -> bool:
+    """
+    Determines if the given string may be interpreted as a floating point number
+
+    If true, `float(value)` will return a floating point number
+    If false, `float(value)` will raise a ValueError
+
+    - ".3" => 0.3
+    - "-.3" => -0.3
+    - "1_3.3" => 13.3
+    - "-1_3." => -13.0
+    - "-13" => -13.0
+    - "13.3_3" => 13.33
+    - "_12.313" => ValueError: could not convert string to float: '_12.313'
+    - "12_.313" => ValueError: could not convert string to float: '12_.313'
+    - "12._313" => ValueError: could not convert string to float: '12._313'
+    - "- 12.313" => ValueError: could not convert string to float: '- 12.313'
+
+    Args:
+        value: The string to interrogate
+
+    Returns:
+        True if the string may be interpreted as a floating point number
+    """
+    if isinstance(value, bytes):
+        value = value.decode()
+
+    value = value.strip()
+
+    pattern = r"^-?((?<!_)[_\d]*(?!_))?(\.((?<!_)[_\d]*(?!_)*))?$"
+    """
+    The pattern for a float:
+    
+    An optional single '-', an optional series of '_' or digits, not beginning or ending with '_',
+    an optional '.' followed by a series of '_' or digits, not beginning or ending with '_'
+    
+    - ".3"        TRUE
+    - "-.3"       TRUE
+    - "1_3.3"     TRUE
+    - "-1_3."     TRUE
+    - "-13"       TRUE
+    - "13.3_3"    TRUE
+    - "_12.313"   FALSE
+    - "12_.313"   FALSE
+    - "12._313"   FALSE
+    - "- 12.313"  FALSE
+    """
+    return re.match(
+        pattern,
+        value
+    ) is not None
 
 
 _PRIMITIVE_TYPE_IDENTIFIERS = [
