@@ -40,6 +40,30 @@ STRING_INTEGER_PATTERN = re.compile(r"-?\d+")
 MEMBER_SPLIT_PATTERN = re.compile(r"[./]")
 
 MutationTuple = namedtuple("MutationTuple", ["field", "value", "should_be_equal"])
+"""
+Details on how to mutate an instance of a class
+
+A `namedtuple` is used instead of a class to allow for variable unpacking
+
+- 0: 'field' => What field or function to invoke that will perform the mutation
+- 1: 'value' => What the value should be changed to
+- 2: 'should_be_equal' => Whether the values should be considered equal once mutated
+"""
+
+
+def mutate_instance(mutation_field: str, new_value: typing.Any, output_should_be_equal: bool) -> MutationTuple:
+    """
+    Form a MutationTuple with the help of additional docstrings on hover
+
+    Args:
+        mutation_field: The field that will be used to detect a change
+        new_value: The new value that will be used during the mutation
+        output_should_be_equal: Whether the value should be considered equal once mutatation operations are complete
+
+    Returns:
+        A MutationTuple with the intended values
+    """
+    return MutationTuple(mutation_field, new_value, output_should_be_equal)
 
 
 def shared_class_two_instance_method_formula(*args) -> int:
@@ -63,7 +87,12 @@ def shared_class_two_instance_method_formula(*args) -> int:
     return total
 
 
-def make_word(min_length: int = None, max_length: int = None, character_set: str = None, avoid: str = None) -> str:
+def make_word(
+    min_length: int = 2,
+    max_length: int = 8,
+    character_set: str = string.ascii_letters + string.digits,
+    avoid: str = None
+) -> str:
     """
     Create a random jumble of characters to build a new word
 
@@ -76,16 +105,7 @@ def make_word(min_length: int = None, max_length: int = None, character_set: str
     Returns:
         A semi random string of a semi-random length
     """
-    if min_length is None:
-        min_length = 2
-
-    if max_length is None:
-        max_length = 8
-
     max_length = max(5, max_length)
-
-    if character_set is None:
-        character_set = string.ascii_letters + string.digits
 
     word: str = avoid
 
@@ -779,10 +799,6 @@ def is_not_member(obj: type, name: str) -> typing.Literal[True]:
     members = [name for name, _ in inspect.getmembers(obj)]
     assert name not in members, f"{obj} has the unexpected member named {name}"
     return True
-
-
-def proxy_is_disconnected(proxy: multiprocessing.context.BaseContext):
-    pass
 
 
 def evaluate_member(obj: typing.Any, member_name: typing.Union[str, typing.Sequence[str]], *args, **kwargs) -> typing.Any:
@@ -1533,17 +1549,17 @@ class TestObjectManager(unittest.TestCase):
 
         mutations: typing.Dict[str, typing.Dict[str, MutationTuple]] = {
             instance_name: {
-                "a" if use_properties else "set_a": MutationTuple(
+                "a" if use_properties else "set_a": mutate_instance(
                     'a' if use_properties else 'get_a',
                     make_word(avoid=instance.get_a()),
                     isinstance(instance, managers.BaseProxy)
                 ),
-                'b' if use_properties else "set_b": MutationTuple(
+                'b' if use_properties else "set_b": mutate_instance(
                     'b' if use_properties else 'get_b',
                     make_numbers(avoid=instance.get_b()),
                     isinstance(instance, managers.BaseProxy)
                 ),
-                'c' if use_properties else "set_c": MutationTuple(
+                'c' if use_properties else "set_c": mutate_instance(
                     'c' if use_properties else 'get_c',
                     {
                         make_word(): make_number()
@@ -1551,7 +1567,7 @@ class TestObjectManager(unittest.TestCase):
                     },
                     isinstance(instance, managers.BaseProxy)
                 ),
-                'd.a' if use_properties else "d.set_a": MutationTuple(
+                'd.a' if use_properties else "d.set_a": mutate_instance(
                     'd.a' if use_properties else 'd.get_a',
                     make_number(avoid=instance.d.a),
                     isinstance(instance.d, managers.BaseProxy)

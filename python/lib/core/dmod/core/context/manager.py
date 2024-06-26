@@ -1,5 +1,5 @@
 """
-@TODO: Put a module wide description here
+Defines the DMODObjectManager class which provides distributed object functionality
 """
 from __future__ import annotations
 
@@ -7,17 +7,17 @@ import logging
 import typing
 import multiprocessing
 
+from concurrent import futures
+
 from multiprocessing import managers
 from multiprocessing import context
 from multiprocessing import RLock
 
-from .base import ObjectCreatorProtocol
 from .base import ObjectManagerScope
 from .base import T
 from .server import DMODObjectServer
 from .monitor import FutureMonitor
 from .proxy import get_proxy_class
-from ..common.protocols import JobResultProtocol
 from ..common.protocols import LoggerProtocol
 
 TypeOfRemoteObject = typing.Union[typing.Type[managers.BaseProxy], type]
@@ -26,7 +26,7 @@ TypeOfRemoteObject = typing.Union[typing.Type[managers.BaseProxy], type]
 _PREPARATION_LOCK: RLock = RLock()
 
 
-class DMODObjectManager(managers.BaseManager, ObjectCreatorProtocol):
+class DMODObjectManager(managers.BaseManager):
     """
     An implementation of a multiprocessing context manager specifically for DMOD
     """
@@ -187,7 +187,7 @@ class DMODObjectManager(managers.BaseManager, ObjectCreatorProtocol):
         Returns:
             A proxy to the newly created object
         """
-        if __scope_name and not isinstance(__scope_name, str):
+        if isinstance(__scope_name, str):
             raise TypeError(
                 f"The tracking key used when creating a '{__class_name}' object must be a str. "
                 f"Received '{__scope_name}' ({type(__scope_name)})"
@@ -249,13 +249,20 @@ class DMODObjectManager(managers.BaseManager, ObjectCreatorProtocol):
 
         del self.__scopes[scope_name]
 
-    def inject_scope(self, scope: ObjectManagerScope):
+    def __inject_scope(self, scope: ObjectManagerScope):
         """
         Adds a scope object to the manager
 
         Args:
             scope: The scope object to add
         """
+        if scope.name in self.__scopes:
+            raise KeyError(
+                f"Cannot add a scope object '{scope.name}' to {self} - there is already a scope by that name. "
+                f"Evaluate the implementation of {self.__scope_creator} to ensure that it does not "
+                f"yield conflicting names."
+            )
+
         self.__scopes[scope.name] = scope
 
     def establish_scope(self, name: str) -> ObjectManagerScope:
@@ -275,11 +282,11 @@ class DMODObjectManager(managers.BaseManager, ObjectCreatorProtocol):
             )
 
         scope = self.__scope_creator(name, self)
-        self.inject_scope(scope)
+        self.__inject_scope(scope)
 
         return scope
 
-    def monitor_operation(self, scope: typing.Union[ObjectManagerScope, str, bytes], operation: JobResultProtocol[T]):
+    def monitor_operation(self, scope: typing.Union[ObjectManagerScope, str, bytes], operation: futures.Future):
         """
         Monitor a parallel operation and remove the associated scope when it is completed
 
@@ -296,7 +303,7 @@ class DMODObjectManager(managers.BaseManager, ObjectCreatorProtocol):
         if isinstance(scope, bytes):
             scope = scope.decode()
 
-        if not isinstance(operation, JobResultProtocol):
+        if not isinstance(operation, futures.Future):
             raise ValueError(
                 f"Cannot monitor an operation using the scope '{scope}' if the object is not a Future-like object"
             )
@@ -326,12 +333,20 @@ class DMODObjectManager(managers.BaseManager, ObjectCreatorProtocol):
 
     @logger.setter
     def logger(self, logger: LoggerProtocol):
+        """
+        Set the logger on this and all entities owned by this
+
+        Args:
+            logger: The logger to attach
+        """
         self.__logger = logger
+
+        # The scopes handle work for the manager. If this logger is set, set the logger on all the scopes to ensure
+        # that everything is written in the correct places
         for scope in self.__scopes.values():
             scope.logger = logger
 
+        # As above, the scope monitor serves at the pleasure of the manager. If the logger is set here, make sure
+        # the logger on the monitor is kept up to speed.
         if self.__scope_monitor:
             self.__scope_monitor.logger = logger
-
-    def __bool__(self):
-        return True
