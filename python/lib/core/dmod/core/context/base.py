@@ -1,5 +1,5 @@
 """
-@TODO: Put a module wide description here
+Defines the base class for the DMOD Object Manager along with a protocol that may help prevent circular imports.
 """
 from __future__ import annotations
 
@@ -43,7 +43,6 @@ class ObjectCreatorProtocol(typing.Protocol):
     """
     Defines the bare minimum methods that will be used that may create objects
     """
-    @abc.abstractmethod
     def create_object(self, name: str, /, *args, **kwargs) -> T:
         """
         Create an object and store its reference
@@ -57,16 +56,8 @@ class ObjectCreatorProtocol(typing.Protocol):
             A proxy pointing at the instantiated object
         """
 
-    @abc.abstractmethod
-    def __str__(self):
-        ...
 
-    @abc.abstractmethod
-    def __repr__(self):
-        ...
-
-
-class ObjectManagerScope(abc.ABC, ObjectCreatorProtocol):
+class ObjectManagerScope(abc.ABC):
     """
     Maintains references to objects that have been instantiated via an object manager within a specific scope
     """
@@ -109,7 +100,7 @@ class ObjectManagerScope(abc.ABC, ObjectCreatorProtocol):
             A proxy pointing at the instantiated object
         """
 
-    def remove_instances(self):
+    def drop_references(self):
         """
         Delete all stored references within the context
 
@@ -178,7 +169,7 @@ class ObjectManagerScope(abc.ABC, ObjectCreatorProtocol):
         """
         Override to add extra logic for when this scope is supposed to reach its end
         """
-        self.remove_instances()
+        self.drop_references()
         self.__scope_closed()
 
     def __del__(self):

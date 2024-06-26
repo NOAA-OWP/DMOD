@@ -31,9 +31,6 @@ import worker
 
 from service.service_logging import get_logger
 
-MONITOR_DELAY: int = 5
-"""The number of seconds to wait before polling the job queue again"""
-
 
 _ExitCode = collections.namedtuple('ExitCode', ['code', 'explanation'])
 
@@ -65,14 +62,16 @@ class _ExitCodes(_ExitCode, enum.Enum):
         return f"{self.code}={self.explanation}"
 
 
-def get_concurrency_executor_type(**kwargs) -> typing.Callable[[], JobLauncherProtocol]:
+def get_concurrency_executor_type(**kwargs) -> typing.Callable[[], futures.Executor]:
     """
     Gets the class type that will be responsible for running evaluation jobs concurrently
 
     Returns:
         The type of executor that should be used to run the evaluation jobs
     """
-    method = os.environ.get("EVALUATION_RUNNER_CONCURRENCY_METHOD", "multiprocessing").lower()
+    method = os.environ.get("EVALUATION_RUNNER_CONCURRENCY_METHOD", "multiprocessing")
+    method = kwargs.pop("method", method)
+    method = method.lower()
 
     if method == "threading":
         return partial(futures.ThreadPoolExecutor, **kwargs)
@@ -276,7 +275,7 @@ class WorkerProcessArguments:
 
 def run_job(
     launch_message: dict,
-    worker_pool: JobLauncherProtocol,
+    worker_pool: futures.Executor,
     object_manager: DMODObjectManager
 ):
     """
@@ -343,7 +342,7 @@ def run_job(
 
         try:
             service.debug(f"Submitting the evaluation job for {evaluation_id}...")
-            evaluation_job: JobResultProtocol = worker_pool.submit(
+            evaluation_job: futures.Future = worker_pool.submit(
                 worker.evaluate,
                 **arguments.kwargs
             )
@@ -397,7 +396,9 @@ def listen(
         channel: The channel to listen to
         host: The address of the redis server
         port: The port of the host that is serving the redis server
+        username: The username used for credentials into the redis server
         password: A password that might be needed to access redis
+        db: The database number of the redis server to interact with
         job_limit: The number of jobs that may be run at once
     """
     # Trap signals that stop the application to correctly inform what exactly shut the runner down
@@ -438,7 +439,7 @@ def listen(
                     listener = connection.pubsub()
                     listener.subscribe(channel)
 
-                    executor_type: typing.Callable[[], JobLauncherProtocol] = get_concurrency_executor_type(
+                    executor_type: typing.Callable[[], futures.Executor] = get_concurrency_executor_type(
                         max_workers=job_limit
                     )
 

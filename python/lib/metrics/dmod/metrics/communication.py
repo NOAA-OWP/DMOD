@@ -10,6 +10,7 @@ import logging
 import traceback
 
 from datetime import datetime
+from functools import total_ordering
 from pprint import pprint
 from collections import abc as abstract_collections
 
@@ -18,6 +19,7 @@ MessageHandler = typing.Callable[[MESSAGE], typing.NoReturn]
 ReasonToWrite = typing.Union[str, typing.Dict[str, typing.Any]]
 
 
+@total_ordering
 class Verbosity(enum.Enum):
     """
     An enumeration detailing the density of information that may be transmitted, not to logs,
@@ -48,12 +50,12 @@ class Verbosity(enum.Enum):
         if isinstance(index, float):
             index = int(float)
 
-        index_mapping = dict(enumerate(cls))
+        individual_values = list(cls)
 
-        if index in index_mapping:
-            return index_mapping[index]
+        if index > len(individual_values):
+            raise ValueError(f'There is no {cls.__name__} with an index of "{index}"')
 
-        raise ValueError(f'There is no {cls.__name__} with an index of "{index}"')
+        return individual_values[index]
 
     @classmethod
     def get(cls, value: typing.Union[int, float, str, Verbosity]) -> Verbosity:
@@ -70,12 +72,11 @@ class Verbosity(enum.Enum):
 
     @property
     def index(self) -> int:
-        mapping: typing.Dict[Verbosity, int] = {
-            value: index
-            for index, value in enumerate(self.__class__)
-        }
+        for index, member in enumerate(self.__class__):
+            if self == member:
+                return index
 
-        return mapping.get(self, -1)
+        raise RuntimeError(f"Could not determine the index of the enum member {repr(self)}")
 
     def __eq__(self, other):
         if other is None:
@@ -103,27 +104,6 @@ class Verbosity(enum.Enum):
             return self.index > other
 
         return ValueError(f"Cannot compare {self.__class__.__name__} to {other}")
-
-    def __lt__(self, other):
-        if isinstance(other, Verbosity):
-            return self.index < other.index
-
-        if isinstance(other, str):
-            return self.index < self.__class__.get_by_name(other).index
-
-        if isinstance(other, (int, float)):
-            return self.index < other
-
-        return ValueError(f"Cannot compare {self.__class__.__name__} to {other}")
-
-    def __le__(self, other):
-        return self < other or self == other
-
-    def __ge__(self, other):
-        return self > other or self == other
-
-    def __ne__(self, other):
-        return not self == other
 
     def __hash__(self):
         return hash(self.value)
@@ -156,9 +136,6 @@ class CommunicationProtocol(typing.Protocol):
     def update(self, **kwargs):
         pass
 
-    def sunset(self, seconds: float = None):
-        pass
-
     @property
     def communicator_id(self) -> str:
         ...
@@ -172,7 +149,7 @@ class CommunicationProtocol(typing.Protocol):
         ...
 
 
-class Communicator(abc.ABC, CommunicationProtocol):
+class Communicator(abc.ABC):
     """
     The base class for a tool that may be used to broadcast messages across multiple processes and services in
     the style of a logger
@@ -275,10 +252,6 @@ class Communicator(abc.ABC, CommunicationProtocol):
 
     @abc.abstractmethod
     def update(self, **kwargs):
-        pass
-
-    @abc.abstractmethod
-    def sunset(self, seconds: float = None):
         pass
 
     @property
@@ -400,9 +373,6 @@ class StandardCommunicator(Communicator):
 
     def __getitem__(self, item):
         return self.__properties[item]
-
-    def sunset(self, seconds: float = None):
-        print(f"Sunsetting data is not supported by the {self.__class__.__name__}")
 
 
 class CommunicatorGroup(abstract_collections.Mapping):
@@ -556,16 +526,6 @@ class CommunicatorGroup(abstract_collections.Mapping):
         else:
             for communicator in self.__communicators.values():
                 communicator.update(**kwargs)
-
-    def sunset(self, seconds: float = None):
-        """
-        Set an expiration for all communicators
-
-        Args:
-            seconds:
-        """
-        for communicator in self.__communicators.values():
-            communicator.sunset(seconds)
 
     def read_errors(self, *communicator_ids: str) -> typing.Iterable[str]:
         """
