@@ -27,16 +27,16 @@ def get_writer_classes() -> typing.Dict[str, typing.Type[writer.OutputWriter]]:
 
 
 def get_writer(
-        writer_format: str,
+        output_format: str,
         destination: typing.Union[str, pathlib.Path, typing.Sequence[str]] = None,
         **kwargs
 ) -> writer.OutputWriter:
-    writer_format = writer_format.lower()
-    writer_class = get_writer_classes().get(writer_format)
+    output_format = output_format.lower()
+    writer_class = get_writer_classes().get(output_format)
 
     if writer_class is None:
         raise KeyError(
-                f"There are no output writers that write '{writer_format}' data."
+                f"There are no output writers that write '{output_format}' data."
                 f"Check to make sure the correct format and spelling are given."
         )
 
@@ -51,29 +51,29 @@ def get_available_formats() -> typing.List[str]:
 
 
 def write(
-        writer_format: str,
+        output_format: str,
         evaluation_results: specification.EvaluationResults,
         destination: typing.Union[str, pathlib.Path, typing.Sequence[str]] = None,
         buffer: typing.IO = None,
         **kwargs
 ):
-    output_writer = get_writer(writer_format, destination, **kwargs)
+    output_writer = get_writer(output_format, destination, **kwargs)
     output_writer.write(evaluation_results, buffer, **kwargs)
 
 
 def clean(
-    writer_format: str,
+    output_format: str,
     destination: typing.Union[str, pathlib.Path, typing.Sequence[str]] = None,
     **kwargs
 ) -> typing.Sequence[str]:
-    output_writer = get_writer(writer_format, destination, **kwargs)
+    output_writer = get_writer(output_format, destination, **kwargs)
     return output_writer.clean(**kwargs)
 
 
 def get_written_output(
-    writer_format: str,
+    output_format: str,
     destination: typing.Union[str, pathlib.Path, typing.Sequence[str]],
     **kwargs
 ) -> writer.OutputData:
-    output_writer = get_writer(writer_format, destination, **kwargs)
+    output_writer = get_writer(output_format, destination, **kwargs)
     return output_writer.retrieve_written_output(**kwargs)
