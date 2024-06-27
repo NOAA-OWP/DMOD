@@ -23,7 +23,7 @@ urlpatterns = [
     re_path(r'clean$', views.Clean.as_view(), name="Clean"),
     re_path(f'output/(?P<evaluation_name>{CHANNEL_NAME_PATTERN})/?$', views.helpers.GetOutput.as_view(), name="Output"),
     re_path('geometry/?$', views.GetGeometryDatasets.as_view(), name="GeometryList"),
-    re_path("geometry/(?P<dataset_id>\d+)/?$", views.GetGeometry.as_view(), name="GetGeometry"),
+    re_path(r"geometry/(?P<dataset_id>\d+)/?$", views.GetGeometry.as_view(), name="GetGeometry"),
     re_path(
         f"geometry/(?P<dataset_id>\d+)/(?P<geometry_name>{SAFE_STRING_NAME})/?$",
         views.GetGeometry.as_view(),

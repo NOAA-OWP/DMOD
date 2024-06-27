@@ -187,7 +187,10 @@ class DMODObjectManager(managers.BaseManager):
         Returns:
             A proxy to the newly created object
         """
-        if isinstance(__scope_name, str):
+        if isinstance(__scope_name, bytes):
+            __scope_name = __scope_name.decode()
+
+        if not isinstance(__scope_name, str):
             raise TypeError(
                 f"The tracking key used when creating a '{__class_name}' object must be a str. "
                 f"Received '{__scope_name}' ({type(__scope_name)})"
@@ -295,8 +298,15 @@ class DMODObjectManager(managers.BaseManager):
             operation: The operation using the shared objects
         """
         if not self.__monitor_scope or not self.__scope_monitor:
+            if isinstance(scope, ObjectManagerScope):
+                scope_name = scope.name
+            elif isinstance(scope, bytes):
+                scope_name = scope.decode()
+            else:
+                scope_name = str(scope)
+
             raise RuntimeError(
-                f"Cannot monitor an operation using the scope {scope.name} as this {self.__class__.__name__} "
+                f"Cannot monitor an operation using the scope {scope_name} as this {self.__class__.__name__} "
                 f"is not set up to monitor operations"
             )
 
