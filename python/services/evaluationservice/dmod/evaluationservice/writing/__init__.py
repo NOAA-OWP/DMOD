@@ -1,6 +1,10 @@
-#!/usr/bin/env python3
 import typing
 import os
+import json
+
+from pydantic import BaseModel
+from pydantic import Field
+from pydantic.errors import MissingError
 
 import dmod.evaluations.specification as specification
 import dmod.evaluations.writing as writing
@@ -13,18 +17,6 @@ def default_format() -> str:
     return "netcdf"
 
 
-def output_environment_variable_prefix() -> str:
-    return "MAAS::EVALUATION::OUTPUT::"
-
-
-def output_environment_variables() -> typing.Dict[str, typing.Any]:
-    return {
-        key.replace(output_environment_variable_prefix(), ""): value
-        for key, value in os.environ.items()
-        if key.startswith(output_environment_variable_prefix())
-    }
-
-
 def get_default_writing_location() -> str:
     directory = os.environ.get("EVALUATION_OUTPUT_PATH", "evaluation_results")
 
@@ -34,74 +26,54 @@ def get_default_writing_location() -> str:
     return directory
 
 
-def get_output_format(output_format: str = None, **kwargs) -> str:
+def get_output_format(output_format: str = None) -> str:
     if output_format:
         return output_format
 
-    available_writers = [
-        writer_name
-        for writer_name in writing.get_available_formats()
-    ]
-
-    if available_writers:
-        return available_writers[0]
-
-    return default_format()
+    return writing.get_available_formats()[0]
 
 
-def get_parameters_from_redis(configuration_key: str) -> typing.Dict[str, typing.Any]:
+def get_parameters_from_redis(configuration_key: str = None) -> typing.Dict[str, typing.Any]:
+    if configuration_key is None:
+        return {}
+
     with utilities.get_redis_connection() as connection:
         parameters = connection.hgetall(name=configuration_key)
 
     if parameters is None:
-        return dict()
+        return {}
 
     return parameters
 
 
-def get_destination_parameters(evaluation_id: str, output_format: str = None, **kwargs) -> typing.Dict[str, typing.Any]:
-    environment_variables = output_environment_variables()
+def get_destination_parameters(
+    evaluation_id: str,
+    output_format: str = None,
+    **writer_parameters
+) -> typing.Dict[str, typing.Any]:
+    """
+    Get details about where to put or find evaluation output
 
-    should_use_environment_variables = common.is_true(environment_variables.get("USE_ENVIRONMENT", False))
-    redis_configuration_key = environment_variables.get("REDIS_OUTPUT_KEY", None)
+    Args:
+        evaluation_id: The id of the evaluation whose results to find
+        output_format: The expected format of the outputs
+        **writer_parameters: Keyword arguments for the writer that constructs outputs
 
-    parameters = dict()
+    Returns:
+        A dictionary of keyword parameters to send to a writer to inform it of where to write or find output
+    """
+    if not output_format:
+        output_format = get_output_format()
 
-    if redis_configuration_key:
-        parameters.update(
-            get_parameters_from_redis(redis_configuration_key)
-        )
+    parameters = writer_parameters.copy()
 
-    if should_use_environment_variables:
-        parameters.update(
-            {
-                key: value
-                for key, value in environment_variables.items()
-                if key not in parameters
-            }
-        )
+    parameters['output_format'] = output_format
 
-    parameters = {
-        key.lower() if key.isupper() else key: value
-        for key, value in parameters.items()
-    }
+    writing_class = writing.get_writer_classes().get(output_format)
 
-    if not parameters.get("output_format"):
-        parameters['output_format'] = get_output_format(output_format=output_format, **kwargs)
-
-    if not parameters.get("writer_format"):
-        parameters['writer_format'] = get_output_format(output_format=output_format, **kwargs)
-
-    writing_class = writing.get_writer_classes().get(parameters['output_format'])
     output_extension = writing_class.get_extension()
     output_extension = "." + output_extension if output_extension else output_extension
     parameters['name'] = f"{evaluation_id}_results{output_extension}"
-
-    parameters.update({
-        key: value
-        for key, value in kwargs.items()
-        if key not in parameters
-    })
 
     if not parameters.get("destination"):
         parameters['destination'] = os.path.join(get_default_writing_location(), parameters['name'])
@@ -110,10 +82,21 @@ def get_destination_parameters(evaluation_id: str, output_format: str = None, **
 
 
 def write(evaluation_id: str, results: specification.EvaluationResults, output_format: str = None, **kwargs) -> dict:
+    """
+    Writes evaluation results to the official location
+
+    Args:
+        evaluation_id: The ID of the evaluation being written
+        results: The formed metrics
+        output_format: The format that the output should be written in
+        **kwargs: Additional parameters required to write in the given format
+
+    Returns:
+        Information about how output was written and where it is
+    """
     destination_parameters = get_destination_parameters(
         evaluation_id=evaluation_id,
         output_format=output_format,
-        writer_format=output_format,
         **kwargs
     )
     writer = writing.get_writer(**destination_parameters)
@@ -121,22 +104,38 @@ def write(evaluation_id: str, results: specification.EvaluationResults, output_f
     return destination_parameters
 
 
-def get_output(evaluation_id: str, output_format: str = None, **kwargs) -> writing.writer.OutputData:
+def get_output(evaluation_id: str, **kwargs) -> writing.writer.OutputData:
+    """
+    Retrieve a mechanism that provides raw output data
+
+    Args:
+        evaluation_id: The ID for the evaluation whose output should be read
+        **kwargs:
+
+    Returns:
+        A mechanism used to iterate through evaluation output
+    """
     destination_parameters = get_destination_parameters(
         evaluation_id=evaluation_id,
-        output_format=output_format,
-        writer_format=output_format,
         **kwargs
     )
     return writing.get_written_output(**destination_parameters)
 
 
-def clean(evaluation_id: str, output_format: str = None, **kwargs):
+def clean(evaluation_id: str, **kwargs) -> typing.Sequence[str]:
+    """
+    Remove output data for an evaluation
+
+    Args:
+        evaluation_id: The ID of the evaluation whose output should be removed
+        **kwargs: Additional parameters for the writer that has access to the output
+
+    Returns:
+        Names of the output that were removed
+    """
     destination_parameters = get_destination_parameters(
         evaluation_id=evaluation_id,
-        output_format=output_format,
-        writer_format=output_format,
         **kwargs
     )
     writer = writing.get_writer(**destination_parameters)
-    writer.clean(**destination_parameters)
+    return writer.clean(**destination_parameters)

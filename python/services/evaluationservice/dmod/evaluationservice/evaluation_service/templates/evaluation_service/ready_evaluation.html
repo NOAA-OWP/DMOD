@@ -147,7 +147,7 @@
                     <label for="evaluation_id">Evaluation ID:</label>
                     <input id="evaluation_id" name="evaluation_id" type="text" maxlength="100"
                            minlength="10" pattern="{{ evaluation_id_pattern }}" style="width: 400px; margin-left: 10px;"
-                           onchange="syncNameChange(event)"
+                           oninput="syncNameChange(event)"
                            value="{{ generated_evaluation_id }}" required>
                     <button id="search-button" onclick="showSearchPopup(event)">Search</button>
                 </div>

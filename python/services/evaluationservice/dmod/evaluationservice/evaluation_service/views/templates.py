@@ -36,18 +36,21 @@ from ..specification import SpecificationTemplateManager
 
 
 GENERIC_PARAMETERS = ParamSpec("GENERIC_PARAMETERS")
-MANAGER_FACTORY = typing.Callable[
+ManagerFactory = typing.Callable[
     [Concatenate[GENERIC_PARAMETERS]],
     TemplateManager
 ]
 
 
 class TemplateView(MessageView[_REQUEST_TYPE, _RESPONSE_TYPE], abc.ABC, typing.Generic[_REQUEST_TYPE, _RESPONSE_TYPE]):
+    """
+    A view used for manipulating templates
+    """
     @classmethod
     def default_manager_factory(cls, *args, **kwargs) -> TemplateManager:
         return SpecificationTemplateManager(*args, **kwargs)
 
-    def __init__(self, *args, manager_factory: MANAGER_FACTORY = None, **kwargs):
+    def __init__(self, *args, manager_factory: ManagerFactory = None, **kwargs):
         super().__init__(*args, **kwargs)
         self.manager_factory = manager_factory or self.__class__.default_manager_factory
     
@@ -221,6 +224,9 @@ class GetTemplateByID(
 
 
 class SaveTemplate(MessageView[templates.SaveTemplateRequest, templates.SaveTemplateRequest.Response]):
+    """
+    A view used for saving templates
+    """
     authentication_classes = [TokenAuthentication, BasicAuthentication]
     permission_classes = [IsAuthenticated]
     allowed_methods = ["post"]
@@ -238,8 +244,8 @@ class SaveTemplate(MessageView[templates.SaveTemplateRequest, templates.SaveTemp
         try:
             if isinstance(message.template, str):
                 json.loads(message.template)
-        except:
-            raise ValidationError("Cannot save template - it is not valid JSON")
+        except BaseException as e:
+            raise ValidationError("Cannot save template - it is not valid JSON") from e
 
         user: User = self.request.user
 

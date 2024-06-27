@@ -243,3 +243,7 @@ button:hover {
 	font-size: 15px;
 	border-radius: 4px;
 }
+
+*:invalid {
+    box-shadow: var(--error-glow);
+}

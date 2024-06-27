@@ -8,13 +8,13 @@ import typing
 from http import HTTPStatus
 
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import IsAuthenticated
 
 
 from django.db.models import QuerySet
 from django.contrib.auth.models import User
 from dmod.core.common import Status
 from dmod.evaluations.specification import EvaluationSpecification
-from rest_framework.permissions import IsAuthenticated
 
 from .base import MessageView
 from ..messages import definitions
@@ -36,7 +36,7 @@ class SearchForDefinition(MessageView[definitions.SearchForDefinitionRequest, de
         *args,
         **kwargs
     ) -> definitions.SearchForDefinitionRequest.Response:
-        filter_parameters = dict()
+        filter_parameters = {}
 
         if message.author:
             filter_parameters["author__icontains"] = message.author
@@ -106,6 +106,9 @@ class GetDefinition(MessageView[definitions.GetDefinitionRequest, definitions.Ge
 
 
 class SaveDefinition(MessageView[definitions.SaveDefinitionRequest, definitions.SaveDefinitionRequest.Response]):
+    """
+    A view used to save evaluation definitions
+    """
     permission_classes = [IsAuthenticated]
     http_method_names = ["post"]
 
@@ -119,6 +122,17 @@ class SaveDefinition(MessageView[definitions.SaveDefinitionRequest, definitions.
         *args,
         **kwargs
     ) -> definitions.SaveDefinitionRequest.Response:
+        """
+        Validate and save the incoming evaluation definition
+
+        Args:
+            message:
+            *args:
+            **kwargs:
+
+        Returns:
+
+        """
         user: User = self.request.user
 
         if user.is_anonymous:
@@ -186,7 +200,7 @@ class ValidateDefinition(MessageView[definitions.ValidateDefinitionRequest, defi
         *args,
         **kwargs
     ) -> definitions.ValidateDefinitionRequest.Response:
-        messages: typing.List[str] = list()
+        messages: typing.List[str] = []
 
         try:
             EvaluationSpecification.create(
