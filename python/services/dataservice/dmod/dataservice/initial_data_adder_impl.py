@@ -55,6 +55,8 @@ class FromFilesInitialDataAdder(InitialDataAdder):
         DmodRuntimeError
             Raised when initial data could not be assembled and/or added successfully to the dataset.
         """
+        original_domain = self._dataset_manager.datasets[self._dataset_name].data_domain
+
         # TODO: later, look at options for threading
         def _add(path: Path, dest: Optional[str] = None, add_root: Optional[Path] = None):
             if path.is_dir():
@@ -67,7 +69,8 @@ class FromFilesInitialDataAdder(InitialDataAdder):
             elif not dest:
                 dest = path.relative_to(add_root)
 
-            if not self._dataset_manager.add_data(dataset_name=self._dataset_name, dest=dest, data=path.read_bytes()):
+            if not self._dataset_manager.add_data(dataset_name=self._dataset_name, dest=dest, data=path.read_bytes(),
+                                                  domain=original_domain):
                 msg = f"{self.__class__.__name__} failed to add item {dest} under {str(self._source_path)}"
                 raise DmodRuntimeError(msg)
 
@@ -104,9 +107,11 @@ class FromRawInitialDataAdder(InitialDataAdder):
         DmodRuntimeError
             Raised when initial data could not be assembled and/or added successfully to the dataset.
         """
+        original_domain = self._dataset_manager.datasets[self._dataset_name].data_domain
         try:
             for item, data in self._data_items.items():
-                if not self._dataset_manager.add_data(dataset_name=self._dataset_name, dest=item, data=data):
+                if not self._dataset_manager.add_data(dataset_name=self._dataset_name, dest=item, data=data,
+                                                      domain=original_domain):
                     raise DmodRuntimeError(f"{self.__class__.__name__} failed to add initial data item {item}")
         except DmodRuntimeError as e:
             raise e
@@ -226,13 +231,15 @@ class FromPartialRealizationConfigAdder(InitialDataAdder):
         DmodRuntimeError
             Raised when initial data could not be assembled and/or added successfully to the dataset.
         """
+        original_domain = self._dataset_manager.datasets[self._dataset_name].data_domain
+
         if self.partial_realization_config is not None:
             raise DmodRuntimeError(f"{self.__class__.__name__} can't have 'None' for partial realization property")
 
         try:
             real_config: NgenRealization = self.build_realization_config_from_partial()
             if not self._dataset_manager.add_data(dataset_name=self._dataset_name, dest=self._REAL_CONFIG_FILE_NAME,
-                                                  data=json.dumps(real_config.json()).encode()):
+                                                  data=json.dumps(real_config.json()).encode(), domain=original_domain):
                 raise DmodRuntimeError(f"{self.__class__.__name__} failed to add realization config item")
         except DmodRuntimeError as e:
             raise e
@@ -342,6 +349,8 @@ class CompositeConfigDataAdder(FromPartialRealizationConfigAdder):
         # TODO: add optimizations (perhaps in subtype)
         # TODO: add threading support
 
+        original_domain = self._dataset_manager.datasets[self._dataset_name].data_domain
+
         # TODO: centrally define this, and probably somewhere else
         real_cfg_file_name = 'realization_config.json'
 
@@ -350,7 +359,7 @@ class CompositeConfigDataAdder(FromPartialRealizationConfigAdder):
             # In this case, we need to derive a dataset from formulations
             real_config: NgenRealization = self.build_realization_config_from_partial()
             if not self._dataset_manager.add_data(dataset_name=self._dataset_name, dest=real_cfg_file_name,
-                                                  data=json.dumps(real_config.json()).encode()):
+                                                  data=json.dumps(real_config.json()).encode(), domain=original_domain):
                 raise DmodRuntimeError(f"{self.__class__.__name__} could not add built realization config")
         else:
             # In this case, we need to find the right existing realization config dataset and get data from it
@@ -450,6 +459,8 @@ class CompositeConfigDataAdder(FromPartialRealizationConfigAdder):
         bool
             Whether the copy was successful.
         """
+        original_domain = self._dataset_manager.datasets[self._dataset_name].data_domain
+
         if dest_names is None:
             dest_names = dict()
 
@@ -459,7 +470,8 @@ class CompositeConfigDataAdder(FromPartialRealizationConfigAdder):
             if not self._dataset_manager.add_data(dataset_name=self._dataset_name,
                                                   dest=dest_names.get(item_name, item_name),
                                                   data=other_dataset.manager.get_data(dataset_name=other_dataset.name,
-                                                                                      item_name=item_name)):
+                                                                                      item_name=item_name),
+                                                  domain=original_domain):
                 return False
         # If we complete the loop, everything must have been successful
         return True
