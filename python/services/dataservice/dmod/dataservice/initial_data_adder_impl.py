@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import json
 import pandas as pd
 import geopandas as gpd
 import io
+import tempfile
 from dmod.communication import AbstractNgenRequest, NgenCalibrationRequest
 from dmod.communication.maas_request.ngen.partial_realization_config import PartialRealizationConfig
 from dmod.core.dataset import Dataset, DatasetManager, InitialDataAdder
@@ -503,6 +506,28 @@ class DataServiceBmiInitConfigGenerator(BmiInitConfigAutoGenerator):
                  realization_cfg_file_name: str,
                  noah_owp_params_dir: Optional[Union[str, Path]] = None,
                  catchment_subset: Optional[Set[str]] = None):
+        """
+        Initialize an instance using datasets (and certain specific metadata) for hydrofabric and realization config.
+
+        Parameters
+        ----------
+        hydrofabric_dataset
+            The dataset for the hydrofabric used for generation.
+        hydrofabric_geopackage_file_name
+            The name of the primary hydrofabric geopackage file within the hydrofabric dataset.
+        hydrofabric_model_attributes_file_name
+            The name of the primary hydrofabric model attributes file within the hydrofabric dataset.
+        realization_config_dataset
+            The dataset for the ngen realization config use for generation.
+        realization_cfg_file_name
+            The name of the main realization config file within its dataset.
+        noah_owp_params_dir
+            An optional path to a directory containing Noah-OWP-modular parameter data, if Noah-OWP-modular configs are
+            to be generated.
+        catchment_subset
+            An optional subset of catchments for which to generate BMI init configs, instead of all those having
+            formulations implicitly (i.e., via the global formulation) or explicitly within the realization config.
+        """
         def load_from_dataset(ds: Dataset, item_name: str) -> bytes:
             return ds.manager.get_data(dataset_name=ds.name, item_name=item_name)
 
@@ -556,9 +581,17 @@ class BmiAutoGenerationAdder(InitialDataAdder):
         DmodRuntimeError
             Raised when initial data could not be assembled and/or added successfully to the dataset.
         """
-        for cat_id, config in self._bmi_generator.generate_configs():
-            item = f"{config.__class__.__name__}_{cat_id}.{_get_file_extension(config)}"
-            data = self._serialize(config)
-            # TODO: (later) see if we can take advantage of threading somehow here for the IO
-            if not self._dataset_manager.add_data(dataset_name=self._dataset_name, dest=item, data=data):
-                raise DmodRuntimeError(f"{self.__class__.__name__} failed to add generated BMI init config {item}")
+        dataset: Dataset = self._dataset_manager.datasets[self._dataset_name]
+
+        # We should be able to get away with just maintaining the same domain at this stage for this type of data
+        # Supplying this to add_data() eventually gets to the merge stage, where equal domains just do nothing
+        initial_domain = dataset.data_domain
+
+        # Write all files, then send all at once to add_data to potentially take advantage of optimizations
+        # Get temp directory to write to
+        with tempfile.TemporaryDirectory() as temp_dir_name:
+            self._bmi_generator.write_configs(output_dir=temp_dir_name)
+            # Pass everything to add_data() at once and hope for implementation-specific optimizations
+            if not self._dataset_manager.add_data(dataset_name=self._dataset_name, dest='', source=temp_dir_name,
+                                                  domain=initial_domain):
+                raise DmodRuntimeError(f"{self.__class__.__name__} failed to add generated BMI init configs")
