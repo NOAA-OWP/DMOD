@@ -48,6 +48,8 @@ class StandardDatasetIndex(str, PydanticEnum):
     """ Version string for version of the hydrofabric to use (e.g., 2.0.1). """
     HYDROFABRIC_REGION = (11, str, "HYDROFABRIC_REGION")
     """ Region string (e.g., conus, vpu01) for the applicable region of the hydrofabric. """
+    HYDROFABRIC_DATA_ID = (12, str, "HYDROFABRIC_DATA_ID")
+    """ Dataset id for associated DMOD hydrofabric dataset. """
 
     def __new__(cls, index: int, ty: type, name: str):
         o = str.__new__(cls, name)
@@ -136,7 +138,14 @@ class DataFormat(PydanticEnum):
                              {"id": int, "cat-ids": List[str], "nex-id": List[str], "remote-connections": List[Dict[str, int]]},
                              )
     """ GeoJSON hydrofabric format used by Nextgen. """
-    BMI_CONFIG = (7, {StandardDatasetIndex.GLOBAL_CHECKSUM: None, StandardDatasetIndex.DATA_ID: None}, None)
+    BMI_CONFIG = (7,
+                  {
+                      StandardDatasetIndex.GLOBAL_CHECKSUM: None,
+                      StandardDatasetIndex.DATA_ID: None,
+                      StandardDatasetIndex.HYDROFABRIC_DATA_ID: None,
+                      StandardDatasetIndex.REALIZATION_CONFIG_DATA_ID: None
+                  },
+                  None)
     """ Format for BMI init configs, of which (in general) there is implied comma-joined filename string checksum. """
     NWM_OUTPUT = (8, {StandardDatasetIndex.CATCHMENT_ID: None, StandardDatasetIndex.TIME: "Time", StandardDatasetIndex.DATA_ID: None}, {"Time": datetime, "streamflow": float}, True)
     """ Format for NWM 2.0/2.1/2.2 output. """
