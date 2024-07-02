@@ -16,6 +16,46 @@ from uuid import UUID, uuid4
 from .common.reader import Reader
 
 
+# TODO: (later) consider putting this in a different module, and also adding utils for doing the archiving
+class DataArchiving(PydanticEnum):
+    """
+    Supported archiving techniques that may be applied to the entire contents of a file-based dataset.
+
+    Types of whole-dataset archiving techniques that are supported for DMOD datasets.  Note that these represent ways to
+    archive **all** the data of a dataset, when the dataset itself requires archiving.  Datasets may also contain data
+    archive files as individual data items, and such archive files are not necessarily restricted to these types.
+    """
+    TAR = (1, ".tar")
+    """ Tar archiving with no compression. """
+    TAR_GZIP = (2, ".tar.gz")
+    """ Tar archiving with gzip compression. """
+    TAR_BZIP2 = (3, ".tar.bz2")
+    """ Tar archiving with bzip2 compression. """
+    ZIP_0 = (4, ".zip")
+    """ Zip archiving with level 0 compression (i.e., no compression at all). """
+    ZIP_9 = (5, ".zip")
+    """ Zip archiving with level 9 compression (i.e., maximum compression level). """
+    ZIP_6 = (6, ".zip")
+    """ Zip archiving with level 6 compression (i.e., standard compression level). """
+
+    @classmethod
+    def get_for_name(cls, name_str: str) -> DataArchiving:
+        cleaned_up_str = name_str.strip().upper()
+        for value in cls:
+            if value.name.upper() == cleaned_up_str:
+                return value
+        raise ValueError(f"Cannot get value for unrecognized name '{name_str}' for class {cls.__name__}.")
+
+    def __init__(self, uid: int, extension: str):
+        self._uid = uid
+        self._extension = extension
+
+    @property
+    def extension(self) -> str:
+        """ Get the standard file extension for this kind of archive. """
+        return self._extension
+
+
 class DatasetType(PydanticEnum):
     UNKNOWN = (-1, False, lambda dataset: None)
     OBJECT_STORE = (0, True, lambda dataset: dataset.name)
@@ -103,7 +143,7 @@ class InitialDataAdder(ABC):
 
 class Dataset(Serializable):
     """
-    Rrepresentation of the descriptive metadata for a grouped collection of data.
+    Representation of the descriptive metadata for a grouped collection of data.
     """
 
     _SERIAL_DATETIME_STR_FORMAT: ClassVar[str] = '%Y-%m-%d %H:%M:%S'
@@ -125,6 +165,20 @@ class Dataset(Serializable):
     Note that it is not guaranteed that any such dataset still exist and/or are still available.""")
     created_on: Optional[datetime] = Field(description="When this dataset was created, or ``None`` if that is not known.")
     last_updated: Optional[datetime]
+    data_archiving: Optional[DataArchiving] = Field(default=None,
+                                                    description="Indication of what, if any, whole-dataset archiving "
+                                                                "(as opposed to simply containing an archive as one of "
+                                                                "the data files/items) is applied by dataset backend "
+                                                                "to store this dataset's data.")
+
+    @validator("data_archiving")
+    def validate_data_archiving(cls, v, values):
+        """ Validate `data_archiving`, in particular that it is ``None`` for non-file-based dataset types. """
+        ds_type: DatasetType = values["dataset_type"]
+        if not ds_type.is_file_based and v is not None:
+            raise ValueError(f"{cls.__name__} can't be of non-file-based type {ds_type.name} and be set for {v.name} "
+                             f"archiving.")
+        return v
 
     @validator("created_on", "last_updated", "expires", pre=True)
     def parse_dates(cls, v):
@@ -166,6 +220,25 @@ class Dataset(Serializable):
             "created_on": _serialize_datetime,
             "last_updated": _serialize_datetime,
         }
+
+    @staticmethod
+    def get_archive_basename(ds_name: str, archive_type: DataArchiving) -> str:
+        """
+        Generate the name of the archiving file for a hypothetical dataset using whole-dataset archiving.
+
+        Parameters
+        ----------
+        ds_name
+            The hypothetical dataset name.
+        archive_type
+            The type of archiving used.
+
+        Returns
+        -------
+        str
+            The basename of the archive file that would be used.
+        """
+        return f"{ds_name}_archived{archive_type.extension}"
 
     def __init__(self, manager: DatasetManager = None, **kwargs):
         super().__init__(**kwargs)
@@ -268,6 +341,22 @@ class Dataset(Serializable):
         self.last_updated = datetime.now()
 
     @property
+    def archive_name(self) -> Optional[str]:
+        """
+        For a dataset that use whole-dataset archiving, the name of the archive file; otherwise, ``None``.
+
+        Returns
+        -------
+        Optional[str]
+            For a dataset that use whole-dataset archiving, the name of the archive file; otherwise, ``None``.
+
+        See Also
+        --------
+        get_archive_basename
+        """
+        return self.get_archive_basename(self.name, self.data_archiving) if self.is_data_archived else None
+
+    @property
     def data_format(self) -> DataFormat:
         """
         The data format for this instance.
@@ -353,6 +442,18 @@ class Dataset(Serializable):
             The data fields that are available from this dataset.
         """
         return self.data_domain.data_fields
+
+    @property
+    def is_data_archived(self) -> bool:
+        """
+        Convenience property for whether all data in dataset is wrapped within a single archive file.
+
+        Returns
+        -------
+        bool
+            Whether all data in dataset is wrapped within a single archive file.
+        """
+        return self.data_archiving is not None
 
     @property
     def is_temporary(self) -> bool:
