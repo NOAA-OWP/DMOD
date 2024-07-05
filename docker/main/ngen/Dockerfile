@@ -133,6 +133,8 @@ RUN dnf update -y \
     && mkdir -p ${SSHDIR} \
     # Create DMOD-specific directory structure \
     && mkdir -p /dmod && chown ${USER} /dmod \
+    && mkdir -p /dmod/local_volumes && chown ${USER} /dmod/local_volumes \
+    && mkdir -p /dmod/cluster_volumes && chown ${USER} /dmod/cluster_volumes \
     && mkdir -p /dmod/datasets && chown ${USER} /dmod/datasets \
     #&& mkdir -p /dmod/shared_libs && chown ${USER} /dmod/shared_libs \
     && mkdir -p /dmod/lib && chown ${USER} /dmod/lib \
@@ -959,9 +961,9 @@ COPY --chown=${USER} --chmod=744 py_funcs.py /dmod/bin/py_funcs
 
 ENV HYDRA_PROXY_RETRY_COUNT=5
 
-# Change permissions for entrypoint and make sure dataset volume mount parent directories exists
+# Change permissions for entrypoint and make sure data volume mount and dataset symlink parent directories exists
 RUN chmod +x ${WORKDIR}/entrypoint.sh \
-    && for d in ${DATASET_DIRECTORIES}; do mkdir -p /dmod/datasets/${d}; done \
+    && for p in datasets local_volumes cluster_volumes; do for d in ${DATASET_DIRECTORIES}; do mkdir -p /dmod/${p}/${d}; done; done \
     && pushd /dmod/bin \
     # NOTE use of `ln -sf`. \
     && ( ( stat ngen-parallel && ln -sf ngen-parallel ngen ) || ( stat ngen-serial && ln -sf ngen-serial ngen ) ) \
