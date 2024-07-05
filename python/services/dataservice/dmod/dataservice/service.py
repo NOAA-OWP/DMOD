@@ -790,6 +790,12 @@ class RequiredDataChecksManager:
             dataset_type = DatasetType.OBJECT_STORE
             mgr = self._managers.manager(dataset_type)
 
+            # If possible, decide whether the output will need to be locally written
+            if dataset_type == DatasetType.OBJECT_STORE:
+                write_output_locally_first = True
+            else:
+                write_output_locally_first = None
+
             data_format = job.model_request.output_formats[i]
             # If we are writing to an object store, lots of CSV files will kill us, so switch to archived variant
             if dataset_type == DatasetType.OBJECT_STORE and data_format == DataFormat.NGEN_CSV_OUTPUT:
@@ -803,7 +809,8 @@ class RequiredDataChecksManager:
                                                    discrete_restrictions=[id_restrict]))
             # TODO: (later) in the future, whether the job is running via Docker needs to be checked
             # TODO: also, whatever is done here needs to align with what is done within perform_checks_for_job, when
-            #  setting the fulfilled_access_at for the DataRequirement
+            #  setting the fulfilled_access_at for the DataRequirement (and with _determine_access_location functions
+            #  in python/services/dataservice/dmod/dataservice/data_derive_util.py )
             is_job_run_in_docker = True
             if is_job_run_in_docker:
                 output_access_at = dataset.docker_mount
@@ -812,7 +819,8 @@ class RequiredDataChecksManager:
                 raise DmodRuntimeError(msg.format(dataset.__class__.__name__, job.job_id))
             # Create a data requirement for the job, fulfilled by the new dataset
             requirement = DataRequirement(domain=dataset.data_domain, is_input=False, category=DataCategory.OUTPUT,
-                                          fulfilled_by=dataset.name, fulfilled_access_at=output_access_at)
+                                          fulfilled_by=dataset.name, fulfilled_access_at=output_access_at,
+                                          needs_data_local=write_output_locally_first)
             job.data_requirements.append(requirement)
 
     async def perform_checks_for_job(self, job: Job) -> bool:
@@ -861,13 +869,16 @@ class RequiredDataChecksManager:
                     job_ds_user.link_to_dataset(dataset=dataset)
                     # TODO: (later) in the future, whether the job is running via Docker needs to be checked
                     # TODO: also, whatever is done here needs to align with what is done within _create_output_dataset,
-                    #  when creating the output data DataRequirement
+                    #  when creating the output data DataRequirement, and with _determine_access_location function
+                    #  in python/services/dataservice/dmod/dataservice/data_derive_util.py
                     is_job_run_in_docker = True
                     if is_job_run_in_docker:
                         requirement.fulfilled_access_at = dataset.docker_mount
                     else:
                         msg = "Could not determine proper access location for dataset of type {} by non-Docker job {}."
                         raise DmodRuntimeError(msg.format(dataset.__class__.__name__, job.job_id))
+                    # Identify datasets that need data locally for job exec, and set needs_data_local to True or False
+                    requirement.needs_data_local = DatasetManagerCollection.would_requirement_need_local_data(dataset)
                     requirement.fulfilled_by = dataset.name
             return True
         except Exception as e:
