@@ -1406,8 +1406,14 @@ class DataRequirement(Serializable):
     """
     category: DataCategory
     domain: DataDomain
+    # TODO: (later/future) define another type ("FulfillmentDetails" maybe) tracking all three of these; make that
+    #  entire object optional here, but the attributes within it non-optional (though confirm this doesn't break things)
     fulfilled_access_at: Optional[str] = Field(description="The location at which the fulfilling dataset for this requirement is accessible, if the dataset known.")
     fulfilled_by: Optional[str] = Field(description="The name of the dataset that will fulfill this, if it is known.")
+    needs_data_local: Optional[bool] = Field(None, description="Whether this requirement will be fulfilled in a way "
+                                                               "that requires the data to be copied or extracted "
+                                                               "locally (or to a local volume) for the worker to use "
+                                                               "it.")
     is_input: bool = Field(description="Whether this represents required input data, as opposed to a requirement for storing output data.")
     size: Optional[int]
 
