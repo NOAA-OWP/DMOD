@@ -31,12 +31,14 @@ class DataArchiving(PydanticEnum):
     """ Tar archiving with gzip compression. """
     TAR_BZIP2 = (3, ".tar.bz2")
     """ Tar archiving with bzip2 compression. """
-    ZIP_0 = (4, ".zip")
+    TAR_XZ = (4, ".tar.xz")
+    """ Tar archiving with bzip2 compression. """
+    ZIP_0 = (5, ".zip")
     """ Zip archiving with level 0 compression (i.e., no compression at all). """
-    ZIP_9 = (5, ".zip")
-    """ Zip archiving with level 9 compression (i.e., maximum compression level). """
     ZIP_6 = (6, ".zip")
     """ Zip archiving with level 6 compression (i.e., standard compression level). """
+    ZIP_9 = (7, ".zip")
+    """ Zip archiving with level 9 compression (i.e., maximum compression level). """
 
     @classmethod
     def get_for_name(cls, name_str: str) -> DataArchiving:
