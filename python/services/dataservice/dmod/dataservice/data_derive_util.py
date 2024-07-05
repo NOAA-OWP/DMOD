@@ -125,11 +125,12 @@ class DataDeriveUtil:
 
     def _apply_dataset_to_requirement(self, dataset: Dataset, requirement: DataRequirement, job: Job):
         """
-        Set ::attribute:`DataRequirement.fulfilled_access_at` and ::attribute:`DataRequirement.fulfilled_by`.
+        Set attributes that indicate details of how this dataset fulfills this requirement.
 
-        Update the provided requirement's ::attribute:`DataRequirement.fulfilled_access_at` and
-        ::attribute:`DataRequirement.fulfilled_by` attributes to associate the requirement with the provided dataset.
-        The dataset is assume to have already been determined as satisfactory to fulfill the given requirement.
+        Update the provided requirement's ::attribute:`DataRequirement.fulfilled_access_at`,
+        ::attribute:`DataRequirement.fulfilled_by`, and ::attribute:`DataRequirement.needs_data_local` attributes to
+        associate the requirement with the provided dataset. The dataset is assumed to have already been determined as
+        satisfactory to fulfill the given requirement.
 
         Parameters
         ----------
@@ -152,6 +153,9 @@ class DataDeriveUtil:
         #################################################################################
         requirement.fulfilled_access_at = self._determine_access_location(dataset, job)
         #################################################################################
+
+        # Identify datasets that need data locally for job exec, and set needs_data_local to True or False
+        requirement.needs_data_local = self._managers.would_requirement_need_local_data(dataset)
         requirement.fulfilled_by = dataset.name
 
     def _build_bmi_auto_generator(self,
