@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from .serializable import Serializable, ResultIndicator
 from .enum import PydanticEnum
 from typing import Any, Callable, ClassVar, Dict, FrozenSet, List, Optional, Set, Tuple, Type, Union
-from pydantic import Field, validator, PrivateAttr
+from pydantic import Field, root_validator, validator, PrivateAttr
 from pydantic.fields import ModelField
 from uuid import UUID, uuid4
 
@@ -171,15 +171,6 @@ class Dataset(Serializable):
                                                                 "the data files/items) is applied by dataset backend "
                                                                 "to store this dataset's data.")
 
-    @validator("data_archiving")
-    def validate_data_archiving(cls, v, values):
-        """ Validate `data_archiving`, in particular that it is ``None`` for non-file-based dataset types. """
-        ds_type: DatasetType = values["dataset_type"]
-        if not ds_type.is_file_based and v is not None:
-            raise ValueError(f"{cls.__name__} can't be of non-file-based type {ds_type.name} and be set for {v.name} "
-                             f"archiving.")
-        return v
-
     @validator("created_on", "last_updated", "expires", pre=True)
     def parse_dates(cls, v):
         if v is None:
@@ -201,6 +192,16 @@ class Dataset(Serializable):
         elif isinstance(value, str):
             value = DatasetType.get_for_name(value)
         return value
+
+    @root_validator
+    def validate_data_archiving(cls, values):
+        """ Validate `data_archiving`, in particular that it is ``None`` for non-file-based dataset types. """
+        archiving: DataArchiving = values.get("data_archiving")
+        ds_type: DatasetType = values.get("dataset_type")
+        if not ds_type.is_file_based and archiving is not None:
+            raise ValueError(f"{cls.__name__} can't be of non-file-based type {ds_type.name} and be set for "
+                             f"{archiving.name} archiving.")
+        return values
 
     class Config:
         # NOTE: re-validate when any field is re-assigned (i.e. `model.foo = 12`)
