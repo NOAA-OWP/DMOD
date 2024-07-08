@@ -239,7 +239,7 @@ class FromPartialRealizationConfigAdder(InitialDataAdder):
         try:
             real_config: NgenRealization = self.build_realization_config_from_partial()
             if not self._dataset_manager.add_data(dataset_name=self._dataset_name, dest=self._REAL_CONFIG_FILE_NAME,
-                                                  data=json.dumps(real_config.json()).encode(), domain=original_domain):
+                                                  data=real_config.json().encode(), domain=original_domain):
                 raise DmodRuntimeError(f"{self.__class__.__name__} failed to add realization config item")
         except DmodRuntimeError as e:
             raise e
