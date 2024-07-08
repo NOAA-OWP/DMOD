@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import pandas as pd
 import geopandas as gpd
 import io
@@ -359,7 +358,7 @@ class CompositeConfigDataAdder(FromPartialRealizationConfigAdder):
             # In this case, we need to derive a dataset from formulations
             real_config: NgenRealization = self.build_realization_config_from_partial()
             if not self._dataset_manager.add_data(dataset_name=self._dataset_name, dest=real_cfg_file_name,
-                                                  data=json.dumps(real_config.json()).encode(), domain=original_domain):
+                                                  data=real_config.json().encode(), domain=original_domain):
                 raise DmodRuntimeError(f"{self.__class__.__name__} could not add built realization config")
         else:
             # In this case, we need to find the right existing realization config dataset and get data from it
