@@ -42,11 +42,7 @@ TestBase.source_test_env_file()
 explicit_on = os.environ.get("DERIVE_UTIL_IT_ON", "false").strip().lower() == "true"
 reason_str = (f"IntegrationTestDataDeriveUtil tests skipped locally; you can activate by setting 'DERIVE_UTIL_IT_ON' "
               f"to 'true' in your project '{TestBase._TEST_ENV_FILE_BASENAME}' file.")
-try:
-    import pytest
-    skip_unless_explicit = pytest.mark.skipif(not explicit_on, reason=reason_str)
-except ImportError as e:
-    skip_unless_explicit = unittest.skipUnless(explicit_on, reason=reason_str)
+skip_unless_explicit = unittest.skipUnless(explicit_on, reason=reason_str)
 
 
 @skip_unless_explicit
@@ -166,6 +162,7 @@ class IntegrationTestDataDeriveUtil(TestBase, unittest.TestCase):
                 continue
             ds.manager.delete(dataset=ds)
 
+    @skip_unless_explicit
     def test__generate_bmi_ds_1_a(self):
         """ Test to see if auto-generation of BMI config dataset will work as expected in object store dataset. """
         ds_name = self.test_1_bmi_ds_name
