@@ -200,7 +200,9 @@ class Dataset(Serializable):
         """ Validate `data_archiving`, in particular that it is ``None`` for non-file-based dataset types. """
         archiving: DataArchiving = values.get("data_archiving")
         ds_type: DatasetType = values.get("dataset_type")
-        if not ds_type.is_file_based and archiving is not None:
+        if ds_type is None and archiving is not None:
+            raise ValueError(f"{cls.__name__} can't be set for {archiving.name} archiving without a dataset type set.")
+        if ds_type is not None and not ds_type.is_file_based and archiving is not None:
             raise ValueError(f"{cls.__name__} can't be of non-file-based type {ds_type.name} and be set for "
                              f"{archiving.name} archiving.")
         return values
