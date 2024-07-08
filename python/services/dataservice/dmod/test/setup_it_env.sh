@@ -19,9 +19,9 @@ do_setup()
 
     # Start object-store stack
     if [ -e .bring_down_obj_store ]; then rm .bring_down_obj_store; fi
-    if [ $(./scripts/control_stack.sh object-store check) = 'false' ]; then
+    if [ $(./scripts/control_stack.sh object_store check) = 'false' ]; then
         touch .bring_down_obj_store
-        ./scripts/control_stack.sh object-store deploy
+        ./scripts/control_stack.sh object_store deploy
     fi
 }
 
@@ -33,8 +33,8 @@ do_teardown()
     # Stop object store stack, if we started it
     if [ -e .bring_down_obj_store ]; then
         rm .bring_down_obj_store
-        if [ $(./scripts/control_stack.sh object-store check) != 'false' ]; then
-            ./scripts/control_stack.sh object-store stop
+        if [ $(./scripts/control_stack.sh object_store check) != 'false' ]; then
+            ./scripts/control_stack.sh object_store stop
         fi
     fi
 }
