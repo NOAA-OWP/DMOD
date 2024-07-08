@@ -38,16 +38,15 @@ class TestBase:
             load_dotenv(dotenv_path=str(test_env))
 
 
+TestBase.source_test_env_file()
+explicit_on = os.environ.get("DERIVE_UTIL_IT_ON", "false").strip().lower() == "true"
+reason_str = (f"IntegrationTestDataDeriveUtil tests skipped locally; you can activate by setting 'DERIVE_UTIL_IT_ON' "
+              f"to 'true' in your project '{TestBase._TEST_ENV_FILE_BASENAME}' file.")
 try:
     import pytest
-    TestBase.source_test_env_file()
-    explicit_on = os.environ.get("DERIVE_UTIL_IT_ON", "false").strip().lower() == "true"
-    skip_unless_explicit = pytest.mark.skipif(not explicit_on,
-                                              reason=f"IntegrationTestDataDeriveUtil tests skipped locally; you can "
-                                                     f"activate by setting 'DERIVE_UTIL_IT_ON' to 'true' in your "
-                                                     f"project '{TestBase._TEST_ENV_FILE_BASENAME}' file.")
+    skip_unless_explicit = pytest.mark.skipif(not explicit_on, reason=reason_str)
 except ImportError as e:
-    raise RuntimeError(f"Failed to execute tests due to error with check of whether special skip logic applies") from e
+    skip_unless_explicit = unittest.skipUnless(explicit_on, reason=reason_str)
 
 
 @skip_unless_explicit
