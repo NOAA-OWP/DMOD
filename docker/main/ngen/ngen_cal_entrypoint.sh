@@ -39,6 +39,10 @@ while [ ${#} -gt 0 ]; do
             declare -x CALIBRATION_CONFIG_BASENAME="${2:?}"
             shift
             ;;
+        --primary-workers)
+            declare -x PRIMARY_WORKERS="${2:?}"
+            shift
+            ;;
     esac
     shift
 done
@@ -100,6 +104,10 @@ start_calibration() {
     # Exit with the model's exit code
     return ${NGEN_RETURN}
 }
+
+# Run make_data_local Python functions to make necessary data local
+# Called for every worker, but Python code will make sure only one worker per node makes a call that has effect
+py_funcs make_data_local ${WORKER_INDEX:-0} ${PRIMARY_WORKERS:-0}
 
 # We can allow worker index to not be supplied when executing serially
 if [ "${WORKER_INDEX:-0}" = "0" ]; then
