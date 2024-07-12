@@ -507,7 +507,8 @@ RUN if [ "${NGEN_WITH_ROUTING}" == "ON" ]; then \
       && python3 -m build . \
       && cp dist/*.whl ${WORKDIR}/t-route/wheels/ \
       && cd ${WORKDIR}/t-route/src/troute-nwm \
-      && python3 setup.py bdist_wheel \
+      # troute-nwm doesn't use setup.py ... use build to make the wheel; see https://github.com/NOAA-OWP/t-route/pull/784 \
+      && python3 -m build . \
       && cp dist/*.whl ${WORKDIR}/t-route/wheels/ ; \
     fi
 
