@@ -2,6 +2,7 @@
 Defines a websocket consumer that does nothing other than pass messages directly to and from another websocket
 to another service
 """
+import json
 import typing
 import pathlib
 import asyncio
@@ -21,15 +22,38 @@ from forwarding import ForwardingConfiguration
 LOGGER = logging.ConfiguredLogger()
 
 
+ASGIView = typing.Callable[
+    [
+        typing.Mapping,
+        typing.Callable[[typing.Optional[bool], typing.Optional[float]], typing.Mapping],
+        typing.Callable[[typing.Mapping], None]
+    ], typing.Coroutine[typing.Any, typing.Any, None]
+]
+"""
+The signature for a function that yields an ASGI View
+
+Args:
+    scope: HTTP Scope information
+    receive: A function to retrieve data from a queue
+    send: A function to send data through the socket
+"""
+
+
 class ForwardingSocket(SocketConsumer):
     """
     A WebSocket Consumer that simply passes messages to and from another connection
     """
     @classmethod
-    def asgi_from_configuration(
-        cls,
-        configuration: ForwardingConfiguration
-    ) -> typing.Coroutine[typing.Any, typing.Any, None]:
+    def asgi_from_configuration(cls, configuration: ForwardingConfiguration) -> ASGIView:
+        """
+        Create an asgi view with parameters provided by a ForwardingConfiguration
+
+        Args:
+            configuration: A configuration dictating where to forward socket messages
+
+        Returns:
+            A view function that requests may route to
+        """
         interface = cls.as_asgi(
             target_host_name=configuration.name,
             target_host_url=configuration.url,
@@ -101,10 +125,16 @@ class ForwardingSocket(SocketConsumer):
 
     @property
     def uses_ssl(self) -> bool:
+        """
+        Whether the websocket connection is using SSL
+        """
         return self.__use_ssl
 
     @property
     def certificate_path(self) -> typing.Optional[str]:
+        """
+        The path to an SSL certificate to use if SSL is to be employed
+        """
         return self._certificate_path
 
     @property
@@ -139,22 +169,24 @@ class ForwardingSocket(SocketConsumer):
 
     @property
     def ssl_context(self) -> typing.Optional[ssl.SSLContext]:
-        if not self.__use_ssl:
-            return None
-
-        if not self._ssl_context:
+        """
+        Get the SSL context to use if SSL is to be employed when connecting to a remote websocket
+        """
+        if self.__use_ssl and not self._ssl_context:
             self._ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
             if not self._certificate_path:
                 raise ValueError(
                     f"An SSL certificate is required to connect to {self.__target_host_name} as configured, "
                     f"but none was given."
                 )
-            elif not os.path.exists(self._certificate_path):
+
+            if not os.path.exists(self._certificate_path):
                 raise ValueError(
                     f"The SSL Certificate needed to connect to {self.__target_host_name} was not "
                     f"found at {self._certificate_path}"
                 )
-            elif os.path.isfile(self._certificate_path):
+
+            if os.path.isfile(self._certificate_path):
                 self._ssl_context.load_verify_locations(cafile=self._certificate_path)
             else:
                 self._ssl_context.load_verify_locations(capath=self._certificate_path)
@@ -162,7 +194,24 @@ class ForwardingSocket(SocketConsumer):
         return self._ssl_context
 
     async def _connect_to_target(self):
+        """
+        Connect to a remote websocket
+        """
         self.__connection = await connect_to_socket(uri=self.target_connection_url, ssl=self.ssl_context)
+
+        try:
+            # The connection was created, but throw an error if it can't be connected through
+            await self.__connection.ping()
+        except BaseException as ping_exception:
+            message = "Connection to remote server could not be established"
+            error_message = {
+                "event": "error",
+                "data": {
+                    "message": message
+                }
+            }
+            await self.send(json.dumps(error_message))
+            raise Exception(message) from ping_exception
 
         if self.__listen_task is None:
             self.__listen_task = asyncio.create_task(self.listen(), name=f"ListenTo{self.__target_host_name}")
@@ -174,10 +223,22 @@ class ForwardingSocket(SocketConsumer):
         await super().accept()
         await self._connect_to_target()
 
+    async def get_connection(self) -> WebSocketClientProtocol:
+        """
+        Get a connection to the remote websocket
+
+        Returns:
+            A socket connection that facilitates sending and receiving messages
+        """
+        if self.__connection is None or self.__connection.closed:
+            await self._connect_to_target()
+        return self.__connection
+
     async def disconnect(self, code):
         """
         Handler for when a client disconnects
         """
+        LOGGER.debug(f"Received signal for {self} to disconnect with code {code}")
         # Attempt to cancel the task. This is mostly a safety measure. Cancelling here is preferred but a
         # failure isn't the end of the world
         if self.__listen_task is not None and not self.__listen_task.done():
@@ -233,14 +294,13 @@ class ForwardingSocket(SocketConsumer):
         """
         Listen for messages from the target connection and send them through the caller connection
         """
-        if self.__connection is None:
-            await self._connect_to_target()
-
-        async for message in self.__connection:
-            if isinstance(message, bytes):
-                await self.send(bytes_data=message)
-            else:
-                await self.send(message)
+        while True:
+            connection = await self.get_connection()
+            async for message in connection:
+                if isinstance(message, bytes):
+                    await self.send(bytes_data=message)
+                else:
+                    await self.send(message)
 
     async def receive(self, text_data: str = None, bytes_data: bytes = None, **kwargs):
         """
@@ -253,10 +313,11 @@ class ForwardingSocket(SocketConsumer):
             bytes_data: Bytes data sent over the socket
             **kwargs:
         """
+        connection = await self.get_connection()
         if bytes_data and not text_data:
-            await self.__connection.send(bytes_data)
+            await connection.send(bytes_data)
         elif text_data:
-            await self.__connection.send(text_data)
+            await connection.send(text_data)
         else:
             LOGGER.warn("A message was received from the client but not text or bytes data was received.")
 

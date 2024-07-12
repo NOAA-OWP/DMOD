@@ -1,8 +1,104 @@
+"""
+Common functions and objects that may be used throughout the codebase
+"""
 import base64
 import typing
+import traceback
+
 from datetime import datetime
+from collections import Counter
 
 import dateutil
+
+
+def get_error_identifier(
+    error: BaseException
+) -> typing.Tuple[typing.Union[typing.Type[BaseException], typing.Tuple[str, int, str]], ...]:
+    """
+    Create a pickleable common identifier for an error
+
+    This is a common key that will match with other exceptions of the same type triggered via the same code path
+
+    Args:
+        error: The error to create a key for
+
+    Returns:
+        A tuple of values describing the type of error and where it came from
+    """
+    error_details: typing.List[typing.Union[typing.Type[BaseException], typing.Tuple[str, int, str]]] = [
+        error.__class__
+    ]
+
+    trace = error.__traceback__
+
+    if trace is not None:
+        try:
+            for frame_summary in traceback.extract_tb(trace):
+                error_details.append((
+                    frame_summary.filename,
+                    frame_summary.lineno,
+                    frame_summary.name,
+                ))
+        except:
+            pass
+
+    error_identifier: typing.Tuple[typing.Union[type, typing.Tuple[str, int, str]], ...] = tuple(error_details)
+    return error_identifier
+
+
+class ErrorCounter:
+    """
+    A counter for loops that handle repeated operations that need to handle exceptions
+
+    If a certain type of error occurs too many times, that error will be thrown to stop the containing control structure
+    """
+    def __init__(self, limit: int):
+        """
+        Args:
+            limit: The maximum amount of a specific failure that may occur before the error is raised
+        """
+        self.__error_limit = limit
+        self.__counter = Counter()
+
+    @property
+    def error_count(self):
+        """
+        The total number of errors encountered
+        """
+        return sum(count for count in self.__counter.values())
+
+    @property
+    def error_limit(self):
+        """
+        The maximum amount of errors that can occur before the error is raised
+        """
+        return self.__error_limit
+
+    def occurrences(self, error: BaseException) -> int:
+        """
+        Get the number of times a certain type of error has been thrown
+
+        Args:
+            error: The error to be checked
+
+        Returns:
+            The number of times that the error has been checked
+        """
+        error_identifier = get_error_identifier(error)
+        return self.__counter[error_identifier]
+
+    def add_error(self, error: BaseException):
+        """
+        Add an error to the tracker and throw it if the limit on that type has passed
+
+        Args:
+            error: The error to record
+        """
+        error_identifier = get_error_identifier(error=error)
+        self.__counter[error_identifier] += 1
+
+        if self.__counter[error_identifier] > self.__error_limit:
+            raise error
 
 
 def key_separator() -> str:

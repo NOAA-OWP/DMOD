@@ -137,8 +137,6 @@ async function submit_evaluation(event) {
         editorData.view.setOption("readonly", true);
     }
 
-    $(event.target).button("disable");
-
     $("#tabs").tabs("option", "active", 1);
 }
 

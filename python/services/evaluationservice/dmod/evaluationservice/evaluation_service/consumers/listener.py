@@ -458,10 +458,16 @@ class ConcreteScope:
 
 
 async def enqueue_job(launch_parameters: typing.Dict[str, typing.Any]):
+    """
+    Queue up the job configuration for execution
+
+    Args:
+        launch_parameters: Details about how to run an evaluation
+    """
     with utilities.get_runner_connection() as runner_connection:
-        publication_response = runner_connection.publish(
+        publication_response = runner_connection.xadd(
             EVALUATION_QUEUE_NAME,
-            json.dumps(launch_parameters)
+            launch_parameters
         )
 
         # `publish` returns an item that can be awaitable or just about anything else. In case the returned value is
