@@ -945,8 +945,16 @@ COPY --chown=${USER} --from=build_bmi_snow_17 /dmod/ /dmod/
 COPY --chown=${USER} --from=build_customizations /dmod/ /dmod/
 
 USER root
-# Update path and make sure dataset directory is there
-RUN echo "export PATH=${PATH}" >> /etc/profile \
+# TODO: (later) consider something like this in the future (at least optionally) when downloading the mc client below:
+# ARG MINIO_CLIENT_RELEASE="RELEASE.2024-07-08T20-59-24Z"
+# ...
+# https://dl.min.io/client/mc/release/linux-amd64/archive/mc.${MINIO_CLIENT_RELEASE}
+
+# Setup minio client; also update path and make sure dataset directory is there
+RUN curl -L -o /dmod/bin/mc https://dl.min.io/client/mc/release/linux-amd64/mc \
+    && chmod +x /dmod/bin/mc \
+    && mkdir /dmod/.mc \
+    && echo "export PATH=${PATH}" >> /etc/profile \
     && sed -i "s/PasswordAuthentication yes/#PasswordAuthentication yes/g" /etc/ssh/sshd_config \
     && sed -i "s/PermitRootLogin yes/PermitRootLogin no/g" /etc/ssh/sshd_config \
     && sed -i "s/#ClientAliveInterval.*/ClientAliveInterval 60/" /etc/ssh/sshd_config \
