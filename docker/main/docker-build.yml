@@ -49,6 +49,7 @@ services:
       context: ./ngen
       target: rocky-ngen-deps
       args:
+        NUMPY_CONSTRAINT: ${NUMPY_INSTALL_CONSTRAINT:?Please set global NUMPY_INSTALL_CONSTRAINT in environment config}
         DOCKER_INTERNAL_REGISTRY: ${DOCKER_INTERNAL_REGISTRY:?}
     #depends_on:
     #  - base
@@ -59,6 +60,7 @@ services:
       context: ./ngen
       target: rocky_ngen_build_testing
       args:
+        NUMPY_CONSTRAINT: ${NUMPY_INSTALL_CONSTRAINT:?Please set global NUMPY_INSTALL_CONSTRAINT in environment config}
         REPO_URL: ${NGEN_REPO_URL?No NGen repo url configured}
         BRANCH: ${NGEN_BRANCH?No NGen branch configured}
         COMMIT: ${NGEN_COMMIT}
@@ -77,6 +79,7 @@ services:
       context: ./ngen
       target: ngen_worker
       args:
+        NUMPY_CONSTRAINT: ${NUMPY_INSTALL_CONSTRAINT:?Please set global NUMPY_INSTALL_CONSTRAINT in environment config}
         REPO_URL: ${NGEN_REPO_URL?No NGen repo url configured}
         BRANCH: ${NGEN_BRANCH?No NGen branch configured}
         COMMIT: ${NGEN_COMMIT}
@@ -98,6 +101,7 @@ services:
       context: ./ngen
       target: partitioner_image
       args:
+        NUMPY_CONSTRAINT: ${NUMPY_INSTALL_CONSTRAINT:?Please set global NUMPY_INSTALL_CONSTRAINT in environment config}
         REPO_URL: ${NGEN_REPO_URL?No NGen repo url configured}
         BRANCH: ${NGEN_BRANCH?No NGen branch configured}
         COMMIT: ${NGEN_COMMIT}
@@ -114,6 +118,7 @@ services:
       context: ./ngen
       target: ngen_cal_worker
       args:
+        NUMPY_CONSTRAINT: ${NUMPY_INSTALL_CONSTRAINT:?Please set global NUMPY_INSTALL_CONSTRAINT in environment config}
         REPO_URL: ${NGEN_REPO_URL?No NGen repo url configured}
         BRANCH: ${NGEN_BRANCH?No NGen branch configured}
         COMMIT: ${NGEN_COMMIT}
