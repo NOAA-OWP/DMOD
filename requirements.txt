@@ -20,7 +20,7 @@ python-dotenv
 djangorestframework
 git+https://github.com/noaa-owp/hypy@master#egg=hypy&subdirectory=python
 hydrotools.nwis-client
-numpy
+numpy==1.26.4
 scikit-learn
 minio
 uri
