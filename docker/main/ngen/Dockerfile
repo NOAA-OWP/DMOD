@@ -290,12 +290,16 @@ FROM rocky-base as rocky-ngen-packaged-deps
 
 ARG ROCKY_NGEN_DEPS_REQUIRED
 
+# Set up pip constraints file for this and descendent stages
+COPY constraints.txt ${WORKDIR}/constraints.txt
+ENV PIP_CONSTRAINT=${WORKDIR}/constraints.txt
+
 # TODO: later, go back and change all pip3/python3 to just pip/python (but leave for now to limit scope)
 # Note that this includes numpy, which is needed for Python BMI support, regardless of BMI module
 USER root
 RUN dnf update -y && dnf install -y ${ROCKY_NGEN_DEPS_REQUIRED} && dnf clean -y all \
     && ln -s $(which python3) $(which python3 | sed 's/python3/python/') \
-    && pip install --no-cache-dir "pip>=23.0,<23.1" wheel packaging \
+    && pip install --no-cache-dir pip wheel packaging \
     && if [ "${NGEN_WITH_PYTHON}" == "ON" ]; then pip install --no-cache-dir numpy; fi
 USER ${USER}
 

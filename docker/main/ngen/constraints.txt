@@ -1,0 +1,5 @@
+### Constrain pip
+pip>=23.0,<23.1
+
+### Constrain numpy to < 2.0.0 due to current ngen compatibility issue
+numpy~=1.0
