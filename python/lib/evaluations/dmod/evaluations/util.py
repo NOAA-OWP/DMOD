@@ -26,8 +26,6 @@ import numpy
 import pandas
 import pytz
 
-from dateutil.parser import parse as parse_date_string
-
 import dmod.core.common as common
 
 RE_PATTERN = re.compile(r"(\{.+\}|\[.+\]|\(.+\)|(?<!\\)\.|\{|\}|\]|\[|\(|\)|\+|\*|\\[a-zA-Z]|\?)+")
@@ -98,33 +96,44 @@ def configure_logging() -> None:
 
 
 def type_name_to_dtype(type_name: str) -> typing.Optional[typing.Type]:
+    """
+    Find a concrete type based off of its name
+
+    Example:
+        >>> type_name_to_dtype('integer')
+        numpy.int32
+        >>> type_name_to_dtype('float')("24.23")
+        24.23
+
+    Args:
+        type_name: The name of the type intended for use
+
+    Returns:
+        An object type if one matches the name
+    """
     if not type_name:
         return None
 
     type_name = type_name.strip()
+
     if type_name.lower() in ("string", "str", "word", "words"):
         return str
-    elif type_name.lower() in ['bytes']:
+
+    if type_name.lower() in ['bytes']:
         return bytes
-    elif type_name.lower() in ["float"]:
+
+    if type_name.lower() in ["float"]:
         return numpy.float32
-    elif type_name.lower() in ['int', 'integer']:
+
+    if type_name.lower() in ['int', 'integer']:
         return numpy.int32
-    elif type_name.lower() in numpy.sctypes:
-        # sctypes is a mapping from a name to several different types ('uint' => [uint8, uint16, uint32, uint64])
-        # To handle this, the middle item is selected. Pick the first and the type is too small.
-        # Pick the last and you most likely pick far too large. This is overcome by specificity
-        return numpy.sctypes[type_name]
 
-    # In a last ditch effort, flatten the list of sctypes and pick the type that matches the passed in name
-    np_types = dict()
-    for key, types in numpy.sctypes:
-        np_types.update({
-            numpy_type.__name__: numpy_type
-            for numpy_type in types
-        })
+    possible_types: typing.Dict[str, type] = {
+        scalar_type.__name__: scalar_type
+        for scalar_type in numpy.ScalarType
+    }
 
-    return np_types.get(type_name.lower())
+    return possible_types.get(type_name.lower())
 
 
 def value_is_number(value: typing.Any) -> bool:
@@ -271,7 +280,7 @@ def parse_non_naive_dates(datetimes: typing.Sequence[str], *args, **kwargs) -> t
     data = list()
 
     for date_string in datetimes:
-        date_and_time = parse_date_string(str(date_string))
+        date_and_time = parse_date(str(date_string))
 
         if date_and_time.tzinfo is None:
             date_and_time = date_and_time.replace(tzinfo=timezone.utc)
