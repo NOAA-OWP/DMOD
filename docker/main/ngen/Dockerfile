@@ -67,9 +67,6 @@ ARG MPICH_VERSION="3.3.2"
 ARG MIN_PYTHON="3.8.0"
 ARG BLOSC2_VERSION
 
-# Necessry to control specific numpy version after release of 2.0 and prior to fully support by all NextGen ecosystem
-ARG NUMPY_CONSTRAINT
-
 ARG NETCDF_C_VERSION=4.8.1
 ARG NETCDF_CXX_VERSION=4.3.1
 ARG NETCDF_FORTRAN_VERSION=4.6.0
@@ -292,15 +289,14 @@ RUN if [[ "${NETCDF_CXX_VERSION}" == "latest" ]]; then \
 FROM rocky-base as rocky-ngen-packaged-deps
 
 ARG ROCKY_NGEN_DEPS_REQUIRED
-ARG NUMPY_CONSTRAINT
 
 # TODO: later, go back and change all pip3/python3 to just pip/python (but leave for now to limit scope)
-# Note that this includes numpy, which is needed for Python BMI support, regardless of BMI module 
+# Note that this includes numpy, which is needed for Python BMI support, regardless of BMI module
 USER root
 RUN dnf update -y && dnf install -y ${ROCKY_NGEN_DEPS_REQUIRED} && dnf clean -y all \
     && ln -s $(which python3) $(which python3 | sed 's/python3/python/') \
     && pip install --no-cache-dir "pip>=23.0,<23.1" wheel packaging \
-    && if [ "${NGEN_WITH_PYTHON}" == "ON" ]; then pip install --no-cache-dir numpy${NUMPY_CONSTRAINT}; fi
+    && if [ "${NGEN_WITH_PYTHON}" == "ON" ]; then pip install --no-cache-dir numpy; fi
 USER ${USER}
 
 ################################################################################################################
@@ -654,8 +650,6 @@ ARG BUILD_TOPMODEL
 ARG BUILD_PET
 ARG BUILD_SLOTH
 
-ARG NUMPY_CONSTRAINT
-
 COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/ngen
 COPY --chown=${USER} --from=rocky_build_troute ${WORKDIR}/t-route/wheels /tmp/t-route-wheels
 COPY --chown=${USER} --from=rocky_build_troute ${WORKDIR}/t-route/src/kernel /tmp/t-route-kernels
@@ -670,9 +664,8 @@ RUN if [ "${NGEN_WITH_PYTHON}" == "ON" ]; then \
 USER ${USER}
 
 ENV VIRTUAL_ENV=/dmod/venv
-RUN python3 -m venv $VIRTUAL_ENV
+RUN python3 -m venv $VIRTUAL_ENV && pip3 install numpy
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-RUN if [ "${NGEN_WITH_PYTHON}" == "ON" ]; then pip install numpy${NUMPY_CONSTRAINT} ; fi
 
 RUN cd ${BOOST_ROOT} \
     && tar -xf boost_tarball.blob --strip 1 \
@@ -788,8 +781,6 @@ FROM rocky-ngen-deps as rocky_ngen_build_testing
 #FROM rocky_build_ngen as rocky_ngen_build_testing
 #FROM ${DOCKER_INTERNAL_REGISTRY}/ngen-deps:latest as rocky_ngen_build_testing
 
-ARG NUMPY_CONSTRAINT
-
 COPY --chown=${USER} --from=rocky_init_repo ${WORKDIR}/ngen ${WORKDIR}/ngen
 
 ENV BOOST_ROOT=${WORKDIR}/boost
@@ -804,7 +795,7 @@ USER ${USER}
 ENV VIRTUAL_ENV=/dmod/venv
 RUN if [ "${NGEN_WITH_PYTHON}" == "ON" ]; then python3 -m venv ${VIRTUAL_ENV} ; fi
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-RUN if [ "${NGEN_WITH_PYTHON}" == "ON" ]; then pip install numpy${NUMPY_CONSTRAINT} ; fi
+RUN if [ "${NGEN_WITH_PYTHON}" == "ON" ]; then pip install numpy ; fi
 
 RUN cd ${BOOST_ROOT} && tar -xf boost_tarball.blob --strip 1 && rm boost_tarball.blob
 ENV BOOST_ROOT=${WORKDIR}/boost
