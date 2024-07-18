@@ -17,4 +17,4 @@ channels
 channels-redis
 djangorestframework
 psycopg2-binary  # TODO: get source package in future. Note that psycopg2 cannot be used on Mac; psycopg2-binary must be used
-numpy==1.26.4
+numpy
