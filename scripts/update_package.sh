@@ -72,6 +72,13 @@ Options:
     echo "${_O}" 2>&1
 }
 
+check_and_install_wheel() {
+    if ! pip show wheel > /dev/null 2>&1; then
+        echo "wheel package is not installed. Installing..."
+        pip install wheel
+    fi
+}
+
 init_package_dirs_array_when_empty()
 {
     # Only initialize if nothing was provided (i.e., via command line args)
@@ -208,6 +215,9 @@ py_dev_activate_venv
 
 # Trap to make sure we "clean up" script activity before exiting
 trap cleanup_before_exit 0 1 2 3 6 15
+
+# Ensure wheel is installed
+check_and_install_wheel
 
 # After setting VENV, if set to get dependencies, do that, optionally exiting after if that's all we are set to do
 if [ -n "${DO_DEPS:-}" ]; then
