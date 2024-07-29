@@ -108,5 +108,5 @@ elif [ -n "${CLEAN_ONLY}" ]; then
     >&2 echo "Error: unexpected value set for variable CLEAN_ONLY (${CLEAN_ONLY}); exiting without building"
     exit 1
 else
-    py_dev_clean_dist && python setup.py sdist bdist_wheel
+    py_dev_clean_dist && python -m build
 fi

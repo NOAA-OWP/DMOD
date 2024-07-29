@@ -82,8 +82,8 @@ init_package_dirs_array_when_empty()
 
         spi=0
         for i in ${LIB_PACKAGE_DIRS[@]}; do
-            # Include package directory, as long as there is a setup.py for the package
-            if [ -e "${i}/setup.py" ]; then
+            # Include package directory, as long as there is a pyproject.toml for the package
+            if [ -e "${i}/pyproject.toml" ]; then
                 PACKAGE_DIRS[${spi}]="${i}"
                 spi=$((spi+1))
             fi
@@ -92,8 +92,8 @@ init_package_dirs_array_when_empty()
         # Though check for option indicating only library packages should be installed.
         if [ -z "${NO_SERVICE_PACKAGES:-}" ]; then
             for i in ${SERVICE_PACKAGE_DIRS[@]}; do
-                # Include package directory, as long as there is a setup.py for the package
-                if [ -e "${i}/setup.py" ]; then
+                # Include package directory, as long as there is a pyproject.toml for the package
+                if [ -e "${i}/pyproject.toml" ]; then
                     PACKAGE_DIRS[${spi}]="${i}"
                     spi=$((spi+1))
                 fi
@@ -209,6 +209,9 @@ py_dev_activate_venv
 # Trap to make sure we "clean up" script activity before exiting
 trap cleanup_before_exit 0 1 2 3 6 15
 
+# Install build dependencies if not present
+py_dev_maybe_install_build_deps
+
 # After setting VENV, if set to get dependencies, do that, optionally exiting after if that's all we are set to do
 if [ -n "${DO_DEPS:-}" ]; then
     pip install --upgrade -r "${_REQ_FILE}"
@@ -245,7 +248,7 @@ build_package_and_collect_dist_details()
 
     # Bail if we can't detect the appropriate package dist name
     if [ -z "${PACKAGE_DIST_NAMES[${_N}]}" ]; then
-        >&2 echo "Error: unable to determine package dist name from ${1}/setup.py"
+        >&2 echo "Error: unable to determine package dist name from ${1}/pyproject.toml"
         exit 1
     fi
 
@@ -253,7 +256,7 @@ build_package_and_collect_dist_details()
     PACKAGE_DIST_DIR_LINK_ARGS[${_N}]="--find-links=${1}/dist"
 
     # Clean any previous artifacts and build
-    py_dev_clean_dist && python setup.py sdist bdist_wheel
+    py_dev_clean_dist && python -m build
 
     # Return to starting directory if one was given
     cd "${2}"
