@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools >= 70.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dmod.schedulerservice"
+authors = [
+    { name = "Robert Bartel" },
+    { name = "Nels Frazier" },
+    { name = "Austin Raney", email = "austin.raney@noaa.gov" },
+]
+dependencies = [
+    "dmod.core>=0.17.0",
+    "dmod.communication>=0.20.0",
+    "dmod.scheduler>=0.13.0",
+]
+readme = "README.md"
+description = ""
+dynamic = ["version"]
+license = { text = "DOC" }
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+test = ["pytest>=7.0.0"]
+
+[tool.setuptools.dynamic]
+version = { attr = "dmod.schedulerservice._version.__version__" }
+
+[tool.setuptools.packages.find]
+exclude = ["dmod.test*"]

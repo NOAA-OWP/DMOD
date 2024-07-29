@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools >= 70.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dmod.hydrofabric"
+authors = [
+    { name = "Austin Raney", email = "austin.raney@noaa.gov" },
+    { name = "Robert Bartel" },
+]
+dependencies = []
+readme = "README.md"
+description = ""
+dynamic = ["version"]
+license = { text = "DOC" }
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+test = ["pytest>=7.0.0"]
+
+[tool.setuptools.dynamic]
+version = { attr = "dmod.hydrofabric._version.__version__" }
+
+[tool.setuptools.packages.find]
+exclude = ["dmod.test*"]

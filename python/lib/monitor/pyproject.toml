@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools >= 70.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dmod.monitor"
+authors = [
+    { name = "Robert Bartel" },
+    { name = "Nels Frazier" },
+    { name = "Shengting Cui" },
+    { name = "Austin Raney", email = "austin.raney@noaa.gov" },
+]
+dependencies = [
+    "docker>=7.1.0",
+    "Faker",
+    "dmod.core>=0.1.0",
+    "dmod.communication>=0.4.2",
+    "dmod.redis>=0.1.0",
+    "dmod.scheduler>=0.12.2",
+]
+readme = "README.md"
+description = ""
+dynamic = ["version"]
+license = { text = "DOC" }
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+test = ["pytest>=7.0.0"]
+
+[tool.setuptools.dynamic]
+version = { attr = "dmod.monitor._version.__version__" }
+
+[tool.setuptools.packages.find]
+exclude = ["dmod.test*"]

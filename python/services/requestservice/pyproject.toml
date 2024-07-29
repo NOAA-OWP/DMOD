@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools >= 70.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dmod.requestservice"
+authors = [
+    { name = "Robert Bartel" },
+    { name = "Austin Raney", email = "austin.raney@noaa.gov" },
+    { name = "Chris Tubbs" },
+    { name = "Nels Frazier" },
+]
+dependencies = [
+    "websockets",
+    "dmod.core>=0.17.0",
+    "dmod.communication>=0.20.0",
+    "dmod.access>=0.2.0",
+    "dmod.externalrequests>=0.6.0",
+]
+readme = "README.md"
+description = ""
+dynamic = ["version"]
+license = { text = "DOC" }
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+test = ["pytest>=7.0.0"]
+
+[tool.setuptools.dynamic]
+version = { attr = "dmod.requestservice._version.__version__" }
+
+[tool.setuptools.packages.find]
+exclude = ["dmod.test*"]
