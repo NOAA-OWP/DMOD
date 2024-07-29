@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools >= 70.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dmod.scheduler"
+authors = [
+    { name = "Robert Bartel" },
+    { name = "Nels Frazier" },
+    { name = "Austin Raney", email = "austin.raney@noaa.gov" },
+    { name = "Chris Tubbs" },
+    { name = "Shengting Cui" },
+]
+dependencies = [
+    "docker>=7.1.0",
+    "Faker",
+    "dmod.communication>=0.20.0",
+    "dmod.modeldata>=0.7.1",
+    "dmod.redis>=0.1.0",
+    "dmod.core>=0.17.0",
+    "cryptography",
+    "uri",
+    "pyyaml",
+    "pydantic>=1.10.8,~=1.10",
+]
+readme = "README.md"
+description = ""
+dynamic = ["version"]
+license = { text = "DOC" }
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+test = ["pytest>=7.0.0"]
+
+[tool.setuptools.dynamic]
+version = { attr = "dmod.scheduler._version.__version__" }
+
+[tool.setuptools.packages.find]
+exclude = ["dmod.test*"]

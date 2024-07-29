@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools >= 70.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dmod.subsetservice"
+authors = [
+    { name = "Robert Bartel" },
+    { name = "Austin Raney", email = "austin.raney@noaa.gov" },
+]
+dependencies = ["flask", "dmod.core>=0.1.0", "dmod.modeldata>=0.5.0"]
+readme = "README.md"
+description = ""
+dynamic = ["version"]
+license = { text = "DOC" }
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+test = ["pytest>=7.0.0"]
+
+[tool.setuptools.dynamic]
+version = { attr = "dmod.subsetservice._version.__version__" }
+
+[tool.setuptools.packages.find]
+exclude = ["dmod.test*"]

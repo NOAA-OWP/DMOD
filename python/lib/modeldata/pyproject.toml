@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools >= 70.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dmod.modeldata"
+authors = [
+    { name = "Robert Bartel" },
+    { name = "Austin Raney", email = "austin.raney@noaa.gov" },
+    { name = "Donald Johnson" },
+    { name = "Nels Frazier" },
+]
+dependencies = [
+    "numpy>=1.20.1",
+    "pandas",
+    "geopandas",
+    "ngen-config@git+https://github.com/noaa-owp/ngen-cal@master#egg=ngen-config&subdirectory=python/ngen_conf",
+    "dmod.communication>=0.4.2",
+    "dmod.core>=0.16.0",
+    "minio",
+    "aiohttp~=3.8",
+    "shapely>=2.0.0",
+    "hypy@git+https://github.com/noaa-owp/hypy@master#egg=hypy&subdirectory=python",
+    'ngen-config-gen@git+https://github.com/noaa-owp/ngen-cal@master#egg=ngen-config&subdirectory=python/ngen_config_gen',
+    "gitpython",
+    "pydantic>=1.10.8,~=1.10",
+    "pyogrio",
+]
+readme = "README.md"
+description = ""
+dynamic = ["version"]
+license = { text = "DOC" }
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+test = ["pytest>=7.0.0"]
+
+[tool.setuptools.dynamic]
+version = { attr = "dmod.modeldata._version.__version__" }
+
+[tool.setuptools.packages.find]
+exclude = ["dmod.test*"]

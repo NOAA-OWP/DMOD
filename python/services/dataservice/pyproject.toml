@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools >= 70.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dmod.dataservice"
+authors = [
+    { name = "Robert Bartel" },
+    { name = "Austin Raney", email = "austin.raney@noaa.gov" },
+]
+dependencies = [
+    "dmod.core>=0.17.0",
+    "dmod.communication>=0.20.0",
+    "dmod.scheduler>=0.12.2",
+    "dmod.modeldata>=0.12.0",
+    "redis",
+    "pydantic[dotenv]>=1.10.8,~=1.10",
+    "fastapi",
+    "uvicorn[standard]",
+    "ngen-config@git+https://github.com/noaa-owp/ngen-cal@master#egg=ngen-config&subdirectory=python/ngen_conf",
+    "ngen-cal@git+https://github.com/noaa-owp/ngen-cal@master#egg=ngen-config&subdirectory=python/ngen_cal",
+]
+readme = "README.md"
+description = ""
+dynamic = ["version"]
+license = { text = "DOC" }
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+test = ["pytest>=7.0.0"]
+
+[tool.setuptools.dynamic]
+version = { attr = "dmod.dataservice._version.__version__" }
+
+[tool.setuptools.packages.find]
+exclude = ["dmod.test*"]

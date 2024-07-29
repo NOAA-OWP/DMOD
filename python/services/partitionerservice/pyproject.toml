@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools >= 70.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dmod.partitionerservice"
+authors = [
+    { name = "Robert Bartel" },
+    { name = "Austin Raney", email = "austin.raney@noaa.gov" },
+]
+dependencies = [
+    "dmod.core>=0.1.0",
+    "dmod.communication>=0.7.1",
+    "dmod.modeldata>=0.7.1",
+    "dmod.scheduler>=0.12.2",
+    "dmod.externalrequests>=0.3.0",
+]
+readme = "README.md"
+description = ""
+dynamic = ["version"]
+license = { text = "DOC" }
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+test = ["pytest>=7.0.0"]
+
+[tool.setuptools.dynamic]
+version = { attr = "dmod.partitionerservice._version.__version__" }
+
+[tool.setuptools.packages.find]
+exclude = ["dmod.test*"]

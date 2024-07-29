@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools >= 70.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dmod.evaluations"
+authors = [
+    { name = "Chris Tubbs" },
+    { name = "Austin Raney", email = "austin.raney@noaa.gov" },
+    { name = "Robert Bartel" },
+]
+dependencies = [
+    "dmod.core",
+    "dmod.metrics",
+    "pandas",
+    "xarray",
+    "h5py",
+    "jsonpath-ng",
+    "pint",
+    "pytz",
+    "requests",
+]
+readme = "README.md"
+description = "Library package with classes for handling model evaluations"
+dynamic = ["version"]
+license = { text = "DOC" }
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+test = ["pytest>=7.0.0"]
+
+[tool.setuptools.dynamic]
+version = { attr = "dmod.evaluations._version.__version__" }
+
+[tool.setuptools.packages.find]
+exclude = ["dmod.test*"]

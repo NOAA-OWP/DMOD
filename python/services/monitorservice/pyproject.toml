@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools >= 70.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dmod.monitorservice"
+authors = [
+    { name = "Robert Bartel" },
+    { name = "Austin Raney", email = "austin.raney@noaa.gov" },
+    { name = "Nels Frazier" },
+]
+dependencies = [
+    "dmod.core>=0.1.0",
+    "dmod.communication>=0.4.2",
+    "dmod.monitor>=0.3.3",
+]
+readme = "README.md"
+description = ""
+dynamic = ["version"]
+license = { text = "DOC" }
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+test = ["pytest>=7.0.0"]
+
+[tool.setuptools.dynamic]
+version = { attr = "dmod.monitorservice._version.__version__" }
+
+[tool.setuptools.packages.find]
+exclude = ["dmod.test*"]
