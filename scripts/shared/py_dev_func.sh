@@ -6,6 +6,18 @@ VENV_WAS_ACTIVATED=1
 
 PACKAGE_NAMESPACE_ROOT=dmod
 
+# Check and install 'build' package if it's not present.
+# Returns 0 on success and > 0 on failure.
+py_dev_maybe_install_build_deps()
+{
+    if ! python -m pip show build > /dev/null 2>&1; then
+        echo 'Installing missing python build dependency: "build"'
+        python -m pip install build
+        return $?
+    fi
+    return 0
+}
+
 # Validate that an arg is a path to a valid venv directory, echoing the path to stdout if it is, and also returning 0 or
 # 1 consistent with standard shell T/F.
 # Also, print out messages to stderr when not valid, unless suppressed with '-q' arg.
@@ -71,7 +83,6 @@ py_dev_get_egg_info_dir()
 py_dev_clean_dist()
 {
     _PY_DEV_CLEAN_DIST_EGG_DIR="$(ls | grep -e '.*\.egg-info$')"
-    python setup.py clean --all 2>/dev/null
     [ -d ./build ] && echo "Removing $(pwd)/build" && rm -r ./build
     [ -d ./dist ] && echo "Removing $(pwd)/dist" && rm -r ./dist
 
@@ -81,18 +92,15 @@ py_dev_clean_dist()
     fi
 }
 
-# Determine the distribution name of the Python package based in the current working directory from its setup.py
+# Determine the distribution name of the Python package based in the current working directory from its pyproject.toml
 py_dev_extract_package_dist_name_from_setup()
 {
-    if [ ! -e setup.py ]; then
-        >&2 echo "Error: expected $(pwd)/setup.py not found; cannot determine package dist name"
+    if [ ! -e pyproject.toml ]; then
+        >&2 echo "Error: expected $(pwd)/pyproject.toml not found; cannot determine package dist name"
         return 1
     fi
 
-    cat setup.py \
-        | grep -v import \
-        | grep -e '^\(.*,\)\?[ ]*name[ ]*=[ ]*\(.\)\([^,]*\)[^, ][ ]*,' \
-        | sed -E 's/^(.*,)*[ ]*name[ ]*=[ ]*.([^,]*)[^,],.*/\2/g'
+    sed -n 's/^name[ ]*=[ ]*"\(.*\)"/\1/p' pyproject.toml
 }
 
 # If appropriate, activate the virtual env set within VENV_DIR, and note whether this is done in VENV_WAS_ACTIVATED.
