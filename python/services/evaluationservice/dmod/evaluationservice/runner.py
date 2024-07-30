@@ -15,12 +15,8 @@ import signal
 import dataclasses
 import threading
 
-from functools import reduce
-from operator import iconcat as combine
-
 from argparse import ArgumentParser
 from multiprocessing.pool import ApplyResult
-from time import sleep
 
 import redis
 
@@ -34,30 +30,10 @@ from dmod.core.context import DMODObjectManager
 from dmod.core.context import get_object_manager
 
 import service
-import utilities
 import worker
 
 from utilities.common import ErrorCounter
-
-
-RawRedisMessage = typing.Tuple[bytes, typing.Dict[bytes, bytes]]
-"""
-How each individual message is represented - a tuple indicating the message id and a dictionary of each key and value
-"""
-
-RawRedisMessageStream = typing.List[typing.Union[bytes, typing.List[RawRedisMessage]]]
-"""
-How each collection of messages is represented when reading from a stream.
-This is implemented via a list, but a tuple would be more appropriate. The first index is the stream name and the 
-second index is the collection of messages read for it
-"""
-
-LATEST_MESSAGE: typing.Final[str] = ">"
-"""
-The `xreadgroup` function uses a dictionary of '{<stream name>: <previously read message id>}' to determine what next 
-to read. Using '{<stream name>: ">"}' will tell it to get the next unread message for <stream name>
-"""
-
+from utilities import streams
 
 EXCEPTION_LIMIT: typing.Final[int] = 10
 
@@ -89,9 +65,13 @@ def signal_handler(signum: int, frame):
     signal_description: str = signal.strsignal(signum).split(":")[0]
     service.error(f"Received external signal: {signal_description}")
 
-    if all(REDIS_PARAMETERS_FOR_PROCESS.values()):
+    if REDIS_PARAMETERS_FOR_PROCESS.is_valid:
         service.error("Cleaning up redis resources...")
-        cleanup(**REDIS_PARAMETERS_FOR_PROCESS)
+        cleanup(
+            stream_name=REDIS_PARAMETERS_FOR_PROCESS.stream_name,
+            group_name=REDIS_PARAMETERS_FOR_PROCESS.group_name,
+            redis_parameters=REDIS_PARAMETERS_FOR_PROCESS.kvstore_parameters
+        )
 
     service.error("Now exiting...")
     sys.exit(1)
@@ -303,190 +283,7 @@ class WorkerProcessArguments:
         }
 
 
-@dataclasses.dataclass
-class RedisArguments:
-    """
-    A DTO for the common arguments used to connect to redis
-    """
-    host: typing.Optional[str] = dataclasses.field(default=None)
-    port: typing.Optional[typing.Union[int, str]] = dataclasses.field(default=None)
-    username: typing.Optional[str] = dataclasses.field(default=None)
-    password: typing.Optional[str] = dataclasses.field(default=None)
-    db: typing.Optional[int] = dataclasses.field(default=None)
-
-    def get_connection(self) -> redis.Redis:
-        """
-        Connect to Redis
-
-        Returns:
-            A connection to redis
-        """
-        return utilities.get_redis_connection(self.host, self.port, self.username, self.password, self.db)
-
-
-ARGUMENTS_FOR_PROCESS: typing.Optional[RedisArguments] = None
-
-
-REDIS_PARAMETERS_FOR_PROCESS: typing.Dict[
-    typing.Literal['redis_parameters', 'stream_name', 'group_name'],
-    typing.Union[None, str, RedisArguments]
-] = {
-    "redis_parameters": None,
-    "stream_name": None,
-    "group_name": None
-}
-
-
-@dataclasses.dataclass
-class StreamMessage:
-    """
-    Represents a message sent through a redis stream
-    """
-    stream_name: str
-    """The name of the stream that this travelled through"""
-
-    group_name: str
-    """The name of the group that is readding the message"""
-
-    consumer_name: str
-    """The name of the consumer reading the message"""
-
-    message_id: str
-    """The ID of the message that was sent"""
-
-    values: typing.Dict[str, str]
-    """The payload of the message that was sent"""
-
-    @classmethod
-    def listen(
-        cls,
-        connection: redis.Redis,
-        group_name: str,
-        consumer_name: str,
-        stop_signal: multiprocessing.Event,
-        stream: str
-    ) -> typing.Generator[StreamMessage, None, None]:
-        """
-        Get the next message in the indicated stream
-
-        Args:
-            connection: A redis connection to read from
-            group_name: The group that the reader belongs to
-            consumer_name: The name of the reader
-            stop_signal: The signal to stop listening for messages
-            stream: The name of the stream to read from
-
-        Returns:
-            All new messages from the indicated streams
-        """
-        # Create a dict of {"name": ">"} to tell the redis client to read the latest message from the
-        streams: typing.Dict[str, str] = {stream: LATEST_MESSAGE}
-
-        while not stop_signal.is_set():
-            try:
-                # Read a single message from any of the possible streams and assign them to the given consumer name
-                #   for the given group
-                # This adds a single message from any of the given streams to the group's PEL, assigning it to the given
-                #   consumer
-                #       - Call `xack` to remove it from the consumer and announce that the given group won't look at it
-                #       - Call `xclaim` to assign the message to another consumer within the group
-                messages_per_stream: typing.List[RawRedisMessageStream] = connection.xreadgroup(
-                    groupname=group_name,
-                    consumername=consumer_name,
-                    streams=streams,
-                    count=1,
-                    block=1000
-                )
-            except Exception as read_exception:
-                message = (f"Could not read the latest unread messages from the '{', '.join(streams)}' stream(s) for the "
-                           f"{consumer_name} consumer in the '{group_name}' group using a consumer named '{consumer_name}'")
-
-                service.error(message, exception=read_exception)
-                raise read_exception
-
-            # Extract the contents of the difficultly formatted messages
-            read_streams: typing.List[typing.List[StreamMessage]] = [
-                cls.parse_stream(message_stream, group_name=group_name, consumer_name=consumer_name)
-                for message_stream in messages_per_stream
-            ]
-
-            # Put all of the read messages into a single list
-            messages: typing.List[StreamMessage] = reduce(combine, read_streams, [])
-
-            if messages:
-                service.info(
-                    f"The following messages are now in the pending list for the consumer named {consumer_name}:"
-                    f"{os.linesep}"
-                    f"* {(os.linesep + '* ').join(message.message_id for message in messages)}"
-                    f"{os.linesep}"
-                )
-
-                yield from messages
-            else:
-                sleep(1)
-
-    @classmethod
-    def parse_stream(
-        cls,
-        message_stream: RawRedisMessageStream,
-        group_name: str,
-        consumer_name: str,
-    ) -> typing.List[StreamMessage]:
-        """
-        Convert all given collection of messages into a collection of concrete message objects
-
-        Args:
-            message_stream: The raw collection of messages. The first index is the stream name,
-                the second is the collection of messages
-            group_name: The name of the consumer group that will listen to for messages
-            consumer_name: The name of the consumer reading the message
-
-        Returns:
-            A collection of concrete message objects
-        """
-        # Convert the name to the friendlier 'str' type
-        stream_name: str = message_stream[0].decode()
-
-        # Call the `parse` function on each received message to convert each collected message into the concrete type
-        messages: typing.List[StreamMessage] = [
-            cls.parse(stream_name=stream_name, raw_message=message, group_name=group_name, consumer_name=consumer_name)
-            for message in message_stream[1]
-        ]
-
-        return messages
-
-    @classmethod
-    def parse(
-        cls,
-        stream_name: str,
-        group_name: str,
-        consumer_name: str,
-        raw_message: RawRedisMessage,
-    ) -> StreamMessage:
-        """
-        Read the basic values from a message from a redis stream and form a concrete message object
-
-        Args:
-            stream_name: The name of the stream where this message originated
-            group_name: The name of the consumer group that this message belongs to
-            consumer_name: The name of the consumer reading the message
-            raw_message: The raw message that was received
-
-        Returns:
-            A concrete message object
-        """
-        # The first index of the message is the ID in bytes, so convert that to a string
-        message_id: str = raw_message[0].decode()
-        return StreamMessage(
-            stream_name=stream_name,
-            message_id=message_id,
-            group_name=group_name,
-            consumer_name=consumer_name,
-            values={
-                key.decode(): value.decode()
-                for key, value in raw_message[1].items()
-            }
-        )
+REDIS_PARAMETERS_FOR_PROCESS = streams.StreamParameters()
 
 
 @dataclasses.dataclass
@@ -526,7 +323,7 @@ class JobRecord:
 
 
 def launch_evaluation(
-    stream_message: StreamMessage,
+    stream_message: streams.StreamMessage,
     worker_pool: multiprocessing.Pool
 ) -> JobRecord:
     """
@@ -539,7 +336,7 @@ def launch_evaluation(
     Returns:
         A record of the evaluation job that was created
     """
-    payload = stream_message.values
+    payload = stream_message.payload
 
     service.info(f"Launching an evaluation for {payload['evaluation_id']}...")
     instructions = payload.get("instructions")
@@ -577,7 +374,7 @@ def launch_evaluation(
 
 
 def interpret_message(
-    stream_message: StreamMessage,
+    stream_message: streams.StreamMessage,
     worker_pool: multiprocessing.Pool,
     stop_signal: multiprocessing.Event
 ) -> typing.Optional[JobRecord]:
@@ -594,19 +391,17 @@ def interpret_message(
     Returns:
         The record of a job if one has been launched
     """
-    payload = stream_message.values
-
-    if not payload:
+    if not stream_message.payload:
         raise ValueError(
             f"No payload was sent through message '{stream_message.message_id}' along the "
             f"'{stream_message.stream_name}' stream"
         )
 
-    if 'purpose' not in payload:
-        service.info(f"A purpose was not communicated through the {service.EVALUATION_QUEUE_NAME} channel")
+    if 'purpose' not in stream_message.payload:
+        service.info(f"A purpose was not communicated through the {service.EVALUATION_QUEUE_NAME} stream")
         return None
 
-    purpose = payload.get("purpose").lower()
+    purpose = stream_message.payload.get("purpose").lower()
 
     if purpose == 'launch':
         return launch_evaluation(stream_message, worker_pool)
@@ -617,7 +412,7 @@ def interpret_message(
     else:
         service.info(
             f"Runner => The purpose was not to launch or terminate. Only launching is handled through the runner."
-            f"{os.linesep}Message: {json.dumps(payload)}"
+            f"{os.linesep}Message: {json.dumps(stream_message.payload)}"
         )
     return None
 
@@ -829,18 +624,14 @@ def get_consumer_name() -> str:
 
 
 def listen(
-    stream_name: str,
-    group_name: str,
-    redis_parameters: RedisArguments,
+    stream_parameters: streams.StreamParameters,
     job_limit: int = None
 ):
     """
     Listen for messages from redis and launch evaluations or halt operations based on their content
 
     Args:
-        stream_name: The name of the stream to read through
-        group_name: The name of the group to read from
-        redis_parameters: The means to connect to redis
+        stream_parameters: The means to connect to redis
         job_limit: The maximum number of jobs that may be run at once
     """
     signal.signal(signal.SIGINT, signal_handler)
@@ -851,14 +642,17 @@ def listen(
     stop_signal: multiprocessing.Event = multiprocessing.Event()
     active_jobs: queue.Queue[JobRecord] = queue.Queue(maxsize=job_limit)
 
-    service.info(f"Listening for evaluation jobs on '{stream_name}' through the '{group_name}' group...")
+    service.info(
+        f"Listening for evaluation jobs on '{stream_parameters.stream_name}' through the "
+        f"'{stream_parameters.group_name}' group..."
+    )
     already_listening = False
 
     consumer_name = get_consumer_name()
-    connection = redis_parameters.get_connection()
+    connection = stream_parameters.get_connection()
     initialize_consumer(
-        stream_name=stream_name,
-        group_name=group_name,
+        stream_name=stream_parameters.stream_name,
+        group_name=stream_parameters.group_name,
         consumer_name=consumer_name,
         redis_connection=connection
     )
@@ -878,12 +672,12 @@ def listen(
 
             try:
                 # Form the generator used to receive messages
-                message_stream: typing.Generator[StreamMessage, None, None] = StreamMessage.listen(
+                message_stream = streams.StreamMessage.listen(
                     connection,
-                    group_name,
+                    stream_parameters.group_name,
                     consumer_name,
                     stop_signal,
-                    stream_name
+                    stream_parameters.stream_name
                 )
 
                 for message in message_stream:
@@ -895,7 +689,13 @@ def listen(
                         # instances to try and carry the load
                         active_jobs.put(possible_record)
                     else:
-                        connection.xack(stream_name, group_name, message.message_id)
+                        # Since this message isn't considered one for the runner, acknowledge that it's been seen
+                        # and move on so something else may view the message
+                        connection.xack(
+                            stream_parameters.stream_name,
+                            stream_parameters.group_name,
+                            message.message_id
+                        )
 
                     if stop_signal.is_set():
                         break
@@ -1011,32 +811,30 @@ def initialize_consumer(stream_name: str, group_name: str, consumer_name: str, r
         if 'consumer group name already exists' not in str(group_create_error).lower():
             raise group_create_error
 
-        service.info(f"The '{group_name}' consumer group is active on the '{stream_name}' stream")
-        service.info(
-            f"Adding the '{consumer_name}' consumer to the '{group_name}' group on the '{stream_name}' stream"
-        )
+    service.info(f"The '{group_name}' consumer group is active on the '{stream_name}' stream")
+    service.info(
+        f"Adding the '{consumer_name}' consumer to the '{group_name}' group on the '{stream_name}' stream"
+    )
 
-        # Create a consumer for a group that may read from the stream and add data to the group
-        redis_connection.xgroup_createconsumer(name=stream_name, groupname=group_name, consumername=consumer_name)
+    # Create a consumer for a group that may read from the stream and add data to the group
+    redis_connection.xgroup_createconsumer(name=stream_name, groupname=group_name, consumername=consumer_name)
 
 
-def cleanup(
-    stream_name: str,
-    group_name: str,
-    redis_parameters: RedisArguments
-):
+def cleanup(redis_parameters: streams.StreamParameters):
     """
     Clean up any leftover artifacts that might be considered no longer needed
 
     Args:
-        stream_name: The name of the stream that the runner will have been communicating through
-        group_name: The name of the group that this runner is a member of
-        redis_parameters: The means to connect to redis
+        redis_parameters: The means to connect to redis and access a stream
     """
     connection = redis_parameters.get_connection()
 
     try:
-        connection.xgroup_delconsumer(name=stream_name, groupname=group_name, consumername=get_consumer_name())
+        connection.xgroup_delconsumer(
+            name=redis_parameters.stream_name,
+            groupname=redis_parameters.group_name,
+            consumername=get_consumer_name()
+        )
     except Exception as exception:
         service.error(exception)
 
@@ -1048,37 +846,32 @@ def main(*args):
     """
     arguments = Arguments(*args)
 
-    redis_parameters = RedisArguments(
-        host=arguments.host,
-        port=arguments.port,
-        username=arguments.username,
-        password=arguments.password,
-        db=arguments.db
+    redis_parameters = streams.StreamParameters(
+        kvstore_parameters=streams.KVStoreArguments(
+            host=arguments.host,
+            port=arguments.port,
+            username=arguments.username,
+            password=arguments.password,
+            db=arguments.db
+        ),
+        stream_name=arguments.stream_name,
+        group_name=arguments.group_name,
     )
 
     # Basic information needs to be accessible globally for the cleanup process to run in case of an interrupt
-    REDIS_PARAMETERS_FOR_PROCESS['redis_parameters'] = redis_parameters
-    REDIS_PARAMETERS_FOR_PROCESS['stream_name'] = arguments.stream_name
-    REDIS_PARAMETERS_FOR_PROCESS['group_name'] = arguments.group_name
+    REDIS_PARAMETERS_FOR_PROCESS.kvstore_parameters = redis_parameters.kvstore_parameters
+    REDIS_PARAMETERS_FOR_PROCESS.stream_name = redis_parameters.stream_name
+    REDIS_PARAMETERS_FOR_PROCESS.group_name = redis_parameters.group_name
 
     try:
-        listen(
-            stream_name=arguments.stream_name,
-            group_name=arguments.group_name,
-            redis_parameters=redis_parameters,
-            job_limit=arguments.limit
-        )
+        listen(stream_parameters=redis_parameters, job_limit=arguments.limit)
         exit_code = 0
     except Exception as exception:
         service.error(exception)
         exit_code = 1
     finally:
         try:
-            cleanup(
-                stream_name=arguments.stream_name,
-                group_name=arguments.group_name,
-                redis_parameters=redis_parameters
-            )
+            cleanup(redis_parameters=redis_parameters)
         except Exception as exception:
             service.error(exception)
             exit_code = 1
