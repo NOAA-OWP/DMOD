@@ -28,14 +28,14 @@ def _build_fabric_path(fabric, type):
         build a qualified path from the hydrofabric name and type
     """
     resolution_match = _resolution_regex.search(fabric)
-    
+
     if resolution_match:
         name = resolution_match.group(1)
         resolution = resolution_match.group(2)
     else:
         name = fabric
         resolution=''
-    
+
     path = Path(PROJECT_ROOT, 'static', 'ngen', 'hydrofabric', name, resolution, type+'_data.geojson')
     return path
 
@@ -46,7 +46,7 @@ class Fabrics(APIView):
         type = request.GET.get('fabric_type', 'catchment')
         if not type:
             type="catchment"
-        
+
         path = _build_fabric_path(fabric, type)
 
         if path is None:
@@ -55,10 +55,10 @@ class Fabrics(APIView):
         with open(path) as fp:
             data = json.load(fp)
             return JsonResponse(data)
-    
+
 class FabricNames(APIView):
     _fabric_dir = Path(PROJECT_ROOT, 'static', 'ngen', 'hydrofabric')
-    
+
     def get(self, request: HttpRequest) -> JsonResponse:
         names = []
         for f_name in self._fabric_dir.iterdir():

@@ -282,7 +282,7 @@ class DmodClient:
             return await self.job_client.submit_ngen_cal_request(**kwargs)
         else:
             raise ValueError(f"Unsupported job execution workflow {workflow}")
-        
+
     async def job_command(self, job_command: str, **kwargs) -> ResultIndicator:
         """
         Submit a request that performs a particular job command.

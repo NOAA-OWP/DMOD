@@ -6,8 +6,8 @@ While in theory this is fine, practically it can be less than ideal.  This is es
 
 # A Faster Alternative
 
-To support more rapid development environment change deployment, the 
-[docker-deploy.yml](../docker/main/docker-deploy.yml) has support added (but deactivated via comments) for use of a special `updated_packages` Docker volume.  The intent is for the commented out lines to be temporarily uncommented (but not committed as such) to allow services to mount this volume.  Supporting services have logic in their entrypoint scripts such that, when this is done, they will update packages appropriately on startup. 
+To support more rapid development environment change deployment, the
+[docker-deploy.yml](../docker/main/docker-deploy.yml) has support added (but deactivated via comments) for use of a special `updated_packages` Docker volume.  The intent is for the commented out lines to be temporarily uncommented (but not committed as such) to allow services to mount this volume.  Supporting services have logic in their entrypoint scripts such that, when this is done, they will update packages appropriately on startup.
 
 # How to Use
 

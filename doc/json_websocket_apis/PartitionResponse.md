@@ -13,7 +13,7 @@
 A successful response will contain the serialized partition representation within the ::attribute:`data` property.
 
 <details>
-<summary><strong> <a name="success"></a>1. [Required] Property PartitionResponse > success</strong>  
+<summary><strong> <a name="success"></a>1. [Required] Property PartitionResponse > success</strong>
 
 </summary>
 <blockquote>
@@ -31,7 +31,7 @@ A successful response will contain the serialized partition representation withi
 </details>
 
 <details>
-<summary><strong> <a name="reason"></a>2. [Required] Property PartitionResponse > reason</strong>  
+<summary><strong> <a name="reason"></a>2. [Required] Property PartitionResponse > reason</strong>
 
 </summary>
 <blockquote>
@@ -49,7 +49,7 @@ A successful response will contain the serialized partition representation withi
 </details>
 
 <details>
-<summary><strong> <a name="message"></a>3. [Optional] Property PartitionResponse > message</strong>  
+<summary><strong> <a name="message"></a>3. [Optional] Property PartitionResponse > message</strong>
 
 </summary>
 <blockquote>
@@ -68,7 +68,7 @@ A successful response will contain the serialized partition representation withi
 </details>
 
 <details>
-<summary><strong> <a name="data"></a>4. [Required] Property PartitionResponse > data</strong>  
+<summary><strong> <a name="data"></a>4. [Required] Property PartitionResponse > data</strong>
 
 </summary>
 <blockquote>
@@ -122,7 +122,7 @@ class User(Serializable):
 ```
 
 <details>
-<summary><strong> <a name="data_data_id"></a>4.1. [Optional] Property PartitionResponse > data > data_id</strong>  
+<summary><strong> <a name="data_data_id"></a>4.1. [Optional] Property PartitionResponse > data > data_id</strong>
 
 </summary>
 <blockquote>
@@ -138,7 +138,7 @@ class User(Serializable):
 </details>
 
 <details>
-<summary><strong> <a name="data_dataset_name"></a>4.2. [Optional] Property PartitionResponse > data > dataset_name</strong>  
+<summary><strong> <a name="data_dataset_name"></a>4.2. [Optional] Property PartitionResponse > data > dataset_name</strong>
 
 </summary>
 <blockquote>

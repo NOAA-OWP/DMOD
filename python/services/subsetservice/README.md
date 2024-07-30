@@ -17,10 +17,10 @@ This endpoint can be used to get a subset of a provided collection of catchments
 
 * Endpoint: `/subset/for_cat_id`
 * Message: POST
-* JSON Format: 
+* JSON Format:
   * `{"ids" : "[<catchment_id>]"}`
   * `{"ids" : "[<catchment_id_1>, <catchment_id_2>, ...]"}`
-* Response: 
+* Response:
   * `{"catchment_ids": "[<catchment_id_1>, ...]", "nexus_ids": [<nexus_id_1>, ...]}`
 
 ## Get Upstream Subset for Given Catchments

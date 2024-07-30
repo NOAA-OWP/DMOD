@@ -24,7 +24,7 @@ services:
          constraints:
            - ${DOCKER_GUI_DEPLOY_CONSTRAINT_1:-node.role==manager}
            - ${DOCKER_GUI_DEPLOY_CONSTRAINT_2:-node.id!=notrealid_tautology_by_default}
-  
+
   # Define a container belonging exclusively to our django application
   app_server:
     image: ${DOCKER_INTERNAL_REGISTRY:?Missing DOCKER_INTERNAL_REGISTRY value (see 'Private Docker Registry ' section in example.env)}/maas-portal-development

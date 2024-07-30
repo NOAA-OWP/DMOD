@@ -22,7 +22,7 @@ MESSAGE_HANDLER = typing.Callable[
     typing.Coroutine
 ]
 """
-An asynchronous function that takes a raw socket message, a source socket, a target socket, its path, and along with 
+An asynchronous function that takes a raw socket message, a source socket, a target socket, its path, and along with
 any number of extra positional and keyword arguments
 """
 
@@ -31,7 +31,7 @@ TYPED_MESSAGE_HANDLER = typing.Callable[
     typing.Coroutine
 ]
 """
-An asynchronous function that takes a class based message, a source socket, a target socket, its path, and along with 
+An asynchronous function that takes a class based message, a source socket, a target socket, its path, and along with
 any number of extra positional and keyword arguments
 """
 
@@ -40,7 +40,7 @@ MESSAGE_PRODUCER = typing.Callable[
     typing.Coroutine[typing.Any, typing.Any, Response]
 ]
 """
-An asynchronous function that can send messages through both a source and target socket. 
+An asynchronous function that can send messages through both a source and target socket.
 """
 
 HANDLER_ROUTING_TABLE = typing.Dict[typing.Type[FieldedMessage], typing.List[TYPED_MESSAGE_HANDLER]]

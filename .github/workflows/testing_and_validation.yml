@@ -43,7 +43,7 @@ jobs:
           python3 -m venv dmod_venv
           . dmod_venv/bin/activate
           pip install --upgrade pip
-          deactivate 
+          deactivate
           ./scripts/update_package.sh --venv dmod_venv --dependencies
 
       - name: Cache Package Checksums

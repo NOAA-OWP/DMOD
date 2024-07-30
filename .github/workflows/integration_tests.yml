@@ -71,7 +71,7 @@ jobs:
           python3 -m venv dmod_venv
           . dmod_venv/bin/activate
           pip install --upgrade pip
-          deactivate 
+          deactivate
           export PROJECT_ROOT=$(pwd)
           echo ${PROJECT_ROOT}
           ./scripts/update_package.sh --venv dmod_venv --no-service-packages --dependencies

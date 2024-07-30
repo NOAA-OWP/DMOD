@@ -33,7 +33,7 @@ data : Union[dict, Serializeable, None]
     Subtype-specific serialized data that should be conveyed as a result of the initial message
 
 <details>
-<summary><strong> <a name="success"></a>1. [Required] Property SchedulerRequestResponse > success</strong>  
+<summary><strong> <a name="success"></a>1. [Required] Property SchedulerRequestResponse > success</strong>
 
 </summary>
 <blockquote>
@@ -51,7 +51,7 @@ data : Union[dict, Serializeable, None]
 </details>
 
 <details>
-<summary><strong> <a name="reason"></a>2. [Required] Property SchedulerRequestResponse > reason</strong>  
+<summary><strong> <a name="reason"></a>2. [Required] Property SchedulerRequestResponse > reason</strong>
 
 </summary>
 <blockquote>
@@ -69,7 +69,7 @@ data : Union[dict, Serializeable, None]
 </details>
 
 <details>
-<summary><strong> <a name="message"></a>3. [Optional] Property SchedulerRequestResponse > message</strong>  
+<summary><strong> <a name="message"></a>3. [Optional] Property SchedulerRequestResponse > message</strong>
 
 </summary>
 <blockquote>
@@ -88,7 +88,7 @@ data : Union[dict, Serializeable, None]
 </details>
 
 <details>
-<summary><strong> <a name="data"></a>4. [Optional] Property SchedulerRequestResponse > data</strong>  
+<summary><strong> <a name="data"></a>4. [Optional] Property SchedulerRequestResponse > data</strong>
 
 </summary>
 <blockquote>
@@ -161,7 +161,7 @@ class User(Serializable):
 ```
 
 <details>
-<summary><strong> <a name="data_anyOf_i0_job_id"></a>4.1.1. [Optional] Property SchedulerRequestResponse > data > anyOf > SchedulerRequestResponseBody > job_id</strong>  
+<summary><strong> <a name="data_anyOf_i0_job_id"></a>4.1.1. [Optional] Property SchedulerRequestResponse > data > anyOf > SchedulerRequestResponseBody > job_id</strong>
 
 </summary>
 <blockquote>
@@ -178,7 +178,7 @@ class User(Serializable):
 </details>
 
 <details>
-<summary><strong> <a name="data_anyOf_i0_output_data_id"></a>4.1.2. [Optional] Property SchedulerRequestResponse > data > anyOf > SchedulerRequestResponseBody > output_data_id</strong>  
+<summary><strong> <a name="data_anyOf_i0_output_data_id"></a>4.1.2. [Optional] Property SchedulerRequestResponse > data > anyOf > SchedulerRequestResponseBody > output_data_id</strong>
 
 </summary>
 <blockquote>
@@ -205,7 +205,7 @@ class User(Serializable):
 | **Additional properties** | [[Should-conform]](#data_anyOf_i1_additionalProperties "Each additional property must conform to the following schema") |
 
 <details>
-<summary><strong> <a name="data_anyOf_i1_additionalProperties"></a>4.2.1. Property SchedulerRequestResponse > data > anyOf > item 1 > additionalProperties</strong>  
+<summary><strong> <a name="data_anyOf_i1_additionalProperties"></a>4.2.1. Property SchedulerRequestResponse > data > anyOf > item 1 > additionalProperties</strong>
 
 </summary>
 <blockquote>

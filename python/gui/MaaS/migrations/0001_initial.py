@@ -20,7 +20,7 @@ class Migration(migrations.Migration):
             password=SU_PASSWORD)
 
         superuser.save()
- 
+
     operations = [
         migrations.RunPython(create_superuser),
     ]

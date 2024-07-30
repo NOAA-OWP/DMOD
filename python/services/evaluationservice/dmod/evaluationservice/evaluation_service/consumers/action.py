@@ -539,7 +539,7 @@ export class {cls.get_client_name()}Options {{
         this.#onSocketErrorHandlers.push(handler);
         return this;
     }}
-    
+
     /**
      * Add a handler that will be called when the client itself encounters an error
      * @param {{ClientErrorHandler}} handler
@@ -806,7 +806,7 @@ export class {cls.get_client_name()} {{
         if (throwError == null) {{
             throwError = true;
         }}
-        
+
         let initialError = null;
 
         for (let handler of this.#clientErrorHandlers) {{
@@ -817,25 +817,25 @@ export class {cls.get_client_name()} {{
                     initialError = error;
                     continue
                 }}
-                
+
                 let oldError = initialError;
-                
+
                 if (error instanceof Error) {{
                     initialError = new {cls.get_client_name()}Error(error.message);
                 }}
                 else {{
                     initialError = new {cls.get_client_name()}Error(error);
                 }}
-                
+
                 initialError.cause = oldError;
             }}
         }}
-        
+
         if (throwError) {{
             if (exceptionConstructor == null) {{
                 exceptionConstructor = error => new {cls.get_client_name()}Error(error);
             }}
-    
+
             throw exceptionConstructor(message);
         }}
         else {{
@@ -903,7 +903,7 @@ export class {cls.get_client_name()} {{
 
             library += f"""{os.linesep + documentation_line if documentation_line else ''}
     {signature}
-    
+
         const requestID = generateID();
 
         if (callbacks != null) {{
@@ -913,12 +913,12 @@ export class {cls.get_client_name()} {{
 
             this.#callbacks[requestID] = callbacks;
         }}
-        
+
         {os.linesep.join(payload_lines)}
         this.#socket.send(toJSON(payload));
         return this;
     }}
-    
+
     /**
      * Add a handler that will be called when a message comes through the socket with the event '{action_name}'
      *
@@ -936,7 +936,7 @@ export class {cls.get_client_name()} {{
         if (!Object.keys(this.#actions).includes("{action_name}")) {{
             this.#actions["{action_name}"] = [];
         }}
-        
+
         if (!this.#actions["{action_name}"].includes(handler)) {{
             this.#actions["{action_name}"].push(handler);
         }}

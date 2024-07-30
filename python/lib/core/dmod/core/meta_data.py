@@ -172,12 +172,12 @@ class DataFormat(PydanticEnum):
         None,
         False
     )
-    """ 
+    """
     Composite format for the different configs needed to run an ngen.
-    
+
     A dataset in this format will include a realization config and BMI configs.  It may also include a t-route config
     and/or an ngen-cal config, depending on whether routing and/or calibration is being performed.
-    
+
     Note such datasets won't include the hydrofabric. That provides the context under which everything else has meaning,
     including things like forcing data, so it should be kept separate.  Forcings are also excluded, largely because they
     may get large and difficult to copy, and thus should be handled on their own.  Further, partition configurations
@@ -203,7 +203,7 @@ class DataFormat(PydanticEnum):
     EMPTY = (15, {}, None, False)
     """
     "Format" for an empty dataset that, having no data (yet), doesn't have (or need) an applicable defined structure.
-    
+
     The intent of this is for simplicity when creating dataset.  This format represents a type of dataset that doesn't,
     and importantly, **cannot** yet truly have a more specific format that matches its contents.  A key implication is
     an expectation is that the domain of the dataset (including the format) **must** be changed as soon as any data is
@@ -211,9 +211,9 @@ class DataFormat(PydanticEnum):
     """
 
     GENERIC = (16, {}, None, False)
-    """ 
-    Format without any indications or restrictions on the defined structure of contained data. 
-    
+    """
+    Format without any indications or restrictions on the defined structure of contained data.
+
     This value is very much like ``EMPTY`` except that it is applicable to non-empty datasets.  It represents absolutely
     nothing about the structure of any contents, and thus that absolutely anything can be contained or added.  In
     practice, the main intended difference from ``EMPTY`` is that datasets in this format will not be required to update

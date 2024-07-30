@@ -297,7 +297,7 @@ class FieldedMessage(AbstractInitRequest):
     """
     event_type: ClassVar[MessageEventType] = MessageEventType.INFORMATION_UPDATE
     """
-    The event type for this message; this shouldn't have as much bearing on how to handle this message. 
+    The event type for this message; this shouldn't have as much bearing on how to handle this message.
     Use members and class type instead.
     """
 

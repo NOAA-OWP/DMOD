@@ -58,7 +58,7 @@ COPY ./docker/nwm_gui/app_server/client_debug_helper.py ./
 #
 #   copy_commands = os.linesep.join(
 #       f"COPY ./python/gui/{directory} ./{directory}"
-#       for directory, _ in sorted(commits_per_package.items(), key=lambda pair: pair[1]) 
+#       for directory, _ in sorted(commits_per_package.items(), key=lambda pair: pair[1])
 #   )
 #
 #   print(copy_commands)

@@ -102,7 +102,7 @@ end
 
 <!-- - Data Request service -->
 - Data service - Primary data and metadata store that houses model input, output, and evaluation data. This service is also responsible for creating Docker volumes to support model execution job environments (e.g. model input data).
-- Evaluation service - 
+- Evaluation service -
 - Monitor service - Monitors and updates the status of model execution job environments.
 - Partitioner service - Partitions NextGen hydrofabric domains to enable parallel execution (mpi) of NextGen model runs.
 - Request service - API gateway that coordinates communication with DMOD backend services.

@@ -10,7 +10,7 @@ from .helper_functions import get_current_function_name
 
 DEFAULT_TASK_WAIT_SECONDS = 2
 """
-The default amount of time to wait on an asynchronous task to finish. Controls the amount of time to wait when 
+The default amount of time to wait on an asynchronous task to finish. Controls the amount of time to wait when
 polling for completion. Increase to poll less frequently and decrease to poll more frequently
 """
 
@@ -18,8 +18,8 @@ DEFAULT_MAXIMUM_POLLS = 5
 """
 The maximum amount of attempts to wait on a task to finish.
 
-A task may not finish within the given time, so this lets the function extend its waiting period while making sure 
-that it completes without taking too much time. Increase to poll more times (useful when you poll frequently on 
+A task may not finish within the given time, so this lets the function extend its waiting period while making sure
+that it completes without taking too much time. Increase to poll more times (useful when you poll frequently on
 possibly long running tasks) and decrease to exit without completion sooner
 """
 
@@ -39,7 +39,7 @@ TASK_EXCEPTION_MESSAGE = typing.Union[
     ]
 ]
 """
-Either a string or a function that will generate a string that will be logged as an exception message in relation 
+Either a string or a function that will generate a string that will be logged as an exception message in relation
 to an asynchronous task
 """
 

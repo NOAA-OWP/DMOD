@@ -16,16 +16,16 @@ The basic steps for initially setting up the MinIO service in a development envi
 * [Initialize User Access via Helper Script](#run-helper-script-to-initialize-user-access)
 
 #### Note on Config File Names
-The `./scripts/control_stack.sh` script will attempt to detect when a system is running on Docker Desktop.  When this is the case, the script will prioritize deploying using a config named `docker-single-node.yml`, if such a file is available.  
+The `./scripts/control_stack.sh` script will attempt to detect when a system is running on Docker Desktop.  When this is the case, the script will prioritize deploying using a config named `docker-single-node.yml`, if such a file is available.
 
-MinIO supports High Availability configurations using several nodes, and generally this is what is wanted in a DMOD deployment.  However, this can't be run on Docker Desktop, because a Docker Desktop Swarm can only support a single node.  As such, a separate deployment config was created to support working with the object store stack in Desktop development environments. 
+MinIO supports High Availability configurations using several nodes, and generally this is what is wanted in a DMOD deployment.  However, this can't be run on Docker Desktop, because a Docker Desktop Swarm can only support a single node.  As such, a separate deployment config was created to support working with the object store stack in Desktop development environments.
 
 ****
 ### Install the `mc` Client
 
 At present, the only ways to perform certain required tasks for setup of MinIO in DMOD is either via the web console or the `mc` client.   To use the included setup helper script (i.e., the method documented here), the `mc` client is required.
 
-The [MinIO Client Complete Guide](https://docs.min.io/docs/minio-client-complete-guide) has instructions for installing the client on various platforms.  
+The [MinIO Client Complete Guide](https://docs.min.io/docs/minio-client-complete-guide) has instructions for installing the client on various platforms.
 
 ****
 ### Create Secrets Files
@@ -49,7 +49,7 @@ Note that these files should be ignored by Git, but it is a good practice to con
 
 Certain variables within `.env` (or other environment config) must or may be set to configure certain behavior.
 
-##### Storage 
+##### Storage
 The data storage volume must be configured via the `DMOD_OBJECT_STORE_HOST_DIR_1` environment variable.  This can either be a host directory path or the name of an already-existing Docker Volume.
 
 There is `DMOD_OBJECT_STORE_HOST_DIR_2` as well, but it is not currently used in the Docker Desktop deployment (it is, however, required for the more general HA deployment).
@@ -63,7 +63,7 @@ Docker host ports that will receive port forward mappings may optionally be conf
 ./scripts/control_stack.sh object_store deploy
 ```
 ****
-### Run Helper Script to Initialize User Access 
+### Run Helper Script to Initialize User Access
 
 The script [scripts/minio_init.sh](../../scripts/minio_init.sh) can be used to initialize things automatically:
 
@@ -73,7 +73,7 @@ The script [scripts/minio_init.sh](../../scripts/minio_init.sh) can be used to i
 
 There are options available (view using `--help`), but generally the defaults are good.
 
-Necessary user accounts and access should now be in place.  
+Necessary user accounts and access should now be in place.
 
 *****
 *****

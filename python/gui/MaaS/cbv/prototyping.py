@@ -1,9 +1,9 @@
 """
-Defines basic views used to expedite UI element development by providing direct access 
+Defines basic views used to expedite UI element development by providing direct access
 to developmental and example templates and functionality
 
-An example would be accessing a template that just shows how to instantiate a table and 
-provide the functionality in such a way that further development may be done client side 
+An example would be accessing a template that just shows how to instantiate a table and
+provide the functionality in such a way that further development may be done client side
 in an isolated fashion
 """
 import typing

@@ -95,7 +95,7 @@ exec_start()
 
     # Then build and push python packages
     "${CONTROL_SCRIPT}" "${PY_SOURCES_STACK_REF_NAME:?}" build push
-    
+
     # TODO catch abnormal exit from py sources build and stop
 
     # Then build, push, and deploy main

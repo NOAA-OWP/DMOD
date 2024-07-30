@@ -16,8 +16,8 @@ from datetime import datetime
 
 APPLICATION_ROOT = Path(__file__).parent.parent.resolve()
 """
-The root of this application. Path(__file__) will be ./DMOD/scripts/test_django.py, 
-Path(__file__).parent will be ./DMOD/scripts, so you have to hit Path(__file__).parent.parent 
+The root of this application. Path(__file__) will be ./DMOD/scripts/test_django.py,
+Path(__file__).parent will be ./DMOD/scripts, so you have to hit Path(__file__).parent.parent
 to hit the root, i.e. ./DMOD
 """
 
@@ -31,7 +31,7 @@ TEST_COMMAND = "unset DJANGO_SETTINGS_MODULE; python manage.py test"
 """
 The command used to launch a suite of Django tests
 
-Removes any possible set DJANGO_SETTINGS_MODULE values (done if none is given and will last 
+Removes any possible set DJANGO_SETTINGS_MODULE values (done if none is given and will last
 beyond a test process) and runs the tests against a Django application
 """
 
@@ -43,7 +43,7 @@ LAST_END_MESSAGE = "------------------------------------------------------------
 
 TEST_COUNT_PATTERN = re.compile(r"(?<=Found )\d+")
 """
-A regular expression describing how to find the number of tests that were run 
+A regular expression describing how to find the number of tests that were run
 (the text will look something like 'Found 43 tests', but we're only interested in that '43')
 """
 
@@ -65,7 +65,7 @@ class Arguments(object):
 
         self.__verbose: bool = False
         """
-        Whether to print as much testing information as possible. 
+        Whether to print as much testing information as possible.
         This will print each error/failure message along with a summary at the very end.
         """
 
@@ -242,7 +242,7 @@ class TestOutput:
 
         self.stderr = stderr
         """
-        The data written to stderr during the process of running the tests. 
+        The data written to stderr during the process of running the tests.
         This will hold the bulk of the data of interest
         """
 

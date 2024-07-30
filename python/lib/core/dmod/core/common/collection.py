@@ -298,8 +298,8 @@ class TimedOccurrenceWatcher:
     """
     MINIMUM_TRACKING_SECONDS: typing.Final[float] = 0.1
     """
-    The lowest number of seconds to watch for multiple occurrences. Only acting when multiple occurrences are tracked 
-    in under 100ms would create a scenario where the watcher will most likely never trigger an action, rendering 
+    The lowest number of seconds to watch for multiple occurrences. Only acting when multiple occurrences are tracked
+    in under 100ms would create a scenario where the watcher will most likely never trigger an action, rendering
     this the wrong tool for the job.
     """
 

@@ -78,8 +78,8 @@ class MockTransportLayerClient(TransportLayerClient):
 
     def set_client_response_valid_obj_for_success(self):
         self.test_response_selection = 4
-    
-    
+
+
 class MockSendTestingSchedulerClient(SchedulerClient):
     """
     Customized extension of ``SchedulerClient`` for testing purposes, where the :meth:`async_send` method has been

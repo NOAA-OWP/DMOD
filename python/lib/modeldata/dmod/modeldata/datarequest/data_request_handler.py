@@ -37,7 +37,7 @@ class DataRequestHandler:
         -------
         Tuple[bool, Optional[str]]
             Whether the data request is valid and, if not, a partial description of why not (or ``None`` if it is valid).
-            
+
         """
 
         description = None

@@ -126,7 +126,7 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
             Tuple containing:
                 - name of hydrofabric dataset satisfying these restrictions, or ``None`` if one could not be found
                 - the data format of hydrofabric dataset, or ``None`` if a dataset could not be found
-                - the name of the geopackage file, if a ``NGEN_GEOPACKAGE_HYDROFABRIC_V2`` dataset, or ``None`` if 
+                - the name of the geopackage file, if a ``NGEN_GEOPACKAGE_HYDROFABRIC_V2`` dataset, or ``None`` if
                   either a dataset could not be found **OR** the dataset is ``NGEN_GEOJSON_HYDROFABRIC``
         """
         # TODO: (later) need a way to select (or prioritize) data format from the partitioning request
@@ -146,7 +146,7 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
             for item in list_response.query_results.get('files', []) if response.success else []:
                 if item[-5:].lower() == ".gpkg":
                     gpkg_name = item
-                    break                   
+                    break
             return response.dataset_name, DataFormat.NGEN_GEOPACKAGE_HYDROFABRIC_V2, gpkg_name
 
         # Otherwise, try geojson too, just to be safe

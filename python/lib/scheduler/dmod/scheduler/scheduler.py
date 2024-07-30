@@ -187,7 +187,7 @@ class Launcher(SimpleDockerUtil):
         """
         # docker api
         client = self.docker_client
-        
+
         # service parameters
         networks = self.networks
         image = serviceParams.image_tag
@@ -273,7 +273,7 @@ class Launcher(SimpleDockerUtil):
 
         service_name = serv_list.name
         logging.info("service_name: {}".format(service_name))
-        
+
         # pp(service_attrs)
         logging.info("\n")
         api_client.close()
@@ -355,7 +355,7 @@ class Launcher(SimpleDockerUtil):
             msg = "Attempting to start {} job {} with more than allowed max of {} required {} datasets."
             raise RuntimeError(msg.format(job.model_request.__class__.__name__, job.job_id, max_count, category))
         elif None in dataset_names is None:
-            # TODO: `None in dataset_names is None` is barely valid and is a falsism - if `dataset_names` 
+            # TODO: `None in dataset_names is None` is barely valid and is a falsism - if `dataset_names`
             #   inplements `__contains__` the result of the `in` operation will either be True or False, never `None`
             msg = "Attempting to start {} job {} with unfulfilled {} data requirement."
             raise RuntimeError(msg.format(job.model_request.__class__.__name__, job.job_id, category))
@@ -494,7 +494,7 @@ class Launcher(SimpleDockerUtil):
             if requirement.fulfilled_by is None:
                 msg = "Can't get object store arg strings and start job {} with unfulfilled data requirements"
                 raise RuntimeError(msg.format(str(job.job_id)))
-            
+
             if self._is_object_store_dataset(dataset_name=requirement.fulfilled_by):
                 name_list.append(f'{requirement.category.name.lower()}:{requirement.fulfilled_by}')
         return name_list
@@ -575,22 +575,22 @@ class Launcher(SimpleDockerUtil):
             model = yml_obj[name]
         except KeyError as key_error:
             raise KeyError(f"image_and_domain.yaml has no model key {name}") from key_error
-                  
+
         try:
             domain = model['domains'][domain]
         except KeyError as key_error:
             raise KeyError(f"image_and_domain.yaml has no domain key {domain} for model {name}") from key_error
-        
+
         try:
             run_dir = domain['run']
         except KeyError as key_error:
             raise KeyError(f"image_and_domain.yaml has no 'run' key for domain {domain}, model {name}") from key_error
-        
+
         try:
             local_dir = domain['local']
         except KeyError as key_error:
             raise KeyError(f"image_and_domain.yaml has no 'local' key for domain {domain}, model {name}") from key_error
-        
+
         try:
             # Keys in model['version'] may not be strings, but the version parameter will be, so convert
             version_key = None
@@ -601,17 +601,17 @@ class Launcher(SimpleDockerUtil):
             image = model['version'][version_key]
         except KeyError as key_error:
             raise KeyError(f"image_and_domain.yaml has no version key {version}") from key_error
-        
+
         try:
             output = model['output']
         except KeyError as key_error:
             raise KeyError(f"image_and_domain.yaml has no 'output' key for model {name}") from key_error
-        
+
         try:
             output_local = output['local']
         except KeyError as key_error:
             raise KeyError(f"image_and_domain.yaml has no `local` key for output, model {name}") from key_error
-        
+
         try:
             output_run = output['run']
         except KeyError as key_error:
@@ -736,7 +736,7 @@ class Launcher(SimpleDockerUtil):
             service_params = DockerServiceParameters(image_tag=image_tag, constraints=constraints, labels=labels,
                                                      hostname=job.allocation_service_names[alloc_index],
                                                      serv_name=serv_name, mounts=mounts, secrets=secrets)
-            
+
             if model == 'ngen':
                 # For ngen jobs (at least for the moment), the container initially needs root as the user for sshd
                 service_params.user = 'root'
@@ -746,7 +746,7 @@ class Launcher(SimpleDockerUtil):
             #TODO check for proper service creation, return False if doesn't work
             service = self.create_service(serviceParams=service_params, idx=alloc_index,
                                           docker_cmd_args=self._generate_docker_cmd_args(job, alloc_index))
-            
+
             service_per_allocation.append(service)
 
         logging.info("\n")

@@ -33,7 +33,7 @@ data : Union[dict, Serializeable, None]
     Subtype-specific serialized data that should be conveyed as a result of the initial message
 
 <details>
-<summary><strong> <a name="success"></a>1. [Optional] Property InvalidMessageResponse > success</strong>  
+<summary><strong> <a name="success"></a>1. [Optional] Property InvalidMessageResponse > success</strong>
 
 </summary>
 <blockquote>
@@ -50,7 +50,7 @@ data : Union[dict, Serializeable, None]
 </details>
 
 <details>
-<summary><strong> <a name="reason"></a>2. [Optional] Property InvalidMessageResponse > reason</strong>  
+<summary><strong> <a name="reason"></a>2. [Optional] Property InvalidMessageResponse > reason</strong>
 
 </summary>
 <blockquote>
@@ -70,7 +70,7 @@ Must be one of:
 </details>
 
 <details>
-<summary><strong> <a name="message"></a>3. [Optional] Property InvalidMessageResponse > message</strong>  
+<summary><strong> <a name="message"></a>3. [Optional] Property InvalidMessageResponse > message</strong>
 
 </summary>
 <blockquote>
@@ -90,7 +90,7 @@ Must be one of:
 </details>
 
 <details>
-<summary><strong> <a name="data"></a>4. [Optional] Property InvalidMessageResponse > data</strong>  
+<summary><strong> <a name="data"></a>4. [Optional] Property InvalidMessageResponse > data</strong>
 
 </summary>
 <blockquote>

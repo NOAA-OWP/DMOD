@@ -1,5 +1,5 @@
 import unittest
-from ..client.request_clients import (DataCategory, DataDomain, DataServiceClient, DatasetManagementResponse, 
+from ..client.request_clients import (DataCategory, DataDomain, DataServiceClient, DatasetManagementResponse,
                                       MaaSDatasetManagementResponse, ManagementAction, ResultIndicator)
 from pathlib import Path
 from typing import List, Optional, Sequence, Union

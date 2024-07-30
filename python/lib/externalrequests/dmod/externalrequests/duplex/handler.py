@@ -94,7 +94,7 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
         self._path = kwargs.get("path", "/")
         """
         The path to this socket on the server
-        
+
         If this was accessed via ws://localhost:9889/path/to/handler, path will be '/path/to/handler'
         """
 
@@ -153,7 +153,7 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
 
         self.__source_message_handlers = dict()
         """
-        A mapping between the name of a function and its function that handles strings that come through the server 
+        A mapping between the name of a function and its function that handles strings that come through the server
         connection
         """
 
@@ -168,7 +168,7 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
 
         self.__source_handler_routing = dict()
         """
-        A mapping between concrete message type to all handlers that may operate on it when they come through the 
+        A mapping between concrete message type to all handlers that may operate on it when they come through the
         server connection
         """
 
@@ -184,7 +184,7 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
 
         self.__target_handler_routing = dict()
         """
-        A mapping between concrete message type to all handlers that may operate on it when they come through the 
+        A mapping between concrete message type to all handlers that may operate on it when they come through the
         server connection
         """
 

@@ -16,10 +16,10 @@ def home():
     return "<h1>DMoD Data Request API</h1><p>This site is a prototype API for validating a data request against a stored catalog .</p>"
 
 
-# A route to verify a request is a valid 
+# A route to verify a request is a valid
 @app.route('/datarequest/valid', methods=['POST'])
 def is_request_valid():
-    
+
     request = DataRequestReader(json.loads(flask.request.data)).request
     # Expect JSON with data-source start-date stop-date and variables
     is_recognized = request_handler.is_valid(request)

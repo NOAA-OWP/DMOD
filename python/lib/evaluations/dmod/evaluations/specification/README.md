@@ -105,8 +105,8 @@ Given a document like:
 
 the query `"$.b[1].value2.value3"` will yield '"This is yet another value that we'll use as an example"'. The
 `$` character instructs the search operations to start looking at the root of the document. The next instruction,
-`b` tells the search operation to look for values under `b`. `[1]` tells the operation to then look in the 
-second member of the collection held under `b`. `value2` tells the search process to _then_ search under the `value2` 
+`b` tells the search operation to look for values under `b`. `[1]` tells the operation to then look in the
+second member of the collection held under `b`. `value2` tells the search process to _then_ search under the `value2`
 object where the final `value3` instruction retrieves the value belonging to `value3`.
 
 The equivalent hardcoded instructions in python would be:
@@ -145,11 +145,11 @@ print(equivalent_value)
 ```
 
 Queries don't have to start at the root, but it _is_ advised. a query such as `"value1"` would yield `[1, 2, 47]`, but
-a query of `"value3"` would yield `["This is another value", false, "This is yet another value that we'll use as an 
+a query of `"value3"` would yield `["This is another value", false, "This is yet another value that we'll use as an
 example", true, "Look at this awesome value!", true]`.
 
-Investigate [Associated Fields](#AssociatedField) and [Value Selectors](#ValueSelector) to see how paths are used in 
-practice. 
+Investigate [Associated Fields](#AssociatedField) and [Value Selectors](#ValueSelector) to see how paths are used in
+practice.
 
 <a id="EvaluationSpecification"></a>
 ## Evaluation Specification
@@ -314,7 +314,7 @@ Consider the value of "site_no" as the field named "location"
 [Value Selectors](fields.py) are the most important part of any data source configuration: they define what fields
 should be loaded and how. Data that has been loaded from a backend may provide raw values, but it is the job
 of Value Selectors to investigate that data and extract what to use. Say a CSV file is used and it contains fields like
-`d`, `flow`, `temperature`, `dew point`, `age`, `altitude`, `loc`, `turpidity`, `region`, `state`, `operator`, and 
+`d`, `flow`, `temperature`, `dew point`, `age`, `altitude`, `loc`, `turpidity`, `region`, `state`, `operator`, and
 `stage`, that looks like:
 
 | d                | flow | temperature | dew point | age | altitude | loc               | turpidity | region | state | operator | stage |
@@ -509,8 +509,8 @@ will read the data from `"resources/crosswalk.json"` that looks like:
 }
 ```
 
-And determine that rows from the **Prediction** dataset with a `loc` value of `1` should link to rows from the 
-**Observation** dataset with a `site_no` value of `668465168`. The keys `"3"` and `"4"` will be totally ignored since 
+And determine that rows from the **Prediction** dataset with a `loc` value of `1` should link to rows from the
+**Observation** dataset with a `site_no` value of `668465168`. The keys `"3"` and `"4"` will be totally ignored since
 the path `* where site_no` means "Everything that has a member named `site_no`" and `"3"` and `"4"` lack the member.
 
 <a id="CrosswalkSpecificationExamples"></a>
@@ -584,7 +584,7 @@ The following JSON will instruct evaluations to pair observed data to predicted 
 ![A specification for where location data should be found](../../../images/dmod.evaluations.specification.locations.LocationSpecification.png)
 
 [Location Specifications](locations.py) define where to find identifiers for locations within and without loaded data.
-Some data may have locations on columns, some may have locations in filenames. 
+Some data may have locations on columns, some may have locations in filenames.
 
 <a id="LocationSpecificationExamples"></a>
 ### Example
@@ -613,12 +613,12 @@ like `cat-27.csv` and `cat-52_cms.csv`:
 
 ![A definition of a single threshold, where it comes from, and its significance](../../../images/dmod.evaluations.specification.threshold.ThresholdDefinition.png)
 
-[Threshold Definitions](threshold.py) define what thresholds to apply to data, where to get their values, 
-how to measure them, what to call them, and how important they are. Weights in these threshold definitions operate 
-the same way as the weights for [Metric Specifications](#MetricSpecification), except values are relative to other 
+[Threshold Definitions](threshold.py) define what thresholds to apply to data, where to get their values,
+how to measure them, what to call them, and how important they are. Weights in these threshold definitions operate
+the same way as the weights for [Metric Specifications](#MetricSpecification), except values are relative to other
 threshold definitions, not metrics.
 
-The name of a threshold is optional, but naming thresholds make their meaning simpler. For instance, the `p75_va` 
+The name of a threshold is optional, but naming thresholds make their meaning simpler. For instance, the `p75_va`
 field in NWIS Statistical Thresholds represents the `75th Percetile`. Someone familiar with the dataset
 may understand that raw definition, but someone _not_ familiar with these thresholds won't understand what it means.
 
@@ -642,8 +642,8 @@ Use a threshold named `75th Percentile` with values from the `p75_va` field meas
 
 ![Added rules for how thresholds should be applied](../../../images/dmod.evaluations.specification.threshold.ThresholdApplicationRules.png)
 
-Thresholds and the data to evaluate may not always be in the same form or scale. USGS NWIS Statistical Thresholds, 
-for example, are daily values, with each day defined by `day_nu` and `month_nu` integer values. Predicted or 
+Thresholds and the data to evaluate may not always be in the same form or scale. USGS NWIS Statistical Thresholds,
+for example, are daily values, with each day defined by `day_nu` and `month_nu` integer values. Predicted or
 observed values, though, have their temporal values defined via year, month, day, hours, and seconds. In order
 to link the correct thresholds to the correct values, [Threshold Application Rules](threshold.py) may be used to apply
 transformations on different fields to ensure that thresholds may be correctly applied to evaluation data.
@@ -679,10 +679,10 @@ created by converting the `month_nu` and `day_nu` integer fields into one `Day` 
 If I have a day of `10/1` and data for the years `2016`, `2017`, and `2018`, that `10/1` will be equivalent to
 `2016-10-01`, `2017-10-01`, and `2018-10-01`.
 
-A `Day` may be defined by passing a numerical day of the year, a string date, a python date type, a pandas date type, 
+A `Day` may be defined by passing a numerical day of the year, a string date, a python date type, a pandas date type,
 a numpy date type, or a series of numbers to use as input values representing the `[<numerical day of the year>]`,
-`[<numerical month of the year>, <numerical day of the month>]`, or 
-`[<year>, <numerical month of the year>, <numerical day of the month>]`. `[1]`, `[1, 1]`, and `[1975, 1, 1]` will 
+`[<numerical month of the year>, <numerical day of the month>]`, or
+`[<year>, <numerical month of the year>, <numerical day of the month>]`. `[1]`, `[1, 1]`, and `[1975, 1, 1]` will
 all create the same `Day` value.
 
 <a id="ThresholdSpecification"></a>
@@ -690,7 +690,7 @@ all create the same `Day` value.
 
 ![Instructions for how to load and apply thresholds to observed and predicted data](../../../images/dmod.evaluations.specification.threshold.ThresholdSpecification.png)
 
-[Threshold Specifications](threshold.py) define how threshold data should be loaded, how to apply thresholds to data, 
+[Threshold Specifications](threshold.py) define how threshold data should be loaded, how to apply thresholds to data,
 and what thresholds to use.
 
 <a id="ThresholdSpecificationExamples"></a>
@@ -797,13 +797,13 @@ The following example can produce the exact same results as the example from abo
 
 ![A definition of what a measurement unit is or where to find it](../../../images/dmod.evaluations.specification.unit.UnitDefinition.png)
 
-[Unit Definitions](unit.py) tell the system how to interpret the values from data sources. Predictions, for instance, 
-may be expressed in cubic meters per second (`cms`), while observations may be expressed in cubic _feet_ per second 
-(`ft^3/s`). Values in `cms` and `ft^3/s` aren't immediately comparable, so the units need to be explicitly stated in 
+[Unit Definitions](unit.py) tell the system how to interpret the values from data sources. Predictions, for instance,
+may be expressed in cubic meters per second (`cms`), while observations may be expressed in cubic _feet_ per second
+(`ft^3/s`). Values in `cms` and `ft^3/s` aren't immediately comparable, so the units need to be explicitly stated in
 case of a necessary set of unit conversions. There are three options for how to get the unit. If the `value` of `cms`
-is dictated, the system will interpret all primary values from the datasource as being measured in `cms`. If the 
-`field` of `unit` is dictated, the unit will be interpreted as whatever lies within the `unit` field of the 
-selected data. The former option is great for cases where the unit isn't in the dataset and is instead known via 
+is dictated, the system will interpret all primary values from the datasource as being measured in `cms`. If the
+`field` of `unit` is dictated, the unit will be interpreted as whatever lies within the `unit` field of the
+selected data. The former option is great for cases where the unit isn't in the dataset and is instead known via
 institutional knowledge, while the former is great for cases where the unit _is_ in the dataset.
 
 Any type of unit may be used, but unit conversions will occur if units are not the same. When these conversions take place,
@@ -833,19 +833,19 @@ Use the value `"ft^3/s"` as the unit of measurement for every piece of data load
 
 ![The definition for what metric should be used and how important it should be](../../../images/dmod.evaluations.specification.scoring.MetricSpecification.png)
 
-[Metric Specifications](scoring.py) merely define what metric is intended to be used and how important it is. The 
+[Metric Specifications](scoring.py) merely define what metric is intended to be used and how important it is. The
 `weight` value only bears significance to _other_ defined `weight` values. If only one Metric Specification is
 defined, the `weight` doesn't have much value since there isn't anything to compare it to. It's similar in the case
 where _all_ defined Metric Specifications have the same weight - in this case the results are all equally important.
 
-The weight becomes significant when there are varying weight values. Given Metric Specifications with weights `1`, 
-`2`, `3`, and `4`, the last Metric Specification is considered as being the most important metric while the first is 
-the least important. When scores are averaged, that last metric will have a far greater impact on the results than the 
+The weight becomes significant when there are varying weight values. Given Metric Specifications with weights `1`,
+`2`, `3`, and `4`, the last Metric Specification is considered as being the most important metric while the first is
+the least important. When scores are averaged, that last metric will have a far greater impact on the results than the
 first metric.
 
 Since the values are all relative, changing the above weights to `4`, `8`, `12`, and `16` will bear the same results.
 
-There are no rules for how `weight` values are defined. They may be arbitrarily high or arbitrarily low. The 
+There are no rules for how `weight` values are defined. They may be arbitrarily high or arbitrarily low. The
 importance is that they relate to one another.
 
 <a id="MetricSpecificationExamples"></a>
@@ -875,7 +875,7 @@ Using the above two examples at the same time will tell the evaluation that the 
 
 ![A definition of what a measurement unit is or where to find it](../../../images/dmod.evaluations.specification.scoring.SchemeSpecification.png)
 
-A [Scheme Specification](scoring.py) defines the overall scoring scheme for the entire evaluation. It dictates what 
+A [Scheme Specification](scoring.py) defines the overall scoring scheme for the entire evaluation. It dictates what
 metrics to use and how important they are in comparison.
 
 <a id="SchemeSpecificationExamples"></a>

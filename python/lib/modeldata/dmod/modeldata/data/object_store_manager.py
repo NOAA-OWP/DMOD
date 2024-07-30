@@ -430,7 +430,7 @@ class ObjectStoreDatasetManager(DatasetManager):
 
     def delete_data(self, dataset_name: str, removed_domain: DataDomain, **kwargs) -> bool:
         """
-        
+
         Parameters
         ----------
         dataset_name : str
@@ -440,7 +440,7 @@ class ObjectStoreDatasetManager(DatasetManager):
             dataset's domain.
         kwargs
             Keyword args (see below).
-        
+
         Keyword Args
         -------
         item_names : List[str]
@@ -646,7 +646,7 @@ class ObjectStoreDatasetManager(DatasetManager):
         from the bucket before proceeding.  However, if that is set to ``True``, then if any objects (other than the
         dataset's serialized state file, needed for reloading it) are in the bucket, the dataset and backing bucket will
         not be changed or removed.
-        
+
         Parameters
         ----------
         dataset_name : str

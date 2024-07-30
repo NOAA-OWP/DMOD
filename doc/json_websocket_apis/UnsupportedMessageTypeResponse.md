@@ -33,7 +33,7 @@ data : Union[dict, Serializeable, None]
     Subtype-specific serialized data that should be conveyed as a result of the initial message
 
 <details>
-<summary><strong> <a name="success"></a>1. [Optional] Property UnsupportedMessageTypeResponse > success</strong>  
+<summary><strong> <a name="success"></a>1. [Optional] Property UnsupportedMessageTypeResponse > success</strong>
 
 </summary>
 <blockquote>
@@ -50,7 +50,7 @@ data : Union[dict, Serializeable, None]
 </details>
 
 <details>
-<summary><strong> <a name="reason"></a>2. [Optional] Property UnsupportedMessageTypeResponse > reason</strong>  
+<summary><strong> <a name="reason"></a>2. [Optional] Property UnsupportedMessageTypeResponse > reason</strong>
 
 </summary>
 <blockquote>
@@ -67,7 +67,7 @@ data : Union[dict, Serializeable, None]
 </details>
 
 <details>
-<summary><strong> <a name="message"></a>3. [Required] Property UnsupportedMessageTypeResponse > message</strong>  
+<summary><strong> <a name="message"></a>3. [Required] Property UnsupportedMessageTypeResponse > message</strong>
 
 </summary>
 <blockquote>
@@ -83,7 +83,7 @@ data : Union[dict, Serializeable, None]
 </details>
 
 <details>
-<summary><strong> <a name="data"></a>4. [Optional] Property UnsupportedMessageTypeResponse > data</strong>  
+<summary><strong> <a name="data"></a>4. [Optional] Property UnsupportedMessageTypeResponse > data</strong>
 
 </summary>
 <blockquote>
@@ -140,7 +140,7 @@ class User(Serializable):
 </details>
 
 <details>
-<summary><strong> <a name="actual_event_type"></a>5. [Required] Property UnsupportedMessageTypeResponse > actual_event_type</strong>  
+<summary><strong> <a name="actual_event_type"></a>5. [Required] Property UnsupportedMessageTypeResponse > actual_event_type</strong>
 
 </summary>
 <blockquote>
@@ -170,7 +170,7 @@ Must be one of:
 </details>
 
 <details>
-<summary><strong> <a name="listener_type"></a>6. [Required] Property UnsupportedMessageTypeResponse > listener_type</strong>  
+<summary><strong> <a name="listener_type"></a>6. [Required] Property UnsupportedMessageTypeResponse > listener_type</strong>
 
 </summary>
 <blockquote>

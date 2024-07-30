@@ -170,10 +170,10 @@ def is_float_string(value: str) -> bool:
     pattern = r"^-?((?<!_)[_\d]*(?!_))?(\.((?<!_)[_\d]*(?!_)*))?$"
     """
     The pattern for a float:
-    
+
     An optional single '-', an optional series of '_' or digits, not beginning or ending with '_',
     an optional '.' followed by a series of '_' or digits, not beginning or ending with '_'
-    
+
     - ".3"        TRUE
     - "-.3"       TRUE
     - "1_3.3"     TRUE

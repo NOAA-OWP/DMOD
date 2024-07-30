@@ -11,7 +11,7 @@
 **Description:** The subtype of ::class:`Response` appropriate for ::class:`UpdateMessage` objects.
 
 <details>
-<summary><strong> <a name="success"></a>1. [Required] Property UpdateMessageResponse > success</strong>  
+<summary><strong> <a name="success"></a>1. [Required] Property UpdateMessageResponse > success</strong>
 
 </summary>
 <blockquote>
@@ -29,7 +29,7 @@
 </details>
 
 <details>
-<summary><strong> <a name="reason"></a>2. [Required] Property UpdateMessageResponse > reason</strong>  
+<summary><strong> <a name="reason"></a>2. [Required] Property UpdateMessageResponse > reason</strong>
 
 </summary>
 <blockquote>
@@ -47,7 +47,7 @@
 </details>
 
 <details>
-<summary><strong> <a name="message"></a>3. [Optional] Property UpdateMessageResponse > message</strong>  
+<summary><strong> <a name="message"></a>3. [Optional] Property UpdateMessageResponse > message</strong>
 
 </summary>
 <blockquote>
@@ -66,7 +66,7 @@
 </details>
 
 <details>
-<summary><strong> <a name="data"></a>4. [Optional] Property UpdateMessageResponse > data</strong>  
+<summary><strong> <a name="data"></a>4. [Optional] Property UpdateMessageResponse > data</strong>
 
 </summary>
 <blockquote>
@@ -120,7 +120,7 @@ class User(Serializable):
 ```
 
 <details>
-<summary><strong> <a name="data_digest"></a>4.1. [Optional] Property UpdateMessageResponse > data > digest</strong>  
+<summary><strong> <a name="data_digest"></a>4.1. [Optional] Property UpdateMessageResponse > data > digest</strong>
 
 </summary>
 <blockquote>
@@ -136,7 +136,7 @@ class User(Serializable):
 </details>
 
 <details>
-<summary><strong> <a name="data_object_found"></a>4.2. [Optional] Property UpdateMessageResponse > data > object_found</strong>  
+<summary><strong> <a name="data_object_found"></a>4.2. [Optional] Property UpdateMessageResponse > data > object_found</strong>
 
 </summary>
 <blockquote>

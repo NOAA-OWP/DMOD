@@ -70,7 +70,7 @@ class Session(Serializable):
         try:
             return datetime.datetime.strptime(value, cls.get_datetime_str_format())
         # TODO: improve error handling, or throw something know for downstream users.
-        except: 
+        except:
             return datetime.datetime.now()
 
     class Config:
@@ -220,7 +220,7 @@ class FailedSessionInitInfo(Serializable):
     class Config:
         def _serialize_datetime(self: "Session", value: datetime.datetime) -> str:
             return value.strftime(self.get_datetime_str_format())
-        
+
         field_serializers = {"fail_time": _serialize_datetime}
 
 

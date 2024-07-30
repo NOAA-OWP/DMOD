@@ -1,5 +1,5 @@
 # About
-Python package for core DMOD types, both concrete and abstract, that are depended upon by other DMOD Python packages and themselves have no dependencies outside of Python and its standard library.  
+Python package for core DMOD types, both concrete and abstract, that are depended upon by other DMOD Python packages and themselves have no dependencies outside of Python and its standard library.
 
 Classes belong here if placing them in a more specialized package would cause undesired consequences, such as circular dependencies or transitive dependency on otherwise unnecessary packages.
 
@@ -53,10 +53,10 @@ Classes belong here if placing them in a more specialized package would cause un
 
 ## `context`
 
-The `dmod.core.context` module provides the functionality needed to create automatic proxies for remote objects, 
-provide a DMOD specific multiprocessed object manager, and a custom implementation of the object manager's server to 
-overcome issues with the base functionality as of python 3.8. If 
-`dmod.core.context.DMODObjectManager.register_class(NewClass)` is called after its definition, a proxy for it will be 
+The `dmod.core.context` module provides the functionality needed to create automatic proxies for remote objects,
+provide a DMOD specific multiprocessed object manager, and a custom implementation of the object manager's server to
+overcome issues with the base functionality as of python 3.8. If
+`dmod.core.context.DMODObjectManager.register_class(NewClass)` is called after its definition, a proxy for it will be
 defined dynamically and a proxy for that type (`NewClass` in this example) may be constructed through code such as:
 
 ```python
@@ -66,8 +66,8 @@ with context.get_object_manager() as manager:
     class_instance = manager.create_object('NewClass', 'one', 2, other_parameter=9)
 ```
 
-where <code style="color: green">'NewClass'</code> is the name of the desired class and 
-<code style="color: green">'one'</code>, <code style="color: blue">2</code>, and <code>other_parameter</code> 
+where <code style="color: green">'NewClass'</code> is the name of the desired class and
+<code style="color: green">'one'</code>, <code style="color: blue">2</code>, and <code>other_parameter</code>
 are the parameters for `NewClass`'s constructor.
 
 Scopes for the manager may be created to track objects that are passed from one process to another. If a
@@ -90,7 +90,7 @@ def start_process(manager: context.DMODObjectManager, pool: futures.ProcessPoolE
     scope = manager.establish_scope("example")
     example_object = scope.create_object('NewClass', 'one', 2, other_parameter=9)
     task = pool.submit(do_something, example_object)
-    
+
     # The scope and everything with it will be deleted when `task.done()`
     manager.monitor_operation(scope, task)
 
@@ -124,7 +124,7 @@ Traceback (most recent call last):
     dispatch(conn, None, 'incref', (self._id,))
   File "/path/to/python/3.8/lib/python3.8/multiprocessing/managers.py", line 91, in dispatch
     raise convert_to_error(kind, result)
-multiprocessing.managers.RemoteError: 
+multiprocessing.managers.RemoteError:
 ---------------------------------------------------------------------------
 Traceback (most recent call last):
   File "/path/to/python/3.8/lib/python3.8/multiprocessing/managers.py", line 210, in handle_request
@@ -136,14 +136,14 @@ Traceback (most recent call last):
 KeyError: '3067171c0'
 ```
 
-This sort of error occurs when an instantiated object has fallen out of scope _before_ another process has had 
-a chance to use it. The Server (in this case the `dmod.core.context.DMODObjectServer`) that the manager (in this case 
-the `dmod.core.context.DMODObjectManager`) keeps track of objects via reference counters. When a proxy is created, the 
-real object is created on the instantiated server and its reference count increases. When the created proxy leaves 
-scope, that reference count decreases. When that number reaches 0, the real object that the proxy refers to is 
-removed. If a proxy is created in the scope of one function and passed to another process, the reference count will 
-be decremented when that function exits unless the proxy is created within a scope that does not end when the 
-function does. 
+This sort of error occurs when an instantiated object has fallen out of scope _before_ another process has had
+a chance to use it. The Server (in this case the `dmod.core.context.DMODObjectServer`) that the manager (in this case
+the `dmod.core.context.DMODObjectManager`) keeps track of objects via reference counters. When a proxy is created, the
+real object is created on the instantiated server and its reference count increases. When the created proxy leaves
+scope, that reference count decreases. When that number reaches 0, the real object that the proxy refers to is
+removed. If a proxy is created in the scope of one function and passed to another process, the reference count will
+be decremented when that function exits unless the proxy is created within a scope that does not end when the
+function does.
 
 ## `dataset`
 
