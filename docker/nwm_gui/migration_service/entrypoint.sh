@@ -32,4 +32,3 @@ export SU_PASSWORD="$(cat ${SU_SECRET_FILE})"
 
 # Execute the migration scripts on the designated database
 python manage.py migrate
-

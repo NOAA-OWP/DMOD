@@ -13,4 +13,3 @@ def find(key, value):
         elif isinstance(v, (dict, list)):
             for result in find(key, v):
                 yield result
-

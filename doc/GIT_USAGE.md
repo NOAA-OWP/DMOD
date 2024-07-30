@@ -132,4 +132,3 @@ If a local development branch is already pushed to a remote fork, and then later
     git push -f origin dev
 
 However, extra care is needed if multiple developers may be using the branch in the fork (e.g., a developer is collaborating with someone else on a large set of changes for some new feature).  The particular considerations and best ways to go about things in such cases are outside the scope of this document.  Consult Git's documentation and Google, or contact another contributor for advice.
-

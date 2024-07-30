@@ -240,4 +240,3 @@ class TestDataRequirement(unittest.TestCase):
         self.assertNotIn("size", d)
         self.assertNotIn("fulfilled_by", d)
         self.assertNotIn("fulfilled_access_at", d)
-

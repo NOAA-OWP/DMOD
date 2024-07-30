@@ -65,9 +65,3 @@ class TestGeoPackageCatchment(AbstractGeoPackageHydrofabricTester):
         actual_outflow = catchment.outflow
 
         self.assertEqual(actual_outflow, expected_outflow_nexus)
-
-
-
-
-
-

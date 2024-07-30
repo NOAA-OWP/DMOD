@@ -14,4 +14,3 @@ def incr_str(s):
   new_s = lpart[:-1] + incr_char(lpart[-1]) if lpart else 'A'
   new_s += 'A' * num_replacements
   return new_s
-

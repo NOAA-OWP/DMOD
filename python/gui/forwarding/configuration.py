@@ -184,4 +184,3 @@ class ForwardingConfiguration:
 
     def __str__(self):
         return f"[{self.name}]: Connect {self.route} to {self.target_connection_url}"
-

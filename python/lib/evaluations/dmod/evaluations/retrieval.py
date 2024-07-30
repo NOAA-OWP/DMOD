@@ -54,4 +54,3 @@ class Retriever(abc.ABC):
             The name of the format that this retriever retrieves
         """
         ...
-

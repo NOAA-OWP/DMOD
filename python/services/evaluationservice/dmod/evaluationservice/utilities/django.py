@@ -177,4 +177,3 @@ DjangoObjectSerializer = __DjangoMessageSerializer()
 """A naive Django object serializer"""
 
 make_message_serializable = DjangoObjectSerializer.make_message_serializable
-

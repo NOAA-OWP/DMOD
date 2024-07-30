@@ -101,6 +101,3 @@ class IntegrationTestWebSocketInterface(WebSocketInterfaceTestBase):
 
 if __name__ == '__main__':
     unittest.main()
-
-
-

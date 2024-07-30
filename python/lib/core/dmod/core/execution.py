@@ -158,4 +158,3 @@ class AllocationAssetGrouping(PydanticEnum):
             ``strict`` is ``False``, or ``None`` when ``strict`` is ``True``.
         """
         return _get_from_name(enum_type=cls, name=name, strict=strict)
-

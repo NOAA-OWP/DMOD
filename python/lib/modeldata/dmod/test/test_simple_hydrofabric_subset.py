@@ -69,6 +69,3 @@ class TestSimpleHydrofabricSubset(unittest.TestCase):
         hy_subset = SimpleHydrofabricSubset.factory_create_from_base_and_hydrofabric(self.subset_examples[ex],
                                                                                      self.hydrofabric)
         self.assertIsInstance(hy_subset, SimpleHydrofabricSubset)
-
-
-

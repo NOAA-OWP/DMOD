@@ -224,4 +224,3 @@ class SchedulerRequestResponse(Response):
     # NOTE: legacy support. previously this class was treated as a dictionary
     def __getitem__(self, item: str):
         return self.__dict__[item]
-

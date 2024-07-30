@@ -210,4 +210,3 @@ class TestPartitionConfig(unittest.TestCase):
 
         # NOTE: this is the expected behavior
         self.assertEqual(len(same_catchment_id_and_partition_id.partitions), 1)
-

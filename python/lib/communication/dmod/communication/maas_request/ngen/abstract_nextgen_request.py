@@ -470,5 +470,3 @@ class ExternalAbstractNgenRequest(ExternalRequest, AbstractNgenRequest, ABC):
 
     def __eq__(self, other):
         return super().__eq__(other) and self.session_secret == other.session_secret
-
-

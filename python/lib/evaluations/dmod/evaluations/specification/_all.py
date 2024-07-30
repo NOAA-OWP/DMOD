@@ -39,5 +39,3 @@ def get_specification_options(*args, **kwargs) -> typing.Sequence[typing.Tuple[s
         (cls.get_specification_type(), cls.get_specification_description())
         for cls in get_templated_classes()
     ]
-
-

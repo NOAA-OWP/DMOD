@@ -93,4 +93,3 @@ class TestUniversalItemDomainDetector(unittest.TestCase):
         domain = detector.detect()
         self.assertEqual(self.example_cat_ids[ex_idx],
                          sorted(domain.discrete_restrictions[StandardDatasetIndex.CATCHMENT_ID].values))
-

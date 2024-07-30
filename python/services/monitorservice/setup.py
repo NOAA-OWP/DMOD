@@ -20,4 +20,3 @@ setup(
     install_requires=['dmod-core>=0.1.0', 'dmod-communication>=0.4.2', 'dmod-monitor>=0.3.3'],
     packages=find_namespace_packages(exclude=['dmod.test', 'schemas', 'ssl', 'src'])
 )
-

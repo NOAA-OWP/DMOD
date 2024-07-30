@@ -203,4 +203,3 @@ class GetTemplateByIDRequest(BaseRequest):
     @classmethod
     def get_response_type(cls) -> typing.Type[RESPONSE_TYPE]:
         return cls.Response
-

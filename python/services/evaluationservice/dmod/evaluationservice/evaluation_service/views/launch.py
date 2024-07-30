@@ -81,4 +81,3 @@ class ReadyListenEvaluation(View):
             "production": not application_values.in_debug_mode()
         }
         return render(request, template_name=self.template, context=context)
-

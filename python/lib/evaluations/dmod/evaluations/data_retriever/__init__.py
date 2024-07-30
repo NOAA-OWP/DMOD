@@ -46,4 +46,3 @@ def read(datasource_definition: specification.DataSourceSpecification) -> pandas
     """
     retriever = get_datasource_retriever(datasource_definition)
     return retriever.retrieve()
-

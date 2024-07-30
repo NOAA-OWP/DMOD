@@ -40,4 +40,3 @@ py_dev_bash_get_package_directories()
         SERVICE_PACKAGE_DIRS[${i}]="${SERVICE_PACKAGE_ROOT}/${SERVICE_PACKAGE_NAMES[${i}]}"
     done
 }
-

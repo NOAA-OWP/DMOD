@@ -91,4 +91,3 @@ class DataTransmitResponse(Response):
     @property
     def series_uuid(self) -> UUID:
         return self.data.series_uuid
-

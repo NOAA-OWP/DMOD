@@ -211,4 +211,3 @@ class EvaluationList(View):
     def get(self, request: HttpRequest) -> HttpResponse:
         context = {"evaluations": self.get_evaluations()}
         return render(request, template_name=self.template, context=context)
-

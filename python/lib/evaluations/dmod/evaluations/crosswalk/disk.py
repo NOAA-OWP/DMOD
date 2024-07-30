@@ -51,5 +51,3 @@ class JSONCrosswalkRetriever(retriever.CrosswalkRetriever):
             full_document.update(document)
 
         self._document = full_document
-
-

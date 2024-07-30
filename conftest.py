@@ -173,4 +173,3 @@ def pytest_sessionfinish(session: Session, exitstatus: int):
 
         logging.info(f"tearing down: {module.parent.parent.name!r}")
         logging.debug(format_completed_process(out))
-

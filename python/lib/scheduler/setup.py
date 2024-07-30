@@ -24,4 +24,3 @@ setup(
                       'dmod-core>=0.17.0', 'cryptography', 'uri', 'pyyaml', 'pydantic>=1.10.8,~=1.10'],
     packages=find_namespace_packages(exclude=['dmod.test', 'src'])
 )
-

@@ -321,4 +321,3 @@ class TestInnerSessionAuthUtil(unittest.TestCase):
         self.assertIsNotNone(session)
         self.assertEqual(self.valid_init_msg_1.username, session.user)
         self.assertEqual(self.client_ip_2, session.ip_address)
-
