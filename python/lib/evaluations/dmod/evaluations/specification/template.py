@@ -56,10 +56,10 @@ class Column:
     """
     name: str
     """The name of the column"""
-    
+
     datatype: str
     """The data type for the column"""
-    
+
     optional: typing.Optional[bool] = dataclasses.field(default=False)
     """Whether values in the column are optional"""
     @property
@@ -83,13 +83,13 @@ class Table:
     """
     name: str
     """The name of the table"""
-    
+
     columns: typing.List[Column]
     """The columns within a database"""
-    
+
     keys: typing.Optional[typing.List[str]] = dataclasses.field(default=None)
     """Any sort of identifying values for each row in the table"""
-    
+
     @property
     def required_columns(self) -> typing.Set[str]:
         """
@@ -127,7 +127,7 @@ class Table:
     def initialize(self, connection: DBAPIConnection):
         """
         Ensure that this table exists within the given database
-        
+
         Args:
             connection: A connection to the database that will hold this table
         """

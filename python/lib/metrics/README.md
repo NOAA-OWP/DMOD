@@ -1,6 +1,6 @@
 # Distributed Model on Demand - Metrics
 
-The Distributed Model on Demand (DMOD) metrics package is a python library dedicated exclusively 
+The Distributed Model on Demand (DMOD) metrics package is a python library dedicated exclusively
 to describing available functionality and performing mathematical operations upon provided data.
 
 ## How are metrics called?
@@ -26,7 +26,7 @@ scheme = metrics.ScoringScheme([
 results = scheme.score(pairs=pairs, observed_value_label="observation", predicted_value_label="prediction")
 ```
 
-This same `ScoringScheme` may be called many times over with different sets of data, usually 
+This same `ScoringScheme` may be called many times over with different sets of data, usually
 corresponding to different locations, while maintaining a common standard of expected results.
 
 ```python
@@ -37,43 +37,43 @@ results4 = scheme.score(pairs=pandas.read_csv("path/to/pairs4.csv"), observed_va
 
 ## What do `MetricResults` provide?
 
-`dmod.metrics.MetricResults` objects provide access to individual metrics and tools for interpreting 
+`dmod.metrics.MetricResults` objects provide access to individual metrics and tools for interpreting
 results in different ways and making it easier to serialize results for further communication.
 
 ## How can `MetricResults` interpret the outcome of an evaluation?
 
 Each `MetricResults` object contains the evaluated metrics performed on a singular set of data.
-When providing the `Metric`s that are run to the `ScoringScheme`, a weight is passed along for 
+When providing the `Metric`s that are run to the `ScoringScheme`, a weight is passed along for
 each metric. Passing thresholds to the invocation will provide weights for each threshold. This
 provides a basis to establish a hierarchy of importance for each metric and threshold. For
 example, the `Critical Success Index` may be deemed as twice as important as the results for
 the `Normalized Nash-Sutcliffe Efficiency` and results for the "Major" threshold may be deemed
 1.5 times more important than the results for the "Moderate" threshold.
 
-These weights, along with metadata for each metric provides a means of scaling and grading. The 
+These weights, along with metadata for each metric provides a means of scaling and grading. The
 `PearsonCorrelationCoefficient` `Metric` class, for example, stores the maximum value as `1`,
 the minimum value as `-1`, the ideal value as `1`, and `0` marks a total failure of the predicted
 data to correlate in some fashion to the observed data (negative values aren't considered a total
 failure since they indicate some degree of negative correlation whereas `0` is absolutely none
-whatsoever). For the following example, let us say that the result of a given instance of 
-`PearsonCorrelationCoefficent` with a weight of `7` has a result of `0.6734` for the "Major" 
+whatsoever). For the following example, let us say that the result of a given instance of
+`PearsonCorrelationCoefficent` with a weight of `7` has a result of `0.6734` for the "Major"
 threshold. This is interpreted as a scaled value of `4.7138`. Now let us say we have an
 instance of `ProbabilityOfFalseDetection` with a weight of `3` that has a result of `0.12`.
 This is interpreted as having a scaled value of `2.64`. If those are the only metrics considered
 for the "Major" threshold, the maximum possible value for that threshold is `10` (
 `PearsonCorrelationCoefficient` with a weight of `7` and `ProbabilityOfFalseDetection` with
 a weight of `3`). Since those results were `4.7138` and `2.64`, their total value was `7.3538`
-out of `10`, or a grade of `73.538%`. Now say the only other threshold being evaluated was 
+out of `10`, or a grade of `73.538%`. Now say the only other threshold being evaluated was
 "Moderate" with a weight of `3` and a total of `2.73`, or a grade of `91%`. The overall result
 of the combination of these two thresholds is now `7.3538` + `2.73` out of `10` + `3`, or
 `10.0838` out of `13`, with a grade of `77.567%`.
 
 ## What is a `Metric` in the codebase?
 
-An instance of `dmod.metrics.scoring.Metric` is an object that may be called to provide scores 
-for a collection of pairs. Examples of these 
+An instance of `dmod.metrics.scoring.Metric` is an object that may be called to provide scores
+for a collection of pairs. Examples of these
 `dmod.metrics.scoring.Metric` classes are `dmod.metrics.ProbabilityOfFalseDetection`
-and `dmod.metrics.PearsonCorrelationCoefficient`. These are constructed with a given weight, so 
+and `dmod.metrics.PearsonCorrelationCoefficient`. These are constructed with a given weight, so
 an instance of `dmod.metrics.ProbabilityOfDetection` may be created with a weight of `3` and
 an instance of `dmod.metrics.KlingGuptaEfficiency` may be created with a weight of `8`.
 
@@ -221,16 +221,16 @@ and see:
 This provides more than enough information needed to build user interfaces or gather information
 to provide further context to data. Say I receive a value for `"equitablethreatscore"`. What does
 that value indicate? Well, the metadata explains that the `"equitablethreatscore"` may be
-displayed as `"Equitable Threat Score"` and describes `'How well did the forecast "yes" events correspond 
-to the observed "yes" events (accounting for hits due to chance)? Sensitive to hits. Because it 
-penalises both misses and false alarms in the same way, it does not distinguish the source of 
+displayed as `"Equitable Threat Score"` and describes `'How well did the forecast "yes" events correspond
+to the observed "yes" events (accounting for hits due to chance)? Sensitive to hits. Because it
+penalises both misses and false alarms in the same way, it does not distinguish the source of
 forecast error.'`
 
 ## What is a `Communicator`?
 
 A `dmod.metrics.Communicator` is an event based mechanism for handling data emission events.
 `Communicator`s are stored within `dmod.metrics.CommunicatorGroup`s which may handle more wide scale
-communication operations. An example can be found in the `score` function of 
+communication operations. An example can be found in the `score` function of
 `dmod.metrics.ScoringScheme` where each evaluation of a metric is announced:
 
 ```python
@@ -239,17 +239,17 @@ communication operations. An example can be found in the `score` function of
             ...
 ```
 
-This means that the `info` event will be triggered on each held `Communicator`, but only on those set to handle 
+This means that the `info` event will be triggered on each held `Communicator`, but only on those set to handle
 messages of a verbosity of `LOUD` or greater, and to call the `write` event after doing so.
 
 Say I have three communicators:
 
 1. Writes errors to stderr with a verbosity of `LOUD` (operates when very little data is necessary)
 2. Writes information with a verbosity of `QUIET` to a file
-3. Sends `LOUD` messages through Redis channels 
+3. Sends `LOUD` messages through Redis channels
 (see `dmod.evaluation_service.utilities.communication.RedisCommunicator`)
 
-Per the above example, `Communicator` 1 won't perform any operations because it only handles errors and this 
+Per the above example, `Communicator` 1 won't perform any operations because it only handles errors and this
 was just standard information. `Communicator` 2 won't perform operations because the given message was meant to be loud
 and `Communicator` 2 is meant to only handle `QUIET` data. `Communicator` 3, though, will handle the message by
 transforming the information into a common format, adding it to a list in a specified Redis instance, and call the
@@ -289,5 +289,5 @@ which yields:
  'total': 0.9999999999999999}
 ```
 
-`dmod.evaluations` provides functionality that helps with more advanced operations 
+`dmod.evaluations` provides functionality that helps with more advanced operations
 (such as adding thresholds and operating upon many metrics)

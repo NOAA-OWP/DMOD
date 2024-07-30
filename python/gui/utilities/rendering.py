@@ -1,5 +1,5 @@
 """
-Defines classes used to send common data to template renderers for 
+Defines classes used to send common data to template renderers for
 common functionality from the master template
 """
 import typing

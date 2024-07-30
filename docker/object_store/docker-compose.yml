@@ -53,7 +53,7 @@ services:
       #- minio2-data4:/export4
       #- minio2-data5:/export5
       #- minio2-data6:/export6
-    expose: 
+    expose:
       - 9000
     ports:
       - ${DMOD_OBJECT_STORE_2_HOST_PORT:-9004}:9000
@@ -105,7 +105,7 @@ services:
       - NGINX_THREAD_POOL_SIZE=${DMOD_OBJECT_STORE_PROXY_THREAD_POOL_SIZE:-288}
       - NGINX_THREAD_POOL_QUEUE_MAX=${DMOD_OBJECT_STORE_PROXY_THREAD_POOL_QUEUE_MAX:-65536}
     deploy:
-        restart_policy: 
+        restart_policy:
             condition: on-failure
         placement:
             constraints:

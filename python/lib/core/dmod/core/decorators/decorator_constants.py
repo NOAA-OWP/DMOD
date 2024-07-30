@@ -5,7 +5,7 @@ INITIALIZER_ATTRIBUTE = "initializer"
 
 ADDITIONAL_PARAMETER_ATTRIBUTE = "additional_parameter"
 """
-The name of the attribute stating that the owner should be used to determine additional parameters for services 
+The name of the attribute stating that the owner should be used to determine additional parameters for services
 to send to handlers
 """
 

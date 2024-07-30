@@ -40,7 +40,7 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
             path = Path('.')
         git_repo = git.Repo(path, search_parent_directories=True)
         return git_repo.git.rev_parse("--show-toplevel")
-    
+
     def __init__(self, *args, **kwargs):
         super(IntegrationTestObjectStoreDatasetManager, self).__init__(*args, **kwargs)
         self.manager: ObjectStoreDatasetManager = None
@@ -49,14 +49,14 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
     def _initialize_manager(self, reset_existing: bool = True):
         """
         Initialize or reinitialize the ::attribute:`manager` and ::attribute:`minio_client` attributes for testing.
-        
+
         Parameters
         ----------
         reset_existing : bool
             Whether new objects should be created, regardless of whether the attributes reference existing objects.
         """
         if reset_existing or self.manager is None:
-            self.manager = ObjectStoreDatasetManager(obj_store_host_str='{}:{}'.format(self._hostname, self._port), 
+            self.manager = ObjectStoreDatasetManager(obj_store_host_str='{}:{}'.format(self._hostname, self._port),
                                                      access_key=self._access_key, secret_key=self._secret_key)
             self.minio_client = self.manager._client
 

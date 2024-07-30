@@ -16,7 +16,7 @@ class TestNGENRequest(unittest.TestCase):
         self.tested_serializeable_type = NGENRequest
 
         # TODO: improve coverage through more examples
-        
+
         self.time_ranges = []
 
         def create_time_range(begin, end, var=None) -> TimeRange:

@@ -16,10 +16,10 @@ class UnitConverter:
             "m3/s": "m^3/s",
             "ft3/s": "ft^3/s"
         }
-        
+
         if synonyms:
             self.__unsupported_to_supported_units.update(synonyms)
-        
+
         self.__registry = pint.registry.UnitRegistry()
 
         self.__registry.define("m3 = m^3")
@@ -33,7 +33,7 @@ class UnitConverter:
 
         self.__registry.define("cms = m^3/s")
         self.__registry.define("CMS = m^3/s")
-        
+
     def convert(self, value: _T, from_unit: str, to_unit: str) -> _T:
         """
         Converts the amount of the first unit to an amount of the second
@@ -48,7 +48,7 @@ class UnitConverter:
         """
         from_unit = self.__unsupported_to_supported_units.get(from_unit, from_unit)
         to_unit = self.__unsupported_to_supported_units.get(to_unit, to_unit)
-        
+
         return self.__registry.convert(value, from_unit, to_unit)
 
     def get_quantity(self, value: _T, value_type: str) -> pint.Quantity:
@@ -84,7 +84,7 @@ class UnitConverter:
         value_type = self.__unsupported_to_supported_units.get(value_type, value_type)
 
         return self.__registry.Quantity(value, value_type)
-    
+
     @property
     def unsupported_to_supported_units(self) -> typing.Dict[str, str]:
         """
@@ -107,7 +107,7 @@ class UnitConverter:
             The raw pint registry used by the converter
         """
         return self.__registry
-    
+
 
 _COMMON_CONVERTER = UnitConverter()
 

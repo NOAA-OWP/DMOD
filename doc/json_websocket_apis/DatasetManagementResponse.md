@@ -33,7 +33,7 @@ data : Union[dict, Serializeable, None]
     Subtype-specific serialized data that should be conveyed as a result of the initial message
 
 <details>
-<summary><strong> <a name="success"></a>1. [Required] Property DatasetManagementResponse > success</strong>  
+<summary><strong> <a name="success"></a>1. [Required] Property DatasetManagementResponse > success</strong>
 
 </summary>
 <blockquote>
@@ -51,7 +51,7 @@ data : Union[dict, Serializeable, None]
 </details>
 
 <details>
-<summary><strong> <a name="reason"></a>2. [Required] Property DatasetManagementResponse > reason</strong>  
+<summary><strong> <a name="reason"></a>2. [Required] Property DatasetManagementResponse > reason</strong>
 
 </summary>
 <blockquote>
@@ -69,7 +69,7 @@ data : Union[dict, Serializeable, None]
 </details>
 
 <details>
-<summary><strong> <a name="message"></a>3. [Optional] Property DatasetManagementResponse > message</strong>  
+<summary><strong> <a name="message"></a>3. [Optional] Property DatasetManagementResponse > message</strong>
 
 </summary>
 <blockquote>
@@ -88,7 +88,7 @@ data : Union[dict, Serializeable, None]
 </details>
 
 <details>
-<summary><strong> <a name="data"></a>4. [Required] Property DatasetManagementResponse > data</strong>  
+<summary><strong> <a name="data"></a>4. [Required] Property DatasetManagementResponse > data</strong>
 
 </summary>
 <blockquote>
@@ -142,7 +142,7 @@ class User(Serializable):
 ```
 
 <details>
-<summary><strong> <a name="data_action"></a>4.1. [Optional] Property DatasetManagementResponse > data > action</strong>  
+<summary><strong> <a name="data_action"></a>4.1. [Optional] Property DatasetManagementResponse > data > action</strong>
 
 </summary>
 <blockquote>
@@ -171,7 +171,7 @@ Must be one of:
 </details>
 
 <details>
-<summary><strong> <a name="data_data_id"></a>4.2. [Optional] Property DatasetManagementResponse > data > data_id</strong>  
+<summary><strong> <a name="data_data_id"></a>4.2. [Optional] Property DatasetManagementResponse > data > data_id</strong>
 
 </summary>
 <blockquote>
@@ -187,7 +187,7 @@ Must be one of:
 </details>
 
 <details>
-<summary><strong> <a name="data_dataset_name"></a>4.3. [Optional] Property DatasetManagementResponse > data > dataset_name</strong>  
+<summary><strong> <a name="data_dataset_name"></a>4.3. [Optional] Property DatasetManagementResponse > data > dataset_name</strong>
 
 </summary>
 <blockquote>
@@ -203,7 +203,7 @@ Must be one of:
 </details>
 
 <details>
-<summary><strong> <a name="data_datasets"></a>4.4. [Optional] Property DatasetManagementResponse > data > datasets</strong>  
+<summary><strong> <a name="data_datasets"></a>4.4. [Optional] Property DatasetManagementResponse > data > datasets</strong>
 
 </summary>
 <blockquote>
@@ -238,7 +238,7 @@ Must be one of:
 </details>
 
 <details>
-<summary><strong> <a name="data_item_name"></a>4.5. [Optional] Property DatasetManagementResponse > data > item_name</strong>  
+<summary><strong> <a name="data_item_name"></a>4.5. [Optional] Property DatasetManagementResponse > data > item_name</strong>
 
 </summary>
 <blockquote>
@@ -254,7 +254,7 @@ Must be one of:
 </details>
 
 <details>
-<summary><strong> <a name="data_query_results"></a>4.6. [Optional] Property DatasetManagementResponse > data > query_results</strong>  
+<summary><strong> <a name="data_query_results"></a>4.6. [Optional] Property DatasetManagementResponse > data > query_results</strong>
 
 </summary>
 <blockquote>
@@ -271,7 +271,7 @@ Must be one of:
 </details>
 
 <details>
-<summary><strong> <a name="data_is_awaiting"></a>4.7. [Optional] Property DatasetManagementResponse > data > is_awaiting</strong>  
+<summary><strong> <a name="data_is_awaiting"></a>4.7. [Optional] Property DatasetManagementResponse > data > is_awaiting</strong>
 
 </summary>
 <blockquote>

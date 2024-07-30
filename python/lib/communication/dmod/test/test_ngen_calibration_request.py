@@ -34,7 +34,7 @@ class TestNgenCalibrationRequest(unittest.TestCase):
             '       "hydrofabric_data_id": "9876543210", '
             '       "hydrofabric_uid": "0123456789", '
             '       "iterations":' + str(iterations) + ', '
-            '       "model_params": {}, '                                           
+            '       "model_params": {}, '
             '       "model_strategy":' + model_strategy + ','
             '       "objective_function":' + obj_func + ', '
             '       "partition_config_data_id": "part1234", '

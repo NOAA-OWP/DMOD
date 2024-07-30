@@ -11,7 +11,7 @@
 **Description:** Request for partitioning of the catchments in a hydrofabric, typically for distributed processing.
 
 <details>
-<summary><strong> <a name="partition_count"></a>1. [Required] Property PartitionRequest > partition_count</strong>  
+<summary><strong> <a name="partition_count"></a>1. [Required] Property PartitionRequest > partition_count</strong>
 
 </summary>
 <blockquote>
@@ -27,7 +27,7 @@
 </details>
 
 <details>
-<summary><strong> <a name="uuid"></a>2. [Optional] Property PartitionRequest > uuid</strong>  
+<summary><strong> <a name="uuid"></a>2. [Optional] Property PartitionRequest > uuid</strong>
 
 </summary>
 <blockquote>
@@ -45,7 +45,7 @@
 </details>
 
 <details>
-<summary><strong> <a name="hydrofabric_uid"></a>3. [Required] Property PartitionRequest > hydrofabric_uid</strong>  
+<summary><strong> <a name="hydrofabric_uid"></a>3. [Required] Property PartitionRequest > hydrofabric_uid</strong>
 
 </summary>
 <blockquote>
@@ -63,7 +63,7 @@
 </details>
 
 <details>
-<summary><strong> <a name="hydrofabric_data_id"></a>4. [Optional] Property PartitionRequest > hydrofabric_data_id</strong>  
+<summary><strong> <a name="hydrofabric_data_id"></a>4. [Optional] Property PartitionRequest > hydrofabric_data_id</strong>
 
 </summary>
 <blockquote>
@@ -81,7 +81,7 @@
 </details>
 
 <details>
-<summary><strong> <a name="hydrofabric_description"></a>5. [Optional] Property PartitionRequest > hydrofabric_description</strong>  
+<summary><strong> <a name="hydrofabric_description"></a>5. [Optional] Property PartitionRequest > hydrofabric_description</strong>
 
 </summary>
 <blockquote>

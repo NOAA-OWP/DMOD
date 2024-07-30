@@ -4,7 +4,7 @@
 
 ## What determines how the combination of metrics across an evaluation should be interpretted?
 
-Setting up an evaluation to run requires the configuration of a decision matrix by assigning weights to individual 
+Setting up an evaluation to run requires the configuration of a decision matrix by assigning weights to individual
 metrics and individual thresholds. Consider the following evaluation configuration:
 
 ```json
@@ -77,31 +77,31 @@ metrics and individual thresholds. Consider the following evaluation configurati
 }
 ```
 
-Three thresholds and five metrics are defined. The values for the thresholds are `10`, `3`, and `2`, meaning that the 
-evaluation is weighted _heavily_ in favor of the result of the `"75th Percentile"` threshold. The results of 
-`"Action"` and `"Flood"` may be poor but won't necessarily tank the entire evaluation. This is useful for including 
-thresholds that may provide very little useful data. At the end of the day, 
-the `"Action"` and `"Flood"` thresholds will only have a small effect on the overall evaluation. I can modify that to 
-fit my personal interests and needs by adjusting those values. If I want `"Flood"` to be a more important factor, 
-but still not as great as the `"75th Percentile"`, I can just increase its weight to `5`. There are no upper bounds as 
-to what these weights may be as they just define ratios. A `9:12:18` ratio, for example, would have the same sort of 
+Three thresholds and five metrics are defined. The values for the thresholds are `10`, `3`, and `2`, meaning that the
+evaluation is weighted _heavily_ in favor of the result of the `"75th Percentile"` threshold. The results of
+`"Action"` and `"Flood"` may be poor but won't necessarily tank the entire evaluation. This is useful for including
+thresholds that may provide very little useful data. At the end of the day,
+the `"Action"` and `"Flood"` thresholds will only have a small effect on the overall evaluation. I can modify that to
+fit my personal interests and needs by adjusting those values. If I want `"Flood"` to be a more important factor,
+but still not as great as the `"75th Percentile"`, I can just increase its weight to `5`. There are no upper bounds as
+to what these weights may be as they just define ratios. A `9:12:18` ratio, for example, would have the same sort of
 result as `3:4:6` or `27:36:54`.
 
-Similarly, each metric is weighted. In the above example, each metric is weighted as `10`, `10`, `15`, `15`, and `18`. 
-In this configuration, absolutely perfect scores for `"False Alarm Ratio"` and `"Probability of Detection"` 
-cannot make up for a very poor performance for `"Pearson Correlation Coefficient"`. If I were more concerned with 
-"Was this forecast able to detect if something did or didn't happen?", though, I could just increase 
-`"Probability of Detection"` and `"False Alarm Ratio"` high above the others or just lower the other values to make 
-the two metrics of interest far more significant. 
+Similarly, each metric is weighted. In the above example, each metric is weighted as `10`, `10`, `15`, `15`, and `18`.
+In this configuration, absolutely perfect scores for `"False Alarm Ratio"` and `"Probability of Detection"`
+cannot make up for a very poor performance for `"Pearson Correlation Coefficient"`. If I were more concerned with
+"Was this forecast able to detect if something did or didn't happen?", though, I could just increase
+`"Probability of Detection"` and `"False Alarm Ratio"` high above the others or just lower the other values to make
+the two metrics of interest far more significant.
 
-The performance of an evaluation is determined by the performance of each threshold in terms of their weight within 
-the context of the weight of the defined metrics. The performance across each layer is given by its scaled value. 
-An evaluation, a location, a metric, and a threshold within a metric may all have their own scaled values. 
-Aggregating each level of scaled values may then be used to grade the entire evaluation, stating whether the 
+The performance of an evaluation is determined by the performance of each threshold in terms of their weight within
+the context of the weight of the defined metrics. The performance across each layer is given by its scaled value.
+An evaluation, a location, a metric, and a threshold within a metric may all have their own scaled values.
+Aggregating each level of scaled values may then be used to grade the entire evaluation, stating whether the
 generated data was good or bad based on a scale from 0 to 100.
 
-Results generated through different decision matrices are _not_ comparable. One set of model results may have two 
-__very__ different results depending on the matrices used during evaluation. It is the responsibility of the evaluator 
+Results generated through different decision matrices are _not_ comparable. One set of model results may have two
+__very__ different results depending on the matrices used during evaluation. It is the responsibility of the evaluator
 to determine what matrices are appropriate for their individual interests.
 
 ## Types of Communicated Scores
@@ -166,8 +166,8 @@ Metric messages are sent as individual metrics are run on each location. These m
 }
 ```
 
-They show what metric was run, what location it pertains to, what the resultant values for threshold was, 
-scaled values for each threshold, and a scaled value for the singular metric for the specific location. 
+They show what metric was run, what location it pertains to, what the resultant values for threshold was,
+scaled values for each threshold, and a scaled value for the singular metric for the specific location.
 
 An example of a score for a threshold from the above example can be seen as:
 
@@ -190,25 +190,25 @@ An example of a score for a threshold from the above example can be seen as:
 }
 ```
 
-This is for threshold `p75_va`. We see that the calculated value was `0.03`, which is very close to ideal - 
-the ideal value for this metric is 0. Therefore, the closer to 0 this is, the better the result. We also see that 
-the weight of the threshold is `10`. The displayed value is truncated, but is likely ~`0.036` in the calculation. 
-Since this is an inverted value (with 0 being ideal and 1 being a fail state), our factor for scaling would be 
-1 - ~0.036, yielding ~0.964. We now multiply the weight by the factor to get `9.64` - the resulting scaled value of 
-the threshold for the metric. Each threshold for this metric will have its own scaled value. Add each scaled 
-value together and divide by the maximum possible value across each threshold (the sum of all weights), and you can 
-determine the factor to use to determine the overall performance for the metric. The sum of all scaled values is 
-~`15.36999`, with the maximum possible value being `16`. Divide the sum of the scaled values by the maximum possible 
-value for each threshold and you get ~`0.96` as a factor of the weight of the metric. Multiply the weight of the metric 
-(`10`) and you get the performance of this metric for this location: ~`9.6`. This value can later be used to calculate 
+This is for threshold `p75_va`. We see that the calculated value was `0.03`, which is very close to ideal -
+the ideal value for this metric is 0. Therefore, the closer to 0 this is, the better the result. We also see that
+the weight of the threshold is `10`. The displayed value is truncated, but is likely ~`0.036` in the calculation.
+Since this is an inverted value (with 0 being ideal and 1 being a fail state), our factor for scaling would be
+1 - ~0.036, yielding ~0.964. We now multiply the weight by the factor to get `9.64` - the resulting scaled value of
+the threshold for the metric. Each threshold for this metric will have its own scaled value. Add each scaled
+value together and divide by the maximum possible value across each threshold (the sum of all weights), and you can
+determine the factor to use to determine the overall performance for the metric. The sum of all scaled values is
+~`15.36999`, with the maximum possible value being `16`. Divide the sum of the scaled values by the maximum possible
+value for each threshold and you get ~`0.96` as a factor of the weight of the metric. Multiply the weight of the metric
+(`10`) and you get the performance of this metric for this location: ~`9.6`. This value can later be used to calculate
 the overall performance for the location.
 
-The performance of `"False Alarm Ratio"` for this location is almost perfect and will help build the case for this 
+The performance of `"False Alarm Ratio"` for this location is almost perfect and will help build the case for this
 location performing well.
 
 ### `"location_scores"` Messages
 
-`"location_scores"` messages are transmitted once the sum total of all metrics have been run across an entire location. 
+`"location_scores"` messages are transmitted once the sum total of all metrics have been run across an entire location.
 These messages may look like:
 
 ```json
@@ -397,18 +397,18 @@ These messages may look like:
 }
 ```
 
-They show what metrics were run across what thresholds for what location. Like the above example in the `metric` 
-message section, we see values for `"False Alarm Ratio"`, but we also see the data for every other metric. 
-As above, we see that `"False Alarm Ratio"` performed very well, along with `"Probability of Detection"`. Despite this, 
-there was poor performance for the `"Kling-Gupta Efficiency"`, the `"Normalized Nash-Sutcliffe Efficiency"`, 
-and the `"Pearson Correlation Coefficient"`. This is unfortunate since the significance of these poorly performing 
-metrics (with weights of `15`, `15`, and `18`, respectively) are greater than the two well performing metrics 
-(with weights of `10` and `10`). As a result, the overall scaled value for this location was ~`0.6238284`, 
+They show what metrics were run across what thresholds for what location. Like the above example in the `metric`
+message section, we see values for `"False Alarm Ratio"`, but we also see the data for every other metric.
+As above, we see that `"False Alarm Ratio"` performed very well, along with `"Probability of Detection"`. Despite this,
+there was poor performance for the `"Kling-Gupta Efficiency"`, the `"Normalized Nash-Sutcliffe Efficiency"`,
+and the `"Pearson Correlation Coefficient"`. This is unfortunate since the significance of these poorly performing
+metrics (with weights of `15`, `15`, and `18`, respectively) are greater than the two well performing metrics
+(with weights of `10` and `10`). As a result, the overall scaled value for this location was ~`0.6238284`,
 resulting in a grade of ~`62.38%`, otherwise considered as a `D-` in academic letter grades.
 
-This location did __not__ perform well based on our defined decision matrix. A different matrix weighing the two 
-better performing metrics at a __much__ high level of significance and the three poorly performing metrics at a 
-__much__ lower level of significance may communicate a better overall performance for this location under this 
+This location did __not__ perform well based on our defined decision matrix. A different matrix weighing the two
+better performing metrics at a __much__ high level of significance and the three poorly performing metrics at a
+__much__ lower level of significance may communicate a better overall performance for this location under this
 different interpretation context.
 
 ### `evaluation_scores` Messages
@@ -813,6 +813,6 @@ different interpretation context.
 }
 ```
 
-Despite some organizational differences, these messages contain all the data from the `location_scores` messages 
-wrapped up in one package, complete with extra metadata, such as additional details describing individual metrics. 
+Despite some organizational differences, these messages contain all the data from the `location_scores` messages
+wrapped up in one package, complete with extra metadata, such as additional details describing individual metrics.
 This message is sent exactly once per evaluation, at the very end.

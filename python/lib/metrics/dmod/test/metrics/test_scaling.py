@@ -10,7 +10,7 @@ EPSILON = float(os.environ.get('METRIC_EPSILON')) if os.environ.get("METRIC_EPSI
 The distance there may be between two numbers and still considered equal
 
     Example:
-        Function A might produce 84.232323232 and another function may produce 84.2323. Those numbers aren't exactly the 
+        Function A might produce 84.232323232 and another function may produce 84.2323. Those numbers aren't exactly the
         same but are similar enough for our purposes.
 
 The smaller the number the greater the precision.

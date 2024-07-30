@@ -53,11 +53,11 @@ class TemplateView(MessageView[_REQUEST_TYPE, _RESPONSE_TYPE], abc.ABC, typing.G
     def __init__(self, *args, manager_factory: ManagerFactory = None, **kwargs):
         super().__init__(*args, **kwargs)
         self.manager_factory = manager_factory or self.__class__.default_manager_factory
-    
+
     @abc.abstractmethod
     def process_templates(self, manager: TemplateManager, message: _REQUEST_TYPE, **path_parameters) -> _RESPONSE_TYPE:
         ...
-    
+
     def handle_message(
         self,
         message: _REQUEST_TYPE,
@@ -67,7 +67,7 @@ class TemplateView(MessageView[_REQUEST_TYPE, _RESPONSE_TYPE], abc.ABC, typing.G
             self.manager_factory(),
             message=message,
             **path_parameters
-        )        
+        )
 
 
 class GetTemplateSpecificationTypes(
@@ -79,7 +79,7 @@ class GetTemplateSpecificationTypes(
     @classmethod
     def get_request_type(cls) -> typing.Type[templates.GetTemplateSpecificationTypesRequest]:
         return templates.GetTemplateSpecificationTypesRequest
-    
+
     def process_templates(
         self,
         manager: TemplateManager,
@@ -108,7 +108,7 @@ class SearchTemplates(
     @classmethod
     def get_request_type(cls) -> typing.Type[templates.SearchTemplatesRequest]:
         return templates.SearchTemplatesRequest
-    
+
     def process_templates(
         self,
         manager: TemplateManager,
@@ -143,7 +143,7 @@ class GetAllTemplates(
     @classmethod
     def get_request_type(cls) -> typing.Type[templates.GetAllTemplatesRequest]:
         return templates.GetAllTemplatesRequest
-    
+
     def process_templates(
         self,
         manager: TemplateManager,
@@ -169,7 +169,7 @@ class GetTemplate(
     @classmethod
     def get_request_type(cls) -> typing.Type[templates.GetTemplateRequest]:
         return templates.GetTemplateRequest
-    
+
     def process_templates(
         self,
         manager: TemplateManager,
@@ -202,7 +202,7 @@ class GetTemplateByID(
     @classmethod
     def get_request_type(cls) -> typing.Type[templates.GetTemplateByIDRequest]:
         return templates.GetTemplateByIDRequest
-    
+
     def process_templates(
         self,
         manager: TemplateManager,

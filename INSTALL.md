@@ -20,7 +20,7 @@ Detailed instructions on how to install, configure, and get the project running.
 
 ## Local Environment Configuration
 
-Each local deployment and/or development environment requires its own configuration be set up in order to function properly.  This is currently done via a local environment file.  
+Each local deployment and/or development environment requires its own configuration be set up in order to function properly.  This is currently done via a local environment file.
 
 Because of its custom nature and potentially sensitive contents, local environment configs should never be committed to the Git repo.  As such, one must be custom built for a given environment.
 
@@ -40,12 +40,12 @@ The environment config can also be created by copying the [example.env](example.
 
 ## Creating Required Docker Networks
 
-A Docker-Swarm-based DMOD deployment currently requires [several Docker networks](#about-the-required-docker-networks) be set up for different communication with and between the services and job workers.  These networks are set up automatically by the `.scripts/control_stack.sh` tool, based on values in the [local environment config](#local-environment-configuration).  
+A Docker-Swarm-based DMOD deployment currently requires [several Docker networks](#about-the-required-docker-networks) be set up for different communication with and between the services and job workers.  These networks are set up automatically by the `.scripts/control_stack.sh` tool, based on values in the [local environment config](#local-environment-configuration).
 
 Network config values (and possibly, a [manually constructed config-only network](#special-options-for-mpi-worker-network)) should be set up before running the control script.  However, the networks can be manually removed and re-created, either manually or automatically on subsequent script execution.
 
 ### Special Options for MPI Worker Network
-Special options are available for the MPI worker network to support higher performance via the MACVLAN network driver.  These are `DOCKER_MPI_NET_USE_CONFIG` and `DOCKER_MPI_NET_VXLAN_ID`.  
+Special options are available for the MPI worker network to support higher performance via the MACVLAN network driver.  These are `DOCKER_MPI_NET_USE_CONFIG` and `DOCKER_MPI_NET_VXLAN_ID`.
 
 To utilize this, a user must first *manually* create a Docker config-only network (essentially, pre-stage the config).  This is done by adding the `--config-only` flag to `docker network create`, along with the other required args.  The name of this config must also match the network name in `DOCKER_MPI_NET_NAME`, with the suffix of `-config` appended.
 
@@ -55,7 +55,7 @@ If `DOCKER_MPI_NET_USE_CONFIG=true`, the MPI worker network will be created usin
 
 The networks are:
 
-- (MPI) Job Worker Network 
+- (MPI) Job Worker Network
   - Purpose: job worker communication, with other workers or something external (e.g., object store data source)
   - Default name: `mpi-net`
 - Requests Network
@@ -96,9 +96,9 @@ Note that the `local/` directory is primarily for tests, rather than a service.
 
 As illustrated, each service sub-directory must then contain two files:
 
-* _certificate.pem_ 
-  * the actual SSL certificate 
-* _privkey.pem_ 
+* _certificate.pem_
+  * the actual SSL certificate
+* _privkey.pem_
   * the private key used to create the certificate
 
 ### Setting Up Directories and Certificates
@@ -117,7 +117,7 @@ See the `./scripts/gen_certs.sh --help` for more details on the scripts options.
 > Users are always free to manually create the directory structure and obtain (or individually create with `gen_certs.sh`) the required certificate files.
 
 > [!IMPORTANT]
-> Users must configure the deployment environment properly, such that `DMOD_SSL_DIR` in the config points to the aforementioned top-level directory. 
+> Users must configure the deployment environment properly, such that `DMOD_SSL_DIR` in the config points to the aforementioned top-level directory.
 
 ## Create Job Worker SSH Keys
 The job worker containers require SSH keys in order to communicate with each other during an MPI job.  The location of these is configurable in the local environment, specifically under `DOCKER_BASE_IMAGE_SSH_HOST_DIR` and `DOCKER_NGEN_IMAGE_SSH_HOST_DIR`.
@@ -128,17 +128,17 @@ The `./scripts/control_stack.sh` script will automatically create directories an
 
 ## Installing Python and Path Verification
 
-As noted in the [dependencies](doc/DEPENDENCIES.md), Python, the Python development package, and Pip should be installed in the appropriate manner for your environment.  
+As noted in the [dependencies](doc/DEPENDENCIES.md), Python, the Python development package, and Pip should be installed in the appropriate manner for your environment.
 
 ### Different Python Executable Names
 It is quite common for the Python executables to be named `python3`, `python311`, `pip3`, etc. in the *global* Python environment, instead of just `python` and `pip`.  This is accounted for when [creating a virtual environment](#using-a-virtual-environment), provided the right Python command was used to create it.  Users not doing this should consider setting up shell aliases, symlinks in their path, or some other mechanism to ensure `python` and `pip` execute the desired versions appropriately.
 
 > [!NOTE]
-> DMOD components and documentation may assume use of `python` or `pip`. 
+> DMOD components and documentation may assume use of `python` or `pip`.
 
 ## Using a Virtual Environment
 
-It is recommended that contributors use a Python virtual environment if they intend to do development on the Python source code used by the project.  This is not an absolute requirement, but typically is appropriate. 
+It is recommended that contributors use a Python virtual environment if they intend to do development on the Python source code used by the project.  This is not an absolute requirement, but typically is appropriate.
 
 ```bash
 # Typically it's best to run this from within the local DMOD repo directory
@@ -152,15 +152,15 @@ The project is tested to work with environments created by the `venv` module.  A
 
 ## Python Packages and Dependencies
 
-The internal project packages have several external dependencies.  Some are "standard" dependencies, while others are required for building package distribution files.  
+The internal project packages have several external dependencies.  Some are "standard" dependencies, while others are required for building package distribution files.
 
-Additionally, there are dependency relationships between several of the internal project packages.  As such, to develop (and especially to test) reliably, internal packages also need to be installed in the local Python environment.  
+Additionally, there are dependency relationships between several of the internal project packages.  As such, to develop (and especially to test) reliably, internal packages also need to be installed in the local Python environment.
 
 ### Using `update_package.sh` for Dependencies and Internal Packages
 
-For simplicity, the [scripts/update_package.sh](scripts/update_package.sh) Bash script can help with all of this automatically.  If not passed a specific package source directory, it will build and install all internally developed Python packages.  
+For simplicity, the [scripts/update_package.sh](scripts/update_package.sh) Bash script can help with all of this automatically.  If not passed a specific package source directory, it will build and install all internally developed Python packages.
 
-This script also has options for first installing dependencies from the [requirements.txt](requirements.txt) file, either as an independent task or before proceeding to build and install the appropriate internal Python package(s).  
+This script also has options for first installing dependencies from the [requirements.txt](requirements.txt) file, either as an independent task or before proceeding to build and install the appropriate internal Python package(s).
 
 See its _help_/_usage_ message for more details.
 

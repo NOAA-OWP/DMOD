@@ -1,6 +1,6 @@
 # Dependencies
 
-The DMOD project has two related sets of dependencies: 
+The DMOD project has two related sets of dependencies:
 
 * those needed to run and use a DMOD deployment
 * those needed for development work
@@ -29,6 +29,6 @@ The DMOD project has two related sets of dependencies:
 ## Dependency Caveats
 The strictness of these dependencies can vary in different situations, in a way that is hard to define concisely.  E.g., one could probably avoid installing Bash by manually performing all the tasks handled by Bash scripts [^1].  Also, OpenSSL is not needed (locally) if all required SSL certificates can be provided from elsewhere.  And somewhat related:  multi-node deployments probably don't need ***all*** dependencies on the non-primary node(s).
 
-As a general rule, however, it is highly recommended to begin by installing all documented dependencies, until a user understands where and why any exception applies.  
+As a general rule, however, it is highly recommended to begin by installing all documented dependencies, until a user understands where and why any exception applies.
 
 [^1]: Or, even better, by writing other automation tools, which could then be contributed :-)

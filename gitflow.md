@@ -45,7 +45,7 @@ When changes are made to a file and ready for committing, then use these git com
 
     git add <file>
     git commit -m “meaningful commit message here”
-    
+
 If multiple files need to be associated with a single commit (this should be rare) then you can add multiple files with
 `git add <file1> <file2> <fileN>`
 
@@ -60,7 +60,7 @@ Next we want to rebase the new work onto the development branch. To rebase local
     git checkout featureA
     git rebase develop
 
-OR 
+OR
 `git rebase develop featureA`
 
 Once the rebase is complete and conflicts are resolved, the develop branch can be fast forwarded to include all the local changes.  This is done by

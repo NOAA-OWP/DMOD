@@ -37,27 +37,27 @@ To work with the repo and contribute changes, the basic process is as follows:
 
 ### Getting Started With Your Fork
 
-After creating a fork in Github, clone a local development repo from the fork.  This should make the fork a remote for that local repo, typically named **origin**.  
+After creating a fork in Github, clone a local development repo from the fork.  This should make the fork a remote for that local repo, typically named **origin**.
 
 Add the main DMOD repo as a second remote for the local clone. The standard convention, used here and elsewhere, is to name that remote `upstream`.  Doing the addition will look something like:
 
-    # Add the remote 
+    # Add the remote
     git remote add upstream https://github.com/NOAA-OWP/DMOD.git
-        
+
     # Verify
     git remote -v
 
-Set up a local user and email in the local repo's configuration.  
-    
+Set up a local user and email in the local repo's configuration.
+
     cd local_repo_directory
     git config user.name "John Doe"
     git config user.email "john@doe.org"
-    
+
 Alternatively, one could also set these in the machine's global Git config (or rely upon the global settings if already configured).
 
      git config --global user.name "John Doe"
      git config --global user.email "john@doe.org"
-     
+
 ### Fork Consistency Requirements
 
 Within a local repo and personal fork, users are mostly free to do whatever branching strategy works for them.  However, a branch used for a pull request typically should be (re)based on the `HEAD` commit of the current OWP `upstream/master` branch, to ensure the repo history remains consistent.
@@ -65,8 +65,8 @@ Within a local repo and personal fork, users are mostly free to do whatever bran
 ### Fork Setup Suggestions
 
 Note that while this setup is not strictly required, examples and instructions in this document may assume its use.
-    
-Maintain a personal `master` branch, on any local development clones and within a personal fork, just as [a place to rebase changes from `upstream/master`](#getting-upstream-changes).  Do not do any development work or add any commits to these directly.  Just keep these as a "clean," current copy of the `upstream/master` branch.  
+
+Maintain a personal `master` branch, on any local development clones and within a personal fork, just as [a place to rebase changes from `upstream/master`](#getting-upstream-changes).  Do not do any development work or add any commits to these directly.  Just keep these as a "clean," current copy of the `upstream/master` branch.
 
 Use separate feature branches for development work as appropriate.  When preparing to make a PR, making sure the branch is both up to date with `upstream/master` and has all the desired local changes.
 
@@ -82,7 +82,7 @@ Clean up above mentioned PR branches regularly (i.e., once their changes get inc
 - [Fixing Diverging Development Branches](#fixing-diverging-development-branches)
 
 
-To remain consistent with changes to the official OWP DMOD repo (i.e., the **upstream** repo), a developer will need to regularly synchronize with it.  This requires having an `upstream` remote configured, as described in the section on [getting started with your fork and local repo](#getting-started-with-your-fork).  
+To remain consistent with changes to the official OWP DMOD repo (i.e., the **upstream** repo), a developer will need to regularly synchronize with it.  This requires having an `upstream` remote configured, as described in the section on [getting started with your fork and local repo](#getting-started-with-your-fork).
 
 ### A Rebase Strategy
 
@@ -93,29 +93,29 @@ The development team for DMOD uses a *rebase* strategy for integrating code chan
 
 When it is time to check for or apply updates to a personal fork and/or a local repo, check out the local `master` branch and do fetch-and-rebase, which can be done with `pull` and the `--rebase` option:
 
-    # Checkout local master branch 
+    # Checkout local master branch
     git checkout master
-    
+
     # Fetch and rebase changes
     git pull --rebase upstream master
-    
+
 Then, make sure these get pushed to the personal fork. Assuming a typical setup where a developer has cloned from a fork, and still has `master` checked out, that is just:
 
     # Note the assumptions mentioned above that are required for this syntax
     git push
 
-Depending on individual setup, a developer may want to do this immediately (e.g., if the `master` branch is "clean", as [discussed in the forking suggestions](#fork-setup-suggestions)), or wait until the local `master` is in a state ready to push to the personal fork. 
+Depending on individual setup, a developer may want to do this immediately (e.g., if the `master` branch is "clean", as [discussed in the forking suggestions](#fork-setup-suggestions)), or wait until the local `master` is in a state ready to push to the personal fork.
 
-### Rebasing Development Branches    
-    
-When the steps in [Getting Upstream Changes](#getting-upstream-changes) do bring in new commits that update `master`, rebase any local development branches were previously created. E.g., 
+### Rebasing Development Branches
+
+When the steps in [Getting Upstream Changes](#getting-upstream-changes) do bring in new commits that update `master`, rebase any local development branches were previously created. E.g.,
 
     # If using a development branch named 'dev'
     git checkout dev
     git rebase master
 
 See documentation on [the "git rebase" command](https://git-scm.com/docs/git-rebase) for more details.
-    
+
 #### Interactive Rebasing
 
 It is possible to have more control over rebasing by doing an interactive rebase.  E.g.:
@@ -123,14 +123,13 @@ It is possible to have more control over rebasing by doing an interactive rebase
     git rebase -i master
 
 This will open up a text editor allowing for reordering, squashing, dropping, etc., development branch commits prior to rebasing them onto the new base commit from `master`.  See the [**Interactive Mode**](https://git-scm.com/docs/git-rebase#_interactive_mode) section on the rebase command  for more details.
-    
+
 ### Fixing Diverging Development Branches
 
 If a local development branch is already pushed to a remote fork, and then later rebasing the local branch is necessary, doing so will cause the histories to diverge.  For simple cases, the fix is to just force-push the rebased local branch.
 
     # To force-push to fix a divergent branch
     git push -f origin dev
-    
+
 However, extra care is needed if multiple developers may be using the branch in the fork (e.g., a developer is collaborating with someone else on a large set of changes for some new feature).  The particular considerations and best ways to go about things in such cases are outside the scope of this document.  Consult Git's documentation and Google, or contact another contributor for advice.
 
-     

@@ -341,7 +341,7 @@ class AbstractDataCollectionDomainDetector(AbstractDomainDetector, Generic[U], A
         self._collection_name: Optional[str] = collection_name
         """
         Optional name for collection, which is important when domains involve a ``data_id`` restriction.
-        
+
         Note that **IFF** the data collection is a :class:`Dataset` object **AND** the passed ``collection_name`` param
         is ``None``, then this attribute will be set to the ``name`` attribute of the dataset collection itself.
         """

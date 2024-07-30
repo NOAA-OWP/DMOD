@@ -127,10 +127,10 @@ async function submit_evaluation(event) {
     }
 
     let editorData = window.DMOD.code.getCodeView("editor");
-    
+
     const instructions = editorData.view.getValue();
     const evaluationName = document.getElementById("evaluation_id").value;
-    
+
     await window.DMOD.evaluation.client.launch(evaluationName, instructions);
 
     if (!editorData.view.getOption("readonly")) {

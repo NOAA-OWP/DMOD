@@ -11,7 +11,7 @@
 **Description:** The subtype of ::class:`Response` appropriate for ::class:`MetadataMessage` objects.
 
 <details>
-<summary><strong> <a name="success"></a>1. [Required] Property MetadataResponse > success</strong>  
+<summary><strong> <a name="success"></a>1. [Required] Property MetadataResponse > success</strong>
 
 </summary>
 <blockquote>
@@ -29,7 +29,7 @@
 </details>
 
 <details>
-<summary><strong> <a name="reason"></a>2. [Required] Property MetadataResponse > reason</strong>  
+<summary><strong> <a name="reason"></a>2. [Required] Property MetadataResponse > reason</strong>
 
 </summary>
 <blockquote>
@@ -47,7 +47,7 @@
 </details>
 
 <details>
-<summary><strong> <a name="message"></a>3. [Optional] Property MetadataResponse > message</strong>  
+<summary><strong> <a name="message"></a>3. [Optional] Property MetadataResponse > message</strong>
 
 </summary>
 <blockquote>
@@ -66,7 +66,7 @@
 </details>
 
 <details>
-<summary><strong> <a name="data"></a>4. [Required] Property MetadataResponse > data</strong>  
+<summary><strong> <a name="data"></a>4. [Required] Property MetadataResponse > data</strong>
 
 </summary>
 <blockquote>
@@ -120,7 +120,7 @@ class User(Serializable):
 ```
 
 <details>
-<summary><strong> <a name="data_purpose"></a>4.1. [Required] Property MetadataResponse > data > purpose</strong>  
+<summary><strong> <a name="data_purpose"></a>4.1. [Required] Property MetadataResponse > data > purpose</strong>
 
 </summary>
 <blockquote>
@@ -144,7 +144,7 @@ Must be one of:
 </details>
 
 <details>
-<summary><strong> <a name="data_additional_metadata"></a>4.2. [Optional] Property MetadataResponse > data > additional_metadata</strong>  
+<summary><strong> <a name="data_additional_metadata"></a>4.2. [Optional] Property MetadataResponse > data > additional_metadata</strong>
 
 </summary>
 <blockquote>
@@ -163,7 +163,7 @@ Must be one of:
 </details>
 
 <details>
-<summary><strong> <a name="data_connection_id"></a>4.3. [Optional] Property MetadataResponse > data > connection_id</strong>  
+<summary><strong> <a name="data_connection_id"></a>4.3. [Optional] Property MetadataResponse > data > connection_id</strong>
 
 </summary>
 <blockquote>

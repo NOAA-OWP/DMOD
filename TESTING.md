@@ -49,14 +49,14 @@ Additionally, it is possible to optionally create package-specific `.test_env` f
 ## Test Sources Directories
 
 For namespace packages, automated unit and integration test files live in a `test` sub-package/directory under the parent namespace directory (i.e., `dmod/`).  This will be a sibling to the main package source directory. Something like:
-    
+
     python/
         lib/
             access/
                 dmod/
                     access/
                     test/
-                    
+
 ## Automated Integration Testing Environment Services Setup/Teardown
 
 There can often be test environment management tasks for integration testing that don't need to (or even that expressly should not) follow the typical "setup, exec test method, teardown" convention used in unit testing. An example could be setup/teardown of a Redis instance in a testing environment.  It would likely be excessive to follow the typical unit test convention:
@@ -64,7 +64,7 @@ There can often be test environment management tasks for integration testing tha
 * setup up _Redis instance 1_
 * run `integration_test_method_1()`
 * teardown _Redis instance 1_
-* setup up _Redis instance 2_ 
+* setup up _Redis instance 2_
 * run `integration_test_method_2()`
 * teardown _Redis instance 2_
 * etc.
@@ -91,12 +91,12 @@ The `test_package.sh` allows for easily running all the tests for a supplied nam
 E.g. to execute unit tests for the communication package, run (from the project root):
 
     ./scripts/test_package.sh lib/communication
-    
+
 ### `run_tests.sh`
 
-The `run_tests.sh` allows for running all unit tests or all integration tests for all of a configured group of supported packages, displaying either just a summary or more verbose output on test performance.  See the `-h` help option for more usage details.  
+The `run_tests.sh` allows for running all unit tests or all integration tests for all of a configured group of supported packages, displaying either just a summary or more verbose output on test performance.  See the `-h` help option for more usage details.
 
 E.g. to run all unit tests on supported packages and display a summary:
 
-    ./scripts/run_tests.sh 
+    ./scripts/run_tests.sh
 

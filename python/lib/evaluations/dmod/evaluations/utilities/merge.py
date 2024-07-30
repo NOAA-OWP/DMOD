@@ -101,10 +101,10 @@ class MergeConditions(ActionConditions):
     ):
         self.types_are_the_same = types_are_the_same
         """Both values have the same type"""
-        
+
         self.both_are_none = both_are_none
         """Both values are none"""
-        
+
         self.only_one_is_none = only_one_is_none
         """One out of the two values is None"""
 
@@ -1022,7 +1022,7 @@ MERGE_ACTION = typing.Callable[
     typing.Any
 ]
 """
-An action used two merge two values based on metadata about both variables, how to react to conflicts, 
+An action used two merge two values based on metadata about both variables, how to react to conflicts,
 and an optional path to the data in the data being merged
 """
 
@@ -1050,7 +1050,7 @@ def create_dictionary_merger(strategy: ConflictStrategy = None) -> Merger:
 
 DictionaryMerger = create_dictionary_merger()
 """
-Instance of a Merger specifically built to merge complex dictionaries. 
+Instance of a Merger specifically built to merge complex dictionaries.
 Merging will fail if the dictionary schema will need to change to accommodate new values.
 """
 

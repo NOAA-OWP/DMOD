@@ -1,6 +1,6 @@
 
 class MaaSDataCatalog:
-	
+
 	def __init__(self, sources : list, start_dates : map, stop_dates : map, variables : map):
 		"""
 		Parameters
@@ -13,7 +13,7 @@ class MaaSDataCatalog:
 		:rtype: object
 
 		"""
-	
+
 		self.data_sources = sources
 		self.start_dates = start_dates
 		self.stop_dates = stop_dates

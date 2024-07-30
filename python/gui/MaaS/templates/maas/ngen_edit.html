@@ -83,7 +83,7 @@
                 max-width: 450px;
             }
 
- 
+
 
 
             .column {
@@ -115,7 +115,7 @@
     <h3>{{ catchment }} </h3>
 
   <div class="row">
-  <div class="column left">   
+  <div class="column left">
 
     <form action="." method="post" id="request-form">
         {# Add the token to provide cross site request forgery protection #}
@@ -144,41 +144,41 @@ $(document).ready(function () {
             $('#sl-vars').remove()
             $("br").remove()
 
-            $('#sr1_l').remove()  
-            $('#sr1').remove()   
+            $('#sr1_l').remove()
+            $('#sr1').remove()
 
-            $('#sr2_l').remove()  
-            $('#sr2').remove()   
+            $('#sr2_l').remove()
+            $('#sr2').remove()
 
-            $('#sr3_l').remove()  
-            $('#sr3').remove()   
+            $('#sr3_l').remove()
+            $('#sr3').remove()
 
-            $('#storage_l').remove()  
-            $('#storage').remove()   
+            $('#storage_l').remove()
+            $('#storage').remove()
 
-            $('#max_storage_l').remove()  
-            $('#max_storage').remove()   
+            $('#max_storage_l').remove()
+            $('#max_storage').remove()
 
-            $('#a_l').remove()  
-            $('#a').remove()   
+            $('#a_l').remove()
+            $('#a').remove()
 
-            $('#b_l').remove()  
-            $('#b').remove()   
+            $('#b_l').remove()
+            $('#b').remove()
 
-            $('#Ks_l').remove()  
-            $('#Ks').remove()   
+            $('#Ks_l').remove()
+            $('#Ks').remove()
 
-            $('#Kq_l').remove()  
-            $('#Kq').remove()   
+            $('#Kq_l').remove()
+            $('#Kq').remove()
 
-            $('#n_l').remove()  
-            $('#n').remove()   
+            $('#n_l').remove()
+            $('#n').remove()
 
-            $('#t_l').remove()  
-            $('#t').remove()   
+            $('#t_l').remove()
+            $('#t').remove()
 
-            $('#forcing_path_l').remove()  
-            $('#forcing_path').remove()  
+            $('#forcing_path_l').remove()
+            $('#forcing_path').remove()
 
             $('#standard-vars').append('<div id="cfe-vars"> <h4>CFE Parameters:</h4> </div>')
             $('#standard-vars').append('<label id="maxsmc_l" for="maxsmc">maxsmc:</label>')
@@ -273,72 +273,72 @@ $(document).ready(function () {
 
         } else if (val == "Simple_Lumped") {
             $('#cfe-vars').remove()
-            $('#maxsmc_l').remove()  
-            $('#maxsmc').remove()   
-         
-            $('#wltsmc_l').remove()  
-            $('#wltsmc').remove()   
+            $('#maxsmc_l').remove()
+            $('#maxsmc').remove()
+
+            $('#wltsmc_l').remove()
+            $('#wltsmc').remove()
             $("br").remove()
 
-            $('#satdk_l').remove()  
-            $('#satdk').remove()  
+            $('#satdk_l').remove()
+            $('#satdk').remove()
 
-            $('#satpsi_l').remove()  
-            $('#satpsi').remove()  
+            $('#satpsi_l').remove()
+            $('#satpsi').remove()
 
-            $('#slope_l').remove()  
-            $('#slope').remove()  
+            $('#slope_l').remove()
+            $('#slope').remove()
 
-            $('#scaled_distribution_fn_shape_parameter_l').remove()  
-            $('#scaled_distribution_fn_shape_parameter').remove()  
+            $('#scaled_distribution_fn_shape_parameter_l').remove()
+            $('#scaled_distribution_fn_shape_parameter').remove()
 
-            $('#multiplier_l').remove()  
-            $('#multiplier').remove()  
+            $('#multiplier_l').remove()
+            $('#multiplier').remove()
 
-            $('#alpha_fc_l').remove()  
-            $('#alpha_fc').remove()  
+            $('#alpha_fc_l').remove()
+            $('#alpha_fc').remove()
 
-            $('#Klf_l').remove()  
-            $('#Klf').remove()  
+            $('#Klf_l').remove()
+            $('#Klf').remove()
 
-            $('#Kn_l').remove()  
-            $('#Kn').remove()  
+            $('#Kn_l').remove()
+            $('#Kn').remove()
 
-            $('#nash_n_l').remove()  
-            $('#nash_n').remove()  
+            $('#nash_n_l').remove()
+            $('#nash_n').remove()
 
-            $('#Cgw_l').remove()  
-            $('#Cgw').remove()  
+            $('#Cgw_l').remove()
+            $('#Cgw').remove()
 
-            $('#expon_l').remove()  
-            $('#expon').remove()  
+            $('#expon_l').remove()
+            $('#expon').remove()
 
-            $('#max_groundwater_storage_meters_l').remove()  
-            $('#max_groundwater_storage_meters').remove()  
+            $('#max_groundwater_storage_meters_l').remove()
+            $('#max_groundwater_storage_meters').remove()
 
-            $('#nash_storage1_l').remove()  
-            $('#nash_storage1').remove()  
+            $('#nash_storage1_l').remove()
+            $('#nash_storage1').remove()
 
-            $('#nash_storage2_l').remove()  
-            $('#nash_storage2').remove()  
+            $('#nash_storage2_l').remove()
+            $('#nash_storage2').remove()
 
-            $('#soil_storage_percentage_l').remove()  
-            $('#soil_storage_percentage').remove()  
+            $('#soil_storage_percentage_l').remove()
+            $('#soil_storage_percentage').remove()
 
-            $('#groundwater_storage_percentage_l').remove()  
-            $('#groundwater_storage_percentage').remove()  
+            $('#groundwater_storage_percentage_l').remove()
+            $('#groundwater_storage_percentage').remove()
 
-            $('#timestep_l').remove()  
-            $('#timestep').remove()  
+            $('#timestep_l').remove()
+            $('#timestep').remove()
 
-            $('#giuh_path_l').remove()  
-            $('#giuh_path').remove()  
+            $('#giuh_path_l').remove()
+            $('#giuh_path').remove()
 
-            $('#crosswalk_path_l').remove()  
-            $('#crosswalk_path').remove()  
+            $('#crosswalk_path_l').remove()
+            $('#crosswalk_path').remove()
 
-            $('#forcing_path_l').remove()  
-            $('#forcing_path').remove()  
+            $('#forcing_path_l').remove()
+            $('#forcing_path').remove()
 
             $('#standard-vars').append('<div id="sl-vars"> <h4>Simple Lumped Parameters:</h4> </div>')
 
@@ -390,7 +390,7 @@ $(document).ready(function () {
             $('#standard-vars').append('<input name="forcing_path" id="forcing_path" type="text" style="float: right; text-align: right;" >')
             $('#standard-vars').append('<br>')
 
-        }        
+        }
     });
 });
 </script>

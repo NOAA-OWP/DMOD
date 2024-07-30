@@ -1,5 +1,5 @@
 """
-Provides an easy interface for retrieving redis connections without the 
+Provides an easy interface for retrieving redis connections without the
 need for indepth knowledge of how to use redis
 """
 import typing

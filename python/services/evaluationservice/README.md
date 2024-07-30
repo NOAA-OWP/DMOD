@@ -6,9 +6,9 @@ order to evaluate existing model data.
 
 There are four primary components.
 
-The first component is the worker, found at `worker.py`. This script may be called from the terminal, from another 
-process, or as a direct module. This component is responsible for actually carrying out evaluations. Given a 
-configuration defined in `dmod.evaluations`, it will call all necessary functions needed to call the code in 
+The first component is the worker, found at `worker.py`. This script may be called from the terminal, from another
+process, or as a direct module. This component is responsible for actually carrying out evaluations. Given a
+configuration defined in `dmod.evaluations`, it will call all necessary functions needed to call the code in
 `dmod.evaluations` and save the output as desired.
 
 Next is the service itself. As of 2022-07-25, it has 8 primary views:
@@ -17,7 +17,7 @@ Next is the service itself. As of 2022-07-25, it has 8 primary views:
 2. The evaluation builder, which is a page that allows a user submit a `dmod.evaluations` configuration for evaluation.
    This is a testing view - the api and *not* the builder page should be use for running evaluations. This is a page
    you can view in your browser
-3. Get Output - navigating to the output page will combine any generated evaluation output and send it to the client 
+3. Get Output - navigating to the output page will combine any generated evaluation output and send it to the client
    for download. This is **not** a standard web page and instead performs server side operations.
 4. Launch - **the launch view is the primary service used to launch evaluations.** The builder page calls this page as
    well. Upon invocation, this view will return JSON detailing the name of the channel/evaluation that was generated,
@@ -28,22 +28,22 @@ Next is the service itself. As of 2022-07-25, it has 8 primary views:
    in real time. Despite being provided for evaluation output, it may be used to show *any* channels' messages in \
    real-time as long as they come in through service's redis instance
 
-Next is the runner, found in `runner.py`. This listens to the service and will launch evaluation processes. 
+Next is the runner, found in `runner.py`. This listens to the service and will launch evaluation processes.
 The runner requires specialized closing procedures. See below for more details.
 
-Lastly, there is the redis server. While it is used primarily for communication, it may be probed for diagnostic 
+Lastly, there is the redis server. While it is used primarily for communication, it may be probed for diagnostic
 information, such as the status of an evaluation and logged messages.
 
 ## How to Run
 
 ### Without a deployment
 
-When running the evaluation service on a personal environment, such as a laptop, the only things that are needed are 
-for the libraries to be installed, redis running, the redis queue worker running, and the django server running. 
-The redis default host is `localhost`, the default port is `6379`, and there is no default password. 
-Examples down below pass arguments to redis commands to ensure that all of those values are present and connected 
-to the right object. If the default values are to be used, there is no need to add `--port 6379` to `redis-server` 
-or to add either `-h localhost`, `-p 6379`, or `-a` to `redis-cli`.  
+When running the evaluation service on a personal environment, such as a laptop, the only things that are needed are
+for the libraries to be installed, redis running, the redis queue worker running, and the django server running.
+The redis default host is `localhost`, the default port is `6379`, and there is no default password.
+Examples down below pass arguments to redis commands to ensure that all of those values are present and connected
+to the right object. If the default values are to be used, there is no need to add `--port 6379` to `redis-server`
+or to add either `-h localhost`, `-p 6379`, or `-a` to `redis-cli`.
 
 This just requires:
 
@@ -53,7 +53,7 @@ redis-server --port <port> --daemonize yes
 
 # If the redis server needs to run elsewhere, it must be started there
 
-# Start the runner; this will create a process that will listen out for messages indefinitely. print statements from 
+# Start the runner; this will create a process that will listen out for messages indefinitely. print statements from
 # the runner will be printed to stdout
 python runner.py &
 
@@ -61,7 +61,7 @@ python runner.py &
 python manage.py runserver 127.0.0.1:9781
 ```
 
-This will launch the redis server, the redis queue worker, and the django server in the background, with the server 
+This will launch the redis server, the redis queue worker, and the django server in the background, with the server
 being accessible at http://127.0.0.1:9781.
 
 Alternatively, each may be run in separate terminals, which is the easiest way to go for monitoring and debugging.
@@ -84,7 +84,7 @@ python manage.py runserver 127.0.0.1:9781
 
 Separating the three commands into three terminals lets you see each application's stdout in real time.
 
-It may also help to have yet another terminal open and connected to the redis instance. This may be launched by 
+It may also help to have yet another terminal open and connected to the redis instance. This may be launched by
 entering:
 
 **Terminal 4:**
@@ -97,11 +97,11 @@ redis-cli -h <host> -p <port> -a <password>
 
 ### With a deployment
 
-Deploying the server is similar but requires a few more things. First, the environment variable `REDIS_HOST` will 
-need to be set. DMOD generally has a redis container named `myredis` at the address `redis` on the docker stack, 
-so setting `REDIS_HOST=redis` *should* do the trick. If that's used, however, the correct credentials will also need 
-to be included. By default, the system will attempt to get credentials via a docker secrets file dictated by the 
-environment variable `REDIS_PASSWORD_FILE`, which is `/run/secrets/myredis_pass` by default. If that file is not 
+Deploying the server is similar but requires a few more things. First, the environment variable `REDIS_HOST` will
+need to be set. DMOD generally has a redis container named `myredis` at the address `redis` on the docker stack,
+so setting `REDIS_HOST=redis` *should* do the trick. If that's used, however, the correct credentials will also need
+to be included. By default, the system will attempt to get credentials via a docker secrets file dictated by the
+environment variable `REDIS_PASSWORD_FILE`, which is `/run/secrets/myredis_pass` by default. If that file is not
 present, it will fall back to the string dictated by the environment variable `REDIS_PASS`. If nothing is present,
 it will attempt an empty password, which is the default for redis.
 
@@ -125,11 +125,11 @@ using `kill_runner.py`, which will contact the same instance that the `runner` u
 Similarly, the following can be called from the command line to close the runner:
 
 ```shell
-redis-cli -h <instance host> -p <instance port> -a <instance password> publish <channel name> '{"purpose": "close"}' 
+redis-cli -h <instance host> -p <instance port> -a <instance password> publish <channel name> '{"purpose": "close"}'
 ```
 
-As above, the values of `-h`, `-p`, and `-a` are only necessary if they are not the default 
-(`localhost`, `6379`, and none, respectively). This will send a message and close all runners listening to that 
+As above, the values of `-h`, `-p`, and `-a` are only necessary if they are not the default
+(`localhost`, `6379`, and none, respectively). This will send a message and close all runners listening to that
 channel for instruction.
 
 Lastly, the commands `kill <pid>` and `kill -2 <pid>` may be used from the terminal to kill the application.
@@ -139,7 +139,7 @@ the process.
 
 ## Environment Variables
 
-There are a score of environment variables that may be utilized, though their configuration is not require. 
+There are a score of environment variables that may be utilized, though their configuration is not require.
 Configuration is only needed if slightly different behavior is desired, such as redis credentials and queue names.
 
 
@@ -157,8 +157,8 @@ Configuration is only needed if slightly different behavior is desired, such as 
         <tr>
             <td><code>EVALUATION_VERBOSITY</code></td>
             <td>
-                Controls how much data should be sent through the internal broadcasting mechanism. 
-                `QUIET` sends **no** data through the channel, `ALL` will send all raw data through the channel. 
+                Controls how much data should be sent through the internal broadcasting mechanism.
+                `QUIET` sends **no** data through the channel, `ALL` will send all raw data through the channel.
                 Case-insensitive.
             </td>
             <td>
@@ -179,7 +179,7 @@ Configuration is only needed if slightly different behavior is desired, such as 
         <tr>
             <td><code>EVALUATION_START_DELAY</code></td>
             <td>
-                The number of seconds to delay an evaluation. Helps give a little bit of time for a monitor to attach 
+                The number of seconds to delay an evaluation. Helps give a little bit of time for a monitor to attach
                 prior to processing
             </td>
             <td>
@@ -210,7 +210,7 @@ Configuration is only needed if slightly different behavior is desired, such as 
         <tr>
             <td><code>REDIS_PASSWORD_FILE</code></td>
             <td>
-                The path to a file containing the password to the targetted redis instance  
+                The path to a file containing the password to the targetted redis instance
                 (intended, but not required to be a docker secret)
             </td>
             <td>
@@ -270,9 +270,9 @@ Configuration is only needed if slightly different behavior is desired, such as 
         <tr>
             <td><code>REDIS_HOST</code></td>
             <td>
-                The address of the redis instance to connect to. In a docker environment, this should be set to either 
-                a dedicated redis address or the name of the desired redis container on the common docker network. 
-                Unless that container has been onfigured to have a different name on the network, it <b>should</b> just 
+                The address of the redis instance to connect to. In a docker environment, this should be set to either
+                a dedicated redis address or the name of the desired redis container on the common docker network.
+                Unless that container has been onfigured to have a different name on the network, it <b>should</b> just
                 be the name of the container, such as <code>myredis</code>
             </td>
             <td>
@@ -303,7 +303,7 @@ Configuration is only needed if slightly different behavior is desired, such as 
         <tr>
             <td><code>RQ_HOST</code></td>
             <td>
-                The address of the redis instance that manages worker executions. This is only needed if a 
+                The address of the redis instance that manages worker executions. This is only needed if a
                 redis instance other than the base instance needs to be used.
             </td>
             <td>
@@ -318,7 +318,7 @@ Configuration is only needed if slightly different behavior is desired, such as 
         <tr>
             <td><code>RQ_PORT</code></td>
             <td>
-                The port of the redis instance that manages worker executions. This is only needed if a 
+                The port of the redis instance that manages worker executions. This is only needed if a
                 redis instance other than the base instance needs to be used.
             </td>
             <td>
@@ -333,7 +333,7 @@ Configuration is only needed if slightly different behavior is desired, such as 
         <tr>
             <td><code>RQ_PASSWORD</code></td>
             <td>
-                The password of the redis instance that manages worker executions. This is only needed if a 
+                The password of the redis instance that manages worker executions. This is only needed if a
                 redis instance other than the base instance needs to be used.
             </td>
             <td>
@@ -348,7 +348,7 @@ Configuration is only needed if slightly different behavior is desired, such as 
         <tr>
             <td><code>CHANNEL_HOST</code></td>
             <td>
-                The address of the redis instance that hosts needed communication channels. This is only needed if a 
+                The address of the redis instance that hosts needed communication channels. This is only needed if a
                 redis instance other than the base instance needs to be used.
             </td>
             <td>
@@ -363,7 +363,7 @@ Configuration is only needed if slightly different behavior is desired, such as 
         <tr>
             <td><code>CHANNEL_PORT</code></td>
             <td>
-                The port of the redis instance that hosts needed communication channels. This is only needed if a 
+                The port of the redis instance that hosts needed communication channels. This is only needed if a
                 redis instance other than the base instance needs to be used.
             </td>
             <td>
@@ -409,7 +409,7 @@ Configuration is only needed if slightly different behavior is desired, such as 
             <td><code>EVALUATION_SERVICE_LOG_LEVEL</code></td>
             <td>
                 The name of the python log level that serves as the minimum level. If <code>WARNING</code> is designated,
-               only messages of level <code>WARNING</code> and up will be written (<code>WARNING</code>, 
+               only messages of level <code>WARNING</code> and up will be written (<code>WARNING</code>,
                <code>ERROR</code>, and <code>CRITICAL</code>).
             </td>
             <td>
@@ -432,9 +432,9 @@ Configuration is only needed if slightly different behavior is desired, such as 
         <tr>
             <td><code>EVALUATION_SERVICE_SOCKET_LOG_LEVEL</code></td>
             <td>
-               The name of the python log level that serves as the minimum level for log messages for asynchronous 
+               The name of the python log level that serves as the minimum level for log messages for asynchronous
                socket processing. If <code>WARNING</code> is designated,
-               only messages of level <code>WARNING</code> and up will be written (<code>WARNING</code>, 
+               only messages of level <code>WARNING</code> and up will be written (<code>WARNING</code>,
                <code>ERROR</code>, and <code>CRITICAL</code>).
             </td>
             <td>
@@ -487,9 +487,9 @@ Configuration is only needed if slightly different behavior is desired, such as 
         <tr>
             <td><code>MAXIMUM_LOG_SIZE</code></td>
             <td>
-               The maximum size that log files may be if rotating logs are used. The unit is in megabytes if none 
-               are indicated. The range of acceptable values are from [1KB, 1TB). Using anything a gigabyte or higher 
-               is not advised. Indicated sizes less than 1KB are upgraded to 1KB. Anything described as being in a 
+               The maximum size that log files may be if rotating logs are used. The unit is in megabytes if none
+               are indicated. The range of acceptable values are from [1KB, 1TB). Using anything a gigabyte or higher
+               is not advised. Indicated sizes less than 1KB are upgraded to 1KB. Anything described as being in a
                unit other than B, KB, MB, or GB will be expressed in MB.
             </td>
             <td>
@@ -520,10 +520,10 @@ Configuration is only needed if slightly different behavior is desired, such as 
         <tr>
             <td><code>DEFAULT_LOG_HANDLER</code></td>
             <td>
-               The default logging handler class to use when writing logged messages. See the 
-               <a href="https://docs.python.org/3/library/logging.html">Python logging documentation</a> and the 
-               <a href="https://docs.python.org/3/library/logging.handlers.html">Python Log Handler documentation</a> 
-               for options. 
+               The default logging handler class to use when writing logged messages. See the
+               <a href="https://docs.python.org/3/library/logging.html">Python logging documentation</a> and the
+               <a href="https://docs.python.org/3/library/logging.handlers.html">Python Log Handler documentation</a>
+               for options.
             </td>
             <td>
                <code>logging.FileHandler</code>, <code>logging.handlers.SocketHandler</code>
@@ -544,7 +544,7 @@ Configuration is only needed if slightly different behavior is desired, such as 
                <code>10.3.9.88</code>, <code>https://logging.example.com/logging/host</code>
             </td>
             <td>
-               ❓; Only if a logger is used that requires it, such as <code>SocketHandler</code>, 
+               ❓; Only if a logger is used that requires it, such as <code>SocketHandler</code>,
                <code>DatagramHandler</code>, or <code>HttpHandler</code>
             </td>
             <td>
@@ -559,7 +559,7 @@ Configuration is only needed if slightly different behavior is desired, such as 
                <code>10.3.9.88</code>, <code>https://logging.example.com/logging/host</code>
             </td>
             <td>
-               ❓; Only if a logger is used that requires it, such as <code>SocketHandler</code>, 
+               ❓; Only if a logger is used that requires it, such as <code>SocketHandler</code>,
                <code>DatagramHandler</code>, or <code>HttpHandler</code>
             </td>
             <td>
@@ -568,7 +568,7 @@ Configuration is only needed if slightly different behavior is desired, such as 
         <tr>
             <td><code>LOG_FORMAT</code></td>
             <td>
-               The formatting string detailing how logs should be written. Formatting options may be found in the 
+               The formatting string detailing how logs should be written. Formatting options may be found in the
                [Python logging documentation](https://docs.python.org/3/library/logging.html#logrecord-attributes)
             </td>
             <td>
@@ -584,7 +584,7 @@ Configuration is only needed if slightly different behavior is desired, such as 
         <tr>
             <td><code>LOG_DATEFMT</code></td>
             <td>
-               The format for how time should be represented throughout the service. Formatting options may be found 
+               The format for how time should be represented throughout the service. Formatting options may be found
                in the [Python `datetime` documentation](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes).
             </td>
             <td>
@@ -600,7 +600,7 @@ Configuration is only needed if slightly different behavior is desired, such as 
         <tr>
             <td><code>LOGGING_CONFIGURATION</code></td>
             <td>
-               The path to a detailed configuration file for an advanced logging setup. Configuration from this 
+               The path to a detailed configuration file for an advanced logging setup. Configuration from this
                optional file takes precedence over all else.
                See the [Python logging documentation](https://docs.python.org/3/library/logging.config.html#configuration-file-format)
                for details.
@@ -632,7 +632,7 @@ Configuration is only needed if slightly different behavior is desired, such as 
         <tr>
             <td><code>EVALUATION_SUNSET</code></td>
             <td>
-               The time in seconds that redis entries have left to live after the system deciding that they no longer 
+               The time in seconds that redis entries have left to live after the system deciding that they no longer
                need to be present
             </td>
             <td>
@@ -648,7 +648,7 @@ Configuration is only needed if slightly different behavior is desired, such as 
         <tr>
             <td><code>UNCHECKED_EVALUATION_LIFESPAN</code></td>
             <td>
-               The time in seconds that redis entries should be present before being removed. This ensures that keys 
+               The time in seconds that redis entries should be present before being removed. This ensures that keys
                are removed in the case a cleanup action never occurs.
             </td>
             <td>
@@ -679,7 +679,7 @@ Configuration is only needed if slightly different behavior is desired, such as 
         <tr>
             <td><code>REDIS_OUTPUT_KEY</code></td>
             <td>
-               The key for a redis hash that contains variables describing how output should be processed. 
+               The key for a redis hash that contains variables describing how output should be processed.
                See the "Dynamic Environment Variables" section for details
             </td>
             <td>
@@ -711,15 +711,15 @@ Configuration is only needed if slightly different behavior is desired, such as 
 
 ## Dynamic Environment Variables
 
-The evaluation service supports "dynamic environment" variables. This means that accessible, non-application variables 
-may be set for the application to use for guidance. These may be set one of two ways - as undocumented environment 
-variables or through a redis instance. The environment variable `USE_ENVIRONMENT` indicates that dynamic environment 
+The evaluation service supports "dynamic environment" variables. This means that accessible, non-application variables
+may be set for the application to use for guidance. These may be set one of two ways - as undocumented environment
+variables or through a redis instance. The environment variable `USE_ENVIRONMENT` indicates that dynamic environment
 variables stored within the actual environment are ok to be used. If set to a `True` value (`1`, `on`, `true`, `yes`),
-any environment variable prepended by `MAAS::EVALUATION::OUTPUT::` will be read and possibly used to 
+any environment variable prepended by `MAAS::EVALUATION::OUTPUT::` will be read and possibly used to
 configure parameters for output manipulation. These values may be things like `MAAS::EVALUATION::OUTPUT::output_writer`,
-which will be read by the service writing code to determine what sort of evaluation writer to use when writing output. 
-Any unique parameters that that writer may need to know will also be used if included as a dynamic variable, 
-regardless of dynamic variable source. These values may also be accepted from a redis hash if the `REDIS_OUTPUT_KEY` 
+which will be read by the service writing code to determine what sort of evaluation writer to use when writing output.
+Any unique parameters that that writer may need to know will also be used if included as a dynamic variable,
+regardless of dynamic variable source. These values may also be accepted from a redis hash if the `REDIS_OUTPUT_KEY`
 environment variable is also set to a valid hash value. All values within the indicated hash may be used as parameters.
 Given the hash:
 ```json
@@ -728,17 +728,17 @@ Given the hash:
       "destination": "/path/to/output/destination/directory"
    }
 ```
-   
-The `output_writer` and `destination` variables will be available will be available for use. 
-These values will take precedence over standard environment variables. Given the above hash, if 
-`MAAS::EVALUATION::OUTPUT::output_writer=JSONWriter` is also set, `output_writer` will still be considered as 
+
+The `output_writer` and `destination` variables will be available will be available for use.
+These values will take precedence over standard environment variables. Given the above hash, if
+`MAAS::EVALUATION::OUTPUT::output_writer=JSONWriter` is also set, `output_writer` will still be considered as
 `NetcdfWriter`.  Please see `dmod.evaluations` to see options for what may be set.
 
 ## Templates
 
-Templates are powerful building blocks belonging to the Evaluation Service that may be used to build evaluation 
-configurations. While each instance of the evaluation service may have its own definitions, a common set may be 
-found in `common_templates.sqlite`. 
+Templates are powerful building blocks belonging to the Evaluation Service that may be used to build evaluation
+configurations. While each instance of the evaluation service may have its own definitions, a common set may be
+found in `common_templates.sqlite`.
 
 Running the following command will import the data into the servcie:
 

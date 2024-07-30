@@ -40,8 +40,8 @@ class DefaultJobUtilFactory:
         JobManager
             A newly created ::class:`JobUtil` object.
         """
-        return RedisBackedJobUtil(redis_host=kwargs.get('redis_host'), 
-                                  redis_port=kwargs.get('redis_port'), 
+        return RedisBackedJobUtil(redis_host=kwargs.get('redis_host'),
+                                  redis_port=kwargs.get('redis_port'),
                                   redis_pass=kwargs.get('redis_pass'))
 
 

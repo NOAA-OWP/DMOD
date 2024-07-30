@@ -556,8 +556,8 @@ class RedisBackedJobManager(JobManager, RedisBackedJobUtil):
                     job_obj.rsa_key_pair.delete_key_files()
                     return True
                 except BaseException as exception:
-                    most_recent_exception = exception                    
-        
+                    most_recent_exception = exception
+
         # If we get here, it means we failed the max allowed times, so bail
         logging.error(f"The job with ID '{job_id}' could not be deleted", exc_info=most_recent_exception)
         return False

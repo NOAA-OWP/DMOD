@@ -20,4 +20,4 @@ tmp_domain=/nwm/domains/tmp_${req_id}
 mkdir -p $tmp_domain
 ln -s $domain_location/example_case/NWM/* $tmp_domain/
 
-sudo /usr/sbin/sshd -D 
+sudo /usr/sbin/sshd -D

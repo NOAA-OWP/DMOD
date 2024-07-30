@@ -8,7 +8,7 @@ import typing
 
 CHOICES = typing.List[typing.Tuple[str, str]]
 """
-A list of tuples, the first entry being the value stored in the database, 
+A list of tuples, the first entry being the value stored in the database,
 the second entry being the value provided to the user
 """
 

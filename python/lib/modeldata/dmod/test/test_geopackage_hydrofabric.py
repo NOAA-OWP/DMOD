@@ -221,7 +221,7 @@ class TestGeoPackageHydrofabric(AbstractGeoPackageHydrofabricTester):
         cat_id = 'cat-10'
 
         hydrofabric = self.hydrofabric_ex[ex_index]
-        
+
         self.assertTrue(hydrofabric.is_catchment_recognized(catchment_id=cat_id))
 
     def test_is_catchment_recognized_1_b(self):

@@ -60,5 +60,5 @@ class Crosswalk(APIView):
             with open(path) as fp:
                 data = json.load(fp)
                 return JsonResponse(data)
-        except: 
+        except:
             return JsonResponse({})

@@ -48,7 +48,7 @@ data : `.Session` or `.FailedSessionInitInfo`
     For successful requests, the session object; for failures, the failure info object
 
 <details>
-<summary><strong> <a name="success"></a>1. [Required] Property SessionInitResponse > success</strong>  
+<summary><strong> <a name="success"></a>1. [Required] Property SessionInitResponse > success</strong>
 
 </summary>
 <blockquote>
@@ -66,7 +66,7 @@ data : `.Session` or `.FailedSessionInitInfo`
 </details>
 
 <details>
-<summary><strong> <a name="reason"></a>2. [Required] Property SessionInitResponse > reason</strong>  
+<summary><strong> <a name="reason"></a>2. [Required] Property SessionInitResponse > reason</strong>
 
 </summary>
 <blockquote>
@@ -84,7 +84,7 @@ data : `.Session` or `.FailedSessionInitInfo`
 </details>
 
 <details>
-<summary><strong> <a name="message"></a>3. [Optional] Property SessionInitResponse > message</strong>  
+<summary><strong> <a name="message"></a>3. [Optional] Property SessionInitResponse > message</strong>
 
 </summary>
 <blockquote>
@@ -103,7 +103,7 @@ data : `.Session` or `.FailedSessionInitInfo`
 </details>
 
 <details>
-<summary><strong> <a name="data"></a>4. [Required] Property SessionInitResponse > data</strong>  
+<summary><strong> <a name="data"></a>4. [Required] Property SessionInitResponse > data</strong>
 
 </summary>
 <blockquote>
@@ -139,7 +139,7 @@ data : `.Session` or `.FailedSessionInitInfo`
 be made, and potentially other communication may take place.
 
 <details>
-<summary><strong> <a name="data_anyOf_i0_session_id"></a>4.1.1. [Required] Property SessionInitResponse > data > anyOf > FullAuthSession > session_id</strong>  
+<summary><strong> <a name="data_anyOf_i0_session_id"></a>4.1.1. [Required] Property SessionInitResponse > data > anyOf > FullAuthSession > session_id</strong>
 
 </summary>
 <blockquote>
@@ -157,7 +157,7 @@ be made, and potentially other communication may take place.
 </details>
 
 <details>
-<summary><strong> <a name="data_anyOf_i0_session_secret"></a>4.1.2. [Optional] Property SessionInitResponse > data > anyOf > FullAuthSession > session_secret</strong>  
+<summary><strong> <a name="data_anyOf_i0_session_secret"></a>4.1.2. [Optional] Property SessionInitResponse > data > anyOf > FullAuthSession > session_secret</strong>
 
 </summary>
 <blockquote>
@@ -180,7 +180,7 @@ be made, and potentially other communication may take place.
 </details>
 
 <details>
-<summary><strong> <a name="data_anyOf_i0_created"></a>4.1.3. [Optional] Property SessionInitResponse > data > anyOf > FullAuthSession > created</strong>  
+<summary><strong> <a name="data_anyOf_i0_created"></a>4.1.3. [Optional] Property SessionInitResponse > data > anyOf > FullAuthSession > created</strong>
 
 </summary>
 <blockquote>
@@ -199,7 +199,7 @@ be made, and potentially other communication may take place.
 </details>
 
 <details>
-<summary><strong> <a name="data_anyOf_i0_last_accessed"></a>4.1.4. [Optional] Property SessionInitResponse > data > anyOf > FullAuthSession > last_accessed</strong>  
+<summary><strong> <a name="data_anyOf_i0_last_accessed"></a>4.1.4. [Optional] Property SessionInitResponse > data > anyOf > FullAuthSession > last_accessed</strong>
 
 </summary>
 <blockquote>
@@ -216,7 +216,7 @@ be made, and potentially other communication may take place.
 </details>
 
 <details>
-<summary><strong> <a name="data_anyOf_i0_ip_address"></a>4.1.5. [Required] Property SessionInitResponse > data > anyOf > FullAuthSession > ip_address</strong>  
+<summary><strong> <a name="data_anyOf_i0_ip_address"></a>4.1.5. [Required] Property SessionInitResponse > data > anyOf > FullAuthSession > ip_address</strong>
 
 </summary>
 <blockquote>
@@ -232,7 +232,7 @@ be made, and potentially other communication may take place.
 </details>
 
 <details>
-<summary><strong> <a name="data_anyOf_i0_user"></a>4.1.6. [Optional] Property SessionInitResponse > data > anyOf > FullAuthSession > user</strong>  
+<summary><strong> <a name="data_anyOf_i0_user"></a>4.1.6. [Optional] Property SessionInitResponse > data > anyOf > FullAuthSession > user</strong>
 
 </summary>
 <blockquote>
@@ -264,7 +264,7 @@ be made, and potentially other communication may take place.
 be made, and potentially other communication may take place.
 
 <details>
-<summary><strong> <a name="data_anyOf_i1_session_id"></a>4.2.1. [Required] Property SessionInitResponse > data > anyOf > Session > session_id</strong>  
+<summary><strong> <a name="data_anyOf_i1_session_id"></a>4.2.1. [Required] Property SessionInitResponse > data > anyOf > Session > session_id</strong>
 
 </summary>
 <blockquote>
@@ -282,7 +282,7 @@ be made, and potentially other communication may take place.
 </details>
 
 <details>
-<summary><strong> <a name="data_anyOf_i1_session_secret"></a>4.2.2. [Optional] Property SessionInitResponse > data > anyOf > Session > session_secret</strong>  
+<summary><strong> <a name="data_anyOf_i1_session_secret"></a>4.2.2. [Optional] Property SessionInitResponse > data > anyOf > Session > session_secret</strong>
 
 </summary>
 <blockquote>
@@ -305,7 +305,7 @@ be made, and potentially other communication may take place.
 </details>
 
 <details>
-<summary><strong> <a name="data_anyOf_i1_created"></a>4.2.3. [Optional] Property SessionInitResponse > data > anyOf > Session > created</strong>  
+<summary><strong> <a name="data_anyOf_i1_created"></a>4.2.3. [Optional] Property SessionInitResponse > data > anyOf > Session > created</strong>
 
 </summary>
 <blockquote>
@@ -324,7 +324,7 @@ be made, and potentially other communication may take place.
 </details>
 
 <details>
-<summary><strong> <a name="data_anyOf_i1_last_accessed"></a>4.2.4. [Optional] Property SessionInitResponse > data > anyOf > Session > last_accessed</strong>  
+<summary><strong> <a name="data_anyOf_i1_last_accessed"></a>4.2.4. [Optional] Property SessionInitResponse > data > anyOf > Session > last_accessed</strong>
 
 </summary>
 <blockquote>
@@ -356,7 +356,7 @@ be made, and potentially other communication may take place.
 successfully init a session.
 
 <details>
-<summary><strong> <a name="data_anyOf_i2_user"></a>4.3.1. [Required] Property SessionInitResponse > data > anyOf > FailedSessionInitInfo > user</strong>  
+<summary><strong> <a name="data_anyOf_i2_user"></a>4.3.1. [Required] Property SessionInitResponse > data > anyOf > FailedSessionInitInfo > user</strong>
 
 </summary>
 <blockquote>
@@ -372,7 +372,7 @@ successfully init a session.
 </details>
 
 <details>
-<summary><strong> <a name="data_anyOf_i2_reason"></a>4.3.2. [Optional] Property SessionInitResponse > data > anyOf > FailedSessionInitInfo > reason</strong>  
+<summary><strong> <a name="data_anyOf_i2_reason"></a>4.3.2. [Optional] Property SessionInitResponse > data > anyOf > FailedSessionInitInfo > reason</strong>
 
 </summary>
 <blockquote>
@@ -401,7 +401,7 @@ Must be one of:
 </details>
 
 <details>
-<summary><strong> <a name="data_anyOf_i2_fail_time"></a>4.3.3. [Optional] Property SessionInitResponse > data > anyOf > FailedSessionInitInfo > fail_time</strong>  
+<summary><strong> <a name="data_anyOf_i2_fail_time"></a>4.3.3. [Optional] Property SessionInitResponse > data > anyOf > FailedSessionInitInfo > fail_time</strong>
 
 </summary>
 <blockquote>
@@ -418,7 +418,7 @@ Must be one of:
 </details>
 
 <details>
-<summary><strong> <a name="data_anyOf_i2_details"></a>4.3.4. [Optional] Property SessionInitResponse > data > anyOf > FailedSessionInitInfo > details</strong>  
+<summary><strong> <a name="data_anyOf_i2_details"></a>4.3.4. [Optional] Property SessionInitResponse > data > anyOf > FailedSessionInitInfo > details</strong>
 
 </summary>
 <blockquote>
