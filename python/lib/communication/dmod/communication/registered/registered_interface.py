@@ -383,5 +383,3 @@ class RegisteredWebSocketInterface(WebSocketInterface, abc.ABC):
             except:
                 # THe message is a nicety - it's not a big deal if it doesn't go through
                 pass
-
-

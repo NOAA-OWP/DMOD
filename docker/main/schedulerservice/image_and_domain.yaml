@@ -28,4 +28,3 @@ ngen:
   output:
     local: 'docker_host_volumes/output'
     run: '/ngen/output'
-

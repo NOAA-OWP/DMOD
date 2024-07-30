@@ -18,5 +18,3 @@ class MaaSDataCatalogReader:
         variables = json_data['variables']
 
         self.catalog = MaaSDataCatalog(data_sources, start_dates, stop_dates, variables)
-
-

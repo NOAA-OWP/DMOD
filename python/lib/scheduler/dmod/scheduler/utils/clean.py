@@ -36,4 +36,3 @@ if __name__ == "__main__":
     main(sys.argv[1])
   else:
     print("Wrong number of args, specify the key prefix")
-

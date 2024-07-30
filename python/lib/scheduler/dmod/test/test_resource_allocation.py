@@ -154,5 +154,3 @@ class TestResourceAllocation(unittest.TestCase):
 
         result = example_allocation.to_dict()
         self.assertEqual(datetime.datetime.fromtimestamp(result['Created']), example_allocation.created)
-
-

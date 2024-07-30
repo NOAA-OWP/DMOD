@@ -204,5 +204,3 @@ def deprecated(deprecation_message: str):
         return wrapper
 
     return function_to_deprecate
-
-

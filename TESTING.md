@@ -99,4 +99,3 @@ The `run_tests.sh` allows for running all unit tests or all integration tests fo
 E.g. to run all unit tests on supported packages and display a summary:
 
     ./scripts/run_tests.sh
-

@@ -323,4 +323,3 @@ class SubsetHandler:
         """
         description = self._validator.invalid_reason(subset)
         return description is None, description
-

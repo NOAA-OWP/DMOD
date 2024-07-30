@@ -147,4 +147,3 @@ class DMODObjectServer(managers.Server):
                 util.info(' ... exception was %r', e)
                 conn.close()
                 sys.exit(1)
-

@@ -1101,4 +1101,3 @@ class DuplexRequestHandler(EndOperations, ActionGet, BaseDuplexHandler):
             print(message)
 
         return response
-

@@ -82,4 +82,3 @@ secrets:
     file: ${DMOD_OBJECT_STORE_EXEC_USER_PASSWD_SECRET_FILE:?}
   exec_user_name:
     file: ${DMOD_OBJECT_STORE_EXEC_USER_NAME_SECRET_FILE:?}
-

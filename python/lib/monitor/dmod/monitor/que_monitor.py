@@ -448,4 +448,3 @@ class RedisDockerSwarmMonitor(DockerSwarmMonitor, RedisBackedMonitor):
             redis_pass=redis_pass,
             **kwargs
         )
-

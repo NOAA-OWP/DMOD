@@ -74,4 +74,3 @@ class AsyncServiceInterface(ABC):
         Wait for current tasks to finish, cancel all others, and shutdown the service.
         """
         pass
-

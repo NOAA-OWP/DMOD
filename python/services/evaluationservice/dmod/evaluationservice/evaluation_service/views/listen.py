@@ -20,4 +20,3 @@ class Listen(View):
             "channel_route": f"/ws/channel/{channel_name}"
         }
         return render(request, template_name=self.template, context=context)
-

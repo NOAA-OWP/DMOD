@@ -29,6 +29,3 @@ class TestClientConfig(unittest.TestCase):
         cfg_obj = self._test_configs[ex_idx]
 
         self.assertEqual(cfg_obj.request_service.endpoint_protocol, "wss")
-
-
-

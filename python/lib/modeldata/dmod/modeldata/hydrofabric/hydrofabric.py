@@ -1190,4 +1190,3 @@ class GeoJsonHydrofabric(MappedGraphHydrofabric):
     @property
     def geojson_reader(self) -> GeoJsonHydrofabricReader:
         return self._graph_creator
-

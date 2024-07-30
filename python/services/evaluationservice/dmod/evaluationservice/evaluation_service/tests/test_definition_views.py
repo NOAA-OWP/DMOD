@@ -376,7 +376,3 @@ class DefinitionViewTest(TestCase):
         post_data = post_response.json()
         self.assertEqual(post_data['definition_id'], 6)
         self.assertEqual(post_data['title'], new_title)
-
-
-
-

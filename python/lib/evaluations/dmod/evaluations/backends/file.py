@@ -323,4 +323,3 @@ class FileBackend(backend.Backend):
         globbed_address = globbed_address.replace("\\", "")
 
         return globbed_address
-

@@ -34,4 +34,3 @@ class TestNetcdfWriting(TestCase):
         self.assertAlmostEqual(dataset.attrs['median'], 13.3616359, delta=EPSILON)
         self.assertAlmostEqual(dataset.attrs['standard_deviation'], 0.450631, delta=EPSILON)
         self.assertAlmostEqual(dataset.attrs['result'], 26.72327187164, delta=EPSILON)
-

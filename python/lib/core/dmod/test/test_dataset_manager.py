@@ -329,4 +329,3 @@ class TestDatasetManager(unittest.TestCase):
 
         self._manager.link_user(user=user, dataset=dataset)
         self.assertTrue(user.uuid in self._manager.get_user_ids_for_dataset(dataset_name=dataset.name))
-

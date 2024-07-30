@@ -137,4 +137,3 @@ class GetGeometryDatasets(APIView):
 
     def post(self, request: HttpRequest) -> JsonResponse:
         return JsonResponse(self._load_geometry_names(), safe=False)
-

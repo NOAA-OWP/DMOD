@@ -519,6 +519,3 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
                                   f"not save updated job state due to {e.__class__.__name__}: {e!s}")
             self._job_util.unlock_active_jobs(lock_id)
             await asyncio.sleep(5)
-
-
-

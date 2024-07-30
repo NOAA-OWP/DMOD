@@ -189,4 +189,3 @@ class DatasetInqueryUtil:
         """
         results = self._managers.known_datasets().keys()
         return sorted(results) if sort_result else results
-

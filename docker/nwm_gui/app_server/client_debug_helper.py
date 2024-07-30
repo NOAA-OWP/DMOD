@@ -19,5 +19,3 @@ try:
 except Exception as error:
     msg = 'Warning: could not set GUI debugging trace to {} on {} due to {} - {}'
     print(msg.format(debug_server, debug_port, error.__class__.__name__, str(error)))
-
-

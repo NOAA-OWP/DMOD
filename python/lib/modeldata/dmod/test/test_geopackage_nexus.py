@@ -71,4 +71,3 @@ class TestGeoPackageNexus(AbstractGeoPackageHydrofabricTester):
         actual_receiv = all_receiv[0]
 
         self.assertEqual(expected_receiv, actual_receiv)
-

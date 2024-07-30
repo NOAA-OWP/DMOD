@@ -525,4 +525,3 @@ class IntegrationTestObjectStoreDatasetManager(unittest.TestCase):
 
         self.assertEqual(self.manager.datasets[dataset_name].name, dataset_name)
         self.assertEqual(self.manager.datasets[dataset_name].category, self.examples[ex_num]['category'])
-

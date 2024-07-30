@@ -23,4 +23,3 @@ def get_consumer_by_client_name(client_name: str) -> typing.Optional[typing.Type
         for subclass in client_classes
     }
     return client_mapping.get(client_name)
-
