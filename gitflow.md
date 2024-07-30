@@ -39,6 +39,31 @@ OR
 
 Development work should commit frequently when changes are complete and meaningful.  If work requires modifying more than one file in the source, it is recommended to commit the changes independently to help avoid too large of conflicts if the occur.
 
+### Setting up `pre-commit` hooks
+
+[`pre-commit`](https://pre-commit.com/) is used to manage and install `git` pre-commit hooks.
+pre-commit hooks run automatically when `git commit` is invoked and perform checks on the code you are committing.
+Example checks are removing trailing white spaces, verifying that large files are not included, or running a code linting tool.
+Hooks are configured in the [`.pre-commit-config.yaml`](./.pre-commit-config.yaml) file in the root of the repo.
+
+`pre-commit` can be installed using a package manager (e.g. `brew install pre-commit`) or from `pip`.
+If you are to use `pip`, it is highly recommend to use a virtual environment.
+
+Install pre-commit hooks into your `git` clone by running:
+
+```shell
+pre-commit install
+```
+
+Hooks will now run when code is committed.
+Alternatively, you can run the pre-commit hooks manually via:
+
+```shell
+pre-commit run --all-files
+```
+
+For more information, see [`pre-commit`'s documentation](https://pre-commit.com/index.html).
+
 ### Commits
 
 When changes are made to a file and ready for committing, then use these git commands

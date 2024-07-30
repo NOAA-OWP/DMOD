@@ -128,7 +128,7 @@ The `./scripts/control_stack.sh` script will automatically create directories an
 
 ## Installing Python and Path Verification
 
-As noted in the [dependencies](doc/DEPENDENCIES.md), Python, the Python development package, and Pip should be installed in the appropriate manner for your environment.
+As noted in the [dependencies](doc/DEPENDENCIES.md), Python, the Python development package, Pip, and pre-commit should be installed in the appropriate manner for your environment.
 
 ### Different Python Executable Names
 It is quite common for the Python executables to be named `python3`, `python311`, `pip3`, etc. in the *global* Python environment, instead of just `python` and `pip`.  This is accounted for when [creating a virtual environment](#using-a-virtual-environment), provided the right Python command was used to create it.  Users not doing this should consider setting up shell aliases, symlinks in their path, or some other mechanism to ensure `python` and `pip` execute the desired versions appropriately.

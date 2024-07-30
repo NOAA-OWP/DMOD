@@ -25,6 +25,7 @@ The DMOD project has two related sets of dependencies:
 | Python Development Headers/Libs           | Analogous to installed Python version       | Required for building certain Python dependency wheels; e.g., *pandas*                                                                       |
 | C++ Compiler                              |        | Required for building certain Python dependency wheels; e.g., *pandas* |
 | Python Packages                           | See [requirements.txt](../requirements.txt) |           Recommend installing in Python virtual environment           |
+| pre-commit                                | See [.pre-commit-config.yaml](../.pre-commit-config.yaml) |           Recommend installing in Python virtual environment |
 
 ## Dependency Caveats
 The strictness of these dependencies can vary in different situations, in a way that is hard to define concisely.  E.g., one could probably avoid installing Bash by manually performing all the tasks handled by Bash scripts [^1].  Also, OpenSSL is not needed (locally) if all required SSL certificates can be provided from elsewhere.  And somewhat related:  multi-node deployments probably don't need ***all*** dependencies on the non-primary node(s).
