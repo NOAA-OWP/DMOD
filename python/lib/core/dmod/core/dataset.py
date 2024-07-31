@@ -32,7 +32,7 @@ class DataArchiving(PydanticEnum):
     TAR_BZIP2 = (3, ".tar.bz2")
     """ Tar archiving with bzip2 compression. """
     TAR_XZ = (4, ".tar.xz")
-    """ Tar archiving with bzip2 compression. """
+    """ Tar archiving with lzma compression. """
     ZIP_0 = (5, ".zip")
     """ Zip archiving with level 0 compression (i.e., no compression at all). """
     ZIP_6 = (6, ".zip")
