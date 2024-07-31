@@ -15,7 +15,7 @@ dependencies = [
     "dmod.scheduler>=0.13.0",
 ]
 readme = "README.md"
-description = ""
+description = "Service package for service responsible for managing job scheduling, execution, and resource management in the DMOD architecture."
 dynamic = ["version"]
 license = { text = "DOC" }
 requires-python = ">=3.8"

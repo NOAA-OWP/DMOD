@@ -27,7 +27,7 @@ dependencies = [
     "pyogrio",
 ]
 readme = "README.md"
-description = ""
+description = "Library package for classes related to forcing data, metadata, and other modeling-related data types and operations needed for tasks that can be executed within DMOD."
 dynamic = ["version"]
 license = { text = "DOC" }
 requires-python = ">=3.8"

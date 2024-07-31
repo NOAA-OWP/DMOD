@@ -22,7 +22,7 @@ dependencies = [
     "ngen-config@git+https://github.com/noaa-owp/ngen-cal@master#egg=ngen-config&subdirectory=python/ngen_conf",
 ]
 readme = "README.md"
-description = "Communications library package for components of the National Water Model as a Service architecture"
+description = "Communications library package for components of the DMOD architecture"
 dynamic = ["version"]
 license = { text = "DOC" }
 requires-python = ">=3.8"
