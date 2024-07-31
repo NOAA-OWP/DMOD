@@ -18,7 +18,7 @@ dependencies = [
     "dmod.externalrequests>=0.6.0",
 ]
 readme = "README.md"
-description = ""
+description = "Service package for service component receiving and handling external request within the DMOD architecture."
 dynamic = ["version"]
 license = { text = "DOC" }
 requires-python = ">=3.8"

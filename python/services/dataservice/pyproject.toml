@@ -21,7 +21,7 @@ dependencies = [
     "ngen-cal@git+https://github.com/noaa-owp/ngen-cal@master#egg=ngen-config&subdirectory=python/ngen_cal",
 ]
 readme = "README.md"
-description = ""
+description = "Service package for data management service within DMOD architecture."
 dynamic = ["version"]
 license = { text = "DOC" }
 requires-python = ">=3.8"
