@@ -13,7 +13,7 @@ authors = [
     { name = "Shengting Cui" },
 ]
 dependencies = [
-    "dmod.core>=0.17.0",
+    "dmod.core>=0.19.0",
     "websockets>=10.1",
     "jsonschema",
     "redis",
