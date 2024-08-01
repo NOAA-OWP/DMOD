@@ -68,7 +68,7 @@ class FromFilesInitialDataAdder(InitialDataAdder):
             elif not dest:
                 dest = path.relative_to(add_root)
 
-            if not self._dataset_manager.add_data(dataset_name=self._dataset_name, dest=dest, data=path.read_bytes(),
+            if not self._dataset_manager.add_data(dataset_name=self._dataset_name, dest=dest, data=io.open(path, "rb"),
                                                   domain=original_domain):
                 msg = f"{self.__class__.__name__} failed to add item {dest} under {str(self._source_path)}"
                 raise DmodRuntimeError(msg)
