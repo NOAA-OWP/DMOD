@@ -12,8 +12,8 @@ authors = [
 ]
 dependencies = [
     "websockets",
-    "dmod.core>=0.17.0",
-    "dmod.communication>=0.20.0",
+    "dmod.core>=0.19.0",
+    "dmod.communication>=0.21.0",
     "dmod.access>=0.2.0",
     "dmod.externalrequests>=0.6.0",
 ]
