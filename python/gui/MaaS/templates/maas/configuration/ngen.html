@@ -20,6 +20,10 @@
     <link rel="stylesheet" href="{% static 'maas/css/configuration/ngen.css' %}"/>
 {% endblock styles %}
 
+{% block bannercontent %}
+    <h1>Configuration</h1>
+{% endblock bannercontent %}
+
 {% block content %}
 <div id="content" style="padding: 5px;">
     <form id="configuration-wrapper" method="post" action="{% url 'MaaS:execute' %}">
