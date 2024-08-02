@@ -11,8 +11,9 @@ from django.shortcuts import render
 import logging
 logger = logging.getLogger("gui_log")
 
-from dmod.communication import Distribution, get_available_models, get_available_outputs, get_request, get_parameters, \
-    NWMRequestJsonValidator, NWMRequest, ExternalRequest, ExternalRequestResponse, ModelExecRequestClient, Scalar, MessageEventType
+from dmod.communication import (Distribution, get_available_models, get_available_outputs, get_request, get_parameters,
+                                NWMRequestJsonValidator, NWMRequest, ExternalRequest, ExternalRequestClient,
+                                ExternalRequestResponse, Scalar, MessageEventType)
 from pathlib import Path
 from typing import List, Optional, Tuple, Type
 
@@ -200,7 +201,7 @@ class ModelExecRequestFormProcessor(RequestFormProcessor):
         return self._maas_request
 
 
-class PostFormRequestClient(ModelExecRequestClient):
+class PostFormRequestClient(ExternalRequestClient):
     """
     A client for websocket interaction with the MaaS request handler as initiated by a POST form HTTP request.
     """
@@ -251,7 +252,7 @@ class PostFormRequestClient(ModelExecRequestClient):
             return self._session_id and self._session_secret and self._session_created
         else:
             logger.info("Session from {}: force_new={}".format(self.__class__.__name__, force_new))
-            tmp = self._acquire_new_session()
+            tmp = self._auth_client._acquire_session()
             logger.info("Session Info Return: {}".format(tmp))
             return tmp
 
@@ -259,7 +260,7 @@ class PostFormRequestClient(ModelExecRequestClient):
         pass
 
     def generate_request(self, form_proc_class: Type[RequestFormProcessor]) -> ExternalRequest:
-        self.form_proc = form_proc_class(post_request=self.http_request, maas_secret=self.session_secret)
+        self.form_proc = form_proc_class(post_request=self.http_request, maas_secret=self._auth_client._session_secret)
         return self.form_proc.maas_request
 
     @property
