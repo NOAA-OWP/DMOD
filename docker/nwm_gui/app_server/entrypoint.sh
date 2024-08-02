@@ -28,12 +28,12 @@ echo "Starting dmod app"
 #python manage.py migrate
 #########
 
-# Execute the migration scripts on the designated database
-#python manage.py migrate
-
 #Extract the DB secrets into correct ENV variables
 POSTGRES_SECRET_FILE="/run/secrets/${DOCKER_SECRET_POSTGRES_PASS:?}"
 export SQL_PASSWORD="$(cat ${POSTGRES_SECRET_FILE})"
+
+# Execute the migration scripts on the designated database
+python manage.py migrate
 
 # Handle for debugging when appropriate
 if [ "$(echo "${PYCHARM_REMOTE_DEBUG_ACTIVE:-false}" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')" == "true" ]; then
