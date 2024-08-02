@@ -42,30 +42,32 @@ class EditView(View, DMODMixin):
 
         models = list(communication.get_available_models().keys())
         domains = ['example-domain-A', 'example-domain-B'] #FIXME map this from supported domains
-        outputs = list()
-        distribution_types = list()
+        #outputs = list()
+        #distribution_types = list()
 
-        # Create a mapping between each output type and a friendly representation of it
-        for output in maas_request.get_available_outputs():
-            output_definition = dict()
-            output_definition['name'] = humanize(output)
-            output_definition['value'] = output
-            outputs.append(output_definition)
-
-        # Create a mapping between each distribution type and a friendly representation of it
-        for distribution_type in maas_request.get_distribution_types():
-            type_definition = dict()
-            type_definition['name'] = humanize(distribution_type)
-            type_definition['value'] = distribution_type
-            distribution_types.append(type_definition)
+        ### Note that these are now broken, and also probably no longer applicable
+        #
+        # # Create a mapping between each output type and a friendly representation of it
+        # for output in maas_request.get_available_outputs():
+        #     output_definition = dict()
+        #     output_definition['name'] = humanize(output)
+        #     output_definition['value'] = output
+        #     outputs.append(output_definition)
+        #
+        # # Create a mapping between each distribution type and a friendly representation of it
+        # for distribution_type in maas_request.get_distribution_types():
+        #     type_definition = dict()
+        #     type_definition['name'] = humanize(distribution_type)
+        #     type_definition['value'] = distribution_type
+        #     distribution_types.append(type_definition)
 
         # Package everything up to be rendered for the client
         payload = {
             'models': models,
             'domains': domains,
-            'outputs': outputs,
-            'parameters': maas_request.get_parameters(),
-            'distribution_types': distribution_types,
+            #'outputs': outputs,
+            #'parameters': maas_request.get_parameters(),
+            #'distribution_types': distribution_types,
             'errors': errors,
             'info': info,
             'warnings': warnings
