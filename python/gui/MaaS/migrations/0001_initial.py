@@ -10,9 +10,9 @@ class Migration(migrations.Migration):
     def create_superuser(apps, schema_editor):
         from django.contrib.auth.models import User
 
-        SU_NAME = os.environ.get('DMOD_SU_NAME')
-        SU_EMAIL = os.environ.get('DMOD_SU_EMAIL')
-        SU_PASSWORD = os.environ.get('DMOD_SU_PASSWORD')
+        SU_NAME = os.environ.get('DMOD_SU_NAME', "dmod_admin")
+        SU_EMAIL = os.environ.get('DMOD_SU_EMAIL', "dmod_admin@noaa.gov")
+        SU_PASSWORD = os.environ.get('DMOD_SU_PASSWORD', f"{SU_NAME}{os.environ.get('SQL_PASSWORD')}")
 
         superuser = User.objects.create_superuser(
             username=SU_NAME,
