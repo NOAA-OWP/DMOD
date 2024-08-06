@@ -92,7 +92,7 @@ jobs:
             _P_SIMPLE_NAME="`basename ${p}`"
             _P_MD5_FILE="package_md5s/${_P_SIMPLE_NAME}.md5"
             _P_EXPECTED_MD5="`find ${p} -type f -exec md5sum {} \; | sort -k 2 | md5sum`"
-            if [ -e ${p}/setup.py ]; then
+            if [ -e ${p}/pyproject.toml ]; then
               if [ '${{ steps.cache-python-venv.outputs.cache-hit }}' = 'true' ]; then
                 if [ -e ${_P_MD5_FILE} ]; then
                   if [ "`cat ${_P_MD5_FILE}`" = "${_P_EXPECTED_MD5}" ]; then
