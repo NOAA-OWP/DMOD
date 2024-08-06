@@ -74,7 +74,7 @@ jobs:
           deactivate
           export PROJECT_ROOT=$(pwd)
           echo ${PROJECT_ROOT}
-          ./scripts/update_package.sh --venv dmod_venv --no-service-packages --dependencies
+          ./scripts/update_package.sh --venv dmod_venv --dependencies
 
       - name: Cache Package Checksums
         id: cache-packages-md5
