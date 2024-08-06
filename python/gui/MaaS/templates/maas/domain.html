@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block styles %}
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+       integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+       crossorigin=""/>
+{% endblock styles %}
+
+{% block scripts %}
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+       integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+       crossorigin=""></script>
+    <script src="{% static 'common/js/map.js' %}"></script>
+    <script>
+        {% if center %}
+            var centerLine = [{{ center.0 }}, {{ center.1 }}];
+            console.log("Using passed center line");
+        {% else %}
+            var centerLine = [37.0902, -95.7129];
+        {% endif %}
+
+        var zoom = {{ zoom|default:6 }};
+
+        var mapUrl = "{{ mapUrl|default:"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" }}";
+
+        {% if attribution %}
+            var attribution = "{{ attribution }}";
+        {% else %}
+        var attribution = 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+        {% endif %}
+
+        var maxZoom = {{ max_zoom|default:18 }};
+
+        {% autoescape on %}
+        {% for layerUrl in layerUrls %}
+            layerUrls.push("{{ layerUrl }}");
+        {% endfor %}
+        {% endautoescape %}
+
+        {% if layerStyle %}
+            {% for style_name, value in layerStyle.items %}
+                startup_scripts.push(
+                    function() {
+                        layerStyle[style_name] = value;
+                    }
+                );
+            {% endfor %}
+        {% endif %}
+
+        {% if lineStyle %}
+            {% for style_name, value in lineStyle.items %}
+                startup_scripts.push(
+                    function() {
+                        lineStyle[style_name] = value;
+                    }
+                );
+            {% endfor %}
+        {% endif %}
+
+    </script>
+{% endblock scripts %}
+
+{% block content %}
+<div id="content" class="pane" style="overflow-y: auto; height: 75vh; margin: 20px">
+    <fieldset id="fabric-fields" style="width: fit-content">
+        <legend>Fabric</legend>
+        <select id="fabric-selector" onchange="loadFabric()"></select>
+        <select id="fabric-type-selector" onchange="loadFabric()"></select>
+    </fieldset>
+    <div id="mapid" style="width: {{ map_width|default:'95vw' }}; height: {{ map_height|default:'70vh' }}; margin: auto"></div>
+</div>
+
+{% include "data_pane.html" %}
+
+<form id="location-selection-form" method="post" style="display: none" action="{% url 'MaaS:create_config' %}">
+    {# Add the token to provide cross site request forgery protection #}
+    {% csrf_token %}
+    <input type="hidden" name="feature-ids" />
+    <input type="hidden" name="fabric" />
+
+    {% for pane_input in pane_inputs %}
+        <input type="hidden" name="{{ pane_input.id }}" id="{{ pane_input.id }}" >
+    {% endfor %}
+</form>
+
+<script>
+    var dataPane = null;
+
+    startup_scripts.push(
+        function() {
+            dataPane = createDataPane("#{{ datapane_id|default:"data-pane-wrapper" }}");
+            dataPane.setOnSubmit(submitFeatures);
+        }
+    );
+
+    startup_scripts.push(loadFabricNames);
+    startup_scripts.push(loadFabricTypes);
+    startup_scripts.push(loadFabric);
+</script>
+
+{% endblock content %}
