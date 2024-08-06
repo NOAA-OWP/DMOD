@@ -35,6 +35,10 @@ while [ ${#} -gt 0 ]; do
             declare -x WORKER_INDEX="${2:?}"
             shift
             ;;
+        --primary-workers)
+            declare -x PRIMARY_WORKERS="${2:?}"
+            shift
+            ;;
     esac
     shift
 done
@@ -59,6 +63,10 @@ cd ${JOB_OUTPUT_WRITE_DIR}
 if [ ! -e /dmod/datasets/linked_job_output ]; then
     ln -s ${JOB_OUTPUT_WRITE_DIR} /dmod/datasets/linked_job_output
 fi
+
+# Run make_data_local Python functions to make necessary data local
+# Called for every worker, but Python code will make sure only one worker per node makes a call that has effect
+py_funcs make_data_local ${WORKER_INDEX:-0} ${PRIMARY_WORKERS:-0}
 
 # We can allow worker index to not be supplied when executing serially
 if [ "${WORKER_INDEX:-0}" = "0" ]; then

@@ -86,7 +86,7 @@ def mock_job(model: str = 'nwm', cpus: int = 4, mem: int = 500000, strategy: str
         data_domain = DataDomain(data_format=DataFormat.NGEN_CSV_OUTPUT,
                                  discrete_restrictions=[DiscreteRestriction(variable='id', values=[])])
         output_requirement = DataRequirement(domain=data_domain, is_input=False, category=DataCategory.OUTPUT,
-                                             fulfilled_by=dataset_name)
+                                             fulfilled_by=dataset_name, needs_data_local=False)
     else:
         raise(ValueError("Unsupported mock model {}".format(model)))
 
