@@ -16,6 +16,7 @@ dependencies = [
     "redis",
     "pydantic[dotenv]>=1.10.8,~=1.10",
     "fastapi",
+    "python-multipart",
     "uvicorn[standard]",
     "ngen-config@git+https://github.com/noaa-owp/ngen-cal@master#egg=ngen-config&subdirectory=python/ngen_conf",
     "ngen-cal@git+https://github.com/noaa-owp/ngen-cal@master#egg=ngen-config&subdirectory=python/ngen_cal",
