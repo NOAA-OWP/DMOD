@@ -1,6 +1,8 @@
 from .model_exec_request import ModelExecRequest, get_available_models
+from deprecated import deprecated
 
 
+@deprecated("Avoid broken util functions not updated for recent message changes")
 def get_available_outputs() -> set:
     """
     :return: A collection of all valid outputs across any model
@@ -13,6 +15,7 @@ def get_available_outputs() -> set:
     return all_outputs
 
 
+@deprecated("Avoid broken util functions not updated for recent message changes")
 def get_distribution_types() -> set:
     """
     :return: The distribution types used across any model
@@ -25,6 +28,7 @@ def get_distribution_types() -> set:
     return all_types
 
 
+@deprecated("Avoid broken util functions not updated for recent message changes")
 def get_parameters() -> dict:
     """
     Maps each model to the natural and human readable forms of all of their parameters

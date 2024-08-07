@@ -13,7 +13,7 @@ from django.http import HttpRequest
 
 from dmod.communication import ExternalRequest
 from dmod.communication import ExternalRequestResponse
-from dmod.communication import ModelExecRequestClient
+from dmod.communication import ExternalRequestClient
 
 from . import utilities
 from .processors.processor import BaseProcessor
@@ -21,7 +21,7 @@ from .processors.processor import BaseProcessor
 logger = logging.getLogger("gui_log")
 
 
-class JobRequestClient(ModelExecRequestClient):
+class JobRequestClient(ExternalRequestClient):
     """
     A client for websocket interaction with the MaaS request handler, specifically for performing a job request based on
     details provided in a particular HTTP POST request (i.e., with form info on the parameters of the job execution).
@@ -36,7 +36,7 @@ class JobRequestClient(ModelExecRequestClient):
         if ssl_dir is None:
             ssl_dir = Path(__file__).resolve().parent.parent.parent.joinpath('ssl')
             ssl_dir = Path('/usr/maas_portal/ssl') #Fixme
-        logger.debug("endpoing_uri: {}".format(endpoint_uri))
+        logger.debug("endpoint_uri: {}".format(endpoint_uri))
         super().__init__(endpoint_uri=endpoint_uri, ssl_directory=ssl_dir)
         self._processor = processor
         self._cookies = None
@@ -74,7 +74,7 @@ class JobRequestClient(ModelExecRequestClient):
             return self._session_id and self._session_secret and self._session_created
         else:
             logger.info("Session from JobRequestClient: force_new={}".format(force_new))
-            tmp = self._acquire_new_session()
+            tmp = self._auth_client._acquire_session()
             logger.info("Session Info Return: {}".format(tmp))
             return tmp
 

@@ -173,6 +173,8 @@ DEBUG = in_debug_mode()
 BASE_DIRECTORY = Path(__file__).resolve().parent.parent
 """The path to the base directory of the service"""
 
+STATIC_ROOT = BASE_DIRECTORY / "static"
+
 STATIC_RESOURCE_DIRECTORY = BASE_DIRECTORY / "static" / "resources"
 
 APPLICATION_NAME = os.environ.get("APPLICATION_NAME", "Model as a Service")
