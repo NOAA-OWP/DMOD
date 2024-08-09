@@ -417,24 +417,38 @@ function loadFabricTypes() {
     );
 }
 
-function addDomainChoicesOption(values) {
-    var select = document.getElementById('domainChoices');
-    for (var i = 0; i < values.length; i++) {
-        var option = document.createElement('option');
-        option.value = values[i];
-        option.innerHTML = values[i];
-        select.appendChild(option);
-    }
-}
 
 function insertOptionInOrder(option, newParentSelect) {
-    for (var i = 0; i < newParentSelect.options.length; i++) {
-        if (option.value < newParentSelect.options[i].value) {
+    var next_i, i = 0, next_size = 200;
+
+    next_i = i + next_size;
+    while (next_i < newParentSelect.options.length) {
+        if (parseInt(option.value) < parseInt(newParentSelect.options[next_i].value)) {
+            break;
+        }
+        else {
+            i = next_i;
+            next_i = i + next_size;
+        }
+    }
+
+    for (i; i < newParentSelect.options.length; i++) {
+        if (parseInt(option.value) < parseInt(newParentSelect.options[i].value)) {
             newParentSelect.options.add(option, newParentSelect.options[i]);
             return;
         }
     }
     newParentSelect.appendChild(option);
+}
+
+function addDomainChoicesOption(values) {
+    var select = document.getElementById('domainChoices');
+    for (var i = 0; i < values.length; i++) {
+        var option = document.createElement('option');
+        option.value = values[i].substring(4);
+        option.innerHTML = values[i];
+        insertOptionInOrder(option, select);
+    }
 }
 
 function controlSelectAdd() {
@@ -495,14 +509,18 @@ function controlSelectClear() {
     }
 }
 
-function loadFabric(event) {
+function loadFabricDomain(event) {
     var name = $("#fabric-selector").val(),
         type = $("#fabric-type-selector").val(),
         catLists = [document.getElementById('domainChoices'),
                     document.getElementById('domainSelections')],
+        loadingOverDiv = document.getElementById('loadCatsOverlay'),
         select,
         l,
         i;
+
+    catLists[0].style.display = "none";
+    loadingOverDiv.style.display = "block";
 
     $("input[name=fabric]").val(name);
 
@@ -524,11 +542,15 @@ function loadFabric(event) {
             data: {"fabric_type": type, "id_only": true},
             error: function(xhr, status, error) {
                 console.error(error);
+                catLists[0].style.display = "block";
+                loadingOverDiv.style.display = "none";
             },
             success: function(result, status, xhr) {
                 if (result) {
                     addDomainChoicesOption(result);
                 }
+                catLists[0].style.display = "block";
+                loadingOverDiv.style.display = "none";
             }
         }
     )
