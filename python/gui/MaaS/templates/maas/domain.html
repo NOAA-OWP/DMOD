@@ -48,53 +48,6 @@
        integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
        crossorigin=""></script>
     <script src="{% static 'common/js/domain.js' %}"></script>
-    <script>
-        {% if center %}
-            var centerLine = [{{ center.0 }}, {{ center.1 }}];
-            console.log("Using passed center line");
-        {% else %}
-            var centerLine = [37.0902, -95.7129];
-        {% endif %}
-
-        var zoom = {{ zoom|default:6 }};
-
-        var mapUrl = "{{ mapUrl|default:"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" }}";
-
-        {% if attribution %}
-            var attribution = "{{ attribution }}";
-        {% else %}
-        var attribution = 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
-        {% endif %}
-
-        var maxZoom = {{ max_zoom|default:18 }};
-
-        {% autoescape on %}
-        {% for layerUrl in layerUrls %}
-            layerUrls.push("{{ layerUrl }}");
-        {% endfor %}
-        {% endautoescape %}
-
-        {% if layerStyle %}
-            {% for style_name, value in layerStyle.items %}
-                startup_scripts.push(
-                    function() {
-                        layerStyle[style_name] = value;
-                    }
-                );
-            {% endfor %}
-        {% endif %}
-
-        {% if lineStyle %}
-            {% for style_name, value in lineStyle.items %}
-                startup_scripts.push(
-                    function() {
-                        lineStyle[style_name] = value;
-                    }
-                );
-            {% endfor %}
-        {% endif %}
-
-    </script>
 {% endblock scripts %}
 
 {% block content %}
@@ -102,13 +55,7 @@
     <fieldset id="fabric-fields" style="width: fit-content">
         <legend>Hydrofabric</legend>
         <select id="fabric-selector" onchange="loadFabricDomain()"></select>
-        <!--
-        <select id="fabric-type-selector" onchange="loadFabric()"></select>
-        -->
     </fieldset>
-    <!--
-    <div id="mapid" style="width: {{ map_width|default:'95vw' }}; height: {{ map_height|default:'70vh' }}; margin: auto"></div>
-    -->
     <div class="domain-selection" style="padding-top: 10px; overflow: auto; display: block">
 
         <div class="available-domain-options" style="float: left; padding-right: 20px">
