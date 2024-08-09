@@ -2,7 +2,7 @@ from maas_experiment import application_values
 
 from django.urls import re_path
 from .cbv.EditView import EditView
-from .cbv.MapView import MapView, Fabrics, FabricNames, FabricTypes, ConnectedFeatures
+from .cbv.MapView import DomainView, MapView, Fabrics, FabricNames, FabricTypes, ConnectedFeatures
 from .cbv.evaluation import ReadyListenEvaluation
 from .cbv.evaluation import EvaluationListing
 from .cbv.configuration import CreateConfiguration
@@ -14,6 +14,7 @@ app_name = 'MaaS'
 
 urlpatterns = [
     #re_path(r'^$', EditView.as_view()),
+    re_path(r'domain', DomainView.as_view(), name="domain"),
     re_path(r'map$', MapView.as_view(), name="map"),
     re_path(r'evaluation$', ReadyListenEvaluation.as_view(), name="ready-evaluation"),
     re_path(r'evaluation/listings$', EvaluationListing.as_view(), name="evaluation-listing"),

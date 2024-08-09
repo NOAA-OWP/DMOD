@@ -47,6 +47,7 @@ var incidentalFeatures = {};
 
 var selectedLayers = {};
 
+/*
 startup_scripts.push(
     function(){
         mymap = L.map('mapid').setView(centerLine, zoom);
@@ -59,6 +60,7 @@ startup_scripts.push(
             }).addTo(mymap);
     }
 );
+*/
 
 function getLayers() {
     var layers = [];
@@ -116,6 +118,7 @@ function layerCreation(geoJsonPoint, latlng) {
     return L.circleMarker(latlng);
 }
 
+/*
 function plotMapLayers(featureDocuments, map) {
     var layers = [];
 
@@ -148,6 +151,7 @@ function plotMapLayers(featureDocuments, map) {
     featureDocuments.forEach(featureDocument => addFeature(featureDocument));
     return layers;
 }
+*/
 
 function propertiesToHTML(geojson, xwalk) {
     var properties = geojson.properties;
@@ -413,12 +417,123 @@ function loadFabricTypes() {
     );
 }
 
+function addDomainChoicesOption(values) {
+    var select = document.getElementById('domainChoices');
+    for (var i = 0; i < values.length; i++) {
+        var option = document.createElement('option');
+        option.value = values[i];
+        option.innerHTML = values[i];
+        select.appendChild(option);
+    }
+}
+
+function insertOptionInOrder(option, newParentSelect) {
+    for (var i = 0; i < newParentSelect.options.length; i++) {
+        if (option.value < newParentSelect.options[i].value) {
+            newParentSelect.options.add(option, newParentSelect.options[i]);
+            return;
+        }
+    }
+    newParentSelect.appendChild(option);
+}
+
+function controlSelectAdd() {
+    var choices = document.getElementById('domainChoices'),
+        selected = document.getElementById('domainSelections');
+    for (var i = choices.options.length - 1; i >=0; i--) {
+        var opt = choices.options[i];
+        if (opt.selected) {
+            opt.selected = false;
+            choices.removeChild(opt);
+            insertOptionInOrder(opt, selected);
+        }
+    }
+}
+
+function controlSelectRemove() {
+    var choices = document.getElementById('domainChoices'),
+        selected = document.getElementById('domainSelections'),
+        i,
+        opt;
+    for (i = selected.options.length - 1; i >=0; i--) {
+        opt = selected.options[i];
+        if (opt.selected) {
+            opt.selected = false;
+            selected.removeChild(opt);
+            insertOptionInOrder(opt, choices);
+        }
+    }
+}
+
+function controlSelectAll() {
+    var choices = document.getElementById('domainChoices'),
+        selected = document.getElementById('domainSelections'),
+        i,
+        opt;
+    for (i = choices.options.length - 1; i >= 0 ; i--) {
+        opt = choices.options[i];
+        if (opt.selected) {
+            opt.selected = false;
+        }
+        choices.removeChild(opt);
+        insertOptionInOrder(opt, selected);
+    }
+}
+
+function controlSelectClear() {
+    var choices = document.getElementById('domainChoices'),
+        selected = document.getElementById('domainSelections'),
+        i,
+        opt;
+    for (i = selected.options.length - 1; i >= 0 ; i--) {
+        opt = selected.options[i];
+        if (opt.selected) {
+            opt.selected = false;
+        }
+        selected.removeChild(opt);
+        insertOptionInOrder(opt, choices);
+    }
+}
+
 function loadFabric(event) {
-    var name = $("#fabric-selector").val();
-    var type = $("#fabric-type-selector").val();
+    var name = $("#fabric-selector").val(),
+        type = $("#fabric-type-selector").val(),
+        catLists = [document.getElementById('domainChoices'),
+                    document.getElementById('domainSelections')],
+        select,
+        l,
+        i;
 
     $("input[name=fabric]").val(name);
 
+    // Clear any existing <option> tags from within "domainChoices" <select>
+    for (l = 0; l < catLists.length; l++) {
+        select = catLists[l];
+        for (i = select.options.length - 1; i >= 0; i--) {
+            select.remove(i);
+        }
+    }
+
+    var url = "fabric/" + name;
+    //addDomainChoicesOption(["cat-8", "cat-5", "cat-9", "cat-6", "cat-7", "cat-10", "cat-11"]);
+
+    $.ajax(
+        {
+            url: url,
+            type: "GET",
+            data: {"fabric_type": type, "id_only": true},
+            error: function(xhr, status, error) {
+                console.error(error);
+            },
+            success: function(result, status, xhr) {
+                if (result) {
+                    addDomainChoicesOption(result);
+                }
+            }
+        }
+    )
+
+    /*
     var crosswalk = getServerData("crosswalk/"+name);
 
     var addTooltip = function(feature, layer) {
@@ -483,4 +598,5 @@ function loadFabric(event) {
             )
         }
     }
+    */
 }

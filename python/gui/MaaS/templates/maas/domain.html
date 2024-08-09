@@ -11,7 +11,7 @@
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
        integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
        crossorigin=""></script>
-    <script src="{% static 'common/js/map.js' %}"></script>
+    <script src="{% static 'common/js/domain.js' %}"></script>
     <script>
         {% if center %}
             var centerLine = [{{ center.0 }}, {{ center.1 }}];
@@ -64,14 +64,44 @@
 {% block content %}
 <div id="content" class="pane" style="overflow-y: auto; height: 75vh; margin: 20px">
     <fieldset id="fabric-fields" style="width: fit-content">
-        <legend>Fabric</legend>
+        <legend>Hydrofabric</legend>
         <select id="fabric-selector" onchange="loadFabric()"></select>
+        <!--
         <select id="fabric-type-selector" onchange="loadFabric()"></select>
+        -->
     </fieldset>
+    <!--
     <div id="mapid" style="width: {{ map_width|default:'95vw' }}; height: {{ map_height|default:'70vh' }}; margin: auto"></div>
-</div>
+    -->
+    <div class="domain-selection" style="padding-top: 10px; overflow: auto; display: block; float:left">
 
-{% include "data_pane.html" %}
+        <div class="available-domain-options" style="float: left; padding-right: 20px">
+            <fieldset id="fabric-fields-opts" style="width: 125px">
+                <legend>Catchments</legend>
+                <!--
+                <select id="domainChoices" multiple="multiple" class="form-control"></select>
+                -->
+                <select id="domainChoices" multiple="multiple" class="form-control" style="width: 100px; height: 200px; margin: auto; horiz-align: right"></select>
+            </fieldset>
+        </div>
+
+        <div class="selection-controls" style="padding-top: 50px; padding-left: 20px; padding-right:20px; float: left">
+            <!-- TODO: need some "onclick" actions for these (once the result box is set up properly for form) -->
+            <input type='button' id='btnRight' value='Add' style="width: 75px; margin-bottom: 5px" class="btn btn-default" onclick="controlSelectAdd()"/><br />
+            <input type='button' id='btnLeft' value='Remove' style="width: 75px; margin-bottom: 5px" class="btn btn-default" onclick="controlSelectRemove()"/><br />
+            <input type='button' id='btnAllRight' value='Select All' style="width: 75px; margin-top: 50px; margin-bottom: 5px" class="btn btn-default" onclick="controlSelectAll()"/><br />
+            <input type='button' id='btnAllLeft' value='Clear' style="width: 75px; margin-bottom: 5px" class="btn btn-default" onclick="controlSelectClear()"/>
+        </div>
+
+        <div class="selected-domain-options" style="float: left; padding-left: 20px">
+            <fieldset id="fabric-fields-sel" style="width: 125px">
+                <legend>Selections</legend>
+                <select id="domainSelections" multiple="multiple" class="form-control" style="width: 100px; height: 200px; margin: auto; horiz-align: right"></select>
+            </fieldset>
+        </div>
+
+    </div>
+</div>
 
 <form id="location-selection-form" method="post" style="display: none" action="{% url 'MaaS:create_config' %}">
     {# Add the token to provide cross site request forgery protection #}
@@ -86,13 +116,6 @@
 
 <script>
     var dataPane = null;
-
-    startup_scripts.push(
-        function() {
-            dataPane = createDataPane("#{{ datapane_id|default:"data-pane-wrapper" }}");
-            dataPane.setOnSubmit(submitFeatures);
-        }
-    );
 
     startup_scripts.push(loadFabricNames);
     startup_scripts.push(loadFabricTypes);

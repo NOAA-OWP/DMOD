@@ -192,3 +192,56 @@ class MapView(View):
 
         # Return the rendered page
         return render(request, 'maas/map.html', payload)
+
+
+class DomainView(View):
+
+    """
+    A view used to render the map
+    """
+    def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        """
+        The handler for 'get' requests.  This will render the 'map.html' template
+
+        :param HttpRequest request: The request asking to render this page
+        :param args: An ordered list of arguments
+        :param kwargs: A dictionary of named arguments
+        :return: A rendered page
+        """
+        # If a list of error messages wasn't passed, create one
+        if 'errors' not in kwargs:
+            errors = list()
+        else:
+            # Otherwise continue to use the passed in list
+            errors = kwargs['errors']  # type: list
+
+        # If a list of warning messages wasn't passed create one
+        if 'warnings' not in kwargs:
+            warnings = list()
+        else:
+            # Otherwise continue to use the passed in list
+            warnings = kwargs['warnings']  # type: list
+
+        # If a list of basic messages wasn't passed, create one
+        if 'info' not in kwargs:
+            info = list()
+        else:
+            # Otherwise continue to us the passed in list
+            info = kwargs['info']  # type: list
+
+        framework_selector = datapane.Input("framework", "select", "The framework within which to run models")
+        for editor in configuration.get_editors():
+            framework_selector.add_choice(editor['name'], editor['description'], editor['friendly_name'])
+
+        pprint(framework_selector.__dict__)
+
+        # Package everything up to be rendered for the client
+        payload = {
+            'errors': errors,
+            'info': info,
+            'warnings': warnings,
+            'pane_inputs': [framework_selector]
+        }
+
+        # Return the rendered page
+        return render(request, 'maas/domain.html', payload)
