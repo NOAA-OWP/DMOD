@@ -57,7 +57,8 @@ def get_concurrency_executor_type(**kwargs) -> typing.Callable[[], futures.Execu
 
 def signal_handler(signum: int, frame):
     """
-    Handles cleanup operations for
+    Handles cleanup operations for the runner in case of an unexpected signal
+
     Args:
         signum: The type of signal currently being handled
         frame: The frame explaining where the code was when the signal was triggered
@@ -67,14 +68,10 @@ def signal_handler(signum: int, frame):
 
     if REDIS_PARAMETERS_FOR_PROCESS.is_valid:
         service.error("Cleaning up redis resources...")
-        cleanup(
-            stream_name=REDIS_PARAMETERS_FOR_PROCESS.stream_name,
-            group_name=REDIS_PARAMETERS_FOR_PROCESS.group_name,
-            redis_parameters=REDIS_PARAMETERS_FOR_PROCESS.kvstore_parameters
-        )
+        cleanup(redis_parameters=REDIS_PARAMETERS_FOR_PROCESS)
 
     service.error("Now exiting...")
-    sys.exit(1)
+    sys.exit(signum)
 
 
 class Arguments:
@@ -150,8 +147,6 @@ class Arguments:
 
     def __parse_command_line(self, *args):
         parser = ArgumentParser("Starts a series of processes that will listen and launch evaluations")
-
-        # Add options
 
         parser.add_argument(
             '--redis-host',
@@ -284,6 +279,11 @@ class WorkerProcessArguments:
 
 
 REDIS_PARAMETERS_FOR_PROCESS = streams.StreamParameters()
+"""
+Process-local parameters describing how to access a stream.
+
+Held at the process level so that the signal handler may use it for cleanup operations
+"""
 
 
 @dataclasses.dataclass
@@ -434,7 +434,18 @@ def monitor_running_jobs(
     """
     potentially_complete_job: typing.Optional[ApplyResult] = None
 
-    monitor_errors = ErrorCounter(limit=EXCEPTION_LIMIT)
+    encountered_errors = ErrorCounter(limit=EXCEPTION_LIMIT)
+    """
+    A collection of errors that may bear repeats of of individual types of errors. 
+    Collected errors are only finally raised if and when they have occurred over a given amount of times
+    
+    This ensures that the polling loop is not interrupted on rare remote errors yet still throws errors when stuck 
+    in an infinite loop of failing code
+    """
+
+    # Tell this loop and the runner to halt due to the error
+    #   Failure to do this will allow the runner to continue with an offline monitor
+    encountered_errors.on_exceedance(lambda _: stop_signal.set())
 
     while not stop_signal.is_set():
         try:
@@ -463,7 +474,7 @@ def monitor_running_jobs(
             # There are plenty of times when this might be empty and that's fine. In this case we just want
             pass
         except Exception as exception:
-            monitor_errors.add_error(error=exception)
+            encountered_errors.add_error(error=exception)
             service.error(exception)
 
         potentially_complete_job = None
@@ -657,53 +668,66 @@ def listen(
         redis_connection=connection
     )
 
-    monitoring_thread = threading.Thread(target=monitor_running_jobs, args=(connection, active_jobs, stop_signal))
-    monitoring_thread.setDaemon(True)
+    monitoring_thread = threading.Thread(
+        target=monitor_running_jobs,
+        name=f"{service.application_values.APPLICATION_NAME}: Monitor for {consumer_name}",
+        kwargs={
+            "connection": connection,
+            "active_job_queue": active_jobs,
+            "stop_signal": stop_signal,
+        },
+        daemon=True
+    )
     monitoring_thread.start()
 
     error_counter = ErrorCounter(limit=EXCEPTION_LIMIT)
 
-    with multiprocessing.Pool(processes=job_limit) as worker_pool:  # type: multiprocessing.pool.Pool
-        while not stop_signal.is_set():
-            if already_listening:
-                service.info("Starting to listen for evaluation jobs again")
-            else:
-                already_listening = True
+    try:
+        with multiprocessing.Pool(processes=job_limit) as worker_pool:  # type: multiprocessing.pool.Pool
+            while not stop_signal.is_set():
+                if already_listening:
+                    service.info(f"{consumer_name}: Starting to listen for evaluation jobs again")
+                else:
+                    already_listening = True
 
-            try:
-                # Form the generator used to receive messages
-                message_stream = streams.StreamMessage.listen(
-                    connection,
-                    stream_parameters.group_name,
-                    consumer_name,
-                    stop_signal,
-                    stream_parameters.stream_name
-                )
+                try:
+                    # Form the generator used to receive messages
+                    message_stream = streams.StreamMessage.listen(
+                        connection,
+                        stream_parameters.group_name,
+                        consumer_name,
+                        stop_signal,
+                        stream_parameters.stream_name
+                    )
 
-                for message in message_stream:
-                    possible_record = interpret_message(message, worker_pool, stop_signal)
+                    for message in message_stream:
+                        possible_record = interpret_message(message, worker_pool, stop_signal)
 
-                    if possible_record:
-                        # This will block until another entry may be put into the queue - this will prevent one
-                        # instance of the runner from trying to hoard all of the messages and allow other
-                        # instances to try and carry the load
-                        active_jobs.put(possible_record)
-                    else:
-                        # Since this message isn't considered one for the runner, acknowledge that it's been seen
-                        # and move on so something else may view the message
-                        connection.xack(
-                            stream_parameters.stream_name,
-                            stream_parameters.group_name,
-                            message.message_id
-                        )
+                        if possible_record:
+                            # This will block until another entry may be put into the queue - this will prevent one
+                            # instance of the runner from trying to hoard all of the messages and allow other
+                            # instances to try and carry the load
+                            active_jobs.put(possible_record)
+                        else:
+                            # Since this message isn't considered one for the runner, acknowledge that it's been seen
+                            # and move on so something else may view the message
+                            connection.xack(
+                                stream_parameters.stream_name,
+                                stream_parameters.group_name,
+                                message.message_id
+                            )
 
-                    if stop_signal.is_set():
-                        break
-            except Exception as exception:
-                error_counter.add_error(error=exception)
-                service.error(message="An error occured while listening for evaluation jobs", exception=exception)
-
-    monitoring_thread.join(timeout=5)
+                        if stop_signal.is_set():
+                            break
+                except KeyboardInterrupt:
+                    stop_signal.set()
+                    break
+                except Exception as exception:
+                    error_counter.add_error(error=exception)
+                    service.error(message="An error occured while listening for evaluation jobs", exception=exception)
+    finally:
+        if monitoring_thread:
+            monitoring_thread.join(timeout=5)
 
 
 # TODO: Switch from pubsub to a redis stream
@@ -866,6 +890,9 @@ def main(*args):
     try:
         listen(stream_parameters=redis_parameters, job_limit=arguments.limit)
         exit_code = 0
+    except KeyboardInterrupt:
+        exit_code = os.EX_OK
+        cleanup(redis_parameters=REDIS_PARAMETERS_FOR_PROCESS)
     except Exception as exception:
         service.error(exception)
         exit_code = 1

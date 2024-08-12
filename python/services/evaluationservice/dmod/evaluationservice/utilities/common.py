@@ -6,14 +6,14 @@ import typing
 import traceback
 
 from datetime import datetime
-from collections import Counter
+from datetime import timedelta
 
-import dateutil
+from exceptiongroup import ExceptionGroup
+
+ErrorIdentifier = typing.Tuple[typing.Union[typing.Type[BaseException], typing.Tuple[str, int, str]], ...]
 
 
-def get_error_identifier(
-    error: BaseException
-) -> typing.Tuple[typing.Union[typing.Type[BaseException], typing.Tuple[str, int, str]], ...]:
+def get_error_identifier(error: BaseException) -> ErrorIdentifier:
     """
     Create a pickleable common identifier for an error
 
@@ -42,7 +42,7 @@ def get_error_identifier(
         except:
             pass
 
-    error_identifier: typing.Tuple[typing.Union[type, typing.Tuple[str, int, str]], ...] = tuple(error_details)
+    error_identifier: ErrorIdentifier = tuple(error_details)
     return error_identifier
 
 
@@ -52,20 +52,34 @@ class ErrorCounter:
 
     If a certain type of error occurs too many times, that error will be thrown to stop the containing control structure
     """
-    def __init__(self, limit: int):
+    def __init__(self, limit: int, lifetime: timedelta = None):
         """
         Args:
-            limit: The maximum amount of a specific failure that may occur before the error is raised
+            limit: The maximum amount of a specific failure that may occur before the error is raised.
+                A specific failure is identified via its code path
+            lifetime: The period over which an error must occur multiple times
         """
         self.__error_limit = limit
-        self.__counter = Counter()
+        self.__exeedance_handlers: typing.List[typing.Callable[[BaseException], typing.Any]] = []
+        self.__occurrences: typing.Dict[ErrorIdentifier, typing.List[datetime]] = {}
+        self.__lifetime = lifetime or timedelta(minutes=1)
+
+    def on_exceedance(self, handler: typing.Callable[[BaseException], typing.Any]):
+        """
+        Add an action to perform when an exception has occurred too many times. Duplicate handlers will not be called
+
+        Args:
+            handler: A function that will be called when an exception has occurred
+        """
+        if handler not in self.__exeedance_handlers:
+            self.__exeedance_handlers.append(handler)
 
     @property
-    def error_count(self):
+    def total(self):
         """
         The total number of errors encountered
         """
-        return sum(count for count in self.__counter.values())
+        return sum(len(occurrences) for occurrences in self.__occurrences.values())
 
     @property
     def error_limit(self):
@@ -74,7 +88,7 @@ class ErrorCounter:
         """
         return self.__error_limit
 
-    def occurrences(self, error: BaseException) -> int:
+    def count(self, error: typing.Union[BaseException, ErrorIdentifier]) -> int:
         """
         Get the number of times a certain type of error has been thrown
 
@@ -84,8 +98,60 @@ class ErrorCounter:
         Returns:
             The number of times that the error has been checked
         """
-        error_identifier = get_error_identifier(error)
-        return self.__counter[error_identifier]
+        if isinstance(error, BaseException):
+            error_identifier = get_error_identifier(error)
+        else:
+            error_identifier = error
+
+        return len(self.__occurrences.get(error_identifier, []))
+
+    def _handle_exceedance(self, error: BaseException) -> None:
+        """
+        Call functions on a type of error that has occurred too many times
+
+        Args:
+            error: The error the was deemed to be too much
+        """
+        handler_errors: typing.List[Exception] = []
+
+        for error_handler in self.__exeedance_handlers:
+            try:
+                error_handler(error)
+            except Exception as e:
+                traceback.print_exc()
+                handler_identifier = getattr(error_handler, getattr(error_handler, '__name__', str(error_handler)))
+                e.args = tuple(arg if index > 0 else f"{handler_identifier}: {arg}" for index, arg in enumerate(e.args))
+                handler_errors.append(e)
+
+        if handler_errors:
+            raise ExceptionGroup(
+                "Exceptions were encountered when calling handlers for when exceptions were called too many times",
+                handler_errors
+            ) from error
+
+    def __purge_old_errors(self, encounter_time: datetime) -> None:
+        """
+        Remove records of errors that occurred outside the time of interest
+
+        Args:
+            encounter_time: The time of the most recent error
+        """
+        # Filter out all of the old occurrences
+        self.__occurrences = {
+            error_identifier: [
+                occurrence_time
+                for occurrence_time in occurrence_times
+                if occurrence_time > encounter_time - self.__lifetime
+            ]
+            for error_identifier, occurrence_times in self.__occurrences.items()
+        }
+
+        # Remove all records of errors that no longer have occurrences
+        self.__occurrences = {
+            error_identifier: occurrence_times
+            for error_identifier, occurrence_times in self.__occurrences.items()
+            if len(occurrence_times) > 0
+        }
 
     def add_error(self, error: BaseException):
         """
@@ -94,10 +160,16 @@ class ErrorCounter:
         Args:
             error: The error to record
         """
-        error_identifier = get_error_identifier(error=error)
-        self.__counter[error_identifier] += 1
+        encounter_time = now()
 
-        if self.__counter[error_identifier] > self.__error_limit:
+        # Remove old errors - this ensures that errors aren't thrown if they occur too far apart
+        self.__purge_old_errors(encounter_time=encounter_time)
+
+        error_identifier = get_error_identifier(error=error)
+        self.__occurrences.setdefault(error_identifier, []).append(encounter_time)
+
+        if self.count(error_identifier) > self.__error_limit:
+            self._handle_exceedance(error)
             raise error
 
 
@@ -200,6 +272,10 @@ def now(local: bool = True) -> datetime:
     if local is None:
         local = True
 
-    timezone = dateutil.tz.tzlocal() if local else dateutil.tz.tzutc()
+    if local:
+        timezone = None
+    else:
+        from datetime import timezone as tz
+        timezone = tz.utc
 
     return datetime.now(tz=timezone)
