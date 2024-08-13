@@ -19,7 +19,7 @@ function loadFabricNames() {
                         $("#fabric-selector").append("<option value='" + name + "'>" + titleCase(name) + "</option>");
                     });
                     $("#fabric-selector option")[0].setAttribute("selected", "");
-                    loadFabric();
+                    loadFabricDomain();
                 }
             }
         }
@@ -40,7 +40,7 @@ function loadFabricTypes() {
                         $("#fabric-type-selector").append("<option value='" + name + "'>" + titleCase(name) + "</option>");
                     });
                     $("#fabric-type-selector option")[0].setAttribute("selected", "");
-                    loadFabric();
+                    loadFabricDomain();
                 }
             }
         }
@@ -140,7 +140,7 @@ function controlSelectClear() {
 
 function loadFabricDomain(event) {
     var name = $("#fabric-selector").val(),
-        type = $("#fabric-type-selector").val(),
+        type = "catchment", //$("#fabric-type-selector").val(),
         catLists = [document.getElementById('domainChoices'),
                     document.getElementById('domainSelections')],
         loadingOverDiv = document.getElementById('loadCatsOverlay'),
@@ -182,4 +182,25 @@ function loadFabricDomain(event) {
             }
         }
     )
+}
+
+function submitCatchments(event) {
+    var featuresToConfigure = [],
+        selections = document.getElementById('domainSelections'),
+        selectForm = document.getElementById('location-selection-form'),
+        i;
+
+    for (i = 0; i < selections.options.length; i++) {
+        featuresToConfigure.push('cat-' + selections.options[i].value)
+    }
+
+    if (featuresToConfigure.length == 0) {
+        event.preventDefault();
+        alert("Select a location to configure before continuing.");
+        return;
+    }
+
+    selectForm['feature-ids'].value = featuresToConfigure.join("|");
+    selectForm['framework'].value = 'ngen';
+    selectForm.submit();
 }

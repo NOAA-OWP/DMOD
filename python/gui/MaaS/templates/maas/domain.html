@@ -93,7 +93,7 @@
 
     </div>
     <div id="submit-selection" style="padding-top: 25px">
-        <button type="submit" id="submit-values-button" style="float: left" class="MaaS-btn">Continue</button>
+        <button type="submit" id="submit-values-button" style="float: left" class="MaaS-btn" onclick="submitCatchments()">Continue</button>
     </div>
 </div>
 
@@ -111,8 +111,8 @@
 
 <script>
     startup_scripts.push(loadFabricNames);
-    startup_scripts.push(loadFabricTypes);
-    startup_scripts.push(loadFabric);
+    //startup_scripts.push(loadFabricTypes);
+    startup_scripts.push(loadFabricDomain);
 </script>
 
 {% endblock content %}
