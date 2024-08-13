@@ -1,6 +1,7 @@
 """
 Django settings for maas_experiment project
 """
+import os
 
 from .application_values import *
 from .logging import *
@@ -33,6 +34,8 @@ SECURE_BROWSER_XSS_FILTER = True
 # Leaving this setting off isn’t a good idea because an attacker could capture an unencrypted session cookie with a
 # packet sniffer and use the cookie to hijack the user’s session.
 SESSION_COOKIE_SECURE = not DEBUG
+
+CSRF_TRUSTED_ORIGINS = os.environ.get('TRUSTED_ORIGINS', '').split(',')
 
 # Whether to use a secure cookie for the CSRF cookie. If this is set to True, the cookie will be marked as “secure”,
 # which means browsers may ensure that the cookie is only sent with an HTTPS connection.

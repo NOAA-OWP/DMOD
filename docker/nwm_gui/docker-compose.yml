@@ -63,6 +63,9 @@ services:
       - SQL_PORT=5432
       - DATABASE=postgres
       - DOCKER_SECRET_POSTGRES_PASS=postgres_password
+      - DEBUG=${DOCKER_GUI_DEV_MODE:-true}
+      # Should be a comma-delimited string if needing more than one
+      - TRUSTED_ORIGINS=${DOCKER_GUI_TRUSTED_ORIGINS:-http://127.0.0.1:${DOCKER_GUI_WEB_SERVER_HOST_PORT:-8081}}
     volumes:
       - ${DMOD_APP_STATIC:?}:/usr/maas_portal/static
       - ${DMOD_SSL_DIR}/request-service:/usr/maas_portal/ssl
