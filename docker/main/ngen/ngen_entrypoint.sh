@@ -49,6 +49,10 @@ declare -x JOB_OUTPUT_WRITE_DIR="/tmp/job_output"
 # Get some universally applicable functions and constants
 source /ngen/funcs.sh
 
+# Run make_data_local Python functions to make necessary data local
+# Called for every worker, but Python code will make sure only one worker per node makes a call that has effect
+py_funcs make_data_local ${WORKER_INDEX:-0} ${PRIMARY_WORKERS:-0}
+
 ngen_sanity_checks_and_derived_init
 init_script_mpi_vars
 init_ngen_executable_paths
@@ -63,10 +67,6 @@ cd ${JOB_OUTPUT_WRITE_DIR}
 if [ ! -e /dmod/datasets/linked_job_output ]; then
     ln -s ${JOB_OUTPUT_WRITE_DIR} /dmod/datasets/linked_job_output
 fi
-
-# Run make_data_local Python functions to make necessary data local
-# Called for every worker, but Python code will make sure only one worker per node makes a call that has effect
-py_funcs make_data_local ${WORKER_INDEX:-0} ${PRIMARY_WORKERS:-0}
 
 # We can allow worker index to not be supplied when executing serially
 if [ "${WORKER_INDEX:-0}" = "0" ]; then
