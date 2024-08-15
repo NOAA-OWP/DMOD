@@ -16,6 +16,9 @@ from subprocess import Popen
 from typing import Dict, List, Literal, Optional, Set, Tuple
 
 
+MINIO_ALIAS_NAME = "minio"
+
+
 def get_dmod_date_str_pattern() -> str:
     return '%Y-%m-%d,%H:%M:%S'
 
@@ -146,7 +149,7 @@ def _make_dataset_dir_local(local_data_dir: Path, do_optimized_object_store_copy
     """
     # TODO: (later) eventually source several details of this this from other part of the code
 
-    dataset_vol_dir = get_cluster_volumes_root_directory().joinpath(local_data_dir.parent).joinpath(local_data_dir.name)
+    dataset_vol_dir = get_cluster_volumes_root_directory().joinpath(local_data_dir.parent.name).joinpath(local_data_dir.name)
 
     local_serial_file = local_data_dir.joinpath(".ds_serial_state.json")
     dataset_serial_file = dataset_vol_dir.joinpath(f"{dataset_vol_dir.name}_serialized.json")
@@ -172,7 +175,7 @@ def _make_dataset_dir_local(local_data_dir: Path, do_optimized_object_store_copy
             return
 
     # Determine if need to extract
-    if serial_ds_dict.get("data_archiving", True):
+    if serial_ds_dict.get("data_archiving", False):
         # Identify and extract archive
         src_archive_file = [f for f in dataset_vol_dir.glob(f"{dataset_vol_dir.name}_archived*")][0]
         archive_file = local_data_dir.joinpath(src_archive_file.name)
@@ -184,7 +187,12 @@ def _make_dataset_dir_local(local_data_dir: Path, do_optimized_object_store_copy
     # Need to optimize by using minio client directly here when dealing with OBJECT_STORE dataset, or will take 10x time
     # TODO: (later) this is a bit of a hack, though a necessary one; find a way to integrate more elegantly
     elif do_optimized_object_store_copy and serial_ds_dict["type"] == "OBJECT_STORE":
-        subprocess.run(["mc", "cp", "--config-dir", "/dmod/.mc", "-r", f"minio/{local_data_dir.name}/", f"{local_data_dir}/."])
+        alias_src_path = f"{MINIO_ALIAS_NAME}/{local_data_dir.name}/"
+        logging.info(f"Copying data from '{alias_src_path}' to '{local_data_dir}'")
+        subprocess.run(["mc", "--config-dir", "/dmod/.mc", "cp", "-r", alias_src_path, f"{local_data_dir}/."],
+                       stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL)
+        logging.info(f"Local copying from '{alias_src_path}' complete")
     else:
         # Otherwise copy contents
         shutil.copy2(dataset_vol_dir, local_data_dir)
@@ -256,6 +264,18 @@ def gather_output(mpi_host_names: List[str], output_write_dir: Path):
                                f"{error_in_bytes.decode()}")
 
 
+def get_data_exec_root_directory() -> Path:
+    """
+    Get the root directory path to use for reading and writing dataset data during job execution.
+
+    Returns
+    -------
+    Path
+        The root directory path to use for reading and writing dataset data during job execution.
+    """
+    return Path("/dmod/datasets")
+
+
 def get_cluster_volumes_root_directory() -> Path:
     """
     Get the root directory for cluster volumes (i.e., backed by dataset directly, synced cluster-wide) on this worker.
@@ -266,6 +286,17 @@ def get_cluster_volumes_root_directory() -> Path:
         The root directory for cluster volumes on this worker.
     """
     return Path("/dmod/cluster_volumes")
+
+def get_expected_data_category_subdirs() -> Set[str]:
+    """
+    Get names of expected subdirectories for dataset categories underneath directories like local or cluster volumes.
+
+    Returns
+    -------
+    Set[str]
+        Names of expected subdirectories for dataset categories underneath directories like local or cluster volumes.
+    """
+    return {"config", "forcing", "hydrofabric", "observation", "output"}
 
 
 def get_local_volumes_root_directory() -> Path:
@@ -280,7 +311,29 @@ def get_local_volumes_root_directory() -> Path:
     return Path("/dmod/local_volumes")
 
 
-def make_data_local(worker_index: int, primary_workers: Set[int]):
+def link_to_data_exec_root():
+    """
+    Create symlinks into the data exec root for any dataset subdirectories in, e.g., cluster or local data mounts.
+
+    Function iterates through data mount roots for data (e.g., local volumes, cluster volumes) according to priority of
+    their use (i.e., local volume data should be used before an analogous cluster volume copy).  If nothing for that
+    dataset category and name exists under the data exec root (from ::function:`get_data_exec_root_directory`), then
+    a symlink is created.
+    """
+    # Note that order here is important; prioritize local data if it is there
+    data_symlink_sources = [get_local_volumes_root_directory(), get_cluster_volumes_root_directory()]
+    for dir in data_symlink_sources:
+        # At this level, order isn't as important
+        for category_subdir in get_expected_data_category_subdirs():
+            for dataset_dir in [d for d in dir.joinpath(category_subdir).glob('*') if d.is_dir()]:
+                data_exec_analog = get_data_exec_root_directory().joinpath(category_subdir).joinpath(dataset_dir.name)
+                if not data_exec_analog.exists():
+                    logging.info(f"Creating dataset symlink with source '{dataset_dir!s}'")
+                    os.symlink(dataset_dir, data_exec_analog)
+                    logging.info(f"Symlink created at dest '{data_exec_analog!s}'")
+
+
+def make_data_local(worker_index: int, primary_workers: Set[int], **kwargs):
     """
     Make data local for each local volume mount that exists, but only if this worker is a primary.
 
@@ -300,17 +353,23 @@ def make_data_local(worker_index: int, primary_workers: Set[int]):
         This worker's index.
     primary_workers
         Indices of designated primary workers
+    kwargs
+        Other ignored keyword args.
 
     See Also
     --------
     _make_dataset_dir_local
     """
+
+    # Every work does need to do this, though
+    link_to_data_exec_root()
+
     if worker_index not in primary_workers:
         return
 
     cluster_vol_dir = get_cluster_volumes_root_directory()
     local_vol_dir = get_local_volumes_root_directory()
-    expected_subdirs = {"config", "forcing", "hydrofabric", "observation", "output"}
+    expected_subdirs = get_expected_data_category_subdirs()
 
     if not cluster_vol_dir.exists():
         raise RuntimeError(f"Can't make data local: cluster volume root '{cluster_vol_dir!s}' does not exist")
@@ -323,15 +382,28 @@ def make_data_local(worker_index: int, primary_workers: Set[int]):
 
     try:
         obj_store_access_key, obj_store_secret_key = _parse_object_store_secrets()
-        mc_ls_result = subprocess.run(["mc", "alias", "--config-dir", "/dmod/.mc", "ls", "minio"])
+        logging.info(f"Executing test run of minio client to see if alias '{MINIO_ALIAS_NAME}' already exists")
+        mc_ls_result = subprocess.run(["mc", "--config-dir", "/dmod/.mc", "alias", "ls", MINIO_ALIAS_NAME])
+        logging.debug(f"Return code from alias check was {mc_ls_result.returncode!s}")
         if mc_ls_result.returncode != 0:
-            subprocess.run(["mc", "alias", "--config-dir", "/dmod/.mc", "set", "minio", obj_store_access_key, obj_store_secret_key])
+            logging.info(f"Creating new minio alias '{MINIO_ALIAS_NAME}'")
+            # TODO: (later) need to set value for obj_store_url better than just hardcoding it
+            obj_store_url = "http://minio-proxy:9000"
+            subprocess.run(["mc", "--config-dir", "/dmod/.mc", "alias", "set", MINIO_ALIAS_NAME, obj_store_url,
+                            obj_store_access_key, obj_store_secret_key])
+            logging.info(f"Now rechecking minio client test for '{MINIO_ALIAS_NAME}' alias")
+            mc_ls_result_2 = subprocess.run(["mc", "--config-dir", "/dmod/.mc", "alias", "ls", MINIO_ALIAS_NAME])
+            if mc_ls_result_2.returncode != 0:
+                raise RuntimeError(f"Could not successfully create minio alias '{MINIO_ALIAS_NAME}'")
         do_optimized_object_store_copy = True
+    except RuntimeError as e:
+        raise e
     except Exception as e:
         logging.warning(f"Unable to parse secrets for optimized MinIO local data copying: {e!s}")
         do_optimized_object_store_copy = False
 
     # Use some multi-threading here since this is IO heavy
+    logging.info(f"Performing local data copying using multiple threads")
     futures = set()
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
         for type_dir in (td for td in local_vol_dir.glob("*") if td.is_dir()):
