@@ -221,10 +221,10 @@ def _move_to_directory(source_dir: Path, dest_dir: Path, archive_name: Optional[
         raise ValueError(f"{get_date_str()} Can't move job output to non-directory path {dest_dir!s}!")
 
     if archive_name:
-        logging.info("Archiving output files to output dataset")
+        logging.info(f"Archiving output files to output dataset directory '{dest_dir!s}'")
         tar_and_copy(source=source_dir, dest=dest_dir, archive_name=archive_name)
     else:
-        logging.info("Moving output file(s) to output dataset")
+        logging.info("Moving output file(s) to output dataset directory '{dest_dir!s}'")
         for p in source_dir.glob("*"):
             shutil.move(p, dest_dir)
 
@@ -287,6 +287,7 @@ def get_cluster_volumes_root_directory() -> Path:
     """
     return Path("/dmod/cluster_volumes")
 
+
 def get_expected_data_category_subdirs() -> Set[str]:
     """
     Get names of expected subdirectories for dataset categories underneath directories like local or cluster volumes.
@@ -311,7 +312,7 @@ def get_local_volumes_root_directory() -> Path:
     return Path("/dmod/local_volumes")
 
 
-def link_to_data_exec_root():
+def link_to_data_exec_root(exceptions: Optional[List[Path]] = None):
     """
     Create symlinks into the data exec root for any dataset subdirectories in, e.g., cluster or local data mounts.
 
@@ -319,7 +320,33 @@ def link_to_data_exec_root():
     their use (i.e., local volume data should be used before an analogous cluster volume copy).  If nothing for that
     dataset category and name exists under the data exec root (from ::function:`get_data_exec_root_directory`), then
     a symlink is created.
+
+    Exceptions to the regular prioritization can be provided.  By default (or whenever ``execptions`` is ``None``),
+    all ``output`` category/directory datasets will have their symlinks backed by cluster volumes over local volumes. To
+    avoid any such exceptions and strictly follow the general priority rules, an empty list can be explicitly passed.
+
+    Parameters
+    ----------
+    exceptions
+        An optional list of exceptions to the general setup rules to create a symlink in the data exec root before
+        anything else.
+
     """
+    if exceptions is None:
+        exceptions = [d for d in get_cluster_volumes_root_directory().joinpath('output').glob('*') if d.is_dir()]
+
+    for d in exceptions:
+        data_exec_analog = get_data_exec_root_directory().joinpath(d.parent.name).joinpath(d.name)
+        if data_exec_analog.exists():
+            if data_exec_analog.is_symlink():
+                logging.warning(f"Overwriting previous symlink at '{data_exec_analog!s}' pointing to '{data_exec_analog.readlink()!s}")
+            else:
+                logging.warning(f"Overwriting previous contents at '{data_exec_analog}' with new symlink")
+        else:
+            logging.info(f"Creating dataset symlink with source '{d!s}'")
+        os.symlink(d, data_exec_analog)
+        logging.info(f"Symlink created at dest '{data_exec_analog!s}'")
+
     # Note that order here is important; prioritize local data if it is there
     data_symlink_sources = [get_local_volumes_root_directory(), get_cluster_volumes_root_directory()]
     for dir in data_symlink_sources:
@@ -415,6 +442,7 @@ def make_data_local(worker_index: int, primary_workers: Set[int], **kwargs):
                 futures.add(pool.submit(_make_dataset_dir_local, local_ds_dir, do_optimized_object_store_copy))
         for future in futures:
             future.result()
+    logging.info(f"Local data copying complete")
 
 
 def get_date_str() -> str:
@@ -480,7 +508,9 @@ def move_job_output(output_directory: Path, move_action: str, archiving: Archive
         archive_name = None
 
     if move_action == "to_directory":
-        _move_to_directory(source_dir=output_directory, dest_dir=kwargs["dest_dir"], archive_name=archive_name)
+        dest_dir = kwargs["dest_dir"]
+        logging.info(f"Moving output from '{output_directory!s}' to '{dest_dir!s}'")
+        _move_to_directory(source_dir=output_directory, dest_dir=dest_dir, archive_name=archive_name)
     else:
         raise RuntimeError(f"{get_date_str()} Invalid CLI move action {move_action}")
 
@@ -512,7 +542,7 @@ def process_mpi_hosts_string(hosts_string: str, hosts_sep: str = ",", host_detai
     return results
 
 
-def tar_and_copy(source: Path, dest: Path, archive_name: str, do_dry_run: bool = False, do_compress: bool = False):
+def tar_and_copy(source: Path, dest: Path, archive_name: str, do_dry_run: bool = False, do_compress: bool = False, **kwargs):
     """
     Make a tar archive from the contents of a directory, and place this in a specified destination.
 
@@ -528,6 +558,8 @@ def tar_and_copy(source: Path, dest: Path, archive_name: str, do_dry_run: bool =
         Whether to only perform a dry run to check paths, with no archiving/moving/copying.
     do_compress
         Whether to compress the created archive with gzip compression.
+    kwargs
+        Other unused keyword args.
 
     Raises
     -------
@@ -560,12 +592,17 @@ def tar_and_copy(source: Path, dest: Path, archive_name: str, do_dry_run: bool =
         return
 
     tar_mode_args = "w:gz" if do_compress else "w"
+    logging.info(f"Creating archive file '{archive_create_path!s}'")
     with tarfile.open(archive_create_path, tar_mode_args) as tar:
         for p in source.glob("*"):
+            logging.debug(f"Adding '{p!s}' to archive")
             tar.add(p, arcname=p.name)
 
     if archive_create_path != final_archive_path:
+        logging.info(f"Moving archive to final location at '{final_archive_path!s}'")
         shutil.move(archive_create_path, final_archive_path)
+    else:
+        logging.info(f"Archive creation complete and at final location")
 
 
 def main():
