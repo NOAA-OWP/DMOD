@@ -52,13 +52,15 @@ declare -x JOB_OUTPUT_WRITE_DIR="/tmp/job_output"
 
 # Get some universally applicable functions and constants
 source ./funcs.sh
+init_script_mpi_vars
 
-# Run make_data_local Python functions to make necessary data local
-# Called for every worker, but Python code will make sure only one worker per node makes a call that has effect
-py_funcs make_data_local ${WORKER_INDEX:-0} ${PRIMARY_WORKERS:-0}
+if [ "$(whoami)" != "${MPI_USER:?MPI user not defined}" ]; then
+    # Run make_data_local Python functions to make necessary data local
+    # Called for every worker, but Python code will make sure only one worker per node makes a call that has effect
+    py_funcs make_data_local ${WORKER_INDEX:-0} ${PRIMARY_WORKERS:-0}
+fi
 
 ngen_sanity_checks_and_derived_init
-init_script_mpi_vars
 init_ngen_executable_paths
 
 # Move to the output write directory
@@ -70,6 +72,7 @@ cd ${JOB_OUTPUT_WRITE_DIR}
 #Needed for routing
 if [ ! -e /dmod/datasets/linked_job_output ]; then
     ln -s ${JOB_OUTPUT_WRITE_DIR} /dmod/datasets/linked_job_output
+    chown -R ${MPI_USER}:${MPI_USER} /dmod/datasets/linked_job_output
 fi
 
 start_calibration() {
@@ -114,31 +117,36 @@ if [ "${WORKER_INDEX:-0}" = "0" ]; then
     if [ "$(whoami)" = "${MPI_USER:?MPI user not defined}" ]; then
         # This will only have an effect when running with multiple MPI nodes, so its safe to have even in serial exec
         trap close_remote_workers EXIT
-        # Have "main" (potentially only) worker copy config files to output dataset for record keeping
-        # TODO: (later) in ngen and ngen-cal entrypoints, consider adding controls for whether this is done or a simpler
-        # TODO:     'cp' call, based on whether we write directly to output dataset dir or some other output write dir
-        # Do a dry run first to sanity check directory and fail if needed before backgrounding process
-        py_funcs tar_and_copy --dry-run --compress ${CONFIG_DATASET_DIR:?Config dataset directory not defined} config_dataset.tgz ${OUTPUT_DATASET_DIR:?}
-        # Then actually run the archive and copy function in the background
-        py_funcs tar_and_copy --compress ${CONFIG_DATASET_DIR:?} config_dataset.tgz ${OUTPUT_DATASET_DIR:?} &
-        _CONFIG_COPY_PROC=$!
-        # If there is partitioning, which implies multi-processing job ...
-        if [ -n "${PARTITION_DATASET_DIR:-}" ]; then
-            # Include partition config dataset too if appropriate
-            cp -a ${PARTITION_DATASET_DIR}/. ${OUTPUT_DATASET_DIR:?}
-        fi
 
         # Run the same function to execute ngen_cal (it's config will handle whether MPI is used internally)
         start_calibration
+    # Remember: all these things are done as the root user on worker 0
     else
         # Start SSHD on the main worker if have an MPI job
         if [ -n "${PARTITION_DATASET_DIR:-}" ]; then
+            # Include partition config dataset too if appropriate, though for simplicity, just copy directly
+            cp -a ${PARTITION_DATASET_DIR}/. ${OUTPUT_DATASET_DIR:?}
+
             echo "$(print_date) Starting SSH daemon on main worker"
             /usr/sbin/sshd -D &
             _SSH_D_PID="$!"
 
             trap cleanup_sshuser_exit EXIT
         fi
+
+        # Have "main" (potentially only) worker copy config files to output dataset for record keeping
+        # TODO: (later) in ngen and ngen-cal entrypoints, consider adding controls for whether this is done or a simpler
+        # TODO:     'cp' call, based on whether we write directly to output dataset dir or some other output write dir
+        # Do a dry run first to sanity check directory and fail if needed before backgrounding process
+        py_funcs tar_and_copy --dry-run --compress config_dataset.tgz ${CONFIG_DATASET_DIR:?Config dataset directory not defined} ${OUTPUT_DATASET_DIR:?}
+        _R_DRY=${?}
+        if [ ${_R_DRY} -ne 0 ]; then
+            echo "$(print_date) Job exec failed due to issue with copying configs to output (code ${_R_DRY})"
+            exit ${_R_DRY}
+        fi
+        # Then actually run the archive and copy function in the background
+        py_funcs tar_and_copy --compress config_dataset.tgz ${CONFIG_DATASET_DIR:?} ${OUTPUT_DATASET_DIR:?} &
+        _CONFIG_COPY_PROC=$!
 
         # Make sure we run ngen/ngen-cal as our MPI_USER
         echo "$(print_date) Running exec script as '${MPI_USER:?}'"
@@ -147,6 +155,19 @@ if [ "${WORKER_INDEX:-0}" = "0" ]; then
         _EXEC_STRING="${0} ${@}"
         su ${MPI_USER:?} --session-command "${_EXEC_STRING}"
         #time su ${MPI_USER:?} --session-command "${_EXEC_STRING}"
+
+        # TODO: (later) in ngen and ngen-cal entrypoints, add controls for whether this is done base on whether we
+        # TODO:     are writing directly to output dataset dir or some other output write dir; this will be
+        # TODO:     important once netcdf output works
+        # Then wait at this point (if necessary) for our background config copy to avoid taxing things
+        echo "$(print_date) Waiting for compression and copying of configuration files to output dataset"
+        wait ${_CONFIG_COPY_PROC:-}
+        _R_CONFIG_COPY=${?}
+        if [ ${_R_CONFIG_COPY} -eq 0 ]; then
+            echo "$(print_date) Compression/copying of config data to output dataset complete"
+        else
+            echo "$(print_date) Copying of config data to output dataset exited with error code: ${_R_CONFIG_COPY}"
+        fi
     fi
 else
     run_secondary_mpi_ssh_worker_node
