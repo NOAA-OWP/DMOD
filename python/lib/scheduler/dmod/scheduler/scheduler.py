@@ -403,8 +403,12 @@ class Launcher(SimpleDockerUtil):
             raise RuntimeError(f"Unexpected request type {job.model_request.__class__.__name__}: cannot build Docker CMD arg list")
 
         # For now at least, all image args sets will have these (i.e, node count, host string, and job id)
-        docker_cmd_arg_map = {"--node-count": str(len(job.allocations)), "--host-string": self.build_host_list(job),
-                              "--job-id": str(job.job_id), "--worker-index": str(worker_index)}
+        docker_cmd_arg_map = {
+            "--node-count": str(sum(a.cpu_count for a in job.allocations)),
+            "--host-string": self.build_host_list(job),
+            "--job-id": str(job.job_id),
+            "--worker-index": str(worker_index)
+        }
 
         if isinstance(job.model_request, AbstractNgenRequest):
             docker_cmd_arg_map.update(self._generate_nextgen_job_docker_cmd_args(job, worker_index))
