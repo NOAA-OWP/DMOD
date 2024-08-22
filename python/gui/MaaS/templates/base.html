@@ -1,12 +1,12 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="UTF-8">
         <title>{{ title|default:"Distributed Model on Demand" }}</title>
-        {% load static %}
         <link rel="shortcut icon" type="image/png" href="{% static 'common/img/favicon.png' %}"/>
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-        <link rel="stylesheet" href="{% static 'common/css/base.css' %}"/>
+        <link rel="stylesheet" href="{% static 'css/master.css' %}"/>
         {% block styles %}{% endblock styles %}
         <script>
             var startup_scripts = [];
