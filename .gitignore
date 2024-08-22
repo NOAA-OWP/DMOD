@@ -128,3 +128,8 @@ schedulerservice/test/test_scheduler.py_old
 
 node_modules/
 .next/
+
+# Ignore things within ngen worker customization directory, except of course the readme file
+docker/main/ngen/customize/*
+!docker/main/ngen/customize/README.md
+!docker/main/ngen/customize/clone_and_cmake_build.sh
