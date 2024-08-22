@@ -951,7 +951,20 @@ USER root
 # https://dl.min.io/client/mc/release/linux-amd64/archive/mc.${MINIO_CLIENT_RELEASE}
 
 # Setup minio client; also update path and make sure dataset directory is there
-RUN curl -L -o /dmod/bin/mc https://dl.min.io/client/mc/release/linux-amd64/mc \
+RUN OS_NAME=$(uname -s | tr '[:upper:]' '[:lower:]') \
+    && PLATFORM=$(uname -m | tr '[:upper:]' '[:lower:]') \
+    && case "${PLATFORM:?}" in \
+        aarch64) \
+            MINIO_HW_NAME=arm64 \
+            ;; \
+        x86_64) \
+            MINIO_HW_NAME=amd64 \
+            ;; \
+        *) \
+            MINIO_HW_NAME=${PLATFORM} \
+            ;; \
+    esac \
+    && curl -L -o /dmod/bin/mc https://dl.min.io/client/mc/release/${OS_NAME}-${MINIO_HW_NAME}/mc \
     && chmod +x /dmod/bin/mc \
     && mkdir /dmod/.mc \
     && echo "export PATH=${PATH}" >> /etc/profile \
