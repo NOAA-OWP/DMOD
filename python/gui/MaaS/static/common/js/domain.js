@@ -48,22 +48,24 @@ function loadFabricTypes() {
 }
 
 function insertOptionInOrder(option, newParentSelect) {
-    var next_i, i = 0, next_size = 200;
+    let next_index;
+    let current_index = 0;
+    let next_size = 200;
 
-    next_i = i + next_size;
-    while (next_i < newParentSelect.options.length) {
-        if (parseInt(option.value) < parseInt(newParentSelect.options[next_i].value)) {
+    next_index = current_index + next_size;
+    while (next_index < newParentSelect.options.length) {
+        if (parseInt(option.value) < parseInt(newParentSelect.options[next_index].value)) {
             break;
         }
         else {
-            i = next_i;
-            next_i = i + next_size;
+            current_index = next_index;
+            next_index = current_index + next_size;
         }
     }
 
-    for (i; i < newParentSelect.options.length; i++) {
-        if (parseInt(option.value) < parseInt(newParentSelect.options[i].value)) {
-            newParentSelect.options.add(option, newParentSelect.options[i]);
+    for (current_index; current_index < newParentSelect.options.length; current_index++) {
+        if (parseInt(option.value) < parseInt(newParentSelect.options[current_index].value)) {
+            newParentSelect.options.add(option, newParentSelect.options[current_index]);
             return;
         }
     }
@@ -71,20 +73,21 @@ function insertOptionInOrder(option, newParentSelect) {
 }
 
 function addDomainChoicesOption(values) {
-    var select = document.getElementById('domainChoices');
-    for (var i = 0; i < values.length; i++) {
-        var option = document.createElement('option');
-        option.value = values[i].substring(4);
-        option.innerHTML = values[i];
+    let select = document.getElementById('domainChoices');
+    for (let optionIndex = 0; optionIndex < values.length; optionIndex++) {
+        const option = document.createElement('option');
+        option.value = values[optionIndex].substring(4);
+        option.innerHTML = values[optionIndex];
         insertOptionInOrder(option, select);
     }
 }
 
 function controlSelectAdd() {
-    var choices = document.getElementById('domainChoices'),
-        selected = document.getElementById('domainSelections');
-    for (var i = choices.options.length - 1; i >=0; i--) {
-        var opt = choices.options[i];
+    let choices = document.getElementById('domainChoices');
+    let selected = document.getElementById('domainSelections');
+
+    for (let optionIndex = choices.options.length - 1; optionIndex >=0; optionIndex--) {
+        let opt = choices.options[optionIndex];
         if (opt.selected) {
             opt.selected = false;
             choices.removeChild(opt);
@@ -94,12 +97,12 @@ function controlSelectAdd() {
 }
 
 function controlSelectRemove() {
-    var choices = document.getElementById('domainChoices'),
+    let choices = document.getElementById('domainChoices'),
         selected = document.getElementById('domainSelections'),
-        i,
         opt;
-    for (i = selected.options.length - 1; i >=0; i--) {
-        opt = selected.options[i];
+
+    for (let optionIndex = selected.options.length - 1; optionIndex >=0; optionIndex--) {
+        opt = selected.options[optionIndex];
         if (opt.selected) {
             opt.selected = false;
             selected.removeChild(opt);
@@ -109,12 +112,12 @@ function controlSelectRemove() {
 }
 
 function controlSelectAll() {
-    var choices = document.getElementById('domainChoices'),
-        selected = document.getElementById('domainSelections'),
-        i,
-        opt;
-    for (i = choices.options.length - 1; i >= 0 ; i--) {
-        opt = choices.options[i];
+    let choices = document.getElementById('domainChoices');
+    let selected = document.getElementById('domainSelections');
+    let opt;
+
+    for (let optionIndex = choices.options.length - 1; optionIndex >= 0 ; optionIndex--) {
+        opt = choices.options[optionIndex];
         if (opt.selected) {
             opt.selected = false;
         }
@@ -124,12 +127,12 @@ function controlSelectAll() {
 }
 
 function controlSelectClear() {
-    var choices = document.getElementById('domainChoices'),
-        selected = document.getElementById('domainSelections'),
-        i,
-        opt;
-    for (i = selected.options.length - 1; i >= 0 ; i--) {
-        opt = selected.options[i];
+    let choices = document.getElementById('domainChoices');
+    let selected = document.getElementById('domainSelections');
+    let opt;
+
+    for (let optionIndex = selected.options.length - 1; optionIndex >= 0 ; optionIndex--) {
+        opt = selected.options[optionIndex];
         if (opt.selected) {
             opt.selected = false;
         }
@@ -139,14 +142,11 @@ function controlSelectClear() {
 }
 
 function loadFabricDomain(event) {
-    var name = $("#fabric-selector").val(),
-        type = "catchment", //$("#fabric-type-selector").val(),
-        catLists = [document.getElementById('domainChoices'),
-                    document.getElementById('domainSelections')],
-        loadingOverDiv = document.getElementById('loadCatsOverlay'),
-        select,
-        l,
-        i;
+    let name = $("#fabric-selector").val();
+    let type = "catchment";  //$("#fabric-type-selector").val(),
+    let catLists = [document.getElementById('domainChoices'),
+        document.getElementById('domainSelections')];
+    let loadingOverDiv = document.getElementById('loadCatsOverlay');
 
     catLists[0].style.display = "none";
     loadingOverDiv.style.display = "block";
@@ -154,14 +154,13 @@ function loadFabricDomain(event) {
     $("input[name=fabric]").val(name);
 
     // Clear any existing <option> tags from within "domainChoices" <select>
-    for (l = 0; l < catLists.length; l++) {
-        select = catLists[l];
-        for (i = select.options.length - 1; i >= 0; i--) {
-            select.remove(i);
+    for (let catchmentSelect of catLists) {
+        for (let optionIndex = catchmentSelect.options.length - 1; optionIndex >= 0; optionIndex--) {
+            catchmentSelect.remove(optionIndex);
         }
     }
 
-    var url = "fabric/" + name;
+    let url = "fabric/" + name;
 
     $.ajax(
         {
@@ -185,13 +184,12 @@ function loadFabricDomain(event) {
 }
 
 function submitCatchments(event) {
-    var featuresToConfigure = [],
-        selections = document.getElementById('domainSelections'),
-        selectForm = document.getElementById('location-selection-form'),
-        i;
+    let featuresToConfigure = [];
+    let selections = document.getElementById('domainSelections');
+    let selectForm = document.getElementById('location-selection-form');
 
-    for (i = 0; i < selections.options.length; i++) {
-        featuresToConfigure.push('cat-' + selections.options[i].value)
+    for (let optionIndex = 0; optionIndex < selections.options.length; optionIndex++) {
+        featuresToConfigure.push('cat-' + selections.options[optionIndex].value)
     }
 
     if (featuresToConfigure.length == 0) {
