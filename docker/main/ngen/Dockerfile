@@ -876,6 +876,40 @@ ENTRYPOINT ["entrypoint.sh"]
 
 ################################################################################################################
 ################################################################################################################
+##### User customization build stage
+FROM rocky-ngen-deps as build_customizations
+
+ARG WORKDIR
+ARG NGEN_BUILD_CONFIG_TYPE
+ENV NGEN_BUILD_CONFIG_TYPE=${NGEN_BUILD_CONFIG_TYPE}
+
+COPY --chown=${USER} --from=pre_build_bmi_iso_c_fortran_dep ${WORKDIR}/iso_c_fortran_bmi ${WORKDIR}/iso_c_fortran_bmi
+
+ENV PATH=${WORKDIR}:${WORKDIR}/bin:/dmod/bin:${PATH}:/usr/lib64/mpich/bin
+ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib:/usr/local/lib64:/dmod/shared_libs
+ENV NETCDFINC=/usr/include
+ENV VIRTUAL_ENV=/dmod/venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Copy customization script and any other included artifacts (plus README, to make sure something is always there)
+COPY customize/* ${WORKDIR}
+
+# Install packages from a requirements.txt if present
+RUN if [ -e ${WORKDIR}/requirements.txt ]; then pip3 install -r ${WORKDIR}/requirements.txt ; fi
+
+# Clone, build, and install simple CMake-buildable repos if the list is present
+RUN if [ -e ${WORKDIR}/cmake_repositories.txt ]; then \
+        chmod ugo+x ${WORKDIR}/clone_and_cmake_build.sh ; \
+        for _REPO_URL in $(cat ${WORKDIR}/cmake_repositories.txt); do \
+            ${WORKDIR}/clone_and_cmake_build.sh ${_REPO_URL} ; \
+        done ; \
+    fi
+
+# If the user script exists and was copied, execute it
+RUN if [ -e ${WORKDIR}/customize.sh ]; then chmod ugo+x ${WORKDIR}/customize.sh && ${WORKDIR}/customize.sh ; fi
+
+################################################################################################################
+################################################################################################################
 ##### Model exec ngen worker image build stage
 #FROM rocky_build_ngen AS ngen_worker
 FROM rocky-base AS ngen_worker
@@ -904,6 +938,9 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 COPY --chown=${USER} --from=build_bmi_lgar_c /dmod/ /dmod/
 COPY --chown=${USER} --from=build_bmi_sac_sma /dmod/ /dmod/
 COPY --chown=${USER} --from=build_bmi_snow_17 /dmod/ /dmod/
+
+#  Copy libs data, etc. from customize layer
+COPY --chown=${USER} --from=build_customizations /dmod/ /dmod/
 
 USER root
 # Update path and make sure dataset directory is there
