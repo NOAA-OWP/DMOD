@@ -105,6 +105,8 @@ class FutureMonitor:
         poll_interval: typing.Union[float, timedelta] = None,
         logger: LoggerProtocol = None
     ):
+        logging.info(f"Creating a '{self.__class__.__name__}' instance")
+
         if not timeout:
             timeout = DEFAULT_MONITOR_TIMEOUT
         elif isinstance(timeout, timedelta):
@@ -171,6 +173,9 @@ class FutureMonitor:
 
     @property
     def size(self) -> int:
+        """
+        The number of items being monitored
+        """
         return self.__size
 
     def __len__(self):
@@ -195,6 +200,7 @@ class FutureMonitor:
         """
         monitoring_succeeded: bool = True
 
+        self.logger.info(f"{self}: Beginning to monitor")
         while self.__should_be_monitoring:
             try:
                 # Block to check if the loop should be exitted based on a current kill state
@@ -278,8 +284,16 @@ class FutureMonitor:
             # Wait a little bit before polling again to allow for work to continue
             sleep(self.__poll_interval)
 
+        self.logger.info(f"No longer monitoring within {self}")
         self.__cleanup()
         return monitoring_succeeded
+
+    @property
+    def running(self) -> bool:
+        """
+        Whether the monitor is running
+        """
+        return self.__thread is not None and self.__thread.is_alive()
 
     def find_scope(self, future_result: futures.Future) -> typing.Optional[ObjectManagerScope]:
         """
@@ -414,11 +428,14 @@ class FutureMonitor:
         with self.__lock:
             while not self._queue.empty():
                 try:
-                    entry = self._queue.get()
+                    entry = self._queue.get(timeout=self._timeout)
                     if isinstance(entry, futures.Future) and entry.running():
                         entry.cancel()
                 except queue.Empty:
                     pass
+                except TimeoutError:
+                    pass
+
             self._queue = queue.Queue()
             self.__size = 0
             self.__scopes.clear()
@@ -428,3 +445,9 @@ class FutureMonitor:
 
     def __repr__(self):
         return self.__str__()
+
+    def __bool__(self):
+        return self.running
+
+    def __del__(self):
+        self.__cleanup()

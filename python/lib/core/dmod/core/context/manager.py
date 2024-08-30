@@ -11,7 +11,6 @@ from concurrent import futures
 
 from multiprocessing import managers
 from multiprocessing import context
-from multiprocessing import RLock
 
 from .base import ObjectManagerScope
 from .base import T
@@ -22,8 +21,6 @@ from ..common.protocols import LoggerProtocol
 
 TypeOfRemoteObject = typing.Union[typing.Type[managers.BaseProxy], type]
 """A wrapper object that is used to communicate to objects created by Managers"""
-
-_PREPARATION_LOCK: RLock = RLock()
 
 
 class DMODObjectManager(managers.BaseManager):
@@ -132,45 +129,46 @@ class DMODObjectManager(managers.BaseManager):
             additional_proxy_types: A mapping between class types and the type of proxies used to operate
                 upon them remotely
         """
-        with _PREPARATION_LOCK:
-            if not cls.__initialized:
-                if not isinstance(additional_proxy_types, typing.Mapping):
-                    additional_proxy_types = {}
+        if not cls.__initialized:
+            if not isinstance(additional_proxy_types, typing.Mapping):
+                additional_proxy_types = {}
 
-                already_registered_items: typing.List[str] = list(getattr(cls, "_registry").keys())
+            already_registered_items: typing.List[str] = list(getattr(cls, "_registry").keys())
 
-                for real_class, proxy_class in additional_proxy_types.items():
-                    name = real_class.__name__ if hasattr(real_class, "__name__") else None
+            for real_class, proxy_class in additional_proxy_types.items():
+                name = real_class.__name__ if hasattr(real_class, "__name__") else None
 
-                    if name is None:
-                        raise TypeError(f"Cannot add a proxy for {real_class} - {real_class} is not a standard type")
+                if name is None:
+                    raise TypeError(f"Cannot add a proxy for {real_class} - {real_class} is not a standard type")
 
-                    if name in already_registered_items:
-                        print(f"'{name}' is already registered to {cls.__name__}")
-                        continue
+                if name in already_registered_items:
+                    print(f"'{name}' is already registered to {cls.__name__}")
+                    continue
 
-                    cls.register_class(class_type=real_class, type_of_proxy=proxy_class)
-                    already_registered_items.append(name)
+                cls.register_class(class_type=real_class, type_of_proxy=proxy_class)
+                already_registered_items.append(name)
 
-                # Now find all proxies attached to the SyncManager and attach those
-                # This will ensure that this manager has proxies for objects and structures like dictionaries
-                registry_initialization_arguments = (
-                    {
-                        "typeid": typeid,
-                        "callable": attributes[0],
-                        "exposed": attributes[1],
-                        "method_to_typeid": attributes[2],
-                        "proxytype": attributes[3]
-                    }
-                    for typeid, attributes in getattr(managers.SyncManager, "_registry").items()
-                    if typeid not in already_registered_items
-                )
+            # Now find all proxies attached to the SyncManager and attach those
+            # This will ensure that this manager has proxies for objects and structures like dictionaries
+            registry_initialization_arguments = (
+                {
+                    "typeid": typeid,
+                    "callable": attributes[0],
+                    "exposed": attributes[1],
+                    "method_to_typeid": attributes[2],
+                    "proxytype": attributes[3]
+                }
+                for typeid, attributes in getattr(managers.SyncManager, "_registry").items()
+                if typeid not in already_registered_items
+            )
 
-                for arguments in registry_initialization_arguments:
-                    cls.register(**arguments)
+            for arguments in registry_initialization_arguments:
+                cls.register(**arguments)
+        else:
+            logging.warning(f"The '{cls.__name__}' cannot be prepared - it has already been done so.")
 
-            cls.__initialized = True
-            return cls
+        cls.__initialized = True
+        return cls
 
     def create_and_track_object(self, __class_name: str, __scope_name: str, /, *args, **kwargs) -> T:
         """
@@ -197,6 +195,10 @@ class DMODObjectManager(managers.BaseManager):
             )
 
         if __scope_name not in self.__scopes:
+            self.logger.warning(
+                f"Cannot track a '{__class_name}' object in the '{__scope_name}' "
+                f"scope if it has not been established. Establishing it now."
+            )
             self.establish_scope(__scope_name)
 
         new_instance = self.create_object(__class_name, *args, **kwargs)
@@ -228,12 +230,13 @@ class DMODObjectManager(managers.BaseManager):
 
         return value
 
-    def free(self, scope_name: str):
+    def free(self, scope_name: str, fail_on_missing_scope: bool = True):
         """
         Remove all items associated with a given tracking key from the object manager
 
         Args:
             scope_name: The key used to keep track of like items
+            fail_on_missing_scope: Throw an exception if the scope doesn't exist
 
         Returns:
             The number of items that were deleted
@@ -247,8 +250,12 @@ class DMODObjectManager(managers.BaseManager):
                 f"Received '{scope_name}' ({type(scope_name)}"
             )
 
-        if scope_name not in self.__scopes:
+        if scope_name not in self.__scopes and fail_on_missing_scope:
             raise KeyError(f"Cannot free objects from {self} - no items are tracked by the key {scope_name}")
+
+        if scope_name not in self.__scopes:
+            self.logger.warning(f"Cannot remove scope by the name '{scope_name}' - it is not currently stored")
+            return
 
         del self.__scopes[scope_name]
 
@@ -259,6 +266,9 @@ class DMODObjectManager(managers.BaseManager):
         Args:
             scope: The scope object to add
         """
+        if scope is None:
+            raise ValueError(f"A scope for {self.__class__.__name__} cannot be added - it is None")
+
         if scope.name in self.__scopes:
             raise KeyError(
                 f"Cannot add a scope object '{scope.name}' to {self} - there is already a scope by that name. "
@@ -297,7 +307,19 @@ class DMODObjectManager(managers.BaseManager):
             scope: A scope object containing references to shared objects that need to be kept alive
             operation: The operation using the shared objects
         """
+        if self.__monitor_scope and not self.__scope_monitor:
+            if self.__scope_monitor is None:
+                self.__scope_monitor = FutureMonitor(logger=self.__logger)
+            self.__scope_monitor.start()
+
         if not self.__monitor_scope or not self.__scope_monitor:
+            if not self.__monitor_scope and not self.__scope_monitor:
+                logging.error("This logger was not set to monitor scopes and it does not have a monitoring thread")
+            elif not self.__monitor_scope:
+                logging.error("This logger was told not to monitor scope")
+            else:
+                logging.error("There is no thread available to monitor scopes")
+
             if isinstance(scope, ObjectManagerScope):
                 scope_name = scope.name
             elif isinstance(scope, bytes):
@@ -339,6 +361,9 @@ class DMODObjectManager(managers.BaseManager):
 
     @property
     def logger(self) -> LoggerProtocol:
+        """
+        The logger made specifically for this manager
+        """
         return self.__logger
 
     @logger.setter
@@ -360,3 +385,15 @@ class DMODObjectManager(managers.BaseManager):
         # the logger on the monitor is kept up to speed.
         if self.__scope_monitor:
             self.__scope_monitor.logger = logger
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.__scope_monitor:
+            self.__scope_monitor.stop()
+
+        if self.__monitor_scope:
+            self.__scope_monitor.kill()
+
+        for scope_name, scope in self.__scopes.items():
+            scope.end_scope()
+
+        super().__exit__(exc_type, exc_val, exc_tb)

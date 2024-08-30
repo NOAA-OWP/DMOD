@@ -20,6 +20,7 @@ class DMODObjectManagerScope(ObjectManagerScope):
     """
     def __init__(self, name: str, object_manager: DMODObjectManager):
         super().__init__(name)
+        self.logger.info(f"Creating scope '{self.scope_id}' for '{object_manager}'")
         self.__object_manager: DMODObjectManager = object_manager
         self._perform_on_close(partial(self.__object_manager.free, self.scope_id))
 

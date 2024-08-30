@@ -11,11 +11,10 @@ from datetime import timedelta
 
 import redis
 
-import dmod.metrics.communication as communication
+from dmod.metrics import communication
 from dmod.core.common import to_json
 from dmod.core.context import DMODObjectManager
 
-import service
 from service import application_values
 
 from . import common
@@ -366,9 +365,7 @@ class RedisCommunicator(communication.Communicator):
                     exception.__traceback__
                 )
             )
-            service.error(formatted_exception)
-        else:
-            service.error(message)
+            message += f"{os.linesep}{formatted_exception}"
 
         if verbosity and self._verbosity < verbosity:
             return
@@ -416,7 +413,6 @@ class RedisCommunicator(communication.Communicator):
             message = f"[{timestamp}] {message}"
 
         self.__connection.rpush(self.__info_key, message)
-        service.info(message)
 
         if publish:
             self.write(reason="info", data={"info": message})

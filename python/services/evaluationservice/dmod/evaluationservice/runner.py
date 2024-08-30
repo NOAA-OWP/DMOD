@@ -16,14 +16,13 @@ import dataclasses
 import threading
 
 from argparse import ArgumentParser
-from multiprocessing.pool import ApplyResult
 
 import redis
 
 from concurrent import futures
-from datetime import timedelta
 from functools import partial
 
+import utilities
 from dmod.metrics import CommunicatorGroup
 from dmod.core.context import DMODObjectManager
 
@@ -31,11 +30,26 @@ from dmod.core.context import get_object_manager
 
 import service
 import worker
+from service.service_logging import get_logger
 
 from utilities.common import ErrorCounter
 from utilities import streams
 
 EXCEPTION_LIMIT: typing.Final[int] = 10
+"""
+The maximum number of a specific type of error to catch before exiting. If an error occurs 11 times in rapid 
+succession and the limit is 10, the runner should stop. If it only occurs 9 times it could be the result of something 
+that this has no control over and may remain functional.
+"""
+
+SUCCESSFUL_EXIT: typing.Final[int] = 0
+"""The exit code for a successful operation. `os.EX_OK` would be ideal, but that approach isn't portable"""
+
+ERROR_EXIT: typing.Final[int] = 1
+"""
+The exit code when the runner halts because of an error. 1 is used since that is generally associated with the catch 
+all error code.
+"""
 
 
 def get_concurrency_executor_type(**kwargs) -> typing.Callable[[], futures.Executor]:
@@ -301,20 +315,34 @@ class JobRecord:
     """The ID of the message with the instructions for the evaluation"""
     evaluation_id: str
     """The ID of the evaluation"""
-    job: ApplyResult
+    job: futures.Future
     """The asynchronous results for the job"""
 
-    def mark_complete(self, connection: redis.Redis) -> bool:
+    def mark_complete(self, connection: redis.Redis, object_manager: DMODObjectManager) -> bool:
         """
         Attempt to mark a job as no longer running
 
         Args:
             connection: A redis connection used to mark the record as complete
+            object_manager: A shared object manager that may hold data for this evaluation
 
         Returns:
             Whether the job was acknowledged as complete
         """
         try:
+            object_manager.free(self.evaluation_id, fail_on_missing_scope=False)
+        except KeyError:
+            service.info(f"There is no scope for '{self.evaluation_id}' in the object manager to close")
+        except Exception as exception:
+            service.error(
+                f"Failed to clear the scope of shared objects in evaluation '{self.evaluation_id}'",
+                exception=exception
+            )
+
+        try:
+            service.info(
+                f"{self.stream_name}:{self.group_name}:{self.consumer_name} will now delete message '{self.message_id}' since it has been consumed"
+            )
             confirmation = connection.xdel(self.stream_name, self.message_id)
             return bool(confirmation)
         except Exception as exception:
@@ -324,21 +352,43 @@ class JobRecord:
 
 def launch_evaluation(
     stream_message: streams.StreamMessage,
-    worker_pool: multiprocessing.Pool
-) -> JobRecord:
+    worker_pool: futures.Executor,
+    object_manager: DMODObjectManager,
+) -> typing.Optional[JobRecord]:
     """
     Launch an evaluation based on a message received through a redis stream
 
     Args:
         stream_message: The message received through a redis stream
         worker_pool: The pool that handles the creation of other processes
+        object_manager: A shared object creator and tracker
 
     Returns:
         A record of the evaluation job that was created
     """
     payload = stream_message.payload
+    evaluation_id = payload.get('evaluation_id')
+    scope = object_manager.establish_scope(evaluation_id)
+    
+    try:
+        communicators: CommunicatorGroup = utilities.get_communicators(
+            communicator_id=evaluation_id,
+            verbosity=payload.get("verbosity"),
+            object_manager=scope,
+            host=service.REDIS_HOST,
+            port=service.REDIS_PORT,
+            password=service.REDIS_PASSWORD,
+            include_timestamp=False
+        )
+        service.info(f"Communicators have been created for the evaluation named '{evaluation_id}'")
+    except Exception as exception:
+        service.error(
+            message=f"Could not create communicators for evaluation: {evaluation_id} due to {exception}",
+            exception=exception
+        )
+        return None
 
-    service.info(f"Launching an evaluation for {payload['evaluation_id']}...")
+    service.info(f"Launching an evaluation for {evaluation_id}...")
     instructions = payload.get("instructions")
 
     if not instructions:
@@ -347,19 +397,27 @@ def launch_evaluation(
     if isinstance(instructions, dict):
         instructions = json.dumps(instructions, indent=4)
 
-    arguments = JobArguments(
+    arguments = WorkerProcessArguments(
         evaluation_id=payload['evaluation_id'],
         instructions=instructions,
         verbosity=payload.get("verbosity"),
-        start_delay=payload.get("start_delay")
+        start_delay=payload.get("start_delay"),
+        communicators=communicators
     )
 
-    new_job: ApplyResult = worker_pool.apply_async(
-        worker.evaluate,
-        kwds=arguments.kwargs
-    )
+    try:
+        service.info(f"Submitting the evaluation job for {evaluation_id}...")
+        evaluation_job: futures.Future = worker_pool.submit(
+            worker.evaluate,
+            **arguments.kwargs
+        )
+    except Exception as exception:
+        service.error(f"Could not launch evaluation {evaluation_id} due to {exception}", exception=exception)
+        return None
 
-    service.info(f"Evaluation for {payload['evaluation_id']} has been launched.")
+    new_job: futures.Future = worker_pool.submit(worker.evaluate, **arguments.kwargs)
+
+    service.info(f"Evaluation for {evaluation_id} has been launched.")
 
     job_record = JobRecord(
         stream_name=stream_message.stream_name,
@@ -370,13 +428,22 @@ def launch_evaluation(
         job=new_job
     )
 
+    service.info(f"Preparing to monitor objects for {evaluation_id}...")
+    try:
+        object_manager.monitor_operation(evaluation_id, evaluation_job)
+        service.info(f"Evaluation for {evaluation_id} has been launched.")
+    except BaseException as exception:
+        service.error(f"Could not monitor {evaluation_id} due to: {exception}")
+        traceback.print_exc()
+
     return job_record
 
 
 def interpret_message(
     stream_message: streams.StreamMessage,
-    worker_pool: multiprocessing.Pool,
-    stop_signal: multiprocessing.Event
+    worker_pool: futures.Executor,
+    stop_signal: multiprocessing.Event,
+    object_manager: DMODObjectManager
 ) -> typing.Optional[JobRecord]:
     """
     Figures out what to do based on a message received through a redis stream
@@ -387,6 +454,7 @@ def interpret_message(
         stream_message: The message received through a redis stream
         worker_pool: A multiprocessing pool that can be used to start new evaluations
         stop_signal: The signal used to stop the reading loop
+        object_manager: A shared object manager
 
     Returns:
         The record of a job if one has been launched
@@ -404,11 +472,10 @@ def interpret_message(
     purpose = stream_message.payload.get("purpose").lower()
 
     if purpose == 'launch':
-        return launch_evaluation(stream_message, worker_pool)
+        return launch_evaluation(stream_message, worker_pool, object_manager=object_manager)
     if purpose in ("close", "kill", "terminate"):
         stop_signal.set()
         service.info("Exit message received. Closing the runner.")
-        sys.exit(0)
     else:
         service.info(
             f"Runner => The purpose was not to launch or terminate. Only launching is handled through the runner."
@@ -419,8 +486,9 @@ def interpret_message(
 
 def monitor_running_jobs(
     connection: redis.Redis,
-    active_job_queue: queue.Queue[ApplyResult[JobRecord]],
-    stop_signal: multiprocessing.Event
+    active_job_queue: queue.Queue[JobRecord],
+    stop_signal: multiprocessing.Event,
+    object_manager: DMODObjectManager
 ):
     """
     Poll a queue of jobs and close ones that are marked as complete
@@ -431,8 +499,9 @@ def monitor_running_jobs(
         connection: A connection to redis that will be used to acknowledge completed jobs
         active_job_queue: A queue of jobs to poll
         stop_signal: A signal used to stop the reading loop
+        object_manager: An object manager that may hold scope for a running job
     """
-    potentially_complete_job: typing.Optional[ApplyResult] = None
+    record: typing.Optional[JobRecord] = None
 
     encountered_errors = ErrorCounter(limit=EXCEPTION_LIMIT)
     """
@@ -449,15 +518,13 @@ def monitor_running_jobs(
 
     while not stop_signal.is_set():
         try:
-            potentially_complete_job = active_job_queue.get(block=True, timeout=1)
+            record = active_job_queue.get(block=True, timeout=1)
 
-            if not potentially_complete_job.ready():
-                active_job_queue.put(potentially_complete_job)
+            if not record.job.done():
+                active_job_queue.put(record)
                 continue
 
-            record: JobRecord = potentially_complete_job.get()
-
-            marked_complete = record.mark_complete(connection=connection)
+            marked_complete = record.mark_complete(connection=connection, object_manager=object_manager)
 
             if not marked_complete:
                 service.error(
@@ -466,10 +533,10 @@ def monitor_running_jobs(
                     f"message '{record.message_id}', could not be marked as complete"
                 )
 
-            potentially_complete_job = None
+            record = None
         except TimeoutError:
-            if potentially_complete_job:
-                active_job_queue.put(potentially_complete_job)
+            if record and not record.job.cancelled():
+                active_job_queue.put(record)
         except queue.Empty:
             # There are plenty of times when this might be empty and that's fine. In this case we just want
             pass
@@ -477,154 +544,7 @@ def monitor_running_jobs(
             encountered_errors.add_error(error=exception)
             service.error(exception)
 
-        potentially_complete_job = None
-
-
-def run_job(
-    launch_message: dict,
-    worker_pool: futures.Executor,
-    object_manager: DMODObjectManager
-):
-    """
-    Adds the evaluation to the worker pool for background processing
-
-    Args:
-        launch_message: A dictionary containing data to send to the process running the job
-        worker_pool: The pool with processes ready to run an evaluation
-        object_manager: The object manager used to create shared objects
-    """
-    if launch_message['type'] != 'message':
-        # We exit because this isn't a useful message
-        return
-
-    launch_parameters = launch_message['data']
-    if not isinstance(launch_parameters, dict):
-        try:
-            launch_parameters = json.loads(launch_parameters)
-        except Exception as exception:
-            service.error("The passed message wasn't JSON")
-            service.error(launch_parameters, exception)
-            return
-
-    if 'purpose' not in launch_parameters:
-        service.info(f"A purpose was not communicated through the {service.EVALUATION_QUEUE_NAME} channel")
-        return
-
-    purpose = launch_parameters.get("purpose").lower()
-
-    if purpose == 'launch':
-        evaluation_id = launch_parameters.get('evaluation_id')
-        scope = object_manager.establish_scope(evaluation_id)
-        try:
-            communicators: CommunicatorGroup = utilities.get_communicators(
-                communicator_id=evaluation_id,
-                verbosity=launch_parameters.get("verbosity"),
-                object_manager=scope,
-                host=service.REDIS_HOST,
-                port=service.REDIS_PORT,
-                password=service.REDIS_PASSWORD,
-                include_timestamp=False
-            )
-            service.debug(f"Communicators have been created for the evaluation named '{evaluation_id}'")
-        except Exception as exception:
-            service.error(
-                message=f"Could not create communicators for evaluation: {evaluation_id} due to {exception}",
-                exception=exception
-            )
-            return
-
-        service.info(f"Launching an evaluation for {launch_parameters['evaluation_id']}...")
-        instructions = launch_parameters.get("instructions")
-
-        if isinstance(instructions, dict):
-            instructions = json.dumps(instructions, indent=4)
-
-        arguments = WorkerProcessArguments(
-            evaluation_id=launch_parameters['evaluation_id'],
-            instructions=instructions,
-            verbosity=launch_parameters.get("verbosity"),
-            start_delay=launch_parameters.get("start_delay"),
-            communicators=communicators
-        )
-
-        try:
-            service.debug(f"Submitting the evaluation job for {evaluation_id}...")
-            evaluation_job: futures.Future = worker_pool.submit(
-                worker.evaluate,
-                **arguments.kwargs
-            )
-        except Exception as exception:
-            service.error(f"Could not launch evaluation {evaluation_id} due to {exception}", exception=exception)
-            return
-
-        service.debug(f"Preparing to monitor {evaluation_id}...")
-        try:
-            object_manager.monitor_operation(evaluation_id, evaluation_job)
-            service.debug(f"Evaluation for {launch_parameters['evaluation_id']} has been launched.")
-        except BaseException as exception:
-            service.error(f"Could not monitor {evaluation_id} due to: {exception}")
-            traceback.print_exc()
-    elif purpose in ("close", "kill", "terminate"):
-        service.info("Exit message received. Closing the runner.")
-        sys.exit(0)
-    else:
-        service.info(
-            f"Runner => The purpose was not to launch or terminate. Only launching is handled through the runner."
-            f"{os.linesep}Message: {json.dumps(payload)}"
-        )
-    return None
-
-
-def monitor_running_jobs(
-    connection: redis.Redis,
-    active_job_queue: queue.Queue[ApplyResult[JobRecord]],
-    stop_signal: multiprocessing.Event
-):
-    """
-    Poll a queue of jobs and close ones that are marked as complete
-
-    Meant to be run in a separate thread
-
-    Args:
-        connection: A connection to redis that will be used to acknowledge completed jobs
-        active_job_queue: A queue of jobs to poll
-        stop_signal: A signal used to stop the reading loop
-    """
-    potentially_complete_job: typing.Optional[ApplyResult] = None
-
-    monitor_errors = ErrorCounter(limit=EXCEPTION_LIMIT)
-
-    while not stop_signal.is_set():
-        try:
-            potentially_complete_job = active_job_queue.get(block=True, timeout=1)
-
-            if not potentially_complete_job.ready():
-                active_job_queue.put(potentially_complete_job)
-                continue
-
-            record: JobRecord = potentially_complete_job.get()
-
-            marked_complete = record.mark_complete(connection=connection)
-
-            if not marked_complete:
-                service.error(
-                    f"Evaluation '{record.evaluation_id}', recognized by the '{record.consumer_name}' consumer "
-                    f"within the '{record.group_name}' group on the '{record.stream_name}' stream as coming from "
-                    f"message '{record.message_id}', could not be marked as complete"
-                )
-
-            potentially_complete_job = None
-        except TimeoutError:
-            if potentially_complete_job:
-                active_job_queue.put(potentially_complete_job)
-        except queue.Empty:
-            # There are plenty of times when this might be empty and that's fine. In this case we just want
-            pass
-        except Exception as exception:
-            monitor_errors.add_error(error=exception)
-            service.error(exception)
-
-        potentially_complete_job = None
+        record = None
 
 
 def get_consumer_name() -> str:
@@ -645,13 +565,15 @@ def listen(
         stream_parameters: The means to connect to redis
         job_limit: The maximum number of jobs that may be run at once
     """
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    signal.signal(signal.SIGQUIT, signal_handler)
 
     job_limit = job_limit or int(float(os.environ.get("MAXIMUM_RUNNING_JOBS", os.cpu_count())))
+    """The maximum number of jobs that may be actively running from this listener"""
+
     stop_signal: multiprocessing.Event = multiprocessing.Event()
+    """Tells this function and the associated monitoring thread to stop polling"""
+
     active_jobs: queue.Queue[JobRecord] = queue.Queue(maxsize=job_limit)
+    """A queue of active jobs to poll"""
 
     service.info(
         f"Listening for evaluation jobs on '{stream_parameters.stream_name}' through the "
@@ -668,22 +590,31 @@ def listen(
         redis_connection=connection
     )
 
-    monitoring_thread = threading.Thread(
-        target=monitor_running_jobs,
-        name=f"{service.application_values.APPLICATION_NAME}: Monitor for {consumer_name}",
-        kwargs={
-            "connection": connection,
-            "active_job_queue": active_jobs,
-            "stop_signal": stop_signal,
-        },
-        daemon=True
-    )
-    monitoring_thread.start()
+    monitoring_thread: typing.Optional[threading.Thread] = None
 
     error_counter = ErrorCounter(limit=EXCEPTION_LIMIT)
 
+    executor_type: typing.Callable[[], futures.Executor] = get_concurrency_executor_type(
+        max_workers=job_limit
+    )
+
     try:
-        with multiprocessing.Pool(processes=job_limit) as worker_pool:  # type: multiprocessing.pool.Pool
+        with get_object_manager(monitor_scope=True) as object_manager, executor_type() as worker_pool:
+            object_manager.logger = get_logger()
+
+            monitoring_thread = threading.Thread(
+                target=monitor_running_jobs,
+                name=f"{service.application_values.APPLICATION_NAME}: Monitor for {consumer_name}",
+                kwargs={
+                    "connection": connection,
+                    "active_job_queue": active_jobs,
+                    "stop_signal": stop_signal,
+                    "object_manager": object_manager
+                },
+                daemon=True
+            )
+            monitoring_thread.start()
+
             while not stop_signal.is_set():
                 if already_listening:
                     service.info(f"{consumer_name}: Starting to listen for evaluation jobs again")
@@ -701,7 +632,16 @@ def listen(
                     )
 
                     for message in message_stream:
-                        possible_record = interpret_message(message, worker_pool, stop_signal)
+                        service.info(
+                            f"{message.stream_name}:{message.group_name}:{consumer_name}: Received message "
+                            f"'{message.message_id}'"
+                        )
+                        possible_record = interpret_message(
+                            message,
+                            worker_pool,
+                            stop_signal=stop_signal,
+                            object_manager=object_manager
+                        )
 
                         if possible_record:
                             # This will block until another entry may be put into the queue - this will prevent one
@@ -711,11 +651,13 @@ def listen(
                         else:
                             # Since this message isn't considered one for the runner, acknowledge that it's been seen
                             # and move on so something else may view the message
+                            service.info(f"{message.stream_name}:{message.group_name}:{consumer_name}: Acknowledging message '{message.message_id}'")
                             connection.xack(
                                 stream_parameters.stream_name,
                                 stream_parameters.group_name,
                                 message.message_id
                             )
+                            service.info(f"{message.stream_name}:{message.group_name} will no longer use message '{message.message_id}'")
 
                         if stop_signal.is_set():
                             break
@@ -729,85 +671,6 @@ def listen(
         if monitoring_thread:
             monitoring_thread.join(timeout=5)
 
-
-# TODO: Switch from pubsub to a redis stream
-def listen(
-    channel: str,
-    host: str = None,
-    port: typing.Union[str, int] = None,
-    username: str = None,
-    password: str = None,
-    db: int = 0,
-    job_limit: int = None
-):
-    """
-    Listen for requested evaluations
-
-    Args:
-        channel: The channel to listen to
-        host: The address of the redis server
-        port: The port of the host that is serving the redis server
-        username: The username used for credentials into the redis server
-        password: A password that might be needed to access redis
-        db: The database number of the redis server to interact with
-        job_limit: The number of jobs that may be run at once
-    """
-    # Trap signals that stop the application to correctly inform what exactly shut the runner down
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    signal.signal(signal.SIGQUIT, signal_handler)
-
-    job_limit = job_limit or int(float(os.environ.get("MAXIMUM_RUNNING_JOBS", os.cpu_count())))
-
-    service.info(f"Listening for evaluation jobs on '{channel}'...")
-    already_listening = False
-
-    error_tracker: TimedOccurrenceWatcher = TimedOccurrenceWatcher(
-        duration=timedelta(seconds=10),
-        threshold=10,
-        on_filled=too_many_exceptions_hit
-    )
-
-    try:
-        with get_object_manager(monitor_scope=True) as object_manager:
-            object_manager.logger = get_logger()
-            while True:
-                if already_listening:
-                    service.info("Starting to listen for evaluation jobs again")
-                else:
-                    service.info("Listening out for evaluation jobs")
-                    already_listening = True
-
-                try:
-                    connection = utilities.get_redis_connection(
-                        host=host,
-                        port=port,
-                        password=password,
-                        username=username,
-                        db=db
-                    )
-
-                    listener = connection.pubsub()
-                    listener.subscribe(channel)
-
-                    executor_type: typing.Callable[[], futures.Executor] = get_concurrency_executor_type(
-                        max_workers=job_limit
-                    )
-
-                    with executor_type() as worker_pool:
-                        for message in listener.listen():
-                            run_job(launch_message=message, worker_pool=worker_pool, object_manager=object_manager)
-                except Exception as exception:
-                    service.error(message="An error occured while listening for evaluation jobs", exception=exception)
-    except Exception as exception:
-        service.error(
-            message="A critical error caused the evaluation listener to fail and not recover",
-            exception=exception
-        )
-
-        # Inform the error tracker that the exception was hit. An exception will be hit and the loop will halt if
-        # the type of exception has been hit too many times in a short period
-        error_tracker.value_encountered(value=exception)
 
 
 def initialize_consumer(stream_name: str, group_name: str, consumer_name: str, redis_connection: redis.Redis) -> None:
@@ -844,7 +707,7 @@ def initialize_consumer(stream_name: str, group_name: str, consumer_name: str, r
     redis_connection.xgroup_createconsumer(name=stream_name, groupname=group_name, consumername=consumer_name)
 
 
-def cleanup(redis_parameters: streams.StreamParameters):
+def cleanup(redis_parameters: streams.StreamParameters) -> None:
     """
     Clean up any leftover artifacts that might be considered no longer needed
 
@@ -863,11 +726,14 @@ def cleanup(redis_parameters: streams.StreamParameters):
         service.error(exception)
 
 
-
 def main(*args):
     """
     Listen to a redis stream and launch evaluations based on received content
     """
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGQUIT, signal_handler)
+
     arguments = Arguments(*args)
 
     redis_parameters = streams.StreamParameters(
@@ -889,19 +755,19 @@ def main(*args):
 
     try:
         listen(stream_parameters=redis_parameters, job_limit=arguments.limit)
-        exit_code = 0
+        exit_code = SUCCESSFUL_EXIT
     except KeyboardInterrupt:
-        exit_code = os.EX_OK
+        exit_code = SUCCESSFUL_EXIT
         cleanup(redis_parameters=REDIS_PARAMETERS_FOR_PROCESS)
     except Exception as exception:
         service.error(exception)
-        exit_code = 1
+        exit_code = ERROR_EXIT
     finally:
         try:
             cleanup(redis_parameters=redis_parameters)
         except Exception as exception:
             service.error(exception)
-            exit_code = 1
+            exit_code = ERROR_EXIT
 
     sys.exit(exit_code)
 

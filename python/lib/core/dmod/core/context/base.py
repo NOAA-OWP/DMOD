@@ -169,6 +169,7 @@ class ObjectManagerScope(abc.ABC):
         """
         Override to add extra logic for when this scope is supposed to reach its end
         """
+        self.logger.warning(f"Ending scope '{self.__scope_id}' for: {self}")
         self.drop_references()
         self.__scope_closed()
 
