@@ -4,7 +4,6 @@ Common shared utilities used throughout the service
 from dmod.metrics import Communicator
 from dmod.metrics import CommunicatorGroup
 
-from dmod.core.context import DMODObjectManager
 from dmod.core.context.base import ObjectCreatorProtocol
 
 from .common import *

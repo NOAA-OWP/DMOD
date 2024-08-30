@@ -13,8 +13,6 @@ from . import backend
 from .. import util
 from .. import specification
 
-util.configure_logging()
-
 
 class RESTBackend(backend.Backend):
     """

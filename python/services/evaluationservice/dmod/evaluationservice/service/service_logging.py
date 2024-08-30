@@ -511,11 +511,13 @@ DEFAULT_LOGGING_CONFIGURATION = {
     'loggers': {
         DEFAULT_LOGGER_NAME: {
             'handlers': [f'{DEFAULT_LOGGER_NAME}_Handler', 'stdout'],
-            'level': get_log_level()
+            'level': get_log_level(),
+            'propagate': False
         },
         DEFAULT_SOCKET_LOGGER_NAME: {
             'handlers': [f"{DEFAULT_SOCKET_LOGGER_NAME}_Handler", "stdout"],
-            'level': get_socket_log_level()
+            'level': get_socket_log_level(),
+            'propagate': False
         }
     }
 }

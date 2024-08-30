@@ -19,7 +19,7 @@ Next is the service itself. As of 2022-07-25, it has 8 primary views:
    you can view in your browser
 3. Get Output - navigating to the output page will combine any generated evaluation output and send it to the client
    for download. This is **not** a standard web page and instead performs server side operations.
-4. Launch - **the launch view is the primary service used to launch evaluations.** The builder page calls this page as
+4. Launch - **the launch view is the primary service used to launch evaluations.** The builder page calls this view as
    well. Upon invocation, this view will return JSON detailing the name of the channel/evaluation that was generated,
    the key for the channel in redis that may be listened to, and the websocket address that may be attached to
    listen for results in real time. Calling this from a browser will redirect to a view that will show messages as

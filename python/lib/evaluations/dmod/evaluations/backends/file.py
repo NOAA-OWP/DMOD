@@ -21,7 +21,6 @@ from . import backend
 from .. import util
 from .. import specification
 
-util.configure_logging()
 
 
 RE_PATTERN = re.compile(r"(\{.+\}|\[.+\]|\(.+\)|(?<!\\)\.|\{|\}|\]|\[|\(|\)|\+|\*|\\[a-zA-Z]|\?)+")
