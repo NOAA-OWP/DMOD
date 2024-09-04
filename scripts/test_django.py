@@ -528,6 +528,9 @@ def find_django_applications(root: Path) -> typing.List[Path]:
     Returns:
         A list of all found testable Django applications
     """
+    if isinstance(root, str):
+        root = Path(root)
+
     application_paths = []
 
     # Indicates if the current root directory might be able to be interpreted
