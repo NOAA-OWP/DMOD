@@ -4,42 +4,57 @@
 - [Contributing](#contributing)
     - [TL;DR](#contributing-tldr)
     - [Getting Started With Your Fork](#getting-started-with-your-fork)
-    - [Fork Consistency Requirements](#fork-consistency-requirements)
-    - [Fork Setup Suggestions](#fork-setup-suggestions)
+      - [Fork Consistency Requirements](#fork-consistency-requirements)
+      - [Fork Setup Suggestions](#fork-setup-suggestions)
+    - [Development](#development)
+    - [Submitting Pull Requests](#submitting-pull-requests)
 - [Keeping Forks Up to Date](#keeping-forks-up-to-date)
     - [Getting Upstream Changes](#getting-upstream-changes)
     - [Rebasing Development Branches](#rebasing-development-branches)
     - [Fixing Diverging Development Branches](#fixing-diverging-development-branches)
+- [Optional: Setting Up Hook Scripts](#optional-setting-up-hook-scripts)
 
-## Branching Design
+## Branching Model
 
-- The main DMOD repo has a primary long-term branch called **master**
-    - There may be other branches for specific purposes, but these should still derive from `master`
-- Interaction with DMOD repo is done via pull requests (PRs) to this `master` branch
+- The DMOD repo uses a branching model based on [Gitflow](https://nvie.com/posts/a-successful-git-branching-model/) and has two primary long-term branch: 
+  - **master**: the main branch pointing to the current, official version
+  - **dev**: an integration branch containing the latest completed development work intended for the next released version
+- Most interaction with DMOD repo is done via pull requests (PRs) to the `dev` branch
+  - Independent branches for features or bug fixes are created off `dev` to contain development work that is in progress
+  - These branches are reviewed and their changes integrated back into `dev` once complete via PRs
+  - Typically feature/fix branches exist in personal clones and personal Github forks, but not in the official OWP repo
+- Release branches (e.g., `release-X` for pending version `X`) will periodically be created to finalize the next new version when it is time for it to be released
+  - These are managed by the core OWP contributors team
+  - They do exist in the official OWP repo
+  - But they are short-lived and removed once the release becomes official
+  - See the [Release Management](RELEASE_MANAGEMENT.md) doc for more details on the release process
+  
 
 ## Contributing
 
 - [TL;DR](#contributing-tldr)
 - [Getting Started With Your Fork](#getting-started-with-your-fork)
-- [Fork Consistency Requirements](#fork-consistency-requirements)
-- [Fork Setup Suggestions](#fork-setup-suggestions)
+  - [Fork Consistency Requirements](#fork-consistency-requirements)
+  - [Fork Setup Suggestions](#fork-setup-suggestions)
+- [Development](#development)
+- [Submitting Pull Requests](#submitting-pull-requests)
 
 ### Contributing TL;DR
 
 To work with the repo and contribute changes, the basic process is as follows:
 
 - Create your own DMOD fork in Github
-- Clone your fork and [setup your repo on your local development machine](#getting-started-with-your-fork)
-- Make sure to [keep your fork and your local clone(s) up to date](#keeping-forks-up-to-date) with the upstream DMOD repo, [ensuring histories remain consistent](#fork-consistency-requirements) by performing [rebasing](#rebasing-development-branches)
-- Figure out a branching strategy that works for you, with [this strategy offered as a suggestion](#fork-setup-suggestions)
-- Make changes you want to contribute, commit them locally, and push them to your Github fork
-- Submit pull requests to the upstream repo's `master` from a branch in your fork when you have a collection of changes ready to be incorporated
+- Clone DMOD locally (conventionally from your fork) and [setup your repo on your local development machine](#getting-started-with-your-fork)
+- Make sure to [keep your fork and your local clone(s) up to date](#keeping-forks-up-to-date) with the upstream OWP DMOD repo, [ensuring histories remain consistent](#fork-consistency-requirements) by performing [rebasing](#rebasing-development-branches)
+- Create feature/fix branches from `dev` when you want to contribute
+- Write changes you want to contribute, commit to your local feature/fix branch, and push these commits to a branch in your personal Github fork
+- Submit pull requests to the OWP DMOD repo's `dev` from a branch in your fork when this branch has a collection of changes ready to be incorporated
 
 ### Getting Started With Your Fork
 
-After creating a fork in Github, clone a local development repo from the fork.  This should make the fork a remote for that local repo, typically named **origin**.
+After [creating a fork](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo) in Github, [clone a local development repo](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository).  The convention is to clone this local repo from a personal fork, which causes the personal fork to be configured as the `origin` remote.  There are more advanced ways of doing things, which won't be detailed here, but the rest of this document assumes the aforementioned setup.
 
-Add the main DMOD repo as a second remote for the local clone. The standard convention, used here and elsewhere, is to name that remote `upstream`.  Doing the addition will look something like:
+Add the OWP DMOD repo as a second remote for the local clone. Again, the standard convention used in this doc and elsewhere is to name that remote `upstream`.  Doing the addition will look something like:
 
     # Add the remote
     git remote add upstream https://github.com/NOAA-OWP/DMOD.git
@@ -58,21 +73,55 @@ Alternatively, one could also set these in the machine's global Git config (or r
      git config --global user.name "John Doe"
      git config --global user.email "john@doe.org"
 
-### Fork Consistency Requirements
+#### Fork Consistency Requirements
 
-Within a local repo and personal fork, users are mostly free to do whatever branching strategy works for them.  However, a branch used for a pull request typically should be (re)based on the `HEAD` commit of the current OWP `upstream/master` branch, to ensure the repo history remains consistent.
+As mentioned, to contribute changes, the changes must be submitted via a pull request.  The branch used for a pull request usually needs to be (re)based on the `HEAD` commit of the current OWP `upstream/dev` branch, to ensure the repo history remains consistent.  
 
-### Fork Setup Suggestions
+This is a bit of a moving target:  sometimes, a relatively recent commit (not the latest `HEAD`) will be sufficient.  Other times, the most recent `HEAD` will be used initially, but then change after the PR was submitted and need to be rebased again. 
+
+Regardless, if there are merge conflicts in the branch within a PR, the branch will need to be rebased on `upstream/dev` again.  
+
+#### Fork Setup Suggestions
 
 Note that while this setup is not strictly required, examples and instructions in this document may assume its use.
 
-Maintain a personal `master` branch, on any local development clones and within a personal fork, just as [a place to rebase changes from `upstream/master`](#getting-upstream-changes).  Do not do any development work or add any commits to these directly.  Just keep these as a "clean," current copy of the `upstream/master` branch.
+Maintain a personal `dev` branch, on any local development clones and within a personal fork, just as [a place to rebase changes from `upstream/dev`](#getting-upstream-changes).  Do not do any development work or add any commits to these directly.  Just keep these as a "clean," current copy of the `upstream/dev` branch.
 
-Use separate feature branches for development work as appropriate.  When preparing to make a PR, making sure the branch is both up to date with `upstream/master` and has all the desired local changes.
+Create separate feature/bug fix branches for development work as appropriate, basing them off the local copy of `dev`.  When preparing to make a PR, making sure the branch is both up to date with `upstream/dev` and has all the desired local changes.
 
-A separate, "clean" local `master` should be easy to keep it in sync with `upstream/master`, which in turn will make it relatively easy to rebase local development branches on `master` whenever needed.  This simplifies maintaining the base-commit consistency requirement for the branches used for pull requests.
+A separate, "clean" local `dev` should be easy to keep it in sync with `upstream/dev`, which in turn will make it relatively easy to rebase local development branches on `dev` whenever needed.  This simplifies maintaining the base-commit consistency requirement for the branches used for pull requests.
 
-Clean up above mentioned PR branches regularly (i.e., once their changes get incorporated).  This is generally a good practice for other local or fork development branches, to avoid having [diverged histories that need to be fixed](#fixing-diverging-development-branches).
+Clean up above-mentioned PR branches regularly (i.e., once their changes get incorporated).  This is generally a good practice for other local or fork development branches, to avoid having [diverged histories that need to be fixed](#fixing-diverging-development-branches).
+
+### Development
+
+Start by creating and checking out a local branch (`new_branch`) to contain your work.  This should be based on `dev` (you may need to [sync upstream changes](#getting-upstream-changes) first):
+
+```bash
+git checkout -b new_branch dev
+```
+
+From there begin writing and committing your changes to the branch.  While up to you, it is suggested that development work be committed frequently when changes are complete and meaningful. If work requires modifying more than one file in the source, it is recommended to commit the changes independently to help avoid too large of conflicts if/when they occur.
+
+
+### Submitting Pull Requests
+
+Once changes being developed in a local feature/fix branch are ready, the branch and all local commits should be pushed to your Github fork.
+
+    # If you haven't yet pushed the branch to the fork (and assuming your fork is `origin`)
+    git push -u origin my_branch
+
+Alternatively, if the branch is already in your fork and just needs the latest local commits:
+
+    git push origin my_branch
+
+(**Note**: the `-u` option and more explicit syntax being used above are perfectly valid but not completely necessary.  Set Git's documentation for more about the `push` command.)
+
+After everything is in your fork, you can navigate to the OWP repo via Github's web interface and [submit a PR](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request) to pull this branch into the OWP `dev` branch.  Ensure that you select `dev` as the recipient branch.  You will also need to make sure you are comparing across forks, choosing your appropriate fork and branch to pull from.  Complete details on the process can be found in Github's documentation.
+
+#### PR Revisions
+
+Once the PR is submitted, it will be reviewed by one or more other repo contributors.  Potentially, changes could be requested, in which case you would need to first make those in your locally copy of the feature/fix branch, and then re-push that branch (and the updates) to your personal fork.
 
 ## Keeping Forks Up to Date
 
@@ -91,28 +140,41 @@ The development team for DMOD uses a *rebase* strategy for integrating code chan
 
 ### Getting Upstream Changes
 
-When it is time to check for or apply updates to a personal fork and/or a local repo, check out the local `master` branch and do fetch-and-rebase, which can be done with `pull` and the `--rebase` option:
+When it is time to check for or apply updates from the official OWP repo to a personal fork and/or a local repo, check out the `dev` branch locally  and do fetch-and-rebase, which can be done with `pull` and the `--rebase` option:
 
-    # Checkout local master branch
-    git checkout master
+    # Checkout local dev branch
+    git checkout dev
 
     # Fetch and rebase changes
-    git pull --rebase upstream master
+    git pull --rebase upstream dev
 
-Then, make sure these get pushed to the personal fork. Assuming a typical setup where a developer has cloned from a fork, and still has `master` checked out, that is just:
+Then, make sure these get pushed to your personal fork. Assuming [the above-described setup](#getting-started-with-your-fork) where the local repo was cloned from the fork, and assuming the local `dev` branch is currently checked out, the command for that is just:
 
     # Note the assumptions mentioned above that are required for this syntax
     git push
 
-Depending on individual setup, a developer may want to do this immediately (e.g., if the `master` branch is "clean", as [discussed in the forking suggestions](#fork-setup-suggestions)), or wait until the local `master` is in a state ready to push to the personal fork.
+Alternatively, you can use the more explicit form:
+
+`git push <fork_remote> <local_branch>:<remote_branch>`
+
+The previous example command is effectively equivalent to running:
+
+    # Cloning a repo from a fork created a remote for the fork named "origin"; see above assumptions
+    git push origin dev:dev
+
+You also can omit `<local_branch>:` (including the colon) and supply just the remote branch name if the appropriate local branch is still checked out.
+
+#### For `master` Too
+
+Note that the above steps to get upstream changes from the official OWP repo can be applied to the `master` branch also (just swap `master` in place of `dev`).  `master` should not be used as the basis for feature/fix branches, but there are other reasons why one might want the latest `master` locally or in a personal fork.  
 
 ### Rebasing Development Branches
 
-When the steps in [Getting Upstream Changes](#getting-upstream-changes) do bring in new commits that update `master`, rebase any local development branches were previously created. E.g.,
+When the steps in [Getting Upstream Changes](#getting-upstream-changes) do bring in new commits that update `dev`, it is usually a good idea (and often necessary) to rebase any local feature/fix branches were previously created. E.g.,
 
-    # If using a development branch named 'dev'
-    git checkout dev
-    git rebase master
+    # If using a development branch named 'faster_dataset_writes'
+    git checkout faster_dataset_writes
+    git rebase dev
 
 See documentation on [the "git rebase" command](https://git-scm.com/docs/git-rebase) for more details.
 
@@ -120,15 +182,49 @@ See documentation on [the "git rebase" command](https://git-scm.com/docs/git-reb
 
 It is possible to have more control over rebasing by doing an interactive rebase.  E.g.:
 
-    git rebase -i master
+    git rebase -i dev
 
-This will open up a text editor allowing for reordering, squashing, dropping, etc., development branch commits prior to rebasing them onto the new base commit from `master`.  See the [**Interactive Mode**](https://git-scm.com/docs/git-rebase#_interactive_mode) section on the rebase command  for more details.
+This will open up a text editor allowing for reordering, squashing, dropping, etc., development branch commits prior to rebasing them onto the new base commit from `dev`.  See the [**Interactive Mode**](https://git-scm.com/docs/git-rebase#_interactive_mode) section on the rebase command  for more details.
 
 ### Fixing Diverging Development Branches
 
-If a local development branch is already pushed to a remote fork, and then later rebasing the local branch is necessary, doing so will cause the histories to diverge.  For simple cases, the fix is to just force-push the rebased local branch.
+If a local feature/fix branch is already pushed to a remote fork, and then later rebasing the local branch is necessary, doing so will cause the histories to diverge.  For simple cases, the fix is to just force-push the rebased local branch.
 
     # To force-push to fix a divergent branch
     git push -f origin dev
 
 However, extra care is needed if multiple developers may be using the branch in the fork (e.g., a developer is collaborating with someone else on a large set of changes for some new feature).  The particular considerations and best ways to go about things in such cases are outside the scope of this document.  Consult Git's documentation and Google, or contact another contributor for advice.
+
+## Optional: Setting Up Hook Scripts
+
+_Git_ supports the capability to automatically run various scripts when certain events happen.  These are referred to as [_Git_ hooks](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks).  Use of these hooks is optional but recommended.  However, client-side hooks are not copied as part of cloning a repository.  They must be set up either manually or, [as discussed next](#integration-with-_pre-commit_-utility), via some other helper tool.
+
+### Integration with _pre-commit_ Utility
+
+The DMOD repo does contain a configuration for a related helper utility named [_pre-commit_](https://pre-commit.com/).  This tool can be used to manage and install scripts for use with _Git_'s `pre-commit` hook.  The `pre-commit` hook runs automatically when `git commit` is invoked and can be used to perform valuable checks on the files in the repo.
+
+#### Installing _pre-commit_
+
+The _pre-commit_ utility must be installed as a separate step.  Installation can be performed using a package manager (e.g. `brew install pre-commit`) or from _pip_.  If you are to use _pip_, it is highly recommend to use a virtual environment.
+
+#### Provided Configuration
+
+The [`.pre-commit-config.yaml`](./.pre-commit-config.yaml) file in the root of the repo provides a DMOD-maintained configuration of hook scripts that _pre-commit_ (the utility) will add to the `pre-commit` _Git_ hook.  This file is version controlled and can be changed like any other source file.
+
+#### Installing Hook Scripts Using _pre-commit_
+
+Once the utility is available, install the _pre-commit_-configured hook scripts into your _Git_ clone by running:
+
+```shell
+pre-commit install
+```
+
+The hook scripts will now run when code is committed.  
+
+Alternatively, you can run the hook scripts manually via:
+
+```shell
+pre-commit run --all-files
+```
+
+For more information, see [_pre-commit_'s documentation](https://pre-commit.com/index.html).
