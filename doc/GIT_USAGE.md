@@ -1,6 +1,8 @@
 # Git Strategy
 
 - [Branching Design](#branching-design)
+  - [Feature Branches from `dev`](#feature-branches-from-dev)
+  - [Relating `master`, `dev`, and Release Branches](#relating-master-dev-and-release-branches)
 - [Contributing](#contributing)
     - [TL;DR](#contributing-tldr)
     - [Getting Started With Your Fork](#getting-started-with-your-fork)
@@ -28,7 +30,100 @@
   - They do exist in the official OWP repo
   - But they are short-lived and removed once the release becomes official
   - See the [Release Management](RELEASE_MANAGEMENT.md) doc for more details on the release process
-  
+
+### Feature Branches from `dev`
+This illustrates the relationship between feature branches and `dev`.  They should be created from `dev` and independently contain commits from their feature.  Once done, the changes will be reintegrated back into `dev` via rebasing.
+
+```mermaid 
+    %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'dev'}}}%%
+    gitGraph
+        commit id:"feature1.1"
+        commit id:"feature1.2"
+        branch feature-2
+        branch feature-3
+        checkout feature-2
+        commit id:"feature2.1"
+        commit id:"feature2.2"
+        checkout dev
+        merge feature-2
+        checkout feature-3
+        commit id:"feature3.1"
+        commit id:"feature3.2"
+        commit id:"feature3.3"
+        checkout dev
+        merge feature-3
+```
+
+The resulting state of `dev` after rebasing the two new feature branches would be:
+
+```mermaid 
+    %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'dev'}}}%%
+    gitGraph
+        commit id:"feature1.1"
+        commit id:"feature1.2"
+        commit id:"feature2.1"
+        commit id:"feature2.2"
+        commit id:"feature3.1"
+        commit id:"feature3.2"
+        commit id:"feature3.3"
+```
+
+### Relating `master`, `dev`, and Release Branches
+
+This illustrates the relationship between `master`, `dev`, and `release-v2`.  Notice that `master` has already been tagged with version `v1` at the start.  Commits for `feature1` and `feature2` at some point are integrated into `dev`.  When it is time to prepare to release version `v2`, `release-v2` is created.  A few bug fix commits were needed in `release-v2`.  After that, all the changes in `release-v2` are integrated into `master`, and `master` is tagged `v2`.  All the changes are also integrated back into `dev`.
+
+```mermaid 
+    %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'master'}}}%%
+    gitGraph
+        commit id:"v1-commit" tag: "v1"
+        branch dev
+        checkout dev
+        commit id:"feature1.1"
+        commit id:"feature1.2"
+        commit id:"feature2.1"
+        commit id:"feature2.2"
+        commit id:"feature2.3"
+        branch release-v2
+        checkout release-v2
+        commit id:"fix2.1"
+        commit id:"fix2.2"
+        checkout master
+        merge release-v2 tag:"v2"
+        checkout dev
+        merge release-v2
+
+```
+
+The resulting state of `master` is:
+
+```mermaid 
+    %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'master'}}}%%
+    gitGraph
+        commit id:"v1-commit" tag:"v1"
+        commit id:"feature1.1"
+        commit id:"feature1.2"
+        commit id:"feature2.1"
+        commit id:"feature2.2"
+        commit id:"feature2.3"
+        commit id:"fix2.1"
+        commit id:"fix2.2" tag:"v2"
+```
+
+The resulting state of `dev` is essentially the same:
+
+```mermaid 
+    %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'dev'}}}%%
+    gitGraph
+        commit id:"v1-commit"
+        commit id:"feature1.1"
+        commit id:"feature1.2"
+        commit id:"feature2.1"
+        commit id:"feature2.2"
+        commit id:"feature2.3"
+        commit id:"fix2.1"
+        commit id:"fix2.2"
+```
+
 
 ## Contributing
 
