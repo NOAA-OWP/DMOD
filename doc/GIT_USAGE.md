@@ -1,6 +1,6 @@
 # Git Strategy
 
-Note that this document goes into detail on the Git strategy and branching model for DMOD.  It is here for openness and transparency, but many (if not most) users will not need to be concerned with this level of detail.  For information geared toward day-to-day development contributions and Git, see the [CONTRIBUTING](../CONTRIBUTING.md) doc.
+Note that this document goes into detail on the Git strategy and branching model for DMOD.  It is here for openness and transparency, but most contributors and users will not need to be concerned with this level of detail.  For information geared toward day-to-day development contributions and Git, see the [CONTRIBUTING](../CONTRIBUTING.md) doc.
 
 - [Branching Model](#branching-model)
   - [Feature Branches from `master`](#feature-branches-from-master)
