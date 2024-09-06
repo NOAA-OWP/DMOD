@@ -1,8 +1,8 @@
 # Git Strategy
 
 - [Branching Design](#branching-design)
-  - [Feature Branches from `dev`](#feature-branches-from-dev)
-  - [Relating `master`, `dev`, and Release Branches](#relating-master-dev-and-release-branches)
+  - [Feature Branches from `master`](#feature-branches-from-master)
+  - [Relating `production`, `master`, and Release Branches](#relating-production-master-and-release-branches)
 - [Contributing](#contributing)
     - [TL;DR](#contributing-tldr)
     - [Getting Started With Your Fork](#getting-started-with-your-fork)
@@ -19,11 +19,11 @@
 ## Branching Model
 
 - The DMOD repo uses a branching model based on [Gitflow](https://nvie.com/posts/a-successful-git-branching-model/) and has two primary long-term branch: 
-  - **master**: the main branch pointing to the current, official version
-  - **dev**: an integration branch containing the latest completed development work intended for the next released version
-- Most interaction with DMOD repo is done via pull requests (PRs) to the `dev` branch
-  - Independent branches for features or bug fixes are created off `dev` to contain development work that is in progress
-  - These branches are reviewed and their changes integrated back into `dev` once complete via PRs
+  - **master**: the main development and integration branch containing the latest completed development work intended for the next released version
+  - **production**: the branch representing the latest code verified as production-ready and pointing to the most recently release, official version
+- Most interaction with DMOD repo is done via pull requests (PRs) to the `master` branch
+  - Independent branches for features or bug fixes are created off `master` to contain development work that is in progress
+  - These branches are reviewed and their changes integrated back into `master` once complete via PRs
   - Typically feature/fix branches exist in personal clones and personal Github forks, but not in the official OWP repo
 - Release branches (e.g., `release-X` for pending version `X`) will periodically be created to finalize the next new version when it is time for it to be released
   - These are managed by the core OWP contributors team
@@ -31,11 +31,11 @@
   - But they are short-lived and removed once the release becomes official
   - See the [Release Management](RELEASE_MANAGEMENT.md) doc for more details on the release process
 
-### Feature Branches from `dev`
-This illustrates the relationship between feature branches and `dev`.  They should be created from `dev` and independently contain commits from their feature.  Once done, the changes will be reintegrated back into `dev` via rebasing.
+### Feature Branches from `master`
+This illustrates the relationship between feature branches and `master`.  They should be created from `master` and independently contain commits from their feature.  Once done, the changes will be reintegrated back into `master` via rebasing.
 
 ```mermaid 
-    %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'dev'}}}%%
+    %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'master'}}}%%
     gitGraph
         commit id:"feature1.1"
         commit id:"feature1.2"
@@ -44,20 +44,20 @@ This illustrates the relationship between feature branches and `dev`.  They shou
         checkout feature-2
         commit id:"feature2.1"
         commit id:"feature2.2"
-        checkout dev
+        checkout master
         merge feature-2
         checkout feature-3
         commit id:"feature3.1"
         commit id:"feature3.2"
         commit id:"feature3.3"
-        checkout dev
+        checkout master
         merge feature-3
 ```
 
-The resulting state of `dev` after rebasing the two new feature branches would be:
+The resulting state of `master` after rebasing the two new feature branches would be:
 
 ```mermaid 
-    %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'dev'}}}%%
+    %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'master'}}}%%
     gitGraph
         commit id:"feature1.1"
         commit id:"feature1.2"
@@ -68,16 +68,19 @@ The resulting state of `dev` after rebasing the two new feature branches would b
         commit id:"feature3.3"
 ```
 
-### Relating `master`, `dev`, and Release Branches
+### Relating `production`, `master`, and Release Branches
 
-This illustrates the relationship between `master`, `dev`, and `release-v2`.  Notice that `master` has already been tagged with version `v1` at the start.  Commits for `feature1` and `feature2` at some point are integrated into `dev`.  When it is time to prepare to release version `v2`, `release-v2` is created.  A few bug fix commits were needed in `release-v2`.  After that, all the changes in `release-v2` are integrated into `master`, and `master` is tagged `v2`.  All the changes are also integrated back into `dev`.
+This illustrates the relationship between `production`, `master`, and `release-v2`.  Notice that `production` has already been tagged with version `v1` at the start.  Commits for `feature1` and `feature2` at some point are integrated into `master`.  When it is time to prepare to release version `v2`, `release-v2` is created.  A few bug fix commits were needed in `release-v2`.  After that, all the changes in `release-v2` are integrated into `production`, and `production` is tagged `v2`.  All the changes are also integrated back into `master`.
+
 
 ```mermaid 
     %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'master'}}}%%
     gitGraph
+        commit id:"v1-commit"
+        branch production
+        checkout production
         commit id:"v1-commit" tag: "v1"
-        branch dev
-        checkout dev
+        checkout master
         commit id:"feature1.1"
         commit id:"feature1.2"
         commit id:"feature2.1"
@@ -87,17 +90,17 @@ This illustrates the relationship between `master`, `dev`, and `release-v2`.  No
         checkout release-v2
         commit id:"fix2.1"
         commit id:"fix2.2"
-        checkout master
+        checkout production
         merge release-v2 tag:"v2"
-        checkout dev
+        checkout master
         merge release-v2
 
 ```
 
-The resulting state of `master` is:
+The resulting state of `production` is:
 
 ```mermaid 
-    %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'master'}}}%%
+    %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'production'}}}%%
     gitGraph
         commit id:"v1-commit" tag:"v1"
         commit id:"feature1.1"
@@ -109,10 +112,10 @@ The resulting state of `master` is:
         commit id:"fix2.2" tag:"v2"
 ```
 
-The resulting state of `dev` is essentially the same:
+The resulting state of `master` is essentially the same:
 
 ```mermaid 
-    %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'dev'}}}%%
+    %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'master'}}}%%
     gitGraph
         commit id:"v1-commit"
         commit id:"feature1.1"
@@ -141,9 +144,9 @@ To work with the repo and contribute changes, the basic process is as follows:
 - Create your own DMOD fork in Github
 - Clone DMOD locally (conventionally from your fork) and [setup your repo on your local development machine](#getting-started-with-your-fork)
 - Make sure to [keep your fork and your local clone(s) up to date](#keeping-forks-up-to-date) with the upstream OWP DMOD repo, [ensuring histories remain consistent](#fork-consistency-requirements) by performing [rebasing](#rebasing-development-branches)
-- Create feature/fix branches from `dev` when you want to contribute
+- Create feature/fix branches from `master` when you want to contribute
 - Write changes you want to contribute, commit to your local feature/fix branch, and push these commits to a branch in your personal Github fork
-- Submit pull requests to the OWP DMOD repo's `dev` from a branch in your fork when this branch has a collection of changes ready to be incorporated
+- Submit pull requests to the OWP DMOD repo's `master` from a branch in your fork when this branch has a collection of changes ready to be incorporated
 
 ### Getting Started With Your Fork
 
@@ -170,30 +173,30 @@ Alternatively, one could also set these in the machine's global Git config (or r
 
 #### Fork Consistency Requirements
 
-As mentioned, to contribute changes, the changes must be submitted via a pull request.  The branch used for a pull request usually needs to be (re)based on the `HEAD` commit of the current OWP `upstream/dev` branch, to ensure the repo history remains consistent.  
+As mentioned, to contribute changes, the changes must be submitted via a pull request.  The branch used for a pull request usually needs to be (re)based on the `HEAD` commit of the current OWP `upstream/master` branch, to ensure the repo history remains consistent.  
 
 This is a bit of a moving target:  sometimes, a relatively recent commit (not the latest `HEAD`) will be sufficient.  Other times, the most recent `HEAD` will be used initially, but then change after the PR was submitted and need to be rebased again. 
 
-Regardless, if there are merge conflicts in the branch within a PR, the branch will need to be rebased on `upstream/dev` again.  
+Regardless, if there are merge conflicts in the branch within a PR, the branch will need to be rebased on `upstream/master` again.  
 
 #### Fork Setup Suggestions
 
 Note that while this setup is not strictly required, examples and instructions in this document may assume its use.
 
-Maintain a personal `dev` branch, on any local development clones and within a personal fork, just as [a place to rebase changes from `upstream/dev`](#getting-upstream-changes).  Do not do any development work or add any commits to these directly.  Just keep these as a "clean," current copy of the `upstream/dev` branch.
+Maintain a personal `master` branch, on any local development clones and within a personal fork, just as [a place to rebase changes from `upstream/master`](#getting-upstream-changes).  Do not do any development work or add any commits to these directly.  Just keep these as a "clean," current copy of the `upstream/master` branch.
 
-Create separate feature/bug fix branches for development work as appropriate, basing them off the local copy of `dev`.  When preparing to make a PR, making sure the branch is both up to date with `upstream/dev` and has all the desired local changes.
+Create separate feature/bug fix branches for development work as appropriate, basing them off the local copy of `master`.  When preparing to make a PR, making sure the branch is both up to date with `upstream/master` and has all the desired local changes.
 
-A separate, "clean" local `dev` should be easy to keep it in sync with `upstream/dev`, which in turn will make it relatively easy to rebase local development branches on `dev` whenever needed.  This simplifies maintaining the base-commit consistency requirement for the branches used for pull requests.
+A separate, "clean" local `master` should be easy to keep it in sync with `upstream/master`, which in turn will make it relatively easy to rebase local development branches on `master` whenever needed.  This simplifies maintaining the base-commit consistency requirement for the branches used for pull requests.
 
 Clean up above-mentioned PR branches regularly (i.e., once their changes get incorporated).  This is generally a good practice for other local or fork development branches, to avoid having [diverged histories that need to be fixed](#fixing-diverging-development-branches).
 
 ### Development
 
-Start by creating and checking out a local branch (`new_branch`) to contain your work.  This should be based on `dev` (you may need to [sync upstream changes](#getting-upstream-changes) first):
+Start by creating and checking out a local branch (`new_branch`) to contain your work.  This should be based on `master` (you may need to [sync upstream changes](#getting-upstream-changes) first):
 
 ```bash
-git checkout -b new_branch dev
+git checkout -b new_branch master
 ```
 
 From there begin writing and committing your changes to the branch.  While up to you, it is suggested that development work be committed frequently when changes are complete and meaningful. If work requires modifying more than one file in the source, it is recommended to commit the changes independently to help avoid too large of conflicts if/when they occur.
@@ -212,7 +215,7 @@ Alternatively, if the branch is already in your fork and just needs the latest l
 
 (**Note**: the `-u` option and more explicit syntax being used above are perfectly valid but not completely necessary.  Set Git's documentation for more about the `push` command.)
 
-After everything is in your fork, you can navigate to the OWP repo via Github's web interface and [submit a PR](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request) to pull this branch into the OWP `dev` branch.  Ensure that you select `dev` as the recipient branch.  You will also need to make sure you are comparing across forks, choosing your appropriate fork and branch to pull from.  Complete details on the process can be found in Github's documentation.
+After everything is in your fork, you can navigate to the OWP repo via Github's web interface and [submit a PR](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request) to pull this branch into the OWP `master` branch.  Ensure that you select `master` as the recipient branch.  You will also need to make sure you are comparing across forks, choosing your appropriate fork and branch to pull from.  Complete details on the process can be found in Github's documentation.
 
 #### PR Revisions
 
@@ -235,15 +238,15 @@ The development team for DMOD uses a *rebase* strategy for integrating code chan
 
 ### Getting Upstream Changes
 
-When it is time to check for or apply updates from the official OWP repo to a personal fork and/or a local repo, check out the `dev` branch locally  and do fetch-and-rebase, which can be done with `pull` and the `--rebase` option:
+When it is time to check for or apply updates from the official OWP repo to a personal fork and/or a local repo, check out the `master` branch locally  and do fetch-and-rebase, which can be done with `pull` and the `--rebase` option:
 
-    # Checkout local dev branch
-    git checkout dev
+    # Checkout local master branch
+    git checkout master
 
     # Fetch and rebase changes
-    git pull --rebase upstream dev
+    git pull --rebase upstream master
 
-Then, make sure these get pushed to your personal fork. Assuming [the above-described setup](#getting-started-with-your-fork) where the local repo was cloned from the fork, and assuming the local `dev` branch is currently checked out, the command for that is just:
+Then, make sure these get pushed to your personal fork. Assuming [the above-described setup](#getting-started-with-your-fork) where the local repo was cloned from the fork, and assuming the local `master` branch is currently checked out, the command for that is just:
 
     # Note the assumptions mentioned above that are required for this syntax
     git push
@@ -255,21 +258,21 @@ Alternatively, you can use the more explicit form:
 The previous example command is effectively equivalent to running:
 
     # Cloning a repo from a fork created a remote for the fork named "origin"; see above assumptions
-    git push origin dev:dev
+    git push origin master:master
 
 You also can omit `<local_branch>:` (including the colon) and supply just the remote branch name if the appropriate local branch is still checked out.
 
-#### For `master` Too
+#### For `production` Too
 
-Note that the above steps to get upstream changes from the official OWP repo can be applied to the `master` branch also (just swap `master` in place of `dev`).  `master` should not be used as the basis for feature/fix branches, but there are other reasons why one might want the latest `master` locally or in a personal fork.  
+Note that the above steps to get upstream changes from the official OWP repo can be applied to the `production` branch also (just swap `production` in place of `master`).  `production` should not be used as the basis for feature/fix branches, but there are other reasons why one might want the latest `production` locally or in a personal fork.  
 
 ### Rebasing Development Branches
 
-When the steps in [Getting Upstream Changes](#getting-upstream-changes) do bring in new commits that update `dev`, it is usually a good idea (and often necessary) to rebase any local feature/fix branches were previously created. E.g.,
+When the steps in [Getting Upstream Changes](#getting-upstream-changes) do bring in new commits that update `master`, it is usually a good idea (and often necessary) to rebase any local feature/fix branches were previously created. E.g.,
 
     # If using a development branch named 'faster_dataset_writes'
     git checkout faster_dataset_writes
-    git rebase dev
+    git rebase master
 
 See documentation on [the "git rebase" command](https://git-scm.com/docs/git-rebase) for more details.
 
@@ -277,16 +280,16 @@ See documentation on [the "git rebase" command](https://git-scm.com/docs/git-reb
 
 It is possible to have more control over rebasing by doing an interactive rebase.  E.g.:
 
-    git rebase -i dev
+    git rebase -i master
 
-This will open up a text editor allowing for reordering, squashing, dropping, etc., development branch commits prior to rebasing them onto the new base commit from `dev`.  See the [**Interactive Mode**](https://git-scm.com/docs/git-rebase#_interactive_mode) section on the rebase command  for more details.
+This will open up a text editor allowing for reordering, squashing, dropping, etc., development branch commits prior to rebasing them onto the new base commit from `master`.  See the [**Interactive Mode**](https://git-scm.com/docs/git-rebase#_interactive_mode) section on the rebase command  for more details.
 
 ### Fixing Diverging Development Branches
 
 If a local feature/fix branch is already pushed to a remote fork, and then later rebasing the local branch is necessary, doing so will cause the histories to diverge.  For simple cases, the fix is to just force-push the rebased local branch.
 
     # To force-push to fix a divergent branch
-    git push -f origin dev
+    git push -f origin feature_branch
 
 However, extra care is needed if multiple developers may be using the branch in the fork (e.g., a developer is collaborating with someone else on a large set of changes for some new feature).  The particular considerations and best ways to go about things in such cases are outside the scope of this document.  Consult Git's documentation and Google, or contact another contributor for advice.
 
