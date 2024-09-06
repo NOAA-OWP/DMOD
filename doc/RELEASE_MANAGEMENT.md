@@ -1,6 +1,6 @@
 # Release Management
 
-The page discusses the release process for official versions of DMOD.  This process is very much interrelated to the repo  branching management model, as discussed in detail on the [GIT_USAGE](./GIT_USAGE.md) doc.
+The page discusses the release process for official versions of DMOD.  This process is very much interrelated to the repo branching management model, as discussed in detail on the [GIT_USAGE](./GIT_USAGE.md) doc.
 
 # The Release Process
 
@@ -28,11 +28,11 @@ The release process for DMOD can be summarized fairly simply:
 5. Steps 3. and 4. are repeated as needed until testing, quality checks, etc. in Step 3. do not require another iteration of Step 4.
     - At this point, the branch is ready for official release
 6. All changes in the release branch are incorporated into `production` in the official OWP repo
-    - Note that **rebasing** should be used to reconcile changes ([see here](GIT_USAGE.md#a-rebase-strategy) for more info)
+    - Note that **rebasing** should be used to reconcile changes ([see here](../CONTRIBUTING.md#a-rebase-strategy) for more info)
 7. The subsequent `HEAD` commit of `production` is tagged with the new version in the official OWP repo
 8. All changes in the release branch are incorporated back into `master` in the official OWP repo
    - This will include things like bug fixes committed to `release-X` after it was branched from `master`
-   - As with `production` in Step 6., this should be [done using rebasing](GIT_USAGE.md#a-rebase-strategy)
+   - As with `production` in Step 6., this should be [done using rebasing](../CONTRIBUTING.md#a-rebase-strategy)
 9. The release branch is deleted from the OWP repo (and, ideally, other clones and forks)
 10. (If necessary) Any additional tags are applied as needed to the `HEAD` commit of `production` in the official OWP repo
     - At this time none are currently needed, but there are plans to consider these in the future for things like specific package versions of contained packages
