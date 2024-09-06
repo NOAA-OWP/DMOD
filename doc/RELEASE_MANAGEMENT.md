@@ -10,7 +10,7 @@ The release process for DMOD can be summarized fairly simply:
 - A version name is finalized
 - A release branch is created
 - Testing, QA, fixes are done on the release branch
-- Once ready the release is tagged and changes are pulled into `master` and `dev`
+- Once ready the release is tagged and changes are pulled into `production` and `master`
 
 ## Process Steps
 
@@ -18,7 +18,7 @@ The release process for DMOD can be summarized fairly simply:
 [comment]: <> (TODO: Document release manual testing and QA procedures)
 
 1. The next DMOD version name/number is [decided/finalized](#rules-for-version-numbers)
-2. A release branch, based on `dev`, is created in the official OWP repo
+2. A release branch, based on `master`, is created in the official OWP repo
     - The name of this branch will be `release-X` for version `X`
 3. All necessary testing and quality pre-release tasks are performed using this release branch
     - **TODO**: to be documented in more detail
@@ -27,14 +27,14 @@ The release process for DMOD can be summarized fairly simply:
    - **TODO**: process to be decided upon and documented
 5. Steps 3. and 4. are repeated as needed until testing, quality checks, etc. in Step 3. do not require another iteration of Step 4.
     - At this point, the branch is ready for official release
-6. All changes in the release branch are incorporated into `master` in the official OWP repo
+6. All changes in the release branch are incorporated into `production` in the official OWP repo
     - Note that **rebasing** should be used to reconcile changes ([see here](GIT_USAGE.md#a-rebase-strategy) for more info)
-7. The subsequent `HEAD` commit of `master` is tagged with the new version in the official OWP repo
-8. All changes in the release branch are incorporated back into `dev` in the official OWP repo
-   - This will include things like bug fixes committed to `release-X` after it was branched from `dev`
-   - As with `master` in Step 6., this should be [done using rebasing](GIT_USAGE.md#a-rebase-strategy)
+7. The subsequent `HEAD` commit of `production` is tagged with the new version in the official OWP repo
+8. All changes in the release branch are incorporated back into `master` in the official OWP repo
+   - This will include things like bug fixes committed to `release-X` after it was branched from `master`
+   - As with `production` in Step 6., this should be [done using rebasing](GIT_USAGE.md#a-rebase-strategy)
 9. The release branch is deleted from the OWP repo (and, ideally, other clones and forks)
-10. (If necessary) Any additional tags are applied as needed to the `HEAD` commit of `master` in the official OWP repo
+10. (If necessary) Any additional tags are applied as needed to the `HEAD` commit of `production` in the official OWP repo
     - At this time none are currently needed, but there are plans to consider these in the future for things like specific package versions of contained packages
 
 # Versions
