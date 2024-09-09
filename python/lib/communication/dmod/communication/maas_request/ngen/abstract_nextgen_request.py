@@ -1,7 +1,7 @@
 from .partial_realization_config import PartialRealizationConfig
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from pydantic import PrivateAttr
+from pydantic import Field, PrivateAttr
 
 from dmod.core.meta_data import (
     DataCategory,
@@ -467,6 +467,8 @@ class ExternalAbstractNgenRequest(ExternalRequest, AbstractNgenRequest, ABC):
     contains a ::attribute:`session_secret` property.  As such, the implementations of several functions from
     ::class:`AbstractNgenRequest` are extended to properly account for this property (e.g., ::method:`__eq__`).
     """
+
+    worker_version: str = Field("latest", description="The desired version of the applicable worker for the request.")
 
     def __eq__(self, other):
         return super().__eq__(other) and self.session_secret == other.session_secret
