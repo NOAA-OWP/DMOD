@@ -92,7 +92,7 @@ class TestSchedulerRequestMessage(unittest.TestCase):
                                                                     "end": "2012-05-31 23:00:00",
                                                                     "subclass": "TimeRange",
                                                                     "variable": "TIME"})
-        raw_json_str_1 = '{"allocation_paradigm": "SINGLE_NODE", "cpus": ' + str(cpu_count_ex_1) + ', "mem": ' + str(memory_ex_1) + ', "model_request": {"allocation_paradigm": "ROUND_ROBIN", "cpu_count": ' + str(cpu_count_ex_1) + ', "job_type": "ngen", "memory": ' + str(memory_ex_1) + ', "request_body": {"bmi_config_data_id": "simple-bmi-cfe-1", "hydrofabric_data_id": "hydrofabric-huc01-copy-288", "hydrofabric_uid": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81", "realization_config_data_id": "huc01-simple-realization-config-1", "time_range": ' + str(time_range) +'}, "session_secret": "675b2f8826f69f97c01fe4d7add30420322cd21a790ddc68a5b3c149966de919"}, "user_id": "someone"}'
+        raw_json_str_1 = '{"allocation_paradigm": "SINGLE_NODE", "cpus": ' + str(cpu_count_ex_1) + ', "mem": ' + str(memory_ex_1) + ', "model_request": {"allocation_paradigm": "ROUND_ROBIN", "cpu_count": ' + str(cpu_count_ex_1) + ', "job_type": "ngen", "memory": ' + str(memory_ex_1) + ', "request_body": {"bmi_config_data_id": "simple-bmi-cfe-1", "hydrofabric_data_id": "hydrofabric-huc01-copy-288", "hydrofabric_uid": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81", "realization_config_data_id": "huc01-simple-realization-config-1", "time_range": ' + str(time_range) +'}, "session_secret": "675b2f8826f69f97c01fe4d7add30420322cd21a790ddc68a5b3c149966de919", "worker_version": "latest"}, "user_id": "someone"}'
         raw_json_obj_1 = json.loads(raw_json_str_1)
         sorted_json_str_1 = json.dumps(raw_json_obj_1, sort_keys=True)
         self.request_strings.append(sorted_json_str_1)
@@ -113,7 +113,8 @@ class TestSchedulerRequestMessage(unittest.TestCase):
                         "realization_config_data_id": "huc01-simple-realization-config-1",
                         "time_range": time_range.to_dict()
                     },
-                    "session_secret": "675b2f8826f69f97c01fe4d7add30420322cd21a790ddc68a5b3c149966de919"
+                    "session_secret": "675b2f8826f69f97c01fe4d7add30420322cd21a790ddc68a5b3c149966de919",
+                    "worker_version": "latest"
                 },
                 "user_id": "someone"
             })
@@ -143,7 +144,7 @@ class TestSchedulerRequestMessage(unittest.TestCase):
                                                                     "end": "2012-05-31 23:00:00",
                                                                     "subclass": "TimeRange",
                                                                     "variable": "TIME"})
-        raw_json_str_2 = '{"allocation_paradigm": "SINGLE_NODE", "cpus": ' + str(cpu_count_ex_2) + ', "model_request": {"allocation_paradigm": "ROUND_ROBIN", "cpu_count": ' + str(cpu_count_ex_2) + ', "job_type": "ngen", "memory": ' + str(memory_ex_2) + ', "request_body": {"bmi_config_data_id": "simple-bmi-cfe-1", "hydrofabric_data_id": "hydrofabric-huc01-copy-288", "hydrofabric_uid": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81", "realization_config_data_id": "huc01-simple-realization-config-1", "time_range": ' + str(time_range) +'}, "session_secret": "675b2f8826f69f97c01fe4d7add30420322cd21a790ddc68a5b3c149966de919"}, "user_id": "someone"}'
+        raw_json_str_2 = '{"allocation_paradigm": "SINGLE_NODE", "cpus": ' + str(cpu_count_ex_2) + ', "model_request": {"allocation_paradigm": "ROUND_ROBIN", "cpu_count": ' + str(cpu_count_ex_2) + ', "job_type": "ngen", "memory": ' + str(memory_ex_2) + ', "request_body": {"bmi_config_data_id": "simple-bmi-cfe-1", "hydrofabric_data_id": "hydrofabric-huc01-copy-288", "hydrofabric_uid": "72c2a0220aa7315b50e55b6c5b68f927ac1d9b81", "realization_config_data_id": "huc01-simple-realization-config-1", "time_range": ' + str(time_range) +'}, "session_secret": "675b2f8826f69f97c01fe4d7add30420322cd21a790ddc68a5b3c149966de919", "worker_version": "latest"}, "user_id": "someone"}'
         raw_json_obj_2 = json.loads(raw_json_str_2)
         sorted_json_str_2 = json.dumps(raw_json_obj_2, sort_keys=True)
         self.request_strings.append(sorted_json_str_2)
@@ -164,7 +165,8 @@ class TestSchedulerRequestMessage(unittest.TestCase):
                         "realization_config_data_id": "huc01-simple-realization-config-1",
                         "time_range": time_range.to_dict()
                     },
-                    "session_secret": "675b2f8826f69f97c01fe4d7add30420322cd21a790ddc68a5b3c149966de919"
+                    "session_secret": "675b2f8826f69f97c01fe4d7add30420322cd21a790ddc68a5b3c149966de919",
+                    "worker_version": "latest"
                 },
                 "user_id": "someone"
             })

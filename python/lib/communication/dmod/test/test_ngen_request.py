@@ -36,7 +36,7 @@ class TestNGENRequest(unittest.TestCase):
                 '{"bmi_config_data_id": "02468", "composite_config_data_id": "composite02468", "hydrofabric_data_id": '
                 '"9876543210", "hydrofabric_uid": "0123456789", "partition_config_data_id": "part1234", '
                 '"realization_config_data_id": "02468", "time_range": ' + time_range.to_json() + '}, '
-            '"session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
+            '"session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c", "worker_version": "latest"}')
         self.request_jsons.append({
             'allocation_paradigm': 'SINGLE_NODE',
             'cpu_count': cpu_count_ex_0,
@@ -51,7 +51,8 @@ class TestNGENRequest(unittest.TestCase):
                 'realization_config_data_id': '02468',
                 'partition_config_data_id': 'part1234'
             },
-            'session_secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
+            'session_secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
+            "worker_version": "latest"
         })
         self.request_objs.append(
             NGENRequest(request_body={
@@ -84,7 +85,7 @@ class TestNGENRequest(unittest.TestCase):
                 '"composite_config_data_id": "composite02468", "hydrofabric_data_id": "9876543210", '
                 '"hydrofabric_uid": "0123456789", "partition_config_data_id": "part1234", '
                 '"realization_config_data_id": "02468", "time_range": ' + time_range.to_json() + '}, '
-            '"session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}')
+            '"session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c", "worker_version": "latest"}')
         self.request_jsons.append({
             'allocation_paradigm': 'ROUND_ROBIN',
             'cpu_count': cpu_count_ex_1,
@@ -100,7 +101,8 @@ class TestNGENRequest(unittest.TestCase):
                 'catchments': cat_ids_list,
                 'partition_config_data_id': 'part1234'
             },
-            'session_secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
+            'session_secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
+            "worker_version": "latest"
         })
         self.request_objs.append(
             NGENRequest(
@@ -128,7 +130,7 @@ class TestNGENRequest(unittest.TestCase):
             '"request_body": {"bmi_config_data_id": "02468", "composite_config_data_id": "composite02468",'
             '"hydrofabric_data_id": "9876543210", '
             '"hydrofabric_uid": "0123456789", "realization_config_data_id": "02468", "time_range": ' + time_range.to_json() + '}, '
-            '"session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c"}'
+            '"session_secret": "f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c", "worker_version": "latest"}'
         )
         self.request_jsons.append({
             'allocation_paradigm': 'SINGLE_NODE',
@@ -142,7 +144,8 @@ class TestNGENRequest(unittest.TestCase):
                 'bmi_config_data_id': '02468',
                 'realization_config_data_id': '02468'
             },
-            'session_secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c'
+            'session_secret': 'f21f27ac3d443c0948aab924bddefc64891c455a756ca77a4d86ec2f697cd13c',
+            "worker_version": "latest"
         })
         self.request_objs.append(
             NGENRequest(
