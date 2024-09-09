@@ -537,10 +537,10 @@ class Launcher(SimpleDockerUtil):
         # For now, these are the only two requests supported
         # TODO: move registry name into environment variable other other more appropriate place
         if isinstance(job.model_request, NgenCalibrationRequest):
-            return "127.0.0.1:5000/ngen-cal:latest"
+            return f"127.0.0.1:5000/ngen-cal:{job.model_request.worker_version}"
 
         if isinstance(job.model_request, NGENRequest):
-            return "127.0.0.1:5000/ngen:latest"
+            return f"127.0.0.1:5000/ngen:{job.model_request.worker_version}"
         else:
             msg = "Unable to determine correct scheduler image for job {} with request of {} type"
             raise DmodRuntimeError(msg.format(job.job_id, job.model_request.__class__.__name__))
