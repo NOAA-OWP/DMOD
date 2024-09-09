@@ -139,32 +139,27 @@ while [ ${#} -gt 0 ]; do
     shift
 done
 
+# Always stop GUI when GUI update flag is set, regardless of whether set for safe running or to deploy
+if [ -n "${DO_GUI:-}" ]; then
+    if ${CONTROL_SCRIPT} ${GUI_STACK_NAME} check > /dev/null; then
+        ${CONTROL_SCRIPT} ${GUI_STACK_NAME} stop
+        STOPPED_GUI_FOR_REBUILD="true"
+        sleep 1
+    fi
+fi
+
 # Make sure nothing is running if it doesn't need to be, bailing or stopping it as appropriate
 if [ -n "${RUN_SAFE:-}" ]; then
     if ${CONTROL_SCRIPT} ${PRIMARY_STACK_NAME} check > /dev/null; then
         >&2 echo "Error: option for safe mode active and found primary '${PRIMARY_STACK_NAME}' stack running; exiting."
         exit 1
     fi
+# If deploying, and stack is running, make sure to stop it
 elif [ -n "${DO_DEPLOY:-}" ]; then
-    if ${CONTROL_SCRIPT} ${GUI_STACK_NAME} check > /dev/null; then
-        ${CONTROL_SCRIPT} ${GUI_STACK_NAME} stop
-        STOPPED_GUI_FOR_REBUILD="true"
-        sleep 1
-    fi
-
     if ${CONTROL_SCRIPT} ${PRIMARY_STACK_NAME} check > /dev/null; then
         ${CONTROL_SCRIPT} ${PRIMARY_STACK_NAME} stop
         echo "Waiting for services to stop ..."
         sleep 3
-    fi
-fi
-
-if [ -n "${DO_GUI:-}" ]; then
-    if [ -z "${STOPPED_GUI_FOR_REBUILD:-}" ]; then
-        if ${CONTROL_SCRIPT} ${GUI_STACK_NAME} check > /dev/null; then
-            ${CONTROL_SCRIPT} ${GUI_STACK_NAME} stop
-            STOPPED_GUI_FOR_REBUILD="true"
-        fi
     fi
 fi
 
@@ -178,16 +173,17 @@ if [ -n "${JUST_REMOVE_VOLUME:-}" ]; then
     exit
 fi
 
-# Build updated py-sources image; if requested, build everything, but by default, just build the last image
+# Build and push updated py-sources image; if requested, build everything, but by default, just build the last image
 if [ -n "${DO_FULL_BUILD:-}" ]; then
-    ${CONTROL_SCRIPT} ${PY_PACKAGES_STACK_NAME} build
+    ${CONTROL_SCRIPT} ${PY_PACKAGES_STACK_NAME} build push
 else
     ${CONTROL_SCRIPT} --build-args "${PY_PACKAGES_LAST_SERVICE_NAME}" ${PY_PACKAGES_STACK_NAME} build
+    ${CONTROL_SCRIPT} ${PY_PACKAGES_STACK_NAME} push
 fi
 
-if [ -n "${STOPPED_GUI_FOR_REBUILD:-}${DO_GUI:-}" ]; then
+if [ -n "${DO_GUI:-}" ]; then
     echo "Rebuilding nwm_gui stack app service image"
-    ${CONTROL_SCRIPT} ${GUI_STACK_NAME} build &
+    ${CONTROL_SCRIPT} ${GUI_STACK_NAME} build push &
     _REBUILD_GUI_IMAGES_PID=$!
 fi
 

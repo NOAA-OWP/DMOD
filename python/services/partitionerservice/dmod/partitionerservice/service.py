@@ -327,7 +327,11 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
         if response.success:
             logging.info("Existing partition dataset for {} found: {}".format(job.job_id, response.dataset_name))
             for r in reqs:
+                # TODO: (later) fix this not being set
+                #r.fulfilled_access_at =
                 r.fulfilled_by = response.dataset_name
+                # For the moment at least, we shouldn't need to worry about IO speed and copying the config locally
+                r.needs_data_local = False
         else:
             logging.info("No existing partition dataset for {} was found: ".format(job.job_id))
         return response
@@ -415,8 +419,12 @@ class ServiceManager(HydrofabricFilesManager, WebSocketInterface):
             # If good, save the partition dataset data_id as a data requirement for the job.
             data_id_restrict = DiscreteRestriction(variable=StandardDatasetIndex.DATA_ID, values=[part_dataset_data_id])
             domain = DataDomain(data_format=DataFormat.NGEN_PARTITION_CONFIG, discrete_restrictions=[data_id_restrict])
+            # TODO: (later) fix this not being set properly
+            #fulfilled_access_at =
+            fulfilled_access_at = None
             requirement = DataRequirement(domain=domain, is_input=True, category=DataCategory.CONFIG,
-                                          fulfilled_by=part_dataset_name)
+                                          fulfilled_by=part_dataset_name, fulfilled_access_at=fulfilled_access_at,
+                                          needs_data_local=False)
             job.data_requirements.append(requirement)
         else:
             logging.error("Partition config dataset generation for {} failed".format(job.job_id))

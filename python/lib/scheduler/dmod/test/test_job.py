@@ -200,7 +200,9 @@ class TestJob(unittest.TestCase):
 
         index_val = 0
         for req in base_job.data_requirements:
+            req.fulfilled_access_at = 'imaginary-dataset-{}'.format(index_val)
             req.fulfilled_by = 'imaginary-dataset-{}'.format(index_val)
+            req.needs_data_local = False
             index_val += 1
 
         for f in [req.fulfilled_by for req in base_job.data_requirements]:

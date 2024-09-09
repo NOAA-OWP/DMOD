@@ -133,6 +133,8 @@ RUN dnf update -y \
     && mkdir -p ${SSHDIR} \
     # Create DMOD-specific directory structure \
     && mkdir -p /dmod && chown ${USER} /dmod \
+    && mkdir -p /dmod/local_volumes && chown ${USER} /dmod/local_volumes \
+    && mkdir -p /dmod/cluster_volumes && chown ${USER} /dmod/cluster_volumes \
     && mkdir -p /dmod/datasets && chown ${USER} /dmod/datasets \
     #&& mkdir -p /dmod/shared_libs && chown ${USER} /dmod/shared_libs \
     && mkdir -p /dmod/lib && chown ${USER} /dmod/lib \
@@ -943,8 +945,29 @@ COPY --chown=${USER} --from=build_bmi_snow_17 /dmod/ /dmod/
 COPY --chown=${USER} --from=build_customizations /dmod/ /dmod/
 
 USER root
-# Update path and make sure dataset directory is there
-RUN echo "export PATH=${PATH}" >> /etc/profile \
+# TODO: (later) consider something like this in the future (at least optionally) when downloading the mc client below:
+# ARG MINIO_CLIENT_RELEASE="RELEASE.2024-07-08T20-59-24Z"
+# ...
+# https://dl.min.io/client/mc/release/linux-amd64/archive/mc.${MINIO_CLIENT_RELEASE}
+
+# Setup minio client; also update path and make sure dataset directory is there
+RUN OS_NAME=$(uname -s | tr '[:upper:]' '[:lower:]') \
+    && PLATFORM=$(uname -m | tr '[:upper:]' '[:lower:]') \
+    && case "${PLATFORM:?}" in \
+        aarch64) \
+            MINIO_HW_NAME=arm64 \
+            ;; \
+        x86_64) \
+            MINIO_HW_NAME=amd64 \
+            ;; \
+        *) \
+            MINIO_HW_NAME=${PLATFORM} \
+            ;; \
+    esac \
+    && curl -L -o /dmod/bin/mc https://dl.min.io/client/mc/release/${OS_NAME}-${MINIO_HW_NAME}/mc \
+    && chmod +x /dmod/bin/mc \
+    && mkdir /dmod/.mc \
+    && echo "export PATH=${PATH}" >> /etc/profile \
     && sed -i "s/PasswordAuthentication yes/#PasswordAuthentication yes/g" /etc/ssh/sshd_config \
     && sed -i "s/PermitRootLogin yes/PermitRootLogin no/g" /etc/ssh/sshd_config \
     && sed -i "s/#ClientAliveInterval.*/ClientAliveInterval 60/" /etc/ssh/sshd_config \
@@ -959,9 +982,9 @@ COPY --chown=${USER} --chmod=744 py_funcs.py /dmod/bin/py_funcs
 
 ENV HYDRA_PROXY_RETRY_COUNT=5
 
-# Change permissions for entrypoint and make sure dataset volume mount parent directories exists
+# Change permissions for entrypoint and make sure data volume mount and dataset symlink parent directories exists
 RUN chmod +x ${WORKDIR}/entrypoint.sh \
-    && for d in ${DATASET_DIRECTORIES}; do mkdir -p /dmod/datasets/${d}; done \
+    && for p in datasets local_volumes cluster_volumes; do for d in ${DATASET_DIRECTORIES}; do mkdir -p /dmod/${p}/${d}; done; done \
     && pushd /dmod/bin \
     # NOTE use of `ln -sf`. \
     && ( ( stat ngen-parallel && ln -sf ngen-parallel ngen ) || ( stat ngen-serial && ln -sf ngen-serial ngen ) ) \
