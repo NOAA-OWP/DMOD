@@ -11,8 +11,8 @@ authors = [
 ]
 dependencies = [
     "dmod.core>=0.17.0",
-    "dmod.communication>=0.20.0",
-    "dmod.scheduler>=0.13.0",
+    "dmod.communication>=0.22.0",
+    "dmod.scheduler>=0.14.0",
 ]
 readme = "README.md"
 description = "Service package for service responsible for managing job scheduling, execution, and resource management in the DMOD architecture."
