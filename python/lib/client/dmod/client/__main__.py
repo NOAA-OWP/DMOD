@@ -46,6 +46,8 @@ def _create_ngen_based_exec_parser(subcommand_container: Any, parser_name: str,
         The newly created and associated subparser.
     """
     new_parser = subcommand_container.add_parser(parser_name)
+    new_parser.add_argument('--worker-version', dest='worker_version', default="latest",
+                            help="Specify version of worker (e.g., Docker image tag) to use.")
     new_parser.add_argument('--partition-config-data-id', dest='partition_cfg_data_id', default=None,
                             help='Provide data_id for desired partition config dataset.')
     paradigms = [p for p in AllocationParadigm]
