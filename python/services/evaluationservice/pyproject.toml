@@ -18,6 +18,7 @@ dependencies = [
     "Django~=4.2",
     "djangorestframework",
     "geopandas",
+    "exceptiongroup"
 ]
 readme = "README.md"
 description = ""
