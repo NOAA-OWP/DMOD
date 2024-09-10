@@ -37,6 +37,7 @@ class AbstractNgenRequest(DmodJobRequest, ABC):
     """
 
     request_body: NGENRequestBody
+    worker_version: str = Field("latest", description="The desired version of the applicable worker for the request.")
 
     _hydrofabric_data_requirement = PrivateAttr(None)
     _forcing_data_requirement = PrivateAttr(None)
@@ -467,8 +468,6 @@ class ExternalAbstractNgenRequest(ExternalRequest, AbstractNgenRequest, ABC):
     contains a ::attribute:`session_secret` property.  As such, the implementations of several functions from
     ::class:`AbstractNgenRequest` are extended to properly account for this property (e.g., ::method:`__eq__`).
     """
-
-    worker_version: str = Field("latest", description="The desired version of the applicable worker for the request.")
 
     def __eq__(self, other):
         return super().__eq__(other) and self.session_secret == other.session_secret
