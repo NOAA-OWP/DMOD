@@ -72,7 +72,7 @@ def get_concurrency_executor_type(**kwargs) -> typing.Callable[[], futures.Execu
     return partial(futures.ProcessPoolExecutor, **kwargs)
 
 
-def signal_handler(signum: int, frame):
+def signal_handler(signum: int, frame) -> typing.Never:
     """
     Handles cleanup operations for the runner in case of an unexpected signal
 
