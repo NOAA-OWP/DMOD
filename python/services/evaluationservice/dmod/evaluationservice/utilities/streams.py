@@ -28,26 +28,26 @@ How each individual message is represented - a tuple indicating the message id a
 RawRedisMessageStream = typing.List[typing.Union[bytes, typing.List[RawRedisMessage]]]
 """
 How each collection of messages is represented when reading from a stream.
-This is implemented via a list, but a tuple would be more appropriate. The first index is the stream name and the 
+This is implemented via a list, but a tuple would be more appropriate. The first index is the stream name and the
 second index is the collection of messages read for it
 """
 
 LATEST_MESSAGE: typing.Final[str] = ">"
 """
-The `xreadgroup` function uses a dictionary of '{<stream name>: <previously read message id>}' to determine what next 
+The `xreadgroup` function uses a dictionary of '{<stream name>: <previously read message id>}' to determine what next
 to read. Using '{<stream name>: ">"}' will tell it to get the next unread message for <stream name>
 """
 
 BACKUP_CONSUMER_NAME: typing.Final[str] = "backup-consumer"
 """
-The name of a stream group consumer that will take ownership of messages when a consumer closes before being able to 
+The name of a stream group consumer that will take ownership of messages when a consumer closes before being able to
 acknowledge their work
 """
 
 
 IDLE_TIMEOUT: typing.Final[int] = int(timedelta(hours=6, minutes=30).total_seconds()) * 1000
 """
-The maximum amount of milliseconds a message is allowed to be idle in a consumer before it will be claimed by a 
+The maximum amount of milliseconds a message is allowed to be idle in a consumer before it will be claimed by a
 backup consumer
 """
 

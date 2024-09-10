@@ -40,8 +40,8 @@ CT = typing.TypeVar("CT")
 
 EXCEPTION_LIMIT: typing.Final[int] = 10
 """
-The maximum number of a specific type of error to catch before exiting. If an error occurs 11 times in rapid 
-succession and the limit is 10, the runner should stop. If it only occurs 9 times it could be the result of something 
+The maximum number of a specific type of error to catch before exiting. If an error occurs 11 times in rapid
+succession and the limit is 10, the runner should stop. If it only occurs 9 times it could be the result of something
 that this has no control over and may remain functional.
 """
 
@@ -50,7 +50,7 @@ SUCCESSFUL_EXIT: typing.Final[int] = 0
 
 ERROR_EXIT: typing.Final[int] = 1
 """
-The exit code when the runner halts because of an error. 1 is used since that is generally associated with the catch 
+The exit code when the runner halts because of an error. 1 is used since that is generally associated with the catch
 all error code.
 """
 
@@ -437,7 +437,7 @@ def launch_evaluation(
 
     if isinstance(instructions, dict):
         instructions = json.dumps(instructions, indent=4)
-    
+
     try:
         # Build communicators that will communicate evaluation updates outside of the evaluation process
         communicators: CommunicatorGroup = utilities.get_communicators(
@@ -564,10 +564,10 @@ def monitor_running_jobs(
 
     encountered_errors = ErrorCounter(limit=EXCEPTION_LIMIT)
     """
-    A collection of errors that may bear repeats of of individual types of errors. 
+    A collection of errors that may bear repeats of of individual types of errors.
     Collected errors are only finally raised if and when they have occurred over a given amount of times
-    
-    This ensures that the polling loop is not interrupted on rare remote errors yet still throws errors when stuck 
+
+    This ensures that the polling loop is not interrupted on rare remote errors yet still throws errors when stuck
     in an infinite loop of failing code
     """
 
