@@ -39,11 +39,11 @@ The release process for DMOD can be summarized fairly simply:
 
 # Versions
 
-The versioning for DMOD is a little complicated.  
+The versioning for DMOD is a little complicated.
 
-DMOD contains the sources of several independently-versioned Python packages; e.g., `dmod-core-0.19.0`.  As long as this code remains organized as multiple separate packages, the package versions need to continue to be maintained individually.  
+DMOD contains the sources of several independently-versioned Python packages; e.g., `dmod-core-0.19.0`.  As long as this code remains organized as multiple separate packages, the package versions need to continue to be maintained individually.
 
-DMOD contains other source code wholly separate from these package, such as helper scripts, Dockerfiles, stack configurations, and other files.  These are not contained in some inner organizational unit with its own versioning, and many (if not all) of them are particularly relevant to DMOD deployment.  
+DMOD contains other source code wholly separate from these package, such as helper scripts, Dockerfiles, stack configurations, and other files.  These are not contained in some inner organizational unit with its own versioning, and many (if not all) of them are particularly relevant to DMOD deployment.
 
 As such, DMOD utilizes another, independent versioning scheme for itself as a whole.
 

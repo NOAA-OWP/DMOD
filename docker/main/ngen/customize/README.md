@@ -1,6 +1,6 @@
 # Locally Customizing the ngen Worker
 
-It simply isn't possible to bundle every possible ngen-compatible BMI module into the job worker image Dockerfile.  As such, the source Dockerfile doesn't try to include everything and only integrates a small number of OWP-developed BMI modules.  
+It simply isn't possible to bundle every possible ngen-compatible BMI module into the job worker image Dockerfile.  As such, the source Dockerfile doesn't try to include everything and only integrates a small number of OWP-developed BMI modules.
 
 But, it is possible to use other BMI modules outside this small subset in the DMOD job worker images.
 
@@ -15,7 +15,7 @@ In summary, it is possible to:
 
 ## Supply `requirements.txt` File
 
-If a `requirements.txt` file is present within this directory, it will be used by an additional call to `pip` during the image build process, installing the Python packages listed within the file.  This is likely the easiest way to incorporate more Python BMI modules, as long as they are publicly accessible.  
+If a `requirements.txt` file is present within this directory, it will be used by an additional call to `pip` during the image build process, installing the Python packages listed within the file.  This is likely the easiest way to incorporate more Python BMI modules, as long as they are publicly accessible.
 
 Keep in mind that, even if ready-made packages are not available via something like PyPI, `pip` supports [installing directly from version control systems](https://pip.pypa.io/en/stable/topics/vcs-support/) like Git.
 
@@ -30,12 +30,12 @@ For this to work for a provided Git repo, a few conditions must hold true:
 - the Git repository must be accessible at the given URL anonymously
 - the script doesn't provide a branch, so whatever the default branch is (e.g., `master` or `main`) must be suitable
 - the contents of the repo must be set up to build with **CMake**
-- no extra, deliberate configuration of **CMake** variables should be necessary 
+- no extra, deliberate configuration of **CMake** variables should be necessary
   - (except `CMAKE_BUILD_TYPE` and `CMAKE_INSTALL_PREFIX`, which are pre-set in the script)
 - running `cmake --build <build_dir>` will build anything/everything required
   - i.e., it must not be necessary to build a specific **CMake** `target`
 
-## Use Manual Customization Script 
+## Use Manual Customization Script
 
 If the above methods are insufficient, it is possible to write a more bespoke script for configuring whatever customization is needed within the image, while also avoiding commiting this script directly to the repo.  This allows for finer-grained control but also puts more responsibility on the user.  To do this:
 

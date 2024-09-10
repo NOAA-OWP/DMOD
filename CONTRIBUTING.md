@@ -52,11 +52,11 @@ To work with the repo and contribute changes, the basic process is as follows:
 
 ## Getting Started
 
-In order to be able to contribute code changes, you will first need to [create a Github fork](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo) of the official OWP repo.  
+In order to be able to contribute code changes, you will first need to [create a Github fork](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo) of the official OWP repo.
 
-Next, set up your authentication  mechanism with Github for your command line (or IDE).  You can either [create an SSH key pair](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent) and [add the public key](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account) to your Github account, or you can set up a [Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#using-a-personal-access-token-on-the-command-line) if you plan to clone the repo locally via HTTPS. 
+Next, set up your authentication  mechanism with Github for your command line (or IDE).  You can either [create an SSH key pair](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent) and [add the public key](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account) to your Github account, or you can set up a [Personal Access Token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#using-a-personal-access-token-on-the-command-line) if you plan to clone the repo locally via HTTPS.
 
-After that, [clone a local development repo](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) from your fork, using a command similar to one of the following:  
+After that, [clone a local development repo](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) from your fork, using a command similar to one of the following:
 
     # SSH-based clone command.  Change URL to match your fork as appropriate
     git clone git@github.com:your_user/DMOD.git dmod
@@ -64,7 +64,7 @@ After that, [clone a local development repo](https://docs.github.com/en/reposito
     # HTTPS-based clone command.  Change URL to match your fork as appropriate
     git clone https://github.com/your_user/DMOD.git dmod
 
-You can now change directories into the local repo, which will have the default branch - `master` - checked out.  
+You can now change directories into the local repo, which will have the default branch - `master` - checked out.
 
     # Move into the repo directory "dmod"
     cd dmod
@@ -72,7 +72,7 @@ You can now change directories into the local repo, which will have the default 
     # You can verify the branch by examining the output of ...
     git status
 
-> [!IMPORTANT]  
+> [!IMPORTANT]
 > Git's will add a [Git remote](https://git-scm.com/book/en/v2/Git-Basics-Working-with-Remotes) named `origin` to the clone's configuration that points to the cloned-from repo.  Because of this, the recommended convention is to clone your local repo(s) from your personal fork, thus making `origin` point to your fork.  This is assumed to be the case in other parts of the documentation.
 
 Next, add the upstream OWP DMOD repo as a second remote for the local clone. The standard convention used in this doc and elsewhere is to name that remote `upstream`.  Doing the addition will look something like:
@@ -130,7 +130,7 @@ Especially if making more frequent, smaller commits as suggested above, it is a 
 
     # The fetch is probably unnecesssary unless you work from multiple local repos
     git fetch
-    
+
     # Assuming your branch of interest is still checked out:
     git status
 
@@ -143,7 +143,7 @@ Once a code contribution is finished, make sure all changes have been pushed to 
 
 #### PR Review and Requested Revisions
 
-Once the PR is submitted, it will be reviewed by one or more other repo contributors.  Often conversations will be had within the Github PR if reviewers have questions or request revisions be made to the proposed changes.  If revisions are requested, you will need to make those in your locally copy of the feature/fix branch, and then re-push that branch (and the updates) to your personal fork.  Then, use the PR page in Github to re-request review.  
+Once the PR is submitted, it will be reviewed by one or more other repo contributors.  Often conversations will be had within the Github PR if reviewers have questions or request revisions be made to the proposed changes.  If revisions are requested, you will need to make those in your locally copy of the feature/fix branch, and then re-push that branch (and the updates) to your personal fork.  Then, use the PR page in Github to re-request review.
 
 ## Keeping Forks Up to Date
 

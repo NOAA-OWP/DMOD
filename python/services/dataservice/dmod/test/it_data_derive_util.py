@@ -191,5 +191,3 @@ class IntegrationTestDataDeriveUtil(TestBase, unittest.TestCase):
 
         self.assertEqual(len(ds_files), 2)
         self.assertIn(managed_ds.archive_name, ds_files)
-
-

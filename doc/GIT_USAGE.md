@@ -10,17 +10,17 @@ Note that this document goes into detail on the Git strategy and branching model
 
 ## Branching Model
 
-- The DMOD repo uses a branching model based on [Gitflow](https://nvie.com/posts/a-successful-git-branching-model/) that has two primary long-term branches: 
+- The DMOD repo uses a branching model based on [Gitflow](https://nvie.com/posts/a-successful-git-branching-model/) that has two primary long-term branches:
   - **master**: the main development and integration branch containing the latest completed development work intended for the next released version
   - **production**: the branch representing the latest code verified as production-ready and pointing to the most recently release, official version
 - Rebasing is used to integrate changes across branches, rather than merge commits
   - This allows the repo to maintain a more robust and complete history
 - Most interaction with the official OWP DMOD repo is done via pull requests (PRs) to the `master` branch
   - Independent branches for features or bug fixes are created off `master` to contain development work that is in progress
-  - Once work in a feature/fix branch is complete (or at least thought complete), it is used to create a PR 
+  - Once work in a feature/fix branch is complete (or at least thought complete), it is used to create a PR
   - PRs and their linked branches are reviewed and, once approved, have their changes integrated back into `master`
   - Typically feature/fix branches exist in personal clones and personal Github forks, but not in the official OWP repo
-- Release branches (e.g., `release-X` for pending version `X`) will be created whenever it is time to officially release a new version 
+- Release branches (e.g., `release-X` for pending version `X`) will be created whenever it is time to officially release a new version
   - These effectively are release candidates, with branches created from `master`
   - The release branches are managed by the core OWP contributors team
   - They do exist in the official OWP repo
@@ -30,7 +30,7 @@ Note that this document goes into detail on the Git strategy and branching model
 ### Feature Branches from `master`
 This illustrates the relationship between feature branches and `master`.  They should be created from `master` and independently contain commits from their feature.  Once done, the changes will be reintegrated back into `master` via rebasing.
 
-```mermaid 
+```mermaid
     %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'master'}}}%%
     gitGraph
         commit id:"feature1.1"
@@ -52,7 +52,7 @@ This illustrates the relationship between feature branches and `master`.  They s
 
 The resulting state of `master` after rebasing the two new feature branches would be:
 
-```mermaid 
+```mermaid
     %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'master'}}}%%
     gitGraph
         commit id:"feature1.1"
@@ -69,7 +69,7 @@ The resulting state of `master` after rebasing the two new feature branches woul
 This illustrates the relationship between `production`, `master`, and `release-v2`.  Notice that `production` has already been tagged with version `v1` at the start.  Commits for `feature1` and `feature2` at some point are integrated into `master`.  When it is time to prepare to release version `v2`, `release-v2` is created.  A few bug fix commits were needed in `release-v2`.  After that, all the changes in `release-v2` are integrated into `production`, and `production` is tagged `v2`.  All the changes are also integrated back into `master`.
 
 
-```mermaid 
+```mermaid
     %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'master'}}}%%
     gitGraph
         commit id:"v1-commit"
@@ -95,7 +95,7 @@ This illustrates the relationship between `production`, `master`, and `release-v
 
 The resulting state of `production` is:
 
-```mermaid 
+```mermaid
     %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'production'}}}%%
     gitGraph
         commit id:"v1-commit" tag:"v1"
@@ -110,7 +110,7 @@ The resulting state of `production` is:
 
 The resulting state of `master` is essentially the same:
 
-```mermaid 
+```mermaid
     %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': { 'showBranches': true, 'showCommitLabel':true, 'mainBranchName': 'master'}}}%%
     gitGraph
         commit id:"v1-commit"
@@ -160,7 +160,7 @@ Once the utility is available, install the _pre-commit_-configured hook scripts 
 pre-commit install
 ```
 
-The hook scripts will now run when code is committed.  
+The hook scripts will now run when code is committed.
 
 Alternatively, you can run the hook scripts manually via:
 
