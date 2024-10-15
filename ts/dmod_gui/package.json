@@ -28,7 +28,7 @@
     "@types/react": "18.0.24",
     "@types/react-dom": "18.0.8",
     "leaflet": "^1.9.2",
-    "next": "13.0.1",
+    "next": "14.2.10",
     "react": "18.2.0",
     "react-dom": "^18.2.0",
     "react-leaflet": "^4.1.0",
