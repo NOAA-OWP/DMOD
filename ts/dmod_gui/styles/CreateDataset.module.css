@@ -1,9 +1,0 @@
-#root-title + div {
-  background-color: red;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-}
-
-#root-title {
-  background-color: red;
-}
