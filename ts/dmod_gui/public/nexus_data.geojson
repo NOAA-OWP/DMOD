@@ -1,8 +1,0 @@
-{
-"type": "FeatureCollection",
-"features": [
-{ "type": "Feature", "properties": { "id": "nex-4", "toid": "cat-4" }, "geometry": { "type": "Point", "coordinates": [ -120.13532518905609, 37.811404721288852 ] } },
-{ "type": "Feature", "properties": { "id": "nex-2", "toid": "cat-2" }, "geometry": { "type": "Point", "coordinates": [ -120.146227392352259, 37.824991921719842 ] } },
-{ "type": "Feature", "properties": { "id": "tnx-100000007", "toid": null }, "geometry": { "type": "Point", "coordinates": [ -120.186240200608239, 37.841428186963512 ] } }
-]
-}
