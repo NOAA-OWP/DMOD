@@ -60,7 +60,7 @@ jobs:
 
       - name: Cache Python Venv
         id: cache-python-venv
-        uses: actions/cache@v1
+        uses: actions/cache@v4
         with:
           path: dmod_venv
           key: dmod-venv-dir-${{ hashFiles('python/**/_version.py', '**/requirements*.txt') }}
@@ -78,7 +78,7 @@ jobs:
 
       - name: Cache Package Checksums
         id: cache-packages-md5
-        uses: actions/cache@v1
+        uses: actions/cache@v4
         with:
           path: package_md5s
           key: package_md5s-${{ hashFiles('python/**/*') }}
@@ -115,7 +115,7 @@ jobs:
 
       - name: Cache SSL Setup
         id: cache-ssl-setup
-        uses: actions/cache@v1
+        uses: actions/cache@v4
         with:
           path: ssl
           key: dmod-ssl-setup
