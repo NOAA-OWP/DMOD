@@ -17,6 +17,33 @@ class DatasetManagerCollection:
         default_factory=dict, init=False
     )
 
+    @classmethod
+    def would_requirement_need_local_data(cls, dataset: Dataset) -> bool:
+        """
+        Check whether a ::class:`DataRequirement` fulfilled by this dataset needs local data for job execution.
+
+        Check whether a hypothetical ::class:`DataRequirement` fulfilled by this dataset needs data cached locally for
+        execution of the requirement's parent job.
+
+        Parameters
+        ----------
+        dataset
+            The dataset fulfilling a hypothetical data requirement for a job.
+
+        Returns
+        -------
+        bool
+            Whether a ::class:`DataRequirement` fulfilled by this dataset needs data cached locally for job execution.
+        """
+        # Always require local data when something is archived
+        if dataset.is_data_archived:
+            return True
+        # Also require local data for anything in the object store
+        elif dataset.dataset_type == DatasetType.OBJECT_STORE:
+            return True
+        else:
+            return False
+
     def __hash__(self) -> int:
         return id(self)
 
