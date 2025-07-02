@@ -1,0 +1,75 @@
+[project]
+name = "dmod"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp~=3.8",
+    "asgiref>=3.8.1",
+    "attrs>=25.3.0",
+    "autopep8>=2.3.2",
+    "certifi>=2025.6.15",
+    "cffi>=1.17.1",
+    "channels>=4.2.2",
+    "channels-redis>=4.2.1",
+    "click>=8.2.1",
+    "cligj>=0.7.2",
+    "cryptography>=45.0.5",
+    "daphne>=4.2.1",
+    "deprecated>=1.2.18",
+    "django~=4.2",
+    "django-generate>=0.0.6",
+    "django-rq>=3.0.1",
+    "djangorestframework>=3.16.0",
+    "docker>=7.1.0",
+    "faker>=37.4.0",
+    "flake8>=7.3.0",
+    "flask>=3.1.1",
+    "geopandas>=1.1.1",
+    "gitpython>=3.1.44",
+    "h5py>=3.14.0",
+    "hydrotools-nwis-client>=4.1.0",
+    "hypy",
+    "jinja2>=3.1.6",
+    "jsonschema>=4.24.0",
+    "markupsafe>=3.0.2",
+    "matplotlib>=3.10.3",
+    "minio>=7.2.15",
+    "munch>=4.0.0",
+    "ngen-cal",
+    "ngen-config",
+    "ngen-config-gen",
+    "numexpr>=2.11.0",
+    "numpy>=2.3.1",
+    "packaging>=25.0",
+    "pandas>=2.3.0",
+    "pillow>=11.3.0",
+    "pint>=0.24.4",
+    "pip>=25.1.1",
+    "pydantic~=1.10,>=1.10.8",
+    "pyparsing>=3.2.3",
+    "pyproj>=3.7.1",
+    "python-dateutil>=2.9.0.post0",
+    "python-dotenv>=1.1.1",
+    "pytz>=2025.2",
+    "pyyaml>=6.0.2",
+    "redis>=6.2.0",
+    "requests>=2.32.4",
+    "scikit-learn>=1.7.0",
+    "scipy>=1.16.0",
+    "setuptools>=80.9.0",
+    "shapely>=2.1.1",
+    "six>=1.17.0",
+    "tables>=3.10.2",
+    "uri>=2.0.1",
+    "websockets>=10.1",
+    "wheel>=0.45.1",
+    "xarray>=2025.6.1",
+]
+
+[tool.uv.sources]
+hypy = { git = "https://github.com/noaa-owp/hypy", subdirectory = "python", rev = "master" }
+ngen-config = { git = "https://github.com/noaa-owp/ngen-cal", subdirectory = "python/ngen_conf", rev = "master" }
+ngen-cal = { git = "https://github.com/noaa-owp/ngen-cal", subdirectory = "python/ngen_cal", rev = "master" }
+ngen-config-gen = { git = "https://github.com/noaa-owp/ngen-cal", subdirectory = "python/ngen_config_gen", rev = "master" }
