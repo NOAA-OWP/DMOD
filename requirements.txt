@@ -31,7 +31,7 @@ daphne
 Pint
 django_rq
 requests
-Django~=4.2
+Django~=4.2.24
 scipy
 xarray
 python-dateutil
