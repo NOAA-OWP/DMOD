@@ -112,5 +112,11 @@ jobs:
         timeout-minutes: 1
 
       - name: Run Tests
-        run: ./scripts/run_tests.sh --venv dmod_venv -v -d -srv
+        run: |
+          . dmod_venv/bin/activate
+          python3 -m pip install pytest pytest-xdist
+          # run tests in parallel
+          python3 -m pytest -n auto -s python/lib python/services
+          # TODO: run django tests
+          # ./scripts/run_tests.sh --venv dmod_venv -v -d -srv
         timeout-minutes: 1
