@@ -9,10 +9,10 @@ authors = [
     { name = "Austin Raney", email = "austin.raney@noaa.gov" },
 ]
 dependencies = [
-    "dmod.core>=0.1.0",
+    "dmod.core>=0.21.0",
     "dmod.communication>=0.7.1",
     "dmod.modeldata>=0.7.1",
-    "dmod.scheduler>=0.12.2",
+    "dmod.scheduler>=0.14.0",
     "dmod.externalrequests>=0.3.0",
 ]
 readme = "README.md"

@@ -1,16 +1,26 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import logging
 import os
 import shutil
 import tarfile
+import concurrent.futures
+import subprocess
 
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from subprocess import Popen
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Literal, Optional, Set, Tuple
+
+
+MINIO_ALIAS_NAME = "minio"
+
+
+def get_dmod_date_str_pattern() -> str:
+    return '%Y-%m-%d,%H:%M:%S'
 
 
 class ArchiveStrategy(Enum):
@@ -56,6 +66,15 @@ def _subparse_move_to_directory(parent_subparser_container):
     sub_cmd_parser.add_argument("dest_dir", type=Path, help="Destination directory to which to move the output")
 
 
+def _parse_for_make_data_local(parent_subparsers_container):
+    # A parser for the 'tar_and_copy' param itself, underneath the parent 'command' subparsers container
+    desc = "If a primary worker, copy/extract to make dataset data locally available on physical node"
+    helper_cmd_parser = parent_subparsers_container.add_parser('make_data_local', description=desc)
+    helper_cmd_parser.add_argument('worker_index', type=int, help='The index of this particular worker.')
+    helper_cmd_parser.add_argument('primary_workers', type=lambda s: {int(i) for i in s.split(',')},
+                                   help='Comma-delimited string of primary worker indices.')
+
+
 def _parse_for_move_job_output(parent_subparsers_container):
     # A parser for the 'tar_and_copy' param itself, underneath the parent 'command' subparsers container
     desc = "Move output data files produced by a job to another location, typically to put them into a DMOD dataset."
@@ -92,8 +111,94 @@ def _parse_args() -> argparse.Namespace:
     _parse_for_tar_and_copy(parent_subparsers_container=subparsers)
     _parse_for_gather_output(parent_subparsers_container=subparsers)
     _parse_for_move_job_output(parent_subparsers_container=subparsers)
+    _parse_for_make_data_local(parent_subparsers_container=subparsers)
 
     return parser.parse_args()
+
+
+def _get_serial_dataset_dict(serialized_ds_file: Path) -> dict:
+    with serialized_ds_file.open() as s_file:
+        return json.loads(s_file.read())
+
+
+def _make_dataset_dir_local(local_data_dir: Path, do_optimized_object_store_copy: bool):
+    """
+    Make the data in corresponding remotely-backed dataset directory local by placing in a local directory.
+
+    Make a local, optimized copy of data from a dataset, where the data is also locally accessible/mounted but actually
+    stored elsewhere, making it less optimal for use by the worker.
+
+    Function examines the serialized dataset file of the source directory and, if already present (indicating this dest
+    directory has been set up before), the analogous serialized dataset file in the destination directory. First, if
+    there is `dest_dir` version of this file, and if it has the same ``last_updated`` value, the function considers the
+    `dest_dir` contents to already be in sync with the `src_dir` simply returns.  Second, it examines whether archiving
+    was used for the entire dataset, and then either extracts or copies data to the local volume as appropriate.
+
+    Note that the function does alter the name of the serialized dataset file on the `dest_dir` side, primarily as an
+    indication that this is meant as a local copy of data, but not a full-fledge DMOD dataset.  It also allows for a
+    final deliberate step of renaming (or copying with a different name) this file, which ensures the checked
+    ``last_updated`` value on the `dest_dir` side will have not been updated before a successful sync of the actual data
+    was completed.
+
+    Parameters
+    ----------
+    local_data_dir
+        Storage directory, locally available on this worker's host node, in which to copy/extract data.
+    do_optimized_object_store_copy
+        Whether to do an optimized copy for object store dataset data using the MinIO client (via a subprocess call).
+    """
+    # TODO: (later) eventually source several details of this this from other part of the code
+
+    dataset_vol_dir = get_cluster_volumes_root_directory().joinpath(local_data_dir.parent.name).joinpath(local_data_dir.name)
+
+    local_serial_file = local_data_dir.joinpath(".ds_serial_state.json")
+    dataset_serial_file = dataset_vol_dir.joinpath(f"{dataset_vol_dir.name}_serialized.json")
+
+    # Both should exist
+    if not dataset_vol_dir.is_dir():
+        raise RuntimeError(f"Can't make data local from dataset mount path '{dataset_vol_dir!s}': not a directory")
+    elif not local_data_dir.is_dir():
+        raise RuntimeError(f"Can't make data from '{dataset_vol_dir!s}' local: '{local_data_dir!s}' is not a directory")
+    # Also, dataset dir should not be empty
+    elif len([f for f in dataset_vol_dir.glob("*")]) == 0:
+        raise RuntimeError(f"Can't make data local from '{dataset_vol_dir!s}' local because it is empty")
+
+    serial_ds_dict = _get_serial_dataset_dict(dataset_serial_file)
+
+    # If dest_dir is not brand new and has something in it, check to make sure it isn't already as it needs to be
+    if local_serial_file.exists():
+        prev_ds_dict = _get_serial_dataset_dict(local_serial_file)
+        current_last_updated = datetime.strptime(serial_ds_dict["last_updated"], get_dmod_date_str_pattern())
+        prev_last_updated = datetime.strptime(prev_ds_dict["last_updated"], get_dmod_date_str_pattern())
+        if prev_last_updated == current_last_updated:
+            logging.info(f"'{local_data_dir!s}' already shows most recent 'last_updated'; skipping redundant copy")
+            return
+
+    # Determine if need to extract
+    if serial_ds_dict.get("data_archiving", False):
+        # Identify and extract archive
+        src_archive_file = [f for f in dataset_vol_dir.glob(f"{dataset_vol_dir.name}_archived*")][0]
+        archive_file = local_data_dir.joinpath(src_archive_file.name)
+        shutil.copy2(src_archive_file, archive_file)
+        shutil.unpack_archive(archive_file, local_data_dir)
+        archive_file.unlink(missing_ok=True)
+        # Also manually copy serialized state file (do last)
+        shutil.copy2(dataset_serial_file, local_serial_file)
+    # Need to optimize by using minio client directly here when dealing with OBJECT_STORE dataset, or will take 10x time
+    # TODO: (later) this is a bit of a hack, though a necessary one; find a way to integrate more elegantly
+    elif do_optimized_object_store_copy and serial_ds_dict["type"] == "OBJECT_STORE":
+        alias_src_path = f"{MINIO_ALIAS_NAME}/{local_data_dir.name}/"
+        logging.info(f"Copying data from '{alias_src_path}' to '{local_data_dir}'")
+        subprocess.run(["mc", "--config-dir", "/dmod/.mc", "cp", "-r", alias_src_path, f"{local_data_dir}/."],
+                       stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL)
+        logging.info(f"Local copying from '{alias_src_path}' complete")
+    else:
+        # Otherwise copy contents
+        shutil.copy2(dataset_vol_dir, local_data_dir)
+        # Rename the copied serialized state file in the copy as needed
+        # But do this last to confirm directory contents are never more up-to-date with last_updated than expected
+        local_data_dir.joinpath(dataset_serial_file.name).rename(local_serial_file)
 
 
 def _move_to_directory(source_dir: Path, dest_dir: Path, archive_name: Optional[str] = None):
@@ -116,12 +221,20 @@ def _move_to_directory(source_dir: Path, dest_dir: Path, archive_name: Optional[
         raise ValueError(f"{get_date_str()} Can't move job output to non-directory path {dest_dir!s}!")
 
     if archive_name:
-        logging.info("Archiving output files to output dataset")
+        logging.info(f"Archiving output files to output dataset directory '{dest_dir!s}'")
         tar_and_copy(source=source_dir, dest=dest_dir, archive_name=archive_name)
     else:
-        logging.info("Moving output file(s) to output dataset")
+        logging.info("Moving output file(s) to output dataset directory '{dest_dir!s}'")
         for p in source_dir.glob("*"):
             shutil.move(p, dest_dir)
+
+
+def _parse_docker_secret(secret_name: str) -> str:
+    return Path("/run/secrets", secret_name).read_text().strip()
+
+
+def _parse_object_store_secrets() -> Tuple[str, str]:
+    return _parse_docker_secret('object_store_exec_user_name'), _parse_docker_secret('object_store_exec_user_passwd')
 
 
 def gather_output(mpi_host_names: List[str], output_write_dir: Path):
@@ -151,6 +264,187 @@ def gather_output(mpi_host_names: List[str], output_write_dir: Path):
                                f"{error_in_bytes.decode()}")
 
 
+def get_data_exec_root_directory() -> Path:
+    """
+    Get the root directory path to use for reading and writing dataset data during job execution.
+
+    Returns
+    -------
+    Path
+        The root directory path to use for reading and writing dataset data during job execution.
+    """
+    return Path("/dmod/datasets")
+
+
+def get_cluster_volumes_root_directory() -> Path:
+    """
+    Get the root directory for cluster volumes (i.e., backed by dataset directly, synced cluster-wide) on this worker.
+
+    Returns
+    -------
+    Path
+        The root directory for cluster volumes on this worker.
+    """
+    return Path("/dmod/cluster_volumes")
+
+
+def get_expected_data_category_subdirs() -> Set[str]:
+    """
+    Get names of expected subdirectories for dataset categories underneath directories like local or cluster volumes.
+
+    Returns
+    -------
+    Set[str]
+        Names of expected subdirectories for dataset categories underneath directories like local or cluster volumes.
+    """
+    return {"config", "forcing", "hydrofabric", "observation", "output"}
+
+
+def get_local_volumes_root_directory() -> Path:
+    """
+    Get the root directory for local volumes (i.e., local to physical node, share by all node's workers) on this worker.
+
+    Returns
+    -------
+    Path
+        The root directory for local volumes on this worker.
+    """
+    return Path("/dmod/local_volumes")
+
+
+def link_to_data_exec_root(exceptions: Optional[List[Path]] = None):
+    """
+    Create symlinks into the data exec root for any dataset subdirectories in, e.g., cluster or local data mounts.
+
+    Function iterates through data mount roots for data (e.g., local volumes, cluster volumes) according to priority of
+    their use (i.e., local volume data should be used before an analogous cluster volume copy).  If nothing for that
+    dataset category and name exists under the data exec root (from ::function:`get_data_exec_root_directory`), then
+    a symlink is created.
+
+    Exceptions to the regular prioritization can be provided.  By default (or whenever ``execptions`` is ``None``),
+    all ``output`` category/directory datasets will have their symlinks backed by cluster volumes over local volumes. To
+    avoid any such exceptions and strictly follow the general priority rules, an empty list can be explicitly passed.
+
+    Parameters
+    ----------
+    exceptions
+        An optional list of exceptions to the general setup rules to create a symlink in the data exec root before
+        anything else.
+
+    """
+    if exceptions is None:
+        exceptions = [d for d in get_cluster_volumes_root_directory().joinpath('output').glob('*') if d.is_dir()]
+
+    for d in exceptions:
+        data_exec_analog = get_data_exec_root_directory().joinpath(d.parent.name).joinpath(d.name)
+        if data_exec_analog.exists():
+            if data_exec_analog.is_symlink():
+                logging.warning(f"Overwriting previous symlink at '{data_exec_analog!s}' pointing to '{data_exec_analog.readlink()!s}")
+            else:
+                logging.warning(f"Overwriting previous contents at '{data_exec_analog}' with new symlink")
+        else:
+            logging.info(f"Creating dataset symlink with source '{d!s}'")
+        os.symlink(d, data_exec_analog)
+        logging.info(f"Symlink created at dest '{data_exec_analog!s}'")
+
+    # Note that order here is important; prioritize local data if it is there
+    data_symlink_sources = [get_local_volumes_root_directory(), get_cluster_volumes_root_directory()]
+    for dir in data_symlink_sources:
+        # At this level, order isn't as important
+        for category_subdir in get_expected_data_category_subdirs():
+            for dataset_dir in [d for d in dir.joinpath(category_subdir).glob('*') if d.is_dir()]:
+                data_exec_analog = get_data_exec_root_directory().joinpath(category_subdir).joinpath(dataset_dir.name)
+                if not data_exec_analog.exists():
+                    logging.info(f"Creating dataset symlink with source '{dataset_dir!s}'")
+                    os.symlink(dataset_dir, data_exec_analog)
+                    logging.info(f"Symlink created at dest '{data_exec_analog!s}'")
+
+
+def make_data_local(worker_index: int, primary_workers: Set[int], **kwargs):
+    """
+    Make data local for each local volume mount that exists, but only if this worker is a primary.
+
+    Copy or extract data from mounted volumes/directories directly backed by DMOD datasets (i.e., "cluster volumes") to
+    corresponding directories local to the physical node (i.e. "local volumes"), for any such local directories found to
+    exist.  An important distinction is that a local volume is local to the physical node and not the worker itself, and
+    thus is shared by all workers on that node.  As such, return immediately without performing any actions if this
+    worker is not considered a "primary" worker, so that only one worker per node manipulates data.
+
+    Function (for a primary worker) iterates through the local volume subdirectory paths to see if any local volumes
+    were set up when the worker was created.  For any that are found, the function ensures data from the corresponding,
+    dataset-backed cluster volume directory is replicated in the local volume directory.
+
+    Parameters
+    ----------
+    worker_index
+        This worker's index.
+    primary_workers
+        Indices of designated primary workers
+    kwargs
+        Other ignored keyword args.
+
+    See Also
+    --------
+    _make_dataset_dir_local
+    """
+
+    # Every work does need to do this, though
+    link_to_data_exec_root()
+
+    if worker_index not in primary_workers:
+        return
+
+    cluster_vol_dir = get_cluster_volumes_root_directory()
+    local_vol_dir = get_local_volumes_root_directory()
+    expected_subdirs = get_expected_data_category_subdirs()
+
+    if not cluster_vol_dir.exists():
+        raise RuntimeError(f"Can't make data local: cluster volume root '{cluster_vol_dir!s}' does not exist")
+    if not cluster_vol_dir.is_dir():
+        raise RuntimeError(f"Can't make data local: cluster volume root '{cluster_vol_dir!s}' is not a directory")
+    if not local_vol_dir.exists():
+        raise RuntimeError(f"Can't make data local: local volume root '{local_vol_dir!s}' does not exist")
+    if not local_vol_dir.is_dir():
+        raise RuntimeError(f"Can't make data local: local volume root '{local_vol_dir!s}' is not a directory")
+
+    try:
+        obj_store_access_key, obj_store_secret_key = _parse_object_store_secrets()
+        logging.info(f"Executing test run of minio client to see if alias '{MINIO_ALIAS_NAME}' already exists")
+        mc_ls_result = subprocess.run(["mc", "--config-dir", "/dmod/.mc", "alias", "ls", MINIO_ALIAS_NAME])
+        logging.debug(f"Return code from alias check was {mc_ls_result.returncode!s}")
+        if mc_ls_result.returncode != 0:
+            logging.info(f"Creating new minio alias '{MINIO_ALIAS_NAME}'")
+            # TODO: (later) need to set value for obj_store_url better than just hardcoding it
+            obj_store_url = "http://minio-proxy:9000"
+            subprocess.run(["mc", "--config-dir", "/dmod/.mc", "alias", "set", MINIO_ALIAS_NAME, obj_store_url,
+                            obj_store_access_key, obj_store_secret_key])
+            logging.info(f"Now rechecking minio client test for '{MINIO_ALIAS_NAME}' alias")
+            mc_ls_result_2 = subprocess.run(["mc", "--config-dir", "/dmod/.mc", "alias", "ls", MINIO_ALIAS_NAME])
+            if mc_ls_result_2.returncode != 0:
+                raise RuntimeError(f"Could not successfully create minio alias '{MINIO_ALIAS_NAME}'")
+        do_optimized_object_store_copy = True
+    except RuntimeError as e:
+        raise e
+    except Exception as e:
+        logging.warning(f"Unable to parse secrets for optimized MinIO local data copying: {e!s}")
+        do_optimized_object_store_copy = False
+
+    # Use some multi-threading here since this is IO heavy
+    logging.info(f"Performing local data copying using multiple threads")
+    futures = set()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+        for type_dir in (td for td in local_vol_dir.glob("*") if td.is_dir()):
+            if not cluster_vol_dir.joinpath(type_dir.name).is_dir():
+                raise RuntimeError(f"Directory '{type_dir!s}' does not have analog in '{cluster_vol_dir!s}'")
+            if type_dir.name not in expected_subdirs:
+                logging.warning(f"Found unexpected (but matching) local volume data type subdirectory {type_dir.name}")
+            for local_ds_dir in (d for d in type_dir.glob("*") if d.is_dir()):
+                futures.add(pool.submit(_make_dataset_dir_local, local_ds_dir, do_optimized_object_store_copy))
+        for future in futures:
+            future.result()
+    logging.info(f"Local data copying complete")
+
+
 def get_date_str() -> str:
     """
     Get the current date and time as a string with format ``%Y-%m-%d,%H:%M:%S``
@@ -159,7 +453,7 @@ def get_date_str() -> str:
     -------
     The current date and time as a string.
     """
-    return datetime.now().strftime('%Y-%m-%d,%H:%M:%S')
+    return datetime.now().strftime(get_dmod_date_str_pattern())
 
 
 def move_job_output(output_directory: Path, move_action: str, archiving: ArchiveStrategy = ArchiveStrategy.DYNAMIC,
@@ -214,7 +508,9 @@ def move_job_output(output_directory: Path, move_action: str, archiving: Archive
         archive_name = None
 
     if move_action == "to_directory":
-        _move_to_directory(source_dir=output_directory, dest_dir=kwargs["dest_dir"], archive_name=archive_name)
+        dest_dir = kwargs["dest_dir"]
+        logging.info(f"Moving output from '{output_directory!s}' to '{dest_dir!s}'")
+        _move_to_directory(source_dir=output_directory, dest_dir=dest_dir, archive_name=archive_name)
     else:
         raise RuntimeError(f"{get_date_str()} Invalid CLI move action {move_action}")
 
@@ -246,7 +542,7 @@ def process_mpi_hosts_string(hosts_string: str, hosts_sep: str = ",", host_detai
     return results
 
 
-def tar_and_copy(source: Path, dest: Path, archive_name: str, do_dry_run: bool = False, do_compress: bool = False):
+def tar_and_copy(source: Path, dest: Path, archive_name: str, do_dry_run: bool = False, do_compress: bool = False, **kwargs):
     """
     Make a tar archive from the contents of a directory, and place this in a specified destination.
 
@@ -262,6 +558,8 @@ def tar_and_copy(source: Path, dest: Path, archive_name: str, do_dry_run: bool =
         Whether to only perform a dry run to check paths, with no archiving/moving/copying.
     do_compress
         Whether to compress the created archive with gzip compression.
+    kwargs
+        Other unused keyword args.
 
     Raises
     -------
@@ -294,12 +592,17 @@ def tar_and_copy(source: Path, dest: Path, archive_name: str, do_dry_run: bool =
         return
 
     tar_mode_args = "w:gz" if do_compress else "w"
+    logging.info(f"Creating archive file '{archive_create_path!s}'")
     with tarfile.open(archive_create_path, tar_mode_args) as tar:
         for p in source.glob("*"):
+            logging.debug(f"Adding '{p!s}' to archive")
             tar.add(p, arcname=p.name)
 
     if archive_create_path != final_archive_path:
+        logging.info(f"Moving archive to final location at '{final_archive_path!s}'")
         shutil.move(archive_create_path, final_archive_path)
+    else:
+        logging.info(f"Archive creation complete and at final location")
 
 
 def main():
@@ -314,6 +617,8 @@ def main():
         gather_output(mpi_host_names=[h for h in mpi_host_to_nproc_map], output_write_dir=args.output_write_dir)
     elif args.command == 'move_job_output':
         move_job_output(**(vars(args)))
+    elif args.command == 'make_data_local':
+        make_data_local(**(vars(args)))
     else:
         raise RuntimeError(f"Command arg '{args.command}' doesn't match a command supported by module's main function")
 

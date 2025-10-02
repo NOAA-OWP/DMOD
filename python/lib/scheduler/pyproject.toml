@@ -17,7 +17,7 @@ dependencies = [
     "dmod.communication>=0.22.0",
     "dmod.modeldata>=0.7.1",
     "dmod.redis>=0.1.0",
-    "dmod.core>=0.17.0",
+    "dmod.core>=0.20.0",
     "cryptography",
     "uri",
     "pyyaml",
