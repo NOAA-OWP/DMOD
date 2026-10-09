@@ -2,7 +2,6 @@ import unittest
 import git
 import json
 
-from dmod.communication.client import get_or_create_eventloop
 from dmod.core.meta_data import DataCategory, DataDomain
 from dmod.core.dataset import Dataset, DatasetType, DatasetManager
 from dmod.scheduler.job import RequestedJob
@@ -58,7 +57,7 @@ class MockDatasetManager(DatasetManager):
         return {DatasetType.FILESYSTEM}
 
 
-class TestDataInqueryUtil(unittest.TestCase):
+class TestDataInqueryUtil(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def find_git_root_dir(cls, path: Optional[Path] = None) -> str:
@@ -105,7 +104,6 @@ class TestDataInqueryUtil(unittest.TestCase):
         return self._proj_root
 
     def setUp(self) -> None:
-        self.loop = get_or_create_eventloop()
         self.example_jobs = []
         self.datasets: Dict[str, Dataset] = {}
 
@@ -276,13 +274,12 @@ class TestDataInqueryUtil(unittest.TestCase):
 
         self.example_jobs.append(RequestedJob.factory_init_from_deserialized_json(ex_json_0))
 
-    def test_can_be_fulfilled_0_a(self):
+    async def test_can_be_fulfilled_0_a(self):
         """ Test function against first job requirement for example 0 (requires all datasets, no preset fulfills). """
         ex_num = 0
         requirement_index = 0
 
         job = self.example_jobs[ex_num]
-        result = self.loop.run_until_complete(
-            self.data_inquery_util.can_be_fulfilled(job.data_requirements[requirement_index]))
+        result = await self.data_inquery_util.can_be_fulfilled(job.data_requirements[requirement_index])
 
         self.assertTrue(result[0])

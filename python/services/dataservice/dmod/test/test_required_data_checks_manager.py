@@ -6,7 +6,6 @@ import os
 from ..dataservice.dataset_manager_collection import DatasetManagerCollection
 from ..dataservice.dataset_inquery_util import DatasetInqueryUtil
 from ..dataservice.service import ActiveOperationTracker, RequiredDataChecksManager
-from dmod.communication.client import get_or_create_eventloop
 from dmod.core.dataset import DataCategory, DataDomain, Dataset, DatasetManager, DatasetType
 from dmod.scheduler.job import RequestedJob
 from pathlib import Path
@@ -58,7 +57,7 @@ class MockDatasetManager(DatasetManager):
         return {DatasetType.FILESYSTEM}
 
 
-class TestRequiredDataChecksManager(unittest.TestCase):
+class TestRequiredDataChecksManager(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def find_git_root_dir(cls, path: Optional[Path] = None) -> str:
@@ -103,7 +102,6 @@ class TestRequiredDataChecksManager(unittest.TestCase):
         return self._proj_root
 
     def setUp(self) -> None:
-        self.loop = get_or_create_eventloop()
 
         example_serial_datasets_dir = self.proj_root.joinpath('data').joinpath('serialized_dataset_examples')
 
@@ -787,56 +785,56 @@ class TestRequiredDataChecksManager(unittest.TestCase):
                     raise RuntimeError(msg.format(self.__class__.__name__))
         return self._ssl_certs_dir
 
-    def test_perform_checks_for_job_0_a(self):
+    async def test_perform_checks_for_job_0_a(self):
         """ Test whether check for fulfilling job requirements for example 0 (requires forcing dataset). """
         ex_num = 0
 
         job = self.example_jobs[ex_num]
-        result = self.loop.run_until_complete(self.manager.perform_checks_for_job(job))
+        result = await self.manager.perform_checks_for_job(job)
 
         self.assertTrue(result)
 
-    def test_perform_checks_for_job_1_a(self):
+    async def test_perform_checks_for_job_1_a(self):
         """ Test whether check for fulfilling job requirements for example 1 (requires BMI config dataset). """
         ex_num = 1
 
         job = self.example_jobs[ex_num]
-        result = self.loop.run_until_complete(self.manager.perform_checks_for_job(job))
+        result = await self.manager.perform_checks_for_job(job)
 
         self.assertTrue(result)
 
-    def test_perform_checks_for_job_2_a(self):
+    async def test_perform_checks_for_job_2_a(self):
         """ Test whether check for fulfilling job requirements for example 2 (requires hydrofabric dataset). """
         ex_num = 2
 
         job = self.example_jobs[ex_num]
-        result = self.loop.run_until_complete(self.manager.perform_checks_for_job(job))
+        result = await self.manager.perform_checks_for_job(job)
 
         self.assertTrue(result)
 
-    def test_perform_checks_for_job_3_a(self):
+    async def test_perform_checks_for_job_3_a(self):
         """ Test whether check for fulfilling job requirements for example 3 (requires partition config dataset). """
         ex_num = 3
 
         job = self.example_jobs[ex_num]
-        result = self.loop.run_until_complete(self.manager.perform_checks_for_job(job))
+        result = await self.manager.perform_checks_for_job(job)
 
         self.assertTrue(result)
 
-    def test_perform_checks_for_job_4_a(self):
+    async def test_perform_checks_for_job_4_a(self):
         """ Test whether check for fulfilling job requirements for example 4 (requires realization config dataset). """
         ex_num = 4
 
         job = self.example_jobs[ex_num]
-        result = self.loop.run_until_complete(self.manager.perform_checks_for_job(job))
+        result = await self.manager.perform_checks_for_job(job)
 
         self.assertTrue(result)
 
-    def test_perform_checks_for_job_5_a(self):
+    async def test_perform_checks_for_job_5_a(self):
         """ Test whether check for fulfilling job requirements for example 5 (requires all datasets). """
         ex_num = 5
 
         job = self.example_jobs[ex_num]
-        result = self.loop.run_until_complete(self.manager.perform_checks_for_job(job))
+        result = await self.manager.perform_checks_for_job(job)
 
         self.assertTrue(result)
