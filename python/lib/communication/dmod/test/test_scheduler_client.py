@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import ssl
 import unittest
@@ -105,7 +104,7 @@ class MockSendTestingSchedulerClient(SchedulerClient):
         self._transport_client.test_response_selection = 4
 
 
-class TestSchedulerClient(unittest.TestCase):
+class TestSchedulerClient(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def disable_logging(cls, level: Optional[int] = logging.ERROR):
@@ -125,22 +124,13 @@ class TestSchedulerClient(unittest.TestCase):
         logging.disable(level)
 
     def setUp(self) -> None:
-        try:
-            self.loop = asyncio.get_running_loop()
-        except RuntimeError:
-            self.loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(self.loop)
         self.client = MockSendTestingSchedulerClient()
 
         self.test_model_request_1 = NWMRequest(config_data_id='1', session_secret='')
         self.test_scheduler_request_1 = SchedulerRequestMessage(model_request=self.test_model_request_1,
                                                                 user_id='default')
 
-    def tearDown(self) -> None:
-        self.loop.stop()
-        self.loop.close()
-
-    def test_async_make_request_1_a(self):
+    async def test_async_make_request_1_a(self):
         """
         Test when function gets ``None`` returned over websocket that a ::class:`ValueError` is raised.
 
@@ -152,10 +142,10 @@ class TestSchedulerClient(unittest.TestCase):
 
         self.disable_logging()
         with self.assertRaises(ValueError):
-            self.loop.run_until_complete(self.client.async_make_request(request))
+            await self.client.async_make_request(request)
         self.disable_logging(None)
 
-    def test_async_make_request_2_a(self):
+    async def test_async_make_request_2_a(self):
         """
         Test when function gets back invalid JSON over websocket that a ::class:`DmodRuntimeError` is raised.
 
@@ -166,9 +156,9 @@ class TestSchedulerClient(unittest.TestCase):
         request = self.test_scheduler_request_1
 
         with self.assertRaises(DmodRuntimeError):
-            self.loop.run_until_complete(self.client.async_make_request(request))
+            await self.client.async_make_request(request)
 
-    def test_async_make_request_3_a(self):
+    async def test_async_make_request_3_a(self):
         """
         Test when function gets wrongly formatted JSON over websocket that a ::class:`DmodRuntimeError` is raised.
 
@@ -180,10 +170,10 @@ class TestSchedulerClient(unittest.TestCase):
 
         self.disable_logging()
         with self.assertRaises(DmodRuntimeError):
-            self.loop.run_until_complete(self.client.async_make_request(request))
+            await self.client.async_make_request(request)
         self.disable_logging(None)
 
-    def test_async_make_request_4_a(self):
+    async def test_async_make_request_4_a(self):
         """
         Test when function gets JSON over websocket indicating failure that response object ``success`` is ``False``.
 
@@ -194,10 +184,10 @@ class TestSchedulerClient(unittest.TestCase):
         self.client.set_scheduler_response_valid_obj_for_failure()
         request = self.test_scheduler_request_1
 
-        response = self.loop.run_until_complete(self.client.async_make_request(request))
+        response = await self.client.async_make_request(request)
         self.assertFalse(response.success)
 
-    def test_async_make_request_5_a(self):
+    async def test_async_make_request_5_a(self):
         """
         Test when function gets JSON over websocket indicating success that response object ``success`` is ``True``.
 
@@ -208,5 +198,5 @@ class TestSchedulerClient(unittest.TestCase):
         self.client.set_scheduler_response_valid_obj_for_success()
         request = self.test_scheduler_request_1
 
-        response = self.loop.run_until_complete(self.client.async_make_request(request))
+        response = await self.client.async_make_request(request)
         self.assertTrue(response.success)
